@@ -1,0 +1,86 @@
+apiVersion: v1alpha1
+kind: Setting
+metadata:
+  name: theme-sky-blog-3-setting
+spec:
+  forms:
+    - group: desktop
+      label: 桌面
+      formSchema:
+        - $formkit: group
+          name: background
+          label: 桌面背景
+          value:
+            mode: preset
+            image: ""
+            solid_color: "#0f172a"
+            preset: tahoe-dawn
+          children:
+            - $formkit: toggle
+              id: desktop_background_mode
+              name: mode
+              label: 背景模式
+              value: preset
+              options:
+                - label: macOS 预设
+                  value: preset
+                - label: 上传图片
+                  value: image
+                - label: 纯色方案
+                  value: solid
+            - $formkit: select
+              id: desktop_background_preset
+              name: preset
+              label: macOS 专用方案
+              value: tahoe-dawn
+              if: "$get(desktop_background_mode).value === 'preset'"
+              options:
+                - label: Tahoe Dawn
+                  value: tahoe-dawn
+                - label: Tahoe Blue
+                  value: tahoe-blue
+                - label: Sequoia Mist
+                  value: sequoia-mist
+                - label: Graphite Night
+                  value: graphite-night
+            - $formkit: attachment
+              id: desktop_background_image
+              name: image
+              label: 桌面背景图
+              value: ""
+              if: "$get(desktop_background_mode).value === 'image'"
+              accepts:
+                - "image/png"
+                - "image/jpeg"
+                - "image/webp"
+                - "image/gif"
+                - "image/svg+xml"
+            - $formkit: color
+              id: desktop_background_color
+              name: solid_color
+              label: 桌面纯色
+              value: "#0f172a"
+              if: "$get(desktop_background_mode).value === 'solid'"
+
+    - group: dock
+      label: Dock
+      formSchema:
+        - $formkit: group
+          name: settings
+          label: Dock 设置
+          value:
+            menu_name: primary
+            show_labels: true
+          children:
+            - $formkit: menuRadio
+              id: dock_settings_menu_name
+              name: menu_name
+              label: Dock 菜单
+              help: 指定哪个后台菜单作为 Dock 的数据源。
+              value: primary
+            - $formkit: switch
+              id: dock_settings_show_labels
+              name: show_labels
+              label: 显示名称标签
+              help: 控制 Dock hover 提示是否显示名称。
+              value: true

@@ -1,0 +1,284 @@
+/* ============================== */
+/*  macOS Desktop Theme Styles    */
+/* ============================== */
+
+@import "tailwindcss";
+@source "../../templates/**/*.html";
+@source "../js/desktop.js";
+
+/* ---------- 字体与平滑 ---------- */
+@theme {
+  --font-sans: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #0f172a;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---------- 壁纸预设 (原生拟真空灵色) ---------- */
+.wallpaper-tahoe-dawn {
+  background: radial-gradient(circle at 25% 15%, rgba(255,255,255,0.4) 0%, transparent 35%),
+              linear-gradient(135deg, #d8dee8 0%, #e7e2e6 34%, #f1ebe5 66%, #faf7f0 100%);
+}
+.wallpaper-tahoe-blue {
+  background: radial-gradient(circle at 20% 20%, rgba(255,255,255,0.3) 0%, transparent 40%),
+              linear-gradient(135deg, #4b7bff 0%, #7daffe 35%, #cae3ff 70%, #edf4ff 100%);
+}
+.wallpaper-sequoia-mist {
+  background: radial-gradient(circle at 18% 18%, rgba(255,255,255,0.2) 0%, transparent 35%),
+              linear-gradient(140deg, #718193 0%, #a2afbd 40%, #d1dadd 75%, #eff2f4 100%);
+}
+.wallpaper-graphite-night {
+  background: radial-gradient(circle at 25% 18%, rgba(255,255,255,0.08) 0%, transparent 30%),
+              linear-gradient(145deg, #090e15 0%, #151e2b 40%, #283446 75%, #566479 100%);
+}
+
+/* ---------- 顶部菜单栏 (MenuBar) ---------- */
+.menubar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 28px;
+  background: rgba(255,255,255,0.25);
+  backdrop-filter: blur(50px);
+  -webkit-backdrop-filter: blur(50px);
+  border-bottom: 1px solid rgba(255,255,255,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 500;
+  z-index: 9999;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+.menubar-item {
+  padding: 0 8px;
+  height: 24px;
+  line-height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+.menubar-item:hover, .menubar-icon-btn:hover {
+  background: rgba(255,255,255,0.15);
+}
+.menubar-icon-btn {
+  padding: 0 6px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+/* ---------- 多任务程序坞 (极致纯 CSS 版) ---------- */
+.dock-container {
+  position: fixed;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9998;
+  display: flex;
+  justify-content: center;
+}
+.dock-glass {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 64px; /* Default unscaled height */
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(60px);
+  -webkit-backdrop-filter: blur(60px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-bottom-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.4);
+  z-index: 0;
+}
+.dock-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 8px 12px;
+  margin: 0;
+  position: relative;
+  height: 98px; /* Room for icons to magnify upwards */
+  z-index: 1;
+}
+.dock-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  border: 1px solid rgba(255,255,255,0.15);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  transform-origin: bottom center;
+}
+/* 当 JS 退出作用域时，由本类接管平滑回落的动画 */
+.dock-icon.dock-animating {
+  transition: width 0.25s cubic-bezier(0.2, 0.9, 0.1, 1), 
+              height 0.25s cubic-bezier(0.2, 0.9, 0.1, 1), 
+              box-shadow 0.25s ease;
+}
+
+.dock-icon:hover {
+  box-shadow: 0 12px 24px rgba(0,0,0,0.4);
+}
+
+.dock-icon-svg {
+  width: 55%;
+  height: 55%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+}
+.dock-icon-svg svg { width: 100%; height: 100%; }
+.dock-icon-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.dock-tooltip {
+  position: absolute;
+  bottom: calc(100% + 14px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10,10,10,0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: #fff;
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  border: 1px solid rgba(255,255,255,0.15);
+  transition: opacity 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.dock-icon:hover .dock-tooltip { opacity: 1; }
+
+.dock-dot {
+  position: absolute;
+  bottom: -6px; /* 紧贴底端 */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+/* ---------- 桌面图标 (Desktop Icons) ---------- */
+.desktop-grid {
+  position: fixed;
+  top: 40px;
+  right: 16px;
+  bottom: 120px;
+  width: auto;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+  padding-top: 8px;
+  z-index: 1;
+}
+.desktop-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  width: 96px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.1s, border-color 0.1s;
+}
+.desktop-icon-graphic {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.desktop-icon-label {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8), 0 0 1px rgba(0,0,0,0.6);
+  line-height: 1.35;
+  padding: 1px 6px;
+  max-width: 90px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  border-radius: 4px;
+}
+
+/* Hover 与选中状态还原真实的 macOS */
+.desktop-icon:hover {
+  background: rgba(255,255,255,0.08);
+}
+.desktop-icon.selected {
+  background: rgba(0, 0, 0, 0.15);
+  border-color: rgba(255,255,255,0.05);
+}
+.desktop-icon.selected .desktop-icon-label {
+  background: rgba(0, 88, 208, 0.95);
+  color: #fff;
+  text-shadow: none;
+}
+
+/* ---------- 还原纯净的 macOS 阴影与基础组件 ---------- */
+/* 交通灯 hover 显示暗纹效果 */
+.traffic-btn {
+  font-size: 8px;
+  font-weight: 900;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  color: transparent;
+  transition: all 0.2s;
+}
+.traffic-lights:hover .traffic-btn.close { color: #4d0000; }
+.traffic-lights:hover .traffic-btn.minimize { color: #995700; }
+.traffic-lights:hover .traffic-btn.maximize { color: #004d09; }
+
+/* 针对 PJAX 加载的进度条 (nprogress) 魔改苹果蓝 */
+#nprogress .bar {
+  background: #007aff !important;
+  height: 3px !important;
+}
+#nprogress .peg {
+  box-shadow: 0 0 10px #007aff, 0 0 5px #007aff !important;
+}
+#nprogress .spinner-icon {
+  border-top-color: #007aff !important;
+  border-left-color: #007aff !important;
+}

@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Build and package output
+dist/
+
+# Tool caches
+.vite/
+
+# Logs
+*.log
+pnpm-debug.log*
+
+# OS / editor files
+.DS_Store
+.idea/
+.vscode/

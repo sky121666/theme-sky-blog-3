@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html xmlns:th="https://www.thymeleaf.org"
+      th:replace="~{modules/layout :: html(
+        title = ${tag.spec.displayName} + ' - ' + ${site.title},
+        description = '',
+        ssrContent = ~{::ssrBlock}
+      )}">
+  <th:block th:fragment="ssrBlock">
+    <div class="max-w-4xl mx-auto px-4 md:px-8 py-10 md:py-16">
+      
+      <!-- 标签头部信息 -->
+      <div class="mb-14 text-center flex flex-col items-center justify-center">
+        <div class="flex items-center justify-center gap-2 mb-3">
+          <span class="text-4xl text-blue-500 font-bold opacity-80">#</span>
+          <h1 class="text-4xl font-bold tracking-tight text-gray-800" th:text="${tag.spec.displayName}"></h1>
+        </div>
+        <p class="text-gray-500 text-lg">标签归档</p>
+      </div>
+      
+      <!-- 文章网格 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+        <div th:each="post : ${posts.items}" 
+             class="group bg-white/60 backdrop-blur-sm rounded-2xl border border-black/5 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col">
+          <a class="flex-1 p-6 md:p-8 flex flex-col pjax-link" th:href="${post.status.permalink}">
+            <h2 class="text-xl md:text-2xl font-semibold text-gray-900 mb-3 group-hover:text-blue-600 transition-colors line-clamp-2 leading-snug" 
+                th:text="${post.spec.title}"></h2>
+            <p class="text-gray-500 text-sm mb-6 line-clamp-3 leading-relaxed" 
+               th:text="${post.status.excerpt}"></p>
+            <div class="mt-auto flex items-center justify-between text-xs text-gray-400 font-medium">
+               <span th:text="${#dates.format(post.spec.publishTime, 'yyyy年MM月dd日')}"></span>
+               <svg class="w-4 h-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+               </svg>
+            </div>
+          </a>
+        </div>
+      </div>
+      
+    </div>
+  </th:block>
+</html>

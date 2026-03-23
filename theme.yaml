@@ -1,0 +1,20 @@
+apiVersion: theme.halo.run/v1alpha1
+kind: Theme
+metadata:
+  name: theme-sky-blog-3
+spec:
+  displayName: macOS Blog Theme
+  author:
+    name: Sky
+    website: "https://github.com/sky121666"
+  description: Apple-like macOS 桌面壳层博客主题，包含桌面、Dock 与 Safari 风格主窗口
+  homepage: "https://github.com/sky121666/theme-sky-blog-3"
+  repo: "https://github.com/sky121666/theme-sky-blog-3"
+  issues: "https://github.com/sky121666/theme-sky-blog-3/issues"
+  settingName: "theme-sky-blog-3-setting"
+  configMapName: "theme-sky-blog-3-configMap"
+  version: "1.0.0"
+  requires: ">=2.23.0"
+  license:
+    - name: "MIT"
+      url: "https://github.com/sky121666/theme-sky-blog-3/blob/main/LICENSE"

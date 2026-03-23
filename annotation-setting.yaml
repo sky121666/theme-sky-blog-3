@@ -1,0 +1,67 @@
+apiVersion: v1alpha1
+kind: AnnotationSetting
+metadata:
+  name: theme-sky-blog-3-dock-setting
+spec:
+  targetRef:
+    group: ""
+    kind: MenuItem
+  formSchema:
+    - $formkit: toggle
+      id: dock_icon_type
+      name: icon_type
+      label: 图标类型
+      value: "iconify"
+      help: 选择 Dock 图标的来源。建议优先使用 Iconify，只有在需要完全自定义时再切换到 SVG 或图片。
+      options:
+        - label: Iconify 图标库
+          value: "iconify"
+        - label: 自定义 SVG
+          value: "custom_svg"
+        - label: 上传图片
+          value: "image"
+
+    - $formkit: iconify
+      id: dock_iconify_icon
+      key: dock_iconify_icon
+      name: icon
+      label: Dock 图标
+      format: svg
+      value-only: true
+      help: 从官方图标库选择一个 SVG 图标。
+      if: "$get(dock_icon_type).value === 'iconify'"
+
+    - $formkit: code
+      id: dock_custom_svg_code
+      key: dock_custom_svg_code
+      name: custom_svg
+      label: 自定义 SVG 代码
+      value: ""
+      language: html
+      height: 220px
+      help: 粘贴完整的 <svg>...</svg> 代码，推荐带 viewBox。
+      if: "$get(dock_icon_type).value === 'custom_svg'"
+
+    - $formkit: attachment
+      id: dock_image_attachment
+      key: dock_image_attachment
+      name: image_url
+      label: 图标图片
+      value: ""
+      accepts:
+        - "image/png"
+        - "image/jpeg"
+        - "image/webp"
+        - "image/gif"
+        - "image/svg+xml"
+      help: 支持静态图、动态 GIF 和 SVG 文件。
+      if: "$get(dock_icon_type).value === 'image'"
+
+    - $formkit: color
+      id: dock_bg_color
+      key: dock_bg_color
+      name: bg_color
+      label: Dock 背景颜色
+      value: "#3B82F6"
+      help: 图片模式通常不需要背景色，SVG 模式可以用来补充底色。
+      if: "$get(dock_icon_type).value !== 'image'"

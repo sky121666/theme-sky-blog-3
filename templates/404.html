@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html xmlns:th="https://www.thymeleaf.org"
+      th:replace="~{modules/layout :: html(
+        title = '寻找档案 - ' + ${site.title},
+        description = '未找到匹配的空间坐标',
+        ssrContent = ~{::ssrBlock}
+      )}">
+  <th:block th:fragment="ssrBlock">
+    <div class="w-full h-full min-h-[60vh] flex flex-col items-center justify-center bg-transparent">
+      <div class="text-center space-y-6 max-w-lg mx-auto p-8">
+        <h1 class="text-8xl font-black text-gray-200 tracking-tighter drop-shadow-sm">404</h1>
+        <h2 class="text-2xl font-bold text-gray-800">荒原深处</h2>
+        <p class="text-gray-500 text-base leading-relaxed">
+          你所点击的这个星系坐标似乎是空的，或者组件尚未部署（例如 Moments 和 Categories 需要你在后台手动创建页面并设定别名）。
+        </p>
+        <div class="pt-6">
+          <a href="/" class="pjax-link inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 hover:shadow-lg transition-all transform hover:-translate-y-0.5">
+            呼叫 Pjax 返回大厅
+          </a>
+        </div>
+      </div>
+    </div>
+  </th:block>
+</html>
