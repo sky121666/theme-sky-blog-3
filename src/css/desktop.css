@@ -23,6 +23,10 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+[x-cloak] {
+  display: none !important;
+}
+
 /* ---------- 壁纸预设 (原生拟真空灵色) ---------- */
 .wallpaper-tahoe-dawn {
   background: radial-gradient(circle at 25% 15%, rgba(255,255,255,0.4) 0%, transparent 35%),

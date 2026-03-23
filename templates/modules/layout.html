@@ -44,6 +44,11 @@
       desktopTags = ${theme.config.desktop?.icons?.tags ?: {}},
       desktopPosts = ${theme.config.desktop?.icons?.posts ?: {}},
       desktopSinglePages = ${theme.config.desktop?.icons?.single_pages ?: {}},
+      rawMenuName = ${theme.config.dock?.source?.menu_name ?: 'primary'},
+      dockShowLabels = ${theme.config.dock?.appearance?.show_labels != null ? theme.config.dock?.appearance?.show_labels : true},
+      dockMagnification = ${theme.config.dock?.appearance?.magnification != null ? theme.config.dock?.appearance?.magnification : true},
+      homeBehavior = ${theme.config.window?.behavior?.home_behavior ?: 'desktop-first'},
+      closeAction = ${theme.config.window?.behavior?.close_action ?: 'return-home'},
       dockMenu = ${!#strings.isEmpty(rawMenuName) ? menuFinder.getByName(rawMenuName) : menuFinder.getByName('primary')}">
 
   <body
@@ -215,10 +220,13 @@
     <!-- 赋予 Alpine 状态控制最小化，同时监听全局唤醒信号 -->
     <div class="window-layer fixed inset-0 z-10 pointer-events-none flex items-center justify-center md:pb-20"
          th:attr="data-home-behavior=${homeBehavior},data-close-action=${closeAction}"
-         x-data="{ showMainWin: window.location.pathname !== '/', init() { if (this.$el.dataset.homeBehavior === 'window-first') this.showMainWin = true; } }" @open-window.window="showMainWin = true">
+         x-data="mainWindow"
+         @open-window.window="open()"
+         @close-window.window="hide()">
       
       <!-- Safari 极简静态拟真窗口壳 (移动端100%覆盖，桌面端85%漂浮) -->
       <div class="macos-window flex flex-col pointer-events-auto shadow-2xl relative w-full h-full md:w-[85%] md:h-[85%] max-w-[1200px] rounded-none md:rounded-xl overflow-hidden bg-white/80 dark:bg-[#1c1c1e]/60 backdrop-blur-3xl md:border border-black/10 dark:border-white/10 origin-center"
+           x-cloak
            x-show="showMainWin" 
            x-transition:enter="transition ease-out duration-200" 
            x-transition:enter-start="opacity-0 md:scale-95" 
@@ -236,8 +244,8 @@
             <div class="flex items-center gap-3 md:gap-4 w-[120px] md:w-[240px]">
                 <!-- 交通灯 -->
                 <div class="traffic-lights flex items-center gap-2">
-                    <button @click="if ($el.closest('.window-layer').dataset.closeAction === 'return-home') { showMainWin = false; window.preventAutoOpen = true; setTimeout(() => window.pjax.loadUrl('/'), 200); } else { showMainWin = false; }" class="traffic-btn close w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] cursor-pointer" title="关闭"></button>
-                    <button @click="showMainWin = false" class="traffic-btn minimize w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dea123] cursor-pointer" title="最小化"></button>
+                    <button @click="close()" class="traffic-btn close w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] cursor-pointer" title="关闭"></button>
+                    <button @click="minimize()" class="traffic-btn minimize w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dea123] cursor-pointer" title="最小化"></button>
                     <div class="traffic-btn maximize w-3 h-3 rounded-full bg-[#27c93f] border border-[#1aab29]"></div>
                 </div>
 

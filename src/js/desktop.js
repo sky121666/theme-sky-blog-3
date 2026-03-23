@@ -44,9 +44,10 @@ export function registerComponents(Alpine) {
     });
     document.addEventListener("pjax:error", () => NProgress.done());
 
-    // 拦截全局所有的 a 链接点击，保证就算 pjax 未触发生效，也能立刻弹出隐藏的阅读器
+    // 拦截主题内部可导航链接，保证切页前先显示主窗口
     document.body.addEventListener('click', (e) => {
-      if (e.target.closest('a')) {
+      const link = e.target.closest('a');
+      if (link && !link.target && !link.hasAttribute('download') && !link.href.startsWith('javascript:')) {
         window.dispatchEvent(new CustomEvent('open-window'));
       }
     });
@@ -118,7 +119,47 @@ export function registerComponents(Alpine) {
     }
   }));
 
-  // =========== 4. Dock 物理级高斯放大引擎 (1:1 标定) ===========
+  // =========== 4. 主窗口状态 ===========
+  Alpine.data('mainWindow', () => ({
+    showMainWin: false,
+    windowState: 'closed',
+
+    init() {
+      const homeBehavior = this.$el.dataset.homeBehavior || 'desktop-first';
+      const isHome = window.location.pathname === '/';
+      this.showMainWin = !isHome || homeBehavior === 'window-first';
+      this.windowState = this.showMainWin ? 'open' : 'closed';
+    },
+
+    open() {
+      this.showMainWin = true;
+      this.windowState = 'open';
+    },
+
+    hide() {
+      this.showMainWin = false;
+      this.windowState = 'closed';
+    },
+
+    minimize() {
+      this.showMainWin = false;
+      this.windowState = 'minimized';
+    },
+
+    close() {
+      const closeAction = this.$el.dataset.closeAction || 'return-home';
+      const shouldReturnHome = closeAction === 'return-home' && window.location.pathname !== '/';
+
+      this.hide();
+
+      if (shouldReturnHome && window.pjax) {
+        window.preventAutoOpen = true;
+        window.setTimeout(() => window.pjax.loadUrl('/'), 180);
+      }
+    }
+  }));
+
+  // =========== 5. Dock 物理级高斯放大引擎 (1:1 标定) ===========
   Alpine.data('dock', () => ({
     init() {
       const dockBar = this.$refs.dockBar;
@@ -173,7 +214,7 @@ export function registerComponents(Alpine) {
     }
   }));
 
-  // =========== 5. 桌面图标管理 ===========
+  // =========== 6. 桌面图标管理 ===========
   Alpine.data('desktopIcons', () => ({
     selectedId: null,
 
