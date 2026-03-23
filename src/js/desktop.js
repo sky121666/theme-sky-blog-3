@@ -53,7 +53,57 @@ export function registerComponents(Alpine) {
 
   }, 0);
 
-  // =========== 2. 菜单栏 ===========
+  // =========== 2. 主题管理 (Apple Style) ===========
+  // 负责全局暗黑模式的状态及系统跟随
+  Alpine.store('theme', {
+    mode: 'system', // 'light', 'dark', 'system'
+    isDark: false,
+    
+    init() {
+      // 1. 获取后端默认配置 (通过 html dataset 获取)
+      const defaultTheme = document.documentElement.dataset.defaultTheme || 'system';
+      
+      // 2. 尝试从 localStorage 获取用户主动选择的偏好
+      const savedTheme = localStorage.getItem('theme');
+      this.mode = savedTheme || defaultTheme;
+
+      // 3. 监听系统偏好变化
+      this.mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      this.mediaQuery.addEventListener('change', () => {
+        if (this.mode === 'system') {
+          this.applyTheme();
+        }
+      });
+
+      // 4. 应用主题
+      this.applyTheme();
+    },
+
+    setMode(newMode) {
+      this.mode = newMode;
+      localStorage.setItem('theme', newMode);
+      this.applyTheme();
+    },
+
+    applyTheme() {
+      if (this.mode === 'dark') {
+        this.isDark = true;
+      } else if (this.mode === 'light') {
+        this.isDark = false;
+      } else {
+        // system
+        this.isDark = !!this.mediaQuery?.matches;
+      }
+
+      if (this.isDark) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
+  });
+
+  // =========== 3. 菜单栏 ===========
   Alpine.data('menuBar', () => ({
     timeStr: '',
     appName: 'Finder',
@@ -73,6 +123,7 @@ export function registerComponents(Alpine) {
     init() {
       const dockBar = this.$refs.dockBar;
       if (!dockBar) return;
+      const enableMagnification = this.$el.dataset.magnification !== 'false';
       
       const icons = Array.from(dockBar.querySelectorAll('.dock-icon'));
       const baseSize = 48; // 固定底宽
@@ -80,6 +131,7 @@ export function registerComponents(Alpine) {
       const range = 140;   // 影响半径：约辐射左右各2~3个图标
 
       this.$el.addEventListener('mousemove', (e) => {
+        if (!enableMagnification) return;
         requestAnimationFrame(() => {
           icons.forEach(icon => {
             // 在计算期间接触平滑 CSS，交结 GPU 高频绘制
@@ -111,6 +163,13 @@ export function registerComponents(Alpine) {
           });
         });
       });
+
+      if (!enableMagnification) {
+        icons.forEach(icon => {
+          icon.style.width = `${baseSize}px`;
+          icon.style.height = `${baseSize}px`;
+        });
+      }
     }
   }));
 

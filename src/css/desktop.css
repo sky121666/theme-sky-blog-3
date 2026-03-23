@@ -6,6 +6,8 @@
 @source "../../templates/**/*.html";
 @source "../js/desktop.js";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ---------- 字体与平滑 ---------- */
 @theme {
   --font-sans: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -37,6 +39,17 @@ html, body {
 .wallpaper-graphite-night {
   background: radial-gradient(circle at 25% 18%, rgba(255,255,255,0.08) 0%, transparent 30%),
               linear-gradient(145deg, #090e15 0%, #151e2b 40%, #283446 75%, #566479 100%);
+}
+
+/* ---------- 桌面背景压暗 (保障白色文字可读性) ---------- */
+body::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.2);
+  z-index: 0;
+  pointer-events: none;
+  transition: background 0.3s ease;
 }
 
 /* ---------- 顶部菜单栏 (MenuBar) ---------- */
@@ -80,6 +93,16 @@ html, body {
   transition: background 0.1s ease;
 }
 
+/* 顶部菜单栏 暗色适配 */
+.dark .menubar {
+  background: rgba(20, 20, 20, 0.25);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+  color: #e5e7eb;
+}
+.dark .menubar-item:hover, .dark .menubar-icon-btn:hover {
+  background: rgba(255,255,255,0.15);
+}
+
 /* ---------- 多任务程序坞 (极致纯 CSS 版) ---------- */
 .dock-container {
   position: fixed;
@@ -104,6 +127,12 @@ html, body {
   border-bottom-color: rgba(255, 255, 255, 0.15);
   box-shadow: 0 10px 30px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.4);
   z-index: 0;
+}
+.dark .dock-glass {
+  background: rgba(20, 20, 20, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom-color: rgba(0, 0, 0, 0.15);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.1);
 }
 .dock-bar {
   display: flex;
@@ -179,6 +208,12 @@ html, body {
   box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
 .dock-icon:hover .dock-tooltip { opacity: 1; }
+.dark .dock-tooltip {
+  background: rgba(255,255,255,0.85);
+  color: #111;
+  border: 1px solid rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px rgba(255,255,255,0.1);
+}
 
 .dock-dot {
   position: absolute;
@@ -200,7 +235,8 @@ html, body {
   width: auto;
   display: flex;
   flex-direction: column;
-  flex-wrap: wrap;
+  flex-wrap: wrap-reverse;
+  align-content: flex-end;
   gap: 8px;
   align-items: flex-end;
   padding-top: 8px;
@@ -253,6 +289,17 @@ html, body {
   background: rgba(0, 88, 208, 0.95);
   color: #fff;
   text-shadow: none;
+}
+.dark .desktop-icon:hover {
+  background: rgba(255,255,255,0.12);
+}
+.dark .desktop-icon.selected {
+  background: rgba(255,255,255,0.2);
+  border-color: rgba(255,255,255,0.1);
+}
+.dark .desktop-icon-label {
+  color: #e5e7eb;
+  text-shadow: 0 1px 3px rgba(0,0,0,1), 0 0 1px rgba(0,0,0,0.8);
 }
 
 /* ---------- 还原纯净的 macOS 阴影与基础组件 ---------- */

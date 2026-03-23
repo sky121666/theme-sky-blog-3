@@ -8,6 +8,34 @@ spec:
       label: 桌面
       formSchema:
         - $formkit: group
+          id: desktop_theme_group
+          name: theme
+          label: 亮暗色主题
+          value:
+            enable_frontend_setting: true
+            default_mode: system
+          children:
+            - $formkit: switch
+              id: desktop_theme_enable_frontend_setting
+              name: enable_frontend_setting
+              label: 启用前端主题切换
+              help: 开启后，访客可以在前端页面的菜单栏中手动点击切换亮色、暗色或跟随系统。
+              value: true
+            - $formkit: toggle
+              id: desktop_theme_default_mode
+              name: default_mode
+              label: 默认模式
+              help: 新访客打开网站时默认加载的主题模式，用户手动切换后将以本地缓存为准。
+              value: system
+              options:
+                - label: 跟随系统
+                  value: system
+                - label: 亮色模式
+                  value: light
+                - label: 暗色模式
+                  value: dark
+        - $formkit: group
+          id: desktop_background_group
           name: background
           label: 桌面背景
           value:
@@ -20,6 +48,7 @@ spec:
               id: desktop_background_mode
               name: mode
               label: 背景模式
+              help: 选择桌面背景的来源。预设用于快速搭建 macOS 风格背景，上传图片用于自定义壁纸，纯色用于极简方案。
               value: preset
               options:
                 - label: macOS 预设
@@ -30,8 +59,10 @@ spec:
                   value: solid
             - $formkit: select
               id: desktop_background_preset
+              key: desktop_background_preset_field
               name: preset
               label: macOS 专用方案
+              help: 内置几种接近 macOS 氛围的预设背景，用于快速切换整体桌面观感。
               value: tahoe-dawn
               if: "$get(desktop_background_mode).value === 'preset'"
               options:
@@ -45,9 +76,11 @@ spec:
                   value: graphite-night
             - $formkit: attachment
               id: desktop_background_image
+              key: desktop_background_image_field
               name: image
               label: 桌面背景图
               value: ""
+              help: 上传桌面背景图。推荐横向高清图片，避免过小图片被拉伸后失真。
               if: "$get(desktop_background_mode).value === 'image'"
               accepts:
                 - "image/png"
@@ -57,30 +90,152 @@ spec:
                 - "image/svg+xml"
             - $formkit: color
               id: desktop_background_color
+              key: desktop_background_color_field
               name: solid_color
               label: 桌面纯色
+              help: 为桌面设置纯色背景，适合更安静、更接近极简工作桌面的风格。
               value: "#0f172a"
               if: "$get(desktop_background_mode).value === 'solid'"
+        - $formkit: group
+          id: desktop_icons_group
+          name: icons
+          value:
+            custom_icons: []
+            categories: []
+            tags: []
+            posts: []
+            single_pages: []
+          children:
+            - $formkit: array
+              id: desktop_icons_custom
+              name: custom_icons
+              label: "[自定义] 挂载图标"
+              help: 自由创建兼容多种类型的桌面图标，支持自定义跳转和多种风格。
+              value: []
+              itemLabels:
+                - type: text
+                  label: $value.name
+              children:
+                - $formkit: text
+                  name: name
+                  label: 显示名称
+                  validation: required
+                - $formkit: text
+                  name: href
+                  label: 跳转链接
+                  help: 提供内部路由（如 /about）或外部链接（如 https://...）。
+                  validation: required
+                - $formkit: select
+                  name: type
+                  label: 图标风格
+                  options:
+                    - label: 📁 文件夹 (蓝色)
+                      value: folder
+                    - label: 📄 文稿文件 (白色)
+                      value: document
+                    - label: 🌐 图标链接 (地球)
+                      value: link
+                  value: folder
+                - $formkit: switch
+                  name: external
+                  label: 新窗口打开
+                  help: 开启后将在浏览器新窗口打开，适用于外部链接。
+                  value: false
+            - $formkit: categorySelect
+              id: desktop_icons_categories
+              name: categories
+              label: "[文件夹] 桌面分类"
+              help: 下拉选择要在桌面展示的文章分类（支持多选），图标为蓝色文件夹。
+              multiple: true
+              value: []
+            - $formkit: tagSelect
+              id: desktop_icons_tags
+              name: tags
+              label: "[文件夹] 桌面标签"
+              help: 下拉选择要在桌面展示的文章标签（支持多选），图标为蓝色文件夹。
+              multiple: true
+              value: []
+            - $formkit: postSelect
+              id: desktop_icons_posts
+              name: posts
+              label: "[文稿文件] 桌面多篇文章"
+              help: 下拉选择要在桌面展示的任意多篇文章，图标为原生白色文稿文件。
+              multiple: true
+              value: []
+            - $formkit: singlePageSelect
+              id: desktop_icons_single_pages
+              name: single_pages
+              label: "[文稿文件] 桌面独立单页"
+              help: 下拉选择要在桌面展示的独立单页（支持多选），图标为原生白色文稿文件。
+              multiple: true
+              value: []
 
     - group: dock
       label: Dock
       formSchema:
         - $formkit: group
-          name: settings
-          label: Dock 设置
+          id: dock_source_group
+          name: source
+          label: Dock 数据源
           value:
             menu_name: primary
-            show_labels: true
           children:
             - $formkit: menuRadio
-              id: dock_settings_menu_name
+              id: dock_source_menu_name
               name: menu_name
               label: Dock 菜单
               help: 指定哪个后台菜单作为 Dock 的数据源。
               value: primary
+        - $formkit: group
+          id: dock_appearance_group
+          name: appearance
+          label: Dock 外观
+          value:
+            show_labels: true
+            magnification: true
+          children:
             - $formkit: switch
-              id: dock_settings_show_labels
+              id: dock_appearance_show_labels
               name: show_labels
               label: 显示名称标签
               help: 控制 Dock hover 提示是否显示名称。
               value: true
+            - $formkit: switch
+              id: dock_appearance_magnification
+              name: magnification
+              label: 启用放大效果
+              help: 控制鼠标滑过 Dock 图标时是否启用 macOS 风格放大动画。
+              value: true
+    - group: window
+      label: 主窗口
+      formSchema:
+        - $formkit: group
+          id: window_behavior_group
+          name: behavior
+          label: 窗口行为
+          value:
+            home_behavior: desktop-first
+            close_action: return-home
+          children:
+            - $formkit: toggle
+              id: window_behavior_home_behavior
+              name: home_behavior
+              label: 首页默认状态
+              help: 控制首页默认是纯桌面状态，还是直接显示主浏览器窗口。
+              value: desktop-first
+              options:
+                - label: 纯桌面
+                  value: desktop-first
+                - label: 默认开窗
+                  value: window-first
+            - $formkit: toggle
+              id: window_behavior_close_action
+              name: close_action
+              label: 关闭按钮行为
+              help: 控制点击红色关闭按钮时，是回到桌面首页，还是仅隐藏当前窗口。
+              value: return-home
+              options:
+                - label: 返回首页
+                  value: return-home
+                - label: 仅隐藏窗口
+                  value: hide
