@@ -359,7 +359,7 @@
               <div class="w-[1px] h-[32px] bg-white/20 dark:bg-white/10 rounded-full mx-2 mb-[8px] shrink-0"></div>
               
               <!-- 最小化的应用图标 -->
-              <a class="dock-icon group cursor-pointer relative shrink-0" 
+              <a id="minimized-dock-icon" class="dock-icon group cursor-pointer relative shrink-0" 
                  @click="$store.windowManager.restore()">
                <!-- Hover Label -->
                <div class="dock-tooltip" x-show="$el.closest('.dock-container').dataset.showLabels === 'true'" x-text="$store.windowManager.title"></div>

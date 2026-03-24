@@ -1,6 +1,128 @@
 import Pjax from 'pjax';
 import NProgress from 'nprogress';
 
+function stripClonedIdsAndAlpine(node) {
+  if (!node || !node.querySelectorAll) return;
+  
+  // Recursively strip IDs and Alpine bindings to prevent framework conflicts
+  const elements = [node, ...node.querySelectorAll('*')];
+  elements.forEach(el => {
+    el.removeAttribute('id');
+    // Strip Alpine directives (e.g. x-data, x-show, @click)
+    Array.from(el.attributes).forEach(attr => {
+      if (attr.name.startsWith('x-') || attr.name.startsWith('@')) {
+        el.removeAttribute(attr.name);
+      }
+    });
+  });
+}
+
+function createGenieGhost(sourceWindowEl) {
+  const ghostWrapper = document.createElement('div');
+  const ghostInner = sourceWindowEl.cloneNode(true);
+
+  stripClonedIdsAndAlpine(ghostInner);
+
+  ghostWrapper.className = 'genie-ghost-wrapper';
+  ghostInner.classList.add('genie-ghost-window');
+
+  Object.assign(ghostWrapper.style, {
+    position: 'fixed',
+    left: '0px',
+    top: '0px',
+    width: '0px',
+    height: '0px',
+    zIndex: '10001',
+    pointerEvents: 'none',
+    overflow: 'visible'
+  });
+
+  Object.assign(ghostInner.style, {
+    position: 'absolute',
+    left: '0',
+    top: '0',
+    width: '100%',
+    height: '100%',
+    margin: '0',
+    resize: 'none',
+    pointerEvents: 'none',
+    visibility: 'visible',
+    overflow: 'hidden'
+  });
+
+  ghostWrapper.appendChild(ghostInner);
+  document.body.appendChild(ghostWrapper);
+
+  return { ghostWrapper, ghostInner };
+}
+
+function runGenieAnimation({ windowEl, dockEl, action, duration = 420 }) {
+  if (!windowEl || !dockEl) return Promise.resolve(false);
+
+  const windowRect = windowEl.getBoundingClientRect();
+  const targetGraphic = dockEl.querySelector('svg') || dockEl;
+  const dockRect = targetGraphic.getBoundingClientRect();
+  const { ghostWrapper, ghostInner } = createGenieGhost(windowEl);
+
+  ghostWrapper.style.left = `${windowRect.left}px`;
+  ghostWrapper.style.top = `${windowRect.top}px`;
+  ghostWrapper.style.width = `${windowRect.width}px`;
+  ghostWrapper.style.height = `${windowRect.height}px`;
+
+  const windowCenterX = windowRect.left + windowRect.width / 2;
+  const windowCenterY = windowRect.top + windowRect.height / 2;
+  const dockCenterX = dockRect.left + dockRect.width / 2;
+  const dockCenterY = dockRect.top + dockRect.height / 2;
+
+  const destX = dockCenterX - windowCenterX;
+  const destY = dockCenterY - windowCenterY;
+  const scaleX = dockRect.width / windowRect.width;
+  const scaleY = dockRect.height / windowRect.height;
+
+  const easeIn = 'cubic-bezier(0.7, 0, 1, 1)';
+  const easeOut = 'cubic-bezier(0, 0, 0.3, 1)';
+
+  const yFrames = action === 'minimize'
+    ? [{ transform: 'translateY(0px)' }, { transform: `translateY(${destY}px)` }]
+    : [{ transform: `translateY(${destY}px)` }, { transform: 'translateY(0px)' }];
+
+  const xFrames = action === 'minimize'
+    ? [
+        { transform: 'translateX(0px) scale(1, 1)' },
+        { transform: `translateX(${destX}px) scale(${scaleX}, ${scaleY})` }
+      ]
+    : [
+        { transform: `translateX(${destX}px) scale(${scaleX}, ${scaleY})` },
+        { transform: 'translateX(0px) scale(1, 1)' }
+      ];
+
+  const wrapperAnimation = ghostWrapper.animate(yFrames, {
+    duration,
+    easing: action === 'minimize' ? easeIn : easeOut,
+    fill: 'forwards'
+  });
+
+  const innerAnimation = ghostInner.animate(xFrames, {
+    duration,
+    easing: action === 'minimize' ? easeOut : easeIn,
+    fill: 'forwards'
+  });
+
+  return new Promise((resolve) => {
+    innerAnimation.onfinish = () => {
+      wrapperAnimation.cancel();
+      innerAnimation.cancel();
+      ghostWrapper.remove();
+      resolve(true);
+    };
+
+    innerAnimation.oncancel = () => {
+      ghostWrapper.remove();
+      resolve(false);
+    };
+  });
+}
+
 /**
  * macOS 简易单主窗静态渲染框架 + Pjax 获取
  */
@@ -125,6 +247,7 @@ export function registerComponents(Alpine) {
     show: false,
     minimized: false,
     title: document.title,
+    isAnimating: false,
     
     init() {
       try {
@@ -145,28 +268,106 @@ export function registerComponents(Alpine) {
     },
 
     open(title) {
+      if (this.minimized) {
+        this.restore();
+        return;
+      }
       if (title) this.title = title;
       this.show = true;
       this.minimized = false;
       this.sync();
+
+      setTimeout(() => {
+        const winEl = document.querySelector('.macos-window');
+        if (winEl) {
+          winEl.style.transition = 'none';
+          winEl.style.transform = 'none';
+          winEl.style.opacity = '1';
+          winEl.style.visibility = 'visible';
+          winEl.style.pointerEvents = 'auto';
+        }
+      }, 0);
     },
     
     hide() {
       this.show = false;
       this.minimized = false;
+      this.isAnimating = false;
       this.sync();
     },
     
-    minimize() {
-      this.show = false;
+    async minimize() {
+      if (this.isAnimating || this.minimized) return;
+      const winEl = document.querySelector('.macos-window');
+      if (!winEl) return;
+
       this.minimized = true;
       this.sync();
+      this.isAnimating = true;
+
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+      const dockIcon = document.getElementById('minimized-dock-icon');
+      if (!dockIcon) {
+        winEl.style.visibility = 'hidden';
+        winEl.style.opacity = '1';
+        winEl.style.transform = 'none';
+        winEl.style.pointerEvents = 'none';
+        this.isAnimating = false;
+        return;
+      }
+
+      // 强行同步剔除原身视觉残留，只保留替身演出
+      const animPromise = runGenieAnimation({
+        windowEl: winEl,
+        dockEl: dockIcon,
+        action: 'minimize'
+      });
+      winEl.style.visibility = 'hidden';
+
+      const animated = await animPromise;
+
+      if (animated) {
+        winEl.style.visibility = 'hidden';
+        winEl.style.opacity = '1';
+        winEl.style.transform = 'none';
+        winEl.style.pointerEvents = 'none';
+      }
+
+      this.isAnimating = false;
     },
     
-    restore() {
-      this.show = true;
-      this.minimized = false;
-      this.sync();
+    async restore() {
+       if (this.isAnimating || !this.minimized) return;
+       this.isAnimating = true;
+
+       const winEl = document.querySelector('.macos-window');
+       const dockIcon = document.getElementById('minimized-dock-icon');
+
+       if (winEl && dockIcon) {
+         // 先剔除 Dock 图标，制造其“脱壳飞出”的视觉假象
+         dockIcon.style.opacity = '0';
+         
+         winEl.style.visibility = 'hidden';
+         winEl.style.opacity = '1';
+         winEl.style.transform = 'none';
+
+         await runGenieAnimation({
+           windowEl: winEl,
+           dockEl: dockIcon,
+           action: 'restore'
+         });
+
+         winEl.style.visibility = 'visible';
+         winEl.style.pointerEvents = 'auto';
+         this.minimized = false;
+         this.isAnimating = false;
+         this.sync();
+       } else {
+         this.minimized = false;
+         this.isAnimating = false;
+         this.sync();
+       }
     }
   });
 
@@ -189,9 +390,66 @@ export function registerComponents(Alpine) {
     isDesktop: window.innerWidth >= 768,
     windowEl: null,
 
+    syncState() {
+      if (!this.isDesktop) return;
+      localStorage.setItem('theme-macOS-window-metrics', JSON.stringify({
+        x: this.x,
+        y: this.y,
+        width: this.width,
+        height: this.height,
+        isMaximized: this.isMaximized,
+        preMaxX: this.preMaxX,
+        preMaxY: this.preMaxY,
+        preMaxWidth: this.preMaxWidth,
+        preMaxHeight: this.preMaxHeight
+      }));
+    },
+
     init() {
       this.windowEl = this.$el;
-      this.updateMeasurements();
+      
+      try {
+        const storedStr = localStorage.getItem('theme-macOS-window-metrics');
+        if (storedStr) {
+          const stored = JSON.parse(storedStr);
+          this.x = stored.x || 0;
+          this.y = stored.y || 0;
+          this.width = stored.width || 0;
+          this.height = stored.height || 0;
+          this.isMaximized = stored.isMaximized || false;
+          this.preMaxX = stored.preMaxX || 0;
+          this.preMaxY = stored.preMaxY || 0;
+          this.preMaxWidth = stored.preMaxWidth || 0;
+          this.preMaxHeight = stored.preMaxHeight || 0;
+        }
+      } catch(e) {}
+
+      if (this.width === 0) this.updateMeasurements();
+      else if (this.isDesktop) {
+         if (this.isMaximized) {
+            this.windowEl.style.resize = 'none';
+            this.windowEl.style.borderRadius = '0';
+         }
+         this.windowEl.style.width = `${this.width}px`;
+         this.windowEl.style.height = `${this.height}px`;
+         this.applyTransform();
+      }
+
+      if (this.isDesktop && window.ResizeObserver) {
+        let resizeTimeout;
+        const ro = new ResizeObserver(() => {
+          if (this.isMaximized) return;
+          const newW = this.windowEl.offsetWidth;
+          const newH = this.windowEl.offsetHeight;
+          if (newW && newH && (this.width !== newW || this.height !== newH)) {
+             this.width = newW;
+             this.height = newH;
+             clearTimeout(resizeTimeout);
+             resizeTimeout = setTimeout(() => this.syncState(), 400);
+          }
+        });
+        ro.observe(this.windowEl);
+      }
       
       const resizeHandler = () => {
         this.isDesktop = window.innerWidth >= 768;
@@ -208,6 +466,7 @@ export function registerComponents(Alpine) {
              this.height = window.innerHeight - 28;
              this.windowEl.style.width = `${this.width}px`;
              this.windowEl.style.height = `${this.height}px`;
+             this.syncState();
            }
            this.clampPositions(); 
            this.applyTransform();
@@ -229,6 +488,12 @@ export function registerComponents(Alpine) {
         if (shouldShow) {
           this.$store.windowManager.open(document.title);
         }
+      } else if (this.$store.windowManager.minimized) {
+        this.windowEl.style.transition = 'none';
+        this.windowEl.style.opacity = '0';
+        this.windowEl.style.visibility = 'hidden';
+        this.windowEl.style.pointerEvents = 'none';
+        this.windowEl.style.transform = 'none';
       }
     },
 
@@ -245,6 +510,7 @@ export function registerComponents(Alpine) {
            winEl.style.height = `${this.height}px`;
          }
          this.applyTransform();
+         this.syncState();
        }
     },
 
@@ -306,6 +572,7 @@ export function registerComponents(Alpine) {
         winEl.style.borderRadius = '0';
         this.isMaximized = true;
       }
+      this.syncState();
       
       setTimeout(() => {
         if (!this.isDragging) winEl.style.transition = '';
@@ -346,6 +613,7 @@ export function registerComponents(Alpine) {
       
       this.width = this.$el.offsetWidth;
       this.height = this.$el.offsetHeight;
+      this.syncState();
     },
 
     closeWindow() {
