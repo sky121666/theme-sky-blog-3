@@ -114,43 +114,245 @@ export function registerComponents(Alpine) {
     },
     tick() {
       const d = new Date();
-      this.timeStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-        + '  ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      const dateStr = d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', weekday: 'short' });
+      const timeStr = d.toLocaleTimeString('zh-CN', { hour: 'numeric', minute: '2-digit', hour12: true });
+      this.timeStr = dateStr.replace(/ /g, '') + ' ' + timeStr;
     }
   }));
 
-  // =========== 4. 主窗口状态 ===========
-  Alpine.data('mainWindow', () => ({
-    showMainWin: false,
-    windowState: 'closed',
+  // =========== 4. 全局窗口控制 Store ===========
+  Alpine.store('windowManager', {
+    show: false,
+    minimized: false,
+    title: document.title,
+    
+    init() {
+      try {
+        const stored = localStorage.getItem('theme-macOS-window-state');
+        if (stored) {
+          const state = JSON.parse(stored);
+          this.show = state.show;
+          this.minimized = state.minimized;
+        }
+      } catch(e) {}
+    },
+
+    sync() {
+       localStorage.setItem('theme-macOS-window-state', JSON.stringify({
+          show: this.show,
+          minimized: this.minimized
+       }));
+    },
+
+    open(title) {
+      if (title) this.title = title;
+      this.show = true;
+      this.minimized = false;
+      this.sync();
+    },
+    
+    hide() {
+      this.show = false;
+      this.minimized = false;
+      this.sync();
+    },
+    
+    minimize() {
+      this.show = false;
+      this.minimized = true;
+      this.sync();
+    },
+    
+    restore() {
+      this.show = true;
+      this.minimized = false;
+      this.sync();
+    }
+  });
+
+  // =========== 4.5 拖拽与缩放窗口引擎 ===========
+  Alpine.data('draggableWindow', () => ({
+    isDragging: false,
+    isMaximized: false,
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+    startX: 0,
+    startY: 0,
+    initialX: 0,
+    initialY: 0,
+    preMaxX: 0,
+    preMaxY: 0,
+    preMaxWidth: 0,
+    preMaxHeight: 0,
+    isDesktop: window.innerWidth >= 768,
+    windowEl: null,
 
     init() {
-      const homeBehavior = this.$el.dataset.homeBehavior || 'desktop-first';
-      const isHome = window.location.pathname === '/';
-      this.showMainWin = !isHome || homeBehavior === 'window-first';
-      this.windowState = this.showMainWin ? 'open' : 'closed';
+      this.windowEl = this.$el;
+      this.updateMeasurements();
+      
+      const resizeHandler = () => {
+        this.isDesktop = window.innerWidth >= 768;
+        if (!this.isDesktop) {
+          this.windowEl.style.transform = '';
+          this.windowEl.style.left = '';
+          this.windowEl.style.top = '';
+          this.windowEl.style.width = '100%';
+          this.windowEl.style.height = '100%';
+        } else {
+           if (this.width === 0) this.updateMeasurements();
+           if (this.isMaximized) {
+             this.width = window.innerWidth;
+             this.height = window.innerHeight - 28;
+             this.windowEl.style.width = `${this.width}px`;
+             this.windowEl.style.height = `${this.height}px`;
+           }
+           this.clampPositions(); 
+           this.applyTransform();
+        }
+      };
+      // Debounce window resize
+      let timeout;
+      window.addEventListener('resize', () => {
+        clearTimeout(timeout);
+        timeout = setTimeout(resizeHandler, 100);
+      });
+
+      // 初始化显示逻辑
+      if (!localStorage.getItem('theme-macOS-window-state')) {
+        const homeBehavior = this.windowEl.dataset.homeBehavior || 'desktop-first';
+        const isHome = window.location.pathname === '/';
+        const shouldShow = !isHome || homeBehavior === 'window-first';
+        
+        if (shouldShow) {
+          this.$store.windowManager.open(document.title);
+        }
+      }
     },
 
-    open() {
-      this.showMainWin = true;
-      this.windowState = 'open';
+    updateMeasurements() {
+       if (this.isDesktop) {
+         this.width = Math.min(1200, window.innerWidth * 0.85);
+         this.height = Math.min(900, Math.max(500, window.innerHeight * 0.85));
+         this.x = (window.innerWidth - this.width) / 2;
+         this.y = (window.innerHeight - this.height) / 2;
+         
+         const winEl = document.querySelector('.macos-window');
+         if(winEl) {
+           winEl.style.width = `${this.width}px`;
+           winEl.style.height = `${this.height}px`;
+         }
+         this.applyTransform();
+       }
     },
 
-    hide() {
-      this.showMainWin = false;
-      this.windowState = 'closed';
+    clampPositions() {
+       if (!this.isDesktop || this.isMaximized) return;
+       const maxX = window.innerWidth - 80;
+       const maxY = window.innerHeight - 40;
+       const minX = -this.width + 80;
+       const minY = 28; // MenuBar margin
+
+       if (this.x > maxX) this.x = maxX;
+       if (this.x < minX) this.x = minX;
+       if (this.y > maxY) this.y = maxY;
+       if (this.y < minY) this.y = minY;
     },
 
-    minimize() {
-      this.showMainWin = false;
-      this.windowState = 'minimized';
+    applyTransform() {
+       if (!this.isDesktop) return;
+       const winEl = document.querySelector('.macos-window');
+       if(winEl) {
+         winEl.style.left = `${this.x}px`;
+         winEl.style.top = `${this.y}px`;
+         winEl.style.transform = 'none';
+       }
     },
 
-    close() {
-      const closeAction = this.$el.dataset.closeAction || 'return-home';
+    toggleMaximize() {
+      if (!this.isDesktop) return;
+      const winEl = document.querySelector('.macos-window');
+      if (!winEl) return;
+      
+      winEl.style.transition = 'all 0.3s cubic-bezier(0.25, 1, 0.5, 1)';
+      if (this.isMaximized) {
+        this.width = this.preMaxWidth;
+        this.height = this.preMaxHeight;
+        this.x = this.preMaxX;
+        this.y = this.preMaxY;
+        winEl.style.width = `${this.width}px`;
+        winEl.style.height = `${this.height}px`;
+        this.applyTransform();
+        winEl.style.resize = 'both';
+        winEl.style.borderRadius = ''; 
+        this.isMaximized = false;
+      } else {
+        this.preMaxWidth = winEl.offsetWidth;
+        this.preMaxHeight = winEl.offsetHeight;
+        this.preMaxX = this.x;
+        this.preMaxY = this.y;
+        
+        this.width = window.innerWidth;
+        this.height = window.innerHeight - 28;
+        this.x = 0;
+        this.y = 28;
+        
+        winEl.style.width = `${this.width}px`;
+        winEl.style.height = `${this.height}px`;
+        this.applyTransform();
+        winEl.style.resize = 'none';
+        winEl.style.borderRadius = '0';
+        this.isMaximized = true;
+      }
+      
+      setTimeout(() => {
+        if (!this.isDragging) winEl.style.transition = '';
+      }, 300);
+    },
+
+    onDragStart(e) {
+      if (!this.isDesktop || this.isMaximized) return;
+      if (e.target.closest('button, a, .traffic-lights, svg, .desktop-icon')) return;
+      
+      this.isDragging = true;
+      this.startX = e.clientX;
+      this.startY = e.clientY;
+      this.initialX = this.x;
+      this.initialY = this.y;
+      
+      const winEl = document.querySelector('.macos-window');
+      if(winEl) winEl.style.transition = 'none'; 
+    },
+
+    onDragMove(e) {
+      if (!this.isDragging) return;
+      
+      const dx = e.clientX - this.startX;
+      const dy = e.clientY - this.startY;
+      
+      this.x = this.initialX + dx;
+      this.y = this.initialY + dy;
+      
+      this.clampPositions();
+      this.applyTransform();
+    },
+
+    onDragEnd() {
+      if (!this.isDragging) return;
+      this.isDragging = false;
+      this.$el.style.transition = ''; 
+      
+      this.width = this.$el.offsetWidth;
+      this.height = this.$el.offsetHeight;
+    },
+
+    closeWindow() {
+      const closeAction = this.$root.dataset.closeAction || 'return-home';
       const shouldReturnHome = closeAction === 'return-home' && window.location.pathname !== '/';
 
-      this.hide();
+      this.$store.windowManager.hide();
 
       if (shouldReturnHome && window.pjax) {
         window.preventAutoOpen = true;
@@ -166,15 +368,16 @@ export function registerComponents(Alpine) {
       if (!dockBar) return;
       const enableMagnification = this.$el.dataset.magnification !== 'false';
       
-      const icons = Array.from(dockBar.querySelectorAll('.dock-icon'));
       const baseSize = 48; // 固定底宽
       const maxSize = 64;  // 原生极限宽（1.33x克制放大）
       const range = 140;   // 影响半径：约辐射左右各2~3个图标
 
+      const getIcons = () => Array.from(dockBar.querySelectorAll('.dock-icon'));
+
       this.$el.addEventListener('mousemove', (e) => {
         if (!enableMagnification) return;
         requestAnimationFrame(() => {
-          icons.forEach(icon => {
+          getIcons().forEach(icon => {
             // 在计算期间接触平滑 CSS，交结 GPU 高频绘制
             icon.classList.remove('dock-animating');
             const rect = icon.getBoundingClientRect();
@@ -196,7 +399,7 @@ export function registerComponents(Alpine) {
 
       this.$el.addEventListener('mouseleave', () => {
         requestAnimationFrame(() => {
-          icons.forEach(icon => {
+          getIcons().forEach(icon => {
             // 鼠标移出时归还控制权给 CSS Transition 的 ease-out 0.25s 曲线
             icon.classList.add('dock-animating');
             icon.style.width = `${baseSize}px`;
@@ -204,13 +407,6 @@ export function registerComponents(Alpine) {
           });
         });
       });
-
-      if (!enableMagnification) {
-        icons.forEach(icon => {
-          icon.style.width = `${baseSize}px`;
-          icon.style.height = `${baseSize}px`;
-        });
-      }
     }
   }));
 
