@@ -481,9 +481,8 @@ export function registerComponents(Alpine) {
 
       // 初始化显示逻辑
       if (!localStorage.getItem('theme-macOS-window-state')) {
-        const homeBehavior = this.windowEl.dataset.homeBehavior || 'desktop-first';
         const isHome = window.location.pathname === '/';
-        const shouldShow = !isHome || homeBehavior === 'window-first';
+        const shouldShow = !isHome;
         
         if (shouldShow) {
           this.$store.windowManager.open(document.title);
@@ -617,8 +616,7 @@ export function registerComponents(Alpine) {
     },
 
     closeWindow() {
-      const closeAction = this.$root.dataset.closeAction || 'return-home';
-      const shouldReturnHome = closeAction === 'return-home' && window.location.pathname !== '/';
+      const shouldReturnHome = window.location.pathname !== '/';
 
       this.$store.windowManager.hide();
 

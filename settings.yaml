@@ -206,36 +206,3 @@ spec:
               label: 启用放大效果
               help: 控制鼠标滑过 Dock 图标时是否启用 macOS 风格放大动画。
               value: true
-    - group: window
-      label: 主窗口
-      formSchema:
-        - $formkit: group
-          id: window_behavior_group
-          name: behavior
-          label: 窗口行为
-          value:
-            home_behavior: desktop-first
-            close_action: return-home
-          children:
-            - $formkit: toggle
-              id: window_behavior_home_behavior
-              name: home_behavior
-              label: 首页默认状态
-              help: 控制首页默认是纯桌面状态，还是直接显示主浏览器窗口。
-              value: desktop-first
-              options:
-                - label: 纯桌面
-                  value: desktop-first
-                - label: 默认开窗
-                  value: window-first
-            - $formkit: toggle
-              id: window_behavior_close_action
-              name: close_action
-              label: 关闭按钮行为
-              help: 控制点击红色关闭按钮时，是回到桌面首页，还是仅隐藏当前窗口。
-              value: return-home
-              options:
-                - label: 返回首页
-                  value: return-home
-                - label: 仅隐藏窗口
-                  value: hide

@@ -47,8 +47,6 @@
       rawMenuName = ${theme.config.dock?.source?.menu_name ?: 'primary'},
       dockShowLabels = ${theme.config.dock?.appearance?.show_labels != null ? theme.config.dock?.appearance?.show_labels : true},
       dockMagnification = ${theme.config.dock?.appearance?.magnification != null ? theme.config.dock?.appearance?.magnification : true},
-      homeBehavior = ${theme.config.window?.behavior?.home_behavior ?: 'desktop-first'},
-      closeAction = ${theme.config.window?.behavior?.close_action ?: 'return-home'},
       dockMenu = ${!#strings.isEmpty(rawMenuName) ? menuFinder.getByName(rawMenuName) : menuFinder.getByName('primary')}">
 
   <body
@@ -229,7 +227,7 @@
     </div>
 
     <!-- ==================== 极简单主窗 (PJAX 热重载) ==================== -->
-    <div class="window-layer fixed inset-0 z-10 pointer-events-none"
+    <div class="window-layer fixed inset-x-0 bottom-0 top-[28px] md:top-0 z-10 pointer-events-none p-0 md:p-8 flex items-start md:items-center justify-center"
          x-data
          x-show="$store.windowManager.show"
          @open-window.window="$store.windowManager.open(document.title)"
@@ -237,9 +235,7 @@
          style="display: none;">
       
       <!-- Safari 极简交互窗口 (支持桌面端拖拽与缩放) -->
-      <div class="macos-window flex flex-col pointer-events-auto shadow-2xl relative md:absolute w-full h-full md:w-auto md:h-auto max-w-[1200px] rounded-none md:rounded-xl overflow-hidden bg-white/80 dark:bg-[#1c1c1e]/60 backdrop-blur-3xl md:border border-black/10 dark:border-white/10 origin-center"
-           th:attr="data-home-behavior=${homeBehavior},data-close-action=${closeAction}"
-           style="resize: both; min-width: 400px; min-height: 400px; max-width: 100vw; max-height: calc(100vh - 28px);"
+      <div class="macos-window flex flex-col pointer-events-auto shadow-2xl relative md:absolute w-full h-full md:w-auto md:h-auto max-w-[1200px] md:min-w-[400px] md:min-h-[400px] rounded-none md:rounded-xl overflow-hidden bg-white/80 dark:bg-[#1c1c1e]/60 backdrop-blur-3xl md:border border-black/10 dark:border-white/10 origin-center"
            x-data="draggableWindow"
            @mousemove.window="onDragMove"
            @mouseup.window="onDragEnd"
