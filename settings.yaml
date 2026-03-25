@@ -4,36 +4,169 @@ metadata:
   name: theme-sky-blog-3-setting
 spec:
   forms:
-    - group: desktop
-      label: 桌面
+    - group: header
+      label: 顶栏
       formSchema:
         - $formkit: group
-          id: desktop_theme_group
+          id: header_source_group
+          name: source
+          label: 顶栏导航源
+          value:
+            menu_name: primary
+          children:
+            - $formkit: menuRadio
+              id: header_source_menu_name
+              name: menu_name
+              label: 提供顶栏菜单数据的后台导航
+              value: primary
+        - $formkit: group
+          id: header_logo_group
+          name: logo
+          label: Logo
+          value:
+            icon: ""
+          children:
+            - $formkit: iconify
+              id: header_logo_icon
+              name: icon
+              label: 应用图标
+              help: 左上角的应用图标。
+              format: svg
+        - $formkit: group
+          id: header_theme_group
           name: theme
-          label: 亮暗色主题
+          label: 外观模式
           value:
             enable_frontend_setting: true
             default_mode: system
           children:
             - $formkit: switch
-              id: desktop_theme_enable_frontend_setting
+              id: header_theme_enable_frontend_setting
               name: enable_frontend_setting
-              label: 启用前端主题切换
-              help: 开启后，访客可以在前端页面的菜单栏中手动点击切换亮色、暗色或跟随系统。
+              label: 允许访客切换
+              help: 是否在顶栏显示控制中心供访客切换深浅色。
               value: true
             - $formkit: toggle
-              id: desktop_theme_default_mode
+              id: header_theme_default_mode
               name: default_mode
-              label: 默认模式
-              help: 新访客打开网站时默认加载的主题模式，用户手动切换后将以本地缓存为准。
+              label: 默认状态
               value: system
               options:
                 - label: 跟随系统
                   value: system
-                - label: 亮色模式
+                - label: 浅色
                   value: light
-                - label: 暗色模式
+                - label: 深色
                   value: dark
+
+    - group: desktop
+      label: 桌面
+      formSchema:
+        - $formkit: group
+          id: desktop_appearance_group
+          name: appearance
+          label: 主题配色方案
+          value:
+            mode: preset
+            preset: blue
+            accent_color: "#2E5FBD"
+            selection_color: "#244D9B"
+            folder_color1: "#4A90E2"
+            folder_color2: "#64B5F6"
+            folder_color3: "#90CAF9"
+            glass_light_color: "#FFFFFF"
+            glass_dark_color: "#141414"
+          children:
+            - $formkit: toggle
+              id: desktop_appearance_mode
+              name: mode
+              label: 配色模式
+              help: 预设模式提供多种接近 macOS 原生的内置配色，自定义模式则允许手动指定主题颜色。
+              value: preset
+              options:
+                - label: macOS 内置方案
+                  value: preset
+                - label: 自定义主题
+                  value: custom
+            - $formkit: select
+              id: desktop_appearance_preset
+              key: desktop_appearance_preset_field
+              name: preset
+              label: macOS 配色方案
+              help: 这会统一控制强调色、选择色、文件夹色和壳层玻璃色调。
+              value: blue
+              if: "$get(desktop_appearance_mode).value === 'preset'"
+              options:
+                - label: Blue
+                  value: blue
+                - label: Purple
+                  value: purple
+                - label: Pink
+                  value: pink
+                - label: Red
+                  value: red
+                - label: Orange
+                  value: orange
+                - label: Yellow
+                  value: yellow
+                - label: Green
+                  value: green
+                - label: Graphite
+                  value: graphite
+            - $formkit: color
+              id: desktop_appearance_accent_color
+              key: desktop_appearance_accent_color_field
+              name: accent_color
+              label: 全局强调色
+              help: 用于菜单高亮、交互激活、进度条和部分控件强调色。
+              value: "#2E5FBD"
+              if: "$get(desktop_appearance_mode).value === 'custom'"
+            - $formkit: color
+              id: desktop_appearance_selection_color
+              key: desktop_appearance_selection_color_field
+              name: selection_color
+              label: 选中态颜色
+              help: 用于桌面图标选中底色等 selection 状态。
+              value: "#244D9B"
+              if: "$get(desktop_appearance_mode).value === 'custom'"
+            - $formkit: color
+              id: desktop_appearance_folder_color1
+              key: desktop_appearance_folder_color1_field
+              name: folder_color1
+              label: 文件夹主色调
+              value: "#4A90E2"
+              if: "$get(desktop_appearance_mode).value === 'custom'"
+            - $formkit: color
+              id: desktop_appearance_folder_color2
+              key: desktop_appearance_folder_color2_field
+              name: folder_color2
+              label: 文件夹阴影层
+              value: "#64B5F6"
+              if: "$get(desktop_appearance_mode).value === 'custom'"
+            - $formkit: color
+              id: desktop_appearance_folder_color3
+              key: desktop_appearance_folder_color3_field
+              name: folder_color3
+              label: 文件夹亮部层
+              value: "#90CAF9"
+              if: "$get(desktop_appearance_mode).value === 'custom'"
+            - $formkit: color
+              id: desktop_appearance_glass_light_color
+              key: desktop_appearance_glass_light_color_field
+              name: glass_light_color
+              label: 浅色壳层基底色
+              help: 用于顶栏、Dock、主窗口在浅色模式下的玻璃基底色。
+              value: "#FFFFFF"
+              if: "$get(desktop_appearance_mode).value === 'custom'"
+            - $formkit: color
+              id: desktop_appearance_glass_dark_color
+              key: desktop_appearance_glass_dark_color_field
+              name: glass_dark_color
+              label: 深色壳层基底色
+              help: 用于顶栏、Dock、主窗口在深色模式下的玻璃基底色。
+              value: "#141414"
+              if: "$get(desktop_appearance_mode).value === 'custom'"
+
         - $formkit: group
           id: desktop_background_group
           name: background
@@ -96,6 +229,7 @@ spec:
               help: 为桌面设置纯色背景，适合更安静、更接近极简工作桌面的风格。
               value: "#0f172a"
               if: "$get(desktop_background_mode).value === 'solid'"
+
         - $formkit: group
           id: desktop_icons_group
           name: icons
@@ -117,15 +251,18 @@ spec:
                   label: $value.name
               children:
                 - $formkit: text
+                  id: desktop_icons_custom_name
                   name: name
                   label: 显示名称
                   validation: required
                 - $formkit: text
+                  id: desktop_icons_custom_href
                   name: href
                   label: 跳转链接
                   help: 提供内部路由（如 /about）或外部链接（如 https://...）。
                   validation: required
                 - $formkit: select
+                  id: desktop_icons_custom_type
                   name: type
                   label: 图标风格
                   options:
@@ -137,6 +274,7 @@ spec:
                       value: link
                   value: folder
                 - $formkit: switch
+                  id: desktop_icons_custom_external
                   name: external
                   label: 新窗口打开
                   help: 开启后将在浏览器新窗口打开，适用于外部链接。

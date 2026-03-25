@@ -8,6 +8,7 @@ spec:
     name: Sky
     website: "https://github.com/sky121666"
   description: Apple-like macOS 桌面壳层博客主题，包含桌面、Dock 与 Safari 风格主窗口
+  logo: "/themes/theme-sky-blog-3/assets/images/theme-icon.svg"
   homepage: "https://github.com/sky121666/theme-sky-blog-3"
   repo: "https://github.com/sky121666/theme-sky-blog-3"
   issues: "https://github.com/sky121666/theme-sky-blog-3/issues"

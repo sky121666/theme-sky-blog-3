@@ -20,6 +20,8 @@ function stripClonedIdsAndAlpine(node) {
 function createGenieGhost(sourceWindowEl) {
   const ghostWrapper = document.createElement('div');
   const ghostInner = sourceWindowEl.cloneNode(true);
+  const ghostTitleBar = ghostInner.querySelector('.window-titlebar');
+  const sourceTitleBar = sourceWindowEl.querySelector('.window-titlebar');
 
   stripClonedIdsAndAlpine(ghostInner);
 
@@ -34,7 +36,8 @@ function createGenieGhost(sourceWindowEl) {
     height: '0px',
     zIndex: '10001',
     pointerEvents: 'none',
-    overflow: 'visible'
+    overflow: 'visible',
+    willChange: 'transform'
   });
 
   Object.assign(ghostInner.style, {
@@ -47,8 +50,20 @@ function createGenieGhost(sourceWindowEl) {
     resize: 'none',
     pointerEvents: 'none',
     visibility: 'visible',
-    overflow: 'hidden'
+    overflow: 'hidden',
+    willChange: 'transform',
+    backdropFilter: 'none',
+    WebkitBackdropFilter: 'none',
+    backgroundColor: window.getComputedStyle(sourceWindowEl).backgroundColor
   });
+
+  if (ghostTitleBar && sourceTitleBar) {
+    const sourceTitleBarStyle = window.getComputedStyle(sourceTitleBar);
+    ghostTitleBar.style.backdropFilter = 'none';
+    ghostTitleBar.style.webkitBackdropFilter = 'none';
+    ghostTitleBar.style.backgroundColor = sourceTitleBarStyle.backgroundColor;
+    ghostTitleBar.style.willChange = 'transform';
+  }
 
   ghostWrapper.appendChild(ghostInner);
   document.body.appendChild(ghostWrapper);
@@ -317,13 +332,15 @@ export function registerComponents(Alpine) {
         return;
       }
 
-      // 强行同步剔除原身视觉残留，只保留替身演出
+      // 先剔除原窗口，再由替身独立演出，避免标题栏单独漏帧
+      winEl.style.visibility = 'hidden';
+      winEl.style.pointerEvents = 'none';
+
       const animPromise = runGenieAnimation({
         windowEl: winEl,
         dockEl: dockIcon,
         action: 'minimize'
       });
-      winEl.style.visibility = 'hidden';
 
       const animated = await animPromise;
 
@@ -501,7 +518,7 @@ export function registerComponents(Alpine) {
          this.width = Math.min(1200, window.innerWidth * 0.85);
          this.height = Math.min(900, Math.max(500, window.innerHeight * 0.85));
          this.x = (window.innerWidth - this.width) / 2;
-         this.y = (window.innerHeight - this.height) / 2;
+         this.y = Math.max(28, (window.innerHeight - this.height) / 2);
          
          const winEl = document.querySelector('.macos-window');
          if(winEl) {

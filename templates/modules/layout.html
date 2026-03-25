@@ -3,7 +3,7 @@
   lang="zh-CN"
   xmlns:th="https://www.thymeleaf.org"
   th:fragment="html (title, description, ssrContent)"
-  th:data-default-theme="${theme.config.desktop?.theme?.default_mode ?: 'system'}"
+  th:data-default-theme="${theme.config.header?.theme?.default_mode ?: 'system'}"
 >
   <head>
     <meta charset="UTF-8" />
@@ -38,7 +38,8 @@
       iconConf = ${theme.config.desktop?.icons},
       bgMode = ${bgConf?.mode ?: 'preset'},
       bgPreset = ${bgConf?.preset ?: 'tahoe-dawn'},
-      enableThemeSetting = ${theme.config.desktop?.theme?.enable_frontend_setting != null ? theme.config.desktop?.theme?.enable_frontend_setting : true},
+      enableThemeSetting = ${theme.config.header?.theme?.enable_frontend_setting != null ? theme.config.header?.theme?.enable_frontend_setting : true},
+      headerLogoIcon = ${theme.config.header?.logo?.icon?.value ?: ''},
       desktopCustomIcons = ${theme.config.desktop?.icons?.custom_icons ?: {}},
       desktopCategories = ${theme.config.desktop?.icons?.categories ?: {}},
       desktopTags = ${theme.config.desktop?.icons?.tags ?: {}},
@@ -47,67 +48,96 @@
       rawMenuName = ${theme.config.dock?.source?.menu_name ?: 'primary'},
       dockShowLabels = ${theme.config.dock?.appearance?.show_labels != null ? theme.config.dock?.appearance?.show_labels : true},
       dockMagnification = ${theme.config.dock?.appearance?.magnification != null ? theme.config.dock?.appearance?.magnification : true},
-      dockMenu = ${!#strings.isEmpty(rawMenuName) ? menuFinder.getByName(rawMenuName) : menuFinder.getByName('primary')}">
+      headerMenuName = ${theme.config.header?.source?.menu_name ?: 'primary'},
+      headerMenu = ${!#strings.isEmpty(headerMenuName) ? menuFinder.getByName(headerMenuName) : menuFinder.getByName('primary')},
+      dockMenu = ${!#strings.isEmpty(rawMenuName) ? menuFinder.getByName(rawMenuName) : menuFinder.getByName('primary')},
+      desktopAppearance = ${theme.config.desktop?.appearance},
+      legacyCustomScheme = ${(desktopAppearance?.mode == null) and (desktopAppearance?.accent_color != null or desktopAppearance?.selection_color != null or desktopAppearance?.folder_color1 != null or desktopAppearance?.folder_color2 != null or desktopAppearance?.folder_color3 != null or desktopAppearance?.glass_light_color != null or desktopAppearance?.glass_dark_color != null)},
+      schemeMode = ${desktopAppearance?.mode ?: (legacyCustomScheme ? 'custom' : 'preset')},
+      schemePreset = ${desktopAppearance?.preset ?: 'blue'},
+      macAccent = ${desktopAppearance?.accent_color ?: '#2E5FBD'},
+      macSelection = ${desktopAppearance?.selection_color ?: '#244D9B'},
+      macFolder1 = ${desktopAppearance?.folder_color1 ?: '#4A90E2'},
+      macFolder2 = ${desktopAppearance?.folder_color2 ?: '#64B5F6'},
+      macFolder3 = ${desktopAppearance?.folder_color3 ?: '#90CAF9'},
+      macShellLight = ${desktopAppearance?.glass_light_color ?: '#FFFFFF'},
+      macShellDark = ${desktopAppearance?.glass_dark_color ?: '#141414'},
+      wallpaperClass = ${bgMode == 'preset' ? 'wallpaper-' + bgPreset : ''},
+      schemeClass = ${schemeMode == 'preset' ? 'scheme-' + schemePreset : 'scheme-custom'}">
 
   <body
     class="overflow-hidden m-0 p-0 text-white w-screen h-screen relative"
-    th:classappend="${bgMode == 'preset' ? 'wallpaper-' + bgPreset : ''}"
+    th:classappend="${#strings.isEmpty(wallpaperClass) ? schemeClass : wallpaperClass + ' ' + schemeClass}"
+    th:style="${schemeMode == 'custom' ? '--mac-accent:' + macAccent + ';--mac-selection:' + macSelection + ';--mac-folder1:' + macFolder1 + ';--mac-folder2:' + macFolder2 + ';--mac-folder3:' + macFolder3 + ';--mac-shell-light:' + macShellLight + ';--mac-shell-dark:' + macShellDark + ';' : ''}"
     th:styleappend="${bgMode == 'image' and bgConf?.image != null ? 'background:url(' + bgConf.image + ') center/cover no-repeat; background-color:#0f172a;' : (bgMode == 'solid' ? 'background-color:' + (bgConf?.solid_color ?: '#0f172a') + ';' : '')}"
   >
 
     <!-- ==================== MenuBar ==================== -->
-    <div class="menubar" x-data="menuBar">
-      <div class="flex items-center gap-1">
-        <span class="menubar-item text-base">&#63743;</span>
-        <span class="menubar-item font-bold" x-text="appName">Finder</span>
-        <span class="menubar-item hidden sm:block">File</span>
-        <span class="menubar-item hidden sm:block">Edit</span>
-        <span class="menubar-item hidden sm:block">View</span>
-        <span class="menubar-item hidden sm:block">Go</span>
-        <span class="menubar-item hidden sm:block">Window</span>
-        <span class="menubar-item hidden sm:block">Help</span>
+    <div class="menubar relative z-50 flex items-center justify-between px-3 h-7 bg-white/10 dark:bg-[#1c1c1e]/30 backdrop-blur-3xl saturate-[1.8] border-b border-white/10 antialiased transition-colors" x-data="menuBar">
+      
+      <!-- 左侧：系统菜单与主导航 -->
+      <div class="flex items-center text-[13.5px] font-medium tracking-tight text-white drop-shadow-md">
+        <!-- Apple Logo / 自定义 Logo -->
+        <a href="javascript:void(0)" class="px-[10px] h-[22px] mx-0.5 rounded-[4px] hover:bg-white/20 transition-colors text-base flex items-center justify-center gap-1" title="System">
+          <th:block th:if="${#strings.isEmpty(headerLogoIcon)}">
+            &#63743;
+          </th:block>
+          <th:block th:unless="${#strings.isEmpty(headerLogoIcon)}">
+            <span class="flex items-center justify-center w-[1.2em] h-[1.2em]" th:utext="${headerLogoIcon}"></span>
+          </th:block>
+        </a>
+        
+        <!-- 动态当前应用名 -->
+        <span class="px-2 h-[22px] flex items-center font-bold cursor-default drop-shadow-md" x-text="appName">Finder</span>
+
+        <!-- 动态渲染 Halo 后台菜单 (含二级下拉) -->
+        <th:block th:if="${headerMenu != null}">
+          <div th:each="menuItem : ${headerMenu.menuItems}" class="relative group" x-data="{ open: false }" @mouseenter="open = true" @mouseleave="open = false" @click.away="open = false">
+            <a th:href="${#lists.isEmpty(menuItem.children) ? menuItem.status.href : 'javascript:void(0)'}" 
+               th:target="${menuItem.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
+               class="hidden sm:inline-flex items-center px-[10px] h-[22px] mx-0.5 rounded-[4px] hover:bg-white/20 transition-none"
+               th:classappend="${#lists.isEmpty(menuItem.children) ? 'pjax-link' : ''}"
+               th:text="${menuItem.status.displayName}">
+            </a>
+            
+            <!-- macOS Panel 风格下拉菜单 -->
+            <div th:if="${!#lists.isEmpty(menuItem.children)}"
+                 x-show="open"
+                 x-transition:enter="transition ease-out duration-100"
+                 x-transition:enter-start="opacity-0 scale-95"
+                 x-transition:enter-end="opacity-100 scale-100"
+                 x-transition:leave="transition ease-in duration-75"
+                 x-transition:leave-start="opacity-100 scale-100"
+                 x-transition:leave-end="opacity-0 scale-95"
+                 style="display: none;"
+                 class="absolute top-[100%] left-0 mt-[1px] min-w-[240px] p-[6px] rounded-[10px] bg-black/20 dark:bg-[#1c1c1e]/60 backdrop-blur-3xl saturate-[1.8] border border-white/20 dark:border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] origin-top-left flex flex-col z-[100] drop-shadow-none">
+                 
+                 <a th:each="child : ${menuItem.children}"
+                    th:href="${child.status.href}"
+                    th:target="${child.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
+                    class="mac-accent-panel-item px-3 py-[3px] text-[13.5px] tracking-tight font-medium text-white drop-shadow-sm transition-none flex items-center justify-between rounded-[5px] pjax-link">
+                    <span th:text="${child.status.displayName}"></span>
+                 </a>
+            </div>
+          </div>
+        </th:block>
       </div>
-      <div class="flex items-center gap-1 font-medium text-xs">
-        <!-- 主题切换 (仿 macOS 控制中心毛玻璃面板) -->
-        <div class="menubar-icon-btn relative" x-data="{ open: false }" @click.away="open = false" th:if="${enableThemeSetting}">
-          <!-- 顶部状态栏的控制中心 Icon -->
-          <div @click="open = !open" title="控制中心" class="w-full h-full flex items-center justify-center">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="opacity-90"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-          </div>
-          <!-- 毛玻璃弹窗面板 -->
-          <div x-show="open" 
-               style="display: none;"
-               x-transition:enter="transition ease-out duration-200"
-               x-transition:enter-start="opacity-0 scale-95"
-               x-transition:enter-end="opacity-100 scale-100"
-               x-transition:leave="transition ease-in duration-100"
-               x-transition:leave-start="opacity-100 scale-100"
-               x-transition:leave-end="opacity-0 scale-95"
-               class="absolute top-full right-0 mt-3 p-3.5 rounded-2xl bg-white/60 dark:bg-[#1c1c1e]/60 backdrop-blur-3xl border border-white/40 dark:border-white/10 shadow-2xl flex flex-col gap-3 w-[260px] text-gray-800 dark:text-gray-200 origin-top-right cursor-default">
-             
-             <!-- 模块块结构：显示 (Display) -->
-             <div class="bg-white/50 dark:bg-white/10 rounded-xl p-3 shadow-sm border border-black/5 dark:border-white/5">
-                <div class="flex items-center justify-between mb-3 px-1">
-                    <span class="font-semibold text-xs text-gray-800 dark:text-gray-200">外观 (Appearance)</span>
-                    <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-                </div>
-                
-                <!-- macOS 式 Segmented Control -->
-                <div class="flex bg-black/5 dark:bg-black/30 rounded-lg p-0.5">
-                    <button class="flex-1 py-1 text-[11px] font-medium rounded-md transition-all duration-200" 
-                            :class="$store.theme.mode === 'light' ? 'bg-white dark:bg-[#3a3a3c] shadow-sm text-black dark:text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'" 
-                            @click="$store.theme.setMode('light')">浅色</button>
-                    <button class="flex-1 py-1 text-[11px] font-medium rounded-md transition-all duration-200" 
-                            :class="$store.theme.mode === 'dark' ? 'bg-white dark:bg-[#3a3a3c] shadow-sm text-black dark:text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'" 
-                            @click="$store.theme.setMode('dark')">深色</button>
-                    <button class="flex-1 py-1 text-[11px] font-medium rounded-md transition-all duration-200" 
-                            :class="$store.theme.mode === 'system' ? 'bg-white dark:bg-[#3a3a3c] shadow-sm text-black dark:text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'" 
-                            @click="$store.theme.setMode('system')">自动</button>
-                </div>
-             </div>
-          </div>
+
+      <!-- 右侧：控件与时间 -->
+      <div class="flex items-center gap-[6px] font-medium text-[13px] text-white drop-shadow-md">
+        <!-- Spotlight 全局搜索 (后续可绑定弹窗) -->
+        <div class="px-1.5 h-[22px] flex items-center justify-center rounded-[4px] hover:bg-white/20 transition-colors cursor-pointer" title="Search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
         </div>
-        <div class="menubar-item" x-text="timeStr"></div>
+
+        <!-- 主题切换 (极致原生精简缩放) -->
+        <button @click="$store.theme.setMode($store.theme.isDark ? 'light' : 'dark')" class="relative px-1.5 h-[22px] flex items-center justify-center rounded-[4px] transition-colors hover:bg-[color-mix(in_srgb,var(--mac-shell-light)_16%,transparent)] dark:hover:bg-[color-mix(in_srgb,var(--mac-shell-light)_14%,transparent)] text-white" th:if="${enableThemeSetting}" title="切换外观">
+            <svg x-show="!$store.theme.isDark" class="w-[14px] h-[14px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            <svg x-show="$store.theme.isDark" style="display: none;" class="w-[14px] h-[14px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+        
+        <!-- 时钟 -->
+        <div class="px-3 py-0.5 cursor-default truncate min-w-[120px] text-right" x-text="timeStr"></div>
       </div>
     </div>
 
@@ -133,9 +163,9 @@
             <!-- 1.2 分类或标签 (渲染为文件夹) -->
             <th:block th:if="${icon.type == 'folder'}">
               <svg viewBox="0 0 120 120" width="56" height="56" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-sm mx-auto">
-                <path fill="#4A90E2" d="M10 35 C10 30, 14 26, 19 26 L45 26 C48 26, 51 28, 53 30 L63 42 L101 42 C106 42, 110 46, 110 51 L110 95 C110 100, 106 104, 101 104 L10 104 Z" />
-                <path fill="#64B5F6" d="M10 48 C10 43, 14 39, 19 39 L101 39 C106 39, 110 43, 110 48 L110 95 C110 100, 106 104, 101 104 L10 104 Z" />
-                <path fill="#90CAF9" d="M10 48 C10 43, 14 39, 19 39 L101 39 C106 39, 110 43, 110 48 V50 C110 45, 106 41, 101 41 L19 41 C14 41, 10 45, 10 50 Z" />
+                <path fill="var(--mac-folder1)" d="M10 35 C10 30, 14 26, 19 26 L45 26 C48 26, 51 28, 53 30 L63 42 L101 42 C106 42, 110 46, 110 51 L110 95 C110 100, 106 104, 101 104 L10 104 Z" />
+                <path fill="var(--mac-folder2)" d="M10 48 C10 43, 14 39, 19 39 L101 39 C106 39, 110 43, 110 48 L110 95 C110 100, 106 104, 101 104 L10 104 Z" />
+                <path fill="var(--mac-folder3)" d="M10 48 C10 43, 14 39, 19 39 L101 39 C106 39, 110 43, 110 48 V50 C110 45, 106 41, 101 41 L19 41 C14 41, 10 45, 10 50 Z" />
               </svg>
             </th:block>
             
@@ -143,9 +173,9 @@
             <th:block th:if="${icon.type == 'link'}">
               <svg viewBox="0 0 120 120" width="56" height="56" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-sm mx-auto">
                 <circle cx="60" cy="60" r="48" fill="#ffffff" />
-                <circle cx="60" cy="60" r="44" fill="#0288D1" />
-                <path fill="none" stroke="#81D4FA" stroke-width="4" d="M60 16 C 30 16, 30 104, 60 104 C 90 104, 90 16, 60 16 Z" />
-                <path fill="none" stroke="#81D4FA" stroke-width="4" d="M18 60 L102 60 M27 35 L93 35 M27 85 L93 85 M60 16 V104" />
+                <circle cx="60" cy="60" r="44" fill="var(--mac-link-primary)" />
+                <path fill="none" stroke="var(--mac-link-secondary)" stroke-width="4" d="M60 16 C 30 16, 30 104, 60 104 C 90 104, 90 16, 60 16 Z" />
+                <path fill="none" stroke="var(--mac-link-secondary)" stroke-width="4" d="M18 60 L102 60 M27 35 L93 35 M27 85 L93 85 M60 16 V104" />
               </svg>
             </th:block>
 
@@ -160,9 +190,9 @@
           <a th:if="${category != null}" th:href="${category.status.permalink}" class="desktop-icon pjax-link block group" th:attr="data-id=${catName}" :class="{ 'selected': selectedId === $el.dataset.id }" @click="select($el.dataset.id)">
             <div class="desktop-icon-graphic">
               <svg viewBox="0 0 120 120" width="56" height="56" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-sm mx-auto">
-                <path fill="#4A90E2" d="M10 35 C10 30, 14 26, 19 26 L45 26 C48 26, 51 28, 53 30 L63 42 L101 42 C106 42, 110 46, 110 51 L110 95 C110 100, 106 104, 101 104 L10 104 Z" />
-                <path fill="#64B5F6" d="M10 48 C10 43, 14 39, 19 39 L101 39 C106 39, 110 43, 110 48 L110 95 C110 100, 106 104, 101 104 L10 104 Z" />
-                <path fill="#90CAF9" d="M10 48 C10 43, 14 39, 19 39 L101 39 C106 39, 110 43, 110 48 V50 C110 45, 106 41, 101 41 L19 41 C14 41, 10 45, 10 50 Z" />
+                <path fill="var(--mac-folder1)" d="M10 35 C10 30, 14 26, 19 26 L45 26 C48 26, 51 28, 53 30 L63 42 L101 42 C106 42, 110 46, 110 51 L110 95 C110 100, 106 104, 101 104 L10 104 Z" />
+                <path fill="var(--mac-folder2)" d="M10 48 C10 43, 14 39, 19 39 L101 39 C106 39, 110 43, 110 48 L110 95 C110 100, 106 104, 101 104 L10 104 Z" />
+                <path fill="var(--mac-folder3)" d="M10 48 C10 43, 14 39, 19 39 L101 39 C106 39, 110 43, 110 48 V50 C110 45, 106 41, 101 41 L19 41 C14 41, 10 45, 10 50 Z" />
               </svg>
             </div>
             <div class="desktop-icon-label" th:text="${category.spec.displayName}">Cat</div>
@@ -176,9 +206,9 @@
           <a th:if="${tag != null}" th:href="${tag.status.permalink}" class="desktop-icon pjax-link block group" th:attr="data-id=${tagName}" :class="{ 'selected': selectedId === $el.dataset.id }" @click="select($el.dataset.id)">
             <div class="desktop-icon-graphic">
               <svg viewBox="0 0 120 120" width="56" height="56" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-sm mx-auto">
-                <path fill="#4A90E2" d="M10 35 C10 30, 14 26, 19 26 L45 26 C48 26, 51 28, 53 30 L63 42 L101 42 C106 42, 110 46, 110 51 L110 95 C110 100, 106 104, 101 104 L10 104 Z" />
-                <path fill="#64B5F6" d="M10 48 C10 43, 14 39, 19 39 L101 39 C106 39, 110 43, 110 48 L110 95 C110 100, 106 104, 101 104 L10 104 Z" />
-                <path fill="#90CAF9" d="M10 48 C10 43, 14 39, 19 39 L101 39 C106 39, 110 43, 110 48 V50 C110 45, 106 41, 101 41 L19 41 C14 41, 10 45, 10 50 Z" />
+                <path fill="var(--mac-folder1)" d="M10 35 C10 30, 14 26, 19 26 L45 26 C48 26, 51 28, 53 30 L63 42 L101 42 C106 42, 110 46, 110 51 L110 95 C110 100, 106 104, 101 104 L10 104 Z" />
+                <path fill="var(--mac-folder2)" d="M10 48 C10 43, 14 39, 19 39 L101 39 C106 39, 110 43, 110 48 L110 95 C110 100, 106 104, 101 104 L10 104 Z" />
+                <path fill="var(--mac-folder3)" d="M10 48 C10 43, 14 39, 19 39 L101 39 C106 39, 110 43, 110 48 V50 C110 45, 106 41, 101 41 L19 41 C14 41, 10 45, 10 50 Z" />
               </svg>
             </div>
             <div class="desktop-icon-label" th:text="${tag.spec.displayName}">Tag</div>
@@ -235,7 +265,7 @@
          style="display: none;">
       
       <!-- Safari 极简交互窗口 (支持桌面端拖拽与缩放) -->
-      <div class="macos-window flex flex-col pointer-events-auto shadow-2xl relative md:absolute w-full h-full md:w-auto md:h-auto max-w-[1200px] md:min-w-[400px] md:min-h-[400px] rounded-none md:rounded-xl overflow-hidden bg-white/80 dark:bg-[#1c1c1e]/60 backdrop-blur-3xl md:border border-black/10 dark:border-white/10 origin-center"
+      <div class="macos-window flex flex-col pointer-events-auto shadow-[0_20px_60px_rgba(0,0,0,0.3)] dark:shadow-[0_30px_80px_rgba(0,0,0,0.5)] relative md:absolute w-full h-full md:w-auto md:h-auto max-w-[1200px] md:min-w-[400px] md:min-h-[400px] rounded-none md:rounded-[14px] overflow-hidden bg-white/80 dark:bg-[#1c1c1e]/60 backdrop-blur-3xl md:border border-black/10 dark:border-white/10 origin-center"
            x-data="draggableWindow"
            @mousemove.window="onDragMove"
            @mouseup.window="onDragEnd"
@@ -247,7 +277,7 @@
            x-transition:leave-end="opacity-0 md:scale-95">
          
         <!-- macOS 拟真统一窗口标题栏 (双端继承 macOS 美学) -->
-        <div class="window-titlebar absolute top-0 left-0 w-full z-50 h-[48px] md:h-[52px] flex items-center px-3 md:px-4 bg-[#f4f5f5]/80 dark:bg-[#2c2c2e]/70 backdrop-blur-3xl border-b border-black/10 dark:border-white/5 text-gray-800 dark:text-gray-200 transition-all font-sans" style="-webkit-backdrop-filter: blur(30px) saturate(150%); backdrop-filter: blur(30px) saturate(150%);"
+        <div class="window-titlebar relative w-full z-50 h-[48px] md:h-[52px] shrink-0 flex items-center px-3 md:px-4 bg-[#f4f5f5]/80 dark:bg-[#2c2c2e]/70 backdrop-blur-3xl border-b border-black/10 dark:border-white/5 text-gray-800 dark:text-gray-200 transition-all font-sans" style="-webkit-backdrop-filter: blur(30px) saturate(150%); backdrop-filter: blur(30px) saturate(150%);"
              x-data="{ path: window.location.pathname, host: window.location.host, title: document.title }" 
              @pjax:complete.window="path = window.location.pathname; title = document.title; host = window.location.host"
              @mousedown="onDragStart">
@@ -291,14 +321,14 @@
                 </div>
 
                 <!-- 分享 (原生 macOS sheet API 调起) -->
-                <button @click="if (navigator.share) { navigator.share({ title: document.title, url: window.location.href }) } else { navigator.clipboard.writeText(window.location.href); alert('链接已复制到剪贴板！') }" class="hover:bg-gray-200/60 dark:hover:bg-gray-700/60 p-1.5 rounded-md transition-colors text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400" title="分享">
+                <button @click="if (navigator.share) { navigator.share({ title: document.title, url: window.location.href }) } else { navigator.clipboard.writeText(window.location.href); alert('链接已复制到剪贴板！') }" class="window-accent-action hover:bg-gray-200/60 dark:hover:bg-gray-700/60 p-1.5 rounded-md transition-colors text-gray-500 dark:text-gray-400" title="分享">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
                 </button>
             </div>
         </div>
 
         <!-- 内部正文 (PJAX 容器) -->
-        <div class="window-body w-full h-full overflow-y-auto relative bg-white/90 dark:bg-black/40 select-text">
+        <div class="window-body w-full flex-1 overflow-y-auto relative bg-white/90 dark:bg-black/40 select-text">
             <!-- Pjax 的局部无刷新刷新范围死死框定在这里，外壳永远静止 -->
             <div id="pjax-container" class="w-full min-h-full">
                 <!-- SSR 渲染的正文注入 -->
@@ -324,7 +354,7 @@
               <!-- 改为 PJAX <a> 链接 -->
               <a class="dock-icon pjax-link group"
                  th:href="${menuItem.status.href}"
-                 th:style="${iconType != 'image' and !#strings.isEmpty(bgColor)} ? 'background-color:' + ${bgColor} : (${#strings.isEmpty(bgColor) and iconType != 'image'} ? 'background: rgba(255,255,255,0.15)' : '')"
+                 th:style="${iconType != 'image' and !#strings.isEmpty(bgColor) ? 'background-color:' + bgColor : ''}"
                  th:title="${menuItem.status.displayName}">
 
                 <!-- Tooltip -->

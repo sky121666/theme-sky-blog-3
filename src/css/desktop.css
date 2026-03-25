@@ -23,6 +23,101 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+body {
+  --mac-accent: #2e5fbd;
+  --mac-selection: #244d9b;
+  --mac-folder1: #4a90e2;
+  --mac-folder2: #64b5f6;
+  --mac-folder3: #90caf9;
+  --mac-shell-light: #ffffff;
+  --mac-shell-dark: #141414;
+  --mac-link-primary: var(--mac-accent);
+  --mac-link-secondary: color-mix(in srgb, var(--mac-accent) 12%, white);
+  --mac-accent-surface: color-mix(in srgb, var(--mac-accent) 88%, black);
+  --mac-accent-surface-dark: color-mix(in srgb, var(--mac-accent) 76%, black);
+  --mac-wallpaper-overlay: rgba(0, 0, 0, 0.2);
+}
+
+body.scheme-blue {
+  --mac-accent: #2e5fbd;
+  --mac-selection: #244d9b;
+  --mac-folder1: #4a90e2;
+  --mac-folder2: #64b5f6;
+  --mac-folder3: #90caf9;
+  --mac-shell-light: #ffffff;
+  --mac-shell-dark: #141414;
+}
+
+body.scheme-purple {
+  --mac-accent: #6555b5;
+  --mac-selection: #53469b;
+  --mac-folder1: #8a7bf4;
+  --mac-folder2: #aa9bff;
+  --mac-folder3: #cdc1ff;
+  --mac-shell-light: #faf7ff;
+  --mac-shell-dark: #1a1527;
+}
+
+body.scheme-pink {
+  --mac-accent: #bd557c;
+  --mac-selection: #9e4668;
+  --mac-folder1: #ff78b6;
+  --mac-folder2: #ff9bca;
+  --mac-folder3: #ffc7df;
+  --mac-shell-light: #fff7fb;
+  --mac-shell-dark: #26131d;
+}
+
+body.scheme-red {
+  --mac-accent: #b0525b;
+  --mac-selection: #94434b;
+  --mac-folder1: #f26977;
+  --mac-folder2: #ff92a0;
+  --mac-folder3: #ffc1ca;
+  --mac-shell-light: #fff7f7;
+  --mac-shell-dark: #251315;
+}
+
+body.scheme-orange {
+  --mac-accent: #ad7339;
+  --mac-selection: #925f2c;
+  --mac-folder1: #f5a43f;
+  --mac-folder2: #ffc26f;
+  --mac-folder3: #ffddaf;
+  --mac-shell-light: #fff8f2;
+  --mac-shell-dark: #24180f;
+}
+
+body.scheme-yellow {
+  --mac-accent: #948041;
+  --mac-selection: #7d6c31;
+  --mac-folder1: #e2b84b;
+  --mac-folder2: #efcf78;
+  --mac-folder3: #f8e8b0;
+  --mac-shell-light: #fffbee;
+  --mac-shell-dark: #252010;
+}
+
+body.scheme-green {
+  --mac-accent: #427e59;
+  --mac-selection: #366749;
+  --mac-folder1: #49ba74;
+  --mac-folder2: #72d39a;
+  --mac-folder3: #b7efc9;
+  --mac-shell-light: #f4fff7;
+  --mac-shell-dark: #102116;
+}
+
+body.scheme-graphite {
+  --mac-accent: #656c75;
+  --mac-selection: #535962;
+  --mac-folder1: #6f86a4;
+  --mac-folder2: #92a4bd;
+  --mac-folder3: #bfccdb;
+  --mac-shell-light: #f4f5f7;
+  --mac-shell-dark: #17181b;
+}
+
 [x-cloak] {
   display: none !important;
 }
@@ -50,7 +145,7 @@ body::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(0,0,0,0.2);
+  background: var(--mac-wallpaper-overlay);
   z-index: 0;
   pointer-events: none;
   transition: background 0.3s ease;
@@ -61,10 +156,10 @@ body::before {
   position: fixed;
   top: 0; left: 0; right: 0;
   height: 28px;
-  background: rgba(255,255,255,0.25);
+  background: color-mix(in srgb, var(--mac-shell-light) 25%, transparent);
   backdrop-filter: blur(50px);
   -webkit-backdrop-filter: blur(50px);
-  border-bottom: 1px solid rgba(255,255,255,0.2);
+  border-bottom: 1px solid color-mix(in srgb, var(--mac-shell-light) 28%, transparent);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -85,7 +180,7 @@ body::before {
   transition: background 0.1s ease;
 }
 .menubar-item:hover, .menubar-icon-btn:hover {
-  background: rgba(255,255,255,0.15);
+  background: color-mix(in srgb, var(--mac-shell-light) 16%, transparent);
 }
 .menubar-icon-btn {
   padding: 0 6px;
@@ -99,12 +194,12 @@ body::before {
 
 /* 顶部菜单栏 暗色适配 */
 .dark .menubar {
-  background: rgba(20, 20, 20, 0.25);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+  background: color-mix(in srgb, var(--mac-shell-dark) 30%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, black 22%, transparent);
   color: #e5e7eb;
 }
 .dark .menubar-item:hover, .dark .menubar-icon-btn:hover {
-  background: rgba(255,255,255,0.15);
+  background: color-mix(in srgb, var(--mac-shell-light) 14%, transparent);
 }
 
 /* ---------- 多任务程序坞 (极致纯 CSS 版) ---------- */
@@ -123,20 +218,20 @@ body::before {
   left: 0;
   right: 0;
   height: 64px; /* Default unscaled height */
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.25);
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--mac-shell-light) 24%, transparent);
   backdrop-filter: blur(60px);
   -webkit-backdrop-filter: blur(60px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-bottom-color: rgba(255, 255, 255, 0.15);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.4);
+  border: 1px solid color-mix(in srgb, var(--mac-shell-light) 34%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--mac-shell-light) 18%, transparent);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.25), inset 0 1px 0 color-mix(in srgb, var(--mac-shell-light) 50%, transparent);
   z-index: 0;
 }
 .dark .dock-glass {
-  background: rgba(20, 20, 20, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-bottom-color: rgba(0, 0, 0, 0.15);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.1);
+  background: color-mix(in srgb, var(--mac-shell-dark) 38%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mac-shell-light) 12%, transparent);
+  border-bottom-color: color-mix(in srgb, black 22%, transparent);
+  box-shadow: 0 25px 50px rgba(0,0,0,0.45), inset 0 1px 0 color-mix(in srgb, var(--mac-shell-light) 15%, transparent);
 }
 .dock-bar {
   display: flex;
@@ -151,14 +246,15 @@ body::before {
 .dock-icon {
   width: 48px;
   height: 48px;
-  border-radius: 12px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   position: relative;
-  border: 1px solid rgba(255,255,255,0.15);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  background: color-mix(in srgb, var(--mac-shell-light) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mac-shell-light) 14%, transparent);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.25);
   transform-origin: bottom center;
 }
 /* 当 JS 退出作用域时，由本类接管平滑回落的动画 */
@@ -169,7 +265,12 @@ body::before {
 }
 
 .dock-icon:hover {
-  box-shadow: 0 12px 24px rgba(0,0,0,0.4);
+  box-shadow: 0 16px 32px rgba(0,0,0,0.45);
+}
+
+.dark .dock-icon {
+  background: color-mix(in srgb, var(--mac-shell-light) 12%, transparent);
+  border-color: color-mix(in srgb, var(--mac-shell-light) 10%, transparent);
 }
 
 .dock-icon-svg {
@@ -196,7 +297,7 @@ body::before {
   bottom: calc(100% + 14px);
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(10,10,10,0.85);
+  background: color-mix(in srgb, var(--mac-shell-dark) 84%, transparent);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   color: #fff;
@@ -207,15 +308,15 @@ body::before {
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
-  border: 1px solid rgba(255,255,255,0.15);
+  border: 1px solid color-mix(in srgb, var(--mac-shell-light) 15%, transparent);
   transition: opacity 0.2s cubic-bezier(0.25, 1, 0.5, 1);
   box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
 .dock-icon:hover .dock-tooltip { opacity: 1; }
 .dark .dock-tooltip {
-  background: rgba(255,255,255,0.85);
+  background: color-mix(in srgb, var(--mac-shell-light) 86%, transparent);
   color: #111;
-  border: 1px solid rgba(0,0,0,0.15);
+  border: 1px solid color-mix(in srgb, black 15%, transparent);
   box-shadow: 0 4px 12px rgba(255,255,255,0.1);
 }
 
@@ -227,7 +328,12 @@ body::before {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.45);
+  background: color-mix(in srgb, var(--mac-accent) 38%, black);
+  box-shadow: 0 1px 1px rgba(255,255,255,0.2);
+}
+.dark .dock-dot {
+  background: color-mix(in srgb, var(--mac-accent) 48%, white);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
 
 /* ---------- 桌面图标 (Desktop Icons) ---------- */
@@ -283,27 +389,69 @@ body::before {
 
 /* Hover 与选中状态还原真实的 macOS */
 .desktop-icon:hover {
-  background: rgba(255,255,255,0.08);
+  background: color-mix(in srgb, var(--mac-shell-light) 10%, transparent);
 }
 .desktop-icon.selected {
-  background: rgba(0, 0, 0, 0.15);
-  border-color: rgba(255,255,255,0.05);
+  background: color-mix(in srgb, var(--mac-shell-dark) 22%, transparent);
+  border-color: color-mix(in srgb, var(--mac-shell-light) 10%, transparent);
 }
 .desktop-icon.selected .desktop-icon-label {
-  background: rgba(0, 88, 208, 0.95);
+  background: color-mix(in srgb, var(--mac-selection) 82%, #0f172a);
   color: #fff;
   text-shadow: none;
 }
 .dark .desktop-icon:hover {
-  background: rgba(255,255,255,0.12);
+  background: color-mix(in srgb, var(--mac-shell-light) 14%, transparent);
 }
 .dark .desktop-icon.selected {
-  background: rgba(255,255,255,0.2);
-  border-color: rgba(255,255,255,0.1);
+  background: color-mix(in srgb, var(--mac-shell-light) 18%, transparent);
+  border-color: color-mix(in srgb, var(--mac-shell-light) 12%, transparent);
 }
 .dark .desktop-icon-label {
   color: #e5e7eb;
   text-shadow: 0 1px 3px rgba(0,0,0,1), 0 0 1px rgba(0,0,0,0.8);
+}
+
+.macos-window {
+  background: color-mix(in srgb, var(--mac-shell-light) 80%, transparent);
+  border-color: color-mix(in srgb, black 10%, transparent);
+}
+
+.dark .macos-window {
+  background: color-mix(in srgb, var(--mac-shell-dark) 62%, transparent);
+  border-color: color-mix(in srgb, var(--mac-shell-light) 10%, transparent);
+}
+
+.window-titlebar {
+  background: color-mix(in srgb, var(--mac-shell-light) 82%, transparent) !important;
+  border-bottom-color: color-mix(in srgb, black 10%, transparent) !important;
+}
+
+.dark .window-titlebar {
+  background: color-mix(in srgb, var(--mac-shell-dark) 72%, transparent) !important;
+  border-bottom-color: color-mix(in srgb, var(--mac-shell-light) 5%, transparent) !important;
+}
+
+.window-body {
+  background: color-mix(in srgb, var(--mac-shell-light) 90%, transparent);
+}
+
+.dark .window-body {
+  background: color-mix(in srgb, var(--mac-shell-dark) 48%, transparent);
+}
+
+.mac-accent-panel-item:hover {
+  background: var(--mac-accent-surface);
+  color: #fff;
+}
+
+.dark .mac-accent-panel-item:hover {
+  background: var(--mac-accent-surface-dark);
+  color: #fff;
+}
+
+.window-accent-action:hover {
+  color: color-mix(in srgb, var(--mac-accent) 82%, currentColor) !important;
 }
 
 /* ---------- 还原纯净的 macOS 阴影与基础组件 ---------- */
@@ -323,13 +471,13 @@ body::before {
 
 /* 针对 PJAX 加载的进度条 (nprogress) 魔改苹果蓝 */
 #nprogress .bar {
-  background: #007aff !important;
+  background: var(--mac-accent) !important;
   height: 3px !important;
 }
 #nprogress .peg {
-  box-shadow: 0 0 10px #007aff, 0 0 5px #007aff !important;
+  box-shadow: 0 0 10px var(--mac-accent), 0 0 5px var(--mac-accent) !important;
 }
 #nprogress .spinner-icon {
-  border-top-color: #007aff !important;
-  border-left-color: #007aff !important;
+  border-top-color: var(--mac-accent) !important;
+  border-left-color: var(--mac-accent) !important;
 }
