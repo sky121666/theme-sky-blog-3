@@ -173,7 +173,7 @@ spec:
           label: 桌面背景
           value:
             mode: preset
-            image: ""
+            image_url: ""
             solid_color: "#0f172a"
             preset: tahoe-dawn
           children:
@@ -210,7 +210,7 @@ spec:
             - $formkit: attachment
               id: desktop_background_image
               key: desktop_background_image_field
-              name: image
+              name: image_url
               label: 桌面背景图
               value: ""
               help: 上传桌面背景图。推荐横向高清图片，避免过小图片被拉伸后失真。

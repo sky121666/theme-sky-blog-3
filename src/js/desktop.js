@@ -20,8 +20,6 @@ function stripClonedIdsAndAlpine(node) {
 function createGenieGhost(sourceWindowEl) {
   const ghostWrapper = document.createElement('div');
   const ghostInner = sourceWindowEl.cloneNode(true);
-  const ghostTitleBar = ghostInner.querySelector('.window-titlebar');
-  const sourceTitleBar = sourceWindowEl.querySelector('.window-titlebar');
 
   stripClonedIdsAndAlpine(ghostInner);
 
@@ -36,8 +34,7 @@ function createGenieGhost(sourceWindowEl) {
     height: '0px',
     zIndex: '10001',
     pointerEvents: 'none',
-    overflow: 'visible',
-    willChange: 'transform'
+    overflow: 'visible'
   });
 
   Object.assign(ghostInner.style, {
@@ -50,20 +47,8 @@ function createGenieGhost(sourceWindowEl) {
     resize: 'none',
     pointerEvents: 'none',
     visibility: 'visible',
-    overflow: 'hidden',
-    willChange: 'transform',
-    backdropFilter: 'none',
-    WebkitBackdropFilter: 'none',
-    backgroundColor: window.getComputedStyle(sourceWindowEl).backgroundColor
+    overflow: 'hidden'
   });
-
-  if (ghostTitleBar && sourceTitleBar) {
-    const sourceTitleBarStyle = window.getComputedStyle(sourceTitleBar);
-    ghostTitleBar.style.backdropFilter = 'none';
-    ghostTitleBar.style.webkitBackdropFilter = 'none';
-    ghostTitleBar.style.backgroundColor = sourceTitleBarStyle.backgroundColor;
-    ghostTitleBar.style.willChange = 'transform';
-  }
 
   ghostWrapper.appendChild(ghostInner);
   document.body.appendChild(ghostWrapper);
@@ -332,15 +317,20 @@ export function registerComponents(Alpine) {
         return;
       }
 
-      // 先剔除原窗口，再由替身独立演出，避免标题栏单独漏帧
-      winEl.style.visibility = 'hidden';
-      winEl.style.pointerEvents = 'none';
-
+      // 强行同步剔除原身视觉残留，只保留替身演出
       const animPromise = runGenieAnimation({
         windowEl: winEl,
         dockEl: dockIcon,
         action: 'minimize'
       });
+      winEl.style.visibility = 'hidden';
+      // 修复 titlebar 的独立合成层残留 bug
+      const titlebar = winEl.querySelector('.window-titlebar');
+      if (titlebar) {
+        titlebar.style.opacity = '0';
+        titlebar.style.backdropFilter = 'none';
+        titlebar.style.webkitBackdropFilter = 'none';
+      }
 
       const animated = await animPromise;
 
@@ -377,6 +367,14 @@ export function registerComponents(Alpine) {
 
          winEl.style.visibility = 'visible';
          winEl.style.pointerEvents = 'auto';
+         
+         const titlebar = winEl.querySelector('.window-titlebar');
+         if (titlebar) {
+           titlebar.style.opacity = '';
+           titlebar.style.backdropFilter = '';
+           titlebar.style.webkitBackdropFilter = '';
+         }
+         
          this.minimized = false;
          this.isAnimating = false;
          this.sync();
