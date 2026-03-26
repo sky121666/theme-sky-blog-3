@@ -6,6 +6,7 @@
 
 /* ===== CSS ===== */
 import './css/desktop.css';
+import './css/post.css';
 
 /* ===== JS：Alpine.js ===== */
 import Alpine from 'alpinejs';

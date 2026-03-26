@@ -6,24 +6,27 @@
         ssrContent = ~{::ssrBlock}
       )}">
   <th:block th:fragment="ssrBlock">
-    <div class="max-w-3xl mx-auto px-6 md:px-12 py-10 md:py-16">
-      <div class="mb-14 text-center">
-        <h1 class="text-3xl md:text-5xl font-bold tracking-tight text-gray-900 mb-6" th:text="${page.spec.title}"></h1>
-      </div>
-      
-      <!-- 官方 Typography 高阶文本直出 -->
-      <article class="prose prose-lg md:prose-xl prose-slate max-w-none prose-img:rounded-2xl prose-img:shadow-lg prose-a:text-blue-600 hover:prose-a:text-blue-500"
-               th:utext="${page.content.content}">
-      </article>
-      
-      <!-- 评论区容器 -->
-      <div class="mt-16 pt-8 border-t border-gray-100" th:if="${pluginFinder.available('PluginCommentWidget')}">
-          <halo:comment
-              group="content.halo.run"
-              kind="SinglePage"
-              th:attr="name=${page.metadata.name}"
-              colorScheme="light"
-          />
+    <div class="post-reader-shell">
+      <div class="post-reader-frame">
+        <header class="post-header">
+          <div class="post-kicker">Page</div>
+          <h1 class="post-title" th:text="${page.spec.title}"></h1>
+          <p class="post-summary" th:if="${!#strings.isEmpty(page.status.excerpt)}" th:text="${page.status.excerpt}"></p>
+        </header>
+
+        <article id="article-content" class="post-content" th:utext="${page.content.content}"></article>
+
+        <section id="post-comments" class="post-comments" th:if="${pluginFinder.available('PluginCommentWidget')}">
+          <h2 class="post-comments-title">评论</h2>
+          <div class="post-comments-shell">
+            <halo:comment
+                group="content.halo.run"
+                kind="SinglePage"
+                th:attr="name=${page.metadata.name}"
+                colorScheme="light"
+            />
+          </div>
+        </section>
       </div>
     </div>
   </th:block>

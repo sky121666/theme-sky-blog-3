@@ -6,39 +6,35 @@
         ssrContent = ~{::ssrBlock}
       )}">
   <th:block th:fragment="ssrBlock">
-    <!-- macOS 极致文章阅读容器 -->
-    <div class="max-w-3xl mx-auto px-5 md:px-8 py-12 md:py-20">
-      
-      <!-- 文章头部大标题 -->
-      <header class="mb-12 text-center">
-        <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight text-gray-900 mb-6 leading-tight" 
-            th:text="${post.spec.title}"></h1>
-        
-        <div class="flex items-center justify-center gap-4 text-sm text-gray-500 font-medium">
-          <div class="flex items-center gap-1.5 hover:text-gray-700 transition-colors">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-            <span th:text="${post.owner.displayName}">Author</span>
-          </div>
-          <div class="flex items-center gap-1.5 hover:text-gray-700 transition-colors">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-            <time th:text="${#dates.format(post.spec.publishTime, 'yyyy年MM月dd日')}"></time>
-          </div>
-        </div>
-      </header>
-      
-      <!-- 官方 Tailwind Typography 接管排版 -->
-      <article class="prose prose-slate prose-lg md:prose-xl max-w-none text-gray-800 prose-headings:font-bold prose-a:text-blue-600 hover:prose-a:text-blue-500 prose-img:rounded-xl prose-img:shadow-md" 
-               th:utext="${post.content.content}">
-      </article>
+    <div class="post-reader-shell">
+      <div class="post-reader-frame" th:attr="data-post-name=${post.metadata.name}">
+        <header class="post-header">
+          <div class="post-kicker">Reader</div>
+          <h1 class="post-title" th:text="${post.spec.title}"></h1>
 
-      <!-- 文章末围与评论区 -->
-      <section class="mt-20 pt-12 border-t border-gray-200/60">
-        <h3 class="text-2xl font-bold text-gray-900 mb-8 tracking-tight">评论</h3>
-        <div class="bg-gray-50/50 rounded-2xl p-4 md:p-6 border border-gray-100">
-           <halo:comment group="content.halo.run" kind="Post" th:attr="name=${post.metadata.name}"/>
-        </div>
-      </section>
-      
+          <div class="post-meta">
+            <div class="post-meta-item">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+              <span th:text="${post.owner.displayName}">Author</span>
+            </div>
+            <div class="post-meta-item">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+              <time th:text="${#dates.format(post.spec.publishTime, 'yyyy年MM月dd日')}"></time>
+            </div>
+          </div>
+
+          <p class="post-summary" th:if="${!#strings.isEmpty(post.status.excerpt)}" th:text="${post.status.excerpt}"></p>
+        </header>
+
+        <article id="article-content" class="post-content" th:utext="${post.content.content}"></article>
+
+        <section id="post-comments" class="post-comments">
+          <h2 class="post-comments-title">评论</h2>
+          <div class="post-comments-shell">
+            <halo:comment group="content.halo.run" kind="Post" th:attr="name=${post.metadata.name}"/>
+          </div>
+        </section>
+      </div>
     </div>
   </th:block>
 </html>
