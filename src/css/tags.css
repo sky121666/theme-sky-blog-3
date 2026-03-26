@@ -670,6 +670,12 @@
   text-decoration: none;
 }
 
+.tag-page-btn {
+  appearance: none;
+  cursor: pointer;
+  font: inherit;
+}
+
 .tag-page-btn.is-disabled {
   pointer-events: none;
   opacity: 0.42;

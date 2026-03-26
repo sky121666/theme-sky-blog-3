@@ -573,6 +573,7 @@ export function registerComponents(Alpine) {
 
   Alpine.data('tagsExplorer', () => ({
     activeTagKey: '',
+    activeTagPage: 1,
     activeTagName: '',
     activeTagHref: '',
     activeTagCount: '',
@@ -589,20 +590,44 @@ export function registerComponents(Alpine) {
 
     selectTag(key, name, href, count, color, cover) {
       this.activeTagKey = key || '';
+      this.activeTagPage = 1;
       this.activeTagName = name || '';
       this.activeTagHref = href || '';
       this.activeTagCount = count || '';
       this.activeTagColor = color || '';
       this.activeTagCover = cover || '';
+      this.syncTagPosts();
+    },
 
+    selectTagPage(page) {
+      const nextPage = Number(page) || 1;
+      if (nextPage < 1) return;
+      this.activeTagPage = nextPage;
+      this.syncTagPosts();
+    },
+
+    syncTagPosts() {
       const firstPost = Array.from(this.$root.querySelectorAll('[data-tags-post-option]'))
-        .find((el) => el.dataset.parentTagKey === this.activeTagKey);
+        .find((el) => (
+          el.dataset.parentTagKey === this.activeTagKey &&
+          Number(el.dataset.tagPage || '1') === this.activeTagPage
+        ));
 
       if (firstPost) {
         this.selectPost(firstPost.dataset.postKey, firstPost.dataset.postTitle);
       } else {
         this.activePostKey = '';
         this.activePostTitle = '';
+      }
+
+      const postsScroll = this.$root.querySelector('.tag-posts-scroll');
+      if (postsScroll) {
+        postsScroll.scrollTop = 0;
+      }
+
+      const previewScroll = this.$root.querySelector('.tags-preview-scroll');
+      if (previewScroll) {
+        previewScroll.scrollTop = 0;
       }
     },
 
@@ -618,6 +643,95 @@ export function registerComponents(Alpine) {
 
     init() {
       const firstPost = this.$root.querySelector('[data-tag-post-option]');
+      if (!firstPost) return;
+      this.selectPost(firstPost.dataset.postKey, firstPost.dataset.postTitle);
+    },
+
+    selectPost(postKey, title) {
+      this.activePostKey = postKey || '';
+      this.activePostTitle = title || '';
+    }
+  }));
+
+  Alpine.data('categoriesExplorer', () => ({
+    activeCategoryKey: '',
+    activeCategoryPage: 1,
+    activeCategoryName: '',
+    activeCategoryHref: '',
+    activeCategoryCount: '',
+    activeCategoryDescription: '',
+    activeCategoryCover: '',
+    activePostKey: '',
+    activePostTitle: '',
+
+    init() {
+      const firstCategory = this.$root.querySelector('[data-categories-folder]');
+      if (!firstCategory) return;
+      this.selectCategory(
+        firstCategory.dataset.categoryKey,
+        firstCategory.dataset.categoryName,
+        firstCategory.dataset.categoryHref,
+        firstCategory.dataset.categoryCount,
+        firstCategory.dataset.categoryDescription,
+        firstCategory.dataset.categoryCover
+      );
+    },
+
+    selectCategory(key, name, href, count, description, cover) {
+      this.activeCategoryKey = key || '';
+      this.activeCategoryPage = 1;
+      this.activeCategoryName = name || '';
+      this.activeCategoryHref = href || '';
+      this.activeCategoryCount = count || '';
+      this.activeCategoryDescription = description || '';
+      this.activeCategoryCover = cover || '';
+      this.syncCategoryPosts();
+    },
+
+    selectCategoryPage(page) {
+      const nextPage = Number(page) || 1;
+      if (nextPage < 1) return;
+      this.activeCategoryPage = nextPage;
+      this.syncCategoryPosts();
+    },
+
+    syncCategoryPosts() {
+      const firstPost = Array.from(this.$root.querySelectorAll('[data-categories-post-option]'))
+        .find((el) => (
+          el.dataset.parentCategoryKey === this.activeCategoryKey &&
+          Number(el.dataset.categoryPage || '1') === this.activeCategoryPage
+        ));
+
+      if (firstPost) {
+        this.selectPost(firstPost.dataset.postKey, firstPost.dataset.postTitle);
+      } else {
+        this.activePostKey = '';
+        this.activePostTitle = '';
+      }
+
+      const postsScroll = this.$root.querySelector('.category-posts-scroll');
+      if (postsScroll) {
+        postsScroll.scrollTop = 0;
+      }
+
+      const previewScroll = this.$root.querySelector('.categories-preview-scroll');
+      if (previewScroll) {
+        previewScroll.scrollTop = 0;
+      }
+    },
+
+    selectPost(postKey, title) {
+      this.activePostKey = postKey || '';
+      this.activePostTitle = title || '';
+    }
+  }));
+
+  Alpine.data('categoryPostsExplorer', () => ({
+    activePostKey: '',
+    activePostTitle: '',
+
+    init() {
+      const firstPost = this.$root.querySelector('[data-category-post-option]');
       if (!firstPost) return;
       this.selectPost(firstPost.dataset.postKey, firstPost.dataset.postTitle);
     },

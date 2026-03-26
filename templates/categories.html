@@ -2,32 +2,223 @@
 <html xmlns:th="https://www.thymeleaf.org"
       th:replace="~{modules/layout :: html(
         title = '所有分类 - ' + ${site.title},
-        description = '',
+        description = '以 Finder 风格浏览 ' + ${site.title} + ' 的全部文章分类',
         ssrContent = ~{::ssrBlock}
       )}">
+  <th:block th:fragment="categorySidebar(categories, depth)">
+    <th:block th:with="currentDepth=${depth != null ? depth : 0}">
+      <th:block th:each="item : ${categories}">
+        <button type="button"
+                class="categories-sidebar-item"
+                data-categories-folder
+                th:style="'--category-depth:' + ${currentDepth}"
+                th:attr="data-category-key=${item.metadata.name},data-category-name=${item.spec.displayName},data-category-href=${item.status.permalink},data-category-count=${item.postCount},data-category-description=${item.spec.description},data-category-cover=${item.spec.cover}"
+                @click="selectCategory($el.dataset.categoryKey, $el.dataset.categoryName, $el.dataset.categoryHref, $el.dataset.categoryCount, $el.dataset.categoryDescription, $el.dataset.categoryCover)"
+                :class="{ 'is-active': activeCategoryKey === $el.dataset.categoryKey }">
+          <svg class="categories-folder-icon categories-folder-icon--sidebar" viewBox="0 0 20 16" fill="none" aria-hidden="true">
+            <path d="M1.5 4.25C1.5 3.00736 2.50736 2 3.75 2H7.375C7.94958 2 8.50106 2.22076 8.91529 2.61612L10.0897 3.75H16.25C17.4926 3.75 18.5 4.75736 18.5 6V11.75C18.5 12.9926 17.4926 14 16.25 14H3.75C2.50736 14 1.5 12.9926 1.5 11.75V4.25Z" fill="currentColor"/>
+          </svg>
+          <span class="categories-sidebar-label" th:text="${item.spec.displayName}">分类</span>
+        </button>
+
+        <th:block th:if="${not #lists.isEmpty(item.children)}"
+                  th:replace="~{::categorySidebar(categories=${item.children}, depth=${currentDepth + 1})}"></th:block>
+      </th:block>
+    </th:block>
+  </th:block>
+
+  <th:block th:fragment="categoryPostPanels(categories)">
+    <th:block th:with="categoryPageSize=${site.post != null and site.post.categoryPageSize != null ? site.post.categoryPageSize : 10}">
+      <th:block th:each="item : ${categories}">
+        <th:block th:with="categoryPostsMeta = ${postFinder.list({
+        page: 1,
+        size: categoryPageSize,
+        categoryName: item.metadata.name,
+        sort: {'spec.publishTime,desc'}
+      })}, pageCount=${categoryPostsMeta.totalPages > 0 ? categoryPostsMeta.totalPages : 1}">
+          <th:block th:each="pageNumber : ${#numbers.sequence(1, pageCount)}">
+            <th:block th:with="categoryPosts = ${postFinder.list({
+            page: pageNumber,
+            size: categoryPageSize,
+            categoryName: item.metadata.name,
+            sort: {'spec.publishTime,desc'}
+          })}">
+              <div data-categories-post-panel
+                   th:attr="data-category-key=${item.metadata.name},data-category-page=${pageNumber}"
+                   x-show="activeCategoryKey === $el.dataset.categoryKey && activeCategoryPage === Number($el.dataset.categoryPage)"
+                   x-cloak>
+                <a class="category-post-row pjax-link"
+                   th:each="post : ${categoryPosts.items}"
+                   th:href="${post.status.permalink}"
+                   data-categories-post-option
+                   th:attr="data-parent-category-key=${item.metadata.name},data-category-page=${pageNumber},data-post-key=${post.metadata.name},data-post-title=${post.spec.title}"
+                   @mouseenter="selectPost($el.dataset.postKey, $el.dataset.postTitle)"
+                   @focus="selectPost($el.dataset.postKey, $el.dataset.postTitle)"
+                   @click="selectPost($el.dataset.postKey, $el.dataset.postTitle)"
+                   :class="{ 'is-active': activePostKey === $el.dataset.postKey }">
+                  <div class="category-post-row-main">
+                    <svg class="category-post-file-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <path d="M4 1.75H9.25L12.5 5V12.5C12.5 13.3284 11.8284 14 11 14H4C3.17157 14 2.5 13.3284 2.5 12.5V3.25C2.5 2.42157 3.17157 1.75 4 1.75Z" stroke="currentColor" stroke-width="1.1"/>
+                      <path d="M9 1.75V5.25H12.5" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/>
+                    </svg>
+                    <span class="category-post-row-title" th:text="${post.spec.title}">文章标题</span>
+                  </div>
+                  <span class="category-post-row-meta">
+                    <time th:text="${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')}">2026.03.26</time>
+                    <span th:text="${post.stats.comment} + ' 评论'">0 评论</span>
+                  </span>
+                </a>
+
+                <div class="categories-post-empty" th:if="${#lists.isEmpty(categoryPosts.items)}">
+                  <p>这个分类下还没有文章。</p>
+                </div>
+
+                <nav class="category-pagination" th:if="${pageCount > 1}">
+                  <button type="button"
+                          class="category-page-btn"
+                          th:classappend="${pageNumber == 1 ? ' is-disabled' : ''}"
+                          th:disabled="${pageNumber == 1}"
+                          th:attr="data-target-page=${pageNumber - 1},aria-label='上一页，第 ' + ${pageNumber - 1} + ' 页'"
+                          @click="selectCategoryPage($el.dataset.targetPage)">
+                    上一页
+                  </button>
+
+                  <span class="category-page-indicator" th:text="${pageNumber} + ' / ' + ${pageCount}">1 / 1</span>
+
+                  <button type="button"
+                          class="category-page-btn"
+                          th:classappend="${pageNumber >= pageCount ? ' is-disabled' : ''}"
+                          th:disabled="${pageNumber >= pageCount}"
+                          th:attr="data-target-page=${pageNumber + 1},aria-label='下一页，第 ' + ${pageNumber + 1} + ' 页'"
+                          @click="selectCategoryPage($el.dataset.targetPage)">
+                    下一页
+                  </button>
+                </nav>
+              </div>
+            </th:block>
+          </th:block>
+        </th:block>
+
+        <th:block th:if="${not #lists.isEmpty(item.children)}"
+                  th:replace="~{::categoryPostPanels(categories=${item.children})}"></th:block>
+      </th:block>
+    </th:block>
+  </th:block>
+
+  <th:block th:fragment="categoryPreviewPanels(categories)">
+    <th:block th:with="categoryPageSize=${site.post != null and site.post.categoryPageSize != null ? site.post.categoryPageSize : 10}">
+      <th:block th:each="item : ${categories}">
+        <th:block th:with="categoryPostsMeta = ${postFinder.list({
+        page: 1,
+        size: categoryPageSize,
+        categoryName: item.metadata.name,
+        sort: {'spec.publishTime,desc'}
+      })}, pageCount=${categoryPostsMeta.totalPages > 0 ? categoryPostsMeta.totalPages : 1}">
+          <th:block th:each="pageNumber : ${#numbers.sequence(1, pageCount)}">
+            <th:block th:with="categoryPosts = ${postFinder.list({
+            page: pageNumber,
+            size: categoryPageSize,
+            categoryName: item.metadata.name,
+            sort: {'spec.publishTime,desc'}
+          })}">
+              <th:block th:each="post : ${categoryPosts.items}">
+                <article class="category-preview-panel"
+                         data-category-post-panel
+                         th:attr="data-category-key=${item.metadata.name},data-category-page=${pageNumber},data-post-key=${post.metadata.name}"
+                         x-show="activeCategoryKey === $el.dataset.categoryKey && activeCategoryPage === Number($el.dataset.categoryPage) && activePostKey === $el.dataset.postKey"
+                         x-cloak>
+                  <header class="category-preview-header">
+                    <div class="category-preview-icon">
+                      <svg class="category-post-file-icon category-post-file-icon--preview" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                        <path d="M4 1.75H9.25L12.5 5V12.5C12.5 13.3284 11.8284 14 11 14H4C3.17157 14 2.5 13.3284 2.5 12.5V3.25C2.5 2.42157 3.17157 1.75 4 1.75Z" stroke="currentColor" stroke-width="1.1"/>
+                        <path d="M9 1.75V5.25H12.5" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/>
+                      </svg>
+                    </div>
+                    <div class="category-preview-heading">
+                      <h2 class="category-preview-title" th:text="${post.spec.title}">文章标题</h2>
+                      <p class="category-preview-path" th:text="${item.spec.displayName} + ' / ' + ${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')}">分类 / 时间</p>
+                    </div>
+                  </header>
+
+                  <dl class="category-preview-meta">
+                    <div>
+                      <dt>发布日期</dt>
+                      <dd th:text="${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')}">2026.03.26</dd>
+                    </div>
+                    <div>
+                      <dt>评论</dt>
+                      <dd th:text="${post.stats.comment} + ' 条'">0 条</dd>
+                    </div>
+                    <div>
+                      <dt>所属分类</dt>
+                      <dd th:text="${item.spec.displayName}">分类</dd>
+                    </div>
+                  </dl>
+
+                  <p class="category-preview-excerpt"
+                     th:if="${!#strings.isEmpty(post.status.excerpt)}"
+                     th:text="${post.status.excerpt}">
+                    摘要
+                  </p>
+
+                  <a class="category-preview-action pjax-link" th:href="${post.status.permalink}">打开文章</a>
+                </article>
+              </th:block>
+            </th:block>
+          </th:block>
+        </th:block>
+
+        <th:block th:if="${not #lists.isEmpty(item.children)}"
+                  th:replace="~{::categoryPreviewPanels(categories=${item.children})}"></th:block>
+      </th:block>
+    </th:block>
+  </th:block>
+
   <th:block th:fragment="ssrBlock">
-    <div class="max-w-4xl mx-auto px-4 md:px-8 py-10 md:py-16">
-      
-      <div class="mb-14 text-center flex flex-col items-center justify-center">
-        <div class="flex items-center justify-center gap-2 mb-3">
-          <span class="text-4xl text-purple-500 font-bold opacity-80">
-            <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-          </span>
-          <h1 class="text-4xl font-bold tracking-tight text-gray-800">所有分类</h1>
-        </div>
-        <p class="text-gray-500 text-lg" th:text="'共计 ' + ${categories.size()} + ' 个宇宙维面'"></p>
+    <div class="categories-shell">
+      <div class="categories-workspace"
+           th:if="${categories != null and !#lists.isEmpty(categories)}"
+           x-data="categoriesExplorer">
+        <aside class="categories-sidebar">
+          <p class="categories-sidebar-title">分类</p>
+          <nav class="categories-sidebar-nav">
+            <th:block th:replace="~{::categorySidebar(categories=${categories}, depth=${0})}"></th:block>
+          </nav>
+        </aside>
+
+        <section class="categories-content">
+          <section class="categories-pane categories-pane--posts">
+            <header class="categories-pane-header">
+              <span class="categories-pane-title">文章</span>
+              <span class="categories-pane-path" x-text="activeCategoryName || '未选择分类'"></span>
+            </header>
+
+            <div class="category-posts-scroll">
+              <th:block th:replace="~{::categoryPostPanels(categories=${categories})}"></th:block>
+            </div>
+          </section>
+
+          <aside class="categories-pane categories-pane--preview">
+            <header class="categories-pane-header">
+              <span class="categories-pane-title">预览</span>
+              <span class="categories-pane-path" x-text="activePostTitle || activeCategoryName || '未选择分类'"></span>
+            </header>
+
+            <div class="categories-preview-scroll">
+              <th:block th:replace="~{::categoryPreviewPanels(categories=${categories})}"></th:block>
+
+              <section class="categories-preview-empty" x-show="!activePostKey" x-cloak>
+                <p>选择一个分类文件夹后，中间会显示对应文章，右侧这里会预览当前文章。</p>
+              </section>
+            </div>
+          </aside>
+        </section>
       </div>
-      
-      <!-- 分类卡片阵列 -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-        <a th:each="category : ${categories}" 
-           th:href="${category.status.permalink}"
-           class="group pjax-link flex flex-col items-center justify-center p-8 bg-white/60 backdrop-blur-sm rounded-2xl border border-black/5 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-           <span class="text-2xl font-bold text-gray-900 group-hover:text-purple-600 transition-colors mb-2" th:text="${category.spec.displayName}"></span>
-           <span class="text-sm text-gray-400 font-medium bg-gray-100/80 px-3 py-1 rounded-full group-hover:bg-purple-50 group-hover:text-purple-500 transition-colors" th:text="${category.status.postCount} + ' 篇文章'"></span>
-        </a>
+
+      <div class="categories-empty" th:if="${categories == null or #lists.isEmpty(categories)}">
+        <h2 class="categories-empty-title">当前没有任何分类</h2>
+        <p class="categories-empty-text">内容还没有整理到分类文件夹中，稍后再来查看。</p>
       </div>
-      
     </div>
   </th:block>
 </html>
