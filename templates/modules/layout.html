@@ -276,7 +276,7 @@
          style="display: none;">
       
       <!-- Safari 极简交互窗口 (支持桌面端拖拽与缩放) -->
-      <div class="macos-window flex flex-col pointer-events-auto shadow-[0_20px_60px_rgba(0,0,0,0.3)] dark:shadow-[0_30px_80px_rgba(0,0,0,0.5)] relative md:absolute w-full h-full md:w-auto md:h-auto md:min-w-[400px] md:min-h-[400px] rounded-none md:rounded-[14px] overflow-hidden bg-white/80 dark:bg-[#1c1c1e]/60 backdrop-blur-3xl md:border border-black/10 dark:border-white/10 origin-center"
+      <div class="macos-window flex flex-col pointer-events-auto relative md:absolute w-full h-full md:w-auto md:h-auto md:min-w-[400px] md:min-h-[400px] rounded-none md:rounded-[14px] overflow-hidden origin-center"
            x-data="draggableWindow"
            @mousemove.window="onDragMove"
            @mouseup.window="onDragEnd"

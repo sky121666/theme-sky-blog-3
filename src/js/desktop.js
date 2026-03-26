@@ -848,45 +848,74 @@ export function registerComponents(Alpine) {
       const dockBar = this.$refs.dockBar;
       if (!dockBar) return;
       const enableMagnification = this.$el.dataset.magnification !== 'false';
+      const showLabels = this.$el.dataset.showLabels === 'true';
       
-      const baseSize = 48; // 固定底宽
-      const maxSize = 64;  // 原生极限宽（1.33x克制放大）
-      const range = 140;   // 影响半径：约辐射左右各2~3个图标
+      const baseSize = 48;
+      const maxSize = 60;
+      const range = 120;
+      const maxLift = 10;
+      let rafId = null;
 
       const getIcons = () => Array.from(dockBar.querySelectorAll('.dock-icon'));
+      const maxScale = maxSize / baseSize;
+
+      const resetIcons = () => {
+        getIcons().forEach((icon) => {
+          icon.classList.add('dock-animating');
+          icon.classList.remove('dock-tooltip-visible');
+          icon.style.width = `${baseSize}px`;
+          icon.style.height = `${baseSize}px`;
+          icon.style.transform = 'translateY(0px)';
+          icon.style.zIndex = '';
+        });
+      };
+
+      const updateDock = (mouseX) => {
+        const icons = getIcons();
+        let tooltipTarget = null;
+        let nearestDistance = Infinity;
+
+        icons.forEach((icon) => {
+          icon.classList.remove('dock-animating', 'dock-tooltip-visible');
+
+          const rect = icon.getBoundingClientRect();
+          const centerX = rect.left + rect.width / 2;
+          const distance = Math.abs(mouseX - centerX);
+
+          let scale = 1;
+          if (distance < range) {
+            const ratio = distance / range;
+            const influence = Math.cos(ratio * Math.PI / 2);
+            const softenedInfluence = influence * influence;
+            scale = 1 + (maxScale - 1) * softenedInfluence;
+          }
+
+          const lift = ((scale - 1) / (maxScale - 1)) * maxLift;
+          icon.style.width = `${baseSize * scale}px`;
+          icon.style.height = `${baseSize * scale}px`;
+          icon.style.transform = `translateY(-${lift}px)`;
+          icon.style.zIndex = String(10 + Math.round(scale * 10));
+
+          if (distance < nearestDistance) {
+            nearestDistance = distance;
+            tooltipTarget = icon;
+          }
+        });
+
+        if (showLabels && tooltipTarget && nearestDistance < range * 0.72) {
+          tooltipTarget.classList.add('dock-tooltip-visible');
+        }
+      };
 
       this.$el.addEventListener('mousemove', (e) => {
         if (!enableMagnification) return;
-        requestAnimationFrame(() => {
-          getIcons().forEach(icon => {
-            // 在计算期间接触平滑 CSS，交结 GPU 高频绘制
-            icon.classList.remove('dock-animating');
-            const rect = icon.getBoundingClientRect();
-            // 精确计算鼠标X与当前图标几何中心的绝对距离
-            const distance = Math.abs(e.clientX - (rect.left + rect.width / 2));
-            
-            let scale = 1;
-            if (distance < range) {
-              const ratio = distance / range;
-              // 使用经典的余弦曲线 (Cosine Map) 配合 PI/2 生成极致顺滑的凸起钟形
-              scale = 1 + (maxSize / baseSize - 1) * Math.cos(ratio * Math.PI / 2);
-            }
-            // 将平滑比例直接赋给物理宽高度（Flex 容器自带从右往左的顺滑排挤）
-            icon.style.width = `${baseSize * scale}px`;
-            icon.style.height = `${baseSize * scale}px`;
-          });
-        });
+        cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => updateDock(e.clientX));
       });
 
       this.$el.addEventListener('mouseleave', () => {
-        requestAnimationFrame(() => {
-          getIcons().forEach(icon => {
-            // 鼠标移出时归还控制权给 CSS Transition 的 ease-out 0.25s 曲线
-            icon.classList.add('dock-animating');
-            icon.style.width = `${baseSize}px`;
-            icon.style.height = `${baseSize}px`;
-          });
-        });
+        cancelAnimationFrame(rafId);
+        requestAnimationFrame(resetIcons);
       });
     }
   }));

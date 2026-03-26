@@ -123,6 +123,9 @@ body {
   --mac-window-dark: #1c1c1e;
   --mac-window-dark-chrome: rgba(44, 44, 46, 0.82);
   --mac-window-dark-border: rgba(255, 255, 255, 0.08);
+  --content-window-border: rgba(15, 23, 42, 0.12);
+  --content-window-shadow: 0 22px 72px rgba(15, 23, 42, 0.24), 0 6px 18px rgba(15, 23, 42, 0.12);
+  --content-window-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.65);
   --content-chrome-bg: var(--mac-window-light-chrome);
   --content-chrome-border: var(--mac-window-light-border);
   --content-chrome-text: #1f2937;
@@ -138,15 +141,15 @@ body {
   --theme-shell-light: var(--mac-shell-light, #ffffff);
   --theme-shell-dark: var(--mac-shell-dark, #141414);
   --shell-text-primary: #ffffff;
-  --shell-menubar-bg: rgba(66, 70, 78, 0.22);
-  --shell-menubar-border: rgba(255, 255, 255, 0.08);
-  --shell-menubar-hover-bg: rgba(255, 255, 255, 0.12);
-  --shell-dock-glass-bg: rgba(58, 62, 70, 0.28);
-  --shell-dock-glass-border: rgba(255, 255, 255, 0.12);
+  --shell-menubar-bg: rgba(56, 59, 66, 0.26);
+  --shell-menubar-border: rgba(255, 255, 255, 0.09);
+  --shell-menubar-hover-bg: rgba(255, 255, 255, 0.08);
+  --shell-dock-glass-bg: rgba(52, 56, 63, 0.34);
+  --shell-dock-glass-border: rgba(255, 255, 255, 0.10);
   --shell-dock-glass-border-bottom: rgba(255, 255, 255, 0.06);
-  --shell-dock-icon-bg: rgba(255, 255, 255, 0.14);
-  --shell-dock-icon-border: rgba(255, 255, 255, 0.12);
-  --shell-dock-tooltip-bg: rgba(36, 38, 43, 0.86);
+  --shell-dock-icon-bg: rgba(255, 255, 255, 0.11);
+  --shell-dock-icon-border: rgba(255, 255, 255, 0.10);
+  --shell-dock-tooltip-bg: rgba(34, 36, 41, 0.9);
   --shell-desktop-hover-bg: rgba(255, 255, 255, 0.1);
   --shell-desktop-selected-bg: rgba(44, 48, 56, 0.24);
   --shell-desktop-selected-border: rgba(255, 255, 255, 0.12);
@@ -220,6 +223,9 @@ body {
   --halo-search-widget-kbd-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.05);
   --content-chrome-bg: var(--mac-window-dark-chrome);
   --content-chrome-border: var(--mac-window-dark-border);
+  --content-window-border: rgba(255, 255, 255, 0.10);
+  --content-window-shadow: 0 28px 88px rgba(0, 0, 0, 0.52), 0 8px 20px rgba(0, 0, 0, 0.32);
+  --content-window-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   --content-chrome-text: #f5f5f7;
   --content-chrome-muted: rgba(235, 235, 245, 0.72);
   --content-chrome-hover-bg: rgba(255, 255, 255, 0.09);
@@ -478,8 +484,8 @@ body::before {
   z-index: 9999;
   text-shadow: 0 1px 2px rgba(0,0,0,0.36);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.06);
 }
 
 .menubar::before {
@@ -487,7 +493,7 @@ body::before {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 68%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 70%);
   opacity: 1;
 }
 
@@ -536,12 +542,12 @@ body::before {
   border-bottom: 1px solid var(--shell-menubar-border) !important;
   color: #e5e7eb;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.06);
 }
 
 .dark .menubar::before {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 68%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 70%);
 }
 .dark .menubar-item:hover, .dark .menubar-icon-btn:hover {
   background: var(--shell-menubar-hover-bg);
@@ -589,14 +595,14 @@ body::before {
   -webkit-backdrop-filter: blur(54px) saturate(155%);
   border: 1px solid var(--shell-dock-glass-border);
   border-bottom-color: var(--shell-dock-glass-border-bottom);
-  box-shadow: 0 20px 40px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.12);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.10);
   z-index: 0;
 }
 .dark .dock-glass {
   background: var(--shell-dock-glass-bg);
   border: 1px solid var(--shell-dock-glass-border);
   border-bottom-color: var(--shell-dock-glass-border-bottom);
-  box-shadow: 0 20px 40px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.12);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.10);
 }
 .dock-bar {
   display: flex;
@@ -619,18 +625,19 @@ body::before {
   position: relative;
   background: var(--shell-dock-icon-bg);
   border: 1px solid var(--shell-dock-icon-border);
-  box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.22);
   transform-origin: bottom center;
 }
 /* 当 JS 退出作用域时，由本类接管平滑回落的动画 */
 .dock-icon.dock-animating {
-  transition: width 0.25s cubic-bezier(0.2, 0.9, 0.1, 1), 
-              height 0.25s cubic-bezier(0.2, 0.9, 0.1, 1), 
-              box-shadow 0.25s ease;
+  transition: width 0.22s cubic-bezier(0.22, 0.9, 0.18, 1), 
+              height 0.22s cubic-bezier(0.22, 0.9, 0.18, 1), 
+              box-shadow 0.22s ease,
+              transform 0.22s cubic-bezier(0.22, 0.9, 0.18, 1);
 }
 
 .dock-icon:hover {
-  box-shadow: 0 16px 32px rgba(0,0,0,0.45);
+  box-shadow: 0 14px 28px rgba(0,0,0,0.38);
 }
 
 .dark .dock-icon {
@@ -661,28 +668,32 @@ body::before {
   position: absolute;
   bottom: calc(100% + 14px);
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(-50%) translateY(4px) scale(0.96);
   background: var(--shell-dock-tooltip-bg);
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
   color: var(--shell-text-primary);
-  padding: 5px 14px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
+  padding: 5px 12px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 520;
+  letter-spacing: 0.01em;
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
   border: 1px solid var(--shell-dock-icon-border);
-  transition: opacity 0.2s cubic-bezier(0.25, 1, 0.5, 1);
-  box-shadow: 0 6px 16px rgba(0,0,0,0.34);
+  transition: opacity 0.18s cubic-bezier(0.25, 1, 0.5, 1), transform 0.18s cubic-bezier(0.25, 1, 0.5, 1);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.28);
 }
-.dock-icon:hover .dock-tooltip { opacity: 1; }
+.dock-icon.dock-tooltip-visible .dock-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
 .dark .dock-tooltip {
   background: var(--shell-dock-tooltip-bg);
   color: var(--shell-text-primary);
   border: 1px solid var(--shell-dock-icon-border);
-  box-shadow: 0 6px 16px rgba(0,0,0,0.34);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.28);
 }
 
 .dock-dot {
@@ -779,11 +790,20 @@ body::before {
 
 /* ---------- MacOS Safari 图层处理 ---------- */
 
+.macos-window {
+  background: transparent;
+  border: 1px solid var(--content-window-border);
+  box-shadow: var(--content-window-shadow), var(--content-window-highlight);
+  backdrop-filter: blur(28px) saturate(150%);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
+}
+
 /* Safari 顶栏 — 实色背景 */
 .window-titlebar {
   background: var(--content-chrome-bg) !important;
   border-bottom-color: var(--content-chrome-border) !important;
   color: var(--content-chrome-text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
 }
 
 /* Safari 内容区 — 实色背景 */
@@ -807,6 +827,11 @@ body::before {
   color: var(--content-chrome-hover-text);
 }
 
+.window-nav-btn:active,
+.window-toolbar-btn:active {
+  transform: translateY(0.5px);
+}
+
 .mac-accent-panel-item:hover {
   background: var(--mac-accent-surface);
   color: #fff;
@@ -820,6 +845,10 @@ body::before {
 .window-accent-action:hover {
   background: var(--content-chrome-hover-bg);
   color: var(--theme-accent) !important;
+}
+
+.dark .window-titlebar {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 /* ---------- 还原纯净的 macOS 阴影与基础组件 ---------- */
