@@ -585,47 +585,6 @@
   line-height: 1.2;
   letter-spacing: -0.04em;
   font-weight: 760;
-  color: #111827;
-}
-
-.dark .post-comments-title {
-  color: #f5f5f7;
-}
-
-.post-comments-shell {
-  padding: 22px;
-  border-radius: 24px;
-  background: rgba(248, 248, 250, 0.92);
-  border: 1px solid rgba(15, 23, 42, 0.06);
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.65);
-}
-
-.dark .post-comments-shell {
-  background: rgba(36, 36, 38, 0.92);
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-
-.post-comments-shell halo-comment {
-  --halo-comment-bg: transparent !important;
-  --halo-comment-card-bg: rgba(255, 255, 255, 0.78) !important;
-  --halo-comment-border-color: rgba(15, 23, 42, 0.08) !important;
-  --halo-comment-font-family: var(--font-sans) !important;
-  --halo-comment-text-color: #111827 !important;
-  --halo-comment-secondary-text-color: rgba(17, 24, 39, 0.6) !important;
-  --halo-comment-input-bg: rgba(255, 255, 255, 0.96) !important;
-  --halo-comment-input-border: 1px solid rgba(15, 23, 42, 0.08) !important;
-  --halo-comment-btn-primary-bg: var(--mac-accent) !important;
-  --halo-comment-btn-primary-color: #fff !important;
-}
-
-.dark .post-comments-shell halo-comment {
-  --halo-comment-card-bg: rgba(28, 28, 30, 0.92) !important;
-  --halo-comment-border-color: rgba(255, 255, 255, 0.08) !important;
-  --halo-comment-text-color: #f5f5f7 !important;
-  --halo-comment-secondary-text-color: rgba(245, 245, 247, 0.56) !important;
-  --halo-comment-input-bg: rgba(44, 44, 46, 0.92) !important;
-  --halo-comment-input-border: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
 @media (max-width: 768px) {

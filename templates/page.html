@@ -16,14 +16,13 @@
 
         <article id="article-content" class="post-content" th:utext="${page.content.content}"></article>
 
-        <section id="post-comments" class="post-comments" th:if="${pluginFinder.available('PluginCommentWidget')}">
-          <h2 class="post-comments-title">评论</h2>
-          <div class="post-comments-shell">
+        <section id="post-comments" class="post-comments mac-comment-section" th:if="${pluginFinder.available('PluginCommentWidget')}">
+          <h2 class="post-comments-title mac-comment-title">评论</h2>
+          <div class="post-comments-shell mac-comment-shell">
             <halo:comment
                 group="content.halo.run"
                 kind="SinglePage"
                 th:attr="name=${page.metadata.name}"
-                colorScheme="light"
             />
           </div>
         </section>

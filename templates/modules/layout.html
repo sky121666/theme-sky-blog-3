@@ -70,6 +70,8 @@
       macFolder3 = ${desktopAppearance?.folder_color3 ?: '#90CAF9'},
       macShellLight = ${desktopAppearance?.glass_light_color ?: '#FFFFFF'},
       macShellDark = ${desktopAppearance?.glass_dark_color ?: '#141414'},
+      headerDropdownLightBg = ${theme.config.header?.dropdown?.light_bg ?: 'rgba(53, 53, 56, 0.82)'},
+      headerDropdownDarkBg = ${theme.config.header?.dropdown?.dark_bg ?: 'rgba(40, 40, 42, 0.9)'},
       bgImageUrl = ${bgConf?.image_url ?: bgConf?.image},
       wallpaperClass = ${bgMode == 'preset' ? 'wallpaper-' + bgPreset : ''},
       schemeClass = ${schemeMode == 'preset' ? 'scheme-' + schemePreset : 'scheme-custom'}">
@@ -77,17 +79,17 @@
   <body
     class="overflow-hidden m-0 p-0 text-white w-screen h-screen relative"
     th:classappend="${#strings.isEmpty(wallpaperClass) ? schemeClass : wallpaperClass + ' ' + schemeClass}"
-    th:style="${schemeMode == 'custom' ? '--mac-accent:' + macAccent + ';--mac-selection:' + macSelection + ';--mac-folder1:' + macFolder1 + ';--mac-folder2:' + macFolder2 + ';--mac-folder3:' + macFolder3 + ';--mac-shell-light:' + macShellLight + ';--mac-shell-dark:' + macShellDark + ';' : ''}"
+    th:style="${(schemeMode == 'custom' ? '--mac-accent:' + macAccent + ';--mac-selection:' + macSelection + ';--mac-folder1:' + macFolder1 + ';--mac-folder2:' + macFolder2 + ';--mac-folder3:' + macFolder3 + ';--mac-shell-light:' + macShellLight + ';--mac-shell-dark:' + macShellDark + ';' : '') + '--mac-header-dropdown-light-bg:' + headerDropdownLightBg + ';--mac-header-dropdown-dark-bg:' + headerDropdownDarkBg + ';'}"
     th:styleappend="${bgMode == 'image' and bgImageUrl != null ? 'background:url(' + bgImageUrl + ') center/cover no-repeat; background-color:#0f172a;' : (bgMode == 'solid' ? 'background-color:' + (bgConf?.solid_color ?: '#0f172a') + ';' : '')}"
   >
 
     <!-- ==================== MenuBar ==================== -->
-    <div class="menubar relative z-50 flex items-center justify-between px-3 h-7 bg-white/10 dark:bg-[#1c1c1e]/30 backdrop-blur-3xl saturate-[1.8] border-b border-white/10 antialiased transition-colors" x-data="menuBar" th:data-site-title="${site.title ?: 'Finder'}">
+    <div class="menubar relative z-50 flex items-center justify-between px-3 h-7 antialiased transition-colors" x-data="menuBar" th:data-site-title="${site.title ?: 'Finder'}">
       
       <!-- 左侧：系统菜单与主导航 -->
       <div class="flex items-center text-[13.5px] font-medium tracking-tight text-white drop-shadow-md">
         <!-- Apple Logo / 自定义 Logo -->
-        <a href="javascript:void(0)" class="px-[10px] h-[22px] mx-0.5 rounded-[4px] hover:bg-white/20 transition-colors text-base flex items-center justify-center gap-1" title="System">
+        <a href="javascript:void(0)" class="menubar-icon-btn mx-0.5 text-base justify-center gap-1" title="System">
           <th:block th:if="${#strings.isEmpty(headerLogoIcon)}">
             &#63743;
           </th:block>
@@ -104,7 +106,7 @@
           <div th:each="menuItem : ${headerMenu.menuItems}" class="relative group" x-data="{ open: false }" @mouseenter="open = true" @mouseleave="open = false" @click.away="open = false">
             <a th:href="${#lists.isEmpty(menuItem.children) ? menuItem.status.href : 'javascript:void(0)'}" 
                th:target="${menuItem.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
-               class="hidden sm:inline-flex items-center px-[10px] h-[22px] mx-0.5 rounded-[4px] hover:bg-white/20 transition-none"
+               class="menubar-item hidden sm:inline-flex items-center mx-0.5 transition-none"
                th:classappend="${#lists.isEmpty(menuItem.children) ? 'pjax-link' : ''}"
                th:text="${menuItem.status.displayName}">
             </a>
@@ -119,7 +121,7 @@
                  x-transition:leave-start="opacity-100 scale-100"
                  x-transition:leave-end="opacity-0 scale-95"
                  style="display: none;"
-                 class="absolute top-[100%] left-0 mt-[1px] min-w-[240px] p-[6px] rounded-[10px] bg-black/20 dark:bg-[#1c1c1e]/60 backdrop-blur-3xl saturate-[1.8] border border-white/20 dark:border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] origin-top-left flex flex-col z-[100] drop-shadow-none">
+                 class="menubar-dropdown absolute top-[100%] left-0 mt-[1px] min-w-[240px] p-[6px] rounded-[10px] origin-top-left flex flex-col z-[100] drop-shadow-none">
                  
                  <a th:each="child : ${menuItem.children}"
                     th:href="${child.status.href}"
@@ -135,12 +137,12 @@
       <!-- 右侧：控件与时间 -->
       <div class="flex items-center gap-[6px] font-medium text-[13px] text-white drop-shadow-md">
         <!-- Spotlight 全局搜索 (纯净原生极简图标) -->
-        <button type="button" th:if="${pluginFinder.available('PluginSearchWidget')}" @click="openSearch()" class="relative px-1.5 h-[22px] flex items-center justify-center rounded-[4px] transition-colors hover:bg-[color-mix(in_srgb,var(--mac-shell-light)_16%,transparent)] dark:hover:bg-[color-mix(in_srgb,var(--mac-shell-light)_14%,transparent)] text-white" title="聚焦搜索 (Cmd+K)">
+        <button type="button" th:if="${pluginFinder.available('PluginSearchWidget')}" @click="openSearch()" class="menubar-icon-btn relative" title="聚焦搜索 (Cmd+K)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
         </button>
 
         <!-- 主题切换 (极致原生精简缩放) -->
-        <button @click="$store.theme.setMode($store.theme.isDark ? 'light' : 'dark')" class="relative px-1.5 h-[22px] flex items-center justify-center rounded-[4px] transition-colors hover:bg-[color-mix(in_srgb,var(--mac-shell-light)_16%,transparent)] dark:hover:bg-[color-mix(in_srgb,var(--mac-shell-light)_14%,transparent)] text-white" th:if="${enableThemeSetting}" title="切换外观">
+        <button @click="$store.theme.setMode($store.theme.isDark ? 'light' : 'dark')" class="menubar-icon-btn relative" th:if="${enableThemeSetting}" title="切换外观">
             <svg x-show="!$store.theme.isDark" class="w-[14px] h-[14px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
             <svg x-show="$store.theme.isDark" style="display: none;" class="w-[14px] h-[14px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
         </button>
@@ -286,7 +288,7 @@
            x-transition:leave-end="opacity-0 md:scale-95">
          
         <!-- macOS 拟真统一窗口标题栏 (双端继承 macOS 美学) -->
-        <div class="window-titlebar relative w-full z-50 h-[48px] md:h-[52px] shrink-0 flex items-center px-3 md:px-4 bg-[#f4f5f5]/80 dark:bg-[#2c2c2e]/70 backdrop-blur-3xl border-b border-black/10 dark:border-white/5 text-gray-800 dark:text-gray-200 transition-all font-sans" style="-webkit-backdrop-filter: blur(30px) saturate(150%); backdrop-filter: blur(30px) saturate(150%);"
+        <div class="window-titlebar relative w-full z-50 h-[48px] md:h-[52px] shrink-0 flex items-center px-3 md:px-4 border-b transition-all font-sans" style="-webkit-backdrop-filter: blur(30px) saturate(150%); backdrop-filter: blur(30px) saturate(150%);"
              x-data="{ path: window.location.pathname, host: window.location.host, title: document.title }" 
              @pjax:complete.window="path = window.location.pathname; title = document.title; host = window.location.host"
              @mousedown="onDragStart">
@@ -302,10 +304,10 @@
 
                 <!-- Navigation 返回 (双端统一样式) -->
                 <div class="flex items-center gap-1">
-                    <button @click="window.history.back()" class="w-6 md:w-7 h-6 md:h-7 flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 dark:text-gray-400" title="返回上一页">
+                    <button @click="window.history.back()" class="window-nav-btn w-6 md:w-7 h-6 md:h-7 flex items-center justify-center rounded-md" title="返回上一页">
                         <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
                     </button>
-                    <button @click="window.history.forward()" class="hidden md:flex w-7 h-7 items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 dark:text-gray-400" title="前往下一页">
+                    <button @click="window.history.forward()" class="window-nav-btn hidden md:flex w-7 h-7 items-center justify-center rounded-md" title="前往下一页">
                         <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                     </button>
                 </div>
@@ -313,7 +315,7 @@
             
             <!-- 统一中心 (纯净标题) -->
             <div class="flex-1 flex justify-center items-center overflow-hidden px-2">
-                <div class="truncate font-medium text-[14px] md:text-[13px] tracking-wide text-gray-800 dark:text-gray-200" x-text="title" th:text="${title}"></div>
+                <div class="window-title-text truncate font-medium text-[14px] md:text-[13px] tracking-wide" x-text="title" th:text="${title}"></div>
             </div>
 
             <!-- 移动端专属右侧 (对称留白) -->
@@ -323,21 +325,21 @@
             <div class="hidden md:flex items-center justify-end gap-2 w-[240px] pr-2">
                 <!-- 主题切换 -->
                 <div class="relative flex items-center" th:if="${enableThemeSetting}">
-                  <button @click="$store.theme.setMode($store.theme.isDark ? 'light' : 'dark')" class="hover:bg-gray-200/60 dark:hover:bg-gray-700/60 p-1.5 rounded-md transition-colors text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200" title="切换深色/浅色">
+                  <button @click="$store.theme.setMode($store.theme.isDark ? 'light' : 'dark')" class="window-toolbar-btn p-1.5 rounded-md" title="切换深色/浅色">
                       <svg x-show="!$store.theme.isDark" style="display: none;" class="w-[17px] h-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
                       <svg x-show="$store.theme.isDark" style="display: none;" class="w-[17px] h-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
                   </button>
                 </div>
 
                 <!-- 分享 (原生 macOS sheet API 调起) -->
-                <button @click="if (navigator.share) { navigator.share({ title: document.title, url: window.location.href }) } else { navigator.clipboard.writeText(window.location.href); alert('链接已复制到剪贴板！') }" class="window-accent-action hover:bg-gray-200/60 dark:hover:bg-gray-700/60 p-1.5 rounded-md transition-colors text-gray-500 dark:text-gray-400" title="分享">
+                <button @click="if (navigator.share) { navigator.share({ title: document.title, url: window.location.href }) } else { navigator.clipboard.writeText(window.location.href); alert('链接已复制到剪贴板！') }" class="window-toolbar-btn window-accent-action p-1.5 rounded-md" title="分享">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
                 </button>
             </div>
         </div>
 
         <!-- 内部正文 (PJAX 容器) -->
-        <div class="window-body w-full flex-1 overflow-y-auto relative bg-white/90 dark:bg-black/40 select-text">
+        <div class="window-body w-full flex-1 overflow-y-auto relative select-text">
             <!-- Pjax 的局部无刷新刷新范围死死框定在这里，外壳永远静止 -->
             <div id="pjax-container" class="w-full min-h-full">
                 <!-- SSR 渲染的正文注入 -->

@@ -58,6 +58,26 @@ spec:
                   value: light
                 - label: 深色
                   value: dark
+        - $formkit: group
+          id: header_dropdown_group
+          name: dropdown
+          label: 二级菜单
+          value:
+            light_bg: "rgba(53, 53, 56, 0.82)"
+            dark_bg: "rgba(40, 40, 42, 0.9)"
+          children:
+            - $formkit: text
+              id: header_dropdown_light_bg
+              name: light_bg
+              label: 浅色背景
+              help: 二级菜单面板的浅色模式背景值，支持 rgba、rgb、hex。
+              value: "rgba(53, 53, 56, 0.82)"
+            - $formkit: text
+              id: header_dropdown_dark_bg
+              name: dark_bg
+              label: 深色背景
+              help: 二级菜单面板的深色模式背景值，支持 rgba、rgb、hex。
+              value: "rgba(40, 40, 42, 0.9)"
 
     - group: desktop
       label: 桌面
@@ -65,7 +85,7 @@ spec:
         - $formkit: group
           id: desktop_appearance_group
           name: appearance
-          label: 主题配色方案
+          label: 强调色方案
           value:
             mode: preset
             preset: blue
@@ -81,7 +101,7 @@ spec:
               id: desktop_appearance_mode
               name: mode
               label: 配色模式
-              help: 预设模式提供多种接近 macOS 原生的内置配色，自定义模式则允许手动指定主题颜色。
+              help: 仅用于强调层、选中态和兼容组件桥接，不直接决定固定壳层的基底材质。
               value: preset
               options:
                 - label: macOS 内置方案
@@ -93,7 +113,7 @@ spec:
               key: desktop_appearance_preset_field
               name: preset
               label: macOS 配色方案
-              help: 这会统一控制强调色、选择色、文件夹色和壳层玻璃色调。
+              help: 这会统一控制强调色、选中态、文件夹色，以及搜索/评论等兼容组件的强调层。
               value: blue
               if: "$get(desktop_appearance_mode).value === 'preset'"
               options:
@@ -118,7 +138,7 @@ spec:
               key: desktop_appearance_accent_color_field
               name: accent_color
               label: 全局强调色
-              help: 用于菜单高亮、交互激活、进度条和部分控件强调色。
+              help: 用于强调层，包含菜单高亮、交互激活、进度条，以及搜索/评论等兼容组件按钮和线条。
               value: "#2E5FBD"
               if: "$get(desktop_appearance_mode).value === 'custom'"
             - $formkit: color
@@ -154,16 +174,16 @@ spec:
               id: desktop_appearance_glass_light_color
               key: desktop_appearance_glass_light_color_field
               name: glass_light_color
-              label: 浅色壳层基底色
-              help: 用于顶栏、Dock、主窗口在浅色模式下的玻璃基底色。
+              label: 浅色兼容层桥接色
+              help: 仅用于少量前端兼容层变量桥接，不直接决定固定的 header 或 Dock 基底材质。
               value: "#FFFFFF"
               if: "$get(desktop_appearance_mode).value === 'custom'"
             - $formkit: color
               id: desktop_appearance_glass_dark_color
               key: desktop_appearance_glass_dark_color_field
               name: glass_dark_color
-              label: 深色壳层基底色
-              help: 用于顶栏、Dock、主窗口在深色模式下的玻璃基底色。
+              label: 深色兼容层桥接色
+              help: 仅用于少量前端兼容层变量桥接，不直接决定固定的 header 或 Dock 基底材质。
               value: "#141414"
               if: "$get(desktop_appearance_mode).value === 'custom'"
 
@@ -327,7 +347,7 @@ spec:
         - $formkit: group
           id: dock_appearance_group
           name: appearance
-          label: Dock 外观
+          label: Dock 交互
           value:
             show_labels: true
             magnification: true
@@ -336,11 +356,11 @@ spec:
               id: dock_appearance_show_labels
               name: show_labels
               label: 显示名称标签
-              help: 控制 Dock hover 提示是否显示名称。
+              help: 控制 Dock 提示气泡是否显示名称，不影响 Dock 固定玻璃底材质。
               value: true
             - $formkit: switch
               id: dock_appearance_magnification
               name: magnification
               label: 启用放大效果
-              help: 控制鼠标滑过 Dock 图标时是否启用 macOS 风格放大动画。
+              help: 控制鼠标滑过 Dock 图标时是否启用 macOS 风格放大动画，不影响 Dock 固定玻璃底材质。
               value: true
