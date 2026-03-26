@@ -513,12 +513,17 @@ body::before {
   line-height: 24px;
   border-radius: 4px;
   cursor: pointer;
-  transition: background 0.1s ease;
+  transition: background 0.1s ease, box-shadow 0.1s ease;
   color: var(--shell-text-primary);
   text-decoration: none;
 }
-.menubar-item:hover, .menubar-icon-btn:hover {
+.menubar-item:hover,
+.menubar-icon-btn:hover {
   background: var(--shell-menubar-hover-bg);
+}
+.menubar-item.is-open {
+  background: color-mix(in srgb, var(--shell-menubar-hover-bg) 82%, rgba(255, 255, 255, 0.035));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 .menubar-icon-btn {
   padding: 0 6px;
@@ -549,26 +554,155 @@ body::before {
 .dark .menubar::before {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 70%);
 }
-.dark .menubar-item:hover, .dark .menubar-icon-btn:hover {
+.dark .menubar-item:hover,
+.dark .menubar-icon-btn:hover {
   background: var(--shell-menubar-hover-bg);
+}
+.dark .menubar-item.is-open {
+  background: color-mix(in srgb, var(--shell-menubar-hover-bg) 84%, rgba(255, 255, 255, 0.03));
 }
 
 .menubar-dropdown {
-  background: var(--mac-header-dropdown-light-bg, rgba(53, 53, 56, 0.82)) !important;
-  backdrop-filter: blur(34px) saturate(175%) !important;
-  -webkit-backdrop-filter: blur(34px) saturate(175%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  position: absolute;
+  background-color: var(--mac-header-dropdown-light-bg, rgba(88, 92, 100, 0.66)) !important;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.022) 34%, rgba(0, 0, 0, 0.055)) !important;
+  backdrop-filter: blur(32px) saturate(142%) !important;
+  -webkit-backdrop-filter: blur(32px) saturate(142%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.095) !important;
   box-shadow:
-    0 20px 50px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    0 9px 18px rgba(0, 0, 0, 0.22),
+    0 1px 0 rgba(255, 255, 255, 0.028) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.07) inset;
+}
+
+@supports (background: color-mix(in srgb, white 50%, black)) {
+  .menubar-dropdown {
+    background-color: color-mix(in srgb, var(--mac-header-dropdown-light-bg, rgba(88, 92, 100, 0.66)) 78%, rgba(120, 126, 136, 0.50)) !important;
+  }
 }
 
 .dark .menubar-dropdown {
-  background: var(--mac-header-dropdown-dark-bg, rgba(40, 40, 42, 0.9)) !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
+  background-color: var(--mac-header-dropdown-dark-bg, rgba(70, 74, 82, 0.72)) !important;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.068), rgba(255, 255, 255, 0.016) 34%, rgba(0, 0, 0, 0.072)) !important;
+  border-color: rgba(255, 255, 255, 0.078) !important;
   box-shadow:
-    0 24px 56px rgba(0, 0, 0, 0.42),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    0 10px 20px rgba(0, 0, 0, 0.25),
+    0 1px 0 rgba(255, 255, 255, 0.028) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.09) inset;
+}
+
+@supports (background: color-mix(in srgb, white 50%, black)) {
+  .dark .menubar-dropdown {
+    background-color: color-mix(in srgb, var(--mac-header-dropdown-dark-bg, rgba(70, 74, 82, 0.72)) 82%, rgba(108, 114, 124, 0.42)) !important;
+  }
+}
+
+.menubar-dropdown-item {
+  position: relative;
+  z-index: 1;
+  min-height: 28px;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 16px;
+  align-items: center;
+  column-gap: 10px;
+  padding: 4px 11px 4px 10px;
+  color: rgba(255, 255, 255, 0.95);
+  text-decoration: none;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.12);
+  line-height: 1.2;
+  letter-spacing: -0.005em;
+  transition:
+    background 0.08s ease,
+    box-shadow 0.08s ease,
+    color 0.08s ease;
+}
+
+.menubar-dropdown-separator {
+  height: 1px;
+  margin: 6px 10px 6px 10px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.015), rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.015));
+}
+
+.menubar-dropdown-leading,
+.menubar-dropdown-trailing {
+  width: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.9;
+}
+
+.menubar-dropdown-trailing {
+  width: auto;
+  min-width: 16px;
+  justify-content: flex-end;
+  opacity: 0.66;
+}
+
+.menubar-dropdown-label {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menubar-dropdown-trailing svg {
+  width: 12px;
+  height: 12px;
+}
+
+.menubar-dropdown-icon-svg,
+.menubar-dropdown-icon-image {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+}
+
+.menubar-dropdown-icon-svg svg {
+  width: 100%;
+  height: 100%;
+  color: #ffffff !important;
+  fill: currentColor;
+  stroke: currentColor;
+}
+
+.menubar-dropdown-icon-image {
+  object-fit: contain;
+  border-radius: 3px;
+  background: transparent !important;
+}
+
+.menubar-dropdown-item:hover {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--theme-accent) 70%, #5a9cff) 0%, color-mix(in srgb, var(--theme-accent) 80%, #0f62fe) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.065),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.10);
+  color: #ffffff;
+}
+.menubar-dropdown-item:hover .menubar-dropdown-trailing {
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.dark .menubar-dropdown-item {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.dark .menubar-dropdown-separator {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.025));
+}
+
+.dark .menubar-dropdown-item:hover {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--theme-accent) 72%, #6ba6ff) 0%, color-mix(in srgb, var(--theme-accent) 84%, #0f62fe) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.12);
 }
 
 
@@ -830,16 +964,6 @@ body::before {
 .window-nav-btn:active,
 .window-toolbar-btn:active {
   transform: translateY(0.5px);
-}
-
-.mac-accent-panel-item:hover {
-  background: var(--mac-accent-surface);
-  color: #fff;
-}
-
-.dark .mac-accent-panel-item:hover {
-  background: var(--mac-accent-surface-dark);
-  color: #fff;
 }
 
 .window-accent-action:hover {

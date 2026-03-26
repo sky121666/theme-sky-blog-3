@@ -65,3 +65,13 @@ spec:
       value: "#3B82F6"
       help: 图片模式通常不需要背景色，SVG 模式可以用来补充底色。
       if: "$get(dock_icon_type).value !== 'image'"
+
+    - $formkit: switch
+      id: header_menu_separator_before
+      key: header_menu_separator_before
+      name: header_separator_before
+      label: Header 二级菜单前置分隔线
+      value: "false"
+      onValue: "true"
+      offValue: "false"
+      help: 仅对顶栏 Header 的二级菜单项生效，对 Dock 图标和顶层菜单项无效。打开后，会在当前菜单项上方插入一条 macOS 风格分隔线。

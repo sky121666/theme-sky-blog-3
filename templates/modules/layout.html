@@ -107,6 +107,7 @@
             <a th:href="${#lists.isEmpty(menuItem.children) ? menuItem.status.href : 'javascript:void(0)'}" 
                th:target="${menuItem.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
                class="menubar-item hidden sm:inline-flex items-center mx-0.5 transition-none"
+               :class="{ 'is-open': open }"
                th:classappend="${#lists.isEmpty(menuItem.children) ? 'pjax-link' : ''}"
                th:text="${menuItem.status.displayName}">
             </a>
@@ -114,21 +115,47 @@
             <!-- macOS Panel 风格下拉菜单 -->
             <div th:if="${!#lists.isEmpty(menuItem.children)}"
                  x-show="open"
-                 x-transition:enter="transition ease-out duration-100"
-                 x-transition:enter-start="opacity-0 scale-95"
-                 x-transition:enter-end="opacity-100 scale-100"
-                 x-transition:leave="transition ease-in duration-75"
-                 x-transition:leave-start="opacity-100 scale-100"
-                 x-transition:leave-end="opacity-0 scale-95"
+                 x-transition:enter="transition ease-out duration-75"
+                 x-transition:enter-start="opacity-0 -translate-y-0.5"
+                 x-transition:enter-end="opacity-100 translate-y-0"
+                 x-transition:leave="transition ease-in duration-60"
+                 x-transition:leave-start="opacity-100 translate-y-0"
+                 x-transition:leave-end="opacity-0 -translate-y-0.5"
                  style="display: none;"
-                 class="menubar-dropdown absolute top-[100%] left-0 mt-[1px] min-w-[240px] p-[6px] rounded-[10px] origin-top-left flex flex-col z-[100] drop-shadow-none">
+                 class="menubar-dropdown absolute top-[100%] left-[-6px] mt-[3px] min-w-[220px] p-[5px] rounded-[11px] origin-top-left flex flex-col z-[100] drop-shadow-none">
                  
-                 <a th:each="child : ${menuItem.children}"
-                    th:href="${child.status.href}"
-                    th:target="${child.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
-                    class="mac-accent-panel-item px-3 py-[3px] text-[13.5px] tracking-tight font-medium text-white drop-shadow-sm transition-none flex items-center justify-between rounded-[5px] pjax-link">
-                    <span th:text="${child.status.displayName}"></span>
-                 </a>
+                 <th:block th:each="child : ${menuItem.children}"
+                           th:with="
+                             childIconType = ${#annotations.getOrDefault(child, 'icon_type', 'iconify')},
+                             childIconSvg = ${#annotations.getOrDefault(child, 'icon', '')},
+                             childCustomSvg = ${#annotations.getOrDefault(child, 'custom_svg', '')},
+                             childImageUrl = ${#annotations.getOrDefault(child, 'image_url', '')},
+                             childSeparatorBefore = ${#annotations.getOrDefault(child, 'header_separator_before', 'false')},
+                             childSvgContent = ${childIconType == 'custom_svg' ? childCustomSvg : childIconSvg}">
+                   <div th:if="${childSeparatorBefore == 'true' or childSeparatorBefore == true}" class="menubar-dropdown-separator"></div>
+                   <a th:href="${child.status.href}"
+                      th:target="${child.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
+                      class="menubar-dropdown-item text-[13px] tracking-tight font-medium transition-none rounded-[6px]"
+                      th:classappend="${child.spec.target?.name() == 'BLANK' ? '' : 'pjax-link'}">
+                      <span class="menubar-dropdown-leading">
+                        <img th:if="${childIconType == 'image' and !#strings.isEmpty(childImageUrl)}"
+                             class="menubar-dropdown-icon-image"
+                             th:src="${childImageUrl}"
+                             th:alt="${child.status.displayName}"
+                             draggable="false" />
+                        <span th:if="${childIconType != 'image' and !#strings.isEmpty(childSvgContent)}"
+                              class="menubar-dropdown-icon-svg"
+                              th:utext="${childSvgContent}"></span>
+                      </span>
+                      <span class="menubar-dropdown-label" th:text="${child.status.displayName}"></span>
+                      <span class="menubar-dropdown-trailing">
+                        <svg th:if="${child.spec.target?.name() == 'BLANK'}" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                          <path d="M4 2.5H9.5V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                          <path d="M8.8 3.2 2.6 9.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                      </span>
+                   </a>
+                 </th:block>
             </div>
           </div>
         </th:block>

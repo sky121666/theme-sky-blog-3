@@ -63,21 +63,21 @@ spec:
           name: dropdown
           label: 二级菜单
           value:
-            light_bg: "rgba(53, 53, 56, 0.82)"
-            dark_bg: "rgba(40, 40, 42, 0.9)"
+            light_bg: "rgba(88, 92, 100, 0.66)"
+            dark_bg: "rgba(70, 74, 82, 0.72)"
           children:
             - $formkit: text
               id: header_dropdown_light_bg
               name: light_bg
               label: 浅色背景
               help: 二级菜单面板的浅色模式背景值，支持 rgba、rgb、hex。
-              value: "rgba(53, 53, 56, 0.82)"
+              value: "rgba(88, 92, 100, 0.66)"
             - $formkit: text
               id: header_dropdown_dark_bg
               name: dark_bg
               label: 深色背景
               help: 二级菜单面板的深色模式背景值，支持 rgba、rgb、hex。
-              value: "rgba(40, 40, 42, 0.9)"
+              value: "rgba(70, 74, 82, 0.72)"
 
     - group: desktop
       label: 桌面
