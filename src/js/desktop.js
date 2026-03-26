@@ -571,6 +571,63 @@ export function registerComponents(Alpine) {
     }
   }));
 
+  Alpine.data('tagsExplorer', () => ({
+    activeTagKey: '',
+    activeTagName: '',
+    activeTagHref: '',
+    activeTagCount: '',
+    activeTagColor: '',
+    activeTagCover: '',
+    activePostKey: '',
+    activePostTitle: '',
+
+    init() {
+      const firstTag = this.$root.querySelector('[data-tags-folder]');
+      if (!firstTag) return;
+      this.selectTag(firstTag.dataset.tagKey, firstTag.dataset.tagName, firstTag.dataset.tagHref, firstTag.dataset.tagCount, firstTag.dataset.tagColor, firstTag.dataset.tagCover);
+    },
+
+    selectTag(key, name, href, count, color, cover) {
+      this.activeTagKey = key || '';
+      this.activeTagName = name || '';
+      this.activeTagHref = href || '';
+      this.activeTagCount = count || '';
+      this.activeTagColor = color || '';
+      this.activeTagCover = cover || '';
+
+      const firstPost = Array.from(this.$root.querySelectorAll('[data-tags-post-option]'))
+        .find((el) => el.dataset.parentTagKey === this.activeTagKey);
+
+      if (firstPost) {
+        this.selectPost(firstPost.dataset.postKey, firstPost.dataset.postTitle);
+      } else {
+        this.activePostKey = '';
+        this.activePostTitle = '';
+      }
+    },
+
+    selectPost(postKey, title) {
+      this.activePostKey = postKey || '';
+      this.activePostTitle = title || '';
+    }
+  }));
+
+  Alpine.data('tagPostsExplorer', () => ({
+    activePostKey: '',
+    activePostTitle: '',
+
+    init() {
+      const firstPost = this.$root.querySelector('[data-tag-post-option]');
+      if (!firstPost) return;
+      this.selectPost(firstPost.dataset.postKey, firstPost.dataset.postTitle);
+    },
+
+    selectPost(postKey, title) {
+      this.activePostKey = postKey || '';
+      this.activePostTitle = title || '';
+    }
+  }));
+
   // =========== 4. 全局窗口控制 Store ===========
   Alpine.store('windowManager', {
     show: false,

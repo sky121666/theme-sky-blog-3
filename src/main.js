@@ -8,6 +8,7 @@
 import './css/desktop.css';
 import './css/post.css';
 import './css/archives.css';
+import './css/tags.css';
 
 /* ===== JS：Alpine.js ===== */
 import Alpine from 'alpinejs';
