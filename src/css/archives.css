@@ -2,6 +2,13 @@
   display: none !important;
 }
 
+#pjax-container:has(> .archive-shell) {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .archive-shell {
   --archive-surface: rgba(255, 255, 255, 0.74);
   --archive-surface-strong: rgba(250, 251, 252, 0.88);
@@ -34,8 +41,12 @@
   --archive-folder-icon: var(--theme-folder1, var(--mac-folder1, #4a90e2));
   --archive-folder-icon-soft: var(--theme-folder2, var(--mac-folder2, #64b5f6));
   --archive-accent-wash: color-mix(in srgb, var(--archive-accent) 8%, transparent);
+  --archive-scrollbar-thumb: rgba(156, 163, 175, 0.48);
+  --archive-scrollbar-thumb-hover: rgba(156, 163, 175, 0.68);
   width: 100%;
+  height: 100%;
   min-height: 100%;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -68,17 +79,25 @@
   --archive-sidebar-active-border: color-mix(in srgb, var(--archive-accent) 24%, rgba(255, 255, 255, 0.1));
   --archive-sidebar-active-shadow: 0 10px 22px color-mix(in srgb, var(--archive-accent) 12%, transparent);
   --archive-accent-wash: color-mix(in srgb, var(--archive-accent) 10%, transparent);
+  --archive-scrollbar-thumb: rgba(203, 213, 225, 0.26);
+  --archive-scrollbar-thumb-hover: rgba(203, 213, 225, 0.38);
 }
 
 .archive-workspace {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
   flex: 1;
-  min-height: max(620px, calc(100vh - 196px));
+  height: 100%;
+  min-height: 0;
   overflow: hidden;
 }
 
 .archive-sidebar {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  grid-row: 1 / span 2;
   position: relative;
   padding: 14px 12px 14px 14px;
   background: linear-gradient(180deg, color-mix(in srgb, var(--archive-sidebar-surface) 98%, transparent), color-mix(in srgb, var(--archive-sidebar) 96%, transparent));
@@ -130,6 +149,16 @@
 .archive-sidebar-nav {
   display: grid;
   gap: 2px;
+  align-content: start;
+  grid-auto-rows: max-content;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--archive-scrollbar-thumb) transparent;
 }
 
 .archive-sidebar-item {
@@ -187,11 +216,17 @@
   display: grid;
   grid-template-columns: 232px minmax(360px, 1.18fr) minmax(320px, 0.92fr);
   min-width: 0;
+  min-height: 0;
+  height: 100%;
   background: linear-gradient(180deg, color-mix(in srgb, var(--archive-column-bg) 78%, transparent), color-mix(in srgb, var(--archive-column-bg-soft) 52%, transparent));
 }
 
 .archive-column {
   min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .archive-column + .archive-column {
@@ -239,13 +274,42 @@
 }
 
 .archive-pane-scroll {
-  max-height: 603px;
+  flex: 1;
+  min-height: 0;
   overflow: auto;
   padding: 5px 6px 6px;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--archive-scrollbar-thumb) transparent;
 }
 
 .archive-pane-scroll--preview {
   padding: 18px 20px 20px;
+}
+
+.archive-sidebar-nav::-webkit-scrollbar,
+.archive-pane-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.archive-sidebar-nav::-webkit-scrollbar-track,
+.archive-pane-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.archive-sidebar-nav::-webkit-scrollbar-thumb,
+.archive-pane-scroll::-webkit-scrollbar-thumb {
+  background: var(--archive-scrollbar-thumb);
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+.archive-sidebar-nav::-webkit-scrollbar-thumb:hover,
+.archive-pane-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--archive-scrollbar-thumb-hover);
+  background-clip: padding-box;
 }
 
 .archive-entry {
@@ -452,6 +516,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: fit-content;
+  justify-self: start;
   min-height: 30px;
   margin-top: 2px;
   padding: 0 11px;
@@ -478,11 +544,15 @@
 }
 
 .archive-pagination {
+  grid-column: 2;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
-  margin-top: 24px;
+  min-height: 54px;
+  padding: 10px 16px 14px;
+  border-top: 1px solid var(--archive-divider);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--archive-toolbar) 82%, transparent), color-mix(in srgb, var(--archive-toolbar) 72%, transparent));
 }
 
 .archive-page-btn,
@@ -555,16 +625,22 @@
 @media (max-width: 920px) {
   .archive-workspace {
     grid-template-columns: 1fr;
-    min-height: auto;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    height: auto;
   }
 
   .archive-sidebar {
+    grid-row: auto;
     border-right: 0;
     border-bottom: 1px solid var(--archive-border);
   }
 
   .archive-sidebar-nav {
     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+
+  .archive-pagination {
+    grid-column: auto;
   }
 }
 

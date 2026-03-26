@@ -153,6 +153,8 @@
 .tags-sidebar-nav {
   display: grid;
   gap: 2px;
+  align-content: start;
+  grid-auto-rows: max-content;
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -496,7 +498,9 @@
   align-items: center;
   justify-content: center;
   width: fit-content;
+  justify-self: start;
   min-height: 30px;
+  margin-top: 2px;
   padding: 0 11px;
   border-radius: 999px;
   background: var(--tags-selection-fill);
