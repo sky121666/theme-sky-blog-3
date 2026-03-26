@@ -48,6 +48,7 @@
       bgPreset = ${bgConf?.preset ?: 'tahoe-dawn'},
       enableThemeSetting = ${theme.config.header?.theme?.enable_frontend_setting != null ? theme.config.header?.theme?.enable_frontend_setting : true},
       headerLogoIcon = ${theme.config.header?.logo?.icon?.value ?: ''},
+      headerAppName = ${!#strings.isEmpty(theme.config.header?.logo?.title) ? theme.config.header?.logo?.title : (site.title ?: '')},
       desktopCustomIcons = ${theme.config.desktop?.icons?.custom_icons ?: {}},
       desktopCategories = ${theme.config.desktop?.icons?.categories ?: {}},
       desktopTags = ${theme.config.desktop?.icons?.tags ?: {}},
@@ -84,7 +85,7 @@
   >
 
     <!-- ==================== MenuBar ==================== -->
-    <div class="menubar relative z-50 flex items-center justify-between px-3 h-7 antialiased transition-colors" x-data="menuBar" th:data-site-title="${site.title ?: 'Finder'}">
+    <div class="menubar relative z-50 flex items-center justify-between px-3 h-7 antialiased transition-colors" x-data="menuBar" th:data-site-title="${headerAppName}">
       
       <!-- 左侧：系统菜单与主导航 -->
       <div class="flex items-center text-[13.5px] font-medium tracking-tight text-white drop-shadow-md">
@@ -99,7 +100,7 @@
         </a>
         
         <!-- 动态当前应用名 -->
-        <span class="px-2 h-[22px] flex items-center font-bold cursor-default drop-shadow-md" x-text="appName">Finder</span>
+        <span th:if="${!#strings.isEmpty(headerAppName)}" class="menubar-app-name px-2 h-[22px] flex items-center cursor-default" x-text="appName" th:text="${headerAppName}"></span>
 
         <!-- 动态渲染 Halo 后台菜单 (含二级下拉) -->
         <th:block th:if="${headerMenu != null}">

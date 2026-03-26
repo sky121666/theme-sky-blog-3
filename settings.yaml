@@ -22,9 +22,10 @@ spec:
         - $formkit: group
           id: header_logo_group
           name: logo
-          label: Logo
+          label: 品牌标识
           value:
             icon: ""
+            title: ""
           children:
             - $formkit: iconify
               id: header_logo_icon
@@ -32,6 +33,12 @@ spec:
               label: 应用图标
               help: 左上角的应用图标。
               format: svg
+            - $formkit: text
+              id: header_logo_title
+              name: title
+              label: 应用名称
+              help: 留空时默认使用站点标题；如果站点标题也为空，则不显示名称。
+              value: ""
         - $formkit: group
           id: header_theme_group
           name: theme
@@ -210,23 +217,54 @@ spec:
                   value: image
                 - label: 纯色方案
                   value: solid
-            - $formkit: select
+            - $formkit: toggle
               id: desktop_background_preset
               key: desktop_background_preset_field
               name: preset
               label: macOS 专用方案
-              help: 内置几种接近 macOS 氛围的预设背景，用于快速切换整体桌面观感。
+              render-type: image
+              size: 64
+              gap: 6
+              help: 通过预览卡片直接选择桌面壁纸预设。每个选项都使用独立的 SVG 预览，更接近实际桌面氛围。
               value: tahoe-dawn
               if: "$get(desktop_background_mode).value === 'preset'"
               options:
-                - label: Tahoe Dawn
+                - label: 晨雾
                   value: tahoe-dawn
-                - label: Tahoe Blue
+                  render: /themes/theme-sky-blog-3/assets/images/wallpaper-presets/tahoe-dawn.svg
+                - label: 湖蓝
                   value: tahoe-blue
-                - label: Sequoia Mist
+                  render: /themes/theme-sky-blog-3/assets/images/wallpaper-presets/tahoe-blue.svg
+                - label: 松雾
                   value: sequoia-mist
-                - label: Graphite Night
+                  render: /themes/theme-sky-blog-3/assets/images/wallpaper-presets/sequoia-mist.svg
+                - label: 石墨夜
                   value: graphite-night
+                  render: /themes/theme-sky-blog-3/assets/images/wallpaper-presets/graphite-night.svg
+                - label: 霞粉
+                  value: sonoma-sunset
+                  render: /themes/theme-sky-blog-3/assets/images/wallpaper-presets/sonoma-sunset.svg
+                - label: 薄荷
+                  value: aurora-mint
+                  render: /themes/theme-sky-blog-3/assets/images/wallpaper-presets/aurora-mint.svg
+                - label: 淡紫
+                  value: alpine-lilac
+                  render: /themes/theme-sky-blog-3/assets/images/wallpaper-presets/alpine-lilac.svg
+                - label: 珊瑚
+                  value: coral-haze
+                  render: /themes/theme-sky-blog-3/assets/images/wallpaper-presets/coral-haze.svg
+                - label: 银霜
+                  value: arctic-pearl
+                  render: /themes/theme-sky-blog-3/assets/images/wallpaper-presets/arctic-pearl.svg
+                - label: 靛夜
+                  value: midnight-indigo
+                  render: /themes/theme-sky-blog-3/assets/images/wallpaper-presets/midnight-indigo.svg
+                - label: 金砂
+                  value: golden-amber
+                  render: /themes/theme-sky-blog-3/assets/images/wallpaper-presets/golden-amber.svg
+                - label: 深海
+                  value: deep-sea
+                  render: /themes/theme-sky-blog-3/assets/images/wallpaper-presets/deep-sea.svg
             - $formkit: attachment
               id: desktop_background_image
               key: desktop_background_image_field

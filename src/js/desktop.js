@@ -427,8 +427,9 @@ export function registerComponents(Alpine) {
   // =========== 3. 菜单栏 ===========
   Alpine.data('menuBar', () => ({
     timeStr: '',
-    appName: 'Finder',
+    appName: '',
     init() {
+      this.appName = this.$el?.dataset?.siteTitle || '';
       this.tick();
       setInterval(() => this.tick(), 1000);
     },

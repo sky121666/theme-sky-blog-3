@@ -436,22 +436,102 @@ body.scheme-graphite {
   display: none !important;
 }
 
-/* ---------- 壁纸预设 (原生拟真空灵色) ---------- */
+/* ---------- 壁纸预设 (更接近 macOS 的多层光斑与雾面) ---------- */
 .wallpaper-tahoe-dawn {
-  background: radial-gradient(circle at 25% 15%, rgba(255,255,255,0.4) 0%, transparent 35%),
-              linear-gradient(135deg, #d8dee8 0%, #e7e2e6 34%, #f1ebe5 66%, #faf7f0 100%);
+  --mac-wallpaper-overlay: rgba(15, 18, 25, 0.16);
+  background:
+    radial-gradient(68% 82% at 16% 12%, rgba(255, 244, 226, 0.94) 0%, rgba(255, 244, 226, 0.42) 30%, transparent 58%),
+    radial-gradient(48% 60% at 72% 18%, rgba(205, 224, 255, 0.72) 0%, rgba(205, 224, 255, 0.16) 42%, transparent 74%),
+    radial-gradient(52% 74% at 72% 76%, rgba(255, 210, 189, 0.48) 0%, rgba(255, 210, 189, 0.1) 38%, transparent 72%),
+    linear-gradient(145deg, #7b8da8 0%, #bfc4cf 24%, #e6ddd7 52%, #f4e7d8 76%, #f8f2e9 100%);
 }
 .wallpaper-tahoe-blue {
-  background: radial-gradient(circle at 20% 20%, rgba(255,255,255,0.3) 0%, transparent 40%),
-              linear-gradient(135deg, #4b7bff 0%, #7daffe 35%, #cae3ff 70%, #edf4ff 100%);
+  --mac-wallpaper-overlay: rgba(12, 19, 31, 0.18);
+  background:
+    radial-gradient(74% 92% at 20% 14%, rgba(180, 225, 255, 0.82) 0%, rgba(180, 225, 255, 0.16) 36%, transparent 62%),
+    radial-gradient(54% 68% at 82% 22%, rgba(126, 171, 255, 0.72) 0%, rgba(126, 171, 255, 0.12) 40%, transparent 72%),
+    radial-gradient(62% 88% at 56% 86%, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.04) 28%, transparent 66%),
+    linear-gradient(145deg, #0f3e8f 0%, #2f67cb 24%, #5f97f1 50%, #9dc4ff 76%, #d8ebff 100%);
 }
 .wallpaper-sequoia-mist {
-  background: radial-gradient(circle at 18% 18%, rgba(255,255,255,0.2) 0%, transparent 35%),
-              linear-gradient(140deg, #718193 0%, #a2afbd 40%, #d1dadd 75%, #eff2f4 100%);
+  --mac-wallpaper-overlay: rgba(14, 18, 22, 0.17);
+  background:
+    radial-gradient(70% 86% at 18% 12%, rgba(220, 238, 232, 0.72) 0%, rgba(220, 238, 232, 0.14) 34%, transparent 60%),
+    radial-gradient(44% 60% at 78% 18%, rgba(203, 217, 230, 0.64) 0%, rgba(203, 217, 230, 0.14) 38%, transparent 72%),
+    radial-gradient(54% 74% at 60% 78%, rgba(188, 205, 197, 0.34) 0%, rgba(188, 205, 197, 0.08) 34%, transparent 68%),
+    linear-gradient(148deg, #445463 0%, #6f8090 24%, #97a7ae 50%, #bec8c7 74%, #e6ece9 100%);
 }
 .wallpaper-graphite-night {
-  background: radial-gradient(circle at 25% 18%, rgba(255,255,255,0.08) 0%, transparent 30%),
-              linear-gradient(145deg, #090e15 0%, #151e2b 40%, #283446 75%, #566479 100%);
+  --mac-wallpaper-overlay: rgba(8, 10, 15, 0.22);
+  background:
+    radial-gradient(72% 88% at 18% 10%, rgba(82, 110, 170, 0.34) 0%, rgba(82, 110, 170, 0.08) 34%, transparent 62%),
+    radial-gradient(56% 68% at 80% 16%, rgba(111, 130, 156, 0.22) 0%, rgba(111, 130, 156, 0.05) 38%, transparent 70%),
+    radial-gradient(60% 84% at 54% 88%, rgba(214, 226, 255, 0.06) 0%, rgba(214, 226, 255, 0.015) 26%, transparent 62%),
+    linear-gradient(150deg, #05070b 0%, #0b1018 22%, #16202d 46%, #243345 72%, #44556c 100%);
+}
+.wallpaper-sonoma-sunset {
+  --mac-wallpaper-overlay: rgba(18, 12, 18, 0.16);
+  background:
+    radial-gradient(72% 92% at 18% 14%, rgba(255, 226, 214, 0.8) 0%, rgba(255, 226, 214, 0.16) 34%, transparent 62%),
+    radial-gradient(48% 64% at 82% 18%, rgba(245, 150, 205, 0.62) 0%, rgba(245, 150, 205, 0.14) 40%, transparent 74%),
+    radial-gradient(56% 74% at 64% 84%, rgba(255, 238, 244, 0.18) 0%, rgba(255, 238, 244, 0.04) 28%, transparent 66%),
+    linear-gradient(148deg, #693f63 0%, #9a5380 24%, #c86e96 52%, #e2a1af 76%, #f1d0d5 100%);
+}
+.wallpaper-aurora-mint {
+  --mac-wallpaper-overlay: rgba(10, 18, 18, 0.17);
+  background:
+    radial-gradient(70% 88% at 16% 12%, rgba(210, 255, 231, 0.74) 0%, rgba(210, 255, 231, 0.14) 34%, transparent 62%),
+    radial-gradient(48% 66% at 82% 20%, rgba(102, 214, 183, 0.5) 0%, rgba(102, 214, 183, 0.1) 38%, transparent 72%),
+    radial-gradient(62% 84% at 60% 84%, rgba(227, 255, 245, 0.2) 0%, rgba(227, 255, 245, 0.04) 28%, transparent 66%),
+    linear-gradient(148deg, #0d4a41 0%, #167364 24%, #29a184 52%, #72d0ab 76%, #d2f5e5 100%);
+}
+.wallpaper-alpine-lilac {
+  --mac-wallpaper-overlay: rgba(16, 16, 24, 0.17);
+  background:
+    radial-gradient(72% 88% at 18% 12%, rgba(232, 221, 255, 0.82) 0%, rgba(232, 221, 255, 0.16) 34%, transparent 62%),
+    radial-gradient(46% 62% at 82% 20%, rgba(186, 167, 255, 0.54) 0%, rgba(186, 167, 255, 0.1) 38%, transparent 72%),
+    radial-gradient(60% 82% at 58% 84%, rgba(255, 236, 247, 0.18) 0%, rgba(255, 236, 247, 0.04) 28%, transparent 66%),
+    linear-gradient(150deg, #4d477d 0%, #786aa8 24%, #a48fd1 52%, #c8b6ec 76%, #ece7fb 100%);
+}
+.wallpaper-coral-haze {
+  --mac-wallpaper-overlay: rgba(20, 14, 14, 0.16);
+  background:
+    radial-gradient(70% 88% at 18% 12%, rgba(255, 229, 210, 0.82) 0%, rgba(255, 229, 210, 0.16) 34%, transparent 62%),
+    radial-gradient(50% 66% at 80% 18%, rgba(255, 153, 102, 0.56) 0%, rgba(255, 153, 102, 0.12) 38%, transparent 72%),
+    radial-gradient(58% 80% at 62% 84%, rgba(255, 244, 229, 0.18) 0%, rgba(255, 244, 229, 0.04) 28%, transparent 66%),
+    linear-gradient(148deg, #8e4d37 0%, #c66a42 24%, #e89056 52%, #f2b273 76%, #f8ddbd 100%);
+}
+.wallpaper-arctic-pearl {
+  --mac-wallpaper-overlay: rgba(12, 16, 22, 0.15);
+  background:
+    radial-gradient(72% 88% at 16% 10%, rgba(251, 253, 255, 0.82) 0%, rgba(251, 253, 255, 0.18) 34%, transparent 62%),
+    radial-gradient(48% 64% at 82% 18%, rgba(215, 224, 236, 0.4) 0%, rgba(215, 224, 236, 0.1) 38%, transparent 72%),
+    radial-gradient(62% 82% at 54% 84%, rgba(241, 245, 251, 0.18) 0%, rgba(241, 245, 251, 0.04) 28%, transparent 66%),
+    linear-gradient(148deg, #7f8995 0%, #aeb7c1 24%, #d1d7de 52%, #e6eaef 76%, #f7f9fc 100%);
+}
+.wallpaper-midnight-indigo {
+  --mac-wallpaper-overlay: rgba(8, 10, 18, 0.22);
+  background:
+    radial-gradient(70% 86% at 18% 12%, rgba(111, 126, 255, 0.34) 0%, rgba(111, 126, 255, 0.08) 34%, transparent 62%),
+    radial-gradient(48% 64% at 82% 18%, rgba(140, 115, 255, 0.22) 0%, rgba(140, 115, 255, 0.05) 38%, transparent 72%),
+    radial-gradient(60% 82% at 56% 84%, rgba(223, 228, 255, 0.08) 0%, rgba(223, 228, 255, 0.02) 28%, transparent 66%),
+    linear-gradient(150deg, #060812 0%, #0d1330 24%, #192454 52%, #273781 76%, #495cab 100%);
+}
+.wallpaper-golden-amber {
+  --mac-wallpaper-overlay: rgba(20, 15, 10, 0.17);
+  background:
+    radial-gradient(70% 88% at 16% 12%, rgba(255, 239, 199, 0.82) 0%, rgba(255, 239, 199, 0.18) 34%, transparent 62%),
+    radial-gradient(46% 64% at 82% 18%, rgba(255, 193, 90, 0.5) 0%, rgba(255, 193, 90, 0.12) 38%, transparent 72%),
+    radial-gradient(60% 82% at 58% 84%, rgba(255, 248, 230, 0.16) 0%, rgba(255, 248, 230, 0.04) 28%, transparent 66%),
+    linear-gradient(148deg, #86602c 0%, #bc8740 24%, #e0ad58 52%, #f0cb86 76%, #f7ead0 100%);
+}
+.wallpaper-deep-sea {
+  --mac-wallpaper-overlay: rgba(8, 14, 18, 0.21);
+  background:
+    radial-gradient(70% 88% at 16% 12%, rgba(124, 220, 227, 0.32) 0%, rgba(124, 220, 227, 0.08) 34%, transparent 62%),
+    radial-gradient(46% 64% at 82% 18%, rgba(91, 162, 210, 0.22) 0%, rgba(91, 162, 210, 0.05) 38%, transparent 72%),
+    radial-gradient(60% 82% at 58% 84%, rgba(220, 248, 255, 0.08) 0%, rgba(220, 248, 255, 0.02) 28%, transparent 66%),
+    linear-gradient(148deg, #04131a 0%, #0a2833 24%, #144658 52%, #1f6f85 76%, #4da0b8 100%);
 }
 
 /* ---------- 桌面背景压暗 (保障白色文字可读性) ---------- */
@@ -516,6 +596,12 @@ body::before {
   transition: background 0.1s ease, box-shadow 0.1s ease;
   color: var(--shell-text-primary);
   text-decoration: none;
+}
+.menubar-app-name {
+  color: var(--shell-text-primary);
+  font: inherit;
+  letter-spacing: inherit;
+  text-shadow: inherit;
 }
 .menubar-item:hover,
 .menubar-icon-btn:hover {

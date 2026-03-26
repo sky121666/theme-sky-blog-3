@@ -1,0 +1,25 @@
+<svg width="320" height="200" viewBox="0 0 320 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="14" y1="8" x2="304" y2="196" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#114B57"/>
+      <stop offset="0.24" stop-color="#1F7A7D"/>
+      <stop offset="0.52" stop-color="#42A7A0"/>
+      <stop offset="0.76" stop-color="#87D1C2"/>
+      <stop offset="1" stop-color="#D4F2EB"/>
+    </linearGradient>
+    <radialGradient id="g1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(76 40) rotate(22) scale(142 94)">
+      <stop stop-color="#C5FFE9" stop-opacity="0.74"/>
+      <stop offset="0.48" stop-color="#C5FFE9" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#C5FFE9" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="g2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(258 44) rotate(145) scale(106 78)">
+      <stop stop-color="#8BEADC" stop-opacity="0.52"/>
+      <stop offset="0.52" stop-color="#8BEADC" stop-opacity="0.1"/>
+      <stop offset="1" stop-color="#8BEADC" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="4" y="4" width="312" height="192" rx="26" fill="url(#bg)"/>
+  <rect x="4" y="4" width="312" height="192" rx="26" fill="url(#g1)"/>
+  <rect x="4" y="4" width="312" height="192" rx="26" fill="url(#g2)"/>
+  <rect x="4" y="4" width="312" height="192" rx="26" stroke="#FFFFFF" stroke-opacity="0.22" stroke-width="8"/>
+</svg>
