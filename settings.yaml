@@ -92,7 +92,7 @@ spec:
         - $formkit: group
           id: desktop_appearance_group
           name: appearance
-          label: 强调色方案
+          label: 配色
           value:
             mode: preset
             preset: blue
@@ -108,38 +108,49 @@ spec:
               id: desktop_appearance_mode
               name: mode
               label: 配色模式
-              help: 仅用于强调层、选中态和兼容组件桥接，不直接决定固定壳层的基底材质。
+              help: 选择内置方案或自定义颜色。
               value: preset
               options:
-                - label: macOS 内置方案
+                - label: 内置
                   value: preset
-                - label: 自定义主题
+                - label: 自定义
                   value: custom
-            - $formkit: select
+            - $formkit: toggle
               id: desktop_appearance_preset
               key: desktop_appearance_preset_field
               name: preset
-              label: macOS 配色方案
-              help: 这会统一控制强调色、选中态、文件夹色，以及搜索/评论等兼容组件的强调层。
+              label: 内置配色
+              render-type: image
+              size: 64
+              gap: 6
+              help: 选择一套内置配色。
               value: blue
               if: "$get(desktop_appearance_mode).value === 'preset'"
               options:
-                - label: Blue
+                - label: 海蓝
                   value: blue
-                - label: Purple
+                  render: /themes/theme-sky-blog-3/assets/images/color-schemes/sea-blue.svg
+                - label: 紫藤
                   value: purple
-                - label: Pink
+                  render: /themes/theme-sky-blog-3/assets/images/color-schemes/wisteria.svg
+                - label: 玫粉
                   value: pink
-                - label: Red
+                  render: /themes/theme-sky-blog-3/assets/images/color-schemes/rose-pink.svg
+                - label: 樱红
                   value: red
-                - label: Orange
+                  render: /themes/theme-sky-blog-3/assets/images/color-schemes/cherry-red.svg
+                - label: 琥珀
                   value: orange
-                - label: Yellow
+                  render: /themes/theme-sky-blog-3/assets/images/color-schemes/amber-orange.svg
+                - label: 麦黄
                   value: yellow
-                - label: Green
+                  render: /themes/theme-sky-blog-3/assets/images/color-schemes/wheat-yellow.svg
+                - label: 森绿
                   value: green
-                - label: Graphite
+                  render: /themes/theme-sky-blog-3/assets/images/color-schemes/forest-green.svg
+                - label: 石墨
                   value: graphite
+                  render: /themes/theme-sky-blog-3/assets/images/color-schemes/graphite-gray.svg
             - $formkit: color
               id: desktop_appearance_accent_color
               key: desktop_appearance_accent_color_field
@@ -208,24 +219,24 @@ spec:
               id: desktop_background_mode
               name: mode
               label: 背景模式
-              help: 选择桌面背景的来源。预设用于快速搭建 macOS 风格背景，上传图片用于自定义壁纸，纯色用于极简方案。
+              help: 选择背景来源。
               value: preset
               options:
-                - label: macOS 预设
+                - label: 内置
                   value: preset
-                - label: 上传图片
-                  value: image
-                - label: 纯色方案
+                - label: 纯色
                   value: solid
+                - label: 上传
+                  value: image
             - $formkit: toggle
               id: desktop_background_preset
               key: desktop_background_preset_field
               name: preset
-              label: macOS 专用方案
+              label: 内置背景
               render-type: image
               size: 64
               gap: 6
-              help: 通过预览卡片直接选择桌面壁纸预设。每个选项都使用独立的 SVG 预览，更接近实际桌面氛围。
+              help: 选择一套内置背景。
               value: tahoe-dawn
               if: "$get(desktop_background_mode).value === 'preset'"
               options:
