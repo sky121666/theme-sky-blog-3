@@ -1,6 +1,21 @@
 import Pjax from 'pjax';
 import NProgress from 'nprogress';
 
+function replayPjaxScripts(root) {
+  if (!root) return;
+
+  root.querySelectorAll('script[data-pjax]').forEach((oldScript) => {
+    const script = document.createElement('script');
+
+    Array.from(oldScript.attributes).forEach((attr) => {
+      script.setAttribute(attr.name, attr.value);
+    });
+
+    script.textContent = oldScript.textContent;
+    oldScript.replaceWith(script);
+  });
+}
+
 function stripClonedIdsAndAlpine(node) {
   if (!node || !node.querySelectorAll) return;
   
@@ -332,6 +347,8 @@ export function registerComponents(Alpine) {
       NProgress.done();
       const container = document.getElementById('pjax-container');
       if (container) {
+        replayPjaxScripts(container);
+
         // 利用 RequestAnimationFrame 保证 DOM 插入后再生效 CSS
         requestAnimationFrame(() => {
           container.classList.remove('pjax-loading');
@@ -679,13 +696,12 @@ export function registerComponents(Alpine) {
       });
 
       // 初始化显示逻辑
-      if (!localStorage.getItem('theme-macOS-window-state')) {
-        const isHome = window.location.pathname === '/';
-        const shouldShow = !isHome;
-        
-        if (shouldShow) {
-          this.$store.windowManager.open(document.title);
-        }
+      const isHome = window.location.pathname === '/';
+
+      // 深链接页面必须优先于本地窗口缓存，否则文章/单页会继承首页的关窗或最小化状态。
+      if (!isHome) {
+        this.$store.windowManager.minimized = false;
+        this.$store.windowManager.open(document.title);
       } else if (this.$store.windowManager.minimized) {
         this.windowEl.style.transition = 'none';
         this.windowEl.style.opacity = '0';
