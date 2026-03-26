@@ -4,7 +4,11 @@
 
 @import "tailwindcss";
 @source "../../templates/**/*.html";
-@source "../js/desktop.js";
+@source "../../templates/*.html";
+@source "../../src/**/*.js";
+@source "../../src/**/*.vue";
+@source "./templates/**/*.html";
+@source "./src/**/*.js";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
