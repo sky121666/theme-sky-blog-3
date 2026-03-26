@@ -1,6 +1,8 @@
 import Pjax from 'pjax';
 import NProgress from 'nprogress';
 
+let archiveSidebarCleanup = null;
+
 function replayPjaxScripts(root) {
   if (!root) return;
 
@@ -319,6 +321,74 @@ function observeSearchWidget() {
   });
 }
 
+function initArchiveSidebar(root = document) {
+  const sidebarLinks = Array.from(root.querySelectorAll('[data-archive-sidebar-link]'));
+  const yearGroups = Array.from(root.querySelectorAll('[data-archive-year-group]'));
+
+  if (!sidebarLinks.length || !yearGroups.length) return;
+
+  const setActiveYear = (year) => {
+    sidebarLinks.forEach((link) => {
+      const active = link.dataset.archiveYear === year;
+      link.classList.toggle('is-active', active);
+      link.setAttribute('aria-current', active ? 'true' : 'false');
+    });
+  };
+
+  const pickClosestYear = () => {
+    const threshold = 120;
+    let currentYear = yearGroups[0]?.dataset.archiveYear;
+
+    yearGroups.forEach((section) => {
+      const rect = section.getBoundingClientRect();
+      if (rect.top <= threshold) {
+        currentYear = section.dataset.archiveYear;
+      }
+    });
+
+    if (currentYear) setActiveYear(currentYear);
+  };
+
+  const syncFromHash = () => {
+    const hash = decodeURIComponent(window.location.hash || '');
+    const matched = hash.match(/^#archive-year-(.+)$/);
+    if (matched?.[1]) {
+      setActiveYear(matched[1]);
+      return true;
+    }
+    return false;
+  };
+
+  sidebarLinks.forEach((link) => {
+    if (link.dataset.archiveSidebarBound === 'true') return;
+
+    link.dataset.archiveSidebarBound = 'true';
+    link.addEventListener('click', () => {
+      const year = link.dataset.archiveYear;
+      if (year) setActiveYear(year);
+    });
+  });
+
+  if (!syncFromHash()) {
+    pickClosestYear();
+  }
+
+  const onScroll = () => pickClosestYear();
+  const onHashChange = () => syncFromHash() || pickClosestYear();
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('hashchange', onHashChange);
+
+  if (typeof archiveSidebarCleanup === 'function') {
+    archiveSidebarCleanup();
+  }
+
+  archiveSidebarCleanup = () => {
+    window.removeEventListener('scroll', onScroll);
+    window.removeEventListener('hashchange', onHashChange);
+  };
+}
+
 /**
  * macOS 简易单主窗静态渲染框架 + Pjax 获取
  */
@@ -348,11 +418,16 @@ export function registerComponents(Alpine) {
       const container = document.getElementById('pjax-container');
       if (container) {
         replayPjaxScripts(container);
+        if (window.Alpine?.initTree) {
+          window.Alpine.initTree(container);
+        }
 
         // 利用 RequestAnimationFrame 保证 DOM 插入后再生效 CSS
         requestAnimationFrame(() => {
           container.classList.remove('pjax-loading');
         });
+
+        initArchiveSidebar(container);
       }
       
       // 如果不是因为点击关闭按钮而触发的 pjax，正常弹出窗口
@@ -441,6 +516,58 @@ export function registerComponents(Alpine) {
       const dateStr = d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', weekday: 'short' });
       const timeStr = d.toLocaleTimeString('zh-CN', { hour: 'numeric', minute: '2-digit', hour12: true });
       this.timeStr = dateStr.replace(/ /g, '') + ' ' + timeStr;
+    }
+  }));
+
+  Alpine.data('archiveExplorer', () => ({
+    activeYear: '',
+    activeYearLabel: '',
+    activeMonthKey: '',
+    activeMonthLabel: '',
+    activePostKey: '',
+    activePostTitle: '',
+
+    init() {
+      const firstYear = this.$root.querySelector('[data-archive-year-option]');
+      if (!firstYear) return;
+      this.selectYear(firstYear.dataset.year, firstYear.dataset.yearLabel);
+    },
+
+    selectYear(year, label) {
+      this.activeYear = year || '';
+      this.activeYearLabel = label || '';
+
+      const firstMonth = Array.from(this.$root.querySelectorAll('[data-archive-month-option]'))
+        .find((el) => el.dataset.parentYear === this.activeYear);
+
+      if (firstMonth) {
+        this.selectMonth(firstMonth.dataset.monthKey, firstMonth.dataset.monthLabel);
+      } else {
+        this.activeMonthKey = '';
+        this.activeMonthLabel = '';
+        this.activePostKey = '';
+        this.activePostTitle = '';
+      }
+    },
+
+    selectMonth(monthKey, label) {
+      this.activeMonthKey = monthKey || '';
+      this.activeMonthLabel = label || '';
+
+      const firstPost = Array.from(this.$root.querySelectorAll('[data-archive-post-option]'))
+        .find((el) => el.dataset.parentMonthKey === this.activeMonthKey);
+
+      if (firstPost) {
+        this.selectPost(firstPost.dataset.postKey, firstPost.dataset.postTitle);
+      } else {
+        this.activePostKey = '';
+        this.activePostTitle = '';
+      }
+    },
+
+    selectPost(postKey, title) {
+      this.activePostKey = postKey || '';
+      this.activePostTitle = title || '';
     }
   }));
 
@@ -607,6 +734,23 @@ export function registerComponents(Alpine) {
     isDesktop: window.innerWidth >= 768,
     windowEl: null,
 
+    applyResizeMode() {
+      if (!this.windowEl) return;
+
+      if (!this.isDesktop || this.isMaximized) {
+        this.windowEl.style.resize = 'none';
+        if (!this.isDesktop) {
+          this.windowEl.style.borderRadius = '';
+        } else if (this.isMaximized) {
+          this.windowEl.style.borderRadius = '0';
+        }
+        return;
+      }
+
+      this.windowEl.style.resize = 'both';
+      this.windowEl.style.borderRadius = '';
+    },
+
     syncState() {
       if (!this.isDesktop) return;
       localStorage.setItem('theme-macOS-window-metrics', JSON.stringify({
@@ -643,14 +787,12 @@ export function registerComponents(Alpine) {
 
       if (this.width === 0) this.updateMeasurements();
       else if (this.isDesktop) {
-         if (this.isMaximized) {
-            this.windowEl.style.resize = 'none';
-            this.windowEl.style.borderRadius = '0';
-         }
          this.windowEl.style.width = `${this.width}px`;
          this.windowEl.style.height = `${this.height}px`;
          this.applyTransform();
       }
+
+      this.applyResizeMode();
 
       if (this.isDesktop && window.ResizeObserver) {
         let resizeTimeout;
@@ -688,6 +830,7 @@ export function registerComponents(Alpine) {
            this.clampPositions(); 
            this.applyTransform();
         }
+        this.applyResizeMode();
       };
       // Debounce window resize
       let timeout;
@@ -725,6 +868,7 @@ export function registerComponents(Alpine) {
            winEl.style.height = `${this.height}px`;
          }
          this.applyTransform();
+         this.applyResizeMode();
          this.syncState();
        }
     },
@@ -766,8 +910,6 @@ export function registerComponents(Alpine) {
         winEl.style.width = `${this.width}px`;
         winEl.style.height = `${this.height}px`;
         this.applyTransform();
-        winEl.style.resize = 'both';
-        winEl.style.borderRadius = ''; 
         this.isMaximized = false;
       } else {
         this.preMaxWidth = winEl.offsetWidth;
@@ -783,10 +925,9 @@ export function registerComponents(Alpine) {
         winEl.style.width = `${this.width}px`;
         winEl.style.height = `${this.height}px`;
         this.applyTransform();
-        winEl.style.resize = 'none';
-        winEl.style.borderRadius = '0';
         this.isMaximized = true;
       }
+      this.applyResizeMode();
       this.syncState();
       
       setTimeout(() => {
@@ -935,6 +1076,7 @@ export function registerComponents(Alpine) {
   }));
 
   observeSearchWidget();
+  initArchiveSidebar(document);
 
   window.addEventListener('keydown', (event) => {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
