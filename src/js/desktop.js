@@ -1,7 +1,9 @@
 import Pjax from 'pjax';
 import NProgress from 'nprogress';
+import QRCode from 'qrcode';
 
 let archiveSidebarCleanup = null;
+let postOutlineCleanup = null;
 
 function extractTextPreview(value) {
   if (!value) return '';
@@ -227,6 +229,115 @@ function replayPjaxScripts(root) {
   });
 }
 
+function slugifyHeading(text, index) {
+  const normalized = String(text || '').trim().toLowerCase();
+  const ascii = normalized
+    .replace(/&/g, ' and ')
+    .replace(/[^\w\u4e00-\u9fa5\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  return ascii || `section-${index + 1}`;
+}
+
+function initPostOutline(root = document) {
+  if (typeof postOutlineCleanup === 'function') {
+    postOutlineCleanup();
+    postOutlineCleanup = null;
+  }
+
+  const frame = root.querySelector('.post-reader-frame');
+  const article = root.querySelector('#article-content');
+  const outline = root.querySelector('[data-post-outline]');
+  const list = root.querySelector('[data-post-outline-list]');
+
+  if (!frame || !article || !outline || !list) return;
+
+  const headings = Array.from(article.querySelectorAll('h2, h3, h4'))
+    .filter((heading) => extractTextPreview(heading.textContent || ''));
+
+  list.innerHTML = '';
+
+  if (!headings.length) {
+    outline.hidden = true;
+    return;
+  }
+
+  const usedIds = new Set();
+  headings.forEach((heading, index) => {
+    let headingId = heading.id || slugifyHeading(heading.textContent, index);
+
+    while (usedIds.has(headingId) || document.querySelectorAll(`#${CSS.escape(headingId)}`).length > 1) {
+      headingId = `${headingId}-${index + 1}`;
+    }
+
+    usedIds.add(headingId);
+    heading.id = headingId;
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `post-outline-link post-outline-link--${heading.tagName.toLowerCase()}`;
+    button.dataset.targetId = headingId;
+    button.textContent = extractTextPreview(heading.textContent || '');
+    list.appendChild(button);
+  });
+
+  outline.hidden = false;
+
+  const buttons = Array.from(list.querySelectorAll('.post-outline-link'));
+
+  const setActive = (id) => {
+    buttons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.targetId === id);
+    });
+  };
+
+  const handleClick = (event) => {
+    const button = event.target.closest('.post-outline-link');
+    if (!button) return;
+
+    const target = article.querySelector(`#${CSS.escape(button.dataset.targetId || '')}`);
+    if (!target) return;
+
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setActive(button.dataset.targetId || '');
+    history.replaceState(history.state, '', `#${button.dataset.targetId}`);
+  };
+
+  list.addEventListener('click', handleClick);
+
+  let observer = null;
+  if ('IntersectionObserver' in window) {
+    observer = new IntersectionObserver((entries) => {
+      const visible = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+
+      if (visible.length > 0) {
+        setActive(visible[0].target.id);
+      }
+    }, {
+      rootMargin: '-20% 0px -65% 0px',
+      threshold: [0, 1]
+    });
+
+    headings.forEach((heading) => observer.observe(heading));
+  }
+
+  const hash = decodeURIComponent(window.location.hash || '').replace(/^#/, '');
+  if (hash && usedIds.has(hash)) {
+    setActive(hash);
+  } else {
+    setActive(headings[0].id);
+  }
+
+  postOutlineCleanup = () => {
+    list.removeEventListener('click', handleClick);
+    if (observer) observer.disconnect();
+  };
+}
+
 const SEO_HEAD_SELECTORS = [
   "meta[name='description']",
   "meta[name='keywords']",
@@ -236,6 +347,8 @@ const SEO_HEAD_SELECTORS = [
   "link[rel='shortcut icon']",
   "link[rel='apple-touch-icon']",
   "meta[property='og:type']",
+  "meta[property='og:url']",
+  "meta[property='og:site_name']",
   "meta[property='og:title']",
   "meta[property='og:description']",
   "meta[property='og:image']",
@@ -249,6 +362,83 @@ const SEO_HEAD_SELECTORS = [
   "meta[name='twitter:description']",
   "meta[name='twitter:image']"
 ];
+
+function readHeadAttribute(selectors, attribute = 'content') {
+  for (const selector of selectors) {
+    const node = document.head.querySelector(selector);
+    const value = node?.getAttribute(attribute)?.trim();
+    if (value) {
+      return value;
+    }
+  }
+
+  return '';
+}
+
+function getSharePayload() {
+  const url =
+    readHeadAttribute(["link[rel='canonical']"], 'href') ||
+    window.location.href;
+
+  return {
+    url
+  };
+}
+
+function getShareMetadata() {
+  const url = getSharePayload().url;
+  const title =
+    readHeadAttribute(["meta[property='og:title']", "meta[name='twitter:title']"]) ||
+    document.title;
+  const description =
+    readHeadAttribute([
+      "meta[property='og:description']",
+      "meta[name='twitter:description']",
+      "meta[name='description']"
+    ]) || '';
+  const image =
+    readHeadAttribute(["meta[property='og:image']", "meta[name='twitter:image']"]) || '';
+
+  let host = '';
+  try {
+    host = new URL(url, window.location.origin).host;
+  } catch (_error) {
+    host = window.location.host;
+  }
+
+  return {
+    url,
+    title,
+    description,
+    image,
+    host
+  };
+}
+
+async function copyTextFallback(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return true;
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', 'readonly');
+  textarea.style.position = 'fixed';
+  textarea.style.top = '-9999px';
+  textarea.style.left = '-9999px';
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  let copied = false;
+  try {
+    copied = document.execCommand('copy');
+  } finally {
+    textarea.remove();
+  }
+
+  return copied;
+}
 
 function syncSeoHeadFromResponse(responseText) {
   if (!responseText || typeof responseText !== 'string') return;
@@ -275,9 +465,13 @@ function stripClonedIdsAndAlpine(node) {
   const elements = [node, ...node.querySelectorAll('*')];
   elements.forEach(el => {
     el.removeAttribute('id');
-    // Strip Alpine directives (e.g. x-data, x-show, @click)
+    // Strip Alpine directives and shorthand bindings from the animation ghost.
     Array.from(el.attributes).forEach(attr => {
-      if (attr.name.startsWith('x-') || attr.name.startsWith('@')) {
+      if (
+        attr.name.startsWith('x-')
+        || attr.name.startsWith('@')
+        || attr.name.startsWith(':')
+      ) {
         el.removeAttribute(attr.name);
       }
     });
@@ -323,7 +517,7 @@ function createGenieGhost(sourceWindowEl) {
   return { ghostWrapper, ghostInner };
 }
 
-function runGenieAnimation({ windowEl, dockEl, action, duration = 420 }) {
+function runGenieAnimation({ windowEl, dockEl, action, duration = 420, onBeforeFinish }) {
   if (!windowEl || !dockEl) return Promise.resolve(false);
 
   const windowRect = windowEl.getBoundingClientRect();
@@ -331,20 +525,25 @@ function runGenieAnimation({ windowEl, dockEl, action, duration = 420 }) {
   const dockRect = targetGraphic.getBoundingClientRect();
   const { ghostWrapper, ghostInner } = createGenieGhost(windowEl);
 
+  const sourceWidth = Math.max(windowRect.width, 1);
+  const sourceHeight = Math.max(windowRect.height, 1);
+  const targetWidth = Math.max(dockRect.width, 1);
+  const targetHeight = Math.max(dockRect.height, 1);
+
   ghostWrapper.style.left = `${windowRect.left}px`;
   ghostWrapper.style.top = `${windowRect.top}px`;
-  ghostWrapper.style.width = `${windowRect.width}px`;
-  ghostWrapper.style.height = `${windowRect.height}px`;
+  ghostWrapper.style.width = `${sourceWidth}px`;
+  ghostWrapper.style.height = `${sourceHeight}px`;
 
-  const windowCenterX = windowRect.left + windowRect.width / 2;
-  const windowCenterY = windowRect.top + windowRect.height / 2;
-  const dockCenterX = dockRect.left + dockRect.width / 2;
-  const dockCenterY = dockRect.top + dockRect.height / 2;
+  const windowCenterX = windowRect.left + sourceWidth / 2;
+  const windowCenterY = windowRect.top + sourceHeight / 2;
+  const dockCenterX = dockRect.left + targetWidth / 2;
+  const dockCenterY = dockRect.top + targetHeight / 2;
 
   const destX = dockCenterX - windowCenterX;
   const destY = dockCenterY - windowCenterY;
-  const scaleX = dockRect.width / windowRect.width;
-  const scaleY = dockRect.height / windowRect.height;
+  const scaleX = targetWidth / sourceWidth;
+  const scaleY = targetHeight / sourceHeight;
 
   const easeIn = 'cubic-bezier(0.7, 0, 1, 1)';
   const easeOut = 'cubic-bezier(0, 0, 0.3, 1)';
@@ -377,6 +576,9 @@ function runGenieAnimation({ windowEl, dockEl, action, duration = 420 }) {
 
   return new Promise((resolve) => {
     innerAnimation.onfinish = () => {
+      if (typeof onBeforeFinish === 'function') {
+        onBeforeFinish();
+      }
       wrapperAnimation.cancel();
       innerAnimation.cancel();
       ghostWrapper.remove();
@@ -687,6 +889,7 @@ export function registerComponents(Alpine) {
         });
 
         initArchiveSidebar(container);
+        initPostOutline(container);
       }
       
       // 如果不是因为点击关闭按钮而触发的 pjax，正常弹出窗口
@@ -696,6 +899,9 @@ export function registerComponents(Alpine) {
       if (isHome) {
         window.preventAutoOpen = false;
         windowManager.showDesktop();
+      } else if (windowManager.minimized) {
+        window.preventAutoOpen = false;
+        windowManager.revealAfterNavigation(document.title);
       } else if (window.preventAutoOpen) {
         window.preventAutoOpen = false;
       } else {
@@ -722,15 +928,20 @@ export function registerComponents(Alpine) {
 
     // 拦截主题内部可导航链接，保证切页前先显示主窗口
     document.body.addEventListener('click', (e) => {
-      const link = e.target.closest('a');
+      const link = e.target.closest('a[href]');
       if (link && !link.target && !link.hasAttribute('download') && !link.href.startsWith('javascript:')) {
         const targetUrl = new URL(link.href, window.location.origin);
+        const windowManager = Alpine.store('windowManager');
         const isHomeLink = targetUrl.origin === window.location.origin && targetUrl.pathname === '/';
         const isLeavingDesktop = window.location.pathname === '/' && targetUrl.origin === window.location.origin && targetUrl.pathname !== '/';
+        const isSameDocumentRoute =
+          targetUrl.origin === window.location.origin &&
+          targetUrl.pathname === window.location.pathname &&
+          targetUrl.search === window.location.search;
 
         if (isHomeLink) {
           window.preventAutoOpen = true;
-          Alpine.store('windowManager').showDesktop();
+          windowManager.showDesktop();
           return;
         }
 
@@ -739,11 +950,19 @@ export function registerComponents(Alpine) {
           return;
         }
 
+        // 最小化后切到其它内容页时，不要先恢复旧窗口，等待 PJAX 完成后再恢复目标页。
+        if (windowManager?.minimized && !isSameDocumentRoute) {
+          return;
+        }
+
         window.dispatchEvent(new CustomEvent('open-window'));
       }
     });
 
   }, 0);
+
+  initArchiveSidebar(document);
+  initPostOutline(document);
 
   // =========== 2. 主题管理 (Apple Style) ===========
   // 负责全局暗黑模式的状态及系统跟随
@@ -792,6 +1011,281 @@ export function registerComponents(Alpine) {
       this.isDark = applyRootThemeState(this.mode, this.mediaQuery);
     }
   });
+
+  Alpine.data('postUpvote', (name, initialCount) => ({
+    storageKey: 'halo.upvoted.post.names',
+    name: name || '',
+    count: 0,
+    pending: false,
+    liked: false,
+    error: '',
+
+    init() {
+      const parsedCount = Number.parseInt(initialCount, 10);
+      this.count = Number.isFinite(parsedCount) && parsedCount >= 0 ? parsedCount : 0;
+
+      try {
+        const saved = JSON.parse(localStorage.getItem(this.storageKey) || '[]');
+        this.liked = Array.isArray(saved) && saved.includes(this.name);
+      } catch (_error) {
+        this.liked = false;
+      }
+    },
+
+    persistLike() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(this.storageKey) || '[]');
+        const next = Array.isArray(saved) ? saved.slice() : [];
+        if (!next.includes(this.name)) {
+          next.push(this.name);
+        }
+        localStorage.setItem(this.storageKey, JSON.stringify(next));
+      } catch (_error) {
+        // Ignore storage failures. The server-side upvote already succeeded.
+      }
+    },
+
+    setError(message) {
+      this.error = message || '';
+      if (!this.error) return;
+      window.setTimeout(() => {
+        if (this.error === message) {
+          this.error = '';
+        }
+      }, 2200);
+    },
+
+    async upvote() {
+      if (!this.name || this.pending || this.liked) return;
+
+      this.pending = true;
+      this.error = '';
+
+      try {
+        const response = await fetch('/apis/api.halo.run/v1alpha1/trackers/upvote', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            group: 'content.halo.run',
+            plural: 'posts',
+            name: this.name
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Upvote failed with status ${response.status}`);
+        }
+
+        this.count += 1;
+        this.liked = true;
+        this.persistLike();
+      } catch (_error) {
+        this.setError('网络请求失败，请稍后再试');
+      } finally {
+        this.pending = false;
+      }
+    }
+  }));
+
+  Alpine.data('windowTitlebar', () => ({
+    title: document.title,
+    shareOpen: false,
+    shareView: 'actions',
+    shareFeedback: '',
+    shareFeedbackTimer: null,
+    wechatQrDataUrl: '',
+    wechatQrLoading: false,
+    wechatQrError: '',
+    shareMeta: {
+      url: '',
+      title: '',
+      description: '',
+      image: '',
+      host: ''
+    },
+
+    init() {
+      this.sync();
+    },
+
+    sync() {
+      this.title = document.title;
+      const previousUrl = this.shareMeta.url;
+      this.shareMeta = getShareMetadata();
+      if (previousUrl && previousUrl !== this.shareMeta.url) {
+        this.wechatQrDataUrl = '';
+        this.wechatQrError = '';
+      }
+    },
+
+    setShareFeedback(message) {
+      this.shareFeedback = message || '';
+      if (this.shareFeedbackTimer) {
+        window.clearTimeout(this.shareFeedbackTimer);
+        this.shareFeedbackTimer = null;
+      }
+
+      if (!this.shareFeedback) return;
+
+      this.shareFeedbackTimer = window.setTimeout(() => {
+        this.shareFeedback = '';
+        this.shareFeedbackTimer = null;
+      }, 1800);
+    },
+
+    openSharePanel() {
+      this.sync();
+      this.shareView = 'actions';
+      this.shareOpen = true;
+    },
+
+    closeSharePanel() {
+      this.shareOpen = false;
+      this.shareView = 'actions';
+    },
+
+    toggleSharePanel() {
+      if (this.shareOpen) {
+        this.closeSharePanel();
+        return;
+      }
+
+      this.openSharePanel();
+    },
+
+    async copyLink(feedback = '链接已复制') {
+      try {
+        const copied = await copyTextFallback(this.shareMeta.url);
+        this.setShareFeedback(copied ? feedback : '复制失败');
+        if (copied) {
+          this.closeSharePanel();
+        }
+        return copied;
+      } catch (_error) {
+        this.setShareFeedback('复制失败');
+        return false;
+      }
+    },
+
+    backToShareActions() {
+      this.shareView = 'actions';
+    },
+
+    async openWeChatShare() {
+      this.sync();
+      this.shareView = 'wechat';
+      this.wechatQrError = '';
+
+      if (this.wechatQrDataUrl || this.wechatQrLoading) {
+        return;
+      }
+
+      this.wechatQrLoading = true;
+      try {
+        this.wechatQrDataUrl = await QRCode.toDataURL(this.shareMeta.url, {
+          errorCorrectionLevel: 'M',
+          margin: 1,
+          width: 264,
+          color: {
+            dark: '#111827',
+            light: '#0000'
+          }
+        });
+      } catch (_error) {
+        this.wechatQrError = '二维码生成失败';
+      } finally {
+        this.wechatQrLoading = false;
+      }
+    },
+
+    async saveWeChatQr() {
+      if (!this.wechatQrDataUrl) {
+        await this.openWeChatShare();
+      }
+
+      if (!this.wechatQrDataUrl) {
+        this.setShareFeedback('暂无可保存二维码');
+        return;
+      }
+
+      const safeTitle = (this.shareMeta.title || 'share')
+        .replace(/[\\/:*?"<>|]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 40) || 'share';
+
+      const link = document.createElement('a');
+      link.href = this.wechatQrDataUrl;
+      link.download = `${safeTitle}-wechat-qrcode.png`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      this.setShareFeedback('二维码已保存');
+    },
+
+    async shareToQQ() {
+      await this.copyLink('已复制链接，请在 QQ 中粘贴发送');
+    },
+
+    openExternalShare(url) {
+      if (!url) return;
+
+      const width = 720;
+      const height = 640;
+      const left = Math.max(0, Math.round((window.innerWidth - width) / 2));
+      const top = Math.max(0, Math.round((window.innerHeight - height) / 2));
+      window.open(
+        url,
+        'share-panel',
+        `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,status=no,scrollbars=yes,resizable=yes`
+      );
+      this.closeSharePanel();
+    },
+
+    shareToTelegram() {
+      const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(this.shareMeta.url)}`;
+      this.openExternalShare(shareUrl);
+    },
+
+    shareToX() {
+      const shareUrl =
+        `https://twitter.com/intent/tweet?url=${encodeURIComponent(this.shareMeta.url)}` +
+        `&text=${encodeURIComponent(this.shareMeta.title)}`;
+      this.openExternalShare(shareUrl);
+    },
+
+    shareToEmail() {
+      const body = this.shareMeta.description
+        ? `${this.shareMeta.title}\n\n${this.shareMeta.description}\n\n${this.shareMeta.url}`
+        : `${this.shareMeta.title}\n\n${this.shareMeta.url}`;
+      window.location.href =
+        `mailto:?subject=${encodeURIComponent(this.shareMeta.title)}&body=${encodeURIComponent(body)}`;
+      this.closeSharePanel();
+    },
+
+    async shareCurrent() {
+      const payload = getSharePayload();
+
+      try {
+        if (navigator.share) {
+          await navigator.share(payload);
+          this.setShareFeedback('已调起分享');
+          this.closeSharePanel();
+          return;
+        }
+      } catch (error) {
+        if (error?.name === 'AbortError') {
+          return;
+        }
+      }
+
+      try {
+        await this.copyLink();
+      } catch (_error) {}
+    }
+  }));
 
   // =========== 3. 菜单栏 ===========
   Alpine.data('menuBar', () => ({
@@ -1440,6 +1934,9 @@ export function registerComponents(Alpine) {
     minimized: false,
     title: document.title,
     isAnimating: false,
+    animationToken: 0,
+    pendingOpenTitle: '',
+    pendingOpenRequested: false,
     
     init() {
       try {
@@ -1463,31 +1960,103 @@ export function registerComponents(Alpine) {
        }));
     },
 
+    queueOpen(title) {
+      this.pendingOpenRequested = true;
+      this.pendingOpenTitle = title || document.title || this.title;
+    },
+
+    flushPendingOpen() {
+      if (!this.pendingOpenRequested) return;
+      const nextTitle = this.pendingOpenTitle;
+      this.pendingOpenRequested = false;
+      this.pendingOpenTitle = '';
+      this.open(nextTitle);
+    },
+
+    restoreWindowSurface() {
+      const winEl = document.querySelector('.macos-window');
+      if (!winEl) return null;
+
+      winEl.style.visibility = 'visible';
+      winEl.style.opacity = '1';
+      winEl.style.pointerEvents = 'auto';
+
+      if (window.innerWidth >= 768) {
+        winEl.style.transform = 'none';
+      } else {
+        winEl.style.transform = '';
+        winEl.style.left = '';
+        winEl.style.top = '';
+      }
+
+      const titlebar = winEl.querySelector('.window-titlebar');
+      if (titlebar) {
+        titlebar.style.opacity = '';
+        titlebar.style.backdropFilter = '';
+        titlebar.style.webkitBackdropFilter = '';
+      }
+
+      return winEl;
+    },
+
+    prepareWindowSurfaceForRestore(winEl = document.querySelector('.macos-window')) {
+      if (!winEl) return null;
+
+      const titlebar = winEl.querySelector('.window-titlebar');
+      if (titlebar) {
+        titlebar.style.opacity = '';
+        titlebar.style.backdropFilter = '';
+        titlebar.style.webkitBackdropFilter = '';
+      }
+
+      return winEl;
+    },
+
+    invalidateAnimation() {
+      this.animationToken += 1;
+      this.isAnimating = false;
+    },
+
+    revealAfterNavigation(title) {
+      if (title) this.title = title;
+      this.invalidateAnimation();
+      this.show = true;
+      this.minimized = false;
+      this.pendingOpenRequested = false;
+      this.pendingOpenTitle = '';
+      this.restoreWindowSurface();
+      this.sync();
+    },
+
     showDesktop() {
       this.show = false;
       this.minimized = false;
       this.isAnimating = false;
+      this.animationToken += 1;
+      this.pendingOpenRequested = false;
+      this.pendingOpenTitle = '';
       this.sync();
     },
 
     open(title) {
-      if (this.minimized) {
-        this.restore();
+      if (title) this.title = title;
+      if (this.isAnimating) {
+        this.queueOpen(title);
         return;
       }
-      if (title) this.title = title;
+      if (this.minimized) {
+        this.show = true;
+        void this.restore(title);
+        return;
+      }
       this.show = true;
       this.minimized = false;
       this.sync();
 
       setTimeout(() => {
-        const winEl = document.querySelector('.macos-window');
+        const winEl = this.restoreWindowSurface();
         if (winEl) {
           winEl.style.transition = 'none';
-          winEl.style.transform = 'none';
-          winEl.style.opacity = '1';
-          winEl.style.visibility = 'visible';
-          winEl.style.pointerEvents = 'auto';
         }
       }, 0);
     },
@@ -1496,6 +2065,8 @@ export function registerComponents(Alpine) {
       this.show = false;
       this.minimized = false;
       this.isAnimating = false;
+      this.pendingOpenRequested = false;
+      this.pendingOpenTitle = '';
       this.sync();
     },
     
@@ -1503,6 +2074,7 @@ export function registerComponents(Alpine) {
       if (this.isAnimating || this.minimized) return;
       const winEl = document.querySelector('.macos-window');
       if (!winEl) return;
+      const animationToken = ++this.animationToken;
 
       this.minimized = true;
       this.sync();
@@ -1517,6 +2089,7 @@ export function registerComponents(Alpine) {
         winEl.style.transform = 'none';
         winEl.style.pointerEvents = 'none';
         this.isAnimating = false;
+        this.flushPendingOpen();
         return;
       }
 
@@ -1537,6 +2110,10 @@ export function registerComponents(Alpine) {
 
       const animated = await animPromise;
 
+      if (animationToken !== this.animationToken) {
+        return;
+      }
+
       if (animated) {
         winEl.style.visibility = 'hidden';
         winEl.style.opacity = '1';
@@ -1545,11 +2122,15 @@ export function registerComponents(Alpine) {
       }
 
       this.isAnimating = false;
+      this.flushPendingOpen();
     },
     
-    async restore() {
+    async restore(nextTitle) {
+       if (nextTitle) this.title = nextTitle;
        if (this.isAnimating || !this.minimized) return;
+       const animationToken = ++this.animationToken;
        this.isAnimating = true;
+       this.show = true;
 
        const winEl = document.querySelector('.macos-window');
        const dockIcon = document.getElementById('minimized-dock-icon');
@@ -1557,7 +2138,10 @@ export function registerComponents(Alpine) {
        if (winEl && dockIcon) {
          // 先剔除 Dock 图标，制造其“脱壳飞出”的视觉假象
          dockIcon.style.opacity = '0';
-         
+
+         // titlebar 在最小化时被单独降层，恢复时提前预热合成层，避免窗口出现后 header 再晚一拍。
+         this.prepareWindowSurfaceForRestore(winEl);
+
          winEl.style.visibility = 'hidden';
          winEl.style.opacity = '1';
          winEl.style.transform = 'none';
@@ -1565,27 +2149,32 @@ export function registerComponents(Alpine) {
          await runGenieAnimation({
            windowEl: winEl,
            dockEl: dockIcon,
-           action: 'restore'
+           action: 'restore',
+           onBeforeFinish: () => {
+             if (animationToken === this.animationToken) {
+               this.restoreWindowSurface();
+             }
+           }
          });
 
-         winEl.style.visibility = 'visible';
-         winEl.style.pointerEvents = 'auto';
-         
-         const titlebar = winEl.querySelector('.window-titlebar');
-         if (titlebar) {
-           titlebar.style.opacity = '';
-           titlebar.style.backdropFilter = '';
-           titlebar.style.webkitBackdropFilter = '';
+         if (animationToken !== this.animationToken) {
+           return;
          }
-         
+
          this.minimized = false;
          this.isAnimating = false;
          this.sync();
        } else {
+         if (animationToken !== this.animationToken) {
+           return;
+         }
+         this.restoreWindowSurface();
          this.minimized = false;
          this.isAnimating = false;
          this.sync();
        }
+
+       this.flushPendingOpen();
     }
   });
 
