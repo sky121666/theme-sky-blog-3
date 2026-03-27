@@ -623,24 +623,50 @@
 }
 
 @media (max-width: 920px) {
+  #pjax-container:has(> .archive-shell) {
+    display: block;
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+  }
+
+  .archive-shell {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+  }
+
   .archive-workspace {
     grid-template-columns: 1fr;
     grid-template-rows: auto minmax(0, 1fr) auto;
+    flex: none;
     height: auto;
+    min-height: auto;
+    overflow: visible;
+    align-content: start;
   }
 
   .archive-sidebar {
     grid-row: auto;
+    min-height: auto;
     border-right: 0;
     border-bottom: 1px solid var(--archive-border);
+    overflow: visible;
   }
 
   .archive-sidebar-nav {
     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    overflow: visible;
   }
 
   .archive-pagination {
     grid-column: auto;
+  }
+
+  .archive-column,
+  .archive-pane-scroll {
+    min-height: auto;
+    overflow: visible;
   }
 }
 
