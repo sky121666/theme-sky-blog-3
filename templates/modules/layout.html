@@ -25,10 +25,11 @@
         var theme = savedTheme || defaultTheme;
         var isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
-        root.classList.remove('dark', 'light', 'color-scheme-auto', 'color-scheme-dark', 'color-scheme-light');
+        root.classList.remove('dark', 'light', 'system', 'color-scheme-auto', 'color-scheme-dark', 'color-scheme-light');
         root.classList.add(theme === 'system' ? 'color-scheme-auto' : 'color-scheme-' + theme);
         root.classList.add(theme);
         root.setAttribute('data-color-scheme', theme);
+        root.style.colorScheme = isDark ? 'dark' : 'light';
 
         if (isDark) {
           root.classList.add('dark');

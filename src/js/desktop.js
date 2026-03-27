@@ -26,6 +26,33 @@ function toPositiveInt(value, fallback = 1) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function resolveThemeMode() {
+  const root = document.documentElement;
+  const defaultTheme = root?.dataset?.defaultTheme || 'system';
+  const savedTheme = localStorage.getItem('theme');
+  return savedTheme || defaultTheme;
+}
+
+function applyRootThemeState(mode, mediaQuery) {
+  const root = document.documentElement;
+  const themeMode = mode || 'system';
+  const isDark = themeMode === 'dark' || (themeMode === 'system' && !!mediaQuery?.matches);
+
+  root.classList.remove('dark', 'light', 'system', 'color-scheme-auto', 'color-scheme-dark', 'color-scheme-light');
+  root.classList.add(themeMode === 'system' ? 'color-scheme-auto' : `color-scheme-${themeMode}`);
+  root.classList.add(themeMode);
+  root.setAttribute('data-color-scheme', themeMode);
+  root.style.colorScheme = isDark ? 'dark' : 'light';
+
+  if (isDark) {
+    root.classList.add('dark');
+  } else {
+    root.classList.remove('dark');
+  }
+
+  return isDark;
+}
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -621,8 +648,14 @@ export function registerComponents(Alpine) {
       }
       
       // 如果不是因为点击关闭按钮而触发的 pjax，正常弹出窗口
-      if (window.preventAutoOpen) {
-        window.preventAutoOpen = false; // 消耗掉该次状态
+      const windowManager = Alpine.store('windowManager');
+      const isHome = window.location.pathname === '/';
+
+      if (isHome) {
+        window.preventAutoOpen = false;
+        windowManager.showDesktop();
+      } else if (window.preventAutoOpen) {
+        window.preventAutoOpen = false;
       } else {
         window.dispatchEvent(new CustomEvent('open-window'));
       }
@@ -649,6 +682,15 @@ export function registerComponents(Alpine) {
     document.body.addEventListener('click', (e) => {
       const link = e.target.closest('a');
       if (link && !link.target && !link.hasAttribute('download') && !link.href.startsWith('javascript:')) {
+        const targetUrl = new URL(link.href, window.location.origin);
+        const isHomeLink = targetUrl.origin === window.location.origin && targetUrl.pathname === '/';
+
+        if (isHomeLink) {
+          window.preventAutoOpen = true;
+          Alpine.store('windowManager').showDesktop();
+          return;
+        }
+
         window.dispatchEvent(new CustomEvent('open-window'));
       }
     });
@@ -662,14 +704,6 @@ export function registerComponents(Alpine) {
     isDark: false,
     
     init() {
-      // 1. 获取后端默认配置 (通过 html dataset 获取)
-      const defaultTheme = document.documentElement.dataset.defaultTheme || 'system';
-      
-      // 2. 尝试从 localStorage 获取用户主动选择的偏好
-      const savedTheme = localStorage.getItem('theme');
-      this.mode = savedTheme || defaultTheme;
-
-      // 3. 监听系统偏好变化
       this.mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
       this.mediaQuery.addEventListener('change', () => {
         if (this.mode === 'system') {
@@ -677,8 +711,22 @@ export function registerComponents(Alpine) {
         }
       });
 
-      // 4. 应用主题
-      this.applyTheme();
+      // 首屏、BFCache 恢复、从其它界面返回时都要重新对齐主题根状态。
+      this.refresh();
+
+      window.addEventListener('pageshow', () => {
+        this.refresh();
+      });
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          this.refresh();
+        }
+      });
+
+      document.addEventListener('pjax:complete', () => {
+        this.refresh();
+      });
     },
 
     setMode(newMode) {
@@ -687,21 +735,13 @@ export function registerComponents(Alpine) {
       this.applyTheme();
     },
 
-    applyTheme() {
-      if (this.mode === 'dark') {
-        this.isDark = true;
-      } else if (this.mode === 'light') {
-        this.isDark = false;
-      } else {
-        // system
-        this.isDark = !!this.mediaQuery?.matches;
-      }
+    refresh() {
+      this.mode = resolveThemeMode();
+      this.applyTheme();
+    },
 
-      if (this.isDark) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
+    applyTheme() {
+      this.isDark = applyRootThemeState(this.mode, this.mediaQuery);
     }
   });
 
@@ -1362,6 +1402,10 @@ export function registerComponents(Alpine) {
           this.minimized = state.minimized;
         }
       } catch(e) {}
+
+      if (window.location.pathname === '/') {
+        this.showDesktop();
+      }
     },
 
     sync() {
@@ -1369,6 +1413,13 @@ export function registerComponents(Alpine) {
           show: this.show,
           minimized: this.minimized
        }));
+    },
+
+    showDesktop() {
+      this.show = false;
+      this.minimized = false;
+      this.isAnimating = false;
+      this.sync();
     },
 
     open(title) {
@@ -1666,7 +1717,8 @@ export function registerComponents(Alpine) {
       if (!isHome) {
         this.$store.windowManager.minimized = false;
         this.$store.windowManager.open(document.title);
-      } else if (this.$store.windowManager.minimized) {
+      } else {
+        this.$store.windowManager.showDesktop();
         this.windowEl.style.transition = 'none';
         this.windowEl.style.opacity = '0';
         this.windowEl.style.visibility = 'hidden';
