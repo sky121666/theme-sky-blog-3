@@ -1,9 +1,13 @@
 <!DOCTYPE html>
 <html xmlns:th="https://www.thymeleaf.org"
       th:replace="~{modules/layout :: html(
-        title = '瞬间 - ' + ${site.title},
-        description = '瞬间详情',
-        ssrContent = ~{::ssrBlock}
+        title = ${((moment.spec.content != null and !#strings.isEmpty(moment.spec.content.raw)) ? #strings.abbreviate(moment.spec.content.raw, 42) : ((moment.spec.content != null and moment.spec.content.medium != null and !#lists.isEmpty(moment.spec.content.medium)) ? '图片瞬间' : '瞬间记录')) + ' - ' + site.title},
+        description = ${((moment.spec.content != null and !#strings.isEmpty(moment.spec.content.raw)) ? #strings.abbreviate(moment.spec.content.raw, 140) : '') ?: (site.seo?.description ?: site.subtitle)},
+        ssrContent = ~{::ssrBlock},
+        canonical = ${'/moments/' + moment.metadata.name},
+        image = ${(moment.spec.content != null and moment.spec.content.medium != null and !#lists.isEmpty(moment.spec.content.medium) and moment.spec.content.medium[0].type.name() == 'PHOTO') ? moment.spec.content.medium[0].url : site.logo},
+        type = 'article',
+        seoFallback = 'full'
       )}">
   <th:block th:fragment="ssrBlock"
             th:with="momentLabel=${(moment.spec.content != null and !#strings.isEmpty(moment.spec.content.raw)) ? #strings.abbreviate(moment.spec.content.raw, 42) : ((moment.spec.content != null and moment.spec.content.medium != null and !#lists.isEmpty(moment.spec.content.medium)) ? '图片瞬间' : '瞬间记录')}">

@@ -2,19 +2,54 @@
 <html
   lang="zh-CN"
   xmlns:th="https://www.thymeleaf.org"
-  th:fragment="html (title, description, ssrContent)"
+  th:fragment="html (title, description, ssrContent, canonical, image, type, seoFallback)"
   th:data-default-theme="${theme.config.header?.theme?.default_mode ?: 'system'}"
 >
-  <head>
+  <head
+    th:with="
+      pageDescription = ${!#strings.isEmpty(description) ? description : (!#strings.isEmpty(site.seo?.description) ? site.seo.description : site.subtitle)},
+      pageType = ${!#strings.isEmpty(type) ? type : 'website'},
+      seoFallbackMode = ${seoFallback != null ? seoFallback.toString() : 'none'},
+      shouldEmitMetaFallback = ${seoFallbackMode == 'meta' or seoFallbackMode == 'full'},
+      shouldEmitSocialFallback = ${seoFallbackMode == 'full'},
+      faviconHref = ${site.favicon != null ? site.favicon.toString() : ''},
+      touchIconHref = ${site.logo != null ? site.logo.toString() : ''},
+      rawCanonical = ${canonical != null ? canonical.toString() : ''},
+      rawImage = ${image != null ? image.toString() : ''},
+      siteBaseUrl = ${site.url != null ? site.url.toString() : ''},
+      absoluteCanonical = ${!#strings.isEmpty(rawCanonical) ? ((rawCanonical.startsWith('http://') or rawCanonical.startsWith('https://')) ? rawCanonical : (!#strings.isEmpty(siteBaseUrl) ? ((siteBaseUrl.endsWith('/') and rawCanonical.startsWith('/')) ? siteBaseUrl + rawCanonical.substring(1) : ((!siteBaseUrl.endsWith('/')) and (!rawCanonical.startsWith('/')) ? siteBaseUrl + '/' + rawCanonical : siteBaseUrl + rawCanonical)) : rawCanonical)) : ''},
+      absoluteImage = ${!#strings.isEmpty(rawImage) ? ((rawImage.startsWith('http://') or rawImage.startsWith('https://')) ? rawImage : (!#strings.isEmpty(siteBaseUrl) ? ((siteBaseUrl.endsWith('/') and rawImage.startsWith('/')) ? siteBaseUrl + rawImage.substring(1) : ((!siteBaseUrl.endsWith('/')) and (!rawImage.startsWith('/')) ? siteBaseUrl + '/' + rawImage : siteBaseUrl + rawImage)) : rawImage)) : ''},
+      themeFallbackIcon = ${#theme.assets('/favicon.svg')}">
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!-- SEO -->
     <title th:text="${title}"></title>
-    <meta name="description" th:content="${description}" />
-    <link rel="icon" type="image/svg+xml" th:href="@{/assets/favicon.svg}" />
-    <link rel="shortcut icon" th:href="@{/assets/favicon.svg}" />
-    <link rel="apple-touch-icon" th:href="@{/assets/favicon.svg}" />
+    <meta name="description"
+          th:if="${shouldEmitMetaFallback and !#strings.isEmpty(pageDescription)}"
+          th:content="${pageDescription}" />
+    <link rel="canonical"
+          th:if="${!#strings.isEmpty(absoluteCanonical)}"
+          th:href="${absoluteCanonical}" />
+
+    <meta property="og:description"
+          th:if="${shouldEmitSocialFallback and !#strings.isEmpty(pageDescription)}"
+          th:content="${pageDescription}" />
+    <meta property="og:image"
+          th:if="${shouldEmitSocialFallback and !#strings.isEmpty(absoluteImage)}"
+          th:content="${absoluteImage}" />
+
+    <meta name="twitter:description"
+          th:if="${shouldEmitSocialFallback and !#strings.isEmpty(pageDescription)}"
+          th:content="${pageDescription}" />
+    <meta name="twitter:image"
+          th:if="${shouldEmitSocialFallback and !#strings.isEmpty(absoluteImage)}"
+          th:content="${absoluteImage}" />
+
+    <link rel="icon" type="image/svg+xml" th:if="${#strings.isEmpty(faviconHref)}" th:href="${themeFallbackIcon}" />
+    <link rel="shortcut icon" th:if="${#strings.isEmpty(faviconHref)}" th:href="${themeFallbackIcon}" />
+    <link rel="apple-touch-icon" th:if="${#strings.isEmpty(faviconHref) and !#strings.isEmpty(touchIconHref)}" th:href="${touchIconHref}" />
+    <link rel="apple-touch-icon" th:if="${#strings.isEmpty(faviconHref) and #strings.isEmpty(touchIconHref)}" th:href="${themeFallbackIcon}" />
 
     <!-- 阻止暗黑模式闪烁的内联脚本 -->
     <script>

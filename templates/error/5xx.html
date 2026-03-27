@@ -3,7 +3,11 @@
       th:replace="~{modules/layout :: html(
         title = ${(error != null and error.status != null ? error.status : 500) + ' - ' + site.title},
         description = ${'服务暂时没有响应'},
-        ssrContent = ~{::ssrBlock}
+        ssrContent = ~{::ssrBlock},
+        canonical = '',
+        image = ${site.logo},
+        type = 'website',
+        seoFallback = 'meta'
       )}">
   <th:block th:fragment="ssrBlock">
     <div th:replace="~{error/modules/dialog :: panel(

@@ -1,9 +1,13 @@
 <!DOCTYPE html>
 <html xmlns:th="https://www.thymeleaf.org"
       th:replace="~{modules/layout :: html(
-        title = '所有分类 - ' + ${site.title},
-        description = '以 Finder 风格浏览 ' + ${site.title} + ' 的全部文章分类',
-        ssrContent = ~{::ssrBlock}
+        title = ${'所有分类 - ' + site.title},
+        description = ${site.seo?.description ?: site.subtitle},
+        ssrContent = ~{::ssrBlock},
+        canonical = '/categories',
+        image = ${site.logo},
+        type = 'website',
+        seoFallback = 'meta'
       )}">
   <th:block th:fragment="categorySidebar(categories, depth)">
     <th:block th:with="currentDepth=${depth != null ? depth : 0}">

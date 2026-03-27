@@ -1,9 +1,13 @@
 <!DOCTYPE html>
 <html xmlns:th="https://www.thymeleaf.org"
       th:replace="~{modules/layout :: html(
-        title = '瞬间 Moments - ' + ${site.title},
-        description = '',
-        ssrContent = ~{::ssrBlock}
+        title = ${'瞬间 - ' + site.title},
+        description = ${site.seo?.description ?: site.subtitle},
+        ssrContent = ~{::ssrBlock},
+        canonical = '/moments',
+        image = ${site.logo},
+        type = 'website',
+        seoFallback = 'full'
       )}">
   <th:block th:fragment="ssrBlock">
     <div class="max-w-3xl mx-auto px-4 md:px-6 py-10 md:py-16">

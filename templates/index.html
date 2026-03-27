@@ -2,8 +2,12 @@
 <html xmlns:th="https://www.thymeleaf.org"
       th:replace="~{modules/layout :: html(
         title = ${site.title},
-        description = ${site.subtitle},
-        ssrContent = ~{::ssrBlock}
+        description = ${site.seo?.description ?: site.subtitle},
+        ssrContent = ~{::ssrBlock},
+        canonical = ${site.url},
+        image = ${site.logo},
+        type = 'website',
+        seoFallback = 'none'
       )}">
   <th:block th:fragment="ssrBlock">
     <!-- 首页只保留桌面壳层，不向主窗口注入内容。 -->

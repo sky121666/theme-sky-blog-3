@@ -1,9 +1,13 @@
 <!DOCTYPE html>
 <html xmlns:th="https://www.thymeleaf.org"
       th:replace="~{modules/layout :: html(
-        title = ${post.spec.title} + ' - ' + ${site.title},
-        description = ${post.status.excerpt},
-        ssrContent = ~{::ssrBlock}
+        title = ${post.spec.title + ' - ' + site.title},
+        description = ${!#strings.isEmpty(post.status.excerpt) ? post.status.excerpt : (site.seo?.description ?: site.subtitle)},
+        ssrContent = ~{::ssrBlock},
+        canonical = ${post.status.permalink},
+        image = ${!#strings.isEmpty(post.spec.cover) ? post.spec.cover : site.logo},
+        type = 'article',
+        seoFallback = 'none'
       )}">
   <th:block th:fragment="ssrBlock">
     <div class="post-reader-shell">

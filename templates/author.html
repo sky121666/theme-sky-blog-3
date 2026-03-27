@@ -1,9 +1,13 @@
 <!DOCTYPE html>
 <html xmlns:th="https://www.thymeleaf.org"
       th:replace="~{modules/layout :: html(
-        title = ${author.spec.displayName} + ' - ' + ${site.title},
-        description = ${!#strings.isEmpty(author.spec.bio) ? author.spec.bio : '以 Finder 风格浏览作者 ' + author.spec.displayName + ' 的文章与瞬间'},
-        ssrContent = ~{::ssrBlock}
+        title = ${author.spec.displayName + ' - ' + site.title},
+        description = ${!#strings.isEmpty(author.spec.bio) ? author.spec.bio : author.spec.displayName + ' 发布的 ' + posts.total + ' 篇内容'},
+        ssrContent = ~{::ssrBlock},
+        canonical = ${'/authors/' + author.metadata.name},
+        image = ${!#strings.isEmpty(author.spec.avatar) ? author.spec.avatar : site.logo},
+        type = 'website',
+        seoFallback = 'meta'
       )}">
   <th:block th:fragment="ssrBlock">
     <th:block th:with="momentsPluginAvailable=${pluginFinder.available('PluginMoments')},

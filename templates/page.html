@@ -1,20 +1,24 @@
 <!DOCTYPE html>
 <html xmlns:th="https://www.thymeleaf.org"
       th:replace="~{modules/layout :: html(
-        title = ${page.spec.title} + ' - ' + ${site.title},
-        description = ${page.status.excerpt},
-        ssrContent = ~{::ssrBlock}
+        title = ${singlePage.spec.title + ' - ' + site.title},
+        description = ${!#strings.isEmpty(singlePage.status.excerpt) ? singlePage.status.excerpt : (site.seo?.description ?: site.subtitle)},
+        ssrContent = ~{::ssrBlock},
+        canonical = ${singlePage.status.permalink},
+        image = ${site.logo},
+        type = 'article',
+        seoFallback = 'none'
       )}">
   <th:block th:fragment="ssrBlock">
     <div class="post-reader-shell">
       <div class="post-reader-frame">
         <header class="post-header">
           <div class="post-kicker">Page</div>
-          <h1 class="post-title" th:text="${page.spec.title}"></h1>
-          <p class="post-summary" th:if="${!#strings.isEmpty(page.status.excerpt)}" th:text="${page.status.excerpt}"></p>
+          <h1 class="post-title" th:text="${singlePage.spec.title}"></h1>
+          <p class="post-summary" th:if="${!#strings.isEmpty(singlePage.status.excerpt)}" th:text="${singlePage.status.excerpt}"></p>
         </header>
 
-        <article id="article-content" class="post-content" th:utext="${page.content.content}"></article>
+        <article id="article-content" class="post-content" th:utext="${singlePage.content.content}"></article>
 
         <section id="post-comments" class="post-comments mac-comment-section" th:if="${pluginFinder.available('PluginCommentWidget')}">
           <h2 class="post-comments-title mac-comment-title">评论</h2>
@@ -22,7 +26,7 @@
             <halo:comment
                 group="content.halo.run"
                 kind="SinglePage"
-                th:attr="name=${page.metadata.name}"
+                th:attr="name=${singlePage.metadata.name}"
             />
           </div>
         </section>
