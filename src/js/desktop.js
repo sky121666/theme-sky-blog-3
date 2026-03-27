@@ -684,10 +684,16 @@ export function registerComponents(Alpine) {
       if (link && !link.target && !link.hasAttribute('download') && !link.href.startsWith('javascript:')) {
         const targetUrl = new URL(link.href, window.location.origin);
         const isHomeLink = targetUrl.origin === window.location.origin && targetUrl.pathname === '/';
+        const isLeavingDesktop = window.location.pathname === '/' && targetUrl.origin === window.location.origin && targetUrl.pathname !== '/';
 
         if (isHomeLink) {
           window.preventAutoOpen = true;
           Alpine.store('windowManager').showDesktop();
+          return;
+        }
+
+        // 首页进入内容页时，不要先弹空窗口，等 PJAX 注入目标内容后再统一开窗。
+        if (isLeavingDesktop) {
           return;
         }
 
