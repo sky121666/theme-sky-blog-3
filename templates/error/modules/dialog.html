@@ -1,0 +1,80 @@
+<th:block
+  xmlns:th="https://www.thymeleaf.org"
+  th:fragment="panel (variant, titleText, bodyText, statusCode, hintText)"
+>
+  <section class="error-modal" th:classappend="| error-modal--${variant}|">
+    <div class="error-modal-surface" role="alertdialog" aria-modal="true" aria-labelledby="error-dialog-title">
+      <div class="error-modal-content">
+        <div class="error-modal-icon" aria-hidden="true">
+          <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" th:if="${variant == 'missing'}">
+            <rect class="icon-tile" x="8" y="8" width="48" height="48" rx="14"/>
+            <path class="icon-paper" d="M23 18.5h12.6l6.9 6.9v17.2a3.2 3.2 0 0 1-3.2 3.2H23a3.2 3.2 0 0 1-3.2-3.2V21.7a3.2 3.2 0 0 1 3.2-3.2Z"/>
+            <path class="icon-paper-fold" d="M35.6 18.5v5.3a2.1 2.1 0 0 0 2.1 2.1H43"/>
+            <circle class="icon-badge" cx="42" cy="43" r="9.5"/>
+            <path class="icon-badge-fill" d="M42 35.4a7.6 7.6 0 1 1 0 15.2 7.6 7.6 0 0 1 0-15.2Z"/>
+            <circle class="icon-badge-ring" cx="40.4" cy="41.6" r="3.6"/>
+            <path class="icon-badge-handle" d="M43.2 44.4 46.6 47.8"/>
+          </svg>
+
+          <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" th:if="${variant == 'client'}">
+            <rect class="icon-tile" x="8" y="8" width="48" height="48" rx="14"/>
+            <rect class="icon-window" x="18" y="18.5" width="28" height="22" rx="4.4"/>
+            <path class="icon-window-line" d="M18 24.6h28"/>
+            <circle class="icon-window-dot" cx="23" cy="21.4" r="1.2"/>
+            <circle class="icon-window-dot" cx="27" cy="21.4" r="1.2"/>
+            <circle class="icon-window-dot" cx="31" cy="21.4" r="1.2"/>
+            <path class="icon-window-line-soft" d="M24 30.8h10M24 34.9h7"/>
+            <circle class="icon-badge" cx="43.6" cy="42.8" r="8.6"/>
+            <path class="icon-badge-lock-body" d="M39.6 41.1h8a1.6 1.6 0 0 1 1.6 1.6v4.5a1.6 1.6 0 0 1-1.6 1.6h-8a1.6 1.6 0 0 1-1.6-1.6v-4.5a1.6 1.6 0 0 1 1.6-1.6Z"/>
+            <path class="icon-badge-lock-shackle" d="M41.2 41v-1.4a2.4 2.4 0 0 1 4.8 0V41"/>
+          </svg>
+
+          <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" th:if="${variant == 'server'}">
+            <rect class="icon-tile" x="8" y="8" width="48" height="48" rx="14"/>
+            <rect class="icon-window" x="18" y="18.5" width="28" height="22" rx="4.4"/>
+            <path class="icon-window-line" d="M18 24.6h28"/>
+            <circle class="icon-window-dot" cx="23" cy="21.4" r="1.2"/>
+            <circle class="icon-window-dot" cx="27" cy="21.4" r="1.2"/>
+            <circle class="icon-window-dot" cx="31" cy="21.4" r="1.2"/>
+            <path class="icon-window-line-soft" d="M24 30.8h10M24 34.9h7"/>
+            <circle class="icon-badge" cx="43.6" cy="42.8" r="8.6"/>
+            <path class="icon-badge-alert-mark" d="M43.6 38.8v4.8"/>
+            <circle class="icon-badge-alert-dot" cx="43.6" cy="46.1" r="1.15"/>
+          </svg>
+
+          <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" th:if="${variant == 'generic'}">
+            <rect class="icon-tile" x="8" y="8" width="48" height="48" rx="14"/>
+            <rect class="icon-window" x="18" y="18.5" width="28" height="22" rx="4.4"/>
+            <path class="icon-window-line" d="M18 24.6h28"/>
+            <circle class="icon-window-dot" cx="23" cy="21.4" r="1.2"/>
+            <circle class="icon-window-dot" cx="27" cy="21.4" r="1.2"/>
+            <circle class="icon-window-dot" cx="31" cy="21.4" r="1.2"/>
+            <path class="icon-window-line-soft" d="M24 30.8h10M24 34.9h7"/>
+            <circle class="icon-badge" cx="43.6" cy="42.8" r="8.6"/>
+            <path class="icon-badge-info-mark" d="M43.6 39.1v4.4"/>
+            <circle class="icon-badge-info-dot" cx="43.6" cy="46.4" r="1.12"/>
+          </svg>
+        </div>
+
+        <div class="error-modal-copy">
+          <h1 id="error-dialog-title" class="error-modal-title" th:text="${titleText}">页面暂时不可用</h1>
+          <p class="error-modal-text" th:text="${bodyText}">当前请求没有成功完成。</p>
+          <p class="error-modal-meta" th:if="${statusCode != null or hintText != null}">
+            <span class="error-modal-code" th:if="${statusCode != null}" th:text="'代码 ' + ${statusCode}">代码 404</span>
+            <span class="error-modal-separator" th:if="${statusCode != null and hintText != null}">·</span>
+            <span class="error-modal-hint" th:if="${hintText != null}" th:text="${hintText}">资源未找到</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="error-modal-actions">
+        <a
+          href="/"
+          class="error-modal-action error-modal-action--secondary"
+          onclick="if (window.history.length > 1) { event.preventDefault(); window.history.back(); }"
+        >返回</a>
+        <a href="/" class="error-modal-action error-modal-action--primary">返回首页</a>
+      </div>
+    </div>
+  </section>
+</th:block>

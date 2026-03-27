@@ -12,6 +12,9 @@
     <!-- SEO -->
     <title th:text="${title}"></title>
     <meta name="description" th:content="${description}" />
+    <link rel="icon" type="image/svg+xml" th:href="@{/assets/favicon.svg}" />
+    <link rel="shortcut icon" th:href="@{/assets/favicon.svg}" />
+    <link rel="apple-touch-icon" th:href="@{/assets/favicon.svg}" />
 
     <!-- 阻止暗黑模式闪烁的内联脚本 -->
     <script>
@@ -75,11 +78,13 @@
       headerDropdownDarkBg = ${theme.config.header?.dropdown?.dark_bg ?: 'rgba(40, 40, 42, 0.9)'},
       bgImageUrl = ${bgConf?.image_url ?: bgConf?.image},
       wallpaperClass = ${bgMode == 'preset' ? 'wallpaper-' + bgPreset : ''},
-      schemeClass = ${schemeMode == 'preset' ? 'scheme-' + schemePreset : 'scheme-custom'}">
+      schemeClass = ${schemeMode == 'preset' ? 'scheme-' + schemePreset : 'scheme-custom'},
+      isErrorPage = ${error != null}">
 
   <body
     class="overflow-hidden m-0 p-0 text-white w-screen h-screen relative"
     th:classappend="${#strings.isEmpty(wallpaperClass) ? schemeClass : wallpaperClass + ' ' + schemeClass}"
+    th:attr="data-error-page=${isErrorPage}"
     th:style="${(schemeMode == 'custom' ? '--mac-accent:' + macAccent + ';--mac-selection:' + macSelection + ';--mac-folder1:' + macFolder1 + ';--mac-folder2:' + macFolder2 + ';--mac-folder3:' + macFolder3 + ';--mac-shell-light:' + macShellLight + ';--mac-shell-dark:' + macShellDark + ';' : '') + '--mac-header-dropdown-light-bg:' + headerDropdownLightBg + ';--mac-header-dropdown-dark-bg:' + headerDropdownDarkBg + ';'}"
     th:styleappend="${bgMode == 'image' and bgImageUrl != null ? 'background:url(' + bgImageUrl + ') center/cover no-repeat; background-color:#0f172a;' : (bgMode == 'solid' ? 'background-color:' + (bgConf?.solid_color ?: '#0f172a') + ';' : '')}"
   >
@@ -297,6 +302,7 @@
 
     <!-- ==================== 极简单主窗 (PJAX 热重载) ==================== -->
     <div class="window-layer fixed inset-x-0 bottom-0 top-[28px] md:top-0 z-10 pointer-events-none p-0 md:p-8 flex items-start md:items-center justify-center"
+         th:if="${!isErrorPage}"
          x-data
          x-show="$store.windowManager.show"
          @open-window.window="$store.windowManager.open(document.title)"
@@ -383,6 +389,12 @@
                 <th:block th:replace="${ssrContent}" />
             </div>
         </div>
+      </div>
+    </div>
+
+    <div class="error-desktop-layer" th:if="${isErrorPage}">
+      <div class="error-desktop-container">
+        <th:block th:replace="${ssrContent}" />
       </div>
     </div>
 

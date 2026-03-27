@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html xmlns:th="https://www.thymeleaf.org"
+      th:replace="~{modules/layout :: html(
+        title = ${(error != null and error.status != null ? error.status : 500) + ' - ' + site.title},
+        description = ${'服务暂时没有响应'},
+        ssrContent = ~{::ssrBlock}
+      )}">
+  <th:block th:fragment="ssrBlock">
+    <div th:replace="~{error/modules/dialog :: panel(
+      variant='server',
+      titleText='服务暂时没有响应。',
+      bodyText='系统当前无法完成这个请求，请稍后再试。',
+      statusCode=${error != null and error.status != null ? error.status : 500},
+      hintText='服务异常'
+    )}"></div>
+  </th:block>
+</html>

@@ -12,6 +12,7 @@ import './css/archives.css';
 import './css/tags.css';
 import './css/categories.css';
 import './css/author.css';
+import './css/error.css';
 
 /* ===== JS：Alpine.js ===== */
 import Alpine from 'alpinejs';

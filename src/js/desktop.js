@@ -578,6 +578,8 @@ export function registerComponents(Alpine) {
   
   // =========== 1. 全局真单页 Pjax 引擎初始化 ===========
   setTimeout(() => {
+    const isErrorPage = document.body?.dataset.errorPage === 'true';
+    if (isErrorPage) return;
     
     // 初始化 Pjax，接管桌面图标和 Dock 的普通 a 链接跳转
     const pjax = new Pjax({
@@ -595,7 +597,13 @@ export function registerComponents(Alpine) {
       if (container) container.classList.add('pjax-loading');
     });
     
-    document.addEventListener("pjax:complete", () => {
+    document.addEventListener("pjax:complete", (event) => {
+      const requestStatus = event?.request?.status;
+      if (requestStatus && requestStatus >= 400) {
+        NProgress.done();
+        return;
+      }
+
       NProgress.done();
       const container = document.getElementById('pjax-container');
       if (container) {
@@ -619,7 +627,23 @@ export function registerComponents(Alpine) {
         window.dispatchEvent(new CustomEvent('open-window'));
       }
     });
-    document.addEventListener("pjax:error", () => NProgress.done());
+    document.addEventListener("pjax:error", (event) => {
+      NProgress.done();
+
+      const requestStatus = event?.request?.status;
+      if (!requestStatus || requestStatus < 400) {
+        return;
+      }
+
+      const fallbackUrl =
+        event?.request?.responseURL ||
+        event?.triggerElement?.href ||
+        event?.requestOptions?.requestUrl;
+
+      if (fallbackUrl) {
+        window.location.assign(fallbackUrl);
+      }
+    });
 
     // 拦截主题内部可导航链接，保证切页前先显示主窗口
     document.body.addEventListener('click', (e) => {

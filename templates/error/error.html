@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html xmlns:th="https://www.thymeleaf.org"
+      th:replace="~{modules/layout :: html(
+        title = ${(error != null and error.status != null ? error.status : '错误') + ' - ' + site.title},
+        description = ${'页面暂时不可用'},
+        ssrContent = ~{::ssrBlock}
+      )}">
+  <th:block th:fragment="ssrBlock">
+    <div th:replace="~{error/modules/dialog :: panel(
+      variant='generic',
+      titleText='页面暂时不可用。',
+      bodyText='当前请求没有成功完成，请稍后重试。',
+      statusCode=${error != null and error.status != null ? error.status : 'ERR'},
+      hintText='临时不可用'
+    )}"></div>
+  </th:block>
+</html>
