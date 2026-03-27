@@ -3,6 +3,188 @@ import NProgress from 'nprogress';
 
 let archiveSidebarCleanup = null;
 
+function extractTextPreview(value) {
+  if (!value) return '';
+
+  if (typeof window !== 'undefined' && value.includes('<')) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(value, 'text/html');
+    return doc.body?.textContent?.replace(/\s+/g, ' ').trim() || '';
+  }
+
+  return String(value).replace(/\s+/g, ' ').trim();
+}
+
+function truncateText(value, maxLength) {
+  const normalized = extractTextPreview(value);
+  if (!normalized || normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, Math.max(maxLength - 1, 1)).trimEnd()}…`;
+}
+
+function toPositiveInt(value, fallback = 1) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatMomentTime(value, variant = 'full') {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) {
+    return variant === 'list' ? '--.-- --:--' : '未知时间';
+  }
+
+  const pad = (segment) => String(segment).padStart(2, '0');
+
+  if (variant === 'list') {
+    return `${pad(date.getMonth() + 1)}.${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
+  return `${date.getFullYear()}.${pad(date.getMonth() + 1)}.${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function normalizeMomentRecord(moment) {
+  const key = moment?.metadata?.name || '';
+  const content = moment?.spec?.content || {};
+  const media = Array.isArray(content.medium) ? content.medium : [];
+  const rawText = extractTextPreview(content.raw || '') || extractTextPreview(content.html || '');
+  const mediaCount = media.length;
+  const title = rawText ? truncateText(rawText, 36) : (mediaCount > 0 ? '图片瞬间' : '瞬间记录');
+  const summary = rawText
+    ? truncateText(rawText, 88)
+    : (mediaCount > 0 ? '打开预览查看媒体内容' : '打开预览查看完整内容');
+
+  return {
+    key,
+    title: title || '瞬间记录',
+    summary: summary || '打开预览查看完整内容',
+    listTime: formatMomentTime(moment?.spec?.releaseTime, 'list'),
+    fullTime: formatMomentTime(moment?.spec?.releaseTime, 'full'),
+    media,
+    mediaCount,
+    rowBadge: mediaCount > 0 ? `${mediaCount} 项媒体` : '文本',
+    mediaLabel: mediaCount > 0 ? `${mediaCount} 项媒体` : '纯文本',
+    interactions: `${moment?.stats?.upvote ?? 0} 赞 · ${moment?.stats?.totalComment ?? 0} 评论`,
+    tags: Array.isArray(moment?.spec?.tags) ? moment.spec.tags : [],
+    html: content.html || (rawText ? `<p>${escapeHtml(rawText)}</p>` : ''),
+    permalink: key ? `/moments/${encodeURIComponent(key)}` : '/moments'
+  };
+}
+
+function renderMomentMediaTile(medium) {
+  const mediumType = medium?.type || '';
+  const mediumUrl = escapeHtml(medium?.url || '');
+
+  if (mediumType === 'PHOTO') {
+    return `<div class="author-moment-preview-tile is-photo"><img src="${mediumUrl}" alt=""></div>`;
+  }
+
+  if (mediumType === 'VIDEO') {
+    return `<div class="author-moment-preview-tile is-video"><video src="${mediumUrl}" preload="metadata" controls playsinline></video></div>`;
+  }
+
+  if (mediumType === 'AUDIO') {
+    return '<div class="author-moment-preview-tile is-placeholder"><div class="author-moment-preview-placeholder"><span>音频</span></div></div>';
+  }
+
+  return '<div class="author-moment-preview-tile is-placeholder"><div class="author-moment-preview-placeholder"><span>文章卡片</span></div></div>';
+}
+
+function renderMomentRow(moment) {
+  return `
+    <button type="button"
+            class="author-moment-row"
+            data-author-moment-option
+            data-moment-key="${escapeHtml(moment.key)}"
+            data-moment-title="${escapeHtml(moment.title)}">
+      <div class="author-moment-row-main">
+        <span class="author-moment-row-icon" aria-hidden="true">
+          <svg viewBox="0 0 20 20" fill="none">
+            <path d="M5 5.5H15C16.1046 5.5 17 6.39543 17 7.5V12.5C17 13.6046 16.1046 14.5 15 14.5H5C3.89543 14.5 3 13.6046 3 12.5V7.5C3 6.39543 3.89543 5.5 5 5.5Z" stroke="currentColor" stroke-width="1.15"></path>
+            <path d="M6.25 11.75L8.25 9.75L10 11.5L12.75 8.75" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round"></path>
+            <circle cx="6.75" cy="7.9" r="0.9" fill="currentColor"></circle>
+          </svg>
+        </span>
+        <span class="author-moment-row-copy">
+          <span class="author-moment-row-title">${escapeHtml(moment.title)}</span>
+          <span class="author-moment-row-summary">${escapeHtml(moment.summary)}</span>
+        </span>
+      </div>
+      <span class="author-moment-row-meta">
+        <span class="author-moment-row-date">${escapeHtml(moment.listTime)}</span>
+        <span class="author-moment-row-badge">${escapeHtml(moment.rowBadge)}</span>
+      </span>
+    </button>
+  `;
+}
+
+function renderMomentPreview(moment, authorDisplayName) {
+  const mediaHtml = moment.mediaCount > 0
+    ? `<div class="author-moment-preview-media">${moment.media.map((medium) => renderMomentMediaTile(medium)).join('')}</div>`
+    : '';
+  const tagsHtml = moment.tags.length > 0
+    ? `
+      <div>
+        <dt>标签</dt>
+        <dd>
+          <span class="author-inline-chip-list">
+            ${moment.tags.map((tag) => `<span class="author-inline-chip">${escapeHtml(tag)}</span>`).join('')}
+          </span>
+        </dd>
+      </div>
+    `
+    : '';
+
+  return `
+    <article class="author-preview-panel tag-preview-panel author-preview-panel--moment"
+             data-author-moment-panel
+             data-moment-key="${escapeHtml(moment.key)}">
+      <header class="author-preview-header tag-preview-header">
+        <div class="author-preview-icon tag-preview-icon author-preview-icon--moment">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M7.25 5.75H16.75C18.1307 5.75 19.25 6.86929 19.25 8.25V15.75C19.25 17.1307 18.1307 18.25 16.75 18.25H7.25C5.86929 18.25 4.75 17.1307 4.75 15.75V8.25C4.75 6.86929 5.86929 5.75 7.25 5.75Z" stroke="currentColor" stroke-width="1.25"></path>
+            <path d="M8 14.25L10.5 11.75L12.75 14L15.75 11" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"></path>
+            <circle cx="9" cy="9.25" r="1" fill="currentColor"></circle>
+          </svg>
+        </div>
+        <div class="author-preview-heading tag-preview-heading">
+          <h2 class="author-preview-title tag-preview-title">${escapeHtml(moment.title)}</h2>
+          <p class="author-preview-path tag-preview-path">${escapeHtml(`${authorDisplayName || '作者'} / ${moment.fullTime}`)}</p>
+        </div>
+      </header>
+
+      ${mediaHtml}
+
+      <dl class="author-preview-meta tag-preview-meta">
+        <div>
+          <dt>发布时间</dt>
+          <dd>${escapeHtml(moment.fullTime)}</dd>
+        </div>
+        <div>
+          <dt>互动</dt>
+          <dd>${escapeHtml(moment.interactions)}</dd>
+        </div>
+        <div>
+          <dt>内容类型</dt>
+          <dd>${escapeHtml(moment.mediaLabel)}</dd>
+        </div>
+        ${tagsHtml}
+      </dl>
+
+      ${moment.html ? `<div class="author-moment-preview-body">${moment.html}</div>` : ''}
+
+      <a class="author-preview-action tag-preview-action pjax-link" href="${escapeHtml(moment.permalink)}">打开瞬间</a>
+    </article>
+  `;
+}
+
 function replayPjaxScripts(root) {
   if (!root) return;
 
@@ -653,6 +835,404 @@ export function registerComponents(Alpine) {
     }
   }));
 
+  Alpine.data('authorPostsExplorer', () => ({
+    activeSource: 'posts',
+    activePostKey: '',
+    activePostTitle: '',
+    activeMomentKey: '',
+    activeMomentTitle: '',
+    authorDisplayName: '',
+    authorName: '',
+    momentsEnabled: false,
+    momentPage: 1,
+    renderedMomentPage: 1,
+    momentPageSize: 10,
+    momentTotal: 0,
+    momentTotalPages: 0,
+    momentListEl: null,
+    momentPreviewEl: null,
+    momentPaginationEl: null,
+    momentEmptyEl: null,
+    momentFetchController: null,
+
+    async init() {
+      this.authorDisplayName = this.$root.querySelector('.author-profile-name')?.textContent?.trim() || '';
+      this.authorName = this.$root.dataset.authorName || '';
+      this.momentsEnabled = this.$root.dataset.momentsEnabled === 'true';
+      this.momentPageSize = toPositiveInt(this.$root.dataset.momentPageSize, 10);
+      this.momentTotal = toPositiveInt(this.$root.dataset.momentTotal, 0);
+      this.momentTotalPages = toPositiveInt(this.$root.dataset.momentTotalPages, 0);
+      this.momentPage = 1;
+      this.renderedMomentPage = 1;
+      this.cacheMomentElements();
+      this.normalizeMomentText();
+      this.bindMomentControls();
+
+      const urlState = this.readUrlState();
+      const defaultSource = this.$root.dataset.defaultSource || 'posts';
+      this.activeSource = urlState.source === 'moments' && this.momentsEnabled ? 'moments' : defaultSource;
+      this.momentPage = urlState.momentPage;
+
+      if (this.activeSource === 'moments' && this.momentsEnabled && this.momentPage > 1) {
+        await this.goToMomentPage(this.momentPage, { preserveSelection: false, updateUrl: false });
+      } else {
+        await this.syncSourceSelection({ preserveCurrent: false, updateUrl: false });
+      }
+
+      this.writeUrlState();
+    },
+
+    cacheMomentElements() {
+      this.momentListEl = this.$root.querySelector('[data-author-moment-list]');
+      this.momentPreviewEl = this.$root.querySelector('[data-author-moment-preview-list]');
+      this.momentPaginationEl = this.$root.querySelector('[data-author-moment-pagination]');
+      this.momentEmptyEl = this.$root.querySelector('[data-author-moment-empty]');
+    },
+
+    bindMomentControls() {
+      if (this.momentListEl && !this.momentListEl.dataset.bound) {
+        const activateMoment = (event) => {
+          const optionEl = event.target.closest('[data-author-moment-option]');
+          if (!optionEl || !this.momentListEl.contains(optionEl)) return;
+          this.selectMoment(optionEl.dataset.momentKey, optionEl.dataset.momentTitle);
+        };
+
+        this.momentListEl.addEventListener('click', activateMoment);
+        this.momentListEl.addEventListener('focusin', activateMoment);
+        this.momentListEl.addEventListener('mouseover', (event) => {
+          const optionEl = event.target.closest('[data-author-moment-option]');
+          if (!optionEl || !this.momentListEl.contains(optionEl)) return;
+          if (event.relatedTarget && optionEl.contains(event.relatedTarget)) return;
+          this.selectMoment(optionEl.dataset.momentKey, optionEl.dataset.momentTitle);
+        });
+
+        this.momentListEl.dataset.bound = 'true';
+      }
+
+      if (this.momentPaginationEl && !this.momentPaginationEl.dataset.bound) {
+        this.momentPaginationEl.addEventListener('click', (event) => {
+          const buttonEl = event.target.closest('[data-moment-page-target]');
+          if (!buttonEl || !this.momentPaginationEl.contains(buttonEl)) return;
+          if (buttonEl.disabled || buttonEl.classList.contains('is-disabled')) return;
+
+          const targetPage = buttonEl.dataset.momentPageTarget === 'next'
+            ? this.momentPage + 1
+            : this.momentPage - 1;
+
+          this.goToMomentPage(targetPage);
+        });
+
+        this.momentPaginationEl.dataset.bound = 'true';
+      }
+    },
+
+    readUrlState() {
+      if (typeof window === 'undefined') {
+        return {
+          source: '',
+          momentPage: 1
+        };
+      }
+
+      const url = new URL(window.location.href);
+      return {
+        source: url.searchParams.get('source') || '',
+        momentPage: toPositiveInt(url.searchParams.get('momentPage'), 1)
+      };
+    },
+
+    writeUrlState() {
+      if (typeof window === 'undefined') return;
+
+      const url = new URL(window.location.href);
+
+      if (this.activeSource === 'moments' && this.momentsEnabled) {
+        url.searchParams.set('source', 'moments');
+        if (this.momentPage > 1) {
+          url.searchParams.set('momentPage', String(this.momentPage));
+        } else {
+          url.searchParams.delete('momentPage');
+        }
+      } else {
+        url.searchParams.delete('source');
+        url.searchParams.delete('momentPage');
+      }
+
+      window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+    },
+
+    async selectSource(source) {
+      if (!source) return;
+      this.activeSource = source;
+      await this.syncSourceSelection();
+    },
+
+    selectPost(postKey, title) {
+      this.activeSource = 'posts';
+      this.activePostKey = postKey || '';
+      this.activePostTitle = title || '';
+      this.scrollPreviewToTop();
+    },
+
+    selectMoment(momentKey, title) {
+      this.activeSource = 'moments';
+      this.activeMomentKey = momentKey || '';
+      this.activeMomentTitle = title || '';
+      this.syncMomentSelectionDom();
+      this.scrollPreviewToTop();
+    },
+
+    get activeSourcePath() {
+      const sourceLabel = this.activeSource === 'moments' ? '瞬间' : '文章';
+      return this.authorDisplayName ? `${this.authorDisplayName} / ${sourceLabel}` : sourceLabel;
+    },
+
+    get currentPreviewTitle() {
+      return this.activeSource === 'moments'
+        ? (this.activeMomentTitle || '')
+        : (this.activePostTitle || '');
+    },
+
+    normalizeMomentText() {
+      this.$root.querySelectorAll('[data-author-moment-option]').forEach((optionEl) => {
+        optionEl.dataset.momentTitle = extractTextPreview(optionEl.dataset.momentTitle || '') || '瞬间记录';
+
+        optionEl.querySelectorAll('[data-moment-display-text]').forEach((textEl) => {
+          const normalized = extractTextPreview(textEl.textContent || '');
+          if (normalized) {
+            textEl.textContent = normalized;
+          }
+        });
+      });
+
+      this.$root.querySelectorAll('[data-moment-display-title]').forEach((titleEl) => {
+        const normalized = extractTextPreview(titleEl.textContent || '');
+        if (normalized) {
+          titleEl.textContent = normalized;
+        }
+      });
+    },
+
+    async syncSourceSelection({ preserveCurrent = true, updateUrl = true } = {}) {
+      if (this.activeSource === 'moments') {
+        if (this.momentsEnabled && this.momentPage !== this.renderedMomentPage && this.momentTotal > 0) {
+          await this.goToMomentPage(this.momentPage, { preserveSelection: false, updateUrl: false });
+        } else {
+          const currentMoment = preserveCurrent
+            ? Array.from(this.$root.querySelectorAll('[data-author-moment-option]'))
+              .find((el) => el.dataset.momentKey === this.activeMomentKey)
+            : null;
+          const firstMoment = currentMoment || this.$root.querySelector('[data-author-moment-option]');
+
+          if (firstMoment) {
+            this.activeMomentKey = firstMoment.dataset.momentKey || '';
+            this.activeMomentTitle = firstMoment.dataset.momentTitle || '';
+          } else {
+            this.activeMomentKey = '';
+            this.activeMomentTitle = '';
+            this.scrollPreviewToTop();
+          }
+
+          this.syncMomentSelectionDom();
+          this.scrollListToTop();
+        }
+
+        if (updateUrl) this.writeUrlState();
+        return;
+      }
+
+      const currentPost = preserveCurrent
+        ? Array.from(this.$root.querySelectorAll('[data-author-post-option]'))
+          .find((el) => el.dataset.postKey === this.activePostKey)
+        : null;
+      const firstPost = currentPost || this.$root.querySelector('[data-author-post-option]');
+
+      if (firstPost) {
+        this.selectPost(firstPost.dataset.postKey, firstPost.dataset.postTitle);
+      } else {
+        this.activePostKey = '';
+        this.activePostTitle = '';
+        this.scrollPreviewToTop();
+      }
+
+      this.scrollListToTop();
+      this.syncMomentSelectionDom();
+      if (updateUrl) this.writeUrlState();
+    },
+
+    syncMomentSelectionDom() {
+      const isMomentSource = this.activeSource === 'moments';
+
+      this.$root.querySelectorAll('[data-author-moment-option]').forEach((optionEl) => {
+        const isActive = isMomentSource && optionEl.dataset.momentKey === this.activeMomentKey;
+        optionEl.classList.toggle('is-active', isActive);
+      });
+
+      this.$root.querySelectorAll('[data-author-moment-panel]').forEach((panelEl) => {
+        const isActive = isMomentSource && panelEl.dataset.momentKey === this.activeMomentKey;
+        panelEl.hidden = !isActive;
+      });
+    },
+
+    async goToMomentPage(page, { preserveSelection = true, updateUrl = true } = {}) {
+      if (!this.momentsEnabled || !this.authorName) return;
+
+      const safeUpperBound = this.momentTotalPages > 0 ? this.momentTotalPages : Number.POSITIVE_INFINITY;
+      const targetPage = Math.min(Math.max(toPositiveInt(page, 1), 1), safeUpperBound);
+      if (targetPage === this.renderedMomentPage && this.$root.querySelector('[data-author-moment-option]')) {
+        this.momentPage = targetPage;
+        if (updateUrl) this.writeUrlState();
+        return;
+      }
+
+      if (this.momentFetchController) {
+        this.momentFetchController.abort();
+      }
+
+      const controller = new AbortController();
+      this.momentFetchController = controller;
+
+      try {
+        const result = await this.fetchMomentPage(targetPage, controller.signal);
+        const momentItems = Array.isArray(result?.items) ? result.items.map((item) => normalizeMomentRecord(item)) : [];
+
+        this.momentPage = toPositiveInt(result?.page, targetPage);
+        this.renderedMomentPage = this.momentPage;
+        this.momentPageSize = toPositiveInt(result?.size, this.momentPageSize);
+        this.momentTotal = Math.max(Number(result?.total || 0), 0);
+        this.momentTotalPages = Math.max(toPositiveInt(result?.totalPages, 1), momentItems.length > 0 ? 1 : 0);
+
+        this.renderMomentPage(momentItems);
+        this.renderMomentPagination();
+
+        const currentMomentKey = preserveSelection ? this.activeMomentKey : '';
+        const nextSelection = currentMomentKey && momentItems.some((item) => item.key === currentMomentKey)
+          ? momentItems.find((item) => item.key === currentMomentKey)
+          : momentItems[0];
+
+        if (nextSelection) {
+          this.activeMomentKey = nextSelection.key;
+          this.activeMomentTitle = nextSelection.title;
+        } else {
+          this.activeMomentKey = '';
+          this.activeMomentTitle = '';
+        }
+
+        this.syncMomentSelectionDom();
+        this.scrollListToTop();
+        this.scrollPreviewToTop();
+        if (updateUrl) this.writeUrlState();
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          console.error('Failed to load author moments page:', error);
+        }
+      } finally {
+        if (this.momentFetchController === controller) {
+          this.momentFetchController = null;
+        }
+      }
+    },
+
+    async fetchMomentPage(page, signal) {
+      const cacheKey = `author-moments:${this.authorName}:${this.momentPageSize}:${page}`;
+      const cachedPayload = typeof window !== 'undefined' ? window.sessionStorage.getItem(cacheKey) : null;
+
+      if (cachedPayload) {
+        try {
+          const parsed = JSON.parse(cachedPayload);
+          if (Date.now() - parsed.timestamp < 5 * 60 * 1000 && parsed.data) {
+            return parsed.data;
+          }
+        } catch {}
+      }
+
+      const requestUrl = new URL('/apis/api.moment.halo.run/v1alpha1/moments', window.location.origin);
+      requestUrl.searchParams.set('page', String(page));
+      requestUrl.searchParams.set('size', String(this.momentPageSize));
+      requestUrl.searchParams.set('ownerName', this.authorName);
+      requestUrl.searchParams.set('sort', 'spec.releaseTime,desc');
+
+      const response = await fetch(requestUrl.toString(), {
+        headers: {
+          Accept: 'application/json'
+        },
+        signal
+      });
+
+      if (!response.ok) {
+        throw new Error(`Moments request failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(cacheKey, JSON.stringify({
+          timestamp: Date.now(),
+          data
+        }));
+      }
+
+      return data;
+    },
+
+    renderMomentPage(momentItems) {
+      if (this.momentListEl) {
+        this.momentListEl.innerHTML = momentItems.map((moment) => renderMomentRow(moment)).join('');
+      }
+
+      if (this.momentPreviewEl) {
+        this.momentPreviewEl.innerHTML = momentItems.map((moment) => renderMomentPreview(moment, this.authorDisplayName)).join('');
+      }
+
+      if (this.momentEmptyEl) {
+        this.momentEmptyEl.hidden = momentItems.length > 0;
+      }
+    },
+
+    renderMomentPagination() {
+      if (!this.momentPaginationEl) return;
+
+      if (this.momentTotalPages <= 1) {
+        this.momentPaginationEl.hidden = true;
+        return;
+      }
+
+      const prevDisabled = this.momentPage <= 1;
+      const nextDisabled = this.momentPage >= this.momentTotalPages;
+
+      this.momentPaginationEl.hidden = false;
+      this.momentPaginationEl.innerHTML = `
+        <button type="button"
+                class="author-page-btn tag-page-btn${prevDisabled ? ' is-disabled' : ''}"
+                data-moment-page-target="prev"
+                ${prevDisabled ? 'disabled' : ''}>
+          上一页
+        </button>
+        <span class="author-page-indicator tag-page-indicator">${escapeHtml(`${this.momentPage} / ${this.momentTotalPages}`)}</span>
+        <button type="button"
+                class="author-page-btn tag-page-btn${nextDisabled ? ' is-disabled' : ''}"
+                data-moment-page-target="next"
+                ${nextDisabled ? 'disabled' : ''}>
+          下一页
+        </button>
+      `;
+    },
+
+    scrollListToTop() {
+      const listScroll = this.$root.querySelector('.author-posts-scroll');
+      if (listScroll) {
+        listScroll.scrollTop = 0;
+      }
+    },
+
+    scrollPreviewToTop() {
+      const previewScroll = this.$root.querySelector('.author-preview-scroll');
+      if (previewScroll) {
+        previewScroll.scrollTop = 0;
+      }
+    }
+  }));
+
   Alpine.data('categoriesExplorer', () => ({
     activeCategoryKey: '',
     activeCategoryPage: 1,
@@ -889,6 +1469,7 @@ export function registerComponents(Alpine) {
   // =========== 4.5 拖拽与缩放窗口引擎 ===========
   Alpine.data('draggableWindow', () => ({
     isDragging: false,
+    isResizing: false,
     isMaximized: false,
     x: 0,
     y: 0,
@@ -902,24 +1483,64 @@ export function registerComponents(Alpine) {
     preMaxY: 0,
     preMaxWidth: 0,
     preMaxHeight: 0,
+    resizeDirection: '',
+    resizeStartWidth: 0,
+    resizeStartHeight: 0,
+    resizeStartWindowX: 0,
+    resizeStartWindowY: 0,
     isDesktop: window.innerWidth >= 768,
     windowEl: null,
 
     applyResizeMode() {
       if (!this.windowEl) return;
 
-      if (!this.isDesktop || this.isMaximized) {
-        this.windowEl.style.resize = 'none';
-        if (!this.isDesktop) {
-          this.windowEl.style.borderRadius = '';
-        } else if (this.isMaximized) {
-          this.windowEl.style.borderRadius = '0';
-        }
+      this.windowEl.style.resize = 'none';
+
+      if (!this.isDesktop) {
+        this.windowEl.style.borderRadius = '';
         return;
       }
 
-      this.windowEl.style.resize = 'both';
+      if (this.isMaximized) {
+        this.windowEl.style.borderRadius = '0';
+        return;
+      }
+
       this.windowEl.style.borderRadius = '';
+    },
+
+    getMinWidth() {
+      if (!this.windowEl) return 400;
+      const computed = Number.parseFloat(window.getComputedStyle(this.windowEl).minWidth);
+      return Number.isFinite(computed) && computed > 0 ? computed : 400;
+    },
+
+    getMinHeight() {
+      if (!this.windowEl) return 400;
+      const computed = Number.parseFloat(window.getComputedStyle(this.windowEl).minHeight);
+      return Number.isFinite(computed) && computed > 0 ? computed : 400;
+    },
+
+    getResizeCursor(direction) {
+      if (direction === 'n' || direction === 's') return 'ns-resize';
+      if (direction === 'e' || direction === 'w') return 'ew-resize';
+      if (direction === 'ne' || direction === 'sw') return 'nesw-resize';
+      return 'nwse-resize';
+    },
+
+    setWindowRect({ x = this.x, y = this.y, width = this.width, height = this.height } = {}) {
+      this.x = x;
+      this.y = y;
+      this.width = width;
+      this.height = height;
+
+      if (!this.windowEl || !this.isDesktop) return;
+
+      this.windowEl.style.left = `${this.x}px`;
+      this.windowEl.style.top = `${this.y}px`;
+      this.windowEl.style.width = `${this.width}px`;
+      this.windowEl.style.height = `${this.height}px`;
+      this.windowEl.style.transform = 'none';
     },
 
     syncState() {
@@ -968,7 +1589,7 @@ export function registerComponents(Alpine) {
       if (this.isDesktop && window.ResizeObserver) {
         let resizeTimeout;
         const ro = new ResizeObserver(() => {
-          if (this.isMaximized) return;
+          if (this.isMaximized || this.isResizing) return;
           const newW = this.windowEl.offsetWidth;
           const newH = this.windowEl.offsetHeight;
           if (newW && newH && (this.width !== newW || this.height !== newH)) {
@@ -984,6 +1605,10 @@ export function registerComponents(Alpine) {
       const resizeHandler = () => {
         this.isDesktop = window.innerWidth >= 768;
         if (!this.isDesktop) {
+          this.isDragging = false;
+          this.isResizing = false;
+          document.body.style.userSelect = '';
+          document.body.style.cursor = '';
           this.windowEl.style.transform = '';
           this.windowEl.style.left = '';
           this.windowEl.style.top = '';
@@ -1028,17 +1653,12 @@ export function registerComponents(Alpine) {
 
     updateMeasurements() {
        if (this.isDesktop) {
-         this.width = Math.min(1200, window.innerWidth * 0.85);
-         this.height = Math.min(900, Math.max(500, window.innerHeight * 0.85));
-         this.x = (window.innerWidth - this.width) / 2;
-         this.y = Math.max(28, (window.innerHeight - this.height) / 2);
-         
-         const winEl = document.querySelector('.macos-window');
-         if(winEl) {
-           winEl.style.width = `${this.width}px`;
-           winEl.style.height = `${this.height}px`;
-         }
-         this.applyTransform();
+         const width = Math.min(1200, window.innerWidth * 0.85);
+         const height = Math.min(900, Math.max(500, window.innerHeight * 0.85));
+         const x = (window.innerWidth - width) / 2;
+         const y = Math.max(28, (window.innerHeight - height) / 2);
+
+         this.setWindowRect({ x, y, width, height });
          this.applyResizeMode();
          this.syncState();
        }
@@ -1059,12 +1679,7 @@ export function registerComponents(Alpine) {
 
     applyTransform() {
        if (!this.isDesktop) return;
-       const winEl = document.querySelector('.macos-window');
-       if(winEl) {
-         winEl.style.left = `${this.x}px`;
-         winEl.style.top = `${this.y}px`;
-         winEl.style.transform = 'none';
-       }
+       this.setWindowRect();
     },
 
     toggleMaximize() {
@@ -1108,36 +1723,106 @@ export function registerComponents(Alpine) {
 
     onDragStart(e) {
       if (!this.isDesktop || this.isMaximized) return;
-      if (e.target.closest('button, a, .traffic-lights, svg, .desktop-icon')) return;
+      if (this.isResizing || e.target.closest('button, a, .traffic-lights, svg, .desktop-icon, .window-resize-handle')) return;
       
       this.isDragging = true;
       this.startX = e.clientX;
       this.startY = e.clientY;
       this.initialX = this.x;
       this.initialY = this.y;
+      document.body.style.userSelect = 'none';
       
-      const winEl = document.querySelector('.macos-window');
-      if(winEl) winEl.style.transition = 'none'; 
+      if (this.windowEl) this.windowEl.style.transition = 'none';
     },
 
-    onDragMove(e) {
+    startResize(direction, e) {
+      if (!this.isDesktop || this.isMaximized || !this.windowEl) return;
+
+      this.isResizing = true;
+      this.resizeDirection = direction;
+      this.startX = e.clientX;
+      this.startY = e.clientY;
+      this.resizeStartWidth = this.windowEl.offsetWidth;
+      this.resizeStartHeight = this.windowEl.offsetHeight;
+      this.resizeStartWindowX = this.x;
+      this.resizeStartWindowY = this.y;
+
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = this.getResizeCursor(direction);
+      this.windowEl.style.transition = 'none';
+    },
+
+    onPointerMove(e) {
+      if (this.isResizing) {
+        const dx = e.clientX - this.startX;
+        const dy = e.clientY - this.startY;
+        const direction = this.resizeDirection;
+        const minWidth = this.getMinWidth();
+        const minHeight = this.getMinHeight();
+
+        let nextX = this.resizeStartWindowX;
+        let nextY = this.resizeStartWindowY;
+        let nextWidth = this.resizeStartWidth;
+        let nextHeight = this.resizeStartHeight;
+
+        if (direction.includes('e')) nextWidth = this.resizeStartWidth + dx;
+        if (direction.includes('s')) nextHeight = this.resizeStartHeight + dy;
+        if (direction.includes('w')) {
+          nextWidth = this.resizeStartWidth - dx;
+          nextX = this.resizeStartWindowX + dx;
+        }
+        if (direction.includes('n')) {
+          nextHeight = this.resizeStartHeight - dy;
+          nextY = this.resizeStartWindowY + dy;
+        }
+
+        if (nextWidth < minWidth) {
+          if (direction.includes('w')) nextX += nextWidth - minWidth;
+          nextWidth = minWidth;
+        }
+
+        if (nextHeight < minHeight) {
+          if (direction.includes('n')) nextY += nextHeight - minHeight;
+          nextHeight = minHeight;
+        }
+
+        if (direction.includes('n') && nextY < 28) {
+          nextHeight += nextY - 28;
+          nextY = 28;
+          if (nextHeight < minHeight) nextHeight = minHeight;
+        }
+
+        this.setWindowRect({
+          x: nextX,
+          y: nextY,
+          width: nextWidth,
+          height: nextHeight
+        });
+        return;
+      }
+
       if (!this.isDragging) return;
-      
+
       const dx = e.clientX - this.startX;
       const dy = e.clientY - this.startY;
-      
+
       this.x = this.initialX + dx;
       this.y = this.initialY + dy;
-      
+
       this.clampPositions();
       this.applyTransform();
     },
 
-    onDragEnd() {
-      if (!this.isDragging) return;
+    onPointerEnd() {
+      if (!this.isDragging && !this.isResizing) return;
+
       this.isDragging = false;
-      this.$el.style.transition = ''; 
-      
+      this.isResizing = false;
+      this.resizeDirection = '';
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      this.$el.style.transition = '';
+
       this.width = this.$el.offsetWidth;
       this.height = this.$el.offsetHeight;
       this.syncState();

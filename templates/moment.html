@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html xmlns:th="https://www.thymeleaf.org"
+      th:replace="~{modules/layout :: html(
+        title = '瞬间 - ' + ${site.title},
+        description = '瞬间详情',
+        ssrContent = ~{::ssrBlock}
+      )}">
+  <th:block th:fragment="ssrBlock"
+            th:with="momentLabel=${(moment.spec.content != null and !#strings.isEmpty(moment.spec.content.raw)) ? #strings.abbreviate(moment.spec.content.raw, 42) : ((moment.spec.content != null and moment.spec.content.medium != null and !#lists.isEmpty(moment.spec.content.medium)) ? '图片瞬间' : '瞬间记录')}">
+    <div class="post-reader-shell moment-reader-shell">
+      <div class="post-reader-frame moment-reader-frame">
+        <header class="post-header moment-header">
+          <div class="post-kicker">Moment</div>
+          <h1 class="post-title moment-title" th:text="${momentLabel}">瞬间</h1>
+
+          <div class="post-meta">
+            <div class="post-meta-item">
+              <span th:text="${moment.owner != null ? moment.owner.displayName : site.title}">作者</span>
+            </div>
+            <div class="post-meta-item">
+              <time th:text="${moment.spec.releaseTime != null ? #dates.format(moment.spec.releaseTime, 'yyyy年MM月dd日 HH:mm') : '未知时间'}"></time>
+            </div>
+          </div>
+
+          <p class="post-summary"
+             th:if="${!#strings.isEmpty(moment.spec.content.raw)}"
+             th:text="${#strings.abbreviate(moment.spec.content.raw, 140)}"></p>
+        </header>
+
+        <section class="moment-media-grid"
+                 th:if="${moment.spec.content != null and !#lists.isEmpty(moment.spec.content.medium)}">
+          <th:block th:each="medium : ${moment.spec.content.medium}">
+            <figure class="moment-media-card" th:if="${medium.type.name() == 'PHOTO'}">
+              <img th:src="${medium.url}" alt="">
+            </figure>
+            <figure class="moment-media-card moment-media-card--video" th:if="${medium.type.name() == 'VIDEO'}">
+              <video th:src="${medium.url}" controls></video>
+            </figure>
+            <figure class="moment-media-card moment-media-card--audio" th:if="${medium.type.name() == 'AUDIO'}">
+              <audio th:src="${medium.url}" controls></audio>
+            </figure>
+            <figure class="moment-media-card moment-media-card--post" th:if="${medium.type.name() == 'POST'}">
+              <div class="moment-media-placeholder">关联文章</div>
+            </figure>
+          </th:block>
+        </section>
+
+        <article id="article-content"
+                 class="post-content moment-content"
+                 th:if="${moment.spec.content != null and !#strings.isEmpty(moment.spec.content.html)}"
+                 th:utext="${moment.spec.content.html}"></article>
+
+        <section id="post-comments"
+                 class="post-comments mac-comment-section"
+                 th:if="${pluginFinder.available('PluginCommentWidget')}">
+          <h2 class="post-comments-title mac-comment-title">评论</h2>
+          <div class="post-comments-shell mac-comment-shell">
+            <halo:comment group="moment.halo.run" kind="Moment" th:attr="name=${moment.metadata.name}"/>
+          </div>
+        </section>
+      </div>
+    </div>
+  </th:block>
+</html>

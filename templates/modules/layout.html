@@ -306,14 +306,23 @@
       <!-- Safari 极简交互窗口 (支持桌面端拖拽与缩放) -->
       <div class="macos-window flex flex-col pointer-events-auto relative md:absolute w-full h-full md:w-auto md:h-auto md:min-w-[400px] md:min-h-[400px] rounded-none md:rounded-[14px] overflow-hidden origin-center"
            x-data="draggableWindow"
-           @mousemove.window="onDragMove"
-           @mouseup.window="onDragEnd"
+           :class="{ 'window-resizable': isDesktop && !isMaximized }"
+           @mousemove.window="onPointerMove"
+           @mouseup.window="onPointerEnd"
            x-transition:enter="transition ease-out duration-200" 
            x-transition:enter-start="opacity-0 md:scale-95" 
            x-transition:enter-end="opacity-100 md:scale-100" 
            x-transition:leave="transition ease-in duration-150" 
            x-transition:leave-start="opacity-100 md:scale-100" 
            x-transition:leave-end="opacity-0 md:scale-95">
+          <div class="window-resize-handle window-resize-handle--n" @mousedown.stop.prevent="startResize('n', $event)"></div>
+          <div class="window-resize-handle window-resize-handle--s" @mousedown.stop.prevent="startResize('s', $event)"></div>
+          <div class="window-resize-handle window-resize-handle--e" @mousedown.stop.prevent="startResize('e', $event)"></div>
+          <div class="window-resize-handle window-resize-handle--w" @mousedown.stop.prevent="startResize('w', $event)"></div>
+          <div class="window-resize-handle window-resize-handle--ne" @mousedown.stop.prevent="startResize('ne', $event)"></div>
+          <div class="window-resize-handle window-resize-handle--nw" @mousedown.stop.prevent="startResize('nw', $event)"></div>
+          <div class="window-resize-handle window-resize-handle--se" @mousedown.stop.prevent="startResize('se', $event)"></div>
+          <div class="window-resize-handle window-resize-handle--sw" @mousedown.stop.prevent="startResize('sw', $event)"></div>
          
         <!-- macOS 拟真统一窗口标题栏 (双端继承 macOS 美学) -->
         <div class="window-titlebar relative w-full z-50 h-[48px] md:h-[52px] shrink-0 flex items-center px-3 md:px-4 border-b transition-all font-sans" style="-webkit-backdrop-filter: blur(30px) saturate(150%); backdrop-filter: blur(30px) saturate(150%);"

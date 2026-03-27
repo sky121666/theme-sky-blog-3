@@ -1033,10 +1033,101 @@ body::before {
 /* Safari 内容区 — 实色背景 */
 .window-body {
   background: var(--content-body-bg);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+@media (max-width: 767px) {
+  .window-body {
+    overscroll-behavior-y: auto;
+    scrollbar-gutter: stable;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 88px);
+  }
 }
 
 .window-title-text {
   color: var(--content-chrome-text);
+}
+
+.window-resize-handle {
+  display: none;
+  position: absolute;
+  z-index: 90;
+  touch-action: none;
+}
+
+.window-resizable .window-resize-handle {
+  display: block;
+}
+
+.window-resize-handle--n,
+.window-resize-handle--s {
+  left: 14px;
+  right: 14px;
+  height: 8px;
+  cursor: ns-resize;
+}
+
+.window-resize-handle--n {
+  top: 0;
+}
+
+.window-resize-handle--s {
+  bottom: 0;
+}
+
+.window-resize-handle--e,
+.window-resize-handle--w {
+  top: 14px;
+  bottom: 14px;
+  width: 8px;
+  cursor: ew-resize;
+}
+
+.window-resize-handle--e {
+  right: 0;
+}
+
+.window-resize-handle--w {
+  left: 0;
+}
+
+.window-resize-handle--ne,
+.window-resize-handle--nw,
+.window-resize-handle--se,
+.window-resize-handle--sw {
+  width: 14px;
+  height: 14px;
+}
+
+.window-resize-handle--ne {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+
+.window-resize-handle--nw {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+
+.window-resize-handle--se {
+  right: 0;
+  bottom: 0;
+  cursor: nwse-resize;
+}
+
+.window-resize-handle--sw {
+  left: 0;
+  bottom: 0;
+  cursor: nesw-resize;
+}
+
+@media (max-width: 767px) {
+  .window-resize-handle {
+    display: none !important;
+  }
 }
 
 .window-nav-btn,

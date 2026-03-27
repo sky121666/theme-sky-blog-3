@@ -291,21 +291,26 @@
 }
 
 .tags-pane-title {
+  flex: none;
   color: var(--tags-text);
   font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .tags-pane-path,
 .tag-folder-back {
+  min-width: 0;
+  flex: 1;
   color: var(--tags-text-muted);
   font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   text-decoration: none;
+  text-align: right;
 }
 
 .tag-folder-back:hover {
