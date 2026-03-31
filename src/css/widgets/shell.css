@@ -154,10 +154,9 @@
 }
 
 .desktop-widget-card.widget--system-weather {
-  background:
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.16), transparent 48%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
-    rgba(28, 57, 92, 0.62);
+  background: transparent;
+  border: none;
+  box-shadow: 0 4px 20px -5px rgba(0,0,0,0.3);
 }
 
 .desktop-widget-card.widget--system-clock .desktop-widget-header,

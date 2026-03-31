@@ -1019,23 +1019,20 @@ export function registerDesktopSurface(Alpine) {
     },
 
     usesStandalonePreviewSkin(widget) {
-      return ['halo.latest_posts', 'halo.popular_posts', 'system.weather', 'plugin-moments.recent'].includes(widget?.widget);
+      return ['halo.latest_posts', 'halo.popular_posts', 'plugin-moments.recent'].includes(widget?.widget);
     },
 
     selectedWidgetVariantStyle(entry) {
-      return this.getVariantPreviewStyle(this.selectedWidgetVariantSize(entry));
+      return this.getVariantPreviewStyle(entry, this.selectedWidgetVariantSize(entry));
     },
 
-    getVariantPreviewStyle(size) {
-      if (size === 'small') {
-        return '--desktop-widget-preview-width: 136px; --desktop-widget-preview-height: 136px;';
-      }
-
-      if (size === 'large') {
-        return '--desktop-widget-preview-width: 224px; --desktop-widget-preview-height: 244px;';
-      }
-
-      return '--desktop-widget-preview-width: 224px; --desktop-widget-preview-height: 136px;';
+    getVariantPreviewStyle(entry, size) {
+      const span = entry.sizeOverrides?.[size] || DESKTOP_WIDGET_SIZE_MAP[size] || { w: 4, h: 2 };
+      const cell = this.cellSize;
+      const g = this.gap;
+      const w = span.w * cell + (span.w - 1) * g;
+      const h = span.h * cell + (span.h - 1) * g;
+      return `--desktop-widget-preview-width: ${w}px; --desktop-widget-preview-height: ${h}px;`;
     },
 
     findReplaceTarget(widgetType) {

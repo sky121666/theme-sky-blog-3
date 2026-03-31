@@ -497,13 +497,12 @@
 }
 
 .desktop-widget-center-item {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 234px;
-  grid-template-areas: "copy variant";
-  gap: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   min-width: 0;
-  padding: 10px 10px;
-  border-radius: 15px;
+  padding: 12px;
+  border-radius: 16px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.016), rgba(255, 255, 255, 0.004)),
     rgba(255, 255, 255, 0.003);
@@ -511,29 +510,65 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.014);
 }
 
-.desktop-widget-center-variant {
-  --desktop-widget-preview-width: 224px;
-  --desktop-widget-preview-height: 144px;
+/* 顶部：标题信息 + 操作控件 */
+.desktop-widget-center-item-head {
   display: flex;
-  flex-direction: column;
-  gap: 7px;
-  grid-area: variant;
-}
-
-.desktop-widget-center-variant-head {
-  display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
 }
 
-.desktop-widget-center-variant-actions {
+.desktop-widget-center-item-info {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
 }
 
+.desktop-widget-center-item-title {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.1;
+  font-weight: 590;
+  letter-spacing: -0.02em;
+}
+
+.desktop-widget-center-item-description {
+  margin: 0;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.36);
+}
+
+.desktop-widget-center-item-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.desktop-widget-center-item-meta {
+  margin: 0;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.26);
+  text-align: center;
+}
+
+/* 预览区 */
+.desktop-widget-center-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.018), transparent 56%),
+    rgba(7, 9, 12, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.02);
+}
+
+/* 尺寸切换 */
 .desktop-widget-center-size-picker {
   display: inline-flex;
   align-items: center;
@@ -550,12 +585,12 @@
   border: 0;
   background: transparent;
   color: rgba(255, 255, 255, 0.62);
-  min-width: 42px;
-  padding: 5px 8px;
+  min-width: 36px;
+  padding: 4px 8px;
   border-radius: 999px;
   font-size: 10.5px;
   font-weight: 560;
-  transition: background-color 140ms ease, color 140ms ease, transform 140ms ease;
+  transition: background-color 140ms ease, color 140ms ease;
 }
 
 .desktop-widget-center-size-option:hover {
@@ -567,80 +602,15 @@
   background: rgba(255, 255, 255, 0.14);
   color: rgba(255, 255, 255, 0.96);
   box-shadow:
-    0 6px 14px rgba(6, 8, 12, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
-}
-
-.desktop-widget-center-item-copy {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 12px;
-}
-
-.desktop-widget-center-item-copy {
-  grid-area: copy;
-  align-items: flex-start;
-  justify-content: space-between;
-  min-height: 100%;
-  align-self: center;
-}
-
-.desktop-widget-center-item-copy-main {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  justify-content: center;
-  flex: 1;
-}
-
-.desktop-widget-center-item-kicker {
-  margin: 0;
-  font-size: 8px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.28);
-}
-
-.desktop-widget-center-item-title {
-  margin: 1px 0 0;
-  font-size: 15px;
-  line-height: 1.08;
-  font-weight: 590;
-  letter-spacing: -0.03em;
-}
-
-.desktop-widget-center-item-description {
-  margin: 2px 0 0;
-  max-width: 22ch;
-  font-size: 10px;
-  line-height: 1.42;
-  color: rgba(255, 255, 255, 0.34);
-}
-
-.desktop-widget-center-preview {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: var(--desktop-widget-preview-height);
-  padding: 4px 6px;
-  border-radius: 18px;
-  background:
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.022), transparent 56%),
-    rgba(7, 9, 12, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.024);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+    0 4px 10px rgba(6, 8, 12, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .desktop-widget-card--preview {
   pointer-events: none;
   width: var(--desktop-widget-preview-width);
-  min-width: var(--desktop-widget-preview-width);
-  max-width: var(--desktop-widget-preview-width);
   height: var(--desktop-widget-preview-height);
-  min-height: var(--desktop-widget-preview-height);
-  max-height: var(--desktop-widget-preview-height);
+  max-width: 100%;
   margin: 0 auto;
   flex: none;
   transform: none;
@@ -712,168 +682,6 @@
 
 
 
-
-
-
-.desktop-widget-preview-skin--weather {
-  position: relative;
-  padding: 12px;
-  justify-content: space-between;
-  gap: 8px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012)), rgba(22, 32, 48, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-.desktop-widget-preview-skin--weather::before {
-  content: "";
-  position: absolute;
-  left: -14%;
-  top: -18%;
-  width: 72%;
-  height: 68%;
-  border-radius: 999px;
-  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.18), transparent 68%);
-  filter: blur(22px);
-  opacity: 0.46;
-}
-
-.desktop-widget-preview-skin--weather.is-sunny {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.012)), rgba(64, 78, 120, 0.74);
-}
-
-.desktop-widget-preview-skin--weather.is-sunny::before {
-  background: radial-gradient(circle at center, rgba(255, 211, 140, 0.34), transparent 70%);
-}
-
-.desktop-widget-preview-skin--weather.is-cloudy,
-.desktop-widget-preview-skin--weather.is-foggy {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.012)), rgba(58, 65, 84, 0.78);
-}
-
-.desktop-widget-preview-skin--weather.is-cloudy::before,
-.desktop-widget-preview-skin--weather.is-foggy::before {
-  background: radial-gradient(circle at center, rgba(196, 212, 238, 0.16), transparent 70%);
-}
-
-.desktop-widget-preview-skin--weather.is-rainy,
-.desktop-widget-preview-skin--weather.is-stormy,
-.desktop-widget-preview-skin--weather.is-snowy {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.012)), rgba(31, 42, 70, 0.82);
-}
-
-.desktop-widget-preview-skin--weather.is-rainy::before,
-.desktop-widget-preview-skin--weather.is-stormy::before,
-.desktop-widget-preview-skin--weather.is-snowy::before {
-  background: radial-gradient(circle at center, rgba(118, 157, 224, 0.18), transparent 70%);
-}
-
-.desktop-widget-preview-skin--weather > * {
-  position: relative;
-  z-index: 1;
-}
-
-.desktop-widget-preview-skin--weather.is-compact {
-  gap: 7px;
-}
-
-.desktop-widget-preview-skin--weather.is-large {
-  gap: 10px;
-  padding: 13px;
-}
-
-.desktop-widget-preview-weather-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.desktop-widget-preview-weather-city {
-  font-size: 8px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.38);
-}
-
-.desktop-widget-preview-weather-icon {
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.86);
-}
-
-
-.desktop-widget-preview-weather-insights {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 8px;
-  font-size: 8.5px;
-  color: rgba(255, 255, 255, 0.44);
-}
-
-.desktop-widget-preview-weather-summary span,
-.desktop-widget-preview-weather-insights span {
-  display: inline-flex;
-  align-items: center;
-}
-
-.desktop-widget-preview-weather-hero {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-}
-
-.desktop-widget-preview-weather-hero-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding-bottom: 4px;
-}
-
-.desktop-widget-preview-weather-hero strong {
-  font-size: 38px;
-  line-height: 0.78;
-  letter-spacing: -0.11em;
-  font-weight: 680;
-}
-
-.desktop-widget-preview-weather-condition {
-  font-size: 9.5px;
-  color: rgba(255, 255, 255, 0.52);
-}
-
-.desktop-widget-preview-weather-range {
-  font-style: normal;
-  font-size: 8px;
-  letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.32);
-}
-
-.desktop-widget-preview-weather-insights {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px 10px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.desktop-widget-preview-weather-insights span {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.desktop-widget-preview-weather-insights em {
-  font-style: normal;
-  font-size: 7px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.28);
-}
-
-.desktop-widget-preview-weather-insights strong {
-  font-size: 9px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.74);
-}
 
 .desktop-widget-preview-skin--moment {
   background:
