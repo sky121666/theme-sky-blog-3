@@ -1,0 +1,420 @@
+/* ---------- MacOS Safari 窗口框架 ---------- */
+
+.macos-window {
+  background: transparent;
+  border: 1px solid var(--content-window-border);
+  box-shadow: var(--content-window-shadow), var(--content-window-highlight);
+  backdrop-filter: blur(28px) saturate(150%);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
+}
+
+/* Safari 顶栏 — 实色背景 */
+.window-titlebar {
+  background: var(--content-chrome-bg) !important;
+  border-bottom-color: var(--content-chrome-border) !important;
+  color: var(--content-chrome-text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+/* Safari 内容区 — 实色背景 */
+.window-body {
+  background: var(--content-body-bg);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+@media (max-width: 767px) {
+  .window-body {
+    overscroll-behavior-y: auto;
+    scrollbar-gutter: stable;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 88px);
+  }
+}
+
+.window-title-text {
+  color: var(--content-chrome-text);
+}
+
+/* ---------- 窗口缩放手柄 ---------- */
+.window-resize-handle {
+  display: none;
+  position: absolute;
+  z-index: 90;
+  touch-action: none;
+}
+
+.window-resizable .window-resize-handle {
+  display: block;
+}
+
+.window-resize-handle--n,
+.window-resize-handle--s {
+  left: 14px;
+  right: 14px;
+  height: 8px;
+  cursor: ns-resize;
+}
+
+.window-resize-handle--n {
+  top: 0;
+}
+
+.window-resize-handle--s {
+  bottom: 0;
+}
+
+.window-resize-handle--e,
+.window-resize-handle--w {
+  top: 14px;
+  bottom: 14px;
+  width: 8px;
+  cursor: ew-resize;
+}
+
+.window-resize-handle--e {
+  right: 0;
+}
+
+.window-resize-handle--w {
+  left: 0;
+}
+
+.window-resize-handle--ne,
+.window-resize-handle--nw,
+.window-resize-handle--se,
+.window-resize-handle--sw {
+  width: 14px;
+  height: 14px;
+}
+
+.window-resize-handle--ne {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+
+.window-resize-handle--nw {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+
+.window-resize-handle--se {
+  right: 0;
+  bottom: 0;
+  cursor: nwse-resize;
+}
+
+.window-resize-handle--sw {
+  left: 0;
+  bottom: 0;
+  cursor: nesw-resize;
+}
+
+@media (max-width: 767px) {
+  .window-resize-handle {
+    display: none !important;
+  }
+}
+
+/* ---------- 工具栏按钮 ---------- */
+.window-nav-btn,
+.window-toolbar-btn {
+  color: var(--content-chrome-muted);
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.window-toolbar-feedback {
+  color: var(--content-chrome-muted);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  font-size: 11.5px;
+  font-weight: 560;
+}
+
+@media (max-width: 767px) {
+  .window-toolbar-feedback {
+    position: absolute;
+    right: 48px;
+    top: 50%;
+    transform: translateY(-50%);
+    max-width: 132px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* ---------- 分享面板 ---------- */
+.window-share {
+  position: relative;
+}
+
+.share-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(320px, calc(100vw - 32px));
+  padding: 10px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--content-body-bg) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--content-window-border) 85%, transparent);
+  box-shadow:
+    0 22px 44px rgba(15, 23, 42, 0.18),
+    0 6px 18px rgba(15, 23, 42, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  backdrop-filter: blur(26px) saturate(140%);
+  -webkit-backdrop-filter: blur(26px) saturate(140%);
+  z-index: 80;
+}
+
+.dark .share-panel {
+  box-shadow:
+    0 26px 54px rgba(0, 0, 0, 0.42),
+    0 10px 24px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.share-panel-preview {
+  padding: 12px 12px 10px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--content-chrome-bg) 76%, transparent);
+  border: 1px solid color-mix(in srgb, var(--content-window-border) 75%, transparent);
+}
+
+.share-panel-host {
+  color: var(--content-chrome-muted);
+  font-size: 11px;
+  font-weight: 560;
+  letter-spacing: 0.02em;
+  margin-bottom: 6px;
+}
+
+.share-panel-title {
+  color: var(--content-chrome-text);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.38;
+}
+
+.share-panel-description {
+  color: var(--content-chrome-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+  margin-top: 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.share-panel-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.share-panel-wechat {
+  margin-top: 10px;
+}
+
+.share-panel-back {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--theme-accent);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.share-panel-qr-shell {
+  margin-top: 10px;
+  padding: 14px 14px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--content-window-border) 75%, transparent);
+  background: color-mix(in srgb, var(--content-chrome-bg) 70%, transparent);
+}
+
+.dark .share-panel-qr-shell {
+  background:
+    linear-gradient(180deg, rgba(39, 39, 42, 0.82) 0%, rgba(56, 56, 61, 0.92) 62%, rgba(92, 92, 99, 0.9) 100%);
+  box-shadow:
+    inset 0 -24px 36px rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.share-panel-qr {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 248px;
+  padding: 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.share-panel-qr-image {
+  display: block;
+  width: 228px;
+  height: 228px;
+  object-fit: contain;
+}
+
+.share-panel-qr-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 228px;
+  color: var(--content-chrome-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.share-panel-qr-caption {
+  margin-top: 8px;
+  color: var(--content-chrome-muted);
+  font-size: 11px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.share-panel-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  min-height: 54px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--content-window-border) 78%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--content-body-bg) 90%, transparent);
+  color: var(--content-chrome-text);
+  text-align: left;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    transform 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.share-panel-action:hover {
+  background: color-mix(in srgb, var(--theme-accent) 10%, var(--content-body-bg));
+  border-color: color-mix(in srgb, var(--theme-accent) 22%, var(--content-window-border));
+}
+
+.share-panel-action:active {
+  transform: translateY(0.5px);
+}
+
+.share-panel-action--primary {
+  background: color-mix(in srgb, var(--theme-accent) 14%, var(--content-body-bg));
+  border-color: color-mix(in srgb, var(--theme-accent) 26%, var(--content-window-border));
+}
+
+.share-panel-action--full {
+  width: 100%;
+  margin-top: 10px;
+}
+
+@media (max-width: 767px) {
+  .share-panel {
+    position: fixed;
+    top: 40px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-height: calc(100vh - 92px);
+    overflow-y: auto;
+  }
+
+  .share-panel-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .share-panel-qr-image {
+    width: min(228px, calc(100vw - 96px));
+    height: min(228px, calc(100vw - 96px));
+  }
+}
+
+.share-panel-action-label {
+  font-size: 12.5px;
+  font-weight: 620;
+  line-height: 1.25;
+}
+
+.share-panel-action-meta {
+  color: var(--content-chrome-muted);
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+.window-nav-btn:hover,
+.window-toolbar-btn:hover {
+  background: var(--content-chrome-hover-bg);
+  color: var(--content-chrome-hover-text);
+}
+
+.window-nav-btn:active,
+.window-toolbar-btn:active {
+  transform: translateY(0.5px);
+}
+
+.window-accent-action:hover {
+  background: var(--content-chrome-hover-bg);
+  color: var(--theme-accent) !important;
+}
+
+.dark .window-titlebar {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* ---------- 交通灯 ---------- */
+.traffic-btn {
+  width: 12px !important;
+  height: 12px !important;
+  border-radius: 50%;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  border: none !important;
+  position: relative;
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.15), inset 0 0.5px 0 rgba(255, 255, 255, 0.15);
+  transition: background-color 0.15s ease;
+  padding: 0;
+  cursor: pointer;
+}
+
+.traffic-btn svg {
+  opacity: 0;
+  width: 7px;
+  height: 7px;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+
+.traffic-lights:hover .traffic-btn svg {
+  opacity: 1;
+}
+
+.traffic-btn.close { background-color: #ff5f56; }
+.traffic-btn.minimize { background-color: #ffbd2e; }
+.traffic-btn.maximize { background-color: #27c93f; }
+
+.dark .traffic-btn.close { background-color: #ff5f57; }
+.dark .traffic-btn.minimize { background-color: #febc2e; }
+.dark .traffic-btn.maximize { background-color: #28c840; }
+
+.traffic-btn.close svg path { stroke: #4d0000; }
+.traffic-btn.minimize svg path { stroke: #995700; }
+.traffic-btn.maximize svg path { fill: #004d09; }

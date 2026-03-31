@@ -5,7 +5,10 @@
  */
 
 /* ===== CSS ===== */
-import './css/desktop.css';
+import './css/desktop/surface.css';
+import './css/desktop/shell.css';
+import './css/icons/index.css';
+import './css/widgets/index.css';
 import './css/post.css';
 import './css/moment.css';
 import './css/archives.css';
@@ -17,9 +20,11 @@ import './css/error.css';
 /* ===== JS：Alpine.js ===== */
 import Alpine from 'alpinejs';
 import { registerComponents } from './js/desktop.js';
+import { registerPostComponents } from './js/post/upvote.js';
 
 window.Alpine = Alpine;
 
 registerComponents(Alpine);
+registerPostComponents(Alpine);
 
 Alpine.start();

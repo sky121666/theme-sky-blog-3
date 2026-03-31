@@ -1,0 +1,12 @@
+/* ---------- PJAX NProgress 进度条 ---------- */
+#nprogress .bar {
+  background: var(--mac-accent) !important;
+  height: 3px !important;
+}
+#nprogress .peg {
+  box-shadow: 0 0 10px var(--mac-accent), 0 0 5px var(--mac-accent) !important;
+}
+#nprogress .spinner-icon {
+  border-top-color: var(--mac-accent) !important;
+  border-left-color: var(--mac-accent) !important;
+}

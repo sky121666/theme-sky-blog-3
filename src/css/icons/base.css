@@ -1,0 +1,62 @@
+.desktop-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 2px;
+  padding: 3px 2px 4px;
+  width: calc(100% + 6px);
+  margin-left: -3px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.1s, border-color 0.1s;
+  text-decoration: none;
+}
+
+.desktop-node-slot--icon > .desktop-icon {
+  pointer-events: auto;
+  min-width: 0;
+}
+
+.desktop-icon--ghost {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 22px 56px rgba(8, 9, 14, 0.32);
+  backdrop-filter: blur(16px) saturate(130%);
+  -webkit-backdrop-filter: blur(16px) saturate(130%);
+}
+
+.desktop-icon-graphic {
+  width: var(--desktop-icon-graphic-size);
+  height: var(--desktop-icon-graphic-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.desktop-icon-label {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 550;
+  color: var(--shell-text-primary);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.62);
+  line-height: 1.16;
+  padding: 1px 4px 2px;
+  max-width: calc(var(--desktop-icon-card-width) + 12px);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-wrap: balance;
+  border-radius: 4px;
+}

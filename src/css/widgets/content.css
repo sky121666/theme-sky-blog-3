@@ -1,0 +1,771 @@
+/* ── Restored Original Rules for Moment Diary ── */
+.desktop-widget-moment-diary-trail {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.desktop-widget-moment-diary-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  text-decoration: none;
+  color: inherit;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.desktop-widget-moment-diary-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.desktop-widget-moment-diary-row-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.desktop-widget-moment-diary-row-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.desktop-widget-moment-diary-row-meta {
+  font-size: 12px;
+  opacity: 0.5;
+  margin-top: 2px;
+}
+
+
+
+.desktop-widget-mac-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 14px 8px; /* Classic Native App Header Padding */
+  flex: none;
+}
+
+.desktop-widget-mac-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  display: inline-block;
+  border: 0.5px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Base properties retained without color overrides */
+
+.desktop-widget-mac-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.02em;
+}
+
+
+
+
+
+
+
+
+/* ── Latest / Popular Posts: Unified Glass List Box ── */
+.desktop-widget-news-layout,
+.desktop-widget-charts-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* The unified glass container that holds all list rows */
+.desktop-widget-mac-list-box {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  margin: 0 12px 12px;
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border: 0.5px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 4px 16px rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+/* Each list row inside the glass box */
+.desktop-widget-mac-list-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 13px;
+  text-decoration: none;
+  color: inherit;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.07);
+  transition: background 0.15s ease;
+  flex: 1;
+}
+
+.desktop-widget-mac-list-row:last-child {
+  border-bottom: none;
+}
+
+.desktop-widget-mac-list-row:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Text block inside a plain list row (latest posts) */
+.desktop-widget-mac-list-copy {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
+}
+
+.desktop-widget-mac-list-copy strong {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: rgba(255, 255, 255, 0.9);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  line-clamp: 1;
+}
+
+.desktop-widget-mac-list-copy span {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* ── Popular Posts: Top Charts Layout ── */
+
+
+.desktop-widget-charts-rank {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.5);
+  font-variant-numeric: tabular-nums;
+}
+
+.desktop-widget-charts-rank.is-top {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border: 0.5px solid rgba(255, 255, 255, 0.2);
+}
+
+.desktop-widget-charts-copy {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: 4px;
+}
+
+.desktop-widget-charts-copy strong {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.desktop-widget-charts-bar {
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.desktop-widget-charts-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.4);
+  transition: width 0.4s ease;
+}
+
+.desktop-widget-charts-visits {
+  flex: none;
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.5;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Bento Grids */
+.desktop-widget-mac-bento {
+  display: grid;
+  padding: 14px;
+  height: 100%;
+}
+
+.desktop-widget-mac-bento.is-2x2 {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 10px;
+}
+
+.desktop-widget-mac-bento.is-3x2 {
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.desktop-widget-mac-cell {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 8px rgba(0, 0, 0, 0.05);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
+}
+
+.desktop-widget-mac-cell strong {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1;
+}
+
+.desktop-widget-mac-cell em {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.desktop-widget-mac-btn {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 8px rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.2s ease;
+  padding: 6px;
+  position: relative;
+}
+
+.desktop-widget-mac-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.desktop-widget-mac-btn span {
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.desktop-widget-mac-btn strong {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 2px 5px;
+  color: #fff;
+}
+
+/* Author Card */
+.desktop-widget-mac-author {
+  display: flex;
+  height: 100%;
+  padding: 16px;
+}
+
+.desktop-widget-mac-author.is-small {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+}
+
+.desktop-widget-mac-author.is-medium {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.desktop-widget-mac-author-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.desktop-widget-mac-avatar {
+  flex: none;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 0.5px solid rgba(255, 255, 255, 0.15);
+  display: grid;
+  place-items: center;
+}
+
+.desktop-widget-mac-author.is-medium .desktop-widget-mac-avatar {
+  width: 48px;
+  height: 48px;
+}
+
+.desktop-widget-mac-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.desktop-widget-mac-avatar-fallback {
+  font-size: 20px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.desktop-widget-mac-author-name {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.desktop-widget-mac-author-bio {
+  font-size: 12px;
+  opacity: 0.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.desktop-widget-mac-author.is-medium .desktop-widget-mac-author-bio {
+  -webkit-line-clamp: 1; /* single line for medium card */
+  line-clamp: 1;
+}
+
+.desktop-widget-mac-author-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.desktop-widget-mac-author-stats {
+  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 14px;
+  padding: 12px 16px;
+  display: flex;
+  gap: 16px;
+  align-self: stretch;
+  align-items: center;
+}
+
+.desktop-widget-mac-author-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.desktop-widget-mac-author-stat strong {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.desktop-widget-mac-author-stat em {
+  font-style: normal;
+  font-size: 10px;
+  opacity: 0.5;
+}
+
+/* ── Weather Widget: Base ── */
+.desktop-widget-weather {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+}
+
+.desktop-widget-weather-atmosphere {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: 0.18;
+  background: radial-gradient(ellipse at 70% 20%, rgba(255,255,255,0.6), transparent 60%);
+}
+
+/* tone colors */
+.desktop-widget-weather.is-sunny .desktop-widget-weather-atmosphere {
+  background: radial-gradient(ellipse at 70% 10%, rgba(255,220,60,0.9), transparent 60%);
+  opacity: 0.3;
+}
+.desktop-widget-weather.is-cloudy .desktop-widget-weather-atmosphere,
+.desktop-widget-weather.is-foggy .desktop-widget-weather-atmosphere {
+  background: radial-gradient(ellipse at 60% 0%, rgba(190,210,240,0.7), transparent 60%);
+}
+.desktop-widget-weather.is-rainy .desktop-widget-weather-atmosphere,
+.desktop-widget-weather.is-stormy .desktop-widget-weather-atmosphere,
+.desktop-widget-weather.is-snowy .desktop-widget-weather-atmosphere {
+  background: radial-gradient(ellipse at 50% 0%, rgba(130,160,220,0.7), transparent 60%);
+}
+
+/* ── Small: icon · temp · city · hi/lo ── */
+.desktop-widget-weather--small {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 10px 12px;
+  gap: 1px;
+}
+
+.desktop-widget-weather-s-icon {
+  font-size: 32px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.desktop-widget-weather-s-temp {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.desktop-widget-weather-s-city {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.65);
+  margin-top: 3px;
+}
+
+.desktop-widget-weather-s-hi-lo {
+  font-size: 10px;
+  color: rgba(255,255,255,0.45);
+  letter-spacing: 0.01em;
+}
+
+/* ── Medium (4×2): hero + stats ── */
+.desktop-widget-weather--medium {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 12px 14px;
+  gap: 8px;
+}
+
+.desktop-widget-weather-l-hero {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.desktop-widget-weather-l-hero-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.desktop-widget-weather-l-city {
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.desktop-widget-weather-l-temp {
+  font-size: 38px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.desktop-widget-weather-l-condition {
+  font-size: 11px;
+  color: rgba(255,255,255,0.75);
+  font-weight: 500;
+}
+
+.desktop-widget-weather-l-hi-lo {
+  font-size: 10px;
+  color: rgba(255,255,255,0.45);
+  margin-top: 1px;
+}
+
+.desktop-widget-weather-l-hero-icon {
+  font-size: 42px;
+  line-height: 1;
+}
+
+/* stats row */
+.desktop-widget-weather-l-stats {
+  display: flex;
+  flex-direction: row;
+  gap: 0;
+  background: rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 4px 0;
+}
+
+.desktop-widget-weather-l-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  border-right: 0.5px solid rgba(255,255,255,0.1);
+}
+
+.desktop-widget-weather-l-stat:last-child {
+  border-right: none;
+}
+
+.desktop-widget-weather-l-stat-label {
+  font-size: 8px;
+  color: rgba(255,255,255,0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 500;
+}
+
+.desktop-widget-weather-l-stat-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.92);
+}
+
+.desktop-widget-weather-l-stat-value em {
+  font-style: normal;
+  font-size: 9px;
+  color: rgba(255,255,255,0.5);
+}
+
+/* 5-day forecast list */
+
+
+
+
+
+
+
+
+
+
+
+.desktop-widget-moment-live {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  height: 100%;
+  min-height: 0;
+  text-decoration: none;
+  color: inherit;
+}
+
+.desktop-widget-moment-live-kicker,
+.desktop-widget-moment-diary-kicker {
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.desktop-widget-moment-live-title {
+  font-size: 15px;
+  line-height: 1.16;
+  font-weight: 620;
+  letter-spacing: -0.02em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.desktop-widget-moment-live-deck {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.46);
+}
+
+.desktop-widget-moment-live-meta {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.34);
+}
+
+.desktop-widget-moment-live-foot {
+  margin-top: auto;
+  font-size: 8.5px;
+  color: rgba(255, 255, 255, 0.46);
+}
+
+.desktop-widget-moment-diary {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 10px;
+  height: 100%;
+}
+
+.desktop-widget-moment-diary-hero {
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr);
+  gap: 13px;
+  min-height: 0;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+}
+
+.desktop-widget-moment-diary-cover {
+  position: relative;
+  min-height: 100%;
+  border-radius: 18px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+
+
+
+
+
+.desktop-widget-moment-cover {
+  position: relative;
+  min-height: 100%;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.desktop-widget-moment-cover-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.desktop-widget-moment-cover-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 14px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.66);
+}
+
+.desktop-widget-moment-cover-badge {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: rgba(8, 10, 14, 0.34);
+  border: 0.5px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 8px;
+  font-weight: 560;
+  line-height: 1;
+}
+
+
+
+.desktop-widget-moment-diary-row-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.28;
+}
+
+
+
+
+
+.desktop-widget-moment-diary-meta,
+.desktop-widget-moment-diary-row-meta {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+.desktop-widget-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  justify-content: center;
+  height: 100%;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.66);
+}
+
+.desktop-widget-empty strong {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 560;
+}

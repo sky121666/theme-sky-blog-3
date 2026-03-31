@@ -219,6 +219,34 @@ Rule:
 
 ### 5.1 Template entry
 
+### 5.2 Desktop Widgets
+
+Desktop widgets belong to the shell layer, but they are not fixed chrome.
+
+- Render only on `/`
+- Live between desktop icons and the primary window
+- Never render inside `#pjax-container`
+- Use theme settings for default instances
+- Use frontend runtime for drag, edit mode, and persistence
+
+Ownership:
+
+- Settings and default instances:
+  - [/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/settings.yaml](/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/settings.yaml)
+- Bootstrap output:
+  - [/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/templates/modules/desktop-widgets.html](/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/templates/modules/desktop-widgets.html)
+- Runtime:
+  - [/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/src/js/desktop.js](/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/src/js/desktop.js)
+- Styles:
+  - [/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/src/css/desktop.css](/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/src/css/desktop.css)
+
+Persistence boundary:
+
+- Current: `localStorage`
+- Future plugin: user layout read/write only
+- Widget UI still stays in theme
+- `extension` storage is mounted through a frontend driver bridge, not by moving widget rendering into plugins
+
 - [/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/templates/modules/layout.html](file:///Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/templates/modules/layout.html)
 
 Responsibilities:

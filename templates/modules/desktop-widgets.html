@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html xmlns:th="https://www.thymeleaf.org">
+  <th:block th:fragment="layer(enabled, isHome, editEnabled, columns, gap, layoutVersion, serverLayoutJson, themeName, themeJsonConfigEndpoint, instances, clockShowSeconds, weatherEnabled, weatherCityName, weatherRefreshMinutes, authorCardEnabled, siteStatsEnabled, latestPosts, popularPosts, categoryTree, siteStats, randomTags, momentsAvailable, recentMoments, siteUrl, siteTitle, siteSubtitle, siteLogo)">
+    <script th:inline="javascript">
+      const widgetProtocol = {
+        enabled: [[${enabled}]],
+        isHome: [[${isHome}]],
+        editEnabled: [[${editEnabled}]],
+        columns: [[${columns}]],
+        gap: [[${gap}]],
+        layoutVersion: [[${layoutVersion}]],
+        serverLayoutJson: [[${serverLayoutJson}]],
+        themeName: [[${themeName}]],
+        themeJsonConfigEndpoint: [[${themeJsonConfigEndpoint}]],
+        siteUrl: [[${siteUrl}]],
+        modules: {
+          clock: {
+            showSeconds: [[${clockShowSeconds}]]
+          },
+          weather: {
+            enabled: [[${weatherEnabled}]],
+            cityName: [[${weatherCityName}]],
+            refreshMinutes: [[${weatherRefreshMinutes}]]
+          },
+          authorCard: {
+            enabled: [[${authorCardEnabled}]]
+          },
+          siteStats: {
+            enabled: [[${siteStatsEnabled}]]
+          }
+        },
+        instances: [[${instances}]],
+        sources: {
+          siteProfile: {
+            title: [[${siteTitle}]],
+            subtitle: [[${siteSubtitle}]],
+            logo: [[${siteLogo}]],
+            url: [[${siteUrl}]]
+          },
+          latestPosts: [[${latestPosts}]],
+          popularPosts: [[${popularPosts}]],
+          categories: [[${categoryTree}]],
+          siteStats: [[${siteStats}]],
+          randomTags: [[${randomTags}]],
+          momentsAvailable: [[${momentsAvailable}]],
+          recentMoments: [[${recentMoments}]]
+        }
+      };
+      window.__THEME_DESKTOP_PROTOCOL__ = Object.assign(window.__THEME_DESKTOP_PROTOCOL__ || {}, {
+        widgets: widgetProtocol
+      });
+      window.__THEME_WIDGETS__ = window.__THEME_DESKTOP_PROTOCOL__.widgets;
+    </script>
+
+    <section class="desktop-widgets-layer"
+             x-ref="layer"
+             x-show="enabled"
+             :class="{
+               'is-editing': isEditing,
+               'is-adding': isEditing && editStage === 'add',
+               'is-decorating': isEditing && editStage === 'decorate'
+             }"
+             x-cloak
+             style="display: none;">
+      <div class="desktop-widgets-toolbar is-editing"
+           x-show="canManageDefaultDesktopLayout && editEnabled && isEditing && isHome && editStage === 'decorate'"
+           x-transition:enter="transition ease-out duration-180"
+           x-transition:enter-start="opacity-0 -translate-y-2 scale-95"
+           x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+           x-transition:leave="transition ease-in duration-140"
+           x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+           x-transition:leave-end="opacity-0 -translate-y-1 scale-95"
+           style="display: none;">
+        <div class="desktop-widget-center-segmented" role="tablist" aria-label="小组件编辑步骤">
+          <button type="button"
+                  class="desktop-widget-center-segment"
+                  :class="{ 'is-active': editStage === 'add' }"
+                  @click="setEditStage('add')">添加</button>
+          <button type="button"
+                  class="desktop-widget-center-segment"
+                  :class="{ 'is-active': editStage === 'decorate' }"
+                  @click="setEditStage('decorate')">装饰</button>
+        </div>
+        <button type="button"
+                class="desktop-widgets-toolbar-btn desktop-widgets-toolbar-btn--quiet"
+                @click="resetLayout()">默认</button>
+        <button type="button"
+                class="desktop-widgets-toolbar-btn desktop-widgets-toolbar-btn--primary"
+                :disabled="serverLayoutSaving"
+                @click="saveDesktopEditing()"
+                x-text="serverLayoutSaving ? '保存中' : '保存'"></button>
+      </div>
+
+      <div class="desktop-context-menu"
+           x-show="showDesktopContextMenu"
+           :style="desktopContextMenuPositionStyle"
+           @click.outside="closeDesktopContextMenu()"
+           x-transition:enter="transition ease-out duration-120"
+           x-transition:enter-start="opacity-0 scale-95 translate-y-1"
+           x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+           x-transition:leave="transition ease-in duration-90"
+           x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+           x-transition:leave-end="opacity-0 scale-95 translate-y-1"
+           style="display: none;">
+        <template x-if="!isEditing && canManageDefaultDesktopLayout">
+          <button type="button"
+                  class="desktop-context-menu-item"
+                  @click="openWidgetEditorFromDesktopMenu()">
+            编辑小组件
+          </button>
+        </template>
+
+        <template x-if="isEditing && canManageDefaultDesktopLayout">
+          <div class="desktop-context-menu-group">
+            <button type="button"
+                    class="desktop-context-menu-item"
+                    @click="setEditStage('add'); closeDesktopContextMenu()">添加组件</button>
+            <button type="button"
+                    class="desktop-context-menu-item"
+                    @click="setEditStage('decorate'); closeDesktopContextMenu()">装饰</button>
+            <button type="button"
+                    class="desktop-context-menu-item"
+                    @click="resetLayout(); closeDesktopContextMenu()">默认</button>
+            <button type="button"
+                    class="desktop-context-menu-item desktop-context-menu-item--primary"
+                    :disabled="serverLayoutSaving"
+                    @click="saveDesktopEditing(); closeDesktopContextMenu()"
+                    x-text="serverLayoutSaving ? '保存中' : '保存'"></button>
+          </div>
+        </template>
+      </div>
+
+      <div class="desktop-widget-center-backdrop"
+           x-show="showWidgetCenter"
+           :style="centerBackdropStyle"
+           @click="setEditStage('decorate')"
+           x-transition:enter="transition ease-out duration-240"
+           x-transition:enter-start="opacity-0"
+           x-transition:enter-end="opacity-100"
+           x-transition:leave="transition ease-in duration-180"
+           x-transition:leave-start="opacity-100"
+           x-transition:leave-end="opacity-0"
+           style="display: none;"></div>
+
+      <section class="desktop-widget-center"
+               x-show="showWidgetCenter"
+               x-transition:enter="transition ease-out duration-280"
+               x-transition:enter-start="opacity-0 translate-y-14"
+               x-transition:enter-end="opacity-100 translate-y-0"
+               x-transition:leave="transition ease-in duration-180"
+               x-transition:leave-start="opacity-100 translate-y-0"
+               x-transition:leave-end="opacity-0 translate-y-10"
+               style="display: none;">
+        <div class="desktop-widget-center-frame"
+             :style="centerSheetStyle"
+             :class="{ 'is-dragging': centerSheetDrag.active }">
+          <div class="desktop-widget-center-drag-area"
+               @pointerdown.prevent="beginCenterSheetDrag($event)"
+               @mousedown.prevent="beginCenterSheetDrag($event)">
+            <button type="button"
+                    class="desktop-widget-center-grabber"
+                    aria-label="收起组件中心"
+                    @click.stop="setEditStage('decorate')"></button>
+          </div>
+          <header class="desktop-widget-center-header">
+            <div class="desktop-widget-center-heading">
+              <h2>小组件</h2>
+            </div>
+            <div class="desktop-widget-center-actions">
+              <button type="button"
+                      class="desktop-widget-center-head-action desktop-widget-center-head-action--quiet"
+                      @click="resetLayout()">默认</button>
+              <button type="button"
+                      class="desktop-widget-center-head-action desktop-widget-center-head-action--quiet"
+                      @click="setEditStage('decorate')">装饰</button>
+              <button type="button"
+                      class="desktop-widget-center-head-action desktop-widget-center-head-action--primary"
+                      :disabled="serverLayoutSaving"
+                      @click="saveDesktopEditing()"
+                      x-text="serverLayoutSaving ? '保存中' : '保存'"></button>
+            </div>
+          </header>
+
+          <div class="desktop-widget-center-shell">
+            <aside class="desktop-widget-center-sidebar">
+              <label class="desktop-widget-center-search">
+                <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path d="M7 12.25C9.89949 12.25 12.25 9.89949 12.25 7C12.25 4.10051 9.89949 1.75 7 1.75C4.10051 1.75 1.75 4.10051 1.75 7C1.75 9.89949 4.10051 12.25 7 12.25Z" stroke="currentColor" stroke-width="1.25"></path>
+                  <path d="M11 11L14 14" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"></path>
+                </svg>
+                <input type="search"
+                       placeholder="搜索"
+                       x-model.trim="widgetCenterSearch">
+              </label>
+
+              <div class="desktop-widget-center-nav">
+                <template x-for="category in widgetCenterCategories" :key="category.id">
+                  <button type="button"
+                          class="desktop-widget-center-nav-item"
+                          :class="{ 'is-active': widgetCenterCategory === category.id }"
+                          @click="setWidgetCenterCategory(category.id)">
+                    <span x-text="category.label"></span>
+                  </button>
+                </template>
+              </div>
+            </aside>
+
+            <div class="desktop-widget-center-content">
+              <div class="desktop-widget-center-content-header">
+                <div>
+                  <h3 x-text="widgetCenterCategoryLabel()"></h3>
+                </div>
+                <p class="desktop-widget-center-content-count" x-text="widgetCenterResultText()"></p>
+              </div>
+
+              <div class="desktop-widget-center-grid">
+                <template x-if="filteredWidgetCatalog.length === 0">
+                  <div class="desktop-widget-center-empty">当前筛选条件下没有可展示的组件。</div>
+                </template>
+
+                <template x-for="entry in filteredWidgetCatalog" :key="entry.widget">
+                  <article class="desktop-widget-center-item">
+                    <div class="desktop-widget-center-item-copy">
+                      <div class="desktop-widget-center-item-copy-main">
+                        <p class="desktop-widget-center-item-kicker" x-text="entry.kicker || '桌面组件'"></p>
+                        <h3 class="desktop-widget-center-item-title" x-text="entry.title"></h3>
+                        <p class="desktop-widget-center-item-description" x-text="entry.description"></p>
+                        <p class="desktop-widget-center-item-meta" x-text="catalogStatusText(entry)"></p>
+                      </div>
+                    </div>
+
+                    <section class="desktop-widget-center-variant">
+                      <div class="desktop-widget-center-variant-head">
+                        <div class="desktop-widget-center-size-picker" role="tablist" :aria-label="`${entry.title} 尺寸`">
+                          <template x-for="size in widgetVariantSizes(entry)" :key="`${entry.widget}-${size}`">
+                            <button type="button"
+                                    class="desktop-widget-center-size-option"
+                                    :class="{ 'is-active': isWidgetVariantSelected(entry, size) }"
+                                    @click="selectWidgetVariant(entry.widget, size)"
+                                    x-text="sizeLabel(size)"></button>
+                          </template>
+                        </div>
+                        <div class="desktop-widget-center-variant-actions">
+                          <template x-if="hasReplaceTarget(entry.widget)">
+                            <button type="button"
+                                    class="desktop-widget-center-item-action desktop-widget-center-item-action--quiet"
+                                    @click="replaceWidgetFromCatalog(entry.widget, selectedWidgetVariantSize(entry))">替换</button>
+                          </template>
+                          <template x-if="!hasReplaceTarget(entry.widget)">
+                            <button type="button"
+                                    class="desktop-widget-center-item-action"
+                                    @click="addWidgetFromCatalog(entry.widget, selectedWidgetVariantSize(entry))">添加</button>
+                          </template>
+                        </div>
+                      </div>
+
+                      <div class="desktop-widget-center-preview" :style="selectedWidgetVariantStyle(entry)">
+                        <article class="desktop-widget-card desktop-widget-card--preview"
+                                 :class="widgetClassName(selectedWidgetVariant(entry)) + (usesStandalonePreviewSkin(selectedWidgetVariant(entry)) ? ' is-standalone-preview' : '')">
+                          <template x-if="!usesStandalonePreviewSkin(selectedWidgetVariant(entry))">
+                            <header class="desktop-widget-header">
+                              <div>
+                                <p class="desktop-widget-kicker" x-text="widgetKicker(selectedWidgetVariant(entry))"></p>
+                                <h2 class="desktop-widget-title" x-text="selectedWidgetVariant(entry).title"></h2>
+                              </div>
+                            </header>
+                          </template>
+                          <div class="desktop-widget-body"
+                               :class="{ 'is-standalone-preview': usesStandalonePreviewSkin(selectedWidgetVariant(entry)) }"
+                               x-html="renderWidgetBody(selectedWidgetVariant(entry), { preview: true })"></div>
+                        </article>
+                      </div>
+                    </section>
+                  </article>
+                </template>
+              </div>
+            </div>
+          </div>
+
+          <div class="desktop-widget-center-safe-area" aria-hidden="true"></div>
+        </div>
+      </section>
+
+      <div class="desktop-widgets-grid-shell" x-ref="gridShell">
+        <div class="desktop-widgets-grid" x-ref="grid" :style="gridStyle" :class="{ 'is-editing': isEditing }">
+          <template x-for="guide in snapGuides" :key="guide.key">
+            <div class="desktop-node-snap-guide"
+                 :class="`is-${guide.axis}`"
+                 :style="guide.style"></div>
+          </template>
+
+          <div class="desktop-widget-drop-preview"
+               x-show="previewPlacement"
+               :class="previewPlacementClass()"
+               :style="previewStyle"
+               style="display: none;"></div>
+
+          <template x-for="node in visibleDesktopNodes" :key="node.key">
+            <div :class="desktopNodeSlotClassName(node)"
+                 :style="getDesktopNodeStyle(node)"
+                 :data-desktop-key="node.key">
+              <template x-if="isWidgetNode(node)">
+                <article class="desktop-widget-card"
+                         :class="widgetCardClass(node)"
+                         @pointerdown="beginWidgetDrag(node, $event)">
+                  <header class="desktop-widget-header">
+                    <div>
+                      <p class="desktop-widget-kicker" x-text="widgetKicker(node)"></p>
+                      <h2 class="desktop-widget-title" x-text="node.title"></h2>
+                    </div>
+                    <div class="desktop-widget-controls">
+                      <button type="button"
+                              class="desktop-widget-hide-btn"
+                              x-show="isEditing && editStage === 'decorate'"
+                              @click.stop="hideWidget(node.key)"
+                              style="display: none;"
+                              aria-label="隐藏组件">
+                        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                          <path d="M3.5 8H12.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"></path>
+                        </svg>
+                      </button>
+                    </div>
+                  </header>
+                  <div class="desktop-widget-body" x-html="renderWidgetBody(node)"></div>
+                </article>
+              </template>
+
+              <template x-if="isIconNode(node)">
+                <a class="desktop-icon block group"
+                   :class="desktopNodeContentClassName(node)"
+                   :href="node.href"
+                   :target="node.external ? '_blank' : null"
+                   :data-id="node.dataId"
+                   :data-desktop-key="node.key"
+                   @click="handleDesktopIconClick($event, node.key)"
+                   @pointerdown="beginIconDrag(node.key, $event)">
+                  <div class="desktop-icon-graphic" x-html="renderDesktopIconGraphic(node)"></div>
+                  <div class="desktop-icon-label" x-text="node.title"></div>
+                </a>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <div class="desktop-widget-drag-ghost"
+           x-show="dragState.active"
+           :style="dragGhostStyle"
+           style="display: none;">
+        <template x-if="dragState.kind === 'widget' && dragState.node">
+          <article class="desktop-widget-card is-drag-ghost" :class="widgetClassName(dragState.widget)">
+            <header class="desktop-widget-header">
+              <div>
+                <p class="desktop-widget-kicker" x-text="widgetKicker(dragState.widget)"></p>
+                <h2 class="desktop-widget-title" x-text="dragState.widget.title"></h2>
+              </div>
+            </header>
+            <div class="desktop-widget-body" x-html="renderWidgetBody(dragState.widget)"></div>
+          </article>
+        </template>
+        <template x-if="dragState.kind === 'icon' && dragState.iconMarkup">
+          <div class="desktop-icon desktop-icon--ghost" x-html="dragState.iconMarkup"></div>
+        </template>
+      </div>
+    </section>
+  </th:block>
+</html>

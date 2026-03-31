@@ -121,7 +121,48 @@
       bgImageUrl = ${bgConf?.image_url ?: bgConf?.image},
       wallpaperClass = ${bgMode == 'preset' ? 'wallpaper-' + bgPreset : ''},
       schemeClass = ${schemeMode == 'preset' ? 'scheme-' + schemePreset : 'scheme-custom'},
-      isErrorPage = ${error != null}">
+      isErrorPage = ${error != null},
+      pageCanonical = ${canonical != null ? canonical.toString() : ''},
+      widgetsConf = ${theme.config.widgets},
+      desktopLayoutJson = ${theme.config.default_layout?.layout_json ?: ''},
+      desktopThemeName = ${theme.metadata.name ?: 'theme-sky-blog-3'},
+      widgetsBehavior = ${widgetsConf?.behavior},
+      widgetsModules = ${widgetsConf?.modules},
+      widgetsInstances = ${widgetsConf?.instances ?: {}},
+      widgetsEnabled = ${widgetsBehavior?.enabled != null ? widgetsBehavior.enabled : true},
+      widgetsEditEnabled = ${widgetsBehavior?.edit_enabled != null ? widgetsBehavior.edit_enabled : true},
+      widgetsLayoutVersion = ${widgetsBehavior?.layout_version ?: 'v1'},
+      widgetsColumns = ${widgetsBehavior?.grid_columns != null ? widgetsBehavior.grid_columns : 12},
+      widgetsGap = ${widgetsBehavior?.gap != null ? widgetsBehavior.gap : 18},
+      widgetsClockShowSeconds = ${widgetsModules?.clock?.show_seconds != null ? widgetsModules.clock.show_seconds : false},
+      widgetsWeatherEnabled = ${widgetsModules?.weather?.enabled != null ? widgetsModules.weather.enabled : true},
+      widgetsWeatherCityName = ${widgetsModules?.weather?.city_name ?: '北京'},
+      widgetsWeatherRefreshMinutes = ${widgetsModules?.weather?.refresh_minutes != null ? widgetsModules.weather.refresh_minutes : 30},
+      widgetsAuthorCardEnabled = ${widgetsModules?.author_card?.enabled != null ? widgetsModules.author_card.enabled : true},
+      widgetsSiteStatsEnabled = ${widgetsModules?.site_stats?.enabled != null ? widgetsModules.site_stats.enabled : true},
+      widgetsLatestPosts = ${widgetsEnabled ? postFinder.list({
+        page: 1,
+        size: 8,
+        sort: {'spec.publishTime,desc'}
+      }) : null},
+      widgetsPopularPosts = ${widgetsEnabled ? postFinder.list({
+        page: 1,
+        size: 8,
+        sort: {'stats.visit,desc'}
+      }) : null},
+      widgetsCategoryTree = ${widgetsEnabled ? categoryFinder.listAsTree() : {}},
+      widgetsSiteStats = ${widgetsEnabled and widgetsSiteStatsEnabled ? siteStatsFinder.getStats() : null},
+      widgetsAllTags = ${widgetsEnabled ? tagFinder.listAll() : {}},
+      widgetsMomentsAvailable = ${widgetsEnabled and pluginFinder.available('PluginMoments')},
+      widgetsRecentMoments = ${widgetsMomentsAvailable ? momentFinder.list({
+        page: 1,
+        size: 8,
+        sort: {'spec.releaseTime,desc'}
+      }) : null},
+      widgetsSiteTitle = ${site.title ?: ''},
+      widgetsSiteSubtitle = ${site.subtitle ?: ''},
+      widgetsSiteLogo = ${site.logo},
+      isDesktopHome = ${site.url != null and pageCanonical == site.url.toString()}">
 
   <body
     class="overflow-hidden m-0 p-0 text-white w-screen h-screen relative"
@@ -227,119 +268,111 @@
       </div>
     </div>
 
-    <!-- ==================== 桌面图标 ==================== -->
-    <div class="desktop-grid" x-data="desktopIcons" @click.window="handleOutsideClick($event)">
-      
-      <!-- 1. 自定义挂载图标 (接管最初的菜单源头) -->
-      <th:block th:each="icon : ${desktopCustomIcons}">
-        <a th:href="${icon.href}" class="desktop-icon block group" th:classappend="${!icon.external ? 'pjax-link' : ''}" th:attr="data-id=${icon.name}, target=${icon.external ? '_blank' : null}" :class="{ 'selected': selectedId === $el.dataset.id }" @click="select($el.dataset.id)">
-          <div class="desktop-icon-graphic">
-            
-            <!-- 1.1 文章或单页 (渲染为文稿) -->
-            <th:block th:if="${icon.type == 'document'}">
-              <svg viewBox="0 0 120 120" width="52" height="52" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-sm mx-auto">
-                <path fill="#ffffff" d="M25 15 L70 15 L95 40 L95 105 C95 110, 90 115, 85 115 L25 115 C20 115, 15 110, 15 105 L15 25 C15 20, 20 15, 25 15 Z" />
-                <path fill="#e0e0e0" d="M70 15 L70 35 C70 38, 72 40, 75 40 L95 40 Z" />
-                <rect fill="#cccccc" x="35" y="55" width="50" height="6" rx="3" />
-                <rect fill="#cccccc" x="35" y="70" width="50" height="6" rx="3" />
-                <rect fill="#cccccc" x="35" y="85" width="35" height="6" rx="3" />
-              </svg>
-            </th:block>
+    <script th:inline="javascript">
+      (() => {
+        const baseColumns = Math.max(Number([[${widgetsColumns}]]) || 12, 12);
+        const rawIcons = [
+          /*[# th:each="icon : ${desktopCustomIcons}"]*/
+          {
+            key: [[${'icon-custom-' + icon.name}]],
+            title: [[${icon.name}]],
+            href: [[${icon.href}]],
+            pjax: [[${!icon.external}]],
+            external: [[${icon.external}]],
+            subtype: [[${icon.type}]],
+            dataId: [[${icon.name}]]
+          },
+          /*[/]*/
+          /*[# th:each="catName : ${desktopCategories}"]*/
+          {
+            key: [[${'icon-category-' + catName}]],
+            title: [[${categoryFinder.getByName(catName) != null ? categoryFinder.getByName(catName).spec.displayName : catName}]],
+            href: [[${categoryFinder.getByName(catName) != null ? categoryFinder.getByName(catName).status.permalink : '#'}]],
+            pjax: true,
+            external: false,
+            subtype: 'folder',
+            dataId: [[${catName}]]
+          },
+          /*[/]*/
+          /*[# th:each="tagName : ${desktopTags}"]*/
+          {
+            key: [[${'icon-tag-' + tagName}]],
+            title: [[${tagFinder.getByName(tagName) != null ? tagFinder.getByName(tagName).spec.displayName : tagName}]],
+            href: [[${tagFinder.getByName(tagName) != null ? tagFinder.getByName(tagName).status.permalink : '#'}]],
+            pjax: true,
+            external: false,
+            subtype: 'folder',
+            dataId: [[${tagName}]]
+          },
+          /*[/]*/
+          /*[# th:each="postName : ${desktopPosts}"]*/
+          {
+            key: [[${'icon-post-' + postName}]],
+            title: [[${postFinder.getByName(postName) != null ? postFinder.getByName(postName).spec.title : postName}]],
+            href: [[${postFinder.getByName(postName) != null ? postFinder.getByName(postName).status.permalink : '#'}]],
+            pjax: true,
+            external: false,
+            subtype: 'document',
+            dataId: [[${postName}]]
+          },
+          /*[/]*/
+          /*[# th:each="pageName : ${desktopSinglePages}"]*/
+          {
+            key: [[${'icon-page-' + pageName}]],
+            title: [[${singlePageFinder.getByName(pageName) != null ? singlePageFinder.getByName(pageName).spec.title : pageName}]],
+            href: [[${singlePageFinder.getByName(pageName) != null ? singlePageFinder.getByName(pageName).status.permalink : '#'}]],
+            pjax: true,
+            external: false,
+            subtype: 'document',
+            dataId: [[${pageName}]]
+          },
+          /*[/]*/
+        ];
 
-            <!-- 1.2 分类或标签 (渲染为文件夹) -->
-            <th:block th:if="${icon.type == 'folder'}">
-              <svg viewBox="0 0 120 120" width="56" height="56" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-sm mx-auto">
-                <path fill="var(--mac-folder1)" d="M10 35 C10 30, 14 26, 19 26 L45 26 C48 26, 51 28, 53 30 L63 42 L101 42 C106 42, 110 46, 110 51 L110 95 C110 100, 106 104, 101 104 L10 104 Z" />
-                <path fill="var(--mac-folder2)" d="M10 48 C10 43, 14 39, 19 39 L101 39 C106 39, 110 43, 110 48 L110 95 C110 100, 106 104, 101 104 L10 104 Z" />
-                <path fill="var(--mac-folder3)" d="M10 48 C10 43, 14 39, 19 39 L101 39 C106 39, 110 43, 110 48 V50 C110 45, 106 41, 101 41 L19 41 C14 41, 10 45, 10 50 Z" />
-              </svg>
-            </th:block>
-            
-            <!-- 1.3 第三方链接 (渲染为 Safari 地球) -->
-            <th:block th:if="${icon.type == 'link'}">
-              <svg viewBox="0 0 120 120" width="56" height="56" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-sm mx-auto">
-                <circle cx="60" cy="60" r="48" fill="#ffffff" />
-                <circle cx="60" cy="60" r="44" fill="var(--mac-link-primary)" />
-                <path fill="none" stroke="var(--mac-link-secondary)" stroke-width="4" d="M60 16 C 30 16, 30 104, 60 104 C 90 104, 90 16, 60 16 Z" />
-                <path fill="none" stroke="var(--mac-link-secondary)" stroke-width="4" d="M18 60 L102 60 M27 35 L93 35 M27 85 L93 85 M60 16 V104" />
-              </svg>
-            </th:block>
+        window.__THEME_DESKTOP_PROTOCOL__ = Object.assign(window.__THEME_DESKTOP_PROTOCOL__ || {}, {
+          baseColumns,
+          icons: rawIcons
+        });
+        window.__THEME_DESKTOP_ICONS__ = window.__THEME_DESKTOP_PROTOCOL__.icons;
+      })();
+    </script>
 
-          </div>
-          <div class="desktop-icon-label" th:text="${icon.name}">Name</div>
-        </a>
-      </th:block>
+    <div class="desktop-surface"
+         data-desktop-shell-version="20260328-2"
+         x-data="desktopWidgets"
+         x-ref="surface"
+         @click.window="handleDesktopSurfaceOutsideClick($event)"
+         @contextmenu.prevent="handleDesktopSurfaceContextMenu($event)">
 
-      <!-- 2. 分类 (渲染为文件夹) -->
-      <th:block th:each="catName : ${desktopCategories}">
-        <th:block th:with="category=${categoryFinder.getByName(catName)}">
-          <a th:if="${category != null}" th:href="${category.status.permalink}" class="desktop-icon pjax-link block group" th:attr="data-id=${catName}" :class="{ 'selected': selectedId === $el.dataset.id }" @click="select($el.dataset.id)">
-            <div class="desktop-icon-graphic">
-              <svg viewBox="0 0 120 120" width="56" height="56" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-sm mx-auto">
-                <path fill="var(--mac-folder1)" d="M10 35 C10 30, 14 26, 19 26 L45 26 C48 26, 51 28, 53 30 L63 42 L101 42 C106 42, 110 46, 110 51 L110 95 C110 100, 106 104, 101 104 L10 104 Z" />
-                <path fill="var(--mac-folder2)" d="M10 48 C10 43, 14 39, 19 39 L101 39 C106 39, 110 43, 110 48 L110 95 C110 100, 106 104, 101 104 L10 104 Z" />
-                <path fill="var(--mac-folder3)" d="M10 48 C10 43, 14 39, 19 39 L101 39 C106 39, 110 43, 110 48 V50 C110 45, 106 41, 101 41 L19 41 C14 41, 10 45, 10 50 Z" />
-              </svg>
-            </div>
-            <div class="desktop-icon-label" th:text="${category.spec.displayName}">Cat</div>
-          </a>
-        </th:block>
-      </th:block>
-
-      <!-- 3. 标签 (渲染为文件夹) -->
-      <th:block th:each="tagName : ${desktopTags}">
-        <th:block th:with="tag=${tagFinder.getByName(tagName)}">
-          <a th:if="${tag != null}" th:href="${tag.status.permalink}" class="desktop-icon pjax-link block group" th:attr="data-id=${tagName}" :class="{ 'selected': selectedId === $el.dataset.id }" @click="select($el.dataset.id)">
-            <div class="desktop-icon-graphic">
-              <svg viewBox="0 0 120 120" width="56" height="56" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-sm mx-auto">
-                <path fill="var(--mac-folder1)" d="M10 35 C10 30, 14 26, 19 26 L45 26 C48 26, 51 28, 53 30 L63 42 L101 42 C106 42, 110 46, 110 51 L110 95 C110 100, 106 104, 101 104 L10 104 Z" />
-                <path fill="var(--mac-folder2)" d="M10 48 C10 43, 14 39, 19 39 L101 39 C106 39, 110 43, 110 48 L110 95 C110 100, 106 104, 101 104 L10 104 Z" />
-                <path fill="var(--mac-folder3)" d="M10 48 C10 43, 14 39, 19 39 L101 39 C106 39, 110 43, 110 48 V50 C110 45, 106 41, 101 41 L19 41 C14 41, 10 45, 10 50 Z" />
-              </svg>
-            </div>
-            <div class="desktop-icon-label" th:text="${tag.spec.displayName}">Tag</div>
-          </a>
-        </th:block>
-      </th:block>
-
-      <!-- 4. 指定文章 (渲染为文稿) -->
-      <th:block th:each="postName : ${desktopPosts}">
-        <th:block th:with="post=${postFinder.getByName(postName)}">
-          <a th:if="${post != null}" th:href="${post.status.permalink}" class="desktop-icon pjax-link block group" th:attr="data-id=${postName}" :class="{ 'selected': selectedId === $el.dataset.id }" @click="select($el.dataset.id)">
-             <div class="desktop-icon-graphic">
-               <svg viewBox="0 0 120 120" width="52" height="52" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-sm mx-auto">
-                 <path fill="#ffffff" d="M25 15 L70 15 L95 40 L95 105 C95 110, 90 115, 85 115 L25 115 C20 115, 15 110, 15 105 L15 25 C15 20, 20 15, 25 15 Z" />
-                 <path fill="#e0e0e0" d="M70 15 L70 35 C70 38, 72 40, 75 40 L95 40 Z" />
-                 <rect fill="#cccccc" x="35" y="55" width="50" height="6" rx="3" />
-                 <rect fill="#cccccc" x="35" y="70" width="50" height="6" rx="3" />
-                 <rect fill="#cccccc" x="35" y="85" width="35" height="6" rx="3" />
-               </svg>
-             </div>
-             <div class="desktop-icon-label" th:text="${post.spec.title}">Post</div>
-          </a>
-        </th:block>
-      </th:block>
-
-      <!-- 5. 指定单页 (渲染为文稿) -->
-      <th:block th:each="pageName : ${desktopSinglePages}">
-        <th:block th:with="singlePage=${singlePageFinder.getByName(pageName)}">
-          <a th:if="${singlePage != null}" th:href="${singlePage.status.permalink}" class="desktop-icon pjax-link block group" th:attr="data-id=${pageName}" :class="{ 'selected': selectedId === $el.dataset.id }" @click="select($el.dataset.id)">
-             <div class="desktop-icon-graphic">
-               <svg viewBox="0 0 120 120" width="52" height="52" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-sm mx-auto">
-                 <path fill="#ffffff" d="M25 15 L70 15 L95 40 L95 105 C95 110, 90 115, 85 115 L25 115 C20 115, 15 110, 15 105 L15 25 C15 20, 20 15, 25 15 Z" />
-                 <path fill="#e0e0e0" d="M70 15 L70 35 C70 38, 72 40, 75 40 L95 40 Z" />
-                 <rect fill="#cccccc" x="35" y="55" width="50" height="6" rx="3" />
-                 <rect fill="#cccccc" x="35" y="70" width="50" height="6" rx="3" />
-                 <rect fill="#cccccc" x="35" y="85" width="35" height="6" rx="3" />
-               </svg>
-             </div>
-             <div class="desktop-icon-label" th:text="${singlePage.spec.title}">Page</div>
-          </a>
-        </th:block>
-      </th:block>
-
-
-
+    <th:block th:replace="~{modules/desktop-widgets :: layer(
+      enabled=${widgetsEnabled},
+      isHome=${isDesktopHome},
+      editEnabled=${widgetsEditEnabled},
+      columns=${widgetsColumns},
+      gap=${widgetsGap},
+      layoutVersion=${widgetsLayoutVersion},
+      serverLayoutJson=${desktopLayoutJson},
+      themeName=${desktopThemeName},
+      themeJsonConfigEndpoint=@{/apis/api.console.halo.run/v1alpha1/themes/{name}/json-config(name=${desktopThemeName})},
+      instances=${widgetsInstances},
+      clockShowSeconds=${widgetsClockShowSeconds},
+      weatherEnabled=${widgetsWeatherEnabled},
+      weatherCityName=${widgetsWeatherCityName},
+      weatherRefreshMinutes=${widgetsWeatherRefreshMinutes},
+      authorCardEnabled=${widgetsAuthorCardEnabled},
+      siteStatsEnabled=${widgetsSiteStatsEnabled},
+      latestPosts=${widgetsLatestPosts != null ? widgetsLatestPosts.items : {}},
+      popularPosts=${widgetsPopularPosts != null ? widgetsPopularPosts.items : {}},
+      categoryTree=${widgetsCategoryTree},
+      siteStats=${widgetsSiteStats},
+      randomTags=${widgetsAllTags},
+      momentsAvailable=${widgetsMomentsAvailable},
+      recentMoments=${widgetsRecentMoments != null ? widgetsRecentMoments.items : {}},
+      siteUrl=${site.url != null ? site.url.toString() : ''},
+      siteTitle=${widgetsSiteTitle},
+      siteSubtitle=${widgetsSiteSubtitle},
+      siteLogo=${widgetsSiteLogo}
+    )}"></th:block>
     </div>
 
     <!-- ==================== 极简单主窗 (PJAX 热重载) ==================== -->
@@ -382,9 +415,15 @@
             <div class="flex items-center gap-3 md:gap-4 w-[120px] md:w-[240px]">
                 <!-- 交通灯 -->
                 <div class="traffic-lights flex items-center gap-2">
-                    <button @click="closeWindow()" class="traffic-btn close w-3 h-3 rounded-full bg-[#ED6A5E] border border-[#CE5347] cursor-pointer shadow-sm" title="关闭"></button>
-                    <button @click="$store.windowManager.minimize()" class="traffic-btn minimize w-3 h-3 rounded-full bg-[#F4BF4F] border border-[#D6A243] cursor-pointer shadow-sm" title="最小化"></button>
-                    <button @click="toggleMaximize()" class="traffic-btn maximize w-3 h-3 rounded-full bg-[#61C554] border border-[#58A942] cursor-pointer shadow-sm" title="最大化"></button>
+                    <button @click="closeWindow()" class="traffic-btn close" title="关闭">
+                        <svg viewBox="0 0 14 14" fill="none"><path d="M4 4l6 6m0-6l-6 6" stroke-width="1.6" stroke-linecap="round"/></svg>
+                    </button>
+                    <button @click="$store.windowManager.minimize()" class="traffic-btn minimize" title="最小化">
+                        <svg viewBox="0 0 14 14" fill="none"><path d="M3 7h8" stroke-width="2" stroke-linecap="round"/></svg>
+                    </button>
+                    <button @click="toggleMaximize()" class="traffic-btn maximize" title="最大化">
+                        <svg viewBox="0 0 14 14" fill="none"><path d="M8.5 4h-3a1 1 0 00-1 1v3h1.5V5.5H8.5V4zM5.5 10h3a1 1 0 001-1V6H8v2.5H5.5V10z" fill="currentColor"/></svg>
+                    </button>
                 </div>
 
                 <!-- Navigation 返回 (双端统一样式) -->

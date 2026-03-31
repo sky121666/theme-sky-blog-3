@@ -1,0 +1,5 @@
+/* desktop/shell — barrel import */
+@import './dock.css';
+@import './menubar.css';
+@import './window.css';
+@import './pjax.css';
