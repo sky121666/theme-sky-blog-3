@@ -5,7 +5,7 @@ export function renderWeatherWidget({ modules, weatherState, escapeHtml }, widge
   const isLarge = widget?.size === 'large';
   const isSmall = widget?.size === 'small';
 
-  if (isPreview && (!modules.weather.enabled || !cityName || (!weather && !weatherState.loading))) {
+  if (isPreview && (!cityName || (!weather && !weatherState.loading))) {
     const fallbackCity = cityName || '天气';
     return `
       <div class="desktop-widget-preview-skin desktop-widget-preview-skin--weather is-cloudy ${isLarge ? 'is-large' : 'is-compact'}">
@@ -16,7 +16,7 @@ export function renderWeatherWidget({ modules, weatherState, escapeHtml }, widge
         <div class="desktop-widget-preview-weather-hero${isLarge ? '' : ' is-compact'}">
           <strong>18°</strong>
           <div class="desktop-widget-preview-weather-hero-copy">
-            <span class="desktop-widget-preview-weather-condition">${escapeHtml(modules.weather.enabled ? '等待同步' : '启用天气后显示')}</span>
+            <span class="desktop-widget-preview-weather-condition">${escapeHtml('等待同步')}</span>
             <em class="desktop-widget-preview-weather-range">H 24° · L 12°</em>
           </div>
         </div>
@@ -41,9 +41,7 @@ export function renderWeatherWidget({ modules, weatherState, escapeHtml }, widge
     `;
   }
 
-  if (!modules.weather.enabled) {
-    return '<div class="desktop-widget-empty">天气组件当前未启用。</div>';
-  }
+
 
   if (!cityName) {
     return '<div class="desktop-widget-empty">请先在后台设置天气组件城市。</div>';

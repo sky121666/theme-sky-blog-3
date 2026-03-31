@@ -375,7 +375,7 @@ ${this.shareMeta.url}`;window.location.href=`mailto:?subject=${encodeURIComponen
         </div>
       </div>
     </div>
-  `}function yl({modules:t,sources:e,escapeHtml:i}){const r=e.siteStats;return!t.siteStats.enabled||!r?'<div class="desktop-widget-empty">站点统计当前不可用。</div>':`
+  `}function yl({modules:t,sources:e,escapeHtml:i}){const r=e.siteStats;return r?`
     <div class="desktop-widget-mac-bento is-2x2">
       <div class="desktop-widget-mac-cell">
         <strong>${i(K(r.visit??0))}</strong>
@@ -394,7 +394,7 @@ ${this.shareMeta.url}`;window.location.href=`mailto:?subject=${encodeURIComponen
         <em>分类数</em>
       </div>
     </div>
-  `}function vl({sources:t,escapeHtml:e}){const i=fl(t.randomTags,6);return i.length?`
+  `:'<div class="desktop-widget-empty">站点统计当前不可用。</div>'}function vl({sources:t,escapeHtml:e}){const i=fl(t.randomTags,6);return i.length?`
     <div class="desktop-widget-mac-bento is-3x2">
       ${i.map(r=>`
         <a class="desktop-widget-mac-btn pjax-link" href="${e(r.permalink)}">
@@ -476,7 +476,7 @@ ${this.shareMeta.url}`;window.location.href=`mailto:?subject=${encodeURIComponen
       <strong>${t(e.title)}</strong>
       <span>当前组件已注册，但前端渲染器还没有接入。</span>
     </div>
-  `}function kl({modules:t,weatherState:e,escapeHtml:i},r,n={}){const s=t.weather.cityName,a=e.data,o=n.preview===!0,l=r?.size==="large",c=r?.size==="small";if(o&&(!t.weather.enabled||!s||!a&&!e.loading))return`
+  `}function kl({modules:t,weatherState:e,escapeHtml:i},r,n={}){const s=t.weather.cityName,a=e.data,o=n.preview===!0,l=r?.size==="large",c=r?.size==="small";if(o&&(!s||!a&&!e.loading))return`
       <div class="desktop-widget-preview-skin desktop-widget-preview-skin--weather is-cloudy ${l?"is-large":"is-compact"}">
         <div class="desktop-widget-preview-weather-head">
           <span class="desktop-widget-preview-weather-city">${i(s||"天气")}</span>
@@ -485,7 +485,7 @@ ${this.shareMeta.url}`;window.location.href=`mailto:?subject=${encodeURIComponen
         <div class="desktop-widget-preview-weather-hero${l?"":" is-compact"}">
           <strong>18°</strong>
           <div class="desktop-widget-preview-weather-hero-copy">
-            <span class="desktop-widget-preview-weather-condition">${i(t.weather.enabled?"等待同步":"启用天气后显示")}</span>
+            <span class="desktop-widget-preview-weather-condition">${i("等待同步")}</span>
             <em class="desktop-widget-preview-weather-range">H 24° · L 12°</em>
           </div>
         </div>
@@ -507,7 +507,7 @@ ${this.shareMeta.url}`;window.location.href=`mailto:?subject=${encodeURIComponen
           </div>
         `}
       </div>
-    `;if(!t.weather.enabled)return'<div class="desktop-widget-empty">天气组件当前未启用。</div>';if(!s)return'<div class="desktop-widget-empty">请先在后台设置天气组件城市。</div>';if(e.loading&&!a)return'<div class="desktop-widget-empty">天气数据加载中…</div>';if(!a)return`<div class="desktop-widget-empty">${i(e.error||"天气数据暂时不可用。")}</div>`;const d=a.updatedAt?new Date(a.updatedAt).toLocaleTimeString("zh-CN",{hour:"2-digit",minute:"2-digit",hour12:!1}):"";return o?l?`
+    `;if(!s)return'<div class="desktop-widget-empty">请先在后台设置天气组件城市。</div>';if(e.loading&&!a)return'<div class="desktop-widget-empty">天气数据加载中…</div>';if(!a)return`<div class="desktop-widget-empty">${i(e.error||"天气数据暂时不可用。")}</div>`;const d=a.updatedAt?new Date(a.updatedAt).toLocaleTimeString("zh-CN",{hour:"2-digit",minute:"2-digit",hour12:!1}):"";return o?l?`
       <div class="desktop-widget-preview-skin desktop-widget-preview-skin--weather is-${i(a.tone)} is-large">
         <div class="desktop-widget-preview-weather-head">
           <span class="desktop-widget-preview-weather-city">${i(a.city)}</span>

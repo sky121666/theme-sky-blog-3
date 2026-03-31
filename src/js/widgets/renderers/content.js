@@ -152,7 +152,7 @@ export function renderAuthorCardWidget({ sources, escapeHtml }, widget) {
 
 export function renderSiteStatsWidget({ modules, sources, escapeHtml }) {
   const stats = sources.siteStats;
-  if (!modules.siteStats.enabled || !stats) {
+  if (!stats) {
     return '<div class="desktop-widget-empty">站点统计当前不可用。</div>';
   }
 
