@@ -101,9 +101,76 @@ export function renderWeatherWidget({ modules, weatherState, escapeHtml }, widge
   }
 
   if (weatherState.loading && !weatherState.data) {
-    return '<div class="desktop-widget-empty">天气数据加载中…</div>';
+    return isSmall ? renderSkeletonSmall() : renderSkeletonMedium();
   }
 
   const data = buildWeatherData(modules, weatherState);
   return isSmall ? renderSmall(data, escapeHtml) : renderMedium(data, escapeHtml);
+}
+
+/* ── 骨架屏 ── */
+function renderSkeletonSmall() {
+  return `
+    <div class="desktop-widget-weather desktop-widget-weather--small wg-weather-skeleton">
+      <div class="desktop-widget-weather-atmo" aria-hidden="true"></div>
+      <div class="desktop-widget-weather-top">
+        <span class="wg-skel-pill" style="width:42px;height:10px"></span>
+        <span class="wg-skel-pill" style="width:18px;height:18px;border-radius:50%"></span>
+      </div>
+      <div class="desktop-widget-weather-hero">
+        <span class="wg-skel-pill" style="width:56px;height:32px"></span>
+      </div>
+      <div class="desktop-widget-weather-foot">
+        <span class="wg-skel-pill" style="width:36px;height:9px"></span>
+        <span class="wg-skel-pill" style="width:60px;height:9px"></span>
+      </div>
+    </div>
+  `;
+}
+
+function renderSkeletonMedium() {
+  return `
+    <div class="desktop-widget-weather desktop-widget-weather--medium wg-weather-skeleton">
+      <div class="desktop-widget-weather-atmo" aria-hidden="true"></div>
+      <div class="desktop-widget-weather-m-main">
+        <div class="desktop-widget-weather-m-top">
+          <span class="wg-skel-pill" style="width:52px;height:12px"></span>
+          <span class="wg-skel-pill" style="width:38px;height:9px;margin-top:4px"></span>
+        </div>
+        <div class="desktop-widget-weather-m-bottom">
+          <span class="wg-skel-pill" style="width:68px;height:36px"></span>
+          <span class="wg-skel-pill" style="width:32px;height:32px;border-radius:50%"></span>
+        </div>
+      </div>
+      <div class="desktop-widget-weather-m-details">
+        <div class="desktop-widget-weather-m-details-title">
+          <span class="wg-skel-pill" style="width:50px;height:9px"></span>
+        </div>
+        <div class="desktop-widget-weather-m-stats">
+          <div class="desktop-widget-weather-m-stat">
+            <span class="wg-skel-pill" style="width:20px;height:8px"></span>
+            <span class="wg-skel-pill" style="width:28px;height:10px;margin-top:3px"></span>
+          </div>
+          <div class="desktop-widget-weather-m-stat">
+            <span class="wg-skel-pill" style="width:20px;height:8px"></span>
+            <span class="wg-skel-pill" style="width:28px;height:10px;margin-top:3px"></span>
+          </div>
+          <div class="desktop-widget-weather-m-stat">
+            <span class="wg-skel-pill" style="width:20px;height:8px"></span>
+            <span class="wg-skel-pill" style="width:28px;height:10px;margin-top:3px"></span>
+          </div>
+        </div>
+        <div class="desktop-widget-weather-m-hilo">
+          <div class="flex-between">
+            <span class="wg-skel-pill" style="width:24px;height:9px"></span>
+            <span class="wg-skel-pill" style="width:24px;height:9px"></span>
+          </div>
+          <div class="flex-between">
+            <span class="wg-skel-pill" style="width:24px;height:9px"></span>
+            <span class="wg-skel-pill" style="width:24px;height:9px"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
 }

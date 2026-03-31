@@ -1031,6 +1031,29 @@
 /* 5-day forecast list */
 
 
+/* ── Weather Skeleton Screen ── */
+@keyframes wg-skel-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.wg-weather-skeleton {
+  background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+}
+
+.wg-skel-pill {
+  display: inline-block;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.08) 0%,
+    rgba(255,255,255,0.18) 40%,
+    rgba(255,255,255,0.08) 80%
+  );
+  background-size: 200% 100%;
+  animation: wg-skel-shimmer 1.6s ease-in-out infinite;
+}
+
 
 
 
