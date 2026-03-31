@@ -39,8 +39,8 @@ export const DESKTOP_WIDGET_CATALOG = {
   'halo.latest_posts': {
     title: '最新文章',
     kicker: 'Halo',
-    size: 'large',
-    sizes: ['medium', 'large'],
+    size: 'medium',
+    sizes: ['small', 'medium', 'large'],
     category: 'halo',
     description: '最新发布内容'
   },

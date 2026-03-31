@@ -56,6 +56,14 @@ function createWidgetRendererContext(state) {
   };
 }
 
+/** Widgets that need per-second re-rendering */
+const TICK_SENSITIVE_WIDGETS = new Set(['system.clock']);
+
+/** Build a lightweight cache key from widget state */
+function widgetCacheKey(widget) {
+  return `${widget.widget}:${widget.size}:${widget.key}`;
+}
+
 export function registerDesktopSurface(Alpine) {
   // =========== 6. 首页桌面小组件 ===========
   Alpine.data('desktopWidgets', () => ({
@@ -90,7 +98,8 @@ export function registerDesktopSurface(Alpine) {
       siteStats: null,
       randomTags: [],
       momentsAvailable: false,
-      recentMoments: []
+      recentMoments: [],
+      archivesUrl: '/archives'
     },
     iconsManaged: false,
     icons: [],
@@ -271,7 +280,8 @@ export function registerDesktopSurface(Alpine) {
         siteStats: bootstrap.sources?.siteStats || null,
         randomTags: Array.isArray(bootstrap.sources?.randomTags) ? bootstrap.sources.randomTags : [],
         momentsAvailable: !!bootstrap.sources?.momentsAvailable,
-        recentMoments: Array.isArray(bootstrap.sources?.recentMoments) ? bootstrap.sources.recentMoments : []
+        recentMoments: Array.isArray(bootstrap.sources?.recentMoments) ? bootstrap.sources.recentMoments : [],
+        archivesUrl: bootstrap.sources?.archivesUrl || '/archives'
       };
       this.widgetCatalog = buildWidgetCatalog(this.sources, this.modules);
       this.defaultWidgets = resolvedWidgets.map((widget) => ({ ...widget }));
@@ -300,6 +310,7 @@ export function registerDesktopSurface(Alpine) {
       this.routeSyncHandler = () => {
         this.isHome = window.location.pathname === '/';
         this.closeDesktopContextMenu();
+        this.invalidateWidgetCache();
         if (!this.isHome) {
           this.exitEditMode();
         } else if (!this.weatherState.loading && !this.weatherState.data) {
@@ -1072,6 +1083,7 @@ export function registerDesktopSurface(Alpine) {
       this.icons = this.defaultIcons.map((icon) => ({ ...icon }));
       this.normalizeSingleInstanceTypes();
       this.previewPlacement = null;
+      this.invalidateWidgetCache();
       this.syncGridMetrics();
     },
 
@@ -1114,6 +1126,7 @@ export function registerDesktopSurface(Alpine) {
       }
 
       this.normalizeSingleInstanceTypes();
+      this.invalidateWidgetCache();
       this.syncResponsiveVisibility();
     },
 
@@ -1136,6 +1149,7 @@ export function registerDesktopSurface(Alpine) {
       this.applyResolvedPlacements(placements);
       this.syncBasePlacements(placements);
       this.normalizeSingleInstanceTypes();
+      this.invalidateWidgetCache();
       this.syncResponsiveVisibility();
 
       if (widgetType === 'system.weather') {
@@ -1651,6 +1665,7 @@ export function registerDesktopSurface(Alpine) {
             error: '',
             data: cached
           };
+          this.invalidateWidgetCache();
           return;
         }
       }
@@ -1673,6 +1688,7 @@ export function registerDesktopSurface(Alpine) {
           data
         };
         saveDesktopWidgetWeather(cityName, data);
+        this.invalidateWidgetCache();
       } catch (_error) {
         if (requestId !== this.weatherRequestId) return;
 
@@ -1681,11 +1697,32 @@ export function registerDesktopSurface(Alpine) {
           error: '天气数据暂时不可用。',
           data: null
         };
+        this.invalidateWidgetCache();
       }
     },
 
     renderWidgetBody(widget, options = {}) {
-      return renderDesktopWidget(createWidgetRendererContext(this), widget, options);
+      const wType = widget?.widget || '';
+
+      // Tick-sensitive widgets always re-render
+      if (TICK_SENSITIVE_WIDGETS.has(wType)) {
+        return renderDesktopWidget(createWidgetRendererContext(this), widget, options);
+      }
+
+      // For non-tick widgets, cache and reuse HTML to prevent img flicker
+      if (!this._widgetHtmlCache) this._widgetHtmlCache = new Map();
+      const cKey = widgetCacheKey(widget);
+      const cached = this._widgetHtmlCache.get(cKey);
+      if (cached !== undefined) return cached;
+
+      const html = renderDesktopWidget(createWidgetRendererContext(this), widget, options);
+      this._widgetHtmlCache.set(cKey, html);
+      return html;
+    },
+
+    /** Invalidate widget render cache (call after data/layout changes) */
+    invalidateWidgetCache() {
+      if (this._widgetHtmlCache) this._widgetHtmlCache.clear();
     }
   }));
 }

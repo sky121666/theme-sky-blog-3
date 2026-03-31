@@ -364,7 +364,8 @@
       siteUrl=${site.url != null ? site.url.toString() : ''},
       siteTitle=${widgetsSiteTitle},
       siteSubtitle=${widgetsSiteSubtitle},
-      siteLogo=${widgetsSiteLogo}
+      siteLogo=${widgetsSiteLogo},
+      archivesUrl=${site.routes != null and site.routes.archivesUri != null ? site.routes.archivesUri : '/archives'}
     )}"></th:block>
     </div>
 

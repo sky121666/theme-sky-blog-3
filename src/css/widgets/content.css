@@ -62,6 +62,11 @@
   border: 0.5px solid rgba(255, 255, 255, 0.2);
 }
 
+.desktop-widget-mac-icon.is-latest {
+  background: linear-gradient(135deg, #4a9eff 0%, #3d6aff 100%);
+  border-color: rgba(74, 153, 255, 0.4);
+}
+
 /* Base properties retained without color overrides */
 
 .desktop-widget-mac-title {
@@ -82,28 +87,396 @@
 .desktop-widget-news-layout,
 .desktop-widget-charts-layout {
   display: flex;
-  flex-direction: column;
   height: 100%;
+  width: 100%;
 }
 
-/* The unified glass container that holds all list rows */
+.desktop-widget-charts-layout {
+  flex-direction: column;
+}
+
+/* ── Latest Posts Custom Layouts ── */
+.desktop-widget-news-layout.is-small {
+  flex-direction: column;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.desktop-widget-news-layout.is-medium {
+  display: grid;
+  grid-template-columns: 2fr 3fr;
+  overflow: hidden;
+}
+
+.desktop-widget-news-layout.is-large {
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ─────────────────────────────────────────────────
+   Small (2x2): 单篇推荐卡片
+   ───────────────────────────────────────────────── */
+.wg-news-sm {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 100%;
+  height: 100%;
+  padding: 14px;
+  text-decoration: none;
+  color: #fff;
+  background-size: cover;
+  background-position: center;
+  background-color: #121316;
+  overflow: hidden;
+}
+
+.wg-news-sm.is-fallback {
+  background: linear-gradient(135deg, #4a52c9 0%, #7c3aed 100%);
+}
+
+.wg-news-sm-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.7) 100%);
+  z-index: 1;
+}
+
+.wg-news-sm-top {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.wg-news-sm-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--mac-accent, #2e5fbd);
+}
+
+.wg-news-sm-bookmark {
+  width: 14px;
+  height: 14px;
+  color: rgba(255,255,255,0.3);
+}
+
+.wg-news-sm-bottom {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wg-news-sm-bottom strong {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #fff;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  line-clamp: 3;
+  overflow: hidden;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+
+.wg-news-sm-bottom span {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+}
+
+/* ─────────────────────────────────────────────────
+   Medium (4x2): 图文平衡
+   ───────────────────────────────────────────────── */
+.wg-news-md-cover {
+  position: relative;
+  display: block;
+  overflow: hidden;
+}
+
+.wg-news-md-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.7s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.wg-news-md-cover:hover .wg-news-md-img {
+  transform: scale(1.06);
+}
+
+.wg-news-md-img.is-placeholder {
+  background: linear-gradient(135deg, #1e293b, #334155);
+}
+
+.wg-news-md-cover-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.08);
+}
+
+.wg-news-md-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 14px 16px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.wg-news-md-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.wg-news-md-category {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--mac-accent, #2e5fbd);
+}
+
+.wg-news-md-title {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: rgba(255,255,255,0.92);
+  text-decoration: none;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.wg-news-md-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 6px;
+  border-top: 0.5px solid rgba(255,255,255,0.06);
+}
+
+.wg-news-md-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 0;
+  text-decoration: none;
+  border-bottom: 0.5px solid rgba(255,255,255,0.04);
+}
+
+.wg-news-md-row:last-child {
+  border-bottom: 0;
+}
+
+.wg-news-md-row-title {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.7);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wg-news-md-row:hover .wg-news-md-row-title {
+  color: rgba(255,255,255,0.95);
+}
+
+.wg-news-md-row-date {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.2);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.wg-news-md-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+}
+
+.wg-news-md-date {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─────────────────────────────────────────────────
+   Large (4x4): 深度列表
+   ───────────────────────────────────────────────── */
+.wg-news-lg-cover {
+  position: relative;
+  flex: none;
+  height: 44%;
+  overflow: hidden;
+}
+
+.wg-news-lg-cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 1s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.desktop-widget-news-layout.is-large:hover .wg-news-lg-cover-img {
+  transform: scale(1.04);
+}
+
+.wg-news-lg-cover-img.is-placeholder {
+  background: linear-gradient(135deg, #1e293b, #334155);
+}
+
+.wg-news-lg-cover-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(26,26,26,1) 0%, rgba(26,26,26,0.3) 50%, transparent 100%);
+}
+
+.wg-news-lg-cover-text {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 20px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wg-news-lg-kicker {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--mac-accent, #2e5fbd);
+}
+
+.wg-news-lg-cover-text strong {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.3;
+  color: #fff;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.wg-news-lg-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 20px;
+  gap: 0;
+  overflow: hidden;
+}
+
+.wg-news-lg-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.wg-news-lg-indicator {
+  flex: none;
+  width: 3px;
+  height: 18px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 2px;
+  transition: background 0.2s ease;
+}
+
+.wg-news-lg-item:hover .wg-news-lg-indicator {
+  background: #4a9eff;
+}
+
+.wg-news-lg-item-title {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.75);
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.15s ease;
+}
+
+.wg-news-lg-item:hover .wg-news-lg-item-title {
+  color: #fff;
+}
+
+.wg-news-lg-item-date {
+  flex: none;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.18);
+  font-variant-numeric: tabular-nums;
+  transition: color 0.15s ease;
+}
+
+.wg-news-lg-item:hover .wg-news-lg-item-date {
+  color: #4a9eff;
+}
+
+.wg-news-lg-viewall {
+  display: flex;
+  justify-content: center;
+  padding-top: 10px;
+  margin-top: auto;
+  border-top: 0.5px solid rgba(255,255,255,0.05);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.18);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.wg-news-lg-viewall:hover {
+  color: rgba(255,255,255,0.45);
+}
+
+/* ── Shared List Components (used by Popular Posts etc.) ── */
 .desktop-widget-mac-list-box {
   display: flex;
   flex-direction: column;
   flex: 1;
   margin: 0 12px 12px;
-  background: rgba(255, 255, 255, 0.07);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
-  border: 0.5px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 4px 16px rgba(0, 0, 0, 0.08);
-  border-radius: 14px;
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 4px 16px rgba(0, 0, 0, 0.04);
+  border-radius: 12px;
   overflow: hidden;
 }
 
-/* Each list row inside the glass box */
 .desktop-widget-mac-list-row {
   display: flex;
   align-items: center;
@@ -111,7 +484,7 @@
   padding: 0 13px;
   text-decoration: none;
   color: inherit;
-  border-bottom: 0.5px solid rgba(255, 255, 255, 0.07);
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.06);
   transition: background 0.15s ease;
   flex: 1;
 }
@@ -124,35 +497,12 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
-/* Text block inside a plain list row (latest posts) */
-.desktop-widget-mac-list-copy {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 0;
-  gap: 2px;
-}
-
-.desktop-widget-mac-list-copy strong {
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: rgba(255, 255, 255, 0.9);
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  line-clamp: 1;
-}
-
-.desktop-widget-mac-list-copy span {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
-}
-
 /* ── Popular Posts: Top Charts Layout ── */
 
+.desktop-widget-charts-layout .desktop-widget-mac-list-row {
+  flex: 1;
+  padding: 0 13px;
+}
 
 .desktop-widget-charts-rank {
   flex: none;

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="https://www.thymeleaf.org">
-  <th:block th:fragment="layer(enabled, isHome, editEnabled, columns, gap, layoutVersion, serverLayoutJson, themeName, themeJsonConfigEndpoint, weatherCityName, weatherRefreshMinutes, latestPosts, popularPosts, categoryTree, siteStats, randomTags, momentsAvailable, recentMoments, siteUrl, siteTitle, siteSubtitle, siteLogo)">
+  <th:block th:fragment="layer(enabled, isHome, editEnabled, columns, gap, layoutVersion, serverLayoutJson, themeName, themeJsonConfigEndpoint, weatherCityName, weatherRefreshMinutes, latestPosts, popularPosts, categoryTree, siteStats, randomTags, momentsAvailable, recentMoments, siteUrl, siteTitle, siteSubtitle, siteLogo, archivesUrl)">
     <script th:inline="javascript">
       const widgetProtocol = {
         enabled: [[${enabled}]],
@@ -33,7 +33,8 @@
           siteStats: [[${siteStats}]],
           randomTags: [[${randomTags}]],
           momentsAvailable: [[${momentsAvailable}]],
-          recentMoments: [[${recentMoments}]]
+          recentMoments: [[${recentMoments}]],
+          archivesUrl: [[${archivesUrl}]]
         }
       };
       window.__THEME_DESKTOP_PROTOCOL__ = Object.assign(window.__THEME_DESKTOP_PROTOCOL__ || {}, {
@@ -122,7 +123,7 @@
 
       <div class="desktop-widget-center-backdrop"
            x-show="showWidgetCenter"
-           :style="centerBackdropStyle"
+           :style="[centerBackdropStyle, showWidgetCenter ? 'pointer-events:auto;' : 'pointer-events:none;']"
            @click="setEditStage('decorate')"
            x-transition:enter="transition ease-out duration-240"
            x-transition:enter-start="opacity-0"

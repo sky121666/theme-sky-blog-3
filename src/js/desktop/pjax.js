@@ -78,6 +78,49 @@ export function initPjax(Alpine) {
     
     window.pjax = pjax;
 
+    // MoOx/pjax binds click handlers per-element via parseDOM/attachLink.
+    // Dynamic links (from Alpine x-html, widget renderers, etc.) are never
+    // bound. We use a MutationObserver to catch newly inserted <a> elements
+    // and attach pjax to them automatically.
+    const pjaxAttr = 'data-pjax-state';
+
+    function attachDynamicLinks(root) {
+      if (!root || !window.pjax) return;
+      const links = root.querySelectorAll(`a:not([target='_blank']):not([${pjaxAttr}])`);
+      links.forEach((link) => {
+        // Skip external, anchor-only, and javascript: links
+        if (link.protocol !== window.location.protocol) return;
+        if (link.host !== window.location.host) return;
+        if (link.href.startsWith('javascript:')) return;
+        window.pjax.attachLink(link);
+      });
+    }
+
+    // Observe the desktop surface for dynamically inserted links
+    const desktopSurface = document.querySelector('.desktop-surface');
+    if (desktopSurface) {
+      const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          for (const node of mutation.addedNodes) {
+            if (node.nodeType !== Node.ELEMENT_NODE) continue;
+            if (node.tagName === 'A' && !node.hasAttribute(pjaxAttr)) {
+              attachDynamicLinks(node.parentElement);
+            } else if (node.querySelectorAll) {
+              attachDynamicLinks(node);
+            }
+          }
+        }
+      });
+      observer.observe(desktopSurface, { childList: true, subtree: true });
+    }
+
+    // Initial sweep after Alpine has rendered (covers first-load widget links)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        attachDynamicLinks(document.querySelector('.desktop-surface'));
+      });
+    });
+
     document.addEventListener("pjax:send", () => {
       NProgress.start();
       const container = document.getElementById('pjax-container');
