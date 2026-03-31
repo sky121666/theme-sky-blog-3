@@ -80,14 +80,10 @@ export function registerDesktopSurface(Alpine) {
     serverLayoutAccessReady: false,
     serverLayoutSaving: false,
     modules: {
-      clock: { showSeconds: false },
       weather: {
-        enabled: true,
         cityName: '北京',
         refreshMinutes: 30
-      },
-      siteStats: { enabled: true },
-      authorCard: { enabled: true }
+      }
     },
     sources: {
       latestPosts: [],
@@ -234,10 +230,15 @@ export function registerDesktopSurface(Alpine) {
       installDesktopDebugBridge();
       desktopDebug('desktop runtime init start');
       const bootstrap = readDesktopWidgetsBootstrap();
-      const bootstrapWidgets = Array.isArray(bootstrap.instances)
-        ? bootstrap.instances.map((instance, index) => normalizeWidgetInstance(instance, index))
-        : [];
+
+      // 默认不显示小组件，只显示桌面图标。管理员通过编辑器保存 layout_json 后才出现组件。
+      const frontendDefaults = [];
+
       const serverLayout = parseDesktopLayoutPayload(bootstrap.serverLayoutJson, bootstrap.layoutVersion || 'v1', 'server');
+      const resolvedWidgets = serverLayout
+        ? mergeDesktopWidgetLayout(frontendDefaults, serverLayout)
+        : frontendDefaults;
+
 
       this.enabled = !!bootstrap.enabled;
       this.isHome = window.location.pathname === '/';
@@ -252,19 +253,9 @@ export function registerDesktopSurface(Alpine) {
       this.serverLayoutPayload = serverLayout;
       setDesktopDebugAccess(false);
       this.modules = {
-        clock: {
-          showSeconds: !!bootstrap.modules?.clock?.showSeconds
-        },
         weather: {
-          enabled: !!bootstrap.modules?.weather?.enabled,
           cityName: (bootstrap.modules?.weather?.cityName || '').trim(),
           refreshMinutes: toPositiveInt(bootstrap.modules?.weather?.refreshMinutes, 30)
-        },
-        authorCard: {
-          enabled: bootstrap.modules?.authorCard?.enabled !== false
-        },
-        siteStats: {
-          enabled: bootstrap.modules?.siteStats?.enabled !== false
         }
       };
       this.sources = {
@@ -283,8 +274,7 @@ export function registerDesktopSurface(Alpine) {
         recentMoments: Array.isArray(bootstrap.sources?.recentMoments) ? bootstrap.sources.recentMoments : []
       };
       this.widgetCatalog = buildWidgetCatalog(this.sources, this.modules);
-      const serverDefaultWidgets = mergeDesktopWidgetLayout(bootstrapWidgets, serverLayout);
-      this.defaultWidgets = serverDefaultWidgets.map((widget) => ({ ...widget }));
+      this.defaultWidgets = resolvedWidgets.map((widget) => ({ ...widget }));
       this.syncDesktopBodyState();
       desktopDebug('desktop bootstrap', {
         enabled: this.enabled,
@@ -312,7 +302,7 @@ export function registerDesktopSurface(Alpine) {
         this.closeDesktopContextMenu();
         if (!this.isHome) {
           this.exitEditMode();
-        } else if (this.modules.weather.enabled && !this.weatherState.loading && !this.weatherState.data) {
+        } else if (!this.weatherState.loading && !this.weatherState.data) {
           this.loadWeather();
         }
         this.syncDesktopBodyState();
@@ -343,9 +333,7 @@ export function registerDesktopSurface(Alpine) {
           visibleKeys: this.visibleDesktopNodeKeys
         });
         this.scheduleDesktopRenderCheck();
-        if (this.modules.weather.enabled) {
-          this.loadWeather();
-        }
+        this.loadWeather();
       });
     },
 
@@ -1635,7 +1623,7 @@ export function registerDesktopSurface(Alpine) {
     },
 
     async loadWeather(forceRefresh = false) {
-      if (!this.modules.weather.enabled) return;
+
 
       const cityName = this.modules.weather.cityName;
       if (!cityName) {

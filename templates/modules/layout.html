@@ -128,18 +128,15 @@
       desktopThemeName = ${theme.metadata.name ?: 'theme-sky-blog-3'},
       widgetsBehavior = ${widgetsConf?.behavior},
       widgetsModules = ${widgetsConf?.modules},
-      widgetsInstances = ${widgetsConf?.instances ?: {}},
+
       widgetsEnabled = ${widgetsBehavior?.enabled != null ? widgetsBehavior.enabled : true},
       widgetsEditEnabled = ${widgetsBehavior?.edit_enabled != null ? widgetsBehavior.edit_enabled : true},
       widgetsLayoutVersion = ${widgetsBehavior?.layout_version ?: 'v1'},
       widgetsColumns = ${widgetsBehavior?.grid_columns != null ? widgetsBehavior.grid_columns : 12},
       widgetsGap = ${widgetsBehavior?.gap != null ? widgetsBehavior.gap : 18},
-      widgetsClockShowSeconds = ${widgetsModules?.clock?.show_seconds != null ? widgetsModules.clock.show_seconds : false},
-      widgetsWeatherEnabled = ${widgetsModules?.weather?.enabled != null ? widgetsModules.weather.enabled : true},
+
       widgetsWeatherCityName = ${widgetsModules?.weather?.city_name ?: '北京'},
       widgetsWeatherRefreshMinutes = ${widgetsModules?.weather?.refresh_minutes != null ? widgetsModules.weather.refresh_minutes : 30},
-      widgetsAuthorCardEnabled = ${widgetsModules?.author_card?.enabled != null ? widgetsModules.author_card.enabled : true},
-      widgetsSiteStatsEnabled = ${widgetsModules?.site_stats?.enabled != null ? widgetsModules.site_stats.enabled : true},
       widgetsLatestPosts = ${widgetsEnabled ? postFinder.list({
         page: 1,
         size: 8,
@@ -151,7 +148,7 @@
         sort: {'stats.visit,desc'}
       }) : null},
       widgetsCategoryTree = ${widgetsEnabled ? categoryFinder.listAsTree() : {}},
-      widgetsSiteStats = ${widgetsEnabled and widgetsSiteStatsEnabled ? siteStatsFinder.getStats() : null},
+      widgetsSiteStats = ${widgetsEnabled ? siteStatsFinder.getStats() : null},
       widgetsAllTags = ${widgetsEnabled ? tagFinder.listAll() : {}},
       widgetsMomentsAvailable = ${widgetsEnabled and pluginFinder.available('PluginMoments')},
       widgetsRecentMoments = ${widgetsMomentsAvailable ? momentFinder.list({
@@ -354,13 +351,9 @@
       serverLayoutJson=${desktopLayoutJson},
       themeName=${desktopThemeName},
       themeJsonConfigEndpoint=@{/apis/api.console.halo.run/v1alpha1/themes/{name}/json-config(name=${desktopThemeName})},
-      instances=${widgetsInstances},
-      clockShowSeconds=${widgetsClockShowSeconds},
-      weatherEnabled=${widgetsWeatherEnabled},
+
       weatherCityName=${widgetsWeatherCityName},
       weatherRefreshMinutes=${widgetsWeatherRefreshMinutes},
-      authorCardEnabled=${widgetsAuthorCardEnabled},
-      siteStatsEnabled=${widgetsSiteStatsEnabled},
       latestPosts=${widgetsLatestPosts != null ? widgetsLatestPosts.items : {}},
       popularPosts=${widgetsPopularPosts != null ? widgetsPopularPosts.items : {}},
       categoryTree=${widgetsCategoryTree},

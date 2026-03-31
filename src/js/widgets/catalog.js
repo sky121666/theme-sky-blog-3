@@ -185,13 +185,9 @@ export function buildWidgetCatalog(sources, modules) {
     items.push({ widget: 'halo.categories', title: '文章分类' });
   }
 
-  if (modules?.authorCard?.enabled !== false) {
-    items.push({ widget: 'halo.author_card', title: '作者卡片' });
-  }
+  items.push({ widget: 'halo.author_card', title: '作者卡片' });
 
-  if (modules?.siteStats?.enabled) {
-    items.push({ widget: 'halo.site_stats', title: '站点统计' });
-  }
+  items.push({ widget: 'halo.site_stats', title: '站点统计' });
 
   if (sources?.momentsAvailable) {
     items.push({ widget: 'plugin-moments.recent', title: '瞬间' });

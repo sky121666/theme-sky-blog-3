@@ -381,140 +381,20 @@ spec:
               label: 允许编辑布局
               help: 后续会进入编辑态、拖拽和添加组件面板。
               value: true
-        - $formkit: array
-          id: widgets_instances
-          name: instances
-          label: 结构化默认组件（回退）
-          help: 当「默认布局」为空时，使用这里生成桌面的默认组件。列表中的组件即为默认显示组件。
-          value:
-            - key: clock-main
-              title: 时间
-              widget: system.clock
-              size: small
-              x: 1
-              y: 1
-            - key: calendar-main
-              title: 日历
-              widget: system.calendar
-              size: small
-              x: 3
-              y: 1
-            - key: latest-posts-main
-              title: 最新文章
-              widget: halo.latest_posts
-              size: large
-              x: 1
-              y: 3
-          addButton: true
-          addLabel: 添加组件
-          removeControl: true
-          emptyText: 暂无默认组件
-          itemLabels:
-            - type: text
-              label: $value.title
-            - type: text
-              label: $value.size
-            - type: text
-              label: $value.widget
-          children:
-            - $formkit: text
-              id: widgets_instance_key
-              name: key
-              label: 实例键
-              validation: required
-            - $formkit: text
-              id: widgets_instance_title
-              name: title
-              label: 显示标题
-              validation: required
-            - $formkit: select
-              id: widgets_instance_widget
-              name: widget
-              label: 组件类型
-              value: system.clock
-              validation: required
-              options:
-                - label: 时间
-                  value: system.clock
-                - label: 日历
-                  value: system.calendar
-                - label: 天气
-                  value: system.weather
-                - label: 最新文章
-                  value: halo.latest_posts
-                - label: 热门文章
-                  value: halo.popular_posts
-                - label: 文章分类
-                  value: halo.categories
-                - label: 作者卡片
-                  value: halo.author_card
-                - label: 站点统计
-                  value: halo.site_stats
-                - label: 随机标签
-                  value: halo.random_tags
-                - label: 最新瞬间
-                  value: plugin-moments.recent
-            - $formkit: select
-              id: widgets_instance_size
-              name: size
-              label: 默认尺寸
-              value: medium
-              options:
-                - label: 小
-                  value: small
-                - label: 中
-                  value: medium
-                - label: 大
-                  value: large
-            - $formkit: number
-              id: widgets_instance_x
-              name: x
-              label: 默认列起点
-              value: 1
-              min: 1
-            - $formkit: number
-              id: widgets_instance_y
-              name: y
-              label: 默认行起点
-              value: 1
-              min: 1
         - $formkit: group
           id: widgets_modules_group
           name: modules
-          label: 组件内容与数据
+          label: 组件数据参数
           value:
-            clock:
-              show_seconds: false
             weather:
-              enabled: true
               city_name: 北京
               refresh_minutes: 30
-            author_card:
-              enabled: true
-            site_stats:
-              enabled: true
           children:
-            - $formkit: group
-              id: widgets_module_clock_group
-              name: clock
-              label: 时间组件
-              children:
-                - $formkit: switch
-                  id: widgets_module_clock_show_seconds
-                  name: show_seconds
-                  label: 显示秒
-                  value: false
             - $formkit: group
               id: widgets_module_weather_group
               name: weather
               label: 天气组件
               children:
-                - $formkit: switch
-                  id: widgets_module_weather_enabled
-                  name: enabled
-                  label: 启用天气组件
-                  help: 这里只控制天气模块是否可用，不控制天气卡片的前端视觉样式。
-                  value: true
                 - $formkit: text
                   id: widgets_module_weather_city_name
                   name: city_name
@@ -528,26 +408,6 @@ spec:
                   value: 30
                   min: 10
                   max: 180
-            - $formkit: group
-              id: widgets_module_author_card_group
-              name: author_card
-              label: 作者卡片组件
-              children:
-                - $formkit: switch
-                  id: widgets_module_author_card_enabled
-                  name: enabled
-                  label: 启用作者卡片
-                  value: true
-            - $formkit: group
-              id: widgets_module_site_stats_group
-              name: site_stats
-              label: 站点统计组件
-              children:
-                - $formkit: switch
-                  id: widgets_module_site_stats_enabled
-                  name: enabled
-                  label: 启用站点统计
-                  value: true
 
     - group: default_layout
       label: 默认布局
@@ -558,7 +418,7 @@ spec:
           label: 已发布默认布局 JSON
           language: json
           height: 220px
-          help: "由前端桌面编辑器中的「保存」动作自动写入，作为全站默认桌面布局。优先级高于桌面图标和默认组件；留空时才回退到结构化配置。"
+          help: "由前端桌面编辑器的「保存」动作自动写入，作为全站默认桌面布局。留空时使用前端内置的默认组件。"
           value: ""
     - group: dock
       label: Dock

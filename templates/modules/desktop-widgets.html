@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="https://www.thymeleaf.org">
-  <th:block th:fragment="layer(enabled, isHome, editEnabled, columns, gap, layoutVersion, serverLayoutJson, themeName, themeJsonConfigEndpoint, instances, clockShowSeconds, weatherEnabled, weatherCityName, weatherRefreshMinutes, authorCardEnabled, siteStatsEnabled, latestPosts, popularPosts, categoryTree, siteStats, randomTags, momentsAvailable, recentMoments, siteUrl, siteTitle, siteSubtitle, siteLogo)">
+  <th:block th:fragment="layer(enabled, isHome, editEnabled, columns, gap, layoutVersion, serverLayoutJson, themeName, themeJsonConfigEndpoint, weatherCityName, weatherRefreshMinutes, latestPosts, popularPosts, categoryTree, siteStats, randomTags, momentsAvailable, recentMoments, siteUrl, siteTitle, siteSubtitle, siteLogo)">
     <script th:inline="javascript">
       const widgetProtocol = {
         enabled: [[${enabled}]],
@@ -14,22 +14,12 @@
         themeJsonConfigEndpoint: [[${themeJsonConfigEndpoint}]],
         siteUrl: [[${siteUrl}]],
         modules: {
-          clock: {
-            showSeconds: [[${clockShowSeconds}]]
-          },
           weather: {
-            enabled: [[${weatherEnabled}]],
             cityName: [[${weatherCityName}]],
             refreshMinutes: [[${weatherRefreshMinutes}]]
-          },
-          authorCard: {
-            enabled: [[${authorCardEnabled}]]
-          },
-          siteStats: {
-            enabled: [[${siteStatsEnabled}]]
           }
         },
-        instances: [[${instances}]],
+
         sources: {
           siteProfile: {
             title: [[${siteTitle}]],

@@ -45,17 +45,19 @@ export function normalizeDesktopIconBootstrap(icon, index = 0) {
   };
 }
 
+/**
+ * 默认图标排列：从左上角开始，从上到下、再从左到右。
+ * x=1 永远是最左列，在任何分辨率下都兼容。
+ */
 export function computeDefaultDesktopIconPlacement(index, columns, maxVisibleRows) {
   const span = DESKTOP_ICON_NODE_SPAN;
-  const safeColumns = Math.max(1, columns);
   const safeRows = Math.max(span.h, maxVisibleRows);
   const iconsPerColumn = Math.max(1, Math.floor(safeRows / span.h));
   const columnIndex = Math.floor(index / iconsPerColumn);
   const rowIndex = index % iconsPerColumn;
-  const maxX = Math.max(1, safeColumns - span.w + 1);
 
   return {
-    x: Math.max(1, maxX - (columnIndex * span.w)),
+    x: (columnIndex * span.w) + 1,
     y: (rowIndex * span.h) + 1
   };
 }
