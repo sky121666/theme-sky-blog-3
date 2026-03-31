@@ -23,14 +23,10 @@ export function readDesktopWidgetsBootstrap() {
       themeJsonConfigEndpoint: '',
       siteUrl: '',
       modules: {
-        clock: { showSeconds: false },
         weather: {
-          enabled: true,
           cityName: '北京',
           refreshMinutes: 30
-        },
-        authorCard: { enabled: true },
-        siteStats: { enabled: true }
+        }
       },
       instances: [],
       sources: {
@@ -61,6 +57,7 @@ function normalizeDesktopLayoutPayload(layoutVersion, rawPayload) {
     return {
       version: DESKTOP_LAYOUT_STORAGE_SCHEMA_VERSION,
       layoutVersion,
+      columns: rawPayload.columns || null,
       instances: rawPayload,
       icons: []
     };
@@ -101,6 +98,7 @@ function normalizeDesktopLayoutPayload(layoutVersion, rawPayload) {
     return {
       version: rawPayload.version ?? DESKTOP_LAYOUT_STORAGE_SCHEMA_VERSION,
       layoutVersion: rawPayload.layoutVersion || layoutVersion,
+      columns: rawPayload.columns || null,
       instances,
       icons
     };
@@ -109,6 +107,7 @@ function normalizeDesktopLayoutPayload(layoutVersion, rawPayload) {
   return {
     version: rawPayload.version ?? DESKTOP_LAYOUT_STORAGE_SCHEMA_VERSION,
     layoutVersion: rawPayload.layoutVersion || layoutVersion,
+    columns: rawPayload.columns || null,
     instances: Array.isArray(rawPayload.instances) ? rawPayload.instances : [],
     icons: Array.isArray(rawPayload.icons) ? rawPayload.icons : []
   };
@@ -153,10 +152,11 @@ export function parseDesktopLayoutPayload(rawValue, layoutVersion, source = 'ser
   }
 }
 
-function buildDesktopWidgetLayoutPayload(layoutVersion, widgets, icons = []) {
+function buildDesktopWidgetLayoutPayload(layoutVersion, widgets, icons = [], columns = null) {
   return {
     version: DESKTOP_LAYOUT_STORAGE_SCHEMA_VERSION,
     layoutVersion,
+    ...(columns ? { columns } : {}),
     instances: widgets
       .filter((widget) => !widget.hidden)
       .map((widget) => serializeWidgetInstance(widget)),
@@ -164,8 +164,8 @@ function buildDesktopWidgetLayoutPayload(layoutVersion, widgets, icons = []) {
   };
 }
 
-export function buildDesktopLayoutJsonString(layoutVersion, widgets, icons = []) {
-  return JSON.stringify(buildDesktopWidgetLayoutPayload(layoutVersion, widgets, icons), null, 2);
+export function buildDesktopLayoutJsonString(layoutVersion, widgets, icons = [], columns = null) {
+  return JSON.stringify(buildDesktopWidgetLayoutPayload(layoutVersion, widgets, icons, columns), null, 2);
 }
 
 function parseJsonObject(value) {

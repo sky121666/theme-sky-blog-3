@@ -629,7 +629,7 @@ export function registerDesktopSurface(Alpine) {
     },
 
     async saveDefaultLayoutToServer() {
-      const layoutJson = buildDesktopLayoutJsonString(this.layoutVersion, this.widgets, this.icons);
+      const layoutJson = buildDesktopLayoutJsonString(this.layoutVersion, this.widgets, this.icons, this.currentColumns);
       return this.saveLayoutJsonToServer(layoutJson);
     },
 
@@ -1290,6 +1290,15 @@ export function registerDesktopSurface(Alpine) {
     },
 
     normalizeVisibleLayout() {
+      const savedCols = this.serverLayoutPayload?.columns || this.columns || 12;
+      const curCols = this.currentColumns;
+      const needsScale = savedCols !== curCols && savedCols > 1;
+
+      const scaleX = (rawX) => {
+        if (!needsScale) return rawX;
+        return Math.max(1, Math.round((rawX - 1) * (curCols - 1) / (savedCols - 1)) + 1);
+      };
+
       const visibleWidgets = this.placedWidgets
         .sort((left, right) => {
           const areaLeft = left.w * left.h;
@@ -1312,7 +1321,9 @@ export function registerDesktopSurface(Alpine) {
       const resolvedPlacements = [];
 
       const placeNode = (node) => {
-        const targetX = Math.min(Math.max(1, node.baseX ?? node.x), Math.max(1, this.currentColumns - node.w + 1));
+        const rawX = node.baseX ?? node.x;
+        const scaledX = scaleX(rawX);
+        const targetX = Math.min(Math.max(1, scaledX), Math.max(1, curCols - node.w + 1));
         const targetY = Math.max(1, node.baseY ?? node.y);
 
         const placement = this.findNearestAvailablePlacementInPlacements(
