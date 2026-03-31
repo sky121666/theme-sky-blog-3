@@ -22,7 +22,6 @@ export const DESKTOP_WIDGET_CATALOG = {
   },
   'system.calendar': {
     title: '日历',
-    kicker: '系统日历',
     size: 'small',
     sizes: ['small', 'medium'],
     sizeOverrides: { medium: { w: 4, h: 3 } },
