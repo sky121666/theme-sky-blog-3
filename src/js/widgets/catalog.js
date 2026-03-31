@@ -47,8 +47,8 @@ export const DESKTOP_WIDGET_CATALOG = {
   'halo.popular_posts': {
     title: '热门文章',
     kicker: 'Halo',
-    size: 'large',
-    sizes: ['large'],
+    size: 'medium',
+    sizes: ['small', 'medium', 'large'],
     category: 'halo',
     description: '按浏览量排序的高热内容'
   },
