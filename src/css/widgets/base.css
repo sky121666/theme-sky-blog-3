@@ -59,6 +59,7 @@
 }
 
 .desktop-widget-card {
+  position: relative;
   pointer-events: auto;
   display: flex;
   flex-direction: column;

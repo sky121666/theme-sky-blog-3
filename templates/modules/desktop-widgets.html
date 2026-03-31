@@ -297,22 +297,23 @@
                       <p class="desktop-widget-kicker" x-text="widgetKicker(node)"></p>
                       <h2 class="desktop-widget-title" x-text="node.title"></h2>
                     </div>
-                    <div class="desktop-widget-controls">
-                      <button type="button"
-                              class="desktop-widget-hide-btn"
-                              x-show="isEditing && editStage === 'decorate'"
-                              @click.stop="hideWidget(node.key)"
-                              style="display: none;"
-                              aria-label="隐藏组件">
-                        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                          <path d="M3.5 8H12.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"></path>
-                        </svg>
-                      </button>
-                    </div>
                   </header>
                   <div class="desktop-widget-body" x-html="renderWidgetBody(node)"></div>
                 </article>
               </template>
+
+              <!-- 悬浮删除按钮（放在 slot 层，不受 card overflow:hidden 影响） -->
+              <button type="button"
+                      class="desktop-widget-remove-btn"
+                      x-show="isEditing && isWidgetNode(node)"
+                      @click.stop="hideWidget(node.key)"
+                      style="display: none;"
+                      aria-label="移除组件">
+                <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <circle cx="8" cy="8" r="7" fill="currentColor" opacity="0.9"/>
+                  <path d="M5 8H11" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
+                </svg>
+              </button>
 
               <template x-if="isIconNode(node)">
                 <a class="desktop-icon block group"

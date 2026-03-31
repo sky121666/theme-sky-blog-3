@@ -1079,12 +1079,16 @@ export function registerDesktopSurface(Alpine) {
     },
 
     async resetLayout() {
-      this.widgets = this.defaultWidgets.map((widget) => ({ ...widget }));
-      this.icons = this.defaultIcons.map((icon) => ({ ...icon }));
-      this.normalizeSingleInstanceTypes();
+      /* 清空所有组件和图标，向后端发送空 JSON，恢复到初始空白状态 */
+      this.widgets.forEach((w) => { w.hidden = true; });
       this.previewPlacement = null;
       this.invalidateWidgetCache();
       this.syncGridMetrics();
+
+      /* 保存空配置到服务器 */
+      if (this.canManageDefaultDesktopLayout) {
+        await this.saveLayoutJsonToServer('{}');
+      }
     },
 
     async addWidgetFromCatalog(widgetType, size = null) {
