@@ -60,8 +60,8 @@ function createWidgetRendererContext(state) {
 const TICK_SENSITIVE_WIDGETS = new Set(['system.clock']);
 
 /** Build a lightweight cache key from widget state */
-function widgetCacheKey(widget) {
-  return `${widget.widget}:${widget.size}:${widget.key}`;
+function widgetCacheKey(widget, options = {}) {
+  return `${widget.widget}:${widget.size}:${widget.key}:preview=${options.preview === true ? 1 : 0}:compact=${options.compact === true ? 1 : 0}`;
 }
 
 export function registerDesktopSurface(Alpine) {
@@ -1707,19 +1707,23 @@ export function registerDesktopSurface(Alpine) {
 
     renderWidgetBody(widget, options = {}) {
       const wType = widget?.widget || '';
+      const renderOptions = {
+        ...options,
+        compact: options.preview === true ? false : this.cellSize <= 60
+      };
 
       // Tick-sensitive widgets always re-render
       if (TICK_SENSITIVE_WIDGETS.has(wType)) {
-        return renderDesktopWidget(createWidgetRendererContext(this), widget, options);
+        return renderDesktopWidget(createWidgetRendererContext(this), widget, renderOptions);
       }
 
       // For non-tick widgets, cache and reuse HTML to prevent img flicker
       if (!this._widgetHtmlCache) this._widgetHtmlCache = new Map();
-      const cKey = widgetCacheKey(widget);
+      const cKey = widgetCacheKey(widget, renderOptions);
       const cached = this._widgetHtmlCache.get(cKey);
       if (cached !== undefined) return cached;
 
-      const html = renderDesktopWidget(createWidgetRendererContext(this), widget, options);
+      const html = renderDesktopWidget(createWidgetRendererContext(this), widget, renderOptions);
       this._widgetHtmlCache.set(cKey, html);
       return html;
     },

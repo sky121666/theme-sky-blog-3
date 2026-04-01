@@ -122,11 +122,12 @@ export function renderLatestPostsWidget({ sources, escapeHtml }, widget, options
 
 export function renderPopularPostsWidget({ sources, escapeHtml }, widget, options = {}) {
   const isPreview = options.preview === true;
+  const isCompact = options.compact === true;
   const size = widget?.size || 'medium';
 
   let limit = 3;
   if (size === 'small') limit = 1;
-  else if (size === 'large') limit = 5;
+  else if (size === 'large') limit = isCompact ? 4 : 5;
 
   const posts = sources.popularPosts.slice(0, limit);
 
@@ -232,7 +233,7 @@ export function renderPopularPostsWidget({ sources, escapeHtml }, widget, option
     `;
   }
 
-  const cls = `wg-hot-wrap wg-hot-wrap--${size}`;
+  const cls = `wg-hot-wrap wg-hot-wrap--${size}${isCompact ? ' is-compact' : ''}`;
   if (isPreview) {
     return `<div class="desktop-widget-preview-skin desktop-widget-preview-skin--charts">${inner}</div>`;
   }
@@ -329,19 +330,113 @@ export function renderSiteStatsWidget({ modules, sources, escapeHtml }) {
   `;
 }
 
-export function renderRandomTagsWidget({ sources, escapeHtml }) {
-  const tags = selectDailyRandomTags(sources.randomTags, 6);
+/** 基于字符串的简单 hash → 0~1 伪随机 */
+function seededRand(str, salt = 0) {
+  let h = salt;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+  return ((h & 0x7fffffff) % 1000) / 1000;
+}
+
+/** 背景标签的散落位置（统一 left+top，避免 right 与居中冲突） */
+const BG_POSITIONS = [
+  { top: '12%', left: '8%' },
+  { top: '72%', left: '80%' },
+  { top: '38%', left: '12%' },
+  { top: '18%', left: '75%' },
+  { top: '65%', left: '18%' },
+  { top: '45%', left: '82%' },
+  { top: '82%', left: '40%' },
+];
+
+export function renderRandomTagsWidget({ sources, escapeHtml }, widget, options = {}) {
+  const isPreview = options.preview === true;
+  const isCompact = options.compact === true;
+  const size = widget?.size || 'medium';
+
+  if (size === 'small') {
+    // ── 小组件: Focus & Blur 深度对焦 ──
+    const tags = selectDailyRandomTags(sources.randomTags, 8);
+    if (!tags.length) {
+      return '<div class="desktop-widget-empty">无标签</div>';
+    }
+
+    const itemsHTML = tags.map((tag, i) => {
+      const pos = BG_POSITIONS[i % BG_POSITIONS.length];
+      const style = Object.entries(pos).map(([k, v]) => `${k}:${v}`).join(';');
+      const tagColor = tag.color || '#A1A1AA';
+      const cls = i === 0 ? 'wg-tag-focus-item is-focus' : 'wg-tag-focus-item';
+      return `<a class="${cls} pjax-link" href="${escapeHtml(tag.permalink)}" style="${style};--tag-color:${escapeHtml(tagColor)}">${escapeHtml(tag.name)}</a>`;
+    }).join('');
+
+    const content = `<div class="wg-tag-focus-stage" data-tag-focus>${itemsHTML}</div>`;
+    return isPreview ? `<div class="desktop-widget-preview-skin">${content}</div>` : content;
+  }
+
+  // ── 中 / 大组件: 结构化磁吸墙 ──
+  const limit = size === 'large' ? (isCompact ? 10 : 12) : (isCompact ? 10 : 12);
+  const tags = selectDailyRandomTags(sources.randomTags, limit);
   if (!tags.length) {
     return '<div class="desktop-widget-empty">当前没有可展示的标签。</div>';
   }
 
-  return `
-    <div class="desktop-widget-mac-bento is-3x2">
-      ${tags.map((tag) => `
-        <a class="desktop-widget-mac-btn pjax-link" href="${escapeHtml(tag.permalink)}">
-          <span>${escapeHtml(tag.name)}</span>
-        </a>
-      `).join('')}
-    </div>
-  `;
+  const buildChip = (tag, index, extraClass = '') => {
+    const tagColor = tag.color || '#A1A1AA';
+    const rot = ((seededRand(tag.name, 1) - 0.5) * 5).toFixed(1);
+    const tx  = ((seededRand(tag.name, 2) - 0.5) * 3.2).toFixed(1);
+    const ty  = ((seededRand(tag.name, 3) - 0.5) * 3.2).toFixed(1);
+    const tone = index % 4;
+    return `
+      <a class="wg-tag-chip ${extraClass} tone-${tone} pjax-link"
+         href="${escapeHtml(tag.permalink)}"
+         title="${escapeHtml(tag.name)}"
+         style="--tag-color:${escapeHtml(tagColor)};--j-rot:${rot}deg;--j-tx:${tx}px;--j-ty:${ty}px;">
+        ${escapeHtml(tag.name)}
+      </a>
+    `;
+  };
+
+  let content = '';
+  if (size === 'large') {
+    const featured = tags[0];
+    const rest = tags.slice(1);
+    const featuredMarkup = featured ? `
+      <a class="wg-tag-feature pjax-link"
+         href="${escapeHtml(featured.permalink)}"
+         style="--tag-color:${escapeHtml(featured.color || '#A1A1AA')}">
+        <span class="wg-tag-feature-kicker">探索</span>
+        <strong>${escapeHtml(featured.name)}</strong>
+      </a>
+    ` : '';
+
+    const chipsMarkup = rest.map((tag, index) => buildChip(tag, index)).join('');
+    content = `
+      <div class="wg-tag-wall-shell is-large${isCompact ? ' is-compact' : ''}">
+        ${featuredMarkup}
+        <div class="wg-tag-wall is-large${isCompact ? ' is-compact' : ''}">${chipsMarkup}</div>
+      </div>
+    `;
+  } else {
+    const chipsMarkup = tags.map((tag, index) => buildChip(tag, index)).join('');
+    content = `<div class="wg-tag-wall is-medium${isCompact ? ' is-compact' : ''}">${chipsMarkup}</div>`;
+  }
+
+  return isPreview ? `<div class="desktop-widget-preview-skin">${content}</div>` : content;
+}
+
+/* ── Focus & Blur 自动轮转 (全局定时器) ── */
+if (typeof document !== 'undefined') {
+  setInterval(() => {
+    document.querySelectorAll('[data-tag-focus]').forEach(stage => {
+      const items = stage.querySelectorAll('.wg-tag-focus-item');
+      if (items.length < 2) return;
+
+      let focusIdx = -1;
+      items.forEach((el, i) => { if (el.classList.contains('is-focus')) focusIdx = i; });
+
+      const nextIdx = (focusIdx + 1) % items.length;
+      items.forEach((el, i) => {
+        el.classList.toggle('is-focus', i === nextIdx);
+      });
+    });
+  }, 4000);
 }

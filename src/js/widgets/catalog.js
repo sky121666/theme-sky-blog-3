@@ -80,7 +80,7 @@ export const DESKTOP_WIDGET_CATALOG = {
     title: '随机标签',
     kicker: 'Halo',
     size: 'medium',
-    sizes: ['medium'],
+    sizes: ['small', 'medium'],
     category: 'halo',
     description: '按天稳定刷新的标签探索'
   },

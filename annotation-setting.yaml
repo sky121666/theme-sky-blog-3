@@ -75,3 +75,22 @@ spec:
       onValue: "true"
       offValue: "false"
       help: 仅对顶栏 Header 的二级菜单项生效，对 Dock 图标和顶层菜单项无效。打开后，会在当前菜单项上方插入一条 macOS 风格分隔线。
+
+---
+apiVersion: v1alpha1
+kind: AnnotationSetting
+metadata:
+  name: theme-sky-blog-3-tag-setting
+spec:
+  targetRef:
+    group: content.halo.run
+    kind: Tag
+  formSchema:
+    - $formkit: iconify
+      id: icon
+      key: icon
+      name: icon
+      label: 标签图标 (SVG)
+      format: svg
+      value-only: true
+      help: 选择一个图标用于随机标签小组件。

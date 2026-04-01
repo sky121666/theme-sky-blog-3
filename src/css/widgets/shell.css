@@ -3,6 +3,8 @@
   height: 100%;
   padding-top: 0;
   overflow: hidden;
+  overflow-x: auto; /* 窄屏时允许水平滚动，而非压缩组件 */
+  -webkit-overflow-scrolling: touch;
   transition: transform 0.24s ease, opacity 0.24s ease, filter 0.24s ease;
   pointer-events: none;
 }
@@ -356,10 +358,11 @@
   font-weight: 600;
 }
 
+/* ── 随机标签：毛玻璃卡片 ── */
 .desktop-widget-card.widget--halo-random_tags {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.03)),
-    rgba(30, 28, 40, 0.68);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.03)),
+    rgba(30, 28, 40, 0.62);
 }
 
 .desktop-widget-card.widget--plugin-moments-recent {

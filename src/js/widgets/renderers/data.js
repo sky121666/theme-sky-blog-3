@@ -84,10 +84,13 @@ function extractTagCount(tag) {
 
 function normalizeWidgetTag(tag) {
   const count = extractTagCount(tag);
+  const annotations = tag?.metadata?.annotations || {};
   return {
     name: tag?.spec?.displayName || tag?.metadata?.name || '标签',
     permalink: tag?.status?.permalink || '#',
-    count
+    count,
+    icon: annotations['theme-sky-blog-3-tag-setting/icon'] || '',
+    color: tag?.spec?.color || ''
   };
 }
 
