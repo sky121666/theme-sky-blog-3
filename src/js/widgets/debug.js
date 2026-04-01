@@ -100,7 +100,6 @@ export function installDesktopDebugBridge() {
         visibleKeys: state?.visibleDesktopNodeKeys || [],
         selectedDesktopKey: state?.selectedDesktopKey || '',
         previewPlacement: state?.previewPlacement || null,
-        storage: localStorage.getItem('theme-macOS-desktop-widgets'),
         domNodeCount: slots.length,
         domNodes: slots.slice(0, 8).map((slot) => ({
           key: slot.getAttribute('data-desktop-key'),

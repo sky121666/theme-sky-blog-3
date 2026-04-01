@@ -59,6 +59,32 @@
 }
 
 .desktop-widget-card {
+  --widget-card-text: rgba(255, 255, 255, 0.98);
+  --widget-card-muted: rgba(255, 255, 255, 0.55);
+  --widget-card-subtle: rgba(255, 255, 255, 0.5);
+  --widget-card-chip-bg: rgba(255, 255, 255, 0.12);
+  --widget-card-chip-text: rgba(255, 255, 255, 0.85);
+  --widget-card-surface: rgba(22, 22, 26, 0.45);
+  --widget-card-highlight: rgba(255, 255, 255, 0.15);
+  --widget-card-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+  --widget-card-border: rgba(255, 255, 255, 0.2);
+  --widget-card-inner: rgba(255, 255, 255, 0.3);
+  --widget-card-outline: rgba(255, 255, 255, 0.08);
+  --widget-clock-dial-fill: rgba(20, 20, 22, 0.7);
+  --widget-clock-dial-stroke: rgba(255, 255, 255, 0.12);
+  --widget-clock-tick: rgba(255, 255, 255, 0.25);
+  --widget-clock-tick-hour: rgba(255, 255, 255, 0.5);
+  --widget-clock-number: rgba(255, 255, 255, 0.9);
+  --widget-clock-hand: rgba(255, 255, 255, 0.92);
+  --widget-clock-second: #ff453a;
+  --widget-clock-center: rgba(255, 255, 255, 0.9);
+  --widget-calendar-accent: #ff3b30;
+  --widget-calendar-main: rgba(255, 255, 255, 0.92);
+  --widget-calendar-muted: rgba(255, 255, 255, 0.4);
+  --widget-calendar-grid-label: rgba(255, 255, 255, 0.38);
+  --widget-calendar-grid-day: rgba(255, 255, 255, 0.88);
+  --widget-calendar-today-bg: rgba(255, 255, 255, 0.28);
+  --widget-calendar-divider: rgba(255, 255, 255, 0.1);
   position: relative;
   pointer-events: auto;
   display: flex;
@@ -69,21 +95,51 @@
   overflow: hidden;
   padding: 20px;
   border-radius: 24px;
-  color: rgba(255, 255, 255, 0.98);
+  color: var(--widget-card-text);
   background: 
-    linear-gradient(145deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.02) 100%),
-    rgba(22, 22, 26, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+    linear-gradient(145deg, var(--widget-card-highlight) 0%, rgba(255, 255, 255, 0.02) 100%),
+    var(--widget-card-surface);
+  border: 1px solid var(--widget-card-border);
   backdrop-filter: blur(32px) saturate(180%);
   -webkit-backdrop-filter: blur(32px) saturate(180%);
   box-shadow: 
-    0 12px 32px rgba(0, 0, 0, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    var(--widget-card-shadow),
+    inset 0 1px 0 var(--widget-card-inner),
+    inset 0 0 0 1px var(--widget-card-outline);
   transition: transform 0.25s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.25s ease, box-shadow 0.25s ease;
   will-change: transform, opacity;
   transform: translateZ(0);
   backface-visibility: hidden;
+}
+
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"],
+.desktop-widget-card[data-widget-appearance="light"] {
+  --widget-card-text: rgba(18, 22, 28, 0.94);
+  --widget-card-muted: rgba(18, 22, 28, 0.52);
+  --widget-card-subtle: rgba(18, 22, 28, 0.42);
+  --widget-card-chip-bg: rgba(17, 24, 39, 0.08);
+  --widget-card-chip-text: rgba(18, 22, 28, 0.82);
+  --widget-card-surface: rgba(255, 255, 255, 0.72);
+  --widget-card-highlight: rgba(255, 255, 255, 0.42);
+  --widget-card-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+  --widget-card-border: rgba(15, 23, 42, 0.08);
+  --widget-card-inner: rgba(255, 255, 255, 0.54);
+  --widget-card-outline: rgba(15, 23, 42, 0.03);
+  --widget-clock-dial-fill: rgba(255, 255, 255, 0.86);
+  --widget-clock-dial-stroke: rgba(15, 23, 42, 0.12);
+  --widget-clock-tick: rgba(15, 23, 42, 0.2);
+  --widget-clock-tick-hour: rgba(15, 23, 42, 0.4);
+  --widget-clock-number: rgba(17, 24, 39, 0.88);
+  --widget-clock-hand: rgba(17, 24, 39, 0.92);
+  --widget-clock-second: #ff3b30;
+  --widget-clock-center: rgba(17, 24, 39, 0.9);
+  --widget-calendar-accent: #ff3b30;
+  --widget-calendar-main: rgba(18, 22, 28, 0.92);
+  --widget-calendar-muted: rgba(18, 22, 28, 0.42);
+  --widget-calendar-grid-label: rgba(18, 22, 28, 0.38);
+  --widget-calendar-grid-day: rgba(18, 22, 28, 0.88);
+  --widget-calendar-today-bg: rgba(255, 59, 48, 0.12);
+  --widget-calendar-divider: rgba(15, 23, 42, 0.08);
 }
 
 .desktop-widget-card:active {
@@ -129,13 +185,13 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--widget-card-muted);
 }
 
 .desktop-widgets-grid .desktop-widget-kicker {
   font-size: 10px;
   letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--widget-card-subtle);
 }
 
 .desktop-widget-title {
@@ -156,7 +212,7 @@
 .desktop-widgets-grid .desktop-widget-card.is-medium .desktop-widget-kicker {
   font-size: 10px;
   letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--widget-card-subtle);
 }
 
 .desktop-widgets-grid .desktop-widget-card.is-small .desktop-widget-title,
@@ -171,8 +227,8 @@
   margin-top: 2px;
   padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.85);
+  background: var(--widget-card-chip-bg);
+  color: var(--widget-card-chip-text);
   font-size: 11px;
   line-height: 1;
 }
@@ -205,24 +261,24 @@
 }
 
 .desktop-widget-clock-dial {
-  fill: rgba(20, 20, 22, 0.7);
-  stroke: rgba(255, 255, 255, 0.12);
+  fill: var(--widget-clock-dial-fill);
+  stroke: var(--widget-clock-dial-stroke);
   stroke-width: 0.5;
 }
 
 .desktop-widget-clock-tick {
-  stroke: rgba(255, 255, 255, 0.25);
+  stroke: var(--widget-clock-tick);
   stroke-width: 0.3;
   stroke-linecap: round;
 }
 
 .desktop-widget-clock-tick.is-hour {
-  stroke: rgba(255, 255, 255, 0.5);
+  stroke: var(--widget-clock-tick-hour);
   stroke-width: 0.6;
 }
 
 .desktop-widget-clock-number {
-  fill: rgba(255, 255, 255, 0.9);
+  fill: var(--widget-clock-number);
   font-size: 7px;
   font-weight: 600;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
@@ -233,22 +289,22 @@
 }
 
 .desktop-widget-clock-hand.is-hour {
-  stroke: rgba(255, 255, 255, 0.92);
+  stroke: var(--widget-clock-hand);
   stroke-width: 2.4;
 }
 
 .desktop-widget-clock-hand.is-minute {
-  stroke: rgba(255, 255, 255, 0.92);
+  stroke: var(--widget-clock-hand);
   stroke-width: 1.6;
 }
 
 .desktop-widget-clock-hand.is-second {
-  stroke: #ff9500;
+  stroke: var(--widget-clock-second);
   stroke-width: 0.6;
 }
 
 .desktop-widget-clock-center {
-  fill: rgba(255, 255, 255, 0.9);
+  fill: var(--widget-clock-center);
 }
 
 .desktop-widget-calendar {
@@ -275,7 +331,7 @@
 .desktop-widget-calendar-weekday-label {
   font-size: 11px;
   font-weight: 600;
-  color: #ff3b30;
+  color: var(--widget-calendar-accent);
   text-transform: none;
   letter-spacing: 0.02em;
 }
@@ -286,7 +342,7 @@
   line-height: 1;
   font-weight: 300;
   letter-spacing: -0.03em;
-  color: #ffffff;
+  color: var(--widget-calendar-main);
 }
 
 /* ── Calendar Widget: Medium (Compact) — horizontal split ── */
@@ -304,7 +360,7 @@
   align-items: center;
   justify-content: center;
   padding-right: 12px;
-  border-right: 0.5px solid rgba(255, 255, 255, 0.1);
+  border-right: 0.5px solid var(--widget-calendar-divider);
   min-width: 52px;
 }
 
@@ -354,14 +410,14 @@
 .desktop-widget-calendar-header-month {
   font-size: 13px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--widget-calendar-main);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
 }
 
 .desktop-widget-calendar-header-year {
   font-size: 13px;
   font-weight: 400;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--widget-calendar-muted);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
 }
 
@@ -388,13 +444,13 @@
 }
 
 .desktop-widget-calendar-weekday {
-  color: rgba(255, 255, 255, 0.38);
+  color: var(--widget-calendar-grid-label);
   font-weight: 600;
   font-size: 10px;
 }
 
 .desktop-widget-calendar-day {
-  color: rgba(255, 255, 255, 0.88);
+  color: var(--widget-calendar-grid-day);
   font-weight: 400;
   border-radius: 50%;
 }
@@ -404,8 +460,8 @@
 }
 
 .desktop-widget-calendar-day.is-today {
-  background: rgba(255, 255, 255, 0.28);
-  color: #ffffff;
+  background: var(--widget-calendar-today-bg);
+  color: var(--widget-calendar-main);
   font-weight: 600;
 }
 

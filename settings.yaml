@@ -418,7 +418,7 @@ spec:
           label: 已发布默认布局 JSON
           language: json
           height: 220px
-          help: "由前端桌面编辑器的「保存」动作自动写入，作为全站默认桌面布局。留空时使用前端内置的默认组件。"
+          help: "由前端桌面编辑器的「保存」动作自动写入，作为全站默认桌面布局。留空时仅使用桌面图标，不显示默认小组件。"
           value: ""
     - group: dock
       label: Dock

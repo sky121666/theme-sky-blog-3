@@ -227,6 +227,15 @@
                                     x-text="sizeLabel(size)"></button>
                           </template>
                         </div>
+                        <div class="desktop-widget-center-appearance-picker" role="tablist" :aria-label="`${entry.title} 外观`">
+                          <template x-for="appearance in ['follow', 'light', 'dark']" :key="`${entry.widget}-${appearance}`">
+                            <button type="button"
+                                    class="desktop-widget-center-appearance-option"
+                                    :class="{ 'is-active': isWidgetAppearanceSelected(entry, appearance) }"
+                                    @click="selectWidgetAppearance(entry.widget, appearance)"
+                                    x-text="widgetAppearanceLabel(appearance)"></button>
+                          </template>
+                        </div>
                         <template x-if="hasReplaceTarget(entry.widget)">
                           <button type="button"
                                   class="desktop-widget-center-item-action desktop-widget-center-item-action--quiet"
@@ -243,6 +252,7 @@
                     <!-- 预览区：居中展示 -->
                     <div class="desktop-widget-center-preview" :style="selectedWidgetVariantStyle(entry)">
                       <article class="desktop-widget-card desktop-widget-card--preview"
+                               :data-widget-appearance="widgetAppearanceValue(selectedWidgetVariant(entry))"
                                :class="widgetClassName(selectedWidgetVariant(entry)) + (usesStandalonePreviewSkin(selectedWidgetVariant(entry)) ? ' is-standalone-preview' : '')">
                         <template x-if="!usesStandalonePreviewSkin(selectedWidgetVariant(entry))">
                           <header class="desktop-widget-header">
@@ -290,6 +300,7 @@
                  :data-desktop-key="node.key">
               <template x-if="isWidgetNode(node)">
                 <article class="desktop-widget-card"
+                         :data-widget-appearance="widgetAppearanceValue(node)"
                          :class="widgetCardClass(node)"
                          @pointerdown="beginWidgetDrag(node, $event)">
                   <header class="desktop-widget-header">
@@ -338,7 +349,9 @@
            :style="dragGhostStyle"
            style="display: none;">
         <template x-if="dragState.kind === 'widget' && dragState.node">
-          <article class="desktop-widget-card is-drag-ghost" :class="widgetClassName(dragState.widget)">
+          <article class="desktop-widget-card is-drag-ghost"
+                   :data-widget-appearance="widgetAppearanceValue(dragState.widget)"
+                   :class="widgetClassName(dragState.widget)">
             <header class="desktop-widget-header">
               <div>
                 <p class="desktop-widget-kicker" x-text="widgetKicker(dragState.widget)"></p>

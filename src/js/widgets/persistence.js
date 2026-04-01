@@ -89,6 +89,7 @@ function normalizeDesktopLayoutPayload(layoutVersion, rawPayload) {
           title: node.title,
           widget: node.widget,
           size: node.size,
+          appearance: node.appearance,
           x: node.x,
           y: node.y
         });

@@ -1,0 +1,10 @@
+/* 桌面小组件内容样式 — 模块汇总 */
+@import './shared.css';
+@import './latest-posts.css';
+@import './popular-posts.css';
+@import './bento-shared.css';
+@import './author-card.css';
+@import './weather.css';
+@import './moments.css';
+@import './tags.css';
+@import './appearance.css';

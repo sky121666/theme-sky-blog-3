@@ -1,0 +1,219 @@
+/* ══════════════════════════════════════════════
+   实例级外观模式：light / follow(light)
+   ══════════════════════════════════════════════ */
+
+:root:not(.dark) .desktop-widget-card.widget--halo-latest_posts[data-widget-appearance="follow"],
+.desktop-widget-card.widget--halo-latest_posts[data-widget-appearance="light"],
+:root:not(.dark) .desktop-widget-card--preview[data-widget-appearance="follow"] .desktop-widget-preview-skin--latest,
+.desktop-widget-card--preview[data-widget-appearance="light"] .desktop-widget-preview-skin--latest {
+  --widget-news-primary: rgba(15, 23, 42, 0.92);
+  --widget-news-secondary: rgba(15, 23, 42, 0.72);
+  --widget-news-muted: rgba(15, 23, 42, 0.48);
+  --widget-news-faint: rgba(15, 23, 42, 0.28);
+  --widget-news-divider: rgba(15, 23, 42, 0.08);
+  --widget-news-row-divider: rgba(15, 23, 42, 0.05);
+  --widget-news-indicator: rgba(15, 23, 42, 0.08);
+  --widget-news-accent: color-mix(in srgb, var(--theme-accent) 78%, #1d4ed8);
+  --widget-news-accent-strong: color-mix(in srgb, var(--theme-accent) 84%, #2563eb);
+  --widget-card-border: transparent;
+  --widget-card-inner: transparent;
+  --widget-card-outline: transparent;
+  --widget-news-surface: #eef2f7;
+  --widget-news-placeholder: linear-gradient(135deg, #dbe7f5, #eef2ff);
+  --widget-news-fallback: linear-gradient(135deg, #dbeafe 0%, #ede9fe 100%);
+  --widget-news-overlay-primary: rgba(255, 255, 255, 0.98);
+  --widget-news-overlay-muted: rgba(255, 255, 255, 0.72);
+  --widget-news-overlay-soft: rgba(255, 255, 255, 0.58);
+  --widget-news-glass-bg: linear-gradient(180deg, rgba(9, 18, 36, 0.5), rgba(15, 23, 42, 0.24));
+  --widget-news-glass-border: rgba(255, 255, 255, 0.12);
+  --widget-news-glass-shadow: 0 18px 34px rgba(15, 23, 42, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  --widget-news-chip-bg: linear-gradient(135deg, color-mix(in srgb, var(--theme-accent) 60%, rgba(255, 255, 255, 0.2)), color-mix(in srgb, var(--theme-accent) 40%, rgba(15, 23, 42, 0.08)));
+  --widget-news-chip-border: color-mix(in srgb, var(--theme-accent) 72%, rgba(255, 255, 255, 0.16));
+  --widget-news-chip-text: rgba(255, 255, 255, 0.98);
+  --widget-news-stage-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04));
+  --widget-news-stage-border: rgba(255, 255, 255, 0.12);
+  --widget-news-stage-shadow: 0 16px 36px rgba(15, 23, 42, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  --widget-news-cover-scrim-compact: linear-gradient(to bottom, rgba(255,255,255,0.08) 0%, rgba(15, 23, 42, 0.52) 100%);
+  --widget-news-cover-scrim-soft: rgba(255,255,255,0.06);
+  --widget-news-cover-scrim-featured: linear-gradient(to top, rgba(15, 23, 42, 0.56) 0%, rgba(15, 23, 42, 0.18) 52%, transparent 100%);
+}
+
+:root:not(.dark) .desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="follow"],
+.desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="light"] {
+  color: rgba(15, 23, 42, 0.88);
+}
+
+:root:not(.dark) .desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="follow"] .desktop-widget-moment-live-kicker,
+:root:not(.dark) .desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="follow"] .desktop-widget-moment-diary-kicker,
+.desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="light"] .desktop-widget-moment-live-kicker,
+.desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="light"] .desktop-widget-moment-diary-kicker {
+  color: rgba(15, 23, 42, 0.34);
+}
+
+:root:not(.dark) .desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="follow"] .desktop-widget-moment-live-deck,
+:root:not(.dark) .desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="follow"] .desktop-widget-moment-live-foot,
+:root:not(.dark) .desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="follow"] .desktop-widget-moment-diary-summary,
+.desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="light"] .desktop-widget-moment-live-deck,
+.desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="light"] .desktop-widget-moment-live-foot,
+.desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="light"] .desktop-widget-moment-diary-summary {
+  color: rgba(15, 23, 42, 0.48);
+}
+
+:root:not(.dark) .desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="follow"] .desktop-widget-moment-live-meta,
+:root:not(.dark) .desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="follow"] .desktop-widget-moment-diary-meta,
+:root:not(.dark) .desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="follow"] .desktop-widget-moment-diary-row-meta,
+.desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="light"] .desktop-widget-moment-live-meta,
+.desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="light"] .desktop-widget-moment-diary-meta,
+.desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="light"] .desktop-widget-moment-diary-row-meta {
+  color: rgba(15, 23, 42, 0.34);
+}
+
+:root:not(.dark) .desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="follow"] .desktop-widget-moment-diary-row,
+.desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="light"] .desktop-widget-moment-diary-row {
+  border-bottom-color: rgba(15, 23, 42, 0.08);
+}
+
+:root:not(.dark) .desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="follow"] .desktop-widget-moment-diary-cover,
+:root:not(.dark) .desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="follow"] .desktop-widget-moment-cover,
+.desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="light"] .desktop-widget-moment-diary-cover,
+.desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="light"] .desktop-widget-moment-cover {
+  background: rgba(15, 23, 42, 0.05);
+  border-color: rgba(15, 23, 42, 0.06);
+}
+
+:root:not(.dark) .desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="follow"] .desktop-widget-moment-cover-fallback,
+.desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="light"] .desktop-widget-moment-cover-fallback {
+  color: rgba(15, 23, 42, 0.48);
+}
+
+:root:not(.dark) .desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="follow"] .desktop-widget-moment-cover-badge,
+:root:not(.dark) .desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="follow"] .desktop-widget-moment-diary-row-badge,
+.desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="light"] .desktop-widget-moment-cover-badge,
+.desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="light"] .desktop-widget-moment-diary-row-badge {
+  background: rgba(15, 23, 42, 0.08);
+  border-color: rgba(15, 23, 42, 0.1);
+  color: rgba(15, 23, 42, 0.86);
+}
+
+:root:not(.dark) .desktop-widget-card.widget--halo-random_tags[data-widget-appearance="follow"],
+.desktop-widget-card.widget--halo-random_tags[data-widget-appearance="light"] {
+  color: rgba(15, 23, 42, 0.9);
+  --widget-tag-light-ink: rgba(15, 23, 42, 0.94);
+  --widget-tag-light-muted: rgba(15, 23, 42, 0.4);
+}
+
+:root:not(.dark) .desktop-widget-card.widget--halo-random_tags[data-widget-appearance="follow"] .wg-tag-focus-item,
+.desktop-widget-card.widget--halo-random_tags[data-widget-appearance="light"] .wg-tag-focus-item {
+  color: color-mix(in srgb, var(--tag-color, #888) 18%, var(--widget-tag-light-ink, rgba(15, 23, 42, 0.94)));
+  text-shadow:
+    0 0 10px color-mix(in srgb, var(--tag-color, #888) 18%, transparent),
+    0 1px 10px rgba(255, 255, 255, 0.24);
+}
+
+:root:not(.dark) .desktop-widget-card.widget--halo-random_tags[data-widget-appearance="follow"] .wg-tag-feature,
+.desktop-widget-card.widget--halo-random_tags[data-widget-appearance="light"] .wg-tag-feature {
+  color: rgba(15, 23, 42, 0.92);
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--tag-color, #888) 10%, rgba(15, 23, 42, 0.08)) 0%,
+      color-mix(in srgb, var(--tag-color, #888) 5%, rgba(255, 255, 255, 0.36)) 100%);
+  border-color: color-mix(in srgb, var(--tag-color, #888) 10%, rgba(15, 23, 42, 0.08));
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.34),
+    0 4px 12px rgba(15, 23, 42, 0.06);
+}
+
+:root:not(.dark) .desktop-widget-card.widget--halo-random_tags[data-widget-appearance="follow"] .wg-tag-feature-kicker,
+.desktop-widget-card.widget--halo-random_tags[data-widget-appearance="light"] .wg-tag-feature-kicker {
+  color: var(--widget-tag-light-muted, rgba(15, 23, 42, 0.4));
+}
+
+:root:not(.dark) .desktop-widget-card.widget--halo-random_tags[data-widget-appearance="follow"] .wg-tag-feature strong,
+.desktop-widget-card.widget--halo-random_tags[data-widget-appearance="light"] .wg-tag-feature strong {
+  color: var(--widget-tag-light-ink, rgba(15, 23, 42, 0.94));
+}
+
+:root:not(.dark) .desktop-widget-card.widget--halo-random_tags[data-widget-appearance="follow"] .wg-tag-chip,
+.desktop-widget-card.widget--halo-random_tags[data-widget-appearance="light"] .wg-tag-chip {
+  color: rgba(15, 23, 42, 0.88);
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--tag-color, #888) 12%, rgba(15, 23, 42, 0.08)) 0%,
+    color-mix(in srgb, var(--tag-color, #888) 5%, rgba(255, 255, 255, 0.48)) 100%);
+  border-color: color-mix(in srgb, var(--tag-color, #888) 14%, rgba(15, 23, 42, 0.08));
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.32),
+    0 4px 10px rgba(15, 23, 42, 0.06);
+  text-shadow: none;
+}
+
+:root:not(.dark) .desktop-widget-card.widget--halo-random_tags[data-widget-appearance="follow"] .wg-tag-chip:hover,
+.desktop-widget-card.widget--halo-random_tags[data-widget-appearance="light"] .wg-tag-chip:hover {
+  color: rgba(15, 23, 42, 0.96);
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--tag-color, #888) 22%, rgba(15, 23, 42, 0.08)) 0%,
+    rgba(255,255,255,0.56) 100%);
+  border-color: color-mix(in srgb, var(--tag-color, #888) 22%, rgba(15, 23, 42, 0.1));
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.36),
+    0 6px 16px rgba(15, 23, 42, 0.08);
+}
+
+:root:not(.dark) .desktop-widget-card.widget--halo-random_tags[data-widget-appearance="follow"] .wg-tag-focus-stage::after,
+.desktop-widget-card.widget--halo-random_tags[data-widget-appearance="light"] .wg-tag-focus-stage::after {
+  background: radial-gradient(circle at 58% 58%, transparent 28%, rgba(255, 255, 255, 0.16) 100%);
+}
+
+:root:not(.dark) .desktop-widget-card.widget--halo-random_tags[data-widget-appearance="follow"] .wg-tag-focus-item.is-focus,
+.desktop-widget-card.widget--halo-random_tags[data-widget-appearance="light"] .wg-tag-focus-item.is-focus {
+  color: color-mix(in srgb, var(--tag-color, #888) 10%, var(--widget-tag-light-ink, rgba(15, 23, 42, 0.94)));
+  text-shadow:
+    0 0 12px color-mix(in srgb, var(--tag-color, #888) 28%, transparent),
+    0 0 24px color-mix(in srgb, var(--tag-color, #888) 14%, transparent),
+    0 2px 10px rgba(255, 255, 255, 0.3);
+}
+
+:root:not(.dark) .desktop-widget-card.widget--halo-popular_posts[data-widget-appearance="follow"] .wg-hot-wrap,
+.desktop-widget-card.widget--halo-popular_posts[data-widget-appearance="light"] .wg-hot-wrap {
+  --widget-hot-primary: rgba(15, 23, 42, 0.94);
+  --widget-hot-secondary: rgba(15, 23, 42, 0.88);
+  --widget-hot-muted: rgba(15, 23, 42, 0.56);
+  --widget-hot-faint: rgba(15, 23, 42, 0.38);
+  --widget-hot-rank: rgba(15, 23, 42, 0.28);
+  --widget-hot-surface: rgba(255,255,255,0.28);
+  --widget-hot-row-hover: rgba(15, 23, 42, 0.05);
+  --widget-hot-track: rgba(15, 23, 42, 0.08);
+  --widget-hot-bar-start: #f59e0b;
+  --widget-hot-bar-end: #fbbf24;
+  --widget-hot-badge: #d97706;
+  --widget-hot-fallback: linear-gradient(135deg, #dbe7f5 0%, #edf4ff 100%);
+  --widget-hot-placeholder: linear-gradient(135deg, #dbe7f5 0%, #edf4ff 100%);
+  --widget-hot-badge-surface: rgba(255,255,255,0.82);
+  --widget-hot-badge-text: rgba(15, 23, 42, 0.86);
+  --widget-hot-sm-scrim: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(15, 23, 42, 0.2) 100%);
+  --widget-hot-cover-scrim: linear-gradient(180deg, transparent 18%, rgba(15, 23, 42, 0.42) 100%);
+}
+
+:root:not(.dark) .desktop-widget-card.widget--halo-categories[data-widget-appearance="follow"] .desktop-widget-mac-bento,
+:root:not(.dark) .desktop-widget-card.widget--halo-site_stats[data-widget-appearance="follow"] .desktop-widget-mac-bento,
+.desktop-widget-card.widget--halo-categories[data-widget-appearance="light"] .desktop-widget-mac-bento,
+.desktop-widget-card.widget--halo-site_stats[data-widget-appearance="light"] .desktop-widget-mac-bento {
+  --widget-mac-surface: rgba(15, 23, 42, 0.04);
+  --widget-mac-surface-hover: rgba(15, 23, 42, 0.07);
+  --widget-mac-border: rgba(15, 23, 42, 0.08);
+  --widget-mac-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34), 0 2px 8px rgba(15, 23, 42, 0.04);
+  --widget-mac-text: rgba(15, 23, 42, 0.92);
+  --widget-mac-muted: rgba(15, 23, 42, 0.48);
+  --widget-mac-badge-surface: rgba(255, 255, 255, 0.84);
+  --widget-mac-badge-border: rgba(15, 23, 42, 0.08);
+}
+
+:root:not(.dark) .desktop-widget-card.widget--halo-author_card[data-widget-appearance="follow"] .desktop-widget-mac-author,
+.desktop-widget-card.widget--halo-author_card[data-widget-appearance="light"] .desktop-widget-mac-author {
+  --widget-author-text: rgba(15, 23, 42, 0.92);
+  --widget-author-muted: rgba(15, 23, 42, 0.5);
+  --widget-author-avatar-surface: rgba(15, 23, 42, 0.04);
+  --widget-author-avatar-border: rgba(15, 23, 42, 0.08);
+  --widget-author-stats-surface: rgba(15, 23, 42, 0.04);
+  --widget-author-stats-border: rgba(15, 23, 42, 0.08);
+  --widget-author-stats-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34), 0 2px 8px rgba(15, 23, 42, 0.04);
+}

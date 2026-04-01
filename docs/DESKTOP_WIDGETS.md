@@ -2,18 +2,12 @@
 
 ## Scope
 
-桌面小组件只属于首页桌面层。
+桌面小组件属于首页桌面平面的一部分，但当前默认布局已经由服务端权威配置接管。
 
-- 显示位置：首页桌面
-- 不进入主窗口
-- 不进入 `#pjax-container`
-- 非首页路径隐藏
-
-当前实现边界：
-
-- 主题后台负责默认组件和默认布局
-- 前端负责编辑态、拖拽吸附、渲染和本地持久化
-- 未来插件只负责用户布局读取和保存
+- 组件渲染位置：桌面层，不进入主窗口
+- 默认布局来源：`theme.config.default_layout.layout_json`
+- 结构化 fallback：桌面图标配置仍来自 `theme.config.desktop.icons`
+- 当前策略：`layout_json` 为空时只显示桌面图标，不自动补默认小组件
 
 ## Settings Ownership
 
@@ -21,46 +15,40 @@
 
 - [/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/settings.yaml](/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/settings.yaml)
 
-配置路径：
+当前后端配置只保留 3 类职责：
 
-- `theme.config.widgets.behavior.*`
-- `theme.config.widgets.persistence.*`
-- `theme.config.widgets.instances`
-- `theme.config.widgets.modules.*`
+1. `theme.config.desktop.*`
+- 桌面配色、背景、图标来源
 
-当前核心字段：
+2. `theme.config.widgets.*`
+- 小组件基础开关
+- 小组件数据参数
+
+3. `theme.config.default_layout.layout_json`
+- 管理员从前端桌面编辑器发布的默认布局快照
+- 优先级最高
+
+当前仍有效的核心字段：
 
 - `widgets.behavior.enabled`
 - `widgets.behavior.edit_enabled`
-- `widgets.behavior.layout_version`
-- `widgets.behavior.grid_columns`
-- `widgets.behavior.gap`
-- `widgets.persistence.driver`
-- `widgets.persistence.namespace`
-- `widgets.persistence.sync_provider`
-- `widgets.instances[]`
-- `widgets.modules.clock.show_seconds`
-- `widgets.modules.weather.enabled`
 - `widgets.modules.weather.city_name`
 - `widgets.modules.weather.refresh_minutes`
-- `widgets.modules.latest_posts.limit`
-- `widgets.modules.site_stats.enabled`
-- `widgets.modules.random_tags.limit`
-- `widgets.modules.moments_recent.limit`
+- `default_layout.layout_json`
 
 ## Runtime Bootstrap
 
-模板会在首页桌面层输出一个 bootstrap 对象：
+模板在桌面层输出统一 bootstrap：
 
 - [/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/templates/modules/desktop-widgets.html](/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/templates/modules/desktop-widgets.html)
 
 对象名：
 
 ```js
-window.__THEME_WIDGETS__
+window.__THEME_DESKTOP_PROTOCOL__.widgets
 ```
 
-结构：
+关键结构：
 
 ```json
 {
@@ -70,26 +58,19 @@ window.__THEME_WIDGETS__
   "columns": 12,
   "gap": 18,
   "layoutVersion": "v1",
-  "persistence": {
-    "driver": "local",
-    "storageKey": "theme-macOS-desktop-widgets",
-    "syncProvider": ""
-  },
+  "serverLayoutJson": "{...}",
+  "themeName": "theme-sky-blog-3",
+  "themeJsonConfigEndpoint": "/apis/api.console.halo.run/v1alpha1/themes/theme-sky-blog-3/json-config",
   "modules": {
-    "clock": { "showSeconds": false },
     "weather": {
-      "enabled": true,
       "cityName": "北京",
       "refreshMinutes": 30
-    },
-    "latestPosts": { "limit": 5 },
-    "siteStats": { "enabled": true },
-    "randomTags": { "limit": 12 },
-    "momentsRecent": { "limit": 4 }
+    }
   },
-  "instances": [],
   "sources": {
     "latestPosts": [],
+    "popularPosts": [],
+    "categories": [],
     "siteStats": null,
     "randomTags": [],
     "momentsAvailable": false,
@@ -98,56 +79,23 @@ window.__THEME_WIDGETS__
 }
 ```
 
-## Widget Instance Protocol
+说明：
 
-前端运行时统一使用下列实例结构：
+- 不再输出 `persistence`
+- 不再输出 `widgets.instances`
+- 小组件实例由 `serverLayoutJson` 解析得到
 
-```json
-{
-  "key": "clock-main",
-  "title": "时间",
-  "widget": "system.clock",
-  "size": "small",
-  "x": 1,
-  "y": 1,
-  "w": 2,
-  "h": 2,
-  "pinMode": "fixed",
-  "hidden": false
-}
-```
+## Published Default Layout
 
-约束：
+服务端权威默认布局字段：
 
-- `key`：实例唯一键
-- `widget`：组件类型
-- `size`：`small | medium | large`
-- `x / y`：左上角起始网格坐标
-- `w / h`：吸附后的网格跨度
-- `pinMode`：`fixed | default | optional`
-- `hidden`：当前浏览器里是否隐藏
+- `theme.config.default_layout.layout_json`
 
-命名空间规则：
-
-- `system.*`
-- `halo.*`
-- `plugin-<name>.*`
-
-## Local Persistence
-
-当前默认驱动：
-
-- `widgets.persistence.driver = local`
-
-本地存储 key：
-
-- `theme-macOS-desktop-widgets`
-
-Payload 结构：
+存储结构：
 
 ```json
 {
-  "version": 1,
+  "version": 3,
   "layoutVersion": "v1",
   "instances": [
     {
@@ -155,125 +103,186 @@ Payload 结构：
       "title": "时间",
       "widget": "system.clock",
       "size": "small",
+      "appearance": "light",
       "x": 1,
-      "y": 1,
-      "pin_mode": "fixed",
-      "visible": true
+      "y": 1
+    }
+  ],
+  "icons": [
+    {
+      "key": "desktop-page-about",
+      "title": "关于我",
+      "x": 13,
+      "y": 1
     }
   ]
 }
 ```
 
-说明：
-
-- `layoutVersion` 变化时，本地布局自动失效
-- 当前持久化只保存实例数组
-- 本地 payload 是未来插件同步 payload 的基线，不再另起一套协议
-
-序列化实现：
-
-- [/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/src/js/desktop.js](/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/src/js/desktop.js)
-  - `serializeWidgetInstance()`
-  - `buildDesktopWidgetLayoutPayload()`
-  - `loadDesktopWidgetLayout()`
-  - `saveDesktopWidgetLayout()`
-
-## Edit Mode
-
-当前前端支持：
-
-- 进入编辑态
-- 拖拽吸附预览
-- 隐藏任意组件实例
-- 添加当前未显示的组件
-- 恢复默认布局
-- 组件中心搜索和分类浏览
-- 基于组件尺寸的降级渲染
-
 当前规则：
 
-- 组件实例都可以移除或重新添加
-- 默认布局从左上开始排布
-- 拖拽落手后写回本地
-- 恢复默认会覆盖当前浏览器布局
+- `instances` 中存在即显示
+- 不再使用 `visible`
+- 不再使用 `pinMode`
+- 图标和小组件都保存到同一份已发布默认布局中
+
+相关实现：
+
+- [/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/src/js/widgets/persistence.js](/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/src/js/widgets/persistence.js)
+
+关键方法：
+
+- `parseDesktopLayoutPayload()`
+- `buildDesktopLayoutJsonString()`
+- `applyDesktopLayoutJsonToThemeConfig()`
+
+## Widget Instance Protocol
+
+前端统一使用下列 widget instance 结构：
+
+```json
+{
+  "key": "clock-main",
+  "title": "时间",
+  "widget": "system.clock",
+  "size": "small",
+  "appearance": "follow",
+  "x": 1,
+  "y": 1,
+  "w": 2,
+  "h": 2,
+  "hidden": false
+}
+```
+
+字段说明：
+
+- `key`：实例唯一键
+- `widget`：组件类型
+- `size`：`small | medium | large`
+- `appearance`：`follow | light | dark`
+- `x / y`：网格左上角坐标
+- `w / h`：根据 size 推导出的运行时跨度
+- `hidden`：仅运行时使用，不进入服务端发布 JSON
+
+命名空间：
+
+- `system.*`
+- `halo.*`
+- `plugin-<name>.*`
+
+相关实现：
+
+- [/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/src/js/widgets/catalog.js](/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/src/js/widgets/catalog.js)
+
+## Appearance Modes
+
+每个小组件实例都支持独立外观模式：
+
+- `follow`
+- `light`
+- `dark`
+
+规则：
+
+- `follow`：跟随全站主题明暗切换
+- `light`：始终使用浅色 widget 外观
+- `dark`：始终使用深色 widget 外观
+
+当前已接入实例级外观模式的组件：
+
+- `system.clock`
+- `system.calendar`
+- `halo.latest_posts`
+- `halo.popular_posts`
+- `halo.categories`
+- `halo.author_card`
+- `halo.site_stats`
+- `halo.random_tags`
+- `plugin-moments.recent`
+
+实现方式：
+
+- 组件根节点写入 `data-widget-appearance`
+- CSS 不再只依赖全局 `.dark`
+- `follow` 在浅色根节点下等同于 light token，在深色下等同于 dark token
+
+模板落点：
+
+- [/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/templates/modules/desktop-widgets.html](/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/templates/modules/desktop-widgets.html)
+
+样式落点：
+
+- [/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/src/css/widgets/base.css](/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/src/css/widgets/base.css)
+- [/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/src/css/widgets/shell.css](/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/src/css/widgets/shell.css)
+- [/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/src/css/widgets/content/index.css](/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/src/css/widgets/content/index.css)
+
+## Widget Center
+
+组件中心当前负责：
+
+- 搜索组件
+- 分类浏览
+- 选择尺寸
+- 选择实例外观：`跟随 / 浅色 / 深色`
+- 添加组件
+- 替换现有组件尺寸和外观
+
+当前动作入口：
+
+- `添加`
+- `装饰`
+- `默认`
+- `保存`
+
+说明：
+
+- `保存` 会把当前桌面实例和图标布局发布到 `default_layout.layout_json`
+- 无管理员权限时，不暴露服务端发布能力
 
 运行时代码：
 
-- [/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/src/js/desktop.js](/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/src/js/desktop.js)
-  - `Alpine.data('desktopWidgets', ...)`
+- [/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/src/js/desktop/surface/index.js](/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/src/js/desktop/surface/index.js)
 
-## Future Plugin Storage Interface
+## No Local Persistence
 
-未来如果要把布局保存到用户侧插件，主题不改 UI，只替换存储驱动。
+当前桌面小组件默认布局不再写入浏览器本地缓存。
 
-设置入口：
+已经移除：
 
-- `widgets.persistence.driver = extension`
-- `widgets.persistence.sync_provider = <provider-name>`
+- 本地 `localStorage` 布局读写
+- 旧的扩展持久化桥
+- `widgets.persistence.*` 协议
 
-主题会主动暴露一个桥接对象：
+当前唯一权威来源：
 
-```js
-window.ThemeSkyDesktopWidgets
-```
+1. `default_layout.layout_json`
+2. 若为空，则回退到桌面图标结构化配置
 
-可用方法：
+## Notes For New Widgets
 
-```js
-window.ThemeSkyDesktopWidgets.registerDriver(provider, driver)
-window.ThemeSkyDesktopWidgets.unregisterDriver(provider)
-window.ThemeSkyDesktopWidgets.getDriver(provider)
-window.ThemeSkyDesktopWidgets.listDrivers()
-```
+新增 widget 时，需要同时满足：
 
-插件也可以直接写注册表，但推荐走桥接对象：
+1. 在 [`catalog.js`](/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/src/js/widgets/catalog.js) 注册：
+- `title`
+- `category`
+- `size`
+- `sizes`
+- `description`
 
-```js
-window.ThemeSkyDesktopWidgets.registerDriver('user-widget-store', {
-  async load(context) {
-    return null;
-  },
-  async save(context, payload) {},
-  async reset(context) {}
-});
-```
+2. 在对应 renderer 里支持尺寸分支：
+- `small`
+- `medium`
+- `large`
 
-`context` 建议字段：
+3. 在卡片根节点体系下兼容 `data-widget-appearance`
 
-```json
-{
-  "layoutVersion": "v1",
-  "storageKey": "theme-macOS-desktop-widgets",
-  "provider": "user-widget-store",
-  "siteUrl": "https://example.com",
-  "pagePath": "/"
-}
-```
+4. 如果要支持 preview skin，需要单独处理：
+- live card
+- center preview
 
-`payload` 直接复用本地布局结构：
+不要再依赖：
 
-```json
-{
-  "version": 1,
-  "layoutVersion": "v1",
-  "instances": []
-}
-```
-
-插件职责：
-
-- 识别当前登录用户
-- 读取用户布局
-- 保存用户布局
-- 可选支持重置
-
-主题职责：
-
-- 组件外观
-- 编辑态
-- 拖拽吸附
-- 默认布局
-- 本地驱动
-- 组件渲染
-
-不要把组件渲染逻辑反向塞进插件。
+- 本地布局缓存
+- `pinMode`
+- `visible` 写入服务端协议

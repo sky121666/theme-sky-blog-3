@@ -1,0 +1,414 @@
+/* ── Shared List Components (used by Popular Posts etc.) ── */
+.desktop-widget-mac-list-box {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  margin: 0 12px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 4px 16px rgba(0, 0, 0, 0.04);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.desktop-widget-mac-list-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 13px;
+  text-decoration: none;
+  color: inherit;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.06);
+  transition: background 0.15s ease;
+  flex: 1;
+}
+
+.desktop-widget-mac-list-row:last-child {
+  border-bottom: none;
+}
+
+.desktop-widget-mac-list-row:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Popular Posts: Top Charts Layout ── */
+
+.desktop-widget-charts-layout .desktop-widget-mac-list-row {
+  flex: 1;
+  padding: 0 13px;
+}
+
+.desktop-widget-charts-rank {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.5);
+  font-variant-numeric: tabular-nums;
+}
+
+.desktop-widget-charts-rank.is-top {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border: 0.5px solid rgba(255, 255, 255, 0.2);
+}
+
+.desktop-widget-charts-copy {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: 4px;
+}
+
+.desktop-widget-charts-copy strong {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.desktop-widget-charts-bar {
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.desktop-widget-charts-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.4);
+  transition: width 0.4s ease;
+}
+
+.desktop-widget-charts-visits {
+  flex: none;
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.5;
+  font-variant-numeric: tabular-nums;
+}
+
+
+/* ══════════════════════════════════════════
+   Popular Posts – Redesigned (wg-hot-*)
+   ══════════════════════════════════════════ */
+
+/* ── Wrapper ── */
+.wg-hot-wrap {
+  --widget-hot-primary: rgba(255,255,255,0.92);
+  --widget-hot-secondary: rgba(255,255,255,0.88);
+  --widget-hot-muted: rgba(255,255,255,0.55);
+  --widget-hot-faint: rgba(255,255,255,0.35);
+  --widget-hot-rank: rgba(255,255,255,0.25);
+  --widget-hot-surface: rgba(0,0,0,0.2);
+  --widget-hot-row-hover: rgba(255,255,255,0.06);
+  --widget-hot-track: rgba(255,255,255,0.06);
+  --widget-hot-bar-start: #F59E0B;
+  --widget-hot-bar-end: #FCD34D;
+  --widget-hot-badge: #FBBF24;
+  --widget-hot-fallback: linear-gradient(135deg, #334155 0%, #0f172a 100%);
+  --widget-hot-placeholder: linear-gradient(135deg, #334155 0%, #0f172a 100%);
+  --widget-hot-badge-surface: rgba(255,255,255,0.25);
+  --widget-hot-badge-text: rgba(255,255,255,0.96);
+  --widget-hot-sm-scrim: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.65) 100%);
+  --widget-hot-cover-scrim: linear-gradient(180deg, transparent 20%, rgba(0,0,0,0.7) 100%);
+  height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+  color: var(--widget-hot-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
+}
+
+/* ── Small (2x2): 热度磁贴 ── */
+.wg-hot-sm {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 100%; height: 100%;
+  padding: 10px 12px 11px;
+  text-decoration: none;
+  color: var(--widget-hot-primary);
+  border-radius: inherit;
+  background-size: cover;
+  background-position: center;
+  background-color: #1a1a2e;
+  position: relative;
+  overflow: hidden;
+}
+.wg-hot-sm.is-no-cover {
+  background: var(--widget-hot-fallback);
+}
+.wg-hot-sm-scrim {
+  position: absolute; inset: 0;
+  background: var(--widget-hot-sm-scrim);
+  pointer-events: none;
+  border-radius: inherit;
+}
+.wg-hot-sm-top {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  position: relative; z-index: 2;
+}
+.wg-hot-sm-badge {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px;
+  border-radius: 10px;
+  background: var(--widget-hot-badge-surface);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: var(--widget-hot-badge-text);
+}
+.wg-hot-sm-bottom {
+  position: relative; z-index: 2;
+}
+.wg-hot-sm-label {
+  font-size: 9px; font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--widget-hot-badge);
+}
+.wg-hot-sm-title {
+  font-size: 13px; font-weight: 700;
+  line-height: 1.25; margin: 2px 0 3px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+.wg-hot-sm-visits {
+  font-size: 10px; font-weight: 500;
+  color: var(--widget-hot-muted);
+}
+
+/* ── Medium (4x2): 热榜列表 ── */
+.wg-hot-wrap--medium {
+  display: flex; flex-direction: column;
+  padding: 12px 14px;
+  background: var(--widget-hot-surface);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+.wg-hot-md-head {
+  display: flex; align-items: center; gap: 5px;
+  margin-bottom: 8px;
+}
+.wg-hot-md-icon {
+  color: var(--widget-hot-bar-start);
+}
+.wg-hot-md-label {
+  font-size: 11px; font-weight: 700;
+  color: var(--widget-hot-secondary);
+}
+.wg-hot-md-list {
+  display: flex; flex-direction: column;
+  gap: 2px; flex: 1;
+  justify-content: center;
+}
+.wg-hot-md-row {
+  display: flex; align-items: center;
+  gap: 8px; padding: 5px 0;
+  text-decoration: none; color: var(--widget-hot-primary);
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+.wg-hot-md-row:hover {
+  background: var(--widget-hot-row-hover);
+}
+.wg-hot-md-rank {
+  flex: none;
+  font-size: 11px; font-weight: 800;
+  color: var(--widget-hot-rank);
+  font-variant-numeric: tabular-nums;
+  width: 20px; text-align: center;
+  transition: color 0.15s;
+}
+.wg-hot-md-rank.is-top {
+  color: var(--widget-hot-bar-start);
+}
+.wg-hot-md-row:hover .wg-hot-md-rank {
+  color: var(--widget-hot-badge);
+}
+.wg-hot-md-info {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.wg-hot-md-row-title {
+  font-size: 12px; font-weight: 600;
+  white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--widget-hot-secondary);
+}
+.wg-hot-md-bar {
+  height: 2px; border-radius: 1px;
+  background: var(--widget-hot-track);
+  overflow: hidden;
+}
+.wg-hot-md-bar span {
+  display: block; height: 100%;
+  border-radius: 1px;
+  background: linear-gradient(90deg, var(--widget-hot-bar-start), var(--widget-hot-bar-end));
+  transition: width 0.4s ease;
+}
+.wg-hot-md-visits {
+  flex: none;
+  font-size: 10px; font-weight: 600;
+  color: var(--widget-hot-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.wg-hot-wrap--medium.is-compact {
+  box-sizing: border-box;
+  padding: 10px 12px;
+}
+
+.wg-hot-wrap--medium.is-compact .wg-hot-md-head {
+  margin-bottom: 6px;
+}
+
+.wg-hot-wrap--medium.is-compact .wg-hot-md-list {
+  gap: 0;
+  justify-content: flex-start;
+  min-height: 0;
+}
+
+.wg-hot-wrap--medium.is-compact .wg-hot-md-row {
+  padding: 4px 0;
+  min-height: 0;
+}
+
+.wg-hot-wrap--medium.is-compact .wg-hot-md-info {
+  gap: 2px;
+}
+
+.wg-hot-wrap--medium.is-compact .wg-hot-md-row-title {
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.wg-hot-wrap--medium.is-compact .wg-hot-md-visits {
+  font-size: 9px;
+}
+
+/* ── Large (4x4): 焦点图 + 排行 ── */
+.wg-hot-wrap--large {
+  display: flex; flex-direction: column;
+  background: var(--widget-hot-surface);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* Hero cover */
+.wg-hot-lg-hero {
+  flex: none; height: 48%;
+}
+.wg-hot-lg-cover {
+  display: block; position: relative;
+  width: 100%; height: 100%;
+  text-decoration: none; color: var(--widget-hot-primary);
+  overflow: hidden;
+}
+.wg-hot-lg-cover-img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+.wg-hot-lg-cover-img.is-placeholder {
+  background: var(--widget-hot-placeholder);
+}
+.wg-hot-lg-cover:hover .wg-hot-lg-cover-img {
+  transform: scale(1.06);
+}
+.wg-hot-lg-cover-scrim {
+  position: absolute; inset: 0;
+  background: var(--widget-hot-cover-scrim);
+  pointer-events: none;
+}
+.wg-hot-lg-cover-text {
+  position: absolute; bottom: 10px; left: 12px; right: 12px;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.wg-hot-lg-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 9px; font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--widget-hot-badge);
+  text-transform: uppercase;
+}
+.wg-hot-lg-cover-text strong {
+  font-size: 14px; font-weight: 800;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+.wg-hot-lg-hero-visits {
+  font-size: 10px; font-weight: 500;
+  color: var(--widget-hot-muted);
+}
+
+/* Ranked list */
+.wg-hot-lg-list {
+  flex: 1; display: flex; flex-direction: column;
+  padding: 8px 12px; gap: 1px;
+  justify-content: center;
+}
+.wg-hot-lg-row {
+  display: flex; align-items: center;
+  gap: 8px; padding: 6px 2px;
+  text-decoration: none; color: var(--widget-hot-primary);
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+.wg-hot-lg-row:hover {
+  background: var(--widget-hot-row-hover);
+}
+.wg-hot-lg-rank {
+  flex: none;
+  font-size: 11px; font-weight: 800;
+  color: var(--widget-hot-rank);
+  font-variant-numeric: tabular-nums;
+  width: 20px; text-align: center;
+}
+.wg-hot-lg-rank.is-top {
+  color: var(--widget-hot-bar-start);
+}
+.wg-hot-lg-info {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.wg-hot-lg-row-title {
+  font-size: 12px; font-weight: 600;
+  white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--widget-hot-secondary);
+}
+.wg-hot-lg-bar {
+  height: 2px; border-radius: 1px;
+  background: var(--widget-hot-track);
+  overflow: hidden;
+}
+.wg-hot-lg-bar span {
+  display: block; height: 100%;
+  border-radius: 1px;
+  background: linear-gradient(90deg, var(--widget-hot-bar-start), var(--widget-hot-bar-end));
+  transition: width 0.4s ease;
+}
+.wg-hot-lg-visits {
+  flex: none;
+  font-size: 10px; font-weight: 600;
+  color: var(--widget-hot-faint);
+  font-variant-numeric: tabular-nums;
+}

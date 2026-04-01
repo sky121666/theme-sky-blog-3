@@ -1,0 +1,253 @@
+/* ══════════════════════════════════════════════
+   随机标签 – Structured Jitter Wall + Focus & Blur
+   ══════════════════════════════════════════════ */
+
+.wg-tag-wall-shell {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  padding: 14px 12px 12px;
+  box-sizing: border-box;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.wg-tag-wall-shell.is-large.is-compact {
+  padding: 12px 10px 10px;
+  gap: 10px;
+}
+
+.wg-tag-feature {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  text-decoration: none;
+  color: #fff;
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--tag-color, #888) 14%, rgba(255,255,255,0.14)) 0%,
+      color-mix(in srgb, var(--tag-color, #888) 8%, rgba(255,255,255,0.04)) 100%);
+  border: 0.5px solid color-mix(in srgb, var(--tag-color, #888) 12%, rgba(255,255,255,0.14));
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.18),
+    0 4px 14px rgba(0,0,0,0.08);
+}
+
+.wg-tag-feature-kicker {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.4);
+}
+
+.wg-tag-feature strong {
+  font-size: 20px;
+  line-height: 1.05;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: rgba(255,255,255,0.96);
+}
+
+.wg-tag-wall {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-content: flex-start;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.wg-tag-wall.is-medium {
+  gap: 5px;
+  padding: 10px 10px 8px;
+  align-content: center;
+}
+
+.wg-tag-wall.is-medium.is-compact {
+  gap: 5px;
+  padding: 8px 8px 6px;
+  align-content: center;
+}
+
+.wg-tag-wall.is-large {
+  gap: 7px;
+  padding: 0 2px 2px;
+}
+
+.wg-tag-wall.is-large.is-compact {
+  gap: 6px;
+}
+
+.wg-tag-chip {
+  flex-shrink: 0;
+  display: inline-block;
+  padding: 6px 13px;
+  background: linear-gradient(135deg, 
+    color-mix(in srgb, var(--tag-color, #888) 12%, rgba(255, 255, 255, 0.12)) 0%, 
+    color-mix(in srgb, var(--tag-color, #888) 6%, rgba(255, 255, 255, 0.04)) 100%
+  );
+  backdrop-filter: blur(10px) saturate(150%);
+  -webkit-backdrop-filter: blur(10px) saturate(150%);
+  border-radius: 11px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-font-smoothing: antialiased;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 2px 6px rgba(0, 0, 0, 0.06);
+  border: 0.5px solid color-mix(in srgb, var(--tag-color, #888) 12%, rgba(255, 255, 255, 0.12));
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  transform: rotate(var(--j-rot, 0deg)) translate(var(--j-tx, 0px), var(--j-ty, 0px));
+  transition: transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+              box-shadow 0.35s cubic-bezier(0.23, 1, 0.32, 1),
+              background 0.3s ease,
+              border-color 0.3s ease,
+              color 0.2s ease;
+  will-change: transform;
+}
+
+.wg-tag-chip.tone-1 {
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--tag-color, #888) 14%, rgba(255,255,255,0.16)) 0%,
+    rgba(255,255,255,0.04) 100%);
+}
+
+.wg-tag-chip.tone-2 {
+  background: linear-gradient(135deg,
+    rgba(255,255,255,0.13) 0%,
+    color-mix(in srgb, var(--tag-color, #888) 10%, rgba(255,255,255,0.03)) 100%);
+}
+
+.wg-tag-chip.tone-3 {
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--tag-color, #888) 9%, rgba(255,255,255,0.12)) 0%,
+    color-mix(in srgb, var(--tag-color, #888) 4%, rgba(255,255,255,0.02)) 100%);
+}
+
+.wg-tag-wall.is-medium .wg-tag-chip {
+  padding: 6px 13px;
+  border-radius: 11px;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.wg-tag-wall.is-medium.is-compact .wg-tag-chip {
+  padding: 5px 11px;
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 1.15;
+}
+
+.wg-tag-wall.is-large .wg-tag-chip {
+  padding: 5px 11px;
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 1.18;
+}
+
+.wg-tag-chip:hover {
+  transform: scale(1.14) rotate(0deg) translate(0px, 0px) !important;
+  background: linear-gradient(135deg, 
+    color-mix(in srgb, var(--tag-color, #fff) 25%, rgba(255, 255, 255, 0.22)) 0%, 
+    color-mix(in srgb, var(--tag-color, #fff) 15%, rgba(255, 255, 255, 0.12)) 100%
+  );
+  border-color: color-mix(in srgb, var(--tag-color, #fff) 35%, rgba(255, 255, 255, 0.15));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 6px 16px rgba(0, 0, 0, 0.14);
+  z-index: 10;
+  color: #fff;
+}
+
+.wg-tag-chip:active {
+  transform: scale(0.95) rotate(0deg) translate(0px, 0px) !important;
+  transition-duration: 0.08s;
+}
+
+/* ── Small: 深度对焦轮转 ── */
+
+.wg-tag-focus-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.wg-tag-focus-stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  /* 调整焦距中心点，跟随主标签偏右下 */
+  background: radial-gradient(circle at 58% 58%, transparent 25%, rgba(0, 0, 0, 0.40) 100%);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.wg-tag-focus-item {
+  position: absolute;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  font-size: 13px;
+  opacity: 0.15;
+  filter: blur(4px);
+  color: var(--tag-color, rgba(255, 255, 255, 0.5));
+  transform: scale(0.75);
+  z-index: 1;
+  transition: all 1s cubic-bezier(0.23, 1, 0.32, 1);
+  will-change: transform, filter, opacity, left, top;
+  /* 环境微弱漂浮 */
+  animation: wg-tag-bg-float 8s ease-in-out infinite alternate;
+}
+
+@keyframes wg-tag-bg-float {
+  0% { transform: scale(0.75) translate(0, 0) rotate(-2deg); }
+  100% { transform: scale(0.75) translate(5px, -5px) rotate(2deg); }
+}
+
+.wg-tag-focus-item.is-focus {
+  font-size: 24px;
+  letter-spacing: -0.01em;
+  opacity: 1;
+  filter: blur(0px);
+  color: #fff;
+  transform: translate(-50%, -50%) scale(1);
+  z-index: 10;
+  /* 不居中，偏右下方放置，更有排版个性 */
+  left: 58% !important;
+  top: 58% !important;
+  -webkit-font-smoothing: antialiased;
+  /* 双层发光：内核聚光 + 外围柔雾扩散 */
+  text-shadow:
+    0 0 12px color-mix(in srgb, var(--tag-color, #888) 70%, transparent),
+    0 0 28px color-mix(in srgb, var(--tag-color, #888) 40%, transparent),
+    0 2px 8px rgba(0, 0, 0, 0.4);
+  /* 覆盖点焦动态 */
+  animation: wg-tag-focus-float 4.5s ease-in-out infinite;
+}
+
+@keyframes wg-tag-focus-float {
+  0%, 100% { transform: translate(-50%, -50%) scale(1) translateY(3px); }
+  50% { transform: translate(-50%, -50%) scale(1.02) translateY(-3px); }
+}
+
+

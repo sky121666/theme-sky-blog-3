@@ -1,0 +1,95 @@
+/* ── Restored Original Rules for Moment Diary ── */
+.desktop-widget-moment-diary-trail {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.desktop-widget-moment-diary-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  text-decoration: none;
+  color: inherit;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.desktop-widget-moment-diary-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.desktop-widget-moment-diary-row-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.desktop-widget-moment-diary-row-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.desktop-widget-moment-diary-row-meta {
+  font-size: 12px;
+  opacity: 0.5;
+  margin-top: 2px;
+}
+
+
+
+.desktop-widget-mac-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 14px 8px; /* Classic Native App Header Padding */
+  flex: none;
+}
+
+.desktop-widget-mac-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  display: inline-block;
+  border: 0.5px solid rgba(255, 255, 255, 0.2);
+}
+
+.desktop-widget-mac-icon.is-latest {
+  background: linear-gradient(135deg, #4a9eff 0%, #3d6aff 100%);
+  border-color: rgba(74, 153, 255, 0.4);
+}
+
+/* Base properties retained without color overrides */
+
+.desktop-widget-mac-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.02em;
+}
+
+
+.desktop-widget-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  justify-content: center;
+  height: 100%;
+  font-size: 13px;
+  color: var(--widget-card-muted, rgba(255, 255, 255, 0.66));
+}
+
+.desktop-widget-empty strong {
+  color: var(--widget-card-text, rgba(255, 255, 255, 0.9));
+  font-weight: 560;
+}
+
+

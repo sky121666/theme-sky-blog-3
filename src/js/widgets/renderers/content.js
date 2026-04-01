@@ -82,7 +82,7 @@ export function renderLatestPostsWidget({ sources, escapeHtml }, widget, options
     const heroTitle = escapeHtml(heroPost?.spec?.title || '未命名文章');
     const heroCover = heroPost?.spec?.cover || '';
     const coverImg = heroCover
-      ? `<img class="wg-news-lg-cover-img" src="${escapeHtml(heroCover)}" alt="" />`
+      ? `<img class="wg-news-lg-cover-img" src="${escapeHtml(heroCover)}" alt="">`
       : '<div class="wg-news-lg-cover-img is-placeholder"></div>';
 
     const listPosts = posts.slice(1);

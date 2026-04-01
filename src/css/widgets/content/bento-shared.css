@@ -1,0 +1,102 @@
+/* Bento Grids */
+.desktop-widget-mac-bento {
+  --widget-mac-surface: rgba(255, 255, 255, 0.08);
+  --widget-mac-surface-hover: rgba(255, 255, 255, 0.12);
+  --widget-mac-border: rgba(255, 255, 255, 0.1);
+  --widget-mac-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 8px rgba(0, 0, 0, 0.05);
+  --widget-mac-text: rgba(255, 255, 255, 0.92);
+  --widget-mac-muted: rgba(255, 255, 255, 0.5);
+  --widget-mac-badge-surface: rgba(0, 0, 0, 0.4);
+  --widget-mac-badge-border: rgba(255, 255, 255, 0.1);
+  display: grid;
+  padding: 14px;
+  height: 100%;
+}
+
+.desktop-widget-mac-bento.is-2x2 {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 10px;
+}
+
+.desktop-widget-mac-bento.is-3x2 {
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.desktop-widget-mac-cell {
+  background: var(--widget-mac-surface);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 0.5px solid var(--widget-mac-border);
+  box-shadow: var(--widget-mac-shadow);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
+}
+
+.desktop-widget-mac-cell strong {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--widget-mac-text);
+  line-height: 1;
+}
+
+.desktop-widget-mac-cell em {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--widget-mac-muted);
+}
+
+.desktop-widget-mac-btn {
+  background: var(--widget-mac-surface);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 0.5px solid var(--widget-mac-border);
+  box-shadow: var(--widget-mac-shadow);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.2s ease;
+  padding: 6px;
+  position: relative;
+}
+
+.desktop-widget-mac-btn:hover {
+  background: var(--widget-mac-surface-hover);
+  border-color: color-mix(in srgb, var(--widget-mac-border) 120%, transparent);
+}
+
+.desktop-widget-mac-btn span {
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.desktop-widget-mac-btn strong {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: var(--widget-mac-badge-surface);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 0.5px solid var(--widget-mac-badge-border);
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 2px 5px;
+  color: var(--widget-mac-text);
+}
+

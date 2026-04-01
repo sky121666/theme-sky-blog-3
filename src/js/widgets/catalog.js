@@ -11,6 +11,8 @@ export const DESKTOP_WIDGET_SIZE_MAP = {
   large: { w: 4, h: 4 }
 };
 
+export const DESKTOP_WIDGET_APPEARANCE_OPTIONS = ['follow', 'light', 'dark'];
+
 export const DESKTOP_WIDGET_CATALOG = {
   'system.clock': {
     title: '时间',
@@ -105,6 +107,10 @@ export function normalizeWidgetSize(size) {
   return DESKTOP_WIDGET_SIZE_MAP[size] ? size : 'medium';
 }
 
+export function normalizeWidgetAppearance(appearance) {
+  return DESKTOP_WIDGET_APPEARANCE_OPTIONS.includes(appearance) ? appearance : 'follow';
+}
+
 export function normalizeWidgetInstance(instance, index = 0) {
   const node = instance?.realNode && typeof instance.realNode === 'object'
     ? instance.realNode
@@ -118,6 +124,7 @@ export function normalizeWidgetInstance(instance, index = 0) {
     title: node?.title || catalog.title || '未命名组件',
     widget: node?.widget || 'system.clock',
     size,
+    appearance: normalizeWidgetAppearance(node?.appearance),
     baseX: toPositiveInt(node?.baseX ?? node?.x ?? node?.col, 1),
     baseY: toPositiveInt(node?.baseY ?? node?.y ?? node?.row, 1),
     x: toPositiveInt(node?.x ?? node?.baseX ?? node?.col, 1),
@@ -134,6 +141,7 @@ export function serializeWidgetInstance(widget) {
     title: widget.title,
     widget: widget.widget,
     size: widget.size,
+    appearance: normalizeWidgetAppearance(widget.appearance),
     x: widget.baseX ?? widget.x,
     y: widget.baseY ?? widget.y
   };
@@ -149,6 +157,7 @@ export function createWidgetInstance(widgetType, overrides = {}) {
     title: overrides.title || catalog.title || '未命名组件',
     widget: widgetType,
     size,
+    appearance: normalizeWidgetAppearance(overrides.appearance),
     baseX: toPositiveInt(overrides.baseX ?? overrides.x, 1),
     baseY: toPositiveInt(overrides.baseY ?? overrides.y, 1),
     x: toPositiveInt(overrides.x, 1),
