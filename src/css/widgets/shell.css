@@ -329,6 +329,14 @@
     rgba(39, 41, 58, 0.6);
 }
 
+.desktop-widget-card.widget--halo-latest_posts.is-small {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 .desktop-widget-card.widget--halo-popular_posts {
   background:
     radial-gradient(circle at top right, rgba(255, 200, 140, 0.1), transparent 48%),
@@ -393,6 +401,13 @@
     rgba(248, 250, 252, 0.72);
   border-color: transparent;
   box-shadow: 0 16px 36px rgba(15, 23, 42, 0.1);
+}
+
+:root:not(.dark) .desktop-widget-card.widget--halo-latest_posts.is-small[data-widget-appearance="follow"],
+.desktop-widget-card.widget--halo-latest_posts.is-small[data-widget-appearance="light"] {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
 }
 
 :root:not(.dark) .desktop-widget-card.widget--halo-random_tags[data-widget-appearance="follow"],
@@ -461,6 +476,11 @@
   box-shadow:
     0 4px 10px rgba(6, 8, 12, 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.desktop-widgets-grid .desktop-widget-card.widget--halo-latest_posts.is-small {
+  border-color: transparent;
+  box-shadow: none;
 }
 
 :root:not(.dark) .desktop-widgets-grid .desktop-widget-card.widget--halo-latest_posts[data-widget-appearance="follow"],

@@ -27,14 +27,15 @@ export function renderLatestPostsWidget({ sources, escapeHtml }, widget, options
     const title = escapeHtml(post?.spec?.title || '未命名文章');
     const date = escapeHtml(formatWidgetDate(post?.spec?.publishTime) || '');
     const cover = post?.spec?.cover || '';
-    const coverStyle = cover ? `style="background-image:url('${escapeHtml(cover)}')"` : '';
-    const fallbackCls = cover ? '' : ' is-fallback';
+    const coverMedia = cover
+      ? `<img class="wg-news-sm-img" src="${escapeHtml(cover)}" alt="">`
+      : '<div class="wg-news-sm-img is-placeholder"></div>';
     inner = `
-      <a class="wg-news-sm${fallbackCls} pjax-link" ${coverStyle} href="${escapeHtml(post?.status?.permalink || '#')}">
+      <a class="wg-news-sm pjax-link" href="${escapeHtml(post?.status?.permalink || '#')}">
+        ${coverMedia}
         <div class="wg-news-sm-scrim"></div>
         <div class="wg-news-sm-top">
           <span class="wg-news-sm-label">最新</span>
-          <svg class="wg-news-sm-bookmark" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z"/></svg>
         </div>
         <div class="wg-news-sm-bottom">
           <strong>${title}</strong>
