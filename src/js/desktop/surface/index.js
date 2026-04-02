@@ -517,6 +517,19 @@ export function registerDesktopSurface(Alpine) {
       };
     },
 
+    get saveShortcutHintMarkup() {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const modKey = isMac ? '⌘' : 'Ctrl';
+      return `
+        <div class="desktop-save-hint-item">
+          <kbd>${modKey}</kbd> <span>+</span> <kbd>S</kbd> <span class="label">保存</span>
+        </div>
+        <div class="desktop-save-hint-item">
+          <kbd>Esc</kbd> <span class="label">退出</span>
+        </div>
+      `;
+    },
+
     /* ═══ Desktop interaction ═══ */
 
     handleDesktopSurfaceOutsideClick(event) {
