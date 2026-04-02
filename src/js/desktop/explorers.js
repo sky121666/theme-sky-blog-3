@@ -238,6 +238,22 @@ export function registerExplorers(Alpine) {
       if (updateUrl) this.writeUrlState();
     },
 
+    selectSource(source) {
+      return this.switchSource(source);
+    },
+
+    get activeSourcePath() {
+      return this.activeSource === 'moments'
+        ? (this.activeMomentTitle || '未选择瞬间')
+        : (this.activePostTitle || '未选择文章');
+    },
+
+    get currentPreviewTitle() {
+      return this.activeSource === 'moments'
+        ? this.activeMomentTitle
+        : this.activePostTitle;
+    },
+
     selectPost(postKey, title) {
       this.activePostKey = postKey || '';
       this.activePostTitle = title || '';
@@ -246,6 +262,14 @@ export function registerExplorers(Alpine) {
     selectMoment(momentKey, title) {
       this.activeMomentKey = momentKey || '';
       this.activeMomentTitle = title || '';
+      this.syncMomentPanelVisibility();
+    },
+
+    syncMomentPanelVisibility() {
+      if (!this.momentPreviewEl) return;
+      this.momentPreviewEl.querySelectorAll('[data-author-moment-panel]').forEach((panel) => {
+        panel.style.display = panel.dataset.momentKey === this.activeMomentKey ? '' : 'none';
+      });
     },
 
     normalizeMomentText() {
@@ -350,6 +374,8 @@ export function registerExplorers(Alpine) {
       if (this.momentEmptyEl) {
         this.momentEmptyEl.hidden = momentItems.length > 0;
       }
+
+      this.syncMomentPanelVisibility();
     },
 
     renderMomentPagination() {

@@ -324,7 +324,9 @@
                                     rawText=${content != null ? content.raw : ''},
                                     momentTitle=${!#strings.isEmpty(rawText) ? #strings.abbreviate(rawText, 36) : (mediaCount > 0 ? '图片瞬间' : '瞬间记录')}"
                            data-author-moment-panel
-                           th:attr="data-moment-key=${moment.metadata.name}">
+                           th:attr="data-moment-key=${moment.metadata.name}"
+                           x-show="activeSource === 'moments' && activeMomentKey === $el.dataset.momentKey"
+                           x-cloak>
                     <header class="author-preview-header tag-preview-header">
                       <div class="author-preview-icon tag-preview-icon author-preview-icon--moment">
                         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
