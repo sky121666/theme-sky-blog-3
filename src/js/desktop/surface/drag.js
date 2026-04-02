@@ -3,6 +3,7 @@
  *
  * 所有方法通过 spread 注入 Alpine.data，内部使用 this 访问组件状态。
  */
+const STRIP_ALPINE_RE = /\s(x-html|x-text|x-show|x-if|x-for|x-bind|x-on|x-transition[^=]*|:class|:style|:data-[^=]*|@[a-z.]+)="[^"]*"/g;
 
 export const dragMethods = {
   previewPlacementClass() {
@@ -23,6 +24,7 @@ export const dragMethods = {
       key: widget.key,
       node: { ...widget },
       widget: { ...widget },
+      widgetMarkup: event.currentTarget.innerHTML.replace(STRIP_ALPINE_RE, ''),
       iconMarkup: '',
       startX: event.clientX,
       startY: event.clientY,
@@ -69,7 +71,8 @@ export const dragMethods = {
       key,
       node: { ...icon },
       widget: null,
-      iconMarkup: event.currentTarget.innerHTML,
+      widgetMarkup: '',
+      iconMarkup: event.currentTarget.innerHTML.replace(STRIP_ALPINE_RE, ''),
       startX: event.clientX,
       startY: event.clientY,
       pointerX: event.clientX,
@@ -149,6 +152,7 @@ export const dragMethods = {
       key: '',
       node: null,
       widget: null,
+      widgetMarkup: '',
       iconMarkup: '',
       startX: 0,
       startY: 0,

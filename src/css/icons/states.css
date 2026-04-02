@@ -11,7 +11,10 @@
 }
 
 .desktop-icon.is-drag-source {
-  opacity: 0.22;
+  opacity: 0.35;
+  filter: blur(2px) saturate(0.6);
+  transform: scale(0.92);
+  transition: opacity 0.2s ease, filter 0.2s ease, transform 0.2s ease;
 }
 
 .desktop-node-slot--icon.is-selected > .desktop-icon {

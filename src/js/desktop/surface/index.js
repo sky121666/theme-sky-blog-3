@@ -135,6 +135,7 @@ export function registerDesktopSurface(Alpine) {
       key: '',
       node: null,
       widget: null,
+      widgetMarkup: '',
       iconMarkup: '',
       startX: 0,
       startY: 0,
@@ -882,6 +883,14 @@ export function registerDesktopSurface(Alpine) {
       if (this.isEditing) states.push('is-editing');
       if (this.dragState.active && this.dragState.hasMoved && this.dragState.key === widget.key) states.push('is-drag-source');
       return states.join(' ');
+    },
+
+    widgetTypeClass(widget) {
+      const typeToken = String(widget.widget || 'widget')
+        .toLowerCase()
+        .replace(/[^\w]+/g, '-')
+        .replace(/^-|-$/g, '');
+      return `is-${widget.size} widget--${typeToken}`;
     },
 
     isIconNode(node) {

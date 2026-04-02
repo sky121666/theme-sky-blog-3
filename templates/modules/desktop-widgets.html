@@ -299,8 +299,8 @@
                    :data-desktop-key="node.key"
                    @click="handleDesktopIconClick($event, node.key)"
                    @pointerdown="beginIconDrag(node.key, $event)">
-                  <div class="desktop-icon-graphic" x-html="renderDesktopIconGraphic(node)"></div>
-                  <div class="desktop-icon-label" x-text="node.title"></div>
+                  <div class="desktop-icon-graphic" x-html="typeof node !== 'undefined' ? renderDesktopIconGraphic(node) : ''"></div>
+                  <div class="desktop-icon-label" x-text="typeof node !== 'undefined' ? node.title : ''"></div>
                 </a>
               </template>
             </div>
@@ -312,17 +312,11 @@
            x-show="dragState.active"
            :style="dragGhostStyle"
            style="display: none;">
-        <template x-if="dragState.kind === 'widget' && dragState.node">
+        <template x-if="dragState.kind === 'widget' && dragState.widgetMarkup">
           <article class="desktop-widget-card is-drag-ghost"
-                   :data-widget-appearance="widgetAppearanceValue(dragState.widget)"
-                   :class="widgetClassName(dragState.widget)">
-            <header class="desktop-widget-header">
-              <div>
-                <p class="desktop-widget-kicker" x-text="widgetKicker(dragState.widget)"></p>
-                <h2 class="desktop-widget-title" x-text="dragState.widget.title"></h2>
-              </div>
-            </header>
-            <div class="desktop-widget-body" x-html="renderWidgetBody(dragState.widget)"></div>
+                   :data-widget-appearance="dragState.widget?.appearance || 'follow'"
+                   :class="dragState.widget ? widgetTypeClass(dragState.widget) : ''"
+                   x-html="dragState.widgetMarkup">
           </article>
         </template>
         <template x-if="dragState.kind === 'icon' && dragState.iconMarkup">

@@ -27,11 +27,13 @@
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow: 0 22px 56px rgba(8, 9, 14, 0.32);
-  backdrop-filter: blur(16px) saturate(130%);
-  -webkit-backdrop-filter: blur(16px) saturate(130%);
+  gap: 2px;
+  padding: 3px 2px 4px;
+  background: transparent;
+  border: none;
+  transform: scale(1.08) rotate(-2deg);
+  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.5));
+  transition: transform 0.15s ease;
 }
 
 .desktop-icon-graphic {
