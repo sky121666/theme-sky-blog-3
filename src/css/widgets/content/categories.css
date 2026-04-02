@@ -1,0 +1,196 @@
+/* ── Obsidian Glass Category Widget ── */
+
+.wg-cat-obsidian {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  padding: 16px 18px;
+  position: relative;
+  overflow: hidden;
+  border-radius: inherit;
+  background: linear-gradient(145deg, rgba(28, 29, 48, 0.6) 0%, rgba(13, 15, 26, 0.7) 100%);
+  box-shadow: 
+    inset 0 1px 1px rgba(255, 255, 255, 0.08),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.05);
+}
+
+/* 顶部微弱主题色光晕 */
+.wg-cat-obsidian::before {
+  content: '';
+  position: absolute;
+  top: -20px;
+  left: 20%;
+  width: 60%;
+  height: 40px;
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--theme-accent) 25%, transparent) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ── Header: 内容目录 + 更多分类 ── */
+
+.wg-cat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+}
+
+.wg-cat-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.92);
+  letter-spacing: 0.03em;
+}
+
+.wg-cat-title svg {
+  opacity: 0.7;
+}
+
+.wg-cat-more {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.4);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.wg-cat-more:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.wg-cat-more svg {
+  transition: transform 0.2s;
+}
+
+.wg-cat-more:hover svg {
+  transform: translateX(2px);
+}
+
+/* ── 4-icon grid ── */
+
+.wg-cat-grid {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+  padding: 0 2px;
+}
+
+.wg-cat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* ── Icon circle ── */
+
+.wg-cat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--theme-accent);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    inset 0 2px 4px rgba(255, 255, 255, 0.1),
+    0 4px 8px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.wg-cat-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.wg-cat-item:hover .wg-cat-icon {
+  transform: scale(1.1);
+  filter: brightness(1.15);
+}
+
+/* ── Label ── */
+
+.wg-cat-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.45);
+  transition: color 0.2s;
+  max-width: 64px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wg-cat-item:hover .wg-cat-label {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ── Light mode overrides ── */
+
+:root:not(.dark) .desktop-widget-card.widget--halo-categories[data-widget-appearance="follow"] .wg-cat-obsidian,
+.desktop-widget-card.widget--halo-categories[data-widget-appearance="light"] .wg-cat-obsidian {
+  --wg-cat-text: rgba(0, 0, 0, 0.85);
+  --wg-cat-muted: rgba(0, 0, 0, 0.4);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(240, 240, 245, 0.7) 100%);
+  box-shadow: 
+    inset 0 1px 1px rgba(255, 255, 255, 0.8),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.2);
+}
+
+:root:not(.dark) .desktop-widget-card.widget--halo-categories[data-widget-appearance="follow"] .wg-cat-title,
+.desktop-widget-card.widget--halo-categories[data-widget-appearance="light"] .wg-cat-title {
+  color: var(--wg-cat-text, rgba(0, 0, 0, 0.85));
+}
+
+:root:not(.dark) .desktop-widget-card.widget--halo-categories[data-widget-appearance="follow"] .wg-cat-more,
+.desktop-widget-card.widget--halo-categories[data-widget-appearance="light"] .wg-cat-more {
+  color: var(--wg-cat-muted, rgba(0, 0, 0, 0.4));
+}
+
+:root:not(.dark) .desktop-widget-card.widget--halo-categories[data-widget-appearance="follow"] .wg-cat-more:hover,
+.desktop-widget-card.widget--halo-categories[data-widget-appearance="light"] .wg-cat-more:hover {
+  color: var(--wg-cat-text, rgba(0, 0, 0, 0.85));
+}
+
+:root:not(.dark) .desktop-widget-card.widget--halo-categories[data-widget-appearance="follow"] .wg-cat-label,
+.desktop-widget-card.widget--halo-categories[data-widget-appearance="light"] .wg-cat-label {
+  color: var(--wg-cat-muted, rgba(0, 0, 0, 0.4));
+}
+
+:root:not(.dark) .desktop-widget-card.widget--halo-categories[data-widget-appearance="follow"] .wg-cat-item:hover .wg-cat-label,
+.desktop-widget-card.widget--halo-categories[data-widget-appearance="light"] .wg-cat-item:hover .wg-cat-label {
+  color: var(--wg-cat-text, rgba(0, 0, 0, 0.85));
+}
+
+:root:not(.dark) .desktop-widget-card.widget--halo-categories[data-widget-appearance="follow"] .wg-cat-icon,
+.desktop-widget-card.widget--halo-categories[data-widget-appearance="light"] .wg-cat-icon {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow:
+    inset 0 2px 4px rgba(255, 255, 255, 0.8),
+    0 4px 10px rgba(0, 0, 0, 0.06);
+}
+
+:root:not(.dark) .desktop-widget-card.widget--halo-categories[data-widget-appearance="follow"] .wg-cat-obsidian::before,
+.desktop-widget-card.widget--halo-categories[data-widget-appearance="light"] .wg-cat-obsidian::before {
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--theme-accent) 35%, transparent) 0%, transparent 70%);
+  opacity: 0.8;
+}

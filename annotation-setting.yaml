@@ -94,3 +94,30 @@ spec:
       format: svg
       value-only: true
       help: 选择一个图标用于随机标签小组件。
+
+---
+apiVersion: v1alpha1
+kind: AnnotationSetting
+metadata:
+  name: theme-sky-blog-3-category-setting
+spec:
+  targetRef:
+    group: content.halo.run
+    kind: Category
+  formSchema:
+    - $formkit: iconify
+      id: category_icon
+      key: icon
+      name: icon
+      label: 分类图标 (SVG)
+      format: svg
+      value-only: true
+      help: 选择一个图标用于桌面分类小组件。
+
+    - $formkit: color
+      id: category_color
+      key: color
+      name: color
+      label: 分类图标颜色
+      value: ""
+      help: 设置图标的点缀颜色，用于桌面分类小组件。

@@ -19,6 +19,7 @@ export function flattenCategoryTree(nodes, depth = 0, bucket = []) {
 
   nodes.forEach((node) => {
     if (!node) return;
+    const annotations = node?.metadata?.annotations || {};
     bucket.push({
       key: node?.metadata?.name || `category-${bucket.length + 1}`,
       name: node?.spec?.displayName || node?.metadata?.name || '分类',
@@ -26,6 +27,8 @@ export function flattenCategoryTree(nodes, depth = 0, bucket = []) {
       description: node?.spec?.description || '',
       cover: node?.spec?.cover || '',
       count: extractCategoryCount(node),
+      icon: annotations['icon'] || annotations['theme-sky-blog-3-category-setting/icon'] || '',
+      color: annotations['color'] || annotations['theme-sky-blog-3-category-setting/color'] || '',
       depth
     });
 
