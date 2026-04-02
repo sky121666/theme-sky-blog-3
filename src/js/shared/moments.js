@@ -23,7 +23,7 @@ export function normalizeMomentRecord(moment) {
   const key = moment?.metadata?.name || '';
   const content = moment?.spec?.content || {};
   const media = Array.isArray(content.medium) ? content.medium : [];
-  const rawText = extractTextPreview(content.raw || '') || extractTextPreview(content.html || '');
+  const rawText = extractTextPreview(content.html || '') || extractTextPreview(content.raw || '');
   const mediaCount = media.length;
   const title = rawText ? truncateText(rawText, 36) : (mediaCount > 0 ? '图片瞬间' : '瞬间记录');
   const summary = rawText

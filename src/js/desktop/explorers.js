@@ -334,7 +334,7 @@ export function registerExplorers(Alpine) {
       } catch (_error) {}
 
       try {
-        const url = `/apis/api.plugin.halo.run/v1alpha1/plugins/PluginMoments/moments?page=${page}&size=${this.momentPageSize}&sort=metadata.creationTimestamp%2Cdesc&contributor=${encodeURIComponent(this.authorName)}`;
+        const url = `/apis/api.moment.halo.run/v1alpha1/moments?page=${page}&size=${this.momentPageSize}&sort=metadata.creationTimestamp%2Cdesc&ownerName=${encodeURIComponent(this.authorName)}`;
         const response = await fetch(url, { signal: controller.signal });
         if (!response.ok) return null;
 
@@ -343,7 +343,7 @@ export function registerExplorers(Alpine) {
 
         if (json?.total != null) {
           this.momentTotal = json.total;
-          this.momentTotalPages = Math.ceil(this.momentTotal / this.momentPageSize);
+          this.momentTotalPages = json.totalPages ?? Math.ceil(this.momentTotal / this.momentPageSize);
         }
 
         const data = items.map((item) => normalizeMomentRecord(item));

@@ -165,7 +165,7 @@
                             th:with="content=${moment.spec.content},
                                      media=${content != null ? content.medium : null},
                                      mediaCount=${media != null ? #lists.size(media) : 0},
-                                     rawText=${content != null ? content.raw : ''},
+                                     rawText=${content != null and !#strings.isEmpty(content.html) ? content.html.replaceAll('<[^>]*>','').replaceAll('\s+',' ').trim() : ''},
                                      momentTitle=${!#strings.isEmpty(rawText) ? #strings.abbreviate(rawText, 36) : (mediaCount > 0 ? '图片瞬间' : '瞬间记录')},
                                      momentSummary=${!#strings.isEmpty(rawText) ? #strings.abbreviate(rawText, 88) : (mediaCount > 0 ? '打开预览查看媒体内容' : '打开预览查看完整内容')}"
                             data-author-moment-option
@@ -321,7 +321,7 @@
                            th:with="content=${moment.spec.content},
                                     media=${content != null ? content.medium : null},
                                     mediaCount=${media != null ? #lists.size(media) : 0},
-                                    rawText=${content != null ? content.raw : ''},
+                                    rawText=${content != null and !#strings.isEmpty(content.html) ? content.html.replaceAll('<[^>]*>','').replaceAll('\s+',' ').trim() : ''},
                                     momentTitle=${!#strings.isEmpty(rawText) ? #strings.abbreviate(rawText, 36) : (mediaCount > 0 ? '图片瞬间' : '瞬间记录')}"
                            data-author-moment-panel
                            th:attr="data-moment-key=${moment.metadata.name}"
