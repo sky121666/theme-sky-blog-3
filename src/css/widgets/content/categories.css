@@ -105,14 +105,12 @@
   align-items: center;
   justify-content: center;
   color: var(--theme-accent);
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(12px) saturate(140%);
-  -webkit-backdrop-filter: blur(12px) saturate(140%);
-  border: 0.5px solid rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  border: 0.5px solid color-mix(in srgb, currentColor 15%, transparent);
   box-shadow:
-    inset 0 2px 4px rgba(255, 255, 255, 0.1),
-    0 4px 8px rgba(0, 0, 0, 0.25);
-  transition: transform 0.2s ease, filter 0.2s ease;
+    inset 0 1px 2px color-mix(in srgb, currentColor 8%, transparent),
+    0 2px 6px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease, background 0.2s ease;
 }
 
 .wg-cat-icon svg {
@@ -122,7 +120,7 @@
 
 .wg-cat-item:hover .wg-cat-icon {
   transform: scale(1.1);
-  filter: brightness(1.15);
+  background: color-mix(in srgb, currentColor 20%, transparent);
 }
 
 /* ── Label ── */
@@ -182,11 +180,11 @@
 
 :root:not(.dark) .desktop-widget-card.widget--halo-categories[data-widget-appearance="follow"] .wg-cat-icon,
 .desktop-widget-card.widget--halo-categories[data-widget-appearance="light"] .wg-cat-icon {
-  background: rgba(0, 0, 0, 0.05);
-  border-color: rgba(0, 0, 0, 0.08);
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  border-color: color-mix(in srgb, currentColor 12%, transparent);
   box-shadow:
-    inset 0 2px 4px rgba(255, 255, 255, 0.8),
-    0 4px 10px rgba(0, 0, 0, 0.06);
+    inset 0 1px 2px rgba(255, 255, 255, 0.6),
+    0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
 :root:not(.dark) .desktop-widget-card.widget--halo-categories[data-widget-appearance="follow"] .wg-cat-obsidian::before,
