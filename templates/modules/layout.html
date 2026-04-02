@@ -137,6 +137,7 @@
 
       widgetsWeatherCityName = ${widgetsModules?.weather?.city_name ?: '北京'},
       widgetsWeatherRefreshMinutes = ${widgetsModules?.weather?.refresh_minutes != null ? widgetsModules.weather.refresh_minutes : 30},
+      widgetsFallbackCover = ${widgetsBehavior?.fallback_cover ?: ''},
       widgetsLatestPosts = ${widgetsEnabled ? postFinder.list({
         page: 1,
         size: 8,
@@ -365,7 +366,8 @@
       siteTitle=${widgetsSiteTitle},
       siteSubtitle=${widgetsSiteSubtitle},
       siteLogo=${widgetsSiteLogo},
-      archivesUrl=${site.routes != null and site.routes.archivesUri != null ? site.routes.archivesUri : '/archives'}
+      archivesUrl=${site.routes != null and site.routes.archivesUri != null ? site.routes.archivesUri : '/archives'},
+      fallbackCover=${widgetsFallbackCover}
     )}"></th:block>
     </div>
 

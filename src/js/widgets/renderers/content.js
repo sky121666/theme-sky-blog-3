@@ -25,7 +25,7 @@ export function renderLatestPostsWidget({ sources, escapeHtml }, widget, options
     const post = posts[0];
     const title = escapeHtml(post?.spec?.title || '未命名文章');
     const date = escapeHtml(formatWidgetDate(post?.spec?.publishTime) || '');
-    const cover = post?.spec?.cover || '';
+    const cover = post?.spec?.cover || sources.fallbackCover || '';
     const coverMedia = cover
       ? `<img class="wg-news-sm-img" src="${escapeHtml(cover)}" alt="">`
       : '<div class="wg-news-sm-img is-placeholder"></div>';
@@ -46,7 +46,7 @@ export function renderLatestPostsWidget({ sources, escapeHtml }, widget, options
     /* ── Medium (4x2): 图文平衡 ── */
     const post = posts[0];
     const title = escapeHtml(post?.spec?.title || '未命名文章');
-    const cover = post?.spec?.cover || '';
+    const cover = post?.spec?.cover || sources.fallbackCover || '';
     const coverImg = cover
       ? `<img class="wg-news-md-img" src="${escapeHtml(cover)}" alt="" />`
       : '<div class="wg-news-md-img is-placeholder"></div>';
@@ -80,7 +80,7 @@ export function renderLatestPostsWidget({ sources, escapeHtml }, widget, options
     /* ── Large (4x4): 深度列表 ── */
     const heroPost = posts[0];
     const heroTitle = escapeHtml(heroPost?.spec?.title || '未命名文章');
-    const heroCover = heroPost?.spec?.cover || '';
+    const heroCover = heroPost?.spec?.cover || sources.fallbackCover || '';
     const coverImg = heroCover
       ? `<img class="wg-news-lg-cover-img" src="${escapeHtml(heroCover)}" alt="">`
       : '<div class="wg-news-lg-cover-img is-placeholder"></div>';
@@ -139,7 +139,7 @@ export function renderPopularPostsWidget({ sources, escapeHtml }, widget, option
     const post = posts[0];
     const title = escapeHtml(post?.spec?.title || '未命名文章');
     const visit = post?.stats?.visit ?? 0;
-    const cover = post?.spec?.cover || '';
+    const cover = post?.spec?.cover || sources.fallbackCover || '';
     const coverStyle = cover
       ? `style="background-image:url('${escapeHtml(cover)}')"` : '';
     const fallbackCls = cover ? '' : ' is-no-cover';
@@ -188,7 +188,7 @@ export function renderPopularPostsWidget({ sources, escapeHtml }, widget, option
     /* ── Large (4x4): 焦点图 + 排行榜 ── */
     const heroPost = posts[0];
     const heroTitle = escapeHtml(heroPost?.spec?.title || '未命名文章');
-    const heroCover = heroPost?.spec?.cover || '';
+    const heroCover = heroPost?.spec?.cover || sources.fallbackCover || '';
     const heroVisit = heroPost?.stats?.visit ?? 0;
     const coverImg = heroCover
       ? `<img class="wg-hot-lg-cover-img" src="${escapeHtml(heroCover)}" alt="" />`

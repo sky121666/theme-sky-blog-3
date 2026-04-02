@@ -108,7 +108,8 @@ export function registerDesktopSurface(Alpine) {
       randomTags: [],
       momentsAvailable: false,
       recentMoments: [],
-      archivesUrl: '/archives'
+      archivesUrl: '/archives',
+      fallbackCover: ''
     },
     iconsManaged: false,
     icons: [],
@@ -298,7 +299,8 @@ export function registerDesktopSurface(Alpine) {
         randomTags: Array.isArray(bootstrap.sources?.randomTags) ? bootstrap.sources.randomTags : [],
         momentsAvailable: !!bootstrap.sources?.momentsAvailable,
         recentMoments: Array.isArray(bootstrap.sources?.recentMoments) ? bootstrap.sources.recentMoments : [],
-        archivesUrl: bootstrap.sources?.archivesUrl || '/archives'
+        archivesUrl: bootstrap.sources?.archivesUrl || '/archives',
+        fallbackCover: bootstrap.sources?.fallbackCover || ''
       };
       this.widgetCatalog = buildWidgetCatalog(this.sources, this.modules);
       this.defaultWidgets = resolvedWidgets.map((widget) => ({ ...widget }));

@@ -368,6 +368,7 @@ spec:
           value:
             enabled: true
             edit_enabled: true
+            fallback_cover: ""
           children:
             - $formkit: switch
               id: widgets_behavior_enabled
@@ -381,6 +382,16 @@ spec:
               label: 允许编辑布局
               help: 后续会进入编辑态、拖拽和添加组件面板。
               value: true
+            - $formkit: attachment
+              id: widgets_behavior_fallback_cover
+              name: fallback_cover
+              label: 组件回退封面
+              help: 当文章没有封面图时，小组件将使用此图片作为占位。留空则显示纯色占位。
+              value: ""
+              accepts:
+                - "image/png"
+                - "image/jpeg"
+                - "image/webp"
         - $formkit: group
           id: widgets_modules_group
           name: modules
