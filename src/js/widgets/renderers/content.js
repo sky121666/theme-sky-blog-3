@@ -273,42 +273,35 @@ export function renderCategoriesWidget({ sources, escapeHtml }) {
 
 export function renderAuthorCardWidget({ sources, escapeHtml }, widget) {
   const author = resolveDesktopAuthorProfile(sources);
+  const authorHref = escapeHtml(author.permalink || '#');
   const avatarMarkup = author.avatar
-    ? `<img class="desktop-widget-mac-avatar-img" src="${escapeHtml(author.avatar)}" alt="${escapeHtml(author.displayName)}">`
-    : `<span class="desktop-widget-mac-avatar-fallback">${escapeHtml((author.displayName || 'A').slice(0, 1))}</span>`;
+    ? `<img class="wg-author-avatar-img" src="${escapeHtml(author.avatar)}" alt="${escapeHtml(author.displayName)}">`
+    : `<span class="wg-author-avatar-fallback">${escapeHtml((author.displayName || 'A').slice(0, 1))}</span>`;
 
-  if (widget?.size === 'small') {
-    return `
-      <div class="desktop-widget-mac-author is-small">
-        <div class="desktop-widget-mac-avatar">${avatarMarkup}</div>
-        <strong class="desktop-widget-mac-author-name">${escapeHtml(author.displayName)}</strong>
-        <span class="desktop-widget-mac-author-bio">${escapeHtml(author.summary)}</span>
-      </div>
-    `;
-  }
+  /* 文章路由 = 作者页, 瞬间路由 = /moments */
+  const postsHref = authorHref;
+  const momentsHref = '/moments';
+
+  /* 文章 icon */
+  const postsSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>`;
+  /* 瞬间 icon */
+  const momentsSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
 
   return `
-    <div class="desktop-widget-mac-author is-medium">
-      <div class="desktop-widget-mac-author-profile">
-        <div class="desktop-widget-mac-avatar">${avatarMarkup}</div>
-        <div class="desktop-widget-mac-author-copy">
-          <strong>${escapeHtml(author.displayName)}</strong>
-          <span>${escapeHtml(author.summary)}</span>
+    <div class="wg-author-compact">
+      <a class="wg-author-head" href="${authorHref}">
+        <div class="wg-author-avatar">
+          ${avatarMarkup}
+          <div class="wg-author-status-dot"></div>
         </div>
-      </div>
-      <div class="desktop-widget-mac-author-stats">
-        <div class="desktop-widget-mac-author-stat">
-          <strong>${escapeHtml(formatCompactNumber(author.posts))}</strong>
-          <em>文章</em>
+        <div class="wg-author-info">
+          <strong class="wg-author-name">${escapeHtml(author.displayName)}</strong>
+          <span class="wg-author-bio">${escapeHtml(author.summary)}</span>
         </div>
-        <div class="desktop-widget-mac-author-stat">
-          <strong>${escapeHtml(formatCompactNumber(author.comments))}</strong>
-          <em>评论</em>
-        </div>
-        <div class="desktop-widget-mac-author-stat">
-          <strong>${escapeHtml(formatCompactNumber(author.visits))}</strong>
-          <em>访问</em>
-        </div>
+      </a>
+      <div class="wg-author-actions">
+        <a class="wg-author-action-btn" href="${postsHref}" title="文章">${postsSvg}</a>
+        <a class="wg-author-action-btn" href="${momentsHref}" title="瞬间">${momentsSvg}</a>
       </div>
     </div>
   `;

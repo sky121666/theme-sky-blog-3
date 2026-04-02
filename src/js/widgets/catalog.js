@@ -66,9 +66,10 @@ export const DESKTOP_WIDGET_CATALOG = {
     title: '作者卡片',
     kicker: 'Halo',
     size: 'small',
-    sizes: ['small', 'medium'],
+    sizes: ['small'],
+    sizeOverrides: { small: { w: 2, h: 1 } },
     category: 'halo',
-    description: '站点作者与发布概览'
+    description: '站点作者与快捷入口'
   },
   'halo.site_stats': {
     title: '站点统计',
