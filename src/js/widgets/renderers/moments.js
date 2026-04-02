@@ -6,7 +6,6 @@ export function renderRecentMomentsWidget({ sources, escapeHtml, normalizeMoment
   const moments = sources.recentMoments
     .slice(0, widget?.size === 'large' ? 3 : 1)
     .map((moment) => normalizeMomentRecord(moment));
-  const isPreview = options.preview === true;
 
   if (!moments.length) {
     return '<div class="desktop-widget-empty">还没有可展示的瞬间。</div>';
@@ -16,22 +15,6 @@ export function renderRecentMomentsWidget({ sources, escapeHtml, normalizeMoment
 
   if (compact) {
     const featured = moments[0];
-    if (isPreview) {
-      return `
-        <div class="desktop-widget-preview-skin desktop-widget-preview-skin--moment is-compact">
-          <div class="desktop-widget-preview-moment-head">
-            <span class="desktop-widget-preview-moment-kicker">瞬间</span>
-            <span class="desktop-widget-preview-moment-chip">${escapeHtml(featured.rowBadge)}</span>
-          </div>
-          <div class="desktop-widget-preview-moment-compact-copy">
-            <strong>${escapeHtml(featured.title)}</strong>
-            <span>${escapeHtml(featured.summary || featured.listTime)}</span>
-            <span>${escapeHtml(featured.listTime)}</span>
-          </div>
-        </div>
-      `;
-    }
-
     return `
       <a class="desktop-widget-moment-live pjax-link is-compact" href="${escapeHtml(featured.permalink)}">
         <span class="desktop-widget-moment-live-kicker">瞬间</span>
@@ -49,34 +32,6 @@ export function renderRecentMomentsWidget({ sources, escapeHtml, normalizeMoment
   const cover = featuredMedium?.type === 'PHOTO'
     ? `<img class="desktop-widget-moment-cover-image" src="${escapeHtml(featuredMedium.url)}" alt="">`
     : `<div class="desktop-widget-moment-cover-fallback">${escapeHtml(featured.mediaCount > 0 ? `${featured.mediaCount} 项媒体` : featured.summary)}</div>`;
-
-  if (isPreview) {
-    const previewCover = featuredMedium?.type === 'PHOTO'
-      ? `<img class="desktop-widget-preview-moment-cover-image" src="${escapeHtml(featuredMedium.url)}" alt="">`
-      : `<div class="desktop-widget-preview-moment-cover-fallback">${escapeHtml(featured.mediaCount > 0 ? `${featured.mediaCount} 项媒体` : featured.summary)}</div>`;
-    return `
-      <div class="desktop-widget-preview-skin desktop-widget-preview-skin--moment is-large">
-        <div class="desktop-widget-preview-moment-cover">
-          ${previewCover}
-          ${featured.mediaCount > 0 ? `<span class="desktop-widget-preview-moment-chip is-overlay">${escapeHtml(`${featured.mediaCount} 项媒体`)}</span>` : ''}
-        </div>
-        <div class="desktop-widget-preview-moment-copy">
-          <span class="desktop-widget-preview-moment-kicker">瞬间</span>
-          <strong>${escapeHtml(featured.title)}</strong>
-          <span class="desktop-widget-preview-moment-summary">${escapeHtml(featured.summary)}</span>
-          <span class="desktop-widget-preview-moment-meta">${escapeHtml(`${featured.listTime} · ${featured.rowBadge}`)}</span>
-        </div>
-        <div class="desktop-widget-preview-moment-list">
-          ${list.map((moment) => `
-            <span class="desktop-widget-preview-moment-row">
-              <span>${escapeHtml(moment.title)}</span>
-              <em>${escapeHtml(moment.rowBadge)}</em>
-            </span>
-          `).join('')}
-        </div>
-      </div>
-    `;
-  }
 
   return `
     <div class="desktop-widget-moment-diary">

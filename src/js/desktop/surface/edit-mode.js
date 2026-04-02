@@ -263,9 +263,8 @@ export const editModeMethods = {
     );
   },
 
-  usesStandalonePreviewSkin(widget) {
-    return ['halo.latest_posts', 'halo.popular_posts', 'plugin-moments.recent'].includes(widget?.widget);
-  },
+
+
 
   selectedWidgetVariantStyle(entry) {
     return this.getVariantPreviewStyle(entry, this.selectedWidgetVariantSize(entry));

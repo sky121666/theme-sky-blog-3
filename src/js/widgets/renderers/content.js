@@ -6,7 +6,6 @@ import {
 } from './data.js';
 
 export function renderLatestPostsWidget({ sources, escapeHtml }, widget, options = {}) {
-  const isPreview = options.preview === true;
   const size = widget?.size || 'medium';
 
   let limit = 3;
@@ -115,14 +114,10 @@ export function renderLatestPostsWidget({ sources, escapeHtml }, widget, options
     `;
   }
 
-  if (isPreview) {
-    return `<div class="desktop-widget-preview-skin desktop-widget-preview-skin--latest is-${size}">${inner}</div>`;
-  }
   return `<div class="desktop-widget-news-layout is-${size}">${inner}</div>`;
 }
 
 export function renderPopularPostsWidget({ sources, escapeHtml }, widget, options = {}) {
-  const isPreview = options.preview === true;
   const isCompact = options.compact === true;
   const size = widget?.size || 'medium';
 
@@ -235,9 +230,6 @@ export function renderPopularPostsWidget({ sources, escapeHtml }, widget, option
   }
 
   const cls = `wg-hot-wrap wg-hot-wrap--${size}${isCompact ? ' is-compact' : ''}`;
-  if (isPreview) {
-    return `<div class="desktop-widget-preview-skin desktop-widget-preview-skin--charts">${inner}</div>`;
-  }
   return `<div class="${cls}">${inner}</div>`;
 }
 
@@ -350,7 +342,6 @@ const BG_POSITIONS = [
 ];
 
 export function renderRandomTagsWidget({ sources, escapeHtml }, widget, options = {}) {
-  const isPreview = options.preview === true;
   const isCompact = options.compact === true;
   const size = widget?.size || 'medium';
 
@@ -370,7 +361,7 @@ export function renderRandomTagsWidget({ sources, escapeHtml }, widget, options 
     }).join('');
 
     const content = `<div class="wg-tag-focus-stage" data-tag-focus>${itemsHTML}</div>`;
-    return isPreview ? `<div class="desktop-widget-preview-skin">${content}</div>` : content;
+    return content;
   }
 
   // ── 中 / 大组件: 结构化磁吸墙 ──
@@ -421,7 +412,7 @@ export function renderRandomTagsWidget({ sources, escapeHtml }, widget, options 
     content = `<div class="wg-tag-wall is-medium${isCompact ? ' is-compact' : ''}">${chipsMarkup}</div>`;
   }
 
-  return isPreview ? `<div class="desktop-widget-preview-skin">${content}</div>` : content;
+  return content;
 }
 
 /* ── Focus & Blur 自动轮转 (全局定时器) ── */

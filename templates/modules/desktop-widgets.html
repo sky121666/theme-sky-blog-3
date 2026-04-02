@@ -253,17 +253,14 @@
                     <div class="desktop-widget-center-preview" :style="selectedWidgetVariantStyle(entry)">
                       <article class="desktop-widget-card desktop-widget-card--preview"
                                :data-widget-appearance="widgetAppearanceValue(selectedWidgetVariant(entry))"
-                               :class="widgetClassName(selectedWidgetVariant(entry)) + (usesStandalonePreviewSkin(selectedWidgetVariant(entry)) ? ' is-standalone-preview' : '')">
-                        <template x-if="!usesStandalonePreviewSkin(selectedWidgetVariant(entry))">
-                          <header class="desktop-widget-header">
-                            <div>
-                              <p class="desktop-widget-kicker" x-text="widgetKicker(selectedWidgetVariant(entry))"></p>
-                              <h2 class="desktop-widget-title" x-text="selectedWidgetVariant(entry).title"></h2>
-                            </div>
-                          </header>
-                        </template>
+                               :class="widgetClassName(selectedWidgetVariant(entry))">
+                        <header class="desktop-widget-header">
+                          <div>
+                            <p class="desktop-widget-kicker" x-text="widgetKicker(selectedWidgetVariant(entry))"></p>
+                            <h2 class="desktop-widget-title" x-text="selectedWidgetVariant(entry).title"></h2>
+                          </div>
+                        </header>
                         <div class="desktop-widget-body"
-                             :class="{ 'is-standalone-preview': usesStandalonePreviewSkin(selectedWidgetVariant(entry)) }"
                              x-html="renderWidgetBody(selectedWidgetVariant(entry), { preview: true })"></div>
                       </article>
                     </div>

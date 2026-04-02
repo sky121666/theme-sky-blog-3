@@ -3,9 +3,7 @@
    ══════════════════════════════════════════════ */
 
 :root:not(.dark) .desktop-widget-card.widget--halo-latest_posts[data-widget-appearance="follow"],
-.desktop-widget-card.widget--halo-latest_posts[data-widget-appearance="light"],
-:root:not(.dark) .desktop-widget-card--preview[data-widget-appearance="follow"] .desktop-widget-preview-skin--latest,
-.desktop-widget-card--preview[data-widget-appearance="light"] .desktop-widget-preview-skin--latest {
+.desktop-widget-card.widget--halo-latest_posts[data-widget-appearance="light"] {
   --widget-news-primary: rgba(15, 23, 42, 0.92);
   --widget-news-secondary: rgba(15, 23, 42, 0.72);
   --widget-news-muted: rgba(15, 23, 42, 0.48);
