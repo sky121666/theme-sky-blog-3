@@ -98,7 +98,7 @@ export const DESKTOP_WIDGET_CATALOG = {
     title: '瞬间',
     kicker: '瞬间',
     size: 'medium',
-    sizes: ['medium', 'large'],
+    sizes: ['medium'],
     category: 'plugin',
     description: '最新动态与媒体预览'
   }

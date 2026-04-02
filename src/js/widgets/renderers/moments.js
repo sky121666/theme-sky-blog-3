@@ -1,65 +1,44 @@
-export function renderRecentMomentsWidget({ sources, escapeHtml, normalizeMomentRecord }, widget, options = {}) {
+import { resolveDesktopAuthorProfile } from './data.js';
+
+export function renderRecentMomentsWidget({ sources, escapeHtml, normalizeMomentRecord }, widget) {
   if (!sources.momentsAvailable) {
     return '<div class="desktop-widget-empty">未安装 Moments 插件。</div>';
   }
 
   const moments = sources.recentMoments
-    .slice(0, widget?.size === 'large' ? 3 : 1)
+    .slice(0, 1)
     .map((moment) => normalizeMomentRecord(moment));
 
   if (!moments.length) {
     return '<div class="desktop-widget-empty">还没有可展示的瞬间。</div>';
   }
 
-  const compact = widget?.size !== 'large';
+  const featured = moments[0];
+  const author = resolveDesktopAuthorProfile(sources);
+  const tag = featured.tags.length > 0 ? featured.tags[0] : '';
+  const upvote = sources.recentMoments[0]?.stats?.upvote ?? 0;
+  const totalComment = sources.recentMoments[0]?.stats?.totalComment ?? 0;
 
-  if (compact) {
-    const featured = moments[0];
-    return `
-      <a class="desktop-widget-moment-live pjax-link is-compact" href="${escapeHtml(featured.permalink)}">
-        <span class="desktop-widget-moment-live-kicker">瞬间</span>
-        <strong class="desktop-widget-moment-live-title">${escapeHtml(featured.title)}</strong>
-        <span class="desktop-widget-moment-live-deck">${escapeHtml(featured.summary || featured.rowBadge)}</span>
-        <span class="desktop-widget-moment-live-meta">${escapeHtml(featured.listTime)}</span>
-        <span class="desktop-widget-moment-live-foot">${escapeHtml(featured.rowBadge)}</span>
-      </a>
-    `;
-  }
-
-  const [featured, ...rest] = moments;
-  const list = rest.slice(0, widget?.size === 'large' ? 2 : 1);
-  const featuredMedium = featured?.media?.[0];
-  const cover = featuredMedium?.type === 'PHOTO'
-    ? `<img class="desktop-widget-moment-cover-image" src="${escapeHtml(featuredMedium.url)}" alt="">`
-    : `<div class="desktop-widget-moment-cover-fallback">${escapeHtml(featured.mediaCount > 0 ? `${featured.mediaCount} 项媒体` : featured.summary)}</div>`;
+  const svgHeart = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`;
+  const svgChat = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>`;
 
   return `
-    <div class="desktop-widget-moment-diary">
-      <a class="desktop-widget-moment-diary-hero pjax-link" href="${escapeHtml(featured.permalink)}">
-        <div class="desktop-widget-moment-diary-cover">
-          ${cover}
-          ${featured.mediaCount > 0 ? `<span class="desktop-widget-moment-cover-badge">${escapeHtml(`${featured.mediaCount} 项媒体`)}</span>` : ''}
-        </div>
-        <div class="desktop-widget-moment-diary-copy">
-          <span class="desktop-widget-moment-diary-kicker">瞬间</span>
-          <span class="desktop-widget-moment-diary-title">${escapeHtml(featured.title)}</span>
-          <span class="desktop-widget-moment-diary-summary">${escapeHtml(featured.summary)}</span>
-          <span class="desktop-widget-moment-diary-meta">${escapeHtml(`${featured.listTime} · ${featured.rowBadge}`)}</span>
-        </div>
-      </a>
-      ${list.length ? `
-        <div class="desktop-widget-moment-diary-trail">
-          ${list.map((moment) => `
-            <a class="desktop-widget-moment-diary-row pjax-link" href="${escapeHtml(moment.permalink)}">
-              <span class="desktop-widget-moment-diary-row-copy">
-                <span class="desktop-widget-moment-diary-row-title">${escapeHtml(moment.title)}</span>
-                <span class="desktop-widget-moment-diary-row-meta">${escapeHtml(moment.listTime)}</span>
-              </span>
-              <span class="desktop-widget-moment-diary-row-badge">${escapeHtml(moment.rowBadge)}</span>
-            </a>
-          `).join('')}
-        </div>
-      ` : ''}
-    </div>
+    <a class="wg-moment-social pjax-link" href="${escapeHtml(featured.permalink)}">
+      <span class="wg-moment-social-header">
+        <span class="wg-moment-social-avatar">
+          <img src="${escapeHtml(author.avatar || '/logo')}" alt="">
+        </span>
+        <span class="wg-moment-social-info">
+          <span class="wg-moment-social-name">${escapeHtml(author.displayName || '作者')}</span>
+          <span class="wg-moment-social-time">${escapeHtml(featured.listTime)}</span>
+        </span>
+        ${tag ? `<span class="wg-moment-social-tag">#${escapeHtml(tag)}</span>` : ''}
+      </span>
+      <span class="wg-moment-social-content">${escapeHtml(featured.summary)}</span>
+      <span class="wg-moment-social-bar">
+        <span class="wg-moment-social-stat is-heart">${svgHeart}<b>${upvote}</b></span>
+        <span class="wg-moment-social-stat is-chat">${svgChat}<b>${totalComment}</b></span>
+      </span>
+    </a>
   `;
 }
