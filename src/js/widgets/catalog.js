@@ -8,7 +8,8 @@ import { flattenCategoryTree } from './index.js';
 export const DESKTOP_WIDGET_SIZE_MAP = {
   small: { w: 2, h: 2 },
   medium: { w: 4, h: 2 },
-  large: { w: 4, h: 4 }
+  large: { w: 4, h: 4 },
+  'extra-large': { w: 4, h: 4 }
 };
 
 export const DESKTOP_WIDGET_APPEARANCE_OPTIONS = ['follow', 'light', 'dark'];
@@ -75,7 +76,13 @@ export const DESKTOP_WIDGET_CATALOG = {
     title: '站点统计',
     kicker: 'Halo',
     size: 'small',
-    sizes: ['small'],
+    sizes: ['small', 'medium', 'large', 'extra-large'],
+    sizeOverrides: {
+      small: { w: 2, h: 2 },
+      medium: { w: 2, h: 1 },
+      large: { w: 2, h: 2 },
+      'extra-large': { w: 2, h: 2 }
+    },
     category: 'halo',
     description: '访问、文章和评论总览'
   },
@@ -185,7 +192,7 @@ export function generateWidgetTitle(widgetType) {
   return getWidgetCatalogEntry(widgetType)?.title || '未命名组件';
 }
 
-const SIZE_LABELS = { small: '小', medium: '中', large: '大' };
+const SIZE_LABELS = { small: '小', medium: '中', large: '大', 'extra-large': '特大' };
 
 export function buildWidgetCatalog(sources, modules) {
   const types = [

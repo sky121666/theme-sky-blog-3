@@ -192,9 +192,7 @@
 }
 
 :root:not(.dark) .desktop-widget-card.widget--halo-categories[data-widget-appearance="follow"] .desktop-widget-mac-bento,
-:root:not(.dark) .desktop-widget-card.widget--halo-site_stats[data-widget-appearance="follow"] .desktop-widget-mac-bento,
-.desktop-widget-card.widget--halo-categories[data-widget-appearance="light"] .desktop-widget-mac-bento,
-.desktop-widget-card.widget--halo-site_stats[data-widget-appearance="light"] .desktop-widget-mac-bento {
+.desktop-widget-card.widget--halo-categories[data-widget-appearance="light"] .desktop-widget-mac-bento {
   --widget-mac-surface: rgba(15, 23, 42, 0.04);
   --widget-mac-surface-hover: rgba(15, 23, 42, 0.07);
   --widget-mac-border: rgba(15, 23, 42, 0.08);

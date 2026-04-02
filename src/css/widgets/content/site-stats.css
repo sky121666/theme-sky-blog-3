@@ -1,0 +1,440 @@
+/* ── Site Stats Widget (Hero & List) ── */
+
+.wg-stat-hero-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 10px;
+  gap: 8px;
+  border-radius: inherit;
+  background: var(--desktop-widget-surface); /* inherited from wrapper, we can just use transparent or override */
+}
+
+/* ── Overriding the wrapper for full custom styling ── */
+.desktop-widget-card[class*="widget--halo-site_stats"] {
+  background: linear-gradient(180deg, rgba(24, 24, 27, 0.9) 0%, rgba(9, 9, 11, 0.95) 100%);
+  border: 1px solid rgba(39, 39, 42, 0.6);
+  box-shadow: 
+    0 10px 30px -10px rgba(0,0,0,0.5),
+    inset 0 1px 1px rgba(255,255,255,0.05);
+}
+
+/* ── Up: Hero Block ── */
+.wg-stat-hero {
+  flex: 1;
+  background: rgba(24, 24, 27, 0.4);
+  border-radius: 12px;
+  border: 1px solid rgba(39, 39, 42, 0.3);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.2s ease;
+}
+
+.wg-stat-hero:hover {
+  background: rgba(39, 39, 42, 0.6);
+}
+
+.wg-stat-hero-bg-icon {
+  position: absolute;
+  right: -8px;
+  bottom: -8px;
+  width: 60px;
+  height: 60px;
+  color: rgba(16, 185, 129, 0.05);
+  transition: transform 0.3s ease;
+}
+
+.wg-stat-hero:hover .wg-stat-hero-bg-icon {
+  transform: scale(1.1);
+}
+
+.wg-stat-hero-head {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.wg-stat-hero-icon {
+  width: 14px;
+  height: 14px;
+  color: #34d399; /* emerald-400 */
+}
+
+.wg-stat-hero-head span {
+  font-size: 10px;
+  font-weight: 700;
+  color: #a1a1aa; /* zinc-400 */
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.wg-stat-hero-value {
+  position: relative;
+  z-index: 10;
+  font-size: 24px;
+  font-weight: 900;
+  color: #ffffff;
+  font-family: inherit; /* could use mono */
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+.glow-text-emerald {
+  text-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+}
+
+/* ── Down: List Block ── */
+.wg-stat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wg-stat-list-item {
+  background: rgba(24, 24, 27, 0.3);
+  border-radius: 10px;
+  padding: 6px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid rgba(39, 39, 42, 0.2);
+  transition: background 0.2s ease;
+}
+
+.wg-stat-list-item:hover {
+  background: rgba(39, 39, 42, 0.4);
+}
+
+.wg-stat-list-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #d4d4d8; /* zinc-300 */
+}
+
+.wg-stat-list-icon {
+  width: 12px;
+  height: 12px;
+}
+.wg-stat-list-icon.color-blue { color: #60a5fa; /* blue-400 */ }
+.wg-stat-list-icon.color-rose { color: #fb7185; /* rose-400 */ }
+
+.wg-stat-list-value {
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+/* ── Light Mode Support ── */
+:root:not(.dark) .desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="follow"],
+.desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="light"] {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(245, 245, 245, 0.98) 100%);
+  border-color: rgba(228, 228, 231, 0.8);
+  box-shadow: 
+    0 4px 12px rgba(0,0,0,0.05),
+    inset 0 1px 1px rgba(255,255,255,1);
+}
+
+:root:not(.dark) .desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="follow"] .wg-stat-hero,
+.desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="light"] .wg-stat-hero {
+  background: rgba(244, 244, 245, 0.6);
+  border-color: rgba(228, 228, 231, 0.8);
+}
+
+:root:not(.dark) .desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="follow"] .wg-stat-hero:hover,
+.desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="light"] .wg-stat-hero:hover {
+  background: rgba(228, 228, 231, 0.6);
+}
+
+:root:not(.dark) .desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="follow"] .wg-stat-hero-bg-icon,
+.desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="light"] .wg-stat-hero-bg-icon {
+  color: rgba(16, 185, 129, 0.1);
+}
+
+:root:not(.dark) .desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="follow"] .wg-stat-hero-head span,
+.desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="light"] .wg-stat-hero-head span {
+  color: #71717a;
+}
+
+:root:not(.dark) .desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="follow"] .wg-stat-hero-value,
+.desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="light"] .wg-stat-hero-value {
+  color: #18181b;
+}
+
+:root:not(.dark) .desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="follow"] .wg-stat-list-item,
+.desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="light"] .wg-stat-list-item {
+  background: rgba(244, 244, 245, 0.5);
+  border-color: rgba(228, 228, 231, 0.6);
+}
+
+:root:not(.dark) .desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="follow"] .wg-stat-list-item:hover,
+.desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="light"] .wg-stat-list-item:hover {
+  background: rgba(228, 228, 231, 0.5);
+}
+
+:root:not(.dark) .desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="follow"] .wg-stat-list-label,
+.desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="light"] .wg-stat-list-label {
+  color: #52525b;
+}
+
+:root:not(.dark) .desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="follow"] .wg-stat-list-value,
+.desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="light"] .wg-stat-list-value {
+  color: #18181b;
+}
+
+/* ── Micro Monitor 1x2 ── */
+.wg-stat-micro {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  gap: 6px;
+}
+
+.wg-stat-micro-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #a1a1aa;
+}
+
+.wg-stat-pulse-dot {
+  width: 6px;
+  height: 6px;
+  background-color: #10b981;
+  border-radius: 50%;
+  box-shadow: 0 0 5px #10b981;
+  animation: pulse-fast 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.wg-stat-micro-value {
+  font-size: 30px;
+  font-weight: 900;
+  color: #ffffff;
+  font-family: inherit;
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+@keyframes pulse-fast {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .5; transform: scale(.9); }
+}
+
+:root:not(.dark) .desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="follow"] .wg-stat-micro-label,
+.desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="light"] .wg-stat-micro-label {
+  color: #71717a;
+}
+:root:not(.dark) .desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="follow"] .wg-stat-micro-value,
+.desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="light"] .wg-stat-micro-value {
+  color: #18181b;
+}
+
+/* ── Radial Chart 2x2 ── */
+.wg-stat-ring {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  height: 100%;
+  padding: 12px;
+  position: relative;
+}
+
+.wg-stat-ring-title {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #71717a;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.wg-stat-ring-chart-wrap {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  margin-top: 16px;
+  transition: transform 0.5s ease;
+}
+.desktop-widget-card:hover .wg-stat-ring-chart-wrap {
+  transform: scale(1.05);
+}
+
+.wg-stat-ring-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.3));
+}
+
+.wg-stat-ring-bg-circle {
+  stroke: rgba(39, 39, 42, 0.6);
+}
+
+.wg-stat-ring-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wg-stat-ring-total {
+  font-size: 18px;
+  font-weight: 900;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.wg-stat-ring-legend {
+  display: flex;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.wg-stat-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #a1a1aa;
+}
+
+.wg-stat-legend-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.wg-stat-legend-dot.bg-blue { background: #3b82f6; box-shadow: 0 0 5px #3b82f6; }
+.wg-stat-legend-dot.bg-rose { background: #f43f5e; box-shadow: 0 0 5px #f43f5e; }
+
+:root:not(.dark) .desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="follow"] .wg-stat-ring-total,
+.desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="light"] .wg-stat-ring-total {
+  color: #18181b;
+}
+:root:not(.dark) .desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="follow"] .wg-stat-ring-bg-circle,
+.desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="light"] .wg-stat-ring-bg-circle {
+  stroke: rgba(228, 228, 231, 0.8);
+}
+:root:not(.dark) .desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="follow"] .wg-stat-legend-item,
+.desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="light"] .wg-stat-legend-item {
+  color: #52525b;
+}
+
+/* ── Minimalist Hero 2x2 ── */
+.wg-stat-hero-solo {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.wg-stat-hero-solo-bg-icon {
+  position: absolute;
+  right: -24px;
+  bottom: -24px;
+  width: 110px;
+  height: 110px;
+  color: rgba(16, 185, 129, 0.05);
+  transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.desktop-widget-card:hover .wg-stat-hero-solo-bg-icon {
+  transform: scale(1.1) rotate(-6deg);
+}
+
+.wg-stat-hero-solo-top {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.wg-stat-hero-solo-icon {
+  width: 36px;
+  height: 36px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 12px;
+  color: #34d399;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+  padding: 8px;
+}
+
+.wg-stat-hero-solo-badge {
+  background: rgba(39, 39, 42, 0.6);
+  border: 1px solid rgba(63, 63, 70, 0.8);
+  color: #a1a1aa;
+  font-size: 8px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.wg-stat-hero-solo-bottom {
+  position: relative;
+  z-index: 10;
+}
+
+.wg-stat-hero-solo-bottom h3 {
+  font-size: 10px;
+  font-weight: 700;
+  color: #a1a1aa;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0 0 6px 0;
+}
+
+.wg-stat-hero-solo-value {
+  font-size: 34px;
+  font-weight: 900;
+  color: #ffffff;
+  line-height: 1;
+  letter-spacing: -0.05em;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+}
+
+:root:not(.dark) .desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="follow"] .wg-stat-hero-solo-badge,
+.desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="light"] .wg-stat-hero-solo-badge {
+  background: rgba(244, 244, 245, 0.6);
+  border-color: rgba(228, 228, 231, 0.8);
+  color: #71717a;
+}
+:root:not(.dark) .desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="follow"] .wg-stat-hero-solo-bottom h3,
+.desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="light"] .wg-stat-hero-solo-bottom h3 {
+  color: #71717a;
+}
+:root:not(.dark) .desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="follow"] .wg-stat-hero-solo-value,
+.desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="light"] .wg-stat-hero-solo-value {
+  color: #18181b;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+}

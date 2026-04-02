@@ -259,7 +259,7 @@
 .desktop-widget-card.widget--halo-popular_posts,
 .desktop-widget-card.widget--halo-categories,
 .desktop-widget-card.widget--halo-author_card,
-.desktop-widget-card.widget--halo-site_stats,
+.desktop-widget-card[class*="widget--halo-site_stats"],
 .desktop-widget-card.widget--halo-random_tags {
   padding: 0 !important;
 }
@@ -268,7 +268,7 @@
 .desktop-widget-card.widget--halo-popular_posts .desktop-widget-header,
 .desktop-widget-card.widget--halo-categories .desktop-widget-header,
 .desktop-widget-card.widget--halo-author_card .desktop-widget-header,
-.desktop-widget-card.widget--halo-site_stats .desktop-widget-header,
+.desktop-widget-card[class*="widget--halo-site_stats"] .desktop-widget-header,
 .desktop-widget-card.widget--halo-random_tags .desktop-widget-header {
   position: absolute;
   inset: 0 0 auto 0;
@@ -281,7 +281,7 @@
 .desktop-widget-card.widget--halo-popular_posts .desktop-widget-header > div:first-child,
 .desktop-widget-card.widget--halo-categories .desktop-widget-header > div:first-child,
 .desktop-widget-card.widget--halo-author_card .desktop-widget-header > div:first-child,
-.desktop-widget-card.widget--halo-site_stats .desktop-widget-header > div:first-child,
+.desktop-widget-card[class*="widget--halo-site_stats"] .desktop-widget-header > div:first-child,
 .desktop-widget-card.widget--halo-random_tags .desktop-widget-header > div:first-child {
   display: none;
 }
@@ -290,7 +290,7 @@
 .desktop-widget-card.widget--halo-popular_posts .desktop-widget-body,
 .desktop-widget-card.widget--halo-categories .desktop-widget-body,
 .desktop-widget-card.widget--halo-author_card .desktop-widget-body,
-.desktop-widget-card.widget--halo-site_stats .desktop-widget-body,
+.desktop-widget-card[class*="widget--halo-site_stats"] .desktop-widget-body,
 .desktop-widget-card.widget--halo-random_tags .desktop-widget-body {
   height: 100%;
   padding: 0;
@@ -316,11 +316,6 @@
   display: none;
 }
 
-.desktop-widget-card.widget--halo-site_stats {
-  background:
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.16), transparent 44%),
-    linear-gradient(135deg, color-mix(in srgb, var(--theme-accent) 58%, #17213b), rgba(50, 30, 76, 0.88));
-}
 
 .desktop-widget-card.widget--halo-latest_posts {
   background:
@@ -436,13 +431,6 @@
     inset 0 0 0 1px rgba(15, 23, 42, 0.06);
 }
 
-:root:not(.dark) .desktop-widget-card.widget--halo-site_stats[data-widget-appearance="follow"],
-.desktop-widget-card.widget--halo-site_stats[data-widget-appearance="light"] {
-  background:
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.44), transparent 46%),
-    linear-gradient(135deg, color-mix(in srgb, var(--theme-accent) 16%, #f8fbff), rgba(255,255,255,0.74));
-  border-color: rgba(15, 23, 42, 0.06);
-}
 
 :root:not(.dark) .desktop-widget-card.widget--halo-categories[data-widget-appearance="follow"],
 :root:not(.dark) .desktop-widget-card.widget--halo-author_card[data-widget-appearance="follow"],
@@ -463,12 +451,12 @@
 }
 
 .desktop-widget-card.widget--system-weather .desktop-widget-kicker,
-.desktop-widget-card.widget--halo-site_stats .desktop-widget-kicker {
+.desktop-widget-card[class*="widget--halo-site_stats"] .desktop-widget-kicker {
   color: rgba(255, 255, 255, 0.66);
 }
 
-:root:not(.dark) .desktop-widget-card.widget--halo-site_stats[data-widget-appearance="follow"] .desktop-widget-kicker,
-.desktop-widget-card.widget--halo-site_stats[data-widget-appearance="light"] .desktop-widget-kicker {
+:root:not(.dark) .desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="follow"] .desktop-widget-kicker,
+.desktop-widget-card[class*="widget--halo-site_stats"][data-widget-appearance="light"] .desktop-widget-kicker {
   color: var(--widget-card-subtle);
 }
 
