@@ -96,12 +96,20 @@ export const DESKTOP_WIDGET_CATALOG = {
   }
 };
 
-export const DESKTOP_WIDGET_CENTER_CATEGORIES = [
-  { id: 'all', label: '全部' },
-  { id: 'system', label: '系统' },
-  { id: 'halo', label: 'Halo' },
-  { id: 'plugin', label: '插件' }
-];
+/**
+ * Widget center sidebar categories are built dynamically from the catalog.
+ * 'all' is always first; then one entry per unique widget type.
+ */
+export function buildWidgetCenterCategories(catalog) {
+  const seen = new Set();
+  const items = [{ id: 'all', label: '所有小组件' }];
+  for (const entry of catalog) {
+    if (seen.has(entry.widget)) continue;
+    seen.add(entry.widget);
+    items.push({ id: entry.widget, label: entry.title });
+  }
+  return items;
+}
 
 export function normalizeWidgetSize(size) {
   return DESKTOP_WIDGET_SIZE_MAP[size] ? size : 'medium';
@@ -176,34 +184,43 @@ export function generateWidgetTitle(widgetType) {
   return getWidgetCatalogEntry(widgetType)?.title || '未命名组件';
 }
 
+const SIZE_LABELS = { small: '小', medium: '中', large: '大' };
+
 export function buildWidgetCatalog(sources, modules) {
-  const items = [
-    { widget: 'system.clock', title: '时间' },
-    { widget: 'system.calendar', title: '日历' },
-    { widget: 'system.weather', title: '天气' }
+  const types = [
+    'system.clock',
+    'system.calendar',
+    'system.weather',
+    'halo.latest_posts',
+    'halo.popular_posts',
+    'halo.random_tags'
   ];
 
-  items.push(
-    { widget: 'halo.latest_posts', title: '最新文章' },
-    { widget: 'halo.popular_posts', title: '热门文章' },
-    { widget: 'halo.random_tags', title: '随机标签' }
-  );
-
   if (Array.isArray(sources?.categories) && flattenCategoryTree(sources.categories).length) {
-    items.push({ widget: 'halo.categories', title: '文章分类' });
+    types.push('halo.categories');
   }
 
-  items.push({ widget: 'halo.author_card', title: '作者卡片' });
-
-  items.push({ widget: 'halo.site_stats', title: '站点统计' });
+  types.push('halo.author_card', 'halo.site_stats');
 
   if (sources?.momentsAvailable) {
-    items.push({ widget: 'plugin-moments.recent', title: '瞬间' });
+    types.push('plugin-moments.recent');
   }
 
-  return items.map((item) => ({
-    ...item,
-    ...DESKTOP_WIDGET_CATALOG[item.widget],
-    sizes: DESKTOP_WIDGET_CATALOG[item.widget]?.sizes || [DESKTOP_WIDGET_CATALOG[item.widget]?.size || 'medium']
-  }));
+  const expanded = [];
+  for (const widgetType of types) {
+    const def = DESKTOP_WIDGET_CATALOG[widgetType];
+    if (!def) continue;
+    const sizes = def.sizes || [def.size || 'medium'];
+    for (const size of sizes) {
+      expanded.push({
+        ...def,
+        widget: widgetType,
+        size,
+        catalogKey: `${widgetType}:${size}`,
+        sizeLabel: SIZE_LABELS[size] || size
+      });
+    }
+  }
+
+  return expanded;
 }

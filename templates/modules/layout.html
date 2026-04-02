@@ -340,7 +340,8 @@
          x-data="desktopWidgets"
          x-ref="surface"
          @click.window="handleDesktopSurfaceOutsideClick($event)"
-         @contextmenu.prevent="handleDesktopSurfaceContextMenu($event)">
+         @contextmenu.prevent="handleDesktopSurfaceContextMenu($event)"
+         @keydown.window="handleDesktopKeydown($event)">
 
     <th:block th:replace="~{modules/desktop-widgets :: layer(
       enabled=${widgetsEnabled},

@@ -18,9 +18,9 @@ import { normalizeMomentRecord } from '../../shared/moments.js';
 
 import {
   DESKTOP_WIDGET_SIZE_MAP,
-  DESKTOP_WIDGET_CENTER_CATEGORIES,
   normalizeWidgetAppearance,
   buildWidgetCatalog,
+  buildWidgetCenterCategories,
   getWidgetCatalogEntry,
 } from '../../widgets/catalog.js';
 import {
@@ -316,10 +316,8 @@ export function registerDesktopSurface(Alpine) {
       });
 
       this.widgets = this.defaultWidgets.map((widget) => ({ ...widget }));
-      const normalizedSingleInstance = this.normalizeSingleInstanceTypes();
       desktopDebug('desktop widgets initialized', {
-        widgets: this.widgets.length,
-        normalizedSingleInstance
+        widgets: this.widgets.length
       });
 
       this.tickTimer = window.setInterval(() => {
@@ -400,14 +398,13 @@ export function registerDesktopSurface(Alpine) {
     },
 
     get widgetCenterCategories() {
-      const categories = new Set(this.widgetCatalog.map((entry) => entry.category || 'halo'));
-      return DESKTOP_WIDGET_CENTER_CATEGORIES.filter((item) => item.id === 'all' || categories.has(item.id));
+      return buildWidgetCenterCategories(this.widgetCatalog);
     },
 
     get filteredWidgetCatalog() {
       const keyword = this.widgetCenterSearch.trim().toLowerCase();
       return this.widgetCatalog.filter((entry) => {
-        if (this.widgetCenterCategory !== 'all' && entry.category !== this.widgetCenterCategory) {
+        if (this.widgetCenterCategory !== 'all' && entry.widget !== this.widgetCenterCategory) {
           return false;
         }
 
@@ -415,6 +412,31 @@ export function registerDesktopSurface(Alpine) {
         const haystack = `${entry.title} ${entry.kicker || ''} ${entry.description || ''}`.toLowerCase();
         return haystack.includes(keyword);
       });
+    },
+
+    get groupedFilteredCatalog() {
+      const items = this.filteredWidgetCatalog;
+      if (!items.length) return [];
+      const showHeaders = this.widgetCenterCategory === 'all' && !this.widgetCenterSearch.trim();
+      if (!showHeaders) return items;
+
+      const result = [];
+      let lastWidget = '';
+      for (const entry of items) {
+        if (entry.widget !== lastWidget) {
+          result.push({
+            _type: 'header',
+            _key: `hdr-${entry.widget}`,
+            label: entry.title,
+            description: entry.description || '',
+            /* safe defaults so Alpine bindings on hidden card don't throw */
+            widget: entry.widget, size: 'medium', catalogKey: '', sizeLabel: '', title: '', category: ''
+          });
+          lastWidget = entry.widget;
+        }
+        result.push(entry);
+      }
+      return result;
     },
 
     get showWidgetCenter() {
@@ -503,6 +525,31 @@ export function registerDesktopSurface(Alpine) {
       }
       if (!event.target.closest('.desktop-context-menu')) {
         this.closeDesktopContextMenu();
+      }
+      /* click outside widget center frame → switch to decorate
+         guard: skip if center was just opened (same event / x-if removed source from DOM) */
+      if (this.showWidgetCenter
+          && !event.target.closest('.desktop-widget-center-frame, .desktop-context-menu, .dock-container')
+          && Date.now() - (this._widgetCenterOpenedAt || 0) > 100) {
+        this.setEditStage('decorate');
+      }
+    },
+
+    handleDesktopKeydown(event) {
+      /* ⌘+S / Ctrl+S → save layout */
+      if ((event.metaKey || event.ctrlKey) && event.key === 's') {
+        if (this.isEditing) {
+          event.preventDefault();
+          this.saveDesktopEditing();
+        }
+      }
+      /* Esc → exit editing */
+      if (event.key === 'Escape' && this.isEditing) {
+        if (this.showWidgetCenter) {
+          this.setEditStage('decorate');
+        } else {
+          this.exitEditMode();
+        }
       }
     },
 

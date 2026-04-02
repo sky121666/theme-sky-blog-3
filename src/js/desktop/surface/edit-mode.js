@@ -31,6 +31,7 @@ export const editModeMethods = {
     this.endCenterSheetDrag(true);
     this.isEditing = true;
     this.editStage = stage === 'decorate' ? 'decorate' : 'add';
+    this._widgetCenterOpenedAt = Date.now();
     this.widgetCenterCategory = 'all';
     this.widgetCenterSearch = '';
     this.ensureWidgetCenterSelections();
@@ -53,6 +54,7 @@ export const editModeMethods = {
     this.editStage = stage === 'decorate' ? 'decorate' : 'add';
     this.previewPlacement = null;
     if (this.editStage === 'add') {
+      this._widgetCenterOpenedAt = Date.now();
       this.ensureWidgetCenterSelections();
     }
     this.syncDesktopBodyState();
@@ -159,94 +161,47 @@ export const editModeMethods = {
     this.widgetCenterCategory = categoryId;
   },
 
-  sizeLabel(size) {
-    if (size === 'small') return '小';
-    if (size === 'large') return '大';
-    return '中';
-  },
-
   catalogStatusText(entry) {
-    if (this.isWidgetTypeVisible(entry.widget)) {
-      return '已在桌面，可直接替换。';
+    const count = this.countVisibleWidgetsByType(entry.widget);
+    if (count > 0) {
+      return `桌面已有 ${count} 个`;
     }
-
     return entry.description || (entry.category === 'plugin' ? '来自插件' : '可添加到桌面');
   },
 
-  buildPreviewWidget(entry, size = entry.size, appearance = 'follow') {
+  buildPreviewWidget(entry, appearance = 'follow') {
     return createWidgetInstance(entry.widget, {
-      key: `preview-${entry.widget}`,
+      key: `preview-${entry.catalogKey}`,
       title: entry.title,
-      size,
+      size: entry.size,
       appearance
     });
   },
 
-  widgetVariantSizes(entry) {
-    return entry.sizes || [entry.size || 'medium'];
-  },
-
   ensureWidgetCenterSelections() {
     this.widgetCatalog.forEach((entry) => {
-      const replaceTarget = this.findReplaceTarget(entry.widget);
-      const current = this.widgetCenterSelections[entry.widget];
-      this.widgetCenterSelections[entry.widget] = {
-        size: normalizeWidgetSize(
-          current?.size
-          || replaceTarget?.size
-          || entry.size
-          || this.widgetVariantSizes(entry)[0]
-          || 'medium'
-        ),
-        appearance: normalizeWidgetAppearance(
-          current?.appearance
-          || replaceTarget?.appearance
-          || 'follow'
-        )
-      };
+      if (!this.widgetCenterSelections[entry.catalogKey]) {
+        this.widgetCenterSelections[entry.catalogKey] = {
+          appearance: 'follow'
+        };
+      }
     });
   },
 
-  selectedWidgetVariantSize(entry) {
-    return normalizeWidgetSize(
-      this.widgetCenterSelections[entry.widget]?.size
-      || this.findReplaceTarget(entry.widget)?.size
-      || entry.size
-      || this.widgetVariantSizes(entry)[0]
-      || 'medium'
-    );
-  },
-
-  selectedWidgetVariantAppearance(entry) {
+  selectedCatalogAppearance(entry) {
     return normalizeWidgetAppearance(
-      this.widgetCenterSelections[entry.widget]?.appearance
-      || this.findReplaceTarget(entry.widget)?.appearance
-      || 'follow'
+      this.widgetCenterSelections[entry.catalogKey]?.appearance || 'follow'
     );
   },
 
-  selectWidgetVariant(widgetType, size) {
-    const current = this.widgetCenterSelections[widgetType] || {};
-    this.widgetCenterSelections[widgetType] = {
-      size: normalizeWidgetSize(size),
-      appearance: normalizeWidgetAppearance(current.appearance)
-    };
-  },
-
-  selectWidgetAppearance(widgetType, appearance) {
-    const current = this.widgetCenterSelections[widgetType] || {};
-    this.widgetCenterSelections[widgetType] = {
-      size: normalizeWidgetSize(current.size),
+  selectCatalogAppearance(catalogKey, appearance) {
+    this.widgetCenterSelections[catalogKey] = {
       appearance: normalizeWidgetAppearance(appearance)
     };
   },
 
-  isWidgetVariantSelected(entry, size) {
-    return this.selectedWidgetVariantSize(entry) === normalizeWidgetSize(size);
-  },
-
-  isWidgetAppearanceSelected(entry, appearance) {
-    return this.selectedWidgetVariantAppearance(entry) === normalizeWidgetAppearance(appearance);
+  isCatalogAppearanceSelected(entry, appearance) {
+    return this.selectedCatalogAppearance(entry) === normalizeWidgetAppearance(appearance);
   },
 
   widgetAppearanceLabel(appearance) {
@@ -256,18 +211,11 @@ export const editModeMethods = {
   },
 
   selectedWidgetVariant(entry) {
-    return this.buildPreviewWidget(
-      entry,
-      this.selectedWidgetVariantSize(entry),
-      this.selectedWidgetVariantAppearance(entry)
-    );
+    return this.buildPreviewWidget(entry, this.selectedCatalogAppearance(entry));
   },
 
-
-
-
   selectedWidgetVariantStyle(entry) {
-    return this.getVariantPreviewStyle(entry, this.selectedWidgetVariantSize(entry));
+    return this.getVariantPreviewStyle(entry, entry.size);
   },
 
   getVariantPreviewStyle(entry, size) {
@@ -276,21 +224,13 @@ export const editModeMethods = {
     const g = this.gap;
     const w = span.w * cell + (span.w - 1) * g;
     const h = span.h * cell + (span.h - 1) * g;
-    return `--desktop-widget-preview-width: ${w}px; --desktop-widget-preview-height: ${h}px;`;
+    return `--desktop-widget-preview-width:${w}px;--desktop-widget-preview-height:${h}px;`;
   },
 
   /* ── 组件 CRUD ── */
 
   countVisibleWidgetsByType(widgetType) {
     return this.widgets.filter((widget) => widget.widget === widgetType && !widget.hidden).length;
-  },
-
-  isWidgetTypeVisible(widgetType) {
-    return this.countVisibleWidgetsByType(widgetType) > 0;
-  },
-
-  hasReplaceTarget(widgetType) {
-    return !!this.findReplaceTarget(widgetType);
   },
 
   widgetCenterCategoryLabel() {
@@ -300,38 +240,6 @@ export const editModeMethods = {
   widgetCenterResultText() {
     const count = this.filteredWidgetCatalog.length;
     return `${count} 项`;
-  },
-
-  findReplaceTarget(widgetType) {
-    return [...this.widgets].reverse().find((widget) => widget.widget === widgetType && !widget.hidden) || null;
-  },
-
-  normalizeSingleInstanceTypes() {
-    const chosenByType = new Map();
-
-    for (let index = this.widgets.length - 1; index >= 0; index -= 1) {
-      const widget = this.widgets[index];
-      const current = chosenByType.get(widget.widget);
-
-      if (!current) {
-        chosenByType.set(widget.widget, { index, widget });
-        continue;
-      }
-
-      if (current.widget.hidden && !widget.hidden) {
-        chosenByType.set(widget.widget, { index, widget });
-      }
-    }
-
-    const keepIndexes = new Set([...chosenByType.values()].map((entry) => entry.index));
-    const normalized = this.widgets.filter((_, index) => keepIndexes.has(index));
-    const changed = normalized.length !== this.widgets.length;
-
-    if (changed) {
-      this.widgets = normalized;
-    }
-
-    return changed;
   },
 
   async resetLayout() {
@@ -347,36 +255,18 @@ export const editModeMethods = {
     }
   },
 
-  async addWidgetFromCatalog(widgetType, size = null) {
-    if (this.isWidgetTypeVisible(widgetType)) {
-      return;
-    }
-
-    const selection = this.widgetCenterSelections[widgetType] || {};
+  async addWidgetFromCatalog(widgetType, size = null, catalogKey = null) {
+    const selKey = catalogKey || `${widgetType}:${size || 'medium'}`;
+    const selection = this.widgetCenterSelections[selKey] || {};
     const nextSize = normalizeWidgetSize(size || getWidgetCatalogEntry(widgetType)?.size || 'medium');
     const nextAppearance = normalizeWidgetAppearance(selection.appearance || 'follow');
-    let candidate = this.widgets.find((widget) => widget.widget === widgetType && widget.hidden);
 
-    if (candidate) {
-      candidate.hidden = false;
-    } else {
-      candidate = createWidgetInstance(widgetType, {
-        title: generateWidgetTitle(widgetType),
-        size: nextSize,
-        appearance: nextAppearance
-      });
-      this.widgets.push(candidate);
-    }
-
-    if (candidate.size !== nextSize) {
-      const catalogEntry = DESKTOP_WIDGET_CATALOG[candidate.widget] || {};
-      const span = catalogEntry.sizeOverrides?.[nextSize] || DESKTOP_WIDGET_SIZE_MAP[nextSize];
-      candidate.size = nextSize;
-      candidate.w = span.w;
-      candidate.h = span.h;
-    }
-
-    candidate.appearance = nextAppearance;
+    const candidate = createWidgetInstance(widgetType, {
+      title: generateWidgetTitle(widgetType),
+      size: nextSize,
+      appearance: nextAppearance
+    });
+    this.widgets.push(candidate);
 
     const placement = this.findNearestAvailablePlacement(candidate, candidate.x, candidate.y, candidate.key);
     candidate.x = placement.x;
@@ -390,39 +280,8 @@ export const editModeMethods = {
       this.loadWeather();
     }
 
-    this.normalizeSingleInstanceTypes();
     this.invalidateWidgetCache();
     this.syncResponsiveVisibility();
-  },
-
-  async replaceWidgetFromCatalog(widgetType, size = null) {
-    const target = this.findReplaceTarget(widgetType);
-    if (!target) {
-      await this.addWidgetFromCatalog(widgetType, size);
-      return;
-    }
-
-    const selection = this.widgetCenterSelections[widgetType] || {};
-    const nextSize = normalizeWidgetSize(size || getWidgetCatalogEntry(widgetType)?.size || target.size || 'medium');
-    const nextAppearance = normalizeWidgetAppearance(selection.appearance || target.appearance || 'follow');
-    const catalogEntry = DESKTOP_WIDGET_CATALOG[widgetType] || {};
-    const span = catalogEntry.sizeOverrides?.[nextSize] || DESKTOP_WIDGET_SIZE_MAP[nextSize];
-    target.size = nextSize;
-    target.appearance = nextAppearance;
-    target.w = span.w;
-    target.h = span.h;
-
-    const desiredPlacement = this.clampPlacement(target, target.x, target.y);
-    const placements = this.resolvePlacementsForDrop(target.key, desiredPlacement);
-    this.applyResolvedPlacements(placements);
-    this.syncBasePlacements(placements);
-    this.normalizeSingleInstanceTypes();
-    this.invalidateWidgetCache();
-    this.syncResponsiveVisibility();
-
-    if (widgetType === 'system.weather') {
-      this.loadWeather();
-    }
   },
 
   async hideWidget(key) {

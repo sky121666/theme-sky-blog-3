@@ -8,7 +8,6 @@
 
 .desktop-widgets-layer.is-adding .desktop-widgets-grid-shell {
   transform: scale(0.992);
-  opacity: 0.8;
   filter: none;
 }
 

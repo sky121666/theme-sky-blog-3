@@ -54,34 +54,6 @@
              }"
              x-cloak
              style="display: none;">
-      <div class="desktop-widgets-toolbar is-editing"
-           x-show="canManageDefaultDesktopLayout && editEnabled && isEditing && isHome && editStage === 'decorate'"
-           x-transition:enter="transition ease-out duration-180"
-           x-transition:enter-start="opacity-0 -translate-y-2 scale-95"
-           x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-           x-transition:leave="transition ease-in duration-140"
-           x-transition:leave-start="opacity-100 translate-y-0 scale-100"
-           x-transition:leave-end="opacity-0 -translate-y-1 scale-95"
-           style="display: none;">
-        <div class="desktop-widget-center-segmented" role="tablist" aria-label="小组件编辑步骤">
-          <button type="button"
-                  class="desktop-widget-center-segment"
-                  :class="{ 'is-active': editStage === 'add' }"
-                  @click="setEditStage('add')">添加</button>
-          <button type="button"
-                  class="desktop-widget-center-segment"
-                  :class="{ 'is-active': editStage === 'decorate' }"
-                  @click="setEditStage('decorate')">装饰</button>
-        </div>
-        <button type="button"
-                class="desktop-widgets-toolbar-btn desktop-widgets-toolbar-btn--quiet"
-                @click="resetLayout()">默认</button>
-        <button type="button"
-                class="desktop-widgets-toolbar-btn desktop-widgets-toolbar-btn--primary"
-                :disabled="serverLayoutSaving"
-                @click="saveDesktopEditing()"
-                x-text="serverLayoutSaving ? '保存中' : '保存'"></button>
-      </div>
 
       <div class="desktop-context-menu"
            x-show="showDesktopContextMenu"
@@ -124,8 +96,7 @@
 
       <div class="desktop-widget-center-backdrop"
            x-show="showWidgetCenter"
-           :style="[centerBackdropStyle, showWidgetCenter ? 'pointer-events:auto;' : 'pointer-events:none;']"
-           @click="setEditStage('decorate')"
+           :style="centerBackdropStyle"
            x-transition:enter="transition ease-out duration-240"
            x-transition:enter-start="opacity-0"
            x-transition:enter-end="opacity-100"
@@ -210,65 +181,60 @@
                   <div class="desktop-widget-center-empty">当前筛选条件下没有可展示的组件。</div>
                 </template>
 
-                <template x-for="entry in filteredWidgetCatalog" :key="entry.widget">
-                  <article class="desktop-widget-center-item">
-                    <!-- 顶部：标题 + 尺寸切换 + 操作 -->
-                    <div class="desktop-widget-center-item-head">
-                      <div class="desktop-widget-center-item-info">
-                        <h3 class="desktop-widget-center-item-title" x-text="entry.title"></h3>
-                        <p class="desktop-widget-center-item-description" x-text="entry.description"></p>
+                <template x-for="entry in groupedFilteredCatalog" :key="entry._key || entry.catalogKey">
+                  <div style="display:contents">
+                    <!-- Section header -->
+                    <div class="desktop-widget-center-section" x-show="entry._type === 'header'">
+                      <h4 class="desktop-widget-center-section-title" x-text="entry.label"></h4>
+                      <p class="desktop-widget-center-section-desc" x-show="entry.description" x-text="entry.description"></p>
+                    </div>
+
+                    <!-- Widget card -->
+                    <article class="desktop-widget-center-item"
+                             :class="`is-size-${entry.size}`"
+                             x-show="!entry._type">
+                      <!-- 预览区 -->
+                      <div class="desktop-widget-center-preview" :style="selectedWidgetVariantStyle(entry)">
+                        <article class="desktop-widget-card desktop-widget-card--preview"
+                                 :data-widget-appearance="widgetAppearanceValue(selectedWidgetVariant(entry))"
+                                 :class="widgetClassName(selectedWidgetVariant(entry))">
+                          <header class="desktop-widget-header">
+                            <div>
+                              <p class="desktop-widget-kicker" x-text="widgetKicker(selectedWidgetVariant(entry))"></p>
+                              <h2 class="desktop-widget-title" x-text="selectedWidgetVariant(entry).title"></h2>
+                            </div>
+                          </header>
+                          <div class="desktop-widget-body"
+                               x-html="renderWidgetBody(selectedWidgetVariant(entry), { preview: true })"></div>
+                        </article>
                       </div>
-                      <div class="desktop-widget-center-item-controls">
-                        <div class="desktop-widget-center-size-picker" role="tablist" :aria-label="`${entry.title} 尺寸`">
-                          <template x-for="size in widgetVariantSizes(entry)" :key="`${entry.widget}-${size}`">
-                            <button type="button"
-                                    class="desktop-widget-center-size-option"
-                                    :class="{ 'is-active': isWidgetVariantSelected(entry, size) }"
-                                    @click="selectWidgetVariant(entry.widget, size)"
-                                    x-text="sizeLabel(size)"></button>
-                          </template>
+
+                      <!-- 底栏 -->
+                      <div class="desktop-widget-center-item-foot">
+                        <div class="desktop-widget-center-item-info">
+                          <h3 class="desktop-widget-center-item-title">
+                            <span x-text="entry.title"></span>
+                            <span class="desktop-widget-center-size-badge" x-text="entry.sizeLabel"></span>
+                          </h3>
+                          <p class="desktop-widget-center-item-meta" x-text="catalogStatusText(entry)"></p>
                         </div>
-                        <div class="desktop-widget-center-appearance-picker" role="tablist" :aria-label="`${entry.title} 外观`">
-                          <template x-for="appearance in ['follow', 'light', 'dark']" :key="`${entry.widget}-${appearance}`">
-                            <button type="button"
-                                    class="desktop-widget-center-appearance-option"
-                                    :class="{ 'is-active': isWidgetAppearanceSelected(entry, appearance) }"
-                                    @click="selectWidgetAppearance(entry.widget, appearance)"
-                                    x-text="widgetAppearanceLabel(appearance)"></button>
-                          </template>
-                        </div>
-                        <template x-if="hasReplaceTarget(entry.widget)">
-                          <button type="button"
-                                  class="desktop-widget-center-item-action desktop-widget-center-item-action--quiet"
-                                  @click="replaceWidgetFromCatalog(entry.widget, selectedWidgetVariantSize(entry))">替换</button>
-                        </template>
-                        <template x-if="!hasReplaceTarget(entry.widget)">
+                        <div class="desktop-widget-center-item-controls">
+                          <div class="desktop-widget-center-appearance-picker" role="tablist" :aria-label="`${entry.title} 外观`">
+                            <template x-for="appearance in ['follow', 'light', 'dark']" :key="`${entry.catalogKey}-${appearance}`">
+                              <button type="button"
+                                      class="desktop-widget-center-appearance-option"
+                                      :class="{ 'is-active': isCatalogAppearanceSelected(entry, appearance) }"
+                                      @click="selectCatalogAppearance(entry.catalogKey, appearance)"
+                                      x-text="widgetAppearanceLabel(appearance)"></button>
+                            </template>
+                          </div>
                           <button type="button"
                                   class="desktop-widget-center-item-action"
-                                  @click="addWidgetFromCatalog(entry.widget, selectedWidgetVariantSize(entry))">添加</button>
-                        </template>
+                                  @click="addWidgetFromCatalog(entry.widget, entry.size, entry.catalogKey)">添加</button>
+                        </div>
                       </div>
-                    </div>
-
-                    <!-- 预览区：居中展示 -->
-                    <div class="desktop-widget-center-preview" :style="selectedWidgetVariantStyle(entry)">
-                      <article class="desktop-widget-card desktop-widget-card--preview"
-                               :data-widget-appearance="widgetAppearanceValue(selectedWidgetVariant(entry))"
-                               :class="widgetClassName(selectedWidgetVariant(entry))">
-                        <header class="desktop-widget-header">
-                          <div>
-                            <p class="desktop-widget-kicker" x-text="widgetKicker(selectedWidgetVariant(entry))"></p>
-                            <h2 class="desktop-widget-title" x-text="selectedWidgetVariant(entry).title"></h2>
-                          </div>
-                        </header>
-                        <div class="desktop-widget-body"
-                             x-html="renderWidgetBody(selectedWidgetVariant(entry), { preview: true })"></div>
-                      </article>
-                    </div>
-
-                    <!-- 状态提示 -->
-                    <p class="desktop-widget-center-item-meta" x-text="catalogStatusText(entry)"></p>
-                  </article>
+                    </article>
+                  </div>
                 </template>
               </div>
             </div>
