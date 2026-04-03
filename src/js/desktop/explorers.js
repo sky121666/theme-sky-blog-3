@@ -25,6 +25,7 @@ export function registerExplorers(Alpine) {
     activePostComments: '',
     activePostExcerpt: '',
     activePostParentName: '',
+    activePostAuthor: '',
     activePostHref: '',
     loading: false,
     dynamicLoaded: false,
@@ -229,6 +230,7 @@ export function registerExplorers(Alpine) {
       this.activePostComments = el.dataset.postComments || '0';
       this.activePostExcerpt = el.dataset.postExcerpt || '';
       this.activePostParentName = el.dataset.postParentName || '';
+      this.activePostAuthor = el.dataset.postAuthor || '';
       this.activePostHref = el.href || el.dataset.postHref || '';
     },
 
@@ -239,6 +241,7 @@ export function registerExplorers(Alpine) {
       this.activePostComments = '';
       this.activePostExcerpt = '';
       this.activePostParentName = '';
+      this.activePostAuthor = '';
       this.activePostHref = '';
     }
   }));
@@ -250,6 +253,7 @@ export function registerExplorers(Alpine) {
     activePostComments: '',
     activePostExcerpt: '',
     activePostParentName: '',
+    activePostAuthor: '',
     activePostHref: '',
 
     init() {
@@ -266,6 +270,7 @@ export function registerExplorers(Alpine) {
       this.activePostComments = el.dataset.postComments || '0';
       this.activePostExcerpt = el.dataset.postExcerpt || '';
       this.activePostParentName = el.dataset.postParentName || '';
+      this.activePostAuthor = el.dataset.postAuthor || '';
       this.activePostHref = el.href || el.dataset.postHref || '';
     }
   }));
@@ -617,6 +622,7 @@ export function registerExplorers(Alpine) {
     activePostComments: '',
     activePostExcerpt: '',
     activePostParentName: '',
+    activePostAuthor: '',
     activePostHref: '',
     loading: false,
     dynamicLoaded: false,
@@ -809,6 +815,7 @@ export function registerExplorers(Alpine) {
       this.activePostComments = el.dataset.postComments || '0';
       this.activePostExcerpt = el.dataset.postExcerpt || '';
       this.activePostParentName = el.dataset.postParentName || '';
+      this.activePostAuthor = el.dataset.postAuthor || '';
       this.activePostHref = el.href || el.dataset.postHref || '';
     },
 
@@ -819,6 +826,7 @@ export function registerExplorers(Alpine) {
       this.activePostComments = '';
       this.activePostExcerpt = '';
       this.activePostParentName = '';
+      this.activePostAuthor = '';
       this.activePostHref = '';
     }
   }));
@@ -830,6 +838,7 @@ export function registerExplorers(Alpine) {
     activePostComments: '',
     activePostExcerpt: '',
     activePostParentName: '',
+    activePostAuthor: '',
     activePostHref: '',
 
     init() {
@@ -846,6 +855,7 @@ export function registerExplorers(Alpine) {
       this.activePostComments = el.dataset.postComments || '0';
       this.activePostExcerpt = el.dataset.postExcerpt || '';
       this.activePostParentName = el.dataset.postParentName || '';
+      this.activePostAuthor = el.dataset.postAuthor || '';
       this.activePostHref = el.href || el.dataset.postHref || '';
     }
   }));
