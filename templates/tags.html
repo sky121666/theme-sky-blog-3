@@ -19,7 +19,7 @@
         tagName: tagItem.metadata.name,
         sort: {'spec.publishTime,desc'}
       })}, pageCount=${tagPostsMeta.totalPages > 0 ? tagPostsMeta.totalPages : 1}">
-        <th:block th:each="pageNumber : ${#numbers.sequence(1, pageCount)}">
+        <th:block th:each="pageNumber : ${#numbers.sequence(1, 1)}">
           <th:block th:with="tagPosts = ${postFinder.list({
             page: pageNumber,
             size: tagPageSize,
@@ -30,10 +30,10 @@
               x-show="activeTagKey === $el.dataset.tagKey && activeTagPage === Number($el.dataset.tagPage)" x-cloak>
               <a class="tag-post-row pjax-link" data-pjax-app="reader" th:each="post : ${tagPosts.items}" th:href="${post.status.permalink}"
                 data-tags-post-option
-                th:attr="data-parent-tag-key=${tagItem.metadata.name},data-tag-page=${pageNumber},data-post-key=${post.metadata.name},data-post-title=${post.spec.title}"
-                @mouseenter="selectPost($el.dataset.postKey, $el.dataset.postTitle)"
-                @focus="selectPost($el.dataset.postKey, $el.dataset.postTitle)"
-                @click="selectPost($el.dataset.postKey, $el.dataset.postTitle)"
+                th:attr="data-parent-tag-key=${tagItem.metadata.name},data-tag-page=${pageNumber},data-post-key=${post.metadata.name},data-post-title=${post.spec.title},data-post-date=${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')},data-post-comments=${post.stats.comment},data-post-excerpt=${post.status.excerpt},data-post-parent-name=${tagItem.spec.displayName}"
+                @mouseenter="selectPost($el)"
+                @focus="selectPost($el)"
+                @click="selectPost($el)"
                 :class="{ 'is-active': activePostKey === $el.dataset.postKey }">
                 <div class="tag-post-row-main">
                   <svg class="tag-post-file-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -54,94 +54,11 @@
                 <p>这个标签下还没有文章。</p>
               </div>
 
-              <nav class="tag-pagination" th:if="${pageCount > 1}">
-                <button type="button" class="tag-page-btn" th:classappend="${pageNumber == 1 ? ' is-disabled' : ''}"
-                  th:disabled="${pageNumber == 1}"
-                  th:attr="data-target-page=${pageNumber - 1},aria-label='上一页，第 ' + ${pageNumber - 1} + ' 页'"
-                  @click="selectTagPage($el.dataset.targetPage)">
-                  上一页
-                </button>
-
-                <span class="tag-page-indicator" th:text="${pageNumber} + ' / ' + ${pageCount}">1 / 1</span>
-
-                <button type="button" class="tag-page-btn"
-                  th:classappend="${pageNumber >= pageCount ? ' is-disabled' : ''}"
-                  th:disabled="${pageNumber >= pageCount}"
-                  th:attr="data-target-page=${pageNumber + 1},aria-label='下一页，第 ' + ${pageNumber + 1} + ' 页'"
-                  @click="selectTagPage($el.dataset.targetPage)">
-                  下一页
-                </button>
-              </nav>
+              <div class="tags-post-overflow" th:if="${pageCount > 1}">
+                <a class="tags-post-viewmore pjax-link" data-pjax-app="explorer" th:href="${tagItem.status.permalink}"
+                   th:text="'查看全部 ' + ${tagPostsMeta.total} + ' 篇文章 →'">查看全部文章 →</a>
+              </div>
             </div>
-          </th:block>
-        </th:block>
-      </th:block>
-    </th:block>
-  </th:block>
-</th:block>
-
-<th:block th:fragment="tagPreviewPanels(tags)">
-  <th:block th:with="tagPageSize=${site.post != null and site.post.tagPageSize != null ? site.post.tagPageSize : 10}">
-    <th:block th:each="tag : ${tags}">
-      <th:block th:with="tagPostsMeta = ${postFinder.list({
-        page: 1,
-        size: tagPageSize,
-        tagName: tag.metadata.name,
-        sort: {'spec.publishTime,desc'}
-      })}, pageCount=${tagPostsMeta.totalPages > 0 ? tagPostsMeta.totalPages : 1}">
-        <th:block th:each="pageNumber : ${#numbers.sequence(1, pageCount)}">
-          <th:block th:with="tagPosts = ${postFinder.list({
-            page: pageNumber,
-            size: tagPageSize,
-            tagName: tag.metadata.name,
-            sort: {'spec.publishTime,desc'}
-          })}">
-            <th:block th:each="post : ${tagPosts.items}">
-              <article class="tag-preview-panel" data-tag-post-panel
-                th:attr="data-tag-key=${tag.metadata.name},data-tag-page=${pageNumber},data-post-key=${post.metadata.name}"
-                x-show="activeTagKey === $el.dataset.tagKey && activeTagPage === Number($el.dataset.tagPage) && activePostKey === $el.dataset.postKey"
-                x-cloak>
-                <header class="tag-preview-header">
-                  <div class="tag-preview-icon">
-                    <svg class="tag-post-file-icon tag-post-file-icon--preview" viewBox="0 0 16 16" fill="none"
-                      aria-hidden="true">
-                      <path
-                        d="M4 1.75H9.25L12.5 5V12.5C12.5 13.3284 11.8284 14 11 14H4C3.17157 14 2.5 13.3284 2.5 12.5V3.25C2.5 2.42157 3.17157 1.75 4 1.75Z"
-                        stroke="currentColor" stroke-width="1.1" />
-                      <path d="M9 1.75V5.25H12.5" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round" />
-                    </svg>
-                  </div>
-                  <div class="tag-preview-heading">
-                    <h2 class="tag-preview-title" th:text="${post.spec.title}">文章标题</h2>
-                    <p class="tag-preview-path"
-                      th:text="${tag.spec.displayName} + ' / ' + ${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')}">标签
-                      / 时间</p>
-                  </div>
-                </header>
-
-                <dl class="tag-preview-meta">
-                  <div>
-                    <dt>发布日期</dt>
-                    <dd th:text="${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')}">2026.03.26</dd>
-                  </div>
-                  <div>
-                    <dt>评论</dt>
-                    <dd th:text="${post.stats.comment} + ' 条'">0 条</dd>
-                  </div>
-                  <div>
-                    <dt>所属标签</dt>
-                    <dd th:text="${tag.spec.displayName}">标签</dd>
-                  </div>
-                </dl>
-
-                <p class="tag-preview-excerpt" th:if="${!#strings.isEmpty(post.status.excerpt)}"
-                  th:text="${post.status.excerpt}">
-                  摘要
-                </p>
-
-                <a class="tag-preview-action pjax-link" data-pjax-app="reader" th:href="${post.status.permalink}">打开文章</a>
-              </article>
-            </th:block>
           </th:block>
         </th:block>
       </th:block>
@@ -190,7 +107,42 @@
           </header>
 
           <div class="tags-preview-scroll">
-            <th:block th:replace="~{::tagPreviewPanels(tags=${tags})}"></th:block>
+            <article class="tag-preview-panel" x-show="activePostKey" x-cloak>
+              <header class="tag-preview-header">
+                <div class="tag-preview-icon">
+                  <svg class="tag-post-file-icon tag-post-file-icon--preview" viewBox="0 0 16 16" fill="none"
+                    aria-hidden="true">
+                    <path
+                      d="M4 1.75H9.25L12.5 5V12.5C12.5 13.3284 11.8284 14 11 14H4C3.17157 14 2.5 13.3284 2.5 12.5V3.25C2.5 2.42157 3.17157 1.75 4 1.75Z"
+                      stroke="currentColor" stroke-width="1.1" />
+                    <path d="M9 1.75V5.25H12.5" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round" />
+                  </svg>
+                </div>
+                <div class="tag-preview-heading">
+                  <h2 class="tag-preview-title" x-text="activePostTitle">文章标题</h2>
+                  <p class="tag-preview-path" x-text="(activePostParentName || activeTagName) + ' / ' + activePostDate">标签 / 时间</p>
+                </div>
+              </header>
+
+              <dl class="tag-preview-meta">
+                <div>
+                  <dt>发布日期</dt>
+                  <dd x-text="activePostDate">2026.03.26</dd>
+                </div>
+                <div>
+                  <dt>评论</dt>
+                  <dd x-text="activePostComments + ' 条'">0 条</dd>
+                </div>
+                <div>
+                  <dt>所属标签</dt>
+                  <dd x-text="activePostParentName || activeTagName">标签</dd>
+                </div>
+              </dl>
+
+              <p class="tag-preview-excerpt" x-show="activePostExcerpt" x-text="activePostExcerpt"></p>
+
+              <a class="tag-preview-action pjax-link" data-pjax-app="reader" :href="activePostHref">打开文章</a>
+            </article>
 
             <section class="tags-preview-empty" x-show="!activePostKey" x-cloak>
               <p>选择一个标签文件夹后，中间会显示对应文章，右侧这里会预览当前文章。</p>
@@ -208,3 +160,4 @@
 </th:block>
 
 </html>
+

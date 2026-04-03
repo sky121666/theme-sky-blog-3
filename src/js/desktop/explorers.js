@@ -19,6 +19,11 @@ export function registerExplorers(Alpine) {
     activeTagCover: '',
     activePostKey: '',
     activePostTitle: '',
+    activePostDate: '',
+    activePostComments: '',
+    activePostExcerpt: '',
+    activePostParentName: '',
+    activePostHref: '',
 
     init() {
       const firstTag = this.$root.querySelector('[data-tags-folder]');
@@ -52,10 +57,9 @@ export function registerExplorers(Alpine) {
         ));
 
       if (firstPost) {
-        this.selectPost(firstPost.dataset.postKey, firstPost.dataset.postTitle);
+        this.selectPost(firstPost);
       } else {
-        this.activePostKey = '';
-        this.activePostTitle = '';
+        this.clearPost();
       }
 
       const postsScroll = this.$root.querySelector('.tag-posts-scroll');
@@ -69,25 +73,52 @@ export function registerExplorers(Alpine) {
       }
     },
 
-    selectPost(postKey, title) {
-      this.activePostKey = postKey || '';
-      this.activePostTitle = title || '';
+    selectPost(el) {
+      if (!el || !el.dataset) return;
+      this.activePostKey = el.dataset.postKey || '';
+      this.activePostTitle = el.dataset.postTitle || '';
+      this.activePostDate = el.dataset.postDate || '';
+      this.activePostComments = el.dataset.postComments || '0';
+      this.activePostExcerpt = el.dataset.postExcerpt || '';
+      this.activePostParentName = el.dataset.postParentName || '';
+      this.activePostHref = el.href || el.dataset.postHref || '';
+    },
+
+    clearPost() {
+      this.activePostKey = '';
+      this.activePostTitle = '';
+      this.activePostDate = '';
+      this.activePostComments = '';
+      this.activePostExcerpt = '';
+      this.activePostParentName = '';
+      this.activePostHref = '';
     }
   }));
 
   Alpine.data('tagPostsExplorer', () => ({
     activePostKey: '',
     activePostTitle: '',
+    activePostDate: '',
+    activePostComments: '',
+    activePostExcerpt: '',
+    activePostParentName: '',
+    activePostHref: '',
 
     init() {
       const firstPost = this.$root.querySelector('[data-tag-post-option]');
       if (!firstPost) return;
-      this.selectPost(firstPost.dataset.postKey, firstPost.dataset.postTitle);
+      this.selectPost(firstPost);
     },
 
-    selectPost(postKey, title) {
-      this.activePostKey = postKey || '';
-      this.activePostTitle = title || '';
+    selectPost(el) {
+      if (!el || !el.dataset) return;
+      this.activePostKey = el.dataset.postKey || '';
+      this.activePostTitle = el.dataset.postTitle || '';
+      this.activePostDate = el.dataset.postDate || '';
+      this.activePostComments = el.dataset.postComments || '0';
+      this.activePostExcerpt = el.dataset.postExcerpt || '';
+      this.activePostParentName = el.dataset.postParentName || '';
+      this.activePostHref = el.href || el.dataset.postHref || '';
     }
   }));
 
@@ -432,6 +463,11 @@ export function registerExplorers(Alpine) {
     activeCategoryCover: '',
     activePostKey: '',
     activePostTitle: '',
+    activePostDate: '',
+    activePostComments: '',
+    activePostExcerpt: '',
+    activePostParentName: '',
+    activePostHref: '',
 
     init() {
       const firstCategory = this.$root.querySelector('[data-categories-folder]');
@@ -472,10 +508,9 @@ export function registerExplorers(Alpine) {
         ));
 
       if (firstPost) {
-        this.selectPost(firstPost.dataset.postKey, firstPost.dataset.postTitle);
+        this.selectPost(firstPost);
       } else {
-        this.activePostKey = '';
-        this.activePostTitle = '';
+        this.clearPost();
       }
 
       const postsScroll = this.$root.querySelector('.category-posts-scroll');
@@ -489,25 +524,52 @@ export function registerExplorers(Alpine) {
       }
     },
 
-    selectPost(postKey, title) {
-      this.activePostKey = postKey || '';
-      this.activePostTitle = title || '';
+    selectPost(el) {
+      if (!el || !el.dataset) return;
+      this.activePostKey = el.dataset.postKey || '';
+      this.activePostTitle = el.dataset.postTitle || '';
+      this.activePostDate = el.dataset.postDate || '';
+      this.activePostComments = el.dataset.postComments || '0';
+      this.activePostExcerpt = el.dataset.postExcerpt || '';
+      this.activePostParentName = el.dataset.postParentName || '';
+      this.activePostHref = el.href || el.dataset.postHref || '';
+    },
+
+    clearPost() {
+      this.activePostKey = '';
+      this.activePostTitle = '';
+      this.activePostDate = '';
+      this.activePostComments = '';
+      this.activePostExcerpt = '';
+      this.activePostParentName = '';
+      this.activePostHref = '';
     }
   }));
 
   Alpine.data('categoryPostsExplorer', () => ({
     activePostKey: '',
     activePostTitle: '',
+    activePostDate: '',
+    activePostComments: '',
+    activePostExcerpt: '',
+    activePostParentName: '',
+    activePostHref: '',
 
     init() {
       const firstPost = this.$root.querySelector('[data-category-post-option]');
       if (!firstPost) return;
-      this.selectPost(firstPost.dataset.postKey, firstPost.dataset.postTitle);
+      this.selectPost(firstPost);
     },
 
-    selectPost(postKey, title) {
-      this.activePostKey = postKey || '';
-      this.activePostTitle = title || '';
+    selectPost(el) {
+      if (!el || !el.dataset) return;
+      this.activePostKey = el.dataset.postKey || '';
+      this.activePostTitle = el.dataset.postTitle || '';
+      this.activePostDate = el.dataset.postDate || '';
+      this.activePostComments = el.dataset.postComments || '0';
+      this.activePostExcerpt = el.dataset.postExcerpt || '';
+      this.activePostParentName = el.dataset.postParentName || '';
+      this.activePostHref = el.href || el.dataset.postHref || '';
     }
   }));
 }

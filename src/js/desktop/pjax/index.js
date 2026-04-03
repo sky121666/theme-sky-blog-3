@@ -45,8 +45,9 @@ function markPjaxLink(link) {
   if (!link?.classList?.contains('pjax-link')) return;
 
   if (isPjaxManagedLink(link)) {
-    link.setAttribute(PJAX_MANAGED_ATTR, 'true');
-    pjaxLog('mark', link.href, link.className);
+    if (!link.hasAttribute(PJAX_MANAGED_ATTR)) {
+      link.setAttribute(PJAX_MANAGED_ATTR, 'true');
+    }
     return;
   }
 
@@ -136,37 +137,39 @@ export function initPjax(Alpine) {
       if (!root || !window.pjax) return;
       markPjaxLinks(root);
       const links = root.querySelectorAll(`${PJAX_LINK_SELECTOR}:not([${ATTACHED}])`);
-      if (links.length > 0) pjaxLog('attach:', links.length, 'new links in', root.className || root.tagName);
+      if (!links.length) return;
+      pjaxLog('attach:', links.length, 'links in', root.className?.split(' ')[0] || root.tagName);
       links.forEach((link) => {
         if (!isPjaxManagedLink(link)) return;
-        pjaxLog('attach-link:', link.href);
         window.pjax.attachLink(link);
       });
     }
 
-    // ── MutationObserver for desktop surface ──
-
+    // ── One-time scan for desktop widget links (outside pjax-container) ──
     const desktopSurface = document.querySelector('.desktop-surface');
     if (desktopSurface) {
+      attachDynamicLinks(desktopSurface);
+    }
+
+    // ── MutationObserver for pjax container only ──
+    const pjaxContainer = document.getElementById('pjax-container');
+    if (pjaxContainer) {
       const observer = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
           for (const node of mutation.addedNodes) {
             if (node.nodeType !== Node.ELEMENT_NODE) continue;
-            if (node.classList?.contains('desktop-widget-clock')) continue;
-            if (node.tagName === 'A' && !node.hasAttribute(ATTACHED)) {
-              pjaxLog('observer: new <a>', node.href);
+            if (node.querySelectorAll) {
+              const unattached = node.querySelectorAll(`a.pjax-link[href]:not([${ATTACHED}])`);
+              if (!unattached.length) continue;
+              attachDynamicLinks(node);
+            } else if (node.tagName === 'A' && !node.hasAttribute(ATTACHED)) {
               attachDynamicLinks(node.parentElement);
-            } else if (node.querySelectorAll) {
-              if (node.querySelector('a.pjax-link')) {
-                pjaxLog('observer: subtree with links', node.className || node.tagName);
-                attachDynamicLinks(node);
-              }
             }
           }
         }
       });
-      observer.observe(desktopSurface, { childList: true, subtree: true });
-      pjaxLog('observer: watching .desktop-surface');
+      observer.observe(pjaxContainer, { childList: true, subtree: true });
+      pjaxLog('observer: watching #pjax-container');
     }
 
     // ── Pjax events ──
@@ -209,6 +212,13 @@ export function initPjax(Alpine) {
         });
 
         runPageInitializers(container);
+
+        // Deferred re-scan: desktop widgets re-render after pjax swap,
+        // stripping data-pjax-attached. Catch them once after settle.
+        const surface = document.querySelector('.desktop-surface');
+        if (surface) {
+          setTimeout(() => attachDynamicLinks(surface), 200);
+        }
       }
       
       const windowManager = Alpine.store('windowManager');

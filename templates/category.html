@@ -66,10 +66,10 @@
                th:each="post : ${posts.items}"
                th:href="${post.status.permalink}"
                data-category-post-option
-               th:attr="data-post-key=${post.metadata.name},data-post-title=${post.spec.title}"
-               @mouseenter="selectPost($el.dataset.postKey, $el.dataset.postTitle)"
-               @focus="selectPost($el.dataset.postKey, $el.dataset.postTitle)"
-               @click="selectPost($el.dataset.postKey, $el.dataset.postTitle)"
+               th:attr="data-post-key=${post.metadata.name},data-post-title=${post.spec.title},data-post-date=${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')},data-post-comments=${post.stats.comment},data-post-excerpt=${post.status.excerpt},data-post-parent-name=${category.spec.displayName},data-post-author=${post.owner != null ? post.owner.displayName : site.title}"
+               @mouseenter="selectPost($el)"
+               @focus="selectPost($el)"
+               @click="selectPost($el)"
                :class="{ 'is-active': activePostKey === $el.dataset.postKey }">
               <div class="category-post-row-main">
                 <svg class="category-post-file-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -111,49 +111,39 @@
           </header>
 
           <div class="category-preview-scroll">
-            <th:block th:each="post : ${posts.items}">
-              <article class="category-preview-panel"
-                       data-category-post-panel
-                       th:attr="data-post-key=${post.metadata.name}"
-                       x-show="activePostKey === $el.dataset.postKey"
-                       x-cloak>
-                <header class="category-preview-header">
-                  <div class="category-preview-icon">
-                    <svg class="category-post-file-icon category-post-file-icon--preview" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                      <path d="M4 1.75H9.25L12.5 5V12.5C12.5 13.3284 11.8284 14 11 14H4C3.17157 14 2.5 13.3284 2.5 12.5V3.25C2.5 2.42157 3.17157 1.75 4 1.75Z" stroke="currentColor" stroke-width="1.1"/>
-                      <path d="M9 1.75V5.25H12.5" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/>
-                    </svg>
-                  </div>
-                  <div class="category-preview-heading">
-                    <h2 class="category-preview-title" th:text="${post.spec.title}">文章标题</h2>
-                    <p class="category-preview-path" th:text="${category.spec.displayName} + ' / ' + ${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')}">分类 / 时间</p>
-                  </div>
-                </header>
+            <article class="category-preview-panel" x-show="activePostKey" x-cloak>
+              <header class="category-preview-header">
+                <div class="category-preview-icon">
+                  <svg class="category-post-file-icon category-post-file-icon--preview" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M4 1.75H9.25L12.5 5V12.5C12.5 13.3284 11.8284 14 11 14H4C3.17157 14 2.5 13.3284 2.5 12.5V3.25C2.5 2.42157 3.17157 1.75 4 1.75Z" stroke="currentColor" stroke-width="1.1"/>
+                    <path d="M9 1.75V5.25H12.5" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+                <div class="category-preview-heading">
+                  <h2 class="category-preview-title" x-text="activePostTitle">文章标题</h2>
+                  <p class="category-preview-path" x-text="(activePostParentName || '') + ' / ' + activePostDate">分类 / 时间</p>
+                </div>
+              </header>
 
-                <dl class="category-preview-meta">
-                  <div>
-                    <dt>发布日期</dt>
-                    <dd th:text="${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')}">2026.03.26</dd>
-                  </div>
-                  <div>
-                    <dt>评论</dt>
-                    <dd th:text="${post.stats.comment} + ' 条'">0 条</dd>
-                  </div>
-                  <div>
-                    <dt>作者</dt>
-                    <dd th:text="${post.owner != null ? post.owner.displayName : site.title}">作者</dd>
-                  </div>
-                </dl>
+              <dl class="category-preview-meta">
+                <div>
+                  <dt>发布日期</dt>
+                  <dd x-text="activePostDate">2026.03.26</dd>
+                </div>
+                <div>
+                  <dt>评论</dt>
+                  <dd x-text="activePostComments + ' 条'">0 条</dd>
+                </div>
+                <div>
+                  <dt>作者</dt>
+                  <dd x-text="activePostAuthor || ''">作者</dd>
+                </div>
+              </dl>
 
-                <p class="category-preview-excerpt"
-                   th:if="${!#strings.isEmpty(post.status.excerpt)}"
-                   th:text="${post.status.excerpt}">
-                  摘要
-                </p>
+              <p class="category-preview-excerpt" x-show="activePostExcerpt" x-text="activePostExcerpt"></p>
 
-                <a class="category-preview-action pjax-link" data-pjax-app="reader" th:href="${post.status.permalink}">打开文章</a>
-              </article>
-            </th:block>
+              <a class="category-preview-action pjax-link" data-pjax-app="reader" :href="activePostHref">打开文章</a>
+            </article>
 
             <section class="category-preview-empty" x-show="!activePostKey" x-cloak>
               <p>选择一篇文章后，在这里查看摘要与元信息。</p>

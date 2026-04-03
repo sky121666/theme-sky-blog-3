@@ -80,6 +80,12 @@ export function registerArchiveExplorer(Alpine) {
     activeMonthLabel: '',
     activePostKey: '',
     activePostTitle: '',
+    activePostDate: '',
+    activePostComments: '',
+    activePostExcerpt: '',
+    activePostParentName: '',
+    activePostAuthor: '',
+    activePostHref: '',
 
     init() {
       const firstYear = this.$root.querySelector('[data-archive-year-option]');
@@ -99,8 +105,7 @@ export function registerArchiveExplorer(Alpine) {
       } else {
         this.activeMonthKey = '';
         this.activeMonthLabel = '';
-        this.activePostKey = '';
-        this.activePostTitle = '';
+        this.clearPost();
       }
     },
 
@@ -112,16 +117,33 @@ export function registerArchiveExplorer(Alpine) {
         .find((el) => el.dataset.parentMonthKey === this.activeMonthKey);
 
       if (firstPost) {
-        this.selectPost(firstPost.dataset.postKey, firstPost.dataset.postTitle);
+        this.selectPost(firstPost);
       } else {
-        this.activePostKey = '';
-        this.activePostTitle = '';
+        this.clearPost();
       }
     },
 
-    selectPost(postKey, title) {
-      this.activePostKey = postKey || '';
-      this.activePostTitle = title || '';
+    selectPost(el) {
+      if (!el || !el.dataset) return;
+      this.activePostKey = el.dataset.postKey || '';
+      this.activePostTitle = el.dataset.postTitle || '';
+      this.activePostDate = el.dataset.postDate || '';
+      this.activePostComments = el.dataset.postComments || '0';
+      this.activePostExcerpt = el.dataset.postExcerpt || '';
+      this.activePostParentName = el.dataset.postParentName || '';
+      this.activePostAuthor = el.dataset.postAuthor || '';
+      this.activePostHref = el.href || el.dataset.postHref || '';
+    },
+
+    clearPost() {
+      this.activePostKey = '';
+      this.activePostTitle = '';
+      this.activePostDate = '';
+      this.activePostComments = '';
+      this.activePostExcerpt = '';
+      this.activePostParentName = '';
+      this.activePostAuthor = '';
+      this.activePostHref = '';
     }
   }));
 }

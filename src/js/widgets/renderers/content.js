@@ -292,7 +292,7 @@ export function renderAuthorCardWidget({ sources, escapeHtml }, widget) {
 
   return `
     <div class="wg-author-compact">
-      <a class="wg-author-head" href="${authorHref}">
+      <a class="wg-author-head pjax-link" ${EXPLORER_PJAX_APP_ATTR} href="${authorHref}">
         <div class="wg-author-avatar">
           ${avatarMarkup}
           <div class="wg-author-status-dot"></div>
@@ -303,8 +303,8 @@ export function renderAuthorCardWidget({ sources, escapeHtml }, widget) {
         </div>
       </a>
       <div class="wg-author-actions">
-        <a class="wg-author-action-btn" href="${postsHref}" title="文章">${postsSvg}</a>
-        <a class="wg-author-action-btn" href="${momentsHref}" title="瞬间">${momentsSvg}</a>
+        <a class="wg-author-action-btn pjax-link" ${EXPLORER_PJAX_APP_ATTR} href="${postsHref}" title="文章">${postsSvg}</a>
+        <a class="wg-author-action-btn pjax-link" data-pjax-app="moments-app" href="${momentsHref}" title="瞬间">${momentsSvg}</a>
       </div>
     </div>
   `;
