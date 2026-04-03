@@ -76,7 +76,7 @@ export function readDesktopIconsBootstrap() {
   }));
 }
 
-export function mergeDesktopIconLayout(defaultIcons, savedLayout) {
+export function mergeDesktopIconLayout(defaultIcons, savedLayout, resolvedWidgets = []) {
   if (!savedLayout || !Array.isArray(savedLayout.icons)) {
     return defaultIcons;
   }
@@ -87,16 +87,67 @@ export function mergeDesktopIconLayout(defaultIcons, savedLayout) {
       .map((icon) => [icon.key, icon])
   );
 
+  // Collect all occupied cells from saved icons
+  const occupiedCells = new Set();
+  for (const saved of savedMap.values()) {
+    const sx = toPositiveInt(saved.x ?? saved.baseX, 0);
+    const sy = toPositiveInt(saved.y ?? saved.baseY, 0);
+    if (sx > 0 && sy > 0) occupiedCells.add(`${sx},${sy}`);
+  }
+
+  // Also mark cells occupied by widgets (use resolved widgets with actual w/h)
+  for (const widget of resolvedWidgets) {
+    const wx = toPositiveInt(widget.x, 0);
+    const wy = toPositiveInt(widget.y, 0);
+    const ww = toPositiveInt(widget.w, 1);
+    const wh = toPositiveInt(widget.h, 1);
+    if (wx > 0 && wy > 0) {
+      for (let dx = 0; dx < ww; dx++) {
+        for (let dy = 0; dy < wh; dy++) {
+          occupiedCells.add(`${wx + dx},${wy + dy}`);
+        }
+      }
+    }
+  }
+
+  // Find next free cell (column-major: top-to-bottom, then left-to-right)
+  const maxRows = savedLayout.maxVisibleRows || 8;
+  function findFreeCell() {
+    for (let col = 1; col <= 100; col++) {
+      for (let row = 1; row <= maxRows; row++) {
+        const key = `${col},${row}`;
+        if (!occupiedCells.has(key)) {
+          occupiedCells.add(key);
+          return { x: col, y: row };
+        }
+      }
+    }
+    // Fallback: just go past all columns
+    const fallbackX = occupiedCells.size + 1;
+    return { x: fallbackX, y: 1 };
+  }
+
   return defaultIcons.map((icon) => {
     const saved = savedMap.get(icon.key);
-    if (!saved) return icon;
-    const normalized = normalizeDesktopIconInstance(saved, icon);
+    if (saved) {
+      const normalized = normalizeDesktopIconInstance(saved, icon);
+      return {
+        ...icon,
+        x: normalized.x,
+        y: normalized.y,
+        baseX: normalized.baseX,
+        baseY: normalized.baseY
+      };
+    }
+
+    // New icon not in saved layout → place in first available slot
+    const freePos = findFreeCell();
     return {
       ...icon,
-      x: normalized.x,
-      y: normalized.y,
-      baseX: normalized.baseX,
-      baseY: normalized.baseY
+      x: freePos.x,
+      y: freePos.y,
+      baseX: freePos.x,
+      baseY: freePos.y
     };
   });
 }

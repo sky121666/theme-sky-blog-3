@@ -978,7 +978,7 @@ export function registerDesktopSurface(Alpine) {
         };
       });
 
-      const serverDefaultIcons = mergeDesktopIconLayout(defaultIcons, serverLayout).map((icon) => {
+      const serverDefaultIcons = mergeDesktopIconLayout(defaultIcons, serverLayout, this.widgets).map((icon) => {
         const sourceIcon = defaultIcons.find((item) => item.key === icon.key);
         return {
           ...icon,
