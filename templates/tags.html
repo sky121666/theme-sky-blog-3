@@ -10,61 +10,6 @@
         pageMode = 'browser-list',
         pageApp = 'explorer'
       )}">
-<th:block th:fragment="tagPostPanels(tags)">
-  <th:block th:with="tagPageSize=${site.post != null and site.post.tagPageSize != null ? site.post.tagPageSize : 10}">
-    <th:block th:each="tagItem : ${tags}">
-      <th:block th:with="tagPostsMeta = ${postFinder.list({
-        page: 1,
-        size: tagPageSize,
-        tagName: tagItem.metadata.name,
-        sort: {'spec.publishTime,desc'}
-      })}, pageCount=${tagPostsMeta.totalPages > 0 ? tagPostsMeta.totalPages : 1}">
-        <th:block th:each="pageNumber : ${#numbers.sequence(1, 1)}">
-          <th:block th:with="tagPosts = ${postFinder.list({
-            page: pageNumber,
-            size: tagPageSize,
-            tagName: tagItem.metadata.name,
-            sort: {'spec.publishTime,desc'}
-          })}">
-            <div data-tags-post-panel th:attr="data-tag-key=${tagItem.metadata.name},data-tag-page=${pageNumber}"
-              x-show="activeTagKey === $el.dataset.tagKey && activeTagPage === Number($el.dataset.tagPage)" x-cloak>
-              <a class="tag-post-row pjax-link" data-pjax-app="reader" th:each="post : ${tagPosts.items}" th:href="${post.status.permalink}"
-                data-tags-post-option
-                th:attr="data-parent-tag-key=${tagItem.metadata.name},data-tag-page=${pageNumber},data-post-key=${post.metadata.name},data-post-title=${post.spec.title},data-post-date=${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')},data-post-comments=${post.stats.comment},data-post-excerpt=${post.status.excerpt},data-post-parent-name=${tagItem.spec.displayName}"
-                @mouseenter="selectPost($el)"
-                @focus="selectPost($el)"
-                @click="selectPost($el)"
-                :class="{ 'is-active': activePostKey === $el.dataset.postKey }">
-                <div class="tag-post-row-main">
-                  <svg class="tag-post-file-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <path
-                      d="M4 1.75H9.25L12.5 5V12.5C12.5 13.3284 11.8284 14 11 14H4C3.17157 14 2.5 13.3284 2.5 12.5V3.25C2.5 2.42157 3.17157 1.75 4 1.75Z"
-                      stroke="currentColor" stroke-width="1.1" />
-                    <path d="M9 1.75V5.25H12.5" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round" />
-                  </svg>
-                  <span class="tag-post-row-title" th:text="${post.spec.title}">文章标题</span>
-                </div>
-                <span class="tag-post-row-meta">
-                  <time th:text="${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')}">2026.03.26</time>
-                  <span th:text="${post.stats.comment} + ' 评论'">0 评论</span>
-                </span>
-              </a>
-
-              <div class="tags-post-empty" th:if="${#lists.isEmpty(tagPosts.items)}">
-                <p>这个标签下还没有文章。</p>
-              </div>
-
-              <div class="tags-post-overflow" th:if="${pageCount > 1}">
-                <a class="tags-post-viewmore pjax-link" data-pjax-app="explorer" th:href="${tagItem.status.permalink}"
-                   th:text="'查看全部 ' + ${tagPostsMeta.total} + ' 篇文章 →'">查看全部文章 →</a>
-              </div>
-            </div>
-          </th:block>
-        </th:block>
-      </th:block>
-    </th:block>
-  </th:block>
-</th:block>
 
 <th:block th:fragment="ssrBlock">
   <div class="tags-shell">
@@ -91,11 +36,62 @@
           <header class="tags-pane-header">
             <span class="tags-pane-title">文章</span>
             <span class="tags-pane-path"
-              x-text="activeTagName ? activeTagName + ' · ' + (activeTagCount || 0) + ' 篇' : '未选择标签'"></span>
+              x-text="activeTagName ? activeTagName + ' · ' + (postTotal || activeTagCount || 0) + ' 篇' : '未选择标签'"></span>
           </header>
 
           <div class="tag-posts-scroll">
-            <th:block th:replace="~{::tagPostPanels(tags=${tags})}"></th:block>
+            <!-- SSR: 仅渲染第一个标签的前 20 篇文章 -->
+            <th:block th:with="
+              firstTag=${tags[0]},
+              firstTagPosts=${postFinder.list({
+                page: 1,
+                size: 20,
+                tagName: tags[0].metadata.name,
+                sort: {'spec.publishTime,desc'}
+              })}">
+              <div data-tag-posts-list>
+                <a class="tag-post-row pjax-link" data-pjax-app="reader"
+                   th:each="post : ${firstTagPosts.items}"
+                   th:href="${post.status.permalink}"
+                   data-tag-post-item
+                   th:attr="data-post-key=${post.metadata.name},data-post-title=${post.spec.title},data-post-date=${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')},data-post-comments=${post.stats.comment},data-post-excerpt=${post.status.excerpt},data-post-parent-name=${firstTag.spec.displayName},data-post-href=${post.status.permalink}"
+                   @mouseenter="selectPost($el)"
+                   @focus="selectPost($el)"
+                   @click="selectPost($el)"
+                   :class="{ 'is-active': activePostKey === $el.dataset.postKey }">
+                  <div class="tag-post-row-main">
+                    <svg class="tag-post-file-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <path
+                        d="M4 1.75H9.25L12.5 5V12.5C12.5 13.3284 11.8284 14 11 14H4C3.17157 14 2.5 13.3284 2.5 12.5V3.25C2.5 2.42157 3.17157 1.75 4 1.75Z"
+                        stroke="currentColor" stroke-width="1.1" />
+                      <path d="M9 1.75V5.25H12.5" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round" />
+                    </svg>
+                    <span class="tag-post-row-title" th:text="${post.spec.title}">文章标题</span>
+                  </div>
+                  <span class="tag-post-row-meta">
+                    <time th:text="${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')}">2026.03.26</time>
+                    <span th:text="${post.stats.comment} + ' 评论'">0 评论</span>
+                  </span>
+                </a>
+
+                <div class="tags-post-empty" th:if="${#lists.isEmpty(firstTagPosts.items)}">
+                  <p>这个标签下还没有文章。</p>
+                </div>
+              </div>
+
+              <div class="tags-post-overflow" th:if="${firstTagPosts.total > 20}">
+                <a class="tags-post-viewmore pjax-link" data-pjax-app="explorer"
+                   th:href="${firstTag.status.permalink}"
+                   th:text="'查看全部 ' + ${firstTagPosts.total} + ' 篇文章 →'">查看全部文章 →</a>
+              </div>
+            </th:block>
+
+            <!-- 动态加载用: loading 骨架 -->
+            <div class="tag-posts-loading" x-show="loading" style="display:none">
+              <div class="tag-posts-skeleton" th:each="i : ${#numbers.sequence(1, 6)}">
+                <div class="skeleton-line"></div>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -103,7 +99,7 @@
           <header class="tags-pane-header">
             <span class="tags-pane-title">预览</span>
             <span class="tags-pane-path"
-              x-text="activePostTitle || (activeTagName ? activeTagName + ' · ' + (activeTagCount || 0) + ' 篇' : '未选择标签')"></span>
+              x-text="activePostTitle || (activeTagName ? activeTagName + ' · ' + (postTotal || activeTagCount || 0) + ' 篇' : '未选择标签')"></span>
           </header>
 
           <div class="tags-preview-scroll">
@@ -160,4 +156,3 @@
 </th:block>
 
 </html>
-

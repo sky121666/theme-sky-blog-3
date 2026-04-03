@@ -33,68 +33,6 @@
     </th:block>
   </th:block>
 
-  <th:block th:fragment="categoryPostPanels(categories)">
-    <th:block th:with="categoryPageSize=${site.post != null and site.post.categoryPageSize != null ? site.post.categoryPageSize : 10}">
-      <th:block th:each="item : ${categories}">
-        <th:block th:with="categoryPostsMeta = ${postFinder.list({
-        page: 1,
-        size: categoryPageSize,
-        categoryName: item.metadata.name,
-        sort: {'spec.publishTime,desc'}
-      })}, pageCount=${categoryPostsMeta.totalPages > 0 ? categoryPostsMeta.totalPages : 1}">
-          <th:block th:each="pageNumber : ${#numbers.sequence(1, 1)}">
-            <th:block th:with="categoryPosts = ${postFinder.list({
-            page: pageNumber,
-            size: categoryPageSize,
-            categoryName: item.metadata.name,
-            sort: {'spec.publishTime,desc'}
-          })}">
-              <div data-categories-post-panel
-                   th:attr="data-category-key=${item.metadata.name},data-category-page=${pageNumber}"
-                   x-show="activeCategoryKey === $el.dataset.categoryKey && activeCategoryPage === Number($el.dataset.categoryPage)"
-                   x-cloak>
-                <a class="category-post-row pjax-link"
-                   data-pjax-app="reader"
-                   th:each="post : ${categoryPosts.items}"
-                   th:href="${post.status.permalink}"
-                   data-categories-post-option
-                   th:attr="data-parent-category-key=${item.metadata.name},data-category-page=${pageNumber},data-post-key=${post.metadata.name},data-post-title=${post.spec.title},data-post-date=${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')},data-post-comments=${post.stats.comment},data-post-excerpt=${post.status.excerpt},data-post-parent-name=${item.spec.displayName}"
-                   @mouseenter="selectPost($el)"
-                   @focus="selectPost($el)"
-                   @click="selectPost($el)"
-                   :class="{ 'is-active': activePostKey === $el.dataset.postKey }">
-                  <div class="category-post-row-main">
-                    <svg class="category-post-file-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                      <path d="M4 1.75H9.25L12.5 5V12.5C12.5 13.3284 11.8284 14 11 14H4C3.17157 14 2.5 13.3284 2.5 12.5V3.25C2.5 2.42157 3.17157 1.75 4 1.75Z" stroke="currentColor" stroke-width="1.1"/>
-                      <path d="M9 1.75V5.25H12.5" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/>
-                    </svg>
-                    <span class="category-post-row-title" th:text="${post.spec.title}">文章标题</span>
-                  </div>
-                  <span class="category-post-row-meta">
-                    <time th:text="${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')}">2026.03.26</time>
-                    <span th:text="${post.stats.comment} + ' 评论'">0 评论</span>
-                  </span>
-                </a>
-
-                <div class="categories-post-empty" th:if="${#lists.isEmpty(categoryPosts.items)}">
-                  <p>这个分类下还没有文章。</p>
-                </div>
-
-                <div class="categories-post-overflow" th:if="${pageCount > 1}">
-                  <a class="categories-post-viewmore pjax-link" data-pjax-app="explorer" th:href="${item.status.permalink}"
-                     th:text="'查看全部 ' + ${categoryPostsMeta.total} + ' 篇文章 →'">查看全部文章 →</a>
-                </div>
-              </div>
-            </th:block>
-          </th:block>
-        </th:block>
-
-        <th:block th:if="${not #lists.isEmpty(item.children)}"
-                  th:replace="~{::categoryPostPanels(categories=${item.children})}"></th:block>
-      </th:block>
-    </th:block>
-  </th:block>
-
   <th:block th:fragment="ssrBlock">
     <div class="categories-shell">
       <div class="categories-workspace"
@@ -111,11 +49,61 @@
           <section class="categories-pane categories-pane--posts">
             <header class="categories-pane-header">
               <span class="categories-pane-title">文章</span>
-              <span class="categories-pane-path" x-text="activeCategoryName || '未选择分类'"></span>
+              <span class="categories-pane-path"
+                x-text="activeCategoryName ? activeCategoryName + ' · ' + (postTotal || activeCategoryCount || 0) + ' 篇' : '未选择分类'"></span>
             </header>
 
             <div class="category-posts-scroll">
-              <th:block th:replace="~{::categoryPostPanels(categories=${categories})}"></th:block>
+              <!-- SSR: 仅渲染第一个分类的前 20 篇文章 -->
+              <th:block th:with="
+                firstCat=${categories[0]},
+                firstCatPosts=${postFinder.list({
+                  page: 1,
+                  size: 20,
+                  categoryName: categories[0].metadata.name,
+                  sort: {'spec.publishTime,desc'}
+                })}">
+                <div data-category-posts-list>
+                  <a class="category-post-row pjax-link" data-pjax-app="reader"
+                     th:each="post : ${firstCatPosts.items}"
+                     th:href="${post.status.permalink}"
+                     data-category-post-item
+                     th:attr="data-post-key=${post.metadata.name},data-post-title=${post.spec.title},data-post-date=${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')},data-post-comments=${post.stats.comment},data-post-excerpt=${post.status.excerpt},data-post-parent-name=${firstCat.spec.displayName},data-post-href=${post.status.permalink}"
+                     @mouseenter="selectPost($el)"
+                     @focus="selectPost($el)"
+                     @click="selectPost($el)"
+                     :class="{ 'is-active': activePostKey === $el.dataset.postKey }">
+                    <div class="category-post-row-main">
+                      <svg class="category-post-file-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                        <path d="M4 1.75H9.25L12.5 5V12.5C12.5 13.3284 11.8284 14 11 14H4C3.17157 14 2.5 13.3284 2.5 12.5V3.25C2.5 2.42157 3.17157 1.75 4 1.75Z" stroke="currentColor" stroke-width="1.1"/>
+                        <path d="M9 1.75V5.25H12.5" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/>
+                      </svg>
+                      <span class="category-post-row-title" th:text="${post.spec.title}">文章标题</span>
+                    </div>
+                    <span class="category-post-row-meta">
+                      <time th:text="${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')}">2026.03.26</time>
+                      <span th:text="${post.stats.comment} + ' 评论'">0 评论</span>
+                    </span>
+                  </a>
+
+                  <div class="categories-post-empty" th:if="${#lists.isEmpty(firstCatPosts.items)}">
+                    <p>这个分类下还没有文章。</p>
+                  </div>
+                </div>
+
+                <div class="categories-post-overflow" th:if="${firstCatPosts.total > 20}">
+                  <a class="categories-post-viewmore pjax-link" data-pjax-app="explorer"
+                     th:href="${firstCat.status.permalink}"
+                     th:text="'查看全部 ' + ${firstCatPosts.total} + ' 篇文章 →'">查看全部文章 →</a>
+                </div>
+              </th:block>
+
+              <!-- loading 骨架 -->
+              <div class="tag-posts-loading" x-show="loading" style="display:none">
+                <div class="tag-posts-skeleton" th:each="i : ${#numbers.sequence(1, 6)}">
+                  <div class="skeleton-line"></div>
+                </div>
+              </div>
             </div>
           </section>
 

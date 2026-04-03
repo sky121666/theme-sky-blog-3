@@ -9,9 +9,11 @@ import { normalizeMomentRecord, renderMomentRow, renderMomentPreview } from '../
 
 export function registerExplorers(Alpine) {
 
+  const TAG_PAGE_SIZE = 20;
+  const TAG_CACHE_TTL = 5 * 60 * 1000; // 5 min
+
   Alpine.data('tagsExplorer', () => ({
     activeTagKey: '',
-    activeTagPage: 1,
     activeTagName: '',
     activeTagHref: '',
     activeTagCount: '',
@@ -24,53 +26,199 @@ export function registerExplorers(Alpine) {
     activePostExcerpt: '',
     activePostParentName: '',
     activePostHref: '',
+    loading: false,
+    dynamicLoaded: false,
+    dynamicPosts: [],
+    postTotal: 0,
+    fetchController: null,
+    _ssrTagKey: '',
 
     init() {
       const firstTag = this.$root.querySelector('[data-tags-folder]');
       if (!firstTag) return;
-      this.selectTag(firstTag.dataset.tagKey, firstTag.dataset.tagName, firstTag.dataset.tagHref, firstTag.dataset.tagCount, firstTag.dataset.tagColor, firstTag.dataset.tagCover);
+      // Remember the SSR-rendered tag key so we can skip API for it
+      this._ssrTagKey = firstTag.dataset.tagKey || '';
+      this.selectTag(
+        firstTag.dataset.tagKey,
+        firstTag.dataset.tagName,
+        firstTag.dataset.tagHref,
+        firstTag.dataset.tagCount,
+        firstTag.dataset.tagColor,
+        firstTag.dataset.tagCover
+      );
     },
 
-    selectTag(key, name, href, count, color, cover) {
+    async selectTag(key, name, href, count, color, cover) {
       this.activeTagKey = key || '';
-      this.activeTagPage = 1;
       this.activeTagName = name || '';
       this.activeTagHref = href || '';
       this.activeTagCount = count || '';
       this.activeTagColor = color || '';
       this.activeTagCover = cover || '';
-      this.syncTagPosts();
+      this.clearPost();
+
+      if (key === this._ssrTagKey) {
+        // First tag: use SSR-rendered DOM
+        this.dynamicLoaded = false;
+        this.loading = false;
+        this.showSsrPanel(true);
+        this.selectFirstSsrPost();
+      } else {
+        // Other tags: hide SSR panel, fetch via API
+        this.showSsrPanel(false);
+        await this.fetchTagPosts(key, name);
+      }
     },
 
-    selectTagPage(page) {
-      const nextPage = Number(page) || 1;
-      if (nextPage < 1) return;
-      this.activeTagPage = nextPage;
-      this.syncTagPosts();
+    showSsrPanel(visible) {
+      const ssrList = this.$root.querySelector('[data-tag-posts-list]');
+      if (ssrList) ssrList.style.display = visible ? '' : 'none';
+      const ssrOverflow = ssrList?.parentElement?.querySelector('.tags-post-overflow');
+      if (ssrOverflow) ssrOverflow.style.display = visible ? '' : 'none';
     },
 
-    syncTagPosts() {
-      const firstPost = Array.from(this.$root.querySelectorAll('[data-tags-post-option]'))
-        .find((el) => (
-          el.dataset.parentTagKey === this.activeTagKey &&
-          Number(el.dataset.tagPage || '1') === this.activeTagPage
-        ));
-
+    selectFirstSsrPost() {
+      const firstPost = this.$root.querySelector('[data-tag-posts-list] [data-tag-post-item]');
       if (firstPost) {
         this.selectPost(firstPost);
-      } else {
-        this.clearPost();
+        this.postTotal = Number(this.activeTagCount) || 0;
+      }
+    },
+
+    async fetchTagPosts(tagName, displayName) {
+      // Cancel previous request
+      if (this.fetchController) this.fetchController.abort();
+      const controller = new AbortController();
+      this.fetchController = controller;
+
+      // Check sessionStorage cache
+      const cacheKey = `tag-posts-${tagName}`;
+      try {
+        const cached = window.sessionStorage.getItem(cacheKey);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed?.data && Date.now() - parsed.timestamp < TAG_CACHE_TTL) {
+            this.renderDynamicPosts(parsed.data, parsed.total, displayName);
+            return;
+          }
+        }
+      } catch { /* ignore */ }
+
+      this.loading = true;
+      this.dynamicLoaded = false;
+      this.dynamicPosts = [];
+
+      try {
+        const url = `/apis/api.content.halo.run/v1alpha1/posts?fieldSelector=${encodeURIComponent('spec.tags=' + tagName)}&page=1&size=${TAG_PAGE_SIZE}&sort=spec.publishTime%2Cdesc`;
+        const resp = await fetch(url, { signal: controller.signal });
+        if (!resp.ok) throw new Error(`${resp.status}`);
+        const result = await resp.json();
+        const items = Array.isArray(result?.items) ? result.items : [];
+        const total = result?.total ?? items.length;
+
+        // Cache
+        try {
+          window.sessionStorage.setItem(cacheKey, JSON.stringify({
+            timestamp: Date.now(),
+            data: items,
+            total
+          }));
+        } catch { /* quota */ }
+
+        if (controller.signal.aborted) return;
+        this.renderDynamicPosts(items, total, displayName);
+      } catch (err) {
+        if (err?.name === 'AbortError') return;
+        this.loading = false;
+        this.dynamicLoaded = true;
+        this.dynamicPosts = [];
+      }
+    },
+
+    renderDynamicPosts(items, total, parentName) {
+      this.loading = false;
+      this.dynamicLoaded = true;
+      this.postTotal = total;
+
+      const listEl = this.$root.querySelector('[data-tag-posts-list]');
+      if (!listEl) return;
+
+      // Build dynamic post rows
+      const postsHtml = items.map((post) => {
+        const key = post.metadata?.name || '';
+        const title = escapeHtml(post.spec?.title || '');
+        const date = post.spec?.publishTime ? new Date(post.spec.publishTime).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '.') : '';
+        const comments = post.stats?.comment ?? 0;
+        const excerpt = escapeHtml(post.status?.excerpt || '');
+        const href = post.status?.permalink || '#';
+        const pName = escapeHtml(parentName || '');
+
+        return `<a class="tag-post-row pjax-link" data-pjax-app="reader" href="${escapeHtml(href)}"
+          data-tag-post-item
+          data-post-key="${escapeHtml(key)}"
+          data-post-title="${title}"
+          data-post-date="${escapeHtml(date)}"
+          data-post-comments="${comments}"
+          data-post-excerpt="${excerpt}"
+          data-post-parent-name="${pName}"
+          data-post-href="${escapeHtml(href)}"
+          @mouseenter="selectPost($el)"
+          @focus="selectPost($el)"
+          @click="selectPost($el)"
+          :class="{ 'is-active': activePostKey === $el.dataset.postKey }">
+          <div class="tag-post-row-main">
+            <svg class="tag-post-file-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M4 1.75H9.25L12.5 5V12.5C12.5 13.3284 11.8284 14 11 14H4C3.17157 14 2.5 13.3284 2.5 12.5V3.25C2.5 2.42157 3.17157 1.75 4 1.75Z" stroke="currentColor" stroke-width="1.1" />
+              <path d="M9 1.75V5.25H12.5" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round" />
+            </svg>
+            <span class="tag-post-row-title">${title}</span>
+          </div>
+          <span class="tag-post-row-meta">
+            <time>${escapeHtml(date)}</time>
+            <span>${comments} 评论</span>
+          </span>
+        </a>`;
+      }).join('');
+
+      // Overflow link
+      const overflowHtml = total > TAG_PAGE_SIZE
+        ? `<div class="tags-post-overflow"><a class="tags-post-viewmore pjax-link" data-pjax-app="explorer" href="${escapeHtml(this.activeTagHref)}">查看全部 ${total} 篇文章 →</a></div>`
+        : '';
+
+      const emptyHtml = items.length === 0
+        ? '<div class="tags-post-empty"><p>这个标签下还没有文章。</p></div>'
+        : '';
+
+      listEl.innerHTML = postsHtml + emptyHtml;
+      listEl.style.display = '';
+
+      // Insert overflow after list
+      const existingOverflow = listEl.parentElement?.querySelector('.tags-post-overflow');
+      if (existingOverflow) existingOverflow.remove();
+      if (overflowHtml) listEl.insertAdjacentHTML('afterend', overflowHtml);
+
+      // Attach pjax links
+      if (window.pjax) {
+        listEl.querySelectorAll('a.pjax-link:not([data-pjax-attached])').forEach((link) => {
+          link.setAttribute('data-pjax-managed', 'true');
+          window.pjax.attachLink(link);
+        });
+        const overflowLink = listEl.parentElement?.querySelector('.tags-post-overflow a.pjax-link:not([data-pjax-attached])');
+        if (overflowLink) {
+          overflowLink.setAttribute('data-pjax-managed', 'true');
+          window.pjax.attachLink(overflowLink);
+        }
       }
 
-      const postsScroll = this.$root.querySelector('.tag-posts-scroll');
-      if (postsScroll) {
-        postsScroll.scrollTop = 0;
-      }
+      // Select first post
+      const firstPost = listEl.querySelector('[data-tag-post-item]');
+      if (firstPost) this.selectPost(firstPost);
 
+      // Scroll to top
+      const scroll = this.$root.querySelector('.tag-posts-scroll');
+      if (scroll) scroll.scrollTop = 0;
       const previewScroll = this.$root.querySelector('.tags-preview-scroll');
-      if (previewScroll) {
-        previewScroll.scrollTop = 0;
-      }
+      if (previewScroll) previewScroll.scrollTop = 0;
     },
 
     selectPost(el) {
@@ -453,9 +601,11 @@ export function registerExplorers(Alpine) {
     }
   }));
 
+  const CAT_PAGE_SIZE = 20;
+  const CAT_CACHE_TTL = 5 * 60 * 1000;
+
   Alpine.data('categoriesExplorer', () => ({
     activeCategoryKey: '',
-    activeCategoryPage: 1,
     activeCategoryName: '',
     activeCategoryHref: '',
     activeCategoryCount: '',
@@ -468,10 +618,17 @@ export function registerExplorers(Alpine) {
     activePostExcerpt: '',
     activePostParentName: '',
     activePostHref: '',
+    loading: false,
+    dynamicLoaded: false,
+    dynamicPosts: [],
+    postTotal: 0,
+    fetchController: null,
+    _ssrCategoryKey: '',
 
     init() {
       const firstCategory = this.$root.querySelector('[data-categories-folder]');
       if (!firstCategory) return;
+      this._ssrCategoryKey = firstCategory.dataset.categoryKey || '';
       this.selectCategory(
         firstCategory.dataset.categoryKey,
         firstCategory.dataset.categoryName,
@@ -482,46 +639,166 @@ export function registerExplorers(Alpine) {
       );
     },
 
-    selectCategory(key, name, href, count, description, cover) {
+    async selectCategory(key, name, href, count, description, cover) {
       this.activeCategoryKey = key || '';
-      this.activeCategoryPage = 1;
       this.activeCategoryName = name || '';
       this.activeCategoryHref = href || '';
       this.activeCategoryCount = count || '';
       this.activeCategoryDescription = description || '';
       this.activeCategoryCover = cover || '';
-      this.syncCategoryPosts();
+      this.clearPost();
+
+      if (key === this._ssrCategoryKey) {
+        this.dynamicLoaded = false;
+        this.loading = false;
+        this.showSsrPanel(true);
+        this.selectFirstSsrPost();
+      } else {
+        this.showSsrPanel(false);
+        await this.fetchCategoryPosts(key, name);
+      }
     },
 
-    selectCategoryPage(page) {
-      const nextPage = Number(page) || 1;
-      if (nextPage < 1) return;
-      this.activeCategoryPage = nextPage;
-      this.syncCategoryPosts();
+    showSsrPanel(visible) {
+      const ssrList = this.$root.querySelector('[data-category-posts-list]');
+      if (ssrList) ssrList.style.display = visible ? '' : 'none';
+      const ssrOverflow = ssrList?.parentElement?.querySelector('.categories-post-overflow');
+      if (ssrOverflow) ssrOverflow.style.display = visible ? '' : 'none';
     },
 
-    syncCategoryPosts() {
-      const firstPost = Array.from(this.$root.querySelectorAll('[data-categories-post-option]'))
-        .find((el) => (
-          el.dataset.parentCategoryKey === this.activeCategoryKey &&
-          Number(el.dataset.categoryPage || '1') === this.activeCategoryPage
-        ));
-
+    selectFirstSsrPost() {
+      const firstPost = this.$root.querySelector('[data-category-posts-list] [data-category-post-item]');
       if (firstPost) {
         this.selectPost(firstPost);
-      } else {
-        this.clearPost();
+        this.postTotal = Number(this.activeCategoryCount) || 0;
+      }
+    },
+
+    async fetchCategoryPosts(categoryName, displayName) {
+      if (this.fetchController) this.fetchController.abort();
+      const controller = new AbortController();
+      this.fetchController = controller;
+
+      const cacheKey = `cat-posts-${categoryName}`;
+      try {
+        const cached = window.sessionStorage.getItem(cacheKey);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed?.data && Date.now() - parsed.timestamp < CAT_CACHE_TTL) {
+            this.renderDynamicPosts(parsed.data, parsed.total, displayName);
+            return;
+          }
+        }
+      } catch { /* ignore */ }
+
+      this.loading = true;
+      this.dynamicLoaded = false;
+      this.dynamicPosts = [];
+
+      try {
+        const url = `/apis/api.content.halo.run/v1alpha1/posts?fieldSelector=${encodeURIComponent('spec.categories=' + categoryName)}&page=1&size=${CAT_PAGE_SIZE}&sort=spec.publishTime%2Cdesc`;
+        const resp = await fetch(url, { signal: controller.signal });
+        if (!resp.ok) throw new Error(`${resp.status}`);
+        const result = await resp.json();
+        const items = Array.isArray(result?.items) ? result.items : [];
+        const total = result?.total ?? items.length;
+
+        try {
+          window.sessionStorage.setItem(cacheKey, JSON.stringify({
+            timestamp: Date.now(),
+            data: items,
+            total
+          }));
+        } catch { /* quota */ }
+
+        if (controller.signal.aborted) return;
+        this.renderDynamicPosts(items, total, displayName);
+      } catch (err) {
+        if (err?.name === 'AbortError') return;
+        this.loading = false;
+        this.dynamicLoaded = true;
+        this.dynamicPosts = [];
+      }
+    },
+
+    renderDynamicPosts(items, total, parentName) {
+      this.loading = false;
+      this.dynamicLoaded = true;
+      this.postTotal = total;
+
+      const listEl = this.$root.querySelector('[data-category-posts-list]');
+      if (!listEl) return;
+
+      const postsHtml = items.map((post) => {
+        const key = post.metadata?.name || '';
+        const title = escapeHtml(post.spec?.title || '');
+        const date = post.spec?.publishTime ? new Date(post.spec.publishTime).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '.') : '';
+        const comments = post.stats?.comment ?? 0;
+        const excerpt = escapeHtml(post.status?.excerpt || '');
+        const href = post.status?.permalink || '#';
+        const pName = escapeHtml(parentName || '');
+
+        return `<a class="category-post-row pjax-link" data-pjax-app="reader" href="${escapeHtml(href)}"
+          data-category-post-item
+          data-post-key="${escapeHtml(key)}"
+          data-post-title="${title}"
+          data-post-date="${escapeHtml(date)}"
+          data-post-comments="${comments}"
+          data-post-excerpt="${excerpt}"
+          data-post-parent-name="${pName}"
+          data-post-href="${escapeHtml(href)}"
+          @mouseenter="selectPost($el)"
+          @focus="selectPost($el)"
+          @click="selectPost($el)"
+          :class="{ 'is-active': activePostKey === $el.dataset.postKey }">
+          <div class="category-post-row-main">
+            <svg class="category-post-file-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M4 1.75H9.25L12.5 5V12.5C12.5 13.3284 11.8284 14 11 14H4C3.17157 14 2.5 13.3284 2.5 12.5V3.25C2.5 2.42157 3.17157 1.75 4 1.75Z" stroke="currentColor" stroke-width="1.1" />
+              <path d="M9 1.75V5.25H12.5" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round" />
+            </svg>
+            <span class="category-post-row-title">${title}</span>
+          </div>
+          <span class="category-post-row-meta">
+            <time>${escapeHtml(date)}</time>
+            <span>${comments} 评论</span>
+          </span>
+        </a>`;
+      }).join('');
+
+      const overflowHtml = total > CAT_PAGE_SIZE
+        ? `<div class="categories-post-overflow"><a class="categories-post-viewmore pjax-link" data-pjax-app="explorer" href="${escapeHtml(this.activeCategoryHref)}">查看全部 ${total} 篇文章 →</a></div>`
+        : '';
+
+      const emptyHtml = items.length === 0
+        ? '<div class="categories-post-empty"><p>这个分类下还没有文章。</p></div>'
+        : '';
+
+      listEl.innerHTML = postsHtml + emptyHtml;
+      listEl.style.display = '';
+
+      const existingOverflow = listEl.parentElement?.querySelector('.categories-post-overflow');
+      if (existingOverflow) existingOverflow.remove();
+      if (overflowHtml) listEl.insertAdjacentHTML('afterend', overflowHtml);
+
+      if (window.pjax) {
+        listEl.querySelectorAll('a.pjax-link:not([data-pjax-attached])').forEach((link) => {
+          link.setAttribute('data-pjax-managed', 'true');
+          window.pjax.attachLink(link);
+        });
+        const overflowLink = listEl.parentElement?.querySelector('.categories-post-overflow a.pjax-link:not([data-pjax-attached])');
+        if (overflowLink) {
+          overflowLink.setAttribute('data-pjax-managed', 'true');
+          window.pjax.attachLink(overflowLink);
+        }
       }
 
-      const postsScroll = this.$root.querySelector('.category-posts-scroll');
-      if (postsScroll) {
-        postsScroll.scrollTop = 0;
-      }
+      const firstPost = listEl.querySelector('[data-category-post-item]');
+      if (firstPost) this.selectPost(firstPost);
 
+      const scroll = this.$root.querySelector('.category-posts-scroll');
+      if (scroll) scroll.scrollTop = 0;
       const previewScroll = this.$root.querySelector('.categories-preview-scroll');
-      if (previewScroll) {
-        previewScroll.scrollTop = 0;
-      }
+      if (previewScroll) previewScroll.scrollTop = 0;
     },
 
     selectPost(el) {
