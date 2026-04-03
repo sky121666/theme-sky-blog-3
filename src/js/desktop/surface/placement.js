@@ -4,7 +4,7 @@
  * 所有方法通过 spread 注入 Alpine.data，内部使用 this 访问组件状态。
  */
 
-import { sortByDistance } from '../../widgets/weather-api.js';
+import { sortByDistance } from '../../shared/utils.js';
 
 export const placementMethods = {
   placementOverlaps(x, y, w, h, placement) {

@@ -7,7 +7,9 @@
         canonical = ${category.status.permalink},
         image = ${!#strings.isEmpty(category.spec.cover) ? category.spec.cover : site.logo},
         type = 'website',
-        seoFallback = 'full'
+        seoFallback = 'full',
+        pageMode = 'browser-list',
+        pageApp = 'explorer'
       )}">
   <th:block th:fragment="ssrBlock">
     <div class="category-shell">
@@ -60,6 +62,7 @@
 
           <div class="category-posts-scroll">
             <a class="category-post-row pjax-link"
+               data-pjax-app="reader"
                th:each="post : ${posts.items}"
                th:href="${post.status.permalink}"
                data-category-post-option
@@ -148,7 +151,7 @@
                   摘要
                 </p>
 
-                <a class="category-preview-action pjax-link" th:href="${post.status.permalink}">打开文章</a>
+                <a class="category-preview-action pjax-link" data-pjax-app="reader" th:href="${post.status.permalink}">打开文章</a>
               </article>
             </th:block>
 

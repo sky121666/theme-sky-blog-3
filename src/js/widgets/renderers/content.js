@@ -5,6 +5,9 @@ import {
   selectTopCategories
 } from './data.js';
 
+const READER_PJAX_APP_ATTR = 'data-pjax-app="reader"';
+const EXPLORER_PJAX_APP_ATTR = 'data-pjax-app="explorer"';
+
 export function renderLatestPostsWidget({ sources, escapeHtml }, widget, options = {}) {
   const size = widget?.size || 'medium';
 
@@ -30,7 +33,7 @@ export function renderLatestPostsWidget({ sources, escapeHtml }, widget, options
       ? `<img class="wg-news-sm-img" src="${escapeHtml(cover)}" alt="">`
       : '<div class="wg-news-sm-img is-placeholder"></div>';
     inner = `
-      <a class="wg-news-sm pjax-link" href="${escapeHtml(post?.status?.permalink || '#')}">
+      <a class="wg-news-sm pjax-link" ${READER_PJAX_APP_ATTR} href="${escapeHtml(post?.status?.permalink || '#')}">
         ${coverMedia}
         <div class="wg-news-sm-scrim"></div>
         <div class="wg-news-sm-top">
@@ -56,7 +59,7 @@ export function renderLatestPostsWidget({ sources, escapeHtml }, widget, options
       const t = escapeHtml(p?.spec?.title || '未命名文章');
       const d = escapeHtml(formatWidgetDate(p?.spec?.publishTime) || '');
       return `
-        <a class="wg-news-md-row pjax-link" href="${escapeHtml(p?.status?.permalink || '#')}">
+        <a class="wg-news-md-row pjax-link" ${READER_PJAX_APP_ATTR} href="${escapeHtml(p?.status?.permalink || '#')}">
           <span class="wg-news-md-row-title">${t}</span>
           <span class="wg-news-md-row-date">${d}</span>
         </a>
@@ -64,14 +67,14 @@ export function renderLatestPostsWidget({ sources, escapeHtml }, widget, options
     }).join('');
 
     inner = `
-      <a class="wg-news-md-cover pjax-link" href="${escapeHtml(post?.status?.permalink || '#')}">
+      <a class="wg-news-md-cover pjax-link" ${READER_PJAX_APP_ATTR} href="${escapeHtml(post?.status?.permalink || '#')}">
         ${coverImg}
         <div class="wg-news-md-cover-scrim"></div>
       </a>
       <div class="wg-news-md-body">
         <div class="wg-news-md-meta">
           <span class="wg-news-md-category">最新发布</span>
-          <a class="wg-news-md-title pjax-link" href="${escapeHtml(post?.status?.permalink || '#')}">${title}</a>
+          <a class="wg-news-md-title pjax-link" ${READER_PJAX_APP_ATTR} href="${escapeHtml(post?.status?.permalink || '#')}">${title}</a>
         </div>
         <div class="wg-news-md-list">${listHTML}</div>
       </div>
@@ -90,7 +93,7 @@ export function renderLatestPostsWidget({ sources, escapeHtml }, widget, options
       const t = escapeHtml(p?.spec?.title || '未命名文章');
       const d = escapeHtml(formatWidgetDate(p?.spec?.publishTime) || '');
       return `
-        <a class="wg-news-lg-item pjax-link" href="${escapeHtml(p?.status?.permalink || '#')}">
+        <a class="wg-news-lg-item pjax-link" ${READER_PJAX_APP_ATTR} href="${escapeHtml(p?.status?.permalink || '#')}">
           <span class="wg-news-lg-indicator"></span>
           <span class="wg-news-lg-item-title">${t}</span>
           <span class="wg-news-lg-item-date">${d}</span>
@@ -109,7 +112,7 @@ export function renderLatestPostsWidget({ sources, escapeHtml }, widget, options
       </div>
       <div class="wg-news-lg-list">
         ${listHTML}
-        <a class="wg-news-lg-viewall pjax-link" href="${escapeHtml(sources.archivesUrl || '/archives')}">查看全部文章 →</a>
+        <a class="wg-news-lg-viewall pjax-link" ${EXPLORER_PJAX_APP_ATTR} href="${escapeHtml(sources.archivesUrl || '/archives')}">查看全部文章 →</a>
       </div>
     `;
   }
@@ -145,7 +148,7 @@ export function renderPopularPostsWidget({ sources, escapeHtml }, widget, option
     const fallbackCls = cover ? '' : ' is-no-cover';
 
     inner = `
-      <a class="wg-hot-sm${fallbackCls} pjax-link" ${coverStyle} href="${escapeHtml(post?.status?.permalink || '#')}">
+      <a class="wg-hot-sm${fallbackCls} pjax-link" ${READER_PJAX_APP_ATTR} ${coverStyle} href="${escapeHtml(post?.status?.permalink || '#')}">
         <div class="wg-hot-sm-scrim"></div>
         <div class="wg-hot-sm-top">
           <span class="wg-hot-sm-badge">
@@ -166,7 +169,7 @@ export function renderPopularPostsWidget({ sources, escapeHtml }, widget, option
       const visit = post?.stats?.visit ?? 0;
       const heatPct = Math.round((visit / maxVisit) * 100);
       return `
-        <a class="wg-hot-md-row pjax-link" href="${escapeHtml(post?.status?.permalink || '#')}">
+        <a class="wg-hot-md-row pjax-link" ${READER_PJAX_APP_ATTR} href="${escapeHtml(post?.status?.permalink || '#')}">
           <span class="wg-hot-md-rank${i < 3 ? ' is-top' : ''}">${String(i + 1).padStart(2, '0')}</span>
           <div class="wg-hot-md-info">
             <span class="wg-hot-md-row-title">${t}</span>
@@ -199,7 +202,7 @@ export function renderPopularPostsWidget({ sources, escapeHtml }, widget, option
       const visit = p?.stats?.visit ?? 0;
       const heatPct = Math.round((visit / maxVisit) * 100);
       return `
-        <a class="wg-hot-lg-row pjax-link" href="${escapeHtml(p?.status?.permalink || '#')}">
+        <a class="wg-hot-lg-row pjax-link" ${READER_PJAX_APP_ATTR} href="${escapeHtml(p?.status?.permalink || '#')}">
           <span class="wg-hot-lg-rank${i < 2 ? ' is-top' : ''}">${String(i + 2).padStart(2, '0')}</span>
           <div class="wg-hot-lg-info">
             <span class="wg-hot-lg-row-title">${t}</span>
@@ -212,7 +215,7 @@ export function renderPopularPostsWidget({ sources, escapeHtml }, widget, option
 
     inner = `
       <div class="wg-hot-lg-hero">
-        <a class="wg-hot-lg-cover pjax-link" href="${escapeHtml(heroPost?.status?.permalink || '#')}">
+        <a class="wg-hot-lg-cover pjax-link" ${READER_PJAX_APP_ATTR} href="${escapeHtml(heroPost?.status?.permalink || '#')}">
           ${coverImg}
           <div class="wg-hot-lg-cover-scrim"></div>
           <div class="wg-hot-lg-cover-text">
@@ -249,7 +252,7 @@ export function renderCategoriesWidget({ sources, escapeHtml }) {
     const iconSvg = cat.icon || CATEGORY_FALLBACK_ICON;
     const colorStyle = color !== 'currentColor' ? ` style="color:${escapeHtml(color)}"` : '';
     return `
-      <a class="wg-cat-item pjax-link" href="${escapeHtml(cat.permalink)}">
+      <a class="wg-cat-item pjax-link" ${EXPLORER_PJAX_APP_ATTR} href="${escapeHtml(cat.permalink)}">
         <span class="wg-cat-icon"${colorStyle}>${iconSvg}</span>
         <span class="wg-cat-label">${escapeHtml(cat.name)}</span>
       </a>`;
@@ -262,7 +265,7 @@ export function renderCategoriesWidget({ sources, escapeHtml }) {
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M224,48H160a40,40,0,0,0-32,16A40,40,0,0,0,96,48H32A16,16,0,0,0,16,64V192a16,16,0,0,0,16,16H96a24,24,0,0,1,24,24,8,8,0,0,0,16,0,24,24,0,0,1,24-24h64a16,16,0,0,0,16-16V64A16,16,0,0,0,224,48ZM96,192H32V64H96a24,24,0,0,1,24,24V200A39.81,39.81,0,0,0,96,192Zm128,0H160a39.81,39.81,0,0,0-24,8V88a24,24,0,0,1,24-24h64Z"/></svg>
           分类
         </span>
-        <a class="wg-cat-more pjax-link" href="${escapeHtml(categoriesUrl)}">
+        <a class="wg-cat-more pjax-link" ${EXPLORER_PJAX_APP_ATTR} href="${escapeHtml(categoriesUrl)}">
           更多分类
           <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>
         </a>
@@ -437,7 +440,7 @@ export function renderRandomTagsWidget({ sources, escapeHtml }, widget, options 
       const style = Object.entries(pos).map(([k, v]) => `${k}:${v}`).join(';');
       const tagColor = tag.color || '#A1A1AA';
       const cls = i === 0 ? 'wg-tag-focus-item is-focus' : 'wg-tag-focus-item';
-      return `<a class="${cls} pjax-link" href="${escapeHtml(tag.permalink)}" style="${style};--tag-color:${escapeHtml(tagColor)}">${escapeHtml(tag.name)}</a>`;
+      return `<a class="${cls} pjax-link" ${EXPLORER_PJAX_APP_ATTR} href="${escapeHtml(tag.permalink)}" style="${style};--tag-color:${escapeHtml(tagColor)}">${escapeHtml(tag.name)}</a>`;
     }).join('');
 
     const content = `<div class="wg-tag-focus-stage" data-tag-focus>${itemsHTML}</div>`;
@@ -459,6 +462,7 @@ export function renderRandomTagsWidget({ sources, escapeHtml }, widget, options 
     const tone = index % 4;
     return `
       <a class="wg-tag-chip ${extraClass} tone-${tone} pjax-link"
+         ${EXPLORER_PJAX_APP_ATTR}
          href="${escapeHtml(tag.permalink)}"
          title="${escapeHtml(tag.name)}"
          style="--tag-color:${escapeHtml(tagColor)};--j-rot:${rot}deg;--j-tx:${tx}px;--j-ty:${ty}px;">
@@ -473,6 +477,7 @@ export function renderRandomTagsWidget({ sources, escapeHtml }, widget, options 
     const rest = tags.slice(1);
     const featuredMarkup = featured ? `
       <a class="wg-tag-feature pjax-link"
+         ${EXPLORER_PJAX_APP_ATTR}
          href="${escapeHtml(featured.permalink)}"
          style="--tag-color:${escapeHtml(featured.color || '#A1A1AA')}">
         <span class="wg-tag-feature-kicker">探索</span>

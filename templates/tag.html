@@ -7,7 +7,9 @@
         canonical = ${tag.status.permalink},
         image = ${!#strings.isEmpty(tag.spec.cover) ? tag.spec.cover : site.logo},
         type = 'website',
-        seoFallback = 'meta'
+        seoFallback = 'meta',
+        pageMode = 'browser-list',
+        pageApp = 'explorer'
       )}">
   <th:block th:fragment="ssrBlock">
     <div class="tag-shell">
@@ -59,6 +61,7 @@
 
           <div class="tag-posts-scroll">
             <a class="tag-post-row pjax-link"
+               data-pjax-app="reader"
                th:each="post : ${posts.items}"
                th:href="${post.status.permalink}"
                data-tag-post-option
@@ -147,7 +150,7 @@
                   摘要
                 </p>
 
-                <a class="tag-preview-action pjax-link" th:href="${post.status.permalink}">打开文章</a>
+                <a class="tag-preview-action pjax-link" data-pjax-app="reader" th:href="${post.status.permalink}">打开文章</a>
               </article>
             </th:block>
 

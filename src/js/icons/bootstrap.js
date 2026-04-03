@@ -69,6 +69,7 @@ export function readDesktopIconsBootstrap() {
     ...normalizeDesktopIconBootstrap(icon, index),
     href: icon?.href || '#',
     pjax: icon?.pjax !== false,
+    pjaxApp: typeof icon?.pjaxApp === 'string' ? icon.pjaxApp : '',
     external: icon?.external === true,
     subtype: normalizeDesktopIconType(icon?.subtype || icon?.type),
     dataId: icon?.dataId || icon?.title || icon?.name || `icon-${index + 1}`

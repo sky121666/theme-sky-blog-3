@@ -7,7 +7,9 @@
         canonical = ${'/authors/' + author.metadata.name},
         image = ${!#strings.isEmpty(author.spec.avatar) ? author.spec.avatar : site.logo},
         type = 'website',
-        seoFallback = 'meta'
+        seoFallback = 'meta',
+        pageMode = 'browser-list',
+        pageApp = 'explorer'
       )}">
   <th:block th:fragment="ssrBlock">
     <th:block th:with="momentsPluginAvailable=${pluginFinder.available('PluginMoments')},
@@ -129,6 +131,7 @@
               <div x-show="activeSource === 'posts'" x-cloak>
                 <th:block th:if="${posts != null and !#lists.isEmpty(posts.items)}">
                   <a class="author-post-row tag-post-row pjax-link"
+                     data-pjax-app="reader"
                      th:each="post : ${posts.items}"
                      th:href="${post.status.permalink}"
                      data-author-post-option
@@ -310,7 +313,7 @@
                     摘要
                   </p>
 
-                  <a class="author-preview-action tag-preview-action pjax-link" th:href="${post.status.permalink}">打开文章</a>
+                  <a class="author-preview-action tag-preview-action pjax-link" data-pjax-app="reader" th:href="${post.status.permalink}">打开文章</a>
                 </article>
               </th:block>
 
@@ -383,7 +386,7 @@
                          th:if="${content != null and !#strings.isEmpty(content.html)}"
                          th:utext="${content.html}"></div>
 
-                    <a class="author-preview-action tag-preview-action pjax-link" th:href="@{'/moments/' + ${moment.metadata.name}}">打开瞬间</a>
+                    <a class="author-preview-action tag-preview-action pjax-link" data-pjax-app="moments-app" th:href="@{'/moments/' + ${moment.metadata.name}}">打开瞬间</a>
                   </article>
                 </th:block>
               </div>

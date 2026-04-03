@@ -7,7 +7,9 @@
         canonical = '',
         image = ${site.logo},
         type = 'website',
-        seoFallback = 'full'
+        seoFallback = 'full',
+        pageMode = 'browser-list',
+        pageApp = 'explorer'
       )}">
   <th:block th:fragment="ssrBlock">
     <div class="archive-shell">
@@ -84,6 +86,7 @@
                        x-show="activeMonthKey === $el.dataset.monthKey"
                        x-cloak>
                     <a class="archive-entry archive-entry--file pjax-link"
+                       data-pjax-app="reader"
                        th:each="post : ${month.posts}"
                        th:href="${post.status.permalink}"
                        data-archive-post-option
@@ -161,7 +164,7 @@
                         摘要
                       </p>
 
-                      <a class="archive-preview-action pjax-link" th:href="${post.status.permalink}">打开文章</a>
+                      <a class="archive-preview-action pjax-link" data-pjax-app="reader" th:href="${post.status.permalink}">打开文章</a>
                     </article>
                   </th:block>
                 </th:block>

@@ -467,3 +467,13 @@ spec:
               label: 启用放大效果
               help: 控制鼠标滑过 Dock 图标时是否启用 macOS 风格放大动画，不影响 Dock 固定玻璃底材质。
               value: true
+
+    - group: developer
+      label: 开发者
+      formSchema:
+        - $formkit: switch
+          id: developer_debug_mode
+          name: debug_mode
+          label: 调试模式
+          help: 开启后浏览器控制台将输出 Pjax 导航、桌面组件等详细日志（[pjax]、[desktop] 前缀）。生产环境建议关闭。
+          value: false

@@ -7,7 +7,9 @@
         canonical = '/categories',
         image = ${site.logo},
         type = 'website',
-        seoFallback = 'meta'
+        seoFallback = 'meta',
+        pageMode = 'browser-list',
+        pageApp = 'explorer'
       )}">
   <th:block th:fragment="categorySidebar(categories, depth)">
     <th:block th:with="currentDepth=${depth != null ? depth : 0}">
@@ -52,6 +54,7 @@
                    x-show="activeCategoryKey === $el.dataset.categoryKey && activeCategoryPage === Number($el.dataset.categoryPage)"
                    x-cloak>
                 <a class="category-post-row pjax-link"
+                   data-pjax-app="reader"
                    th:each="post : ${categoryPosts.items}"
                    th:href="${post.status.permalink}"
                    data-categories-post-option
@@ -165,7 +168,7 @@
                     摘要
                   </p>
 
-                  <a class="category-preview-action pjax-link" th:href="${post.status.permalink}">打开文章</a>
+                  <a class="category-preview-action pjax-link" data-pjax-app="reader" th:href="${post.status.permalink}">打开文章</a>
                 </article>
               </th:block>
             </th:block>

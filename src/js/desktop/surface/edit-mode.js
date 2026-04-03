@@ -6,13 +6,12 @@
 
 import {
   DESKTOP_WIDGET_SIZE_MAP,
-  DESKTOP_WIDGET_CATALOG,
   normalizeWidgetSize,
   normalizeWidgetAppearance,
   createWidgetInstance,
   getWidgetCatalogEntry,
   generateWidgetTitle
-} from '../../widgets/catalog.js';
+} from '../../widgets/catalog-core.js';
 
 export const editModeMethods = {
   /* ── 编辑态进出 ── */
@@ -248,6 +247,7 @@ export const editModeMethods = {
     this.previewPlacement = null;
     this.invalidateWidgetCache();
     this.syncGridMetrics();
+    this.syncWidgetRuntimes();
 
     /* 保存空配置到服务器 */
     if (this.canManageDefaultDesktopLayout) {
@@ -277,11 +277,12 @@ export const editModeMethods = {
     candidate.h = placement.h;
 
     if (widgetType === 'system.weather') {
-      this.loadWeather();
+      await this.loadWeather();
     }
 
     this.invalidateWidgetCache();
     this.syncResponsiveVisibility();
+    this.syncWidgetRuntimes();
   },
 
   async hideWidget(key) {
@@ -293,5 +294,6 @@ export const editModeMethods = {
       this.endDrag();
     }
     this.syncResponsiveVisibility();
+    this.syncWidgetRuntimes();
   }
 };

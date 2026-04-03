@@ -7,7 +7,9 @@
         canonical = '',
         image = ${site.logo},
         type = 'website',
-        seoFallback = 'meta'
+        seoFallback = 'meta',
+        pageMode = 'browser-error',
+        pageApp = ''
       )}">
   <th:block th:fragment="ssrBlock">
     <div th:replace="~{error/modules/dialog :: panel(

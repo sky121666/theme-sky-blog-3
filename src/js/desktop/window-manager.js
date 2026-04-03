@@ -5,6 +5,9 @@
 import { resolveThemeMode, applyRootThemeState } from '../shared/theme.js';
 import { openSearchWidget } from './search.js';
 import { runGenieAnimation } from './window.js';
+import { createLogger } from '../shared/debug.js';
+
+const { log: wmLog } = createLogger('window');
 
 export function registerWindowManager(Alpine) {
   // =========== 主题管理 ===========
@@ -96,6 +99,7 @@ export function registerWindowManager(Alpine) {
       if (window.location.pathname === '/') {
         this.showDesktop();
       }
+      wmLog('init', { show: this.show, minimized: this.minimized, path: window.location.pathname });
     },
 
     sync() {
@@ -174,6 +178,7 @@ export function registerWindowManager(Alpine) {
     },
 
     showDesktop() {
+      wmLog('showDesktop');
       this.show = false;
       this.minimized = false;
       this.isAnimating = false;
@@ -184,6 +189,7 @@ export function registerWindowManager(Alpine) {
     },
 
     open(title) {
+      wmLog('open', { title, show: this.show, minimized: this.minimized, isAnimating: this.isAnimating });
       if (title) this.title = title;
       if (this.isAnimating) {
         this.queueOpen(title);
@@ -207,6 +213,7 @@ export function registerWindowManager(Alpine) {
     },
     
     hide() {
+      wmLog('hide');
       this.show = false;
       this.minimized = false;
       this.isAnimating = false;
@@ -216,6 +223,7 @@ export function registerWindowManager(Alpine) {
     },
     
     async minimize() {
+      wmLog('minimize');
       if (this.isAnimating || this.minimized) return;
       const winEl = document.querySelector('.macos-window');
       if (!winEl) return;
@@ -269,6 +277,7 @@ export function registerWindowManager(Alpine) {
     },
     
     async restore(nextTitle) {
+       wmLog('restore', { nextTitle });
        if (nextTitle) this.title = nextTitle;
        if (this.isAnimating || !this.minimized) return;
        const animationToken = ++this.animationToken;

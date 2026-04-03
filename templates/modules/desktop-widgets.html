@@ -171,17 +171,21 @@
             <div class="desktop-widget-center-content">
               <div class="desktop-widget-center-content-header">
                 <div>
-                  <h3 x-text="widgetCenterCategoryLabel()"></h3>
+                  <h3 x-text="widgetCenterCategories.find((item) => item.id === widgetCenterCategory)?.label || '全部'"></h3>
                 </div>
-                <p class="desktop-widget-center-content-count" x-text="widgetCenterResultText()"></p>
+                <p class="desktop-widget-center-content-count" x-text="`${filteredWidgetCatalog.length} 项`"></p>
               </div>
 
               <div class="desktop-widget-center-grid">
-                <template x-if="filteredWidgetCatalog.length === 0">
+                <template x-if="!editingRuntime">
+                  <div class="desktop-widget-center-empty">正在加载组件中心…</div>
+                </template>
+
+                <template x-if="editingRuntime && filteredWidgetCatalog.length === 0">
                   <div class="desktop-widget-center-empty">当前筛选条件下没有可展示的组件。</div>
                 </template>
 
-                <template x-for="entry in groupedFilteredCatalog" :key="entry._key || entry.catalogKey">
+                <template x-for="entry in (editingRuntime ? groupedFilteredCatalog : [])" :key="entry._key || entry.catalogKey">
                   <div style="display:contents">
                     <!-- Section header -->
                     <div class="desktop-widget-center-section" x-show="entry._type === 'header'">
@@ -291,10 +295,11 @@
               </button>
 
               <template x-if="isIconNode(node)">
-                <a class="desktop-icon block group"
+                <a class="desktop-icon"
                    :class="desktopNodeContentClassName(node)"
                    :href="node.href"
                    :target="node.external ? '_blank' : null"
+                   :data-pjax-app="node.pjaxApp || null"
                    :data-id="node.dataId"
                    :data-desktop-key="node.key"
                    @click="handleDesktopIconClick($event, node.key)"

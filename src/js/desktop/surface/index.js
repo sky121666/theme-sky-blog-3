@@ -12,43 +12,29 @@ import {
   readDesktopIconsBootstrap,
   renderDesktopIconGraphic,
 } from '../../icons/index.js';
-import { flattenCategoryTree, renderDesktopWidget } from '../../widgets/index.js';
 import { escapeHtml, toPositiveInt } from '../../shared/utils.js';
 import { normalizeMomentRecord } from '../../shared/moments.js';
 
 import {
   DESKTOP_WIDGET_SIZE_MAP,
   normalizeWidgetAppearance,
-  buildWidgetCatalog,
-  buildWidgetCenterCategories,
   getWidgetCatalogEntry,
-} from '../../widgets/catalog.js';
+} from '../../widgets/catalog-core.js';
 import {
-  DESKTOP_LAYOUT_STORAGE_SCHEMA_VERSION,
   DESKTOP_SHELL_VERSION,
   setDesktopDebugAccess,
   desktopDebug,
-  desktopDebugWarn,
-  installDesktopDebugBridge
-} from '../../widgets/debug.js';
+  desktopDebugWarn
+} from '../../widgets/debug-core.js';
 import {
   readDesktopWidgetsBootstrap,
   parseDesktopLayoutPayload,
-  buildDesktopLayoutJsonString,
-  applyDesktopLayoutJsonToThemeConfig,
   mergeDesktopWidgetLayout
-} from '../../widgets/persistence.js';
-import {
-  loadCachedDesktopWidgetWeather,
-  saveDesktopWidgetWeather,
-  fetchDesktopWidgetWeather
-} from '../../widgets/weather-api.js';
+} from '../../widgets/persistence-read.js';
 
 /* ── Mixin modules ── */
 import { gridMethods } from './grid.js';
 import { placementMethods } from './placement.js';
-import { dragMethods } from './drag.js';
-import { editModeMethods } from './edit-mode.js';
 
 /* ── Helpers ── */
 
@@ -65,10 +51,15 @@ function createWidgetRendererContext(state) {
 
 /** Widgets that need per-second re-rendering */
 const TICK_SENSITIVE_WIDGETS = new Set(['system.clock']);
+const DEFAULT_WIDGET_CENTER_CATEGORIES = [{ id: 'all', label: '所有小组件' }];
 
 /** Build a lightweight cache key from widget state */
 function widgetCacheKey(widget, options = {}) {
   return `${widget.widget}:${widget.size}:${widget.key}:preview=${options.preview === true ? 1 : 0}:compact=${options.compact === true ? 1 : 0}`;
+}
+
+function renderWidgetLoadingMarkup() {
+  return '<div class="desktop-widget-loading" aria-hidden="true"><span class="desktop-widget-loading-bar"></span><span class="desktop-widget-loading-bar desktop-widget-loading-bar--short"></span></div>';
 }
 
 /* ── Alpine registration ── */
@@ -174,12 +165,194 @@ export function registerDesktopSurface(Alpine) {
     centerSheetMoveHandler: null,
     centerSheetEndHandler: null,
     lastVisibleNodeSignature: '',
+    editingRuntime: null,
+    editingRuntimePromise: null,
+    weatherRuntime: null,
+    weatherRuntimePromise: null,
+    persistenceWriteRuntime: null,
+    persistenceWriteRuntimePromise: null,
+    widgetCatalogBuilder: null,
+    widgetCenterCategoriesBuilder: null,
+    widgetCatalogPromise: null,
+    widgetRenderer: null,
+    widgetRendererPromise: null,
+    widgetRenderVersion: 0,
 
     /* ═══ Mixin methods ═══ */
     ...gridMethods,
     ...placementMethods,
-    ...dragMethods,
-    ...editModeMethods,
+
+    previewPlacementClass() {
+      return `desktop-widget-drop-preview${this.dragState.kind === 'icon' ? ' is-icon' : ''}`;
+    },
+
+    hasVisibleWidgetType(widgetType) {
+      return this.widgets.some((widget) => widget.widget === widgetType && !widget.hidden);
+    },
+
+    hasVisibleWeatherWidget() {
+      return this.hasVisibleWidgetType('system.weather');
+    },
+
+    hasTickSensitiveWidgets() {
+      return this.widgets.some((widget) => !widget.hidden && TICK_SENSITIVE_WIDGETS.has(widget.widget));
+    },
+
+    syncTickTimer() {
+      if (this.hasTickSensitiveWidgets()) {
+        if (!this.tickTimer) {
+          this.tickTimer = window.setInterval(() => {
+            this.now = new Date();
+          }, 1000);
+        }
+        return;
+      }
+
+      if (this.tickTimer) {
+        window.clearInterval(this.tickTimer);
+        this.tickTimer = null;
+      }
+    },
+
+    syncWidgetRuntimes() {
+      this.syncTickTimer();
+      if (this.hasVisibleWeatherWidget()) return;
+
+      this.weatherRequestId += 1;
+      this.weatherState = {
+        loading: false,
+        error: '',
+        data: null
+      };
+      this.invalidateWidgetCache();
+    },
+
+    setWidgetCenterCategory(categoryId) {
+      this.widgetCenterCategory = categoryId;
+    },
+
+    widgetCenterCategoryLabel() {
+      return this.widgetCenterCategories.find((item) => item.id === this.widgetCenterCategory)?.label || '全部';
+    },
+
+    widgetCenterResultText() {
+      return `${this.filteredWidgetCatalog.length} 项`;
+    },
+
+    async ensureWidgetCenterCatalogReady() {
+      if (this.widgetCatalogBuilder && this.widgetCenterCategoriesBuilder) {
+        if (!this.widgetCatalog.length) {
+          this.widgetCatalog = this.widgetCatalogBuilder(this.sources);
+        }
+        return this.widgetCatalog;
+      }
+
+      if (!this.widgetCatalogPromise) {
+        this.widgetCatalogPromise = import('../../widgets/catalog-editor.js')
+          .then((mod) => {
+            this.widgetCatalogBuilder = mod.buildWidgetCatalog;
+            this.widgetCenterCategoriesBuilder = mod.buildWidgetCenterCategories;
+            this.widgetCatalog = mod.buildWidgetCatalog(this.sources);
+            return this.widgetCatalog;
+          })
+          .finally(() => {
+            this.widgetCatalogPromise = null;
+          });
+      }
+
+      return this.widgetCatalogPromise;
+    },
+
+    async ensureEditingRuntime() {
+      if (this.editingRuntime) {
+        return this.editingRuntime;
+      }
+
+      if (!this.editingRuntimePromise) {
+        this.editingRuntimePromise = Promise.all([
+          this.ensureWidgetCenterCatalogReady(),
+          import('./editing-runtime.js')
+        ]).then(([, mod]) => {
+          this.editingRuntime = mod.applyEditingRuntime(this);
+          return this.editingRuntime;
+        }).finally(() => {
+          this.editingRuntimePromise = null;
+        });
+      }
+
+      return this.editingRuntimePromise;
+    },
+
+    async ensureWeatherRuntime() {
+      if (this.weatherRuntime) {
+        return this.weatherRuntime;
+      }
+
+      if (!this.weatherRuntimePromise) {
+        this.weatherRuntimePromise = import('../../widgets/weather-runtime.js')
+          .then((mod) => {
+            this.weatherRuntime = mod;
+            return mod;
+          })
+          .finally(() => {
+            this.weatherRuntimePromise = null;
+          });
+      }
+
+      return this.weatherRuntimePromise;
+    },
+
+    async ensurePersistenceWriteRuntime() {
+      if (this.persistenceWriteRuntime) {
+        return this.persistenceWriteRuntime;
+      }
+
+      if (!this.persistenceWriteRuntimePromise) {
+        this.persistenceWriteRuntimePromise = import('../../widgets/persistence-write.js')
+          .then((mod) => {
+            this.persistenceWriteRuntime = mod;
+            return mod;
+          })
+          .finally(() => {
+            this.persistenceWriteRuntimePromise = null;
+          });
+      }
+
+      return this.persistenceWriteRuntimePromise;
+    },
+
+    async ensureWidgetRendererRuntime() {
+      if (this.widgetRenderer) {
+        return this.widgetRenderer;
+      }
+
+      if (!this.widgetRendererPromise) {
+        this.widgetRendererPromise = import('../../widgets/renderers/index.js')
+          .then((mod) => {
+            this.widgetRenderer = mod.renderDesktopWidget;
+            this.invalidateWidgetCache();
+            this.widgetRenderVersion += 1;
+            return this.widgetRenderer;
+          })
+          .finally(() => {
+            this.widgetRendererPromise = null;
+          });
+      }
+
+      return this.widgetRendererPromise;
+    },
+
+    async beginWidgetDrag(widget, event) {
+      const runtime = await this.ensureEditingRuntime();
+      return runtime.beginWidgetDrag.call(this, widget, event);
+    },
+
+    async beginIconDrag(key, event) {
+      if (!this.isEditing || !this.isHome) return;
+      desktopDebug('beginIconDrag', { key, editing: this.isEditing });
+      const runtime = await this.ensureEditingRuntime();
+      return runtime.beginIconDrag.call(this, key, event);
+    },
 
     /* ═══ Shell mount checks ═══ */
 
@@ -210,7 +383,7 @@ export function registerDesktopSurface(Alpine) {
         expectedShellVersion: DESKTOP_SHELL_VERSION,
         willReload: !sessionStorage.getItem(healKey)
       });
-      if (!sessionStorage.getItem(healKey)) {
+      if (!sessionStorage.getItem(healKey) && !window.pjax) {
         sessionStorage.setItem(healKey, '1');
         window.location.reload();
       }
@@ -238,7 +411,7 @@ export function registerDesktopSurface(Alpine) {
         willReload: !sessionStorage.getItem(healKey)
       });
 
-      if (!sessionStorage.getItem(healKey)) {
+      if (!sessionStorage.getItem(healKey) && !window.pjax) {
         sessionStorage.setItem(healKey, '1');
         window.location.reload();
       }
@@ -257,7 +430,13 @@ export function registerDesktopSurface(Alpine) {
     /* ═══ Init ═══ */
 
     async init() {
-      installDesktopDebugBridge();
+      // Skip heavy init on error pages — no widgets/icons needed
+      if (document.body?.dataset.errorPage === 'true') {
+        desktopDebug('desktop init: error page, skipping');
+        this.enabled = false;
+        return;
+      }
+
       desktopDebug('desktop runtime init start');
       const bootstrap = readDesktopWidgetsBootstrap();
 
@@ -303,7 +482,6 @@ export function registerDesktopSurface(Alpine) {
         archivesUrl: bootstrap.sources?.archivesUrl || '/archives',
         fallbackCover: bootstrap.sources?.fallbackCover || ''
       };
-      this.widgetCatalog = buildWidgetCatalog(this.sources, this.modules);
       this.defaultWidgets = resolvedWidgets.map((widget) => ({ ...widget }));
       this.syncDesktopBodyState();
       desktopDebug('desktop bootstrap', {
@@ -312,8 +490,7 @@ export function registerDesktopSurface(Alpine) {
         layoutVersion: this.layoutVersion,
         columns: this.columns,
         gap: this.gap,
-        widgetDefaults: this.defaultWidgets.length,
-        widgetCatalog: this.widgetCatalog.length
+        widgetDefaults: this.defaultWidgets.length
       });
 
       this.widgets = this.defaultWidgets.map((widget) => ({ ...widget }));
@@ -321,17 +498,17 @@ export function registerDesktopSurface(Alpine) {
         widgets: this.widgets.length
       });
 
-      this.tickTimer = window.setInterval(() => {
-        this.now = new Date();
-      }, 1000);
+      this.syncWidgetRuntimes();
 
-      this.routeSyncHandler = () => {
+      this.routeSyncHandler = async () => {
         this.isHome = window.location.pathname === '/';
         this.closeDesktopContextMenu();
         this.invalidateWidgetCache();
         if (!this.isHome) {
-          this.exitEditMode();
-        } else if (!this.weatherState.loading && !this.weatherState.data) {
+          if (this.isEditing && typeof this.exitEditMode === 'function') {
+            await this.exitEditMode();
+          }
+        } else if (this.hasVisibleWeatherWidget() && !this.weatherState.loading && !this.weatherState.data) {
           this.loadWeather();
         }
         this.syncDesktopBodyState();
@@ -345,7 +522,6 @@ export function registerDesktopSurface(Alpine) {
       window.addEventListener('pjax:complete', this.routeSyncHandler);
       window.addEventListener('pageshow', this.routeSyncHandler);
       window.addEventListener('resize', this.resizeHandler);
-      this.probeServerLayoutConfigAccess();
 
       this.$nextTick(async () => {
         if (!this.ensureDesktopShellMounted()) {
@@ -362,7 +538,9 @@ export function registerDesktopSurface(Alpine) {
           visibleKeys: this.visibleDesktopNodeKeys
         });
         this.scheduleDesktopRenderCheck();
-        this.loadWeather();
+        if (this.hasVisibleWeatherWidget()) {
+          this.loadWeather();
+        }
       });
     },
 
@@ -399,7 +577,10 @@ export function registerDesktopSurface(Alpine) {
     },
 
     get widgetCenterCategories() {
-      return buildWidgetCenterCategories(this.widgetCatalog);
+      if (!this.widgetCenterCategoriesBuilder) {
+        return DEFAULT_WIDGET_CENTER_CATEGORIES;
+      }
+      return this.widgetCenterCategoriesBuilder(this.widgetCatalog);
     },
 
     get filteredWidgetCatalog() {
@@ -568,14 +749,23 @@ export function registerDesktopSurface(Alpine) {
     },
 
     handleDesktopSurfaceContextMenu(event) {
-      if (!this.canManageDefaultDesktopLayout || !this.editEnabled || !this.isHome) return;
+      if (!this.editEnabled || !this.isHome) return;
       if (event.target.closest('.desktop-widget-center, .desktop-node-slot, .dock-container, .window-layer')) return;
       event.preventDefault();
+      void this.openWidgetEditorContextMenu(event.clientX, event.clientY);
+    },
+
+    async openWidgetEditorContextMenu(x, y) {
+      await this.ensureEditingRuntime();
+      const canManage = this.serverLayoutAccessReady
+        ? this.canManageDefaultDesktopLayout
+        : await this.probeServerLayoutConfigAccess();
+      if (!canManage) return;
       this.selectedDesktopKey = null;
       this.desktopContextMenu = {
         open: true,
-        x: event.clientX,
-        y: event.clientY
+        x,
+        y
       };
     },
 
@@ -583,8 +773,12 @@ export function registerDesktopSurface(Alpine) {
       this.desktopContextMenu.open = false;
     },
 
-    openWidgetEditorFromDesktopMenu() {
-      if (!this.canManageDefaultDesktopLayout) return;
+    async openWidgetEditorFromDesktopMenu() {
+      await this.ensureEditingRuntime();
+      const canManage = this.serverLayoutAccessReady
+        ? this.canManageDefaultDesktopLayout
+        : await this.probeServerLayoutConfigAccess();
+      if (!canManage) return;
       this.closeDesktopContextMenu();
       this.enterEditMode('add');
     },
@@ -678,6 +872,7 @@ export function registerDesktopSurface(Alpine) {
         }
 
         const currentConfig = await getResponse.json();
+        const { applyDesktopLayoutJsonToThemeConfig } = await this.ensurePersistenceWriteRuntime();
         const nextConfig = applyDesktopLayoutJsonToThemeConfig(currentConfig, layoutJson);
         const putResponse = await fetch(this.themeJsonConfigEndpoint, {
           method: 'PUT',
@@ -716,6 +911,7 @@ export function registerDesktopSurface(Alpine) {
     },
 
     async saveDefaultLayoutToServer() {
+      const { buildDesktopLayoutJsonString } = await this.ensurePersistenceWriteRuntime();
       const layoutJson = buildDesktopLayoutJsonString(this.layoutVersion, this.widgets, this.icons, this.currentColumns);
       return this.saveLayoutJsonToServer(layoutJson);
     },
@@ -723,6 +919,9 @@ export function registerDesktopSurface(Alpine) {
     /* ═══ Desktop icons ═══ */
 
     handleDesktopIconClick(event, key) {
+      const icon = this.findIconByKey(key);
+      desktopDebug('icon click', { key, href: icon?.href, pjax: icon?.pjax, editing: this.isEditing, target: event.target?.tagName });
+
       if (this.isEditing && this.editStage === 'decorate') {
         this.selectedDesktopKey = key;
         event.preventDefault();
@@ -772,6 +971,7 @@ export function registerDesktopSurface(Alpine) {
           }),
           href: icon.href,
           pjax: icon.pjax,
+          pjaxApp: icon.pjaxApp || '',
           external: icon.external,
           subtype: icon.subtype,
           dataId: icon.dataId
@@ -784,6 +984,7 @@ export function registerDesktopSurface(Alpine) {
           ...icon,
           href: sourceIcon?.href || '#',
           pjax: sourceIcon?.pjax !== false,
+          pjaxApp: sourceIcon?.pjaxApp || '',
           external: sourceIcon?.external === true,
           subtype: sourceIcon?.subtype || 'folder',
           dataId: sourceIcon?.dataId || icon.title
@@ -797,6 +998,7 @@ export function registerDesktopSurface(Alpine) {
           ...icon,
           href: sourceIcon?.href || '#',
           pjax: sourceIcon?.pjax !== false,
+          pjaxApp: sourceIcon?.pjaxApp || '',
           external: sourceIcon?.external === true,
           subtype: sourceIcon?.subtype || 'folder',
           dataId: sourceIcon?.dataId || icon.title
@@ -958,6 +1160,10 @@ export function registerDesktopSurface(Alpine) {
     /* ═══ Weather ═══ */
 
     async loadWeather(forceRefresh = false) {
+      if (!this.hasVisibleWeatherWidget()) {
+        return;
+      }
+
       const cityName = this.modules.weather.cityName;
       if (!cityName) {
         this.weatherState = {
@@ -967,6 +1173,12 @@ export function registerDesktopSurface(Alpine) {
         };
         return;
       }
+
+      const {
+        loadCachedDesktopWidgetWeather,
+        saveDesktopWidgetWeather,
+        fetchDesktopWidgetWeather
+      } = await this.ensureWeatherRuntime();
 
       if (!forceRefresh) {
         const cached = loadCachedDesktopWidgetWeather(cityName, this.modules.weather.refreshMinutes);
@@ -1015,24 +1227,32 @@ export function registerDesktopSurface(Alpine) {
     /* ═══ Widget body rendering ═══ */
 
     renderWidgetBody(widget, options = {}) {
+      const renderVersion = this.widgetRenderVersion;
       const wType = widget?.widget || '';
       const renderOptions = {
         ...options,
         compact: options.preview === true ? false : this.cellSize <= 60
       };
 
+      const renderer = this.widgetRenderer;
+
+      if (!renderer) {
+        void this.ensureWidgetRendererRuntime();
+        return renderWidgetLoadingMarkup();
+      }
+
       // Tick-sensitive widgets always re-render
       if (TICK_SENSITIVE_WIDGETS.has(wType)) {
-        return renderDesktopWidget(createWidgetRendererContext(this), widget, renderOptions);
+        return renderer(createWidgetRendererContext(this), widget, renderOptions);
       }
 
       // For non-tick widgets, cache and reuse HTML to prevent img flicker
       if (!this._widgetHtmlCache) this._widgetHtmlCache = new Map();
-      const cKey = widgetCacheKey(widget, renderOptions);
+      const cKey = `${widgetCacheKey(widget, renderOptions)}:v=${renderVersion}`;
       const cached = this._widgetHtmlCache.get(cKey);
       if (cached !== undefined) return cached;
 
-      const html = renderDesktopWidget(createWidgetRendererContext(this), widget, renderOptions);
+      const html = renderer(createWidgetRendererContext(this), widget, renderOptions);
       this._widgetHtmlCache.set(cKey, html);
       return html;
     },

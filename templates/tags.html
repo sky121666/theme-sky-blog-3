@@ -6,7 +6,9 @@
         canonical = '/tags',
         image = ${site.logo},
         type = 'website',
-        seoFallback = 'meta'
+        seoFallback = 'meta',
+        pageMode = 'browser-list',
+        pageApp = 'explorer'
       )}">
 <th:block th:fragment="tagPostPanels(tags)">
   <th:block th:with="tagPageSize=${site.post != null and site.post.tagPageSize != null ? site.post.tagPageSize : 10}">
@@ -26,7 +28,7 @@
           })}">
             <div data-tags-post-panel th:attr="data-tag-key=${tagItem.metadata.name},data-tag-page=${pageNumber}"
               x-show="activeTagKey === $el.dataset.tagKey && activeTagPage === Number($el.dataset.tagPage)" x-cloak>
-              <a class="tag-post-row pjax-link" th:each="post : ${tagPosts.items}" th:href="${post.status.permalink}"
+              <a class="tag-post-row pjax-link" data-pjax-app="reader" th:each="post : ${tagPosts.items}" th:href="${post.status.permalink}"
                 data-tags-post-option
                 th:attr="data-parent-tag-key=${tagItem.metadata.name},data-tag-page=${pageNumber},data-post-key=${post.metadata.name},data-post-title=${post.spec.title}"
                 @mouseenter="selectPost($el.dataset.postKey, $el.dataset.postTitle)"
@@ -137,7 +139,7 @@
                   摘要
                 </p>
 
-                <a class="tag-preview-action pjax-link" th:href="${post.status.permalink}">打开文章</a>
+                <a class="tag-preview-action pjax-link" data-pjax-app="reader" th:href="${post.status.permalink}">打开文章</a>
               </article>
             </th:block>
           </th:block>

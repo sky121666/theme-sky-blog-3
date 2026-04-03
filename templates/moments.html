@@ -7,40 +7,45 @@
         canonical = '/moments',
         image = ${site.logo},
         type = 'website',
-        seoFallback = 'full'
+        seoFallback = 'full',
+        pageMode = 'browser-moments',
+        pageApp = 'moments-app'
       )}">
   <th:block th:fragment="ssrBlock">
-    <div class="max-w-3xl mx-auto px-4 md:px-6 py-10 md:py-16">
-      
-      <div class="mb-14 text-center">
-        <h1 class="text-4xl font-bold tracking-tight text-gray-800 mb-3">瞬间</h1>
-        <p class="text-gray-500 text-lg">捕获生活中的随机切片 (Moments)</p>
-      </div>
-      
-      <!-- Moments 插件自带的卡片数据流 -->
-      <div class="space-y-8" th:if="${moments != null}">
-        <div th:each="moment : ${moments.items}" class="bg-white/80 backdrop-blur-sm rounded-2xl border border-black/5 p-6 shadow-sm hover:shadow-md transition-shadow">
-          <!-- 瞬间内容 -->
-          <div class="prose prose-slate max-w-none text-gray-700 mb-4" th:utext="${moment.spec.content.html}"></div>
-          
-          <!-- 配图信息 (如果有) -->
-          <div class="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4" th:if="${not #lists.isEmpty(moment.spec.content.medium)}">
+    <div class="moments-app moments-app--feed">
+      <div class="moments-feed-shell">
+        <header class="moments-feed-hero">
+          <div class="moments-feed-kicker">Moments</div>
+          <h1 class="moments-feed-title">瞬间</h1>
+          <p class="moments-feed-subtitle">捕获生活中的随机切片</p>
+        </header>
+
+        <div class="moments-feed-list" th:if="${moments != null}">
+          <article th:each="moment : ${moments.items}" class="moment-feed-card">
+            <div class="moment-feed-body"
+                 th:if="${moment.spec.content != null and !#strings.isEmpty(moment.spec.content.html)}"
+                 th:utext="${moment.spec.content.html}"></div>
+
+            <div class="moment-feed-gallery"
+                 th:if="${moment.spec.content != null and not #lists.isEmpty(moment.spec.content.medium)}">
               <th:block th:each="media : ${moment.spec.content.medium}">
-                  <img class="w-full h-32 object-cover rounded-lg shadow-sm" th:src="${media.url}" th:if="${media.type.name() == 'PHOTO'}" />
+                <img class="moment-feed-gallery-item"
+                     th:src="${media.url}"
+                     th:if="${media.type.name() == 'PHOTO'}"
+                     alt="" />
               </th:block>
-          </div>
-          
-          <div class="flex items-center justify-between text-xs text-gray-400">
-             <time th:text="${#dates.format(moment.spec.releaseTime, 'yyyy-MM-dd HH:mm')}"></time>
-          </div>
+            </div>
+
+            <div class="moment-feed-meta">
+              <time th:text="${#dates.format(moment.spec.releaseTime, 'yyyy-MM-dd HH:mm')}"></time>
+            </div>
+          </article>
+        </div>
+
+        <div th:if="${moments == null or #lists.isEmpty(moments.items)}" class="moment-feed-empty">
+          博主很懒，还没有发布任何瞬间...
         </div>
       </div>
-      
-      <!-- 无数据占位 -->
-      <div th:if="${moments == null or #lists.isEmpty(moments.items)}" class="text-center py-20 text-gray-400">
-         博主很懒，还没有发布任何瞬间...
-      </div>
-
     </div>
   </th:block>
 </html>

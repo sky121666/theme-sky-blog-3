@@ -37,3 +37,7 @@ export function escapeHtml(value) {
 export function cloneJsonValue(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
 }
+
+export function sortByDistance(values, target) {
+  return [...values].sort((left, right) => Math.abs(left - target) - Math.abs(right - target));
+}

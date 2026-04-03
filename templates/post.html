@@ -7,7 +7,9 @@
         canonical = ${post.status.permalink},
         image = ${!#strings.isEmpty(post.spec.cover) ? post.spec.cover : site.logo},
         type = 'article',
-        seoFallback = 'none'
+        seoFallback = 'none',
+        pageMode = 'browser-reader',
+        pageApp = 'reader'
       )}">
   <th:block th:fragment="ssrBlock">
     <div class="post-reader-shell">
@@ -119,6 +121,7 @@
               <nav class="post-neighbors"
                    th:if="${postCursor != null ? (postCursor.hasPrevious() or postCursor.hasNext()) : false}">
                 <a class="post-neighbor-card pjax-link is-prev"
+                   data-pjax-app="reader"
                    th:if="${postCursor.hasPrevious()}"
                    th:href="${postCursor.previous.status.permalink}">
                   <span class="post-neighbor-label">上一篇</span>
@@ -126,6 +129,7 @@
                           th:text="${postCursor.previous.spec.title}">上一篇标题</strong>
                 </a>
                 <a class="post-neighbor-card pjax-link is-next"
+                   data-pjax-app="reader"
                    th:if="${postCursor.hasNext()}"
                    th:href="${postCursor.next.status.permalink}">
                   <span class="post-neighbor-label">下一篇</span>

@@ -1,45 +1,230 @@
+.moments-app {
+  --moment-surface: rgba(255, 255, 255, 0.74);
+  --moment-surface-strong: rgba(255, 255, 255, 0.86);
+  --moment-surface-soft: rgba(248, 248, 250, 0.92);
+  --moment-border: rgba(15, 23, 42, 0.08);
+  --moment-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
+  --moment-shadow-soft: 0 12px 28px rgba(15, 23, 42, 0.06);
+  --moment-text: rgba(17, 24, 39, 0.92);
+  --moment-text-soft: rgba(17, 24, 39, 0.62);
+  --moment-text-muted: rgba(17, 24, 39, 0.48);
+  --moment-code-surface: #111319;
+  --moment-code-color: #edf2ff;
+  --moment-code-border: rgba(255, 255, 255, 0.08);
+  --moment-radius: 24px;
+  --moment-radius-lg: 30px;
+  --moment-gap-xs: 0.55em;
+  --moment-gap-sm: 0.8em;
+  --moment-gap-md: 1.25em;
+  --moment-gap-lg: 1.8em;
+  --moment-gap-xl: 2.5em;
+}
+
+.dark .moments-app {
+  --moment-surface: rgba(28, 28, 30, 0.78);
+  --moment-surface-strong: rgba(36, 36, 38, 0.9);
+  --moment-surface-soft: rgba(36, 36, 38, 0.92);
+  --moment-border: rgba(255, 255, 255, 0.08);
+  --moment-shadow: 0 22px 48px rgba(0, 0, 0, 0.26);
+  --moment-shadow-soft: 0 14px 32px rgba(0, 0, 0, 0.22);
+  --moment-text: rgba(245, 245, 247, 0.92);
+  --moment-text-soft: rgba(245, 245, 247, 0.7);
+  --moment-text-muted: rgba(245, 245, 247, 0.48);
+  --moment-code-surface: #0c0d10;
+  --moment-code-color: #f5f5f7;
+  --moment-code-border: rgba(255, 255, 255, 0.07);
+}
+
+.moments-app--feed {
+  padding: 44px clamp(18px, 3vw, 32px) 76px;
+}
+
+.moments-app--detail {
+  padding: 52px clamp(18px, 3vw, 36px) 84px;
+}
+
+.moments-feed-shell {
+  width: min(100%, 860px);
+  margin: 0 auto;
+}
+
+.moments-feed-hero {
+  width: min(100%, 680px);
+  margin: 0 auto 34px;
+  text-align: center;
+}
+
+.moments-feed-kicker,
+.moment-kicker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--mac-accent) 16%, var(--moment-border));
+  background: color-mix(in srgb, var(--mac-accent) 10%, var(--moment-surface-strong));
+  color: color-mix(in srgb, var(--mac-accent) 72%, var(--moment-text));
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.moments-feed-title {
+  margin: 18px 0 0;
+  color: var(--moment-text);
+  font-size: clamp(2.1rem, 4vw, 3.2rem);
+  line-height: 1.02;
+  font-weight: 760;
+  letter-spacing: -0.06em;
+}
+
+.moments-feed-subtitle {
+  margin: 14px auto 0;
+  max-width: 34ch;
+  color: var(--moment-text-soft);
+  font-size: 14px;
+  line-height: 1.72;
+}
+
+.moments-feed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.moment-feed-card {
+  padding: 24px;
+  border: 1px solid var(--moment-border);
+  border-radius: var(--moment-radius);
+  background: var(--moment-surface);
+  box-shadow: var(--moment-shadow-soft);
+  backdrop-filter: blur(20px) saturate(130%);
+}
+
+.moment-feed-gallery {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.moment-feed-gallery-item {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 18px;
+  box-shadow: var(--moment-shadow-soft);
+}
+
+.moment-feed-meta {
+  margin-top: 18px;
+  color: var(--moment-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.moment-feed-empty {
+  padding: 72px 24px;
+  border: 1px dashed color-mix(in srgb, var(--moment-border) 90%, transparent);
+  border-radius: var(--moment-radius);
+  text-align: center;
+  color: var(--moment-text-muted);
+  background: color-mix(in srgb, var(--moment-surface) 78%, transparent);
+}
+
 .moment-reader-shell {
   width: min(100%, 980px);
+  margin: 0 auto;
 }
 
 .moment-reader-frame {
-  width: min(100%, 820px);
+  width: min(100%, 840px);
+  margin: 0 auto;
+}
+
+.moment-header {
+  width: min(100%, 760px);
+  margin: 0 auto 42px;
+  text-align: center;
 }
 
 .moment-title {
+  margin: 18px auto 0;
   max-width: min(100%, 18ch);
+  color: var(--moment-text);
+  font-size: clamp(2.02rem, 4vw, 3.18rem);
+  line-height: 1.06;
+  font-weight: 760;
+  letter-spacing: -0.05em;
+  text-wrap: balance;
+}
+
+.moment-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0;
+  margin-top: 18px;
+}
+
+.moment-meta-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--moment-text-soft);
+  font-size: 12.5px;
+  font-weight: 560;
+}
+
+.moment-meta-item:not(:last-child) {
+  margin-right: 14px;
+}
+
+.moment-meta-item:not(:last-child)::after {
+  content: "•";
+  position: relative;
+  margin-left: 14px;
+  color: color-mix(in srgb, var(--moment-text-soft) 38%, transparent);
+}
+
+.moment-summary {
+  width: min(100%, 680px);
+  margin: 18px auto 0;
+  color: var(--moment-text-soft);
+  font-size: 14px;
+  line-height: 1.8;
 }
 
 .moment-media-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
-  margin: 0 auto 34px;
   width: min(100%, 760px);
+  margin: 0 auto 34px;
 }
 
 .moment-media-card {
   margin: 0;
   overflow: hidden;
-  border-radius: 20px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  background: rgba(248, 248, 250, 0.88);
-  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
-}
-
-.dark .moment-media-card {
-  border-color: rgba(255, 255, 255, 0.08);
-  background: rgba(36, 36, 38, 0.88);
-  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.24);
+  border-radius: var(--moment-radius);
+  border: 1px solid var(--moment-border);
+  background: var(--moment-surface-soft);
+  box-shadow: var(--moment-shadow-soft);
 }
 
 .moment-media-card img,
 .moment-media-card video {
+  display: block;
   width: 100%;
   height: 100%;
   min-height: 260px;
   object-fit: cover;
-  display: block;
 }
 
 .moment-media-card--audio {
@@ -51,29 +236,345 @@
 }
 
 .moment-media-card--post {
-  min-height: 180px;
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 180px;
 }
 
 .moment-media-placeholder {
-  color: rgba(17, 24, 39, 0.56);
+  color: var(--moment-text-soft);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.dark .moment-media-placeholder {
-  color: rgba(245, 245, 247, 0.6);
+.moment-content,
+.moment-feed-body {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--moment-text);
+  font-size: 1.02rem;
+  line-height: 1.84;
+  letter-spacing: 0.01em;
+  word-spacing: 0.02em;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  text-rendering: optimizeLegibility;
 }
 
 .moment-content {
-  margin-top: 18px;
+  width: min(100%, 760px);
+  margin: 0 auto;
 }
 
-@media (width <= 760px) {
+.moment-content *,
+.moment-feed-body * {
+  max-width: 100%;
+}
+
+.moment-content > :first-child,
+.moment-feed-body > :first-child {
+  margin-top: 0;
+}
+
+.moment-content > :last-child,
+.moment-feed-body > :last-child {
+  margin-bottom: 0;
+}
+
+.moment-content :is(h1, h2, h3, h4, h5, h6),
+.moment-feed-body :is(h1, h2, h3, h4, h5, h6) {
+  margin-top: var(--moment-gap-xl);
+  margin-bottom: var(--moment-gap-md);
+  color: inherit;
+  font-weight: 700;
+  line-height: 1.24;
+  letter-spacing: -0.025em;
+}
+
+.moment-content h1,
+.moment-feed-body h1 {
+  font-size: 1.82rem;
+  font-weight: 760;
+}
+
+.moment-content h2,
+.moment-feed-body h2 {
+  padding-bottom: 0.38rem;
+  font-size: 1.48rem;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.moment-content h3,
+.moment-feed-body h3 {
+  font-size: 1.24rem;
+}
+
+.moment-content :is(p, ul, ol, blockquote, pre, table, figure, details),
+.moment-feed-body :is(p, ul, ol, blockquote, pre, table, figure, details) {
+  margin-top: 0;
+  margin-bottom: var(--moment-gap-md);
+}
+
+.moment-content p + p,
+.moment-feed-body p + p {
+  margin-top: var(--moment-gap-sm);
+}
+
+.moment-content a,
+.moment-feed-body a {
+  color: var(--mac-accent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--mac-accent) 38%, transparent);
+  text-underline-offset: 3px;
+  transition: color 0.2s ease, text-decoration-color 0.2s ease;
+}
+
+.moment-content a:hover,
+.moment-feed-body a:hover {
+  text-decoration-color: var(--mac-accent);
+}
+
+.moment-content strong,
+.moment-feed-body strong {
+  color: inherit;
+  font-weight: 700;
+}
+
+.moment-content mark,
+.moment-feed-body mark {
+  color: inherit;
+  padding: 0.04em 0.22em;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--mac-accent) 18%, transparent);
+}
+
+.moment-content :is(ul, ol),
+.moment-feed-body :is(ul, ol) {
+  padding-left: 1.5em;
+}
+
+.moment-content li,
+.moment-feed-body li {
+  margin: var(--moment-gap-xs) 0;
+}
+
+.moment-content blockquote,
+.moment-feed-body blockquote {
+  position: relative;
+  padding: 1.3rem 1.4rem 1.3rem 1.55rem;
+  border: 1px solid var(--moment-border);
+  border-radius: 20px;
+  background: var(--moment-surface-soft);
+  box-shadow: var(--moment-shadow-soft);
+  color: color-mix(in srgb, var(--moment-text) 88%, transparent);
+}
+
+.moment-content blockquote::before,
+.moment-feed-body blockquote::before {
+  content: "";
+  position: absolute;
+  top: 18px;
+  bottom: 18px;
+  left: 0;
+  width: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mac-accent) 54%, transparent);
+}
+
+.moment-content code,
+.moment-feed-body code {
+  padding: 0.16em 0.52em;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--mac-accent) 16%, transparent);
+  background: color-mix(in srgb, var(--mac-accent) 8%, var(--moment-surface-soft));
+  color: color-mix(in srgb, var(--mac-accent) 85%, currentColor);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.86em;
+}
+
+.moment-content pre,
+.moment-feed-body pre {
+  overflow: auto;
+  padding: 1.15rem 1.2rem;
+  border-radius: 20px;
+  border: 1px solid var(--moment-code-border);
+  background: var(--moment-code-surface);
+  color: var(--moment-code-color);
+  box-shadow: var(--moment-shadow);
+}
+
+.moment-content pre code,
+.moment-feed-body pre code {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+}
+
+.moment-content :is(img, video, iframe),
+.moment-feed-body :is(img, video, iframe) {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: var(--moment-gap-lg) auto;
+  border-radius: var(--moment-radius-lg);
+  box-shadow: var(--moment-shadow);
+}
+
+.moment-content audio,
+.moment-feed-body audio {
+  width: 100%;
+  margin: var(--moment-gap-lg) 0;
+}
+
+.moment-content figcaption,
+.moment-feed-body figcaption {
+  margin-top: 0.8rem;
+  color: var(--moment-text-muted);
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.moment-content table,
+.moment-feed-body table {
+  width: 100%;
+  overflow: hidden;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--moment-border);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--moment-surface-soft) 92%, white);
+  box-shadow: var(--moment-shadow-soft);
+}
+
+.dark .moment-content table,
+.dark .moment-feed-body table {
+  background: color-mix(in srgb, var(--moment-surface-soft) 94%, #1c1c1e);
+}
+
+.moment-content :is(th, td),
+.moment-feed-body :is(th, td) {
+  padding: 0.9rem 1rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.moment-content thead,
+.moment-feed-body thead {
+  background: color-mix(in srgb, var(--mac-accent) 10%, var(--moment-surface-strong));
+}
+
+.moment-content tbody tr:last-child td,
+.moment-feed-body tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.moment-content hr,
+.moment-feed-body hr {
+  height: 1px;
+  margin: calc(var(--moment-gap-xl) * 1.05) 0;
+  border: none;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--mac-accent) 34%, transparent) 22%, color-mix(in srgb, var(--mac-accent) 34%, transparent) 78%, transparent);
+}
+
+.moment-content details,
+.moment-feed-body details {
+  overflow: hidden;
+  border: 1px solid var(--moment-border);
+  border-radius: 18px;
+  background: var(--moment-surface-soft);
+  box-shadow: var(--moment-shadow-soft);
+}
+
+.moment-content summary,
+.moment-feed-body summary {
+  position: relative;
+  padding: 1rem 1.2rem 1rem 2.4rem;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 600;
+  list-style: none;
+}
+
+.moment-content summary::-webkit-details-marker,
+.moment-feed-body summary::-webkit-details-marker {
+  display: none;
+}
+
+.moment-content summary::before,
+.moment-feed-body summary::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 1rem;
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 6px solid currentColor;
+  opacity: 0.45;
+  transform: translateY(-50%);
+}
+
+.moment-content details[open] summary,
+.moment-feed-body details[open] summary {
+  border-bottom: 1px solid var(--moment-border);
+}
+
+.moment-content details > :not(summary),
+.moment-feed-body details > :not(summary) {
+  padding: 1rem 1.2rem;
+}
+
+.moment-comments {
+  width: min(100%, 760px);
+  margin: 80px auto 0;
+  padding-top: 30px;
+  border-top: 1px solid var(--moment-border);
+}
+
+.moment-comments-title {
+  margin: 0 0 18px;
+  font-size: 1.32rem;
+  line-height: 1.2;
+  font-weight: 760;
+  letter-spacing: -0.04em;
+}
+
+.moment-comments-shell {
+  padding: 0;
+}
+
+@media (width <= 768px) {
+  .moments-app--feed,
+  .moments-app--detail {
+    padding: 34px 16px 68px;
+  }
+
+  .moments-feed-hero {
+    margin-bottom: 26px;
+  }
+
+  .moments-feed-title,
+  .moment-title {
+    max-width: 100%;
+    font-size: clamp(1.8rem, 8vw, 2.6rem);
+  }
+
+  .moment-feed-card {
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .moment-feed-gallery {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .moment-media-grid {
     grid-template-columns: 1fr;
     gap: 12px;
@@ -82,5 +583,23 @@
   .moment-media-card img,
   .moment-media-card video {
     min-height: 220px;
+  }
+
+  .moment-content,
+  .moment-feed-body {
+    font-size: 0.98rem;
+    line-height: 1.78;
+  }
+
+  .moment-content table,
+  .moment-feed-body table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .moment-comments {
+    margin-top: 64px;
+    padding-top: 24px;
   }
 }

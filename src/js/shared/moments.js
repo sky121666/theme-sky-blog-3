@@ -149,7 +149,7 @@ export function renderMomentPreview(moment, authorDisplayName) {
 
       ${moment.html ? `<div class="author-moment-preview-body">${moment.html}</div>` : ''}
 
-      <a class="author-preview-action tag-preview-action pjax-link" href="${escapeHtml(moment.permalink)}">打开瞬间</a>
+      <a class="author-preview-action tag-preview-action pjax-link" data-pjax-app="moments-app" href="${escapeHtml(moment.permalink)}">打开瞬间</a>
     </article>
   `;
 }

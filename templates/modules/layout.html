@@ -2,13 +2,15 @@
 <html
   lang="zh-CN"
   xmlns:th="https://www.thymeleaf.org"
-  th:fragment="html (title, description, ssrContent, canonical, image, type, seoFallback)"
+  th:fragment="html (title, description, ssrContent, canonical, image, type, seoFallback, pageMode, pageApp)"
   th:data-default-theme="${theme.config.header?.theme?.default_mode ?: 'system'}"
 >
   <head
     th:with="
       pageDescription = ${!#strings.isEmpty(description) ? description : (!#strings.isEmpty(site.seo?.description) ? site.seo.description : site.subtitle)},
       pageType = ${!#strings.isEmpty(type) ? type : 'website'},
+      pageModeValue = ${pageMode != null ? pageMode.toString() : ''},
+      pageAppValue = ${pageApp != null ? pageApp.toString() : ''},
       seoFallbackMode = ${seoFallback != null ? seoFallback.toString() : 'none'},
       shouldEmitMetaFallback = ${seoFallbackMode == 'meta' or seoFallbackMode == 'full'},
       shouldEmitSocialFallback = ${seoFallbackMode == 'full'},
@@ -80,13 +82,19 @@
       })();
     </script>
 
-    <!-- 本地打包产物 (开发阶段加入时间戳废除缓存) -->
-    <link rel="stylesheet" th:href="@{/assets/main.css(t=${#dates.createNow().getTime()})}" />
-    <script defer th:src="@{/assets/main.js(t=${#dates.createNow().getTime()})}"></script>
+	    <!-- 本地打包产物 (开发阶段加入时间戳废除缓存) -->
+	    <link rel="stylesheet" th:href="@{/assets/css/main.css(t=${#dates.createNow().getTime()})}" />
+	    <link rel="stylesheet"
+	          th:if="${!#strings.isEmpty(pageAppValue)}"
+	          th:attr="data-app-css=${pageAppValue}"
+	          th:href="@{'/assets/css/' + ${pageAppValue} + '.css?t=' + ${#dates.createNow().getTime()}}" />
+	    <script type="module" th:src="@{/assets/js/main.js(t=${#dates.createNow().getTime()})}"></script>
   </head>
 
   <!-- 读取后台配置 -->
   <th:block th:with="
+      pageModeValue = ${pageMode != null ? pageMode.toString() : ''},
+      pageAppValue = ${pageApp != null ? pageApp.toString() : ''},
       bgConf = ${theme.config.desktop?.background},
       iconConf = ${theme.config.desktop?.icons},
       bgMode = ${bgConf?.mode ?: 'preset'},
@@ -122,6 +130,7 @@
       wallpaperClass = ${bgMode == 'preset' ? 'wallpaper-' + bgPreset : ''},
       schemeClass = ${schemeMode == 'preset' ? 'scheme-' + schemePreset : 'scheme-custom'},
       isErrorPage = ${error != null},
+      debugMode = ${theme.config.developer?.debug_mode != null ? theme.config.developer.debug_mode : false},
       pageCanonical = ${canonical != null ? canonical.toString() : ''},
       widgetsConf = ${theme.config.widgets},
       desktopLayoutJson = ${theme.config.default_layout?.layout_json ?: ''},
@@ -165,7 +174,7 @@
   <body
     class="overflow-hidden m-0 p-0 text-white w-screen h-screen relative"
     th:classappend="${#strings.isEmpty(wallpaperClass) ? schemeClass : wallpaperClass + ' ' + schemeClass}"
-    th:attr="data-error-page=${isErrorPage}"
+    th:attr="data-error-page=${isErrorPage},data-page-mode=${pageModeValue},data-page-app=${pageAppValue},data-debug=${debugMode}"
     th:style="${(schemeMode == 'custom' ? '--mac-accent:' + macAccent + ';--mac-selection:' + macSelection + ';--mac-folder1:' + macFolder1 + ';--mac-folder2:' + macFolder2 + ';--mac-folder3:' + macFolder3 + ';--mac-shell-light:' + macShellLight + ';--mac-shell-dark:' + macShellDark + ';' : '') + '--mac-header-dropdown-light-bg:' + headerDropdownLightBg + ';--mac-header-dropdown-dark-bg:' + headerDropdownDarkBg + ';'}"
     th:styleappend="${bgMode == 'image' and bgImageUrl != null ? 'background:url(' + bgImageUrl + ') center/cover no-repeat; background-color:#0f172a;' : (bgMode == 'solid' ? 'background-color:' + (bgConf?.solid_color ?: '#0f172a') + ';' : '')}"
   >
@@ -190,9 +199,18 @@
 
         <!-- 动态渲染 Halo 后台菜单 (含二级下拉) -->
         <th:block th:if="${headerMenu != null}">
-          <div th:each="menuItem : ${headerMenu.menuItems}" class="relative group" x-data="{ open: false }" @mouseenter="open = true" @mouseleave="open = false" @click.away="open = false">
+          <div th:each="menuItem : ${headerMenu.menuItems}"
+               th:with="
+                 menuItemHref = ${menuItem.status.href != null ? menuItem.status.href.toString() : ''},
+                 menuItemPjaxApp = ${(menuItemHref == '/moments' or menuItemHref == '/moments/' or menuItemHref matches '^/moments/[^/]+/?$') ? 'moments-app' : ((menuItemHref == '/archives' or menuItemHref == '/archives/' or menuItemHref matches '^/(tags|tag|categories|category|author|authors)(/.*)?$') ? 'explorer' : (menuItemHref matches '^/archives/[^/]+/?$' ? 'reader' : ''))}"
+               class="relative group"
+               x-data="{ open: false }"
+               @mouseenter="open = true"
+               @mouseleave="open = false"
+               @click.away="open = false">
             <a th:href="${#lists.isEmpty(menuItem.children) ? menuItem.status.href : 'javascript:void(0)'}" 
                th:target="${menuItem.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
+               th:attr="data-pjax-app=${#lists.isEmpty(menuItem.children) and !#strings.isEmpty(menuItemPjaxApp) ? menuItemPjaxApp : null}"
                class="menubar-item hidden sm:inline-flex items-center mx-0.5 transition-none"
                :class="{ 'is-open': open }"
                th:classappend="${#lists.isEmpty(menuItem.children) ? 'pjax-link' : ''}"
@@ -216,12 +234,15 @@
                              childIconType = ${#annotations.getOrDefault(child, 'icon_type', 'iconify')},
                              childIconSvg = ${#annotations.getOrDefault(child, 'icon', '')},
                              childCustomSvg = ${#annotations.getOrDefault(child, 'custom_svg', '')},
-                             childImageUrl = ${#annotations.getOrDefault(child, 'image_url', '')},
-                             childSeparatorBefore = ${#annotations.getOrDefault(child, 'header_separator_before', 'false')},
-                             childSvgContent = ${childIconType == 'custom_svg' ? childCustomSvg : childIconSvg}">
+                           childImageUrl = ${#annotations.getOrDefault(child, 'image_url', '')},
+                           childSeparatorBefore = ${#annotations.getOrDefault(child, 'header_separator_before', 'false')},
+                           childSvgContent = ${childIconType == 'custom_svg' ? childCustomSvg : childIconSvg},
+                           childHref = ${child.status.href != null ? child.status.href.toString() : ''},
+                           childPjaxApp = ${(childHref == '/moments' or childHref == '/moments/' or childHref matches '^/moments/[^/]+/?$') ? 'moments-app' : ((childHref == '/archives' or childHref == '/archives/' or childHref matches '^/(tags|tag|categories|category|author|authors)(/.*)?$') ? 'explorer' : (childHref matches '^/archives/[^/]+/?$' ? 'reader' : ''))}">
                    <div th:if="${childSeparatorBefore == 'true' or childSeparatorBefore == true}" class="menubar-dropdown-separator"></div>
                    <a th:href="${child.status.href}"
                       th:target="${child.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
+                      th:attr="data-pjax-app=${child.spec.target?.name() != 'BLANK' and !#strings.isEmpty(childPjaxApp) ? childPjaxApp : null}"
                       class="menubar-dropdown-item text-[13px] tracking-tight font-medium transition-none rounded-[6px]"
                       th:classappend="${child.spec.target?.name() == 'BLANK' ? '' : 'pjax-link'}">
                       <span class="menubar-dropdown-leading">
@@ -268,6 +289,26 @@
 
     <script th:inline="javascript">
       (() => {
+        const resolveProtocolApp = (href) => {
+          if (typeof href !== 'string' || !href) return '';
+
+          try {
+            const url = new URL(href, window.location.origin);
+            if (url.origin !== window.location.origin) return '';
+            if (url.pathname === '/moments' || url.pathname === '/' || url.pathname === '/moments/' || /^\/moments\/[^/]+\/?$/.test(url.pathname)) {
+              return url.pathname === '/' ? '' : 'moments-app';
+            }
+            if (url.pathname === '/archives' || url.pathname === '/archives/') return 'explorer';
+            if (/^\/archives\/[^/]+\/?$/.test(url.pathname)) return 'reader';
+            if (/^\/(tags|tag|categories|category|author|authors)(\/|$)/.test(url.pathname)) {
+              return 'explorer';
+            }
+          } catch (_error) {
+            return '';
+          }
+
+          return '';
+        };
         const baseColumns = Math.max(Number([[${widgetsColumns}]]) || 12, 12);
         const rawIcons = [
           /*[# th:each="icon : ${desktopCustomIcons}"]*/
@@ -276,6 +317,7 @@
             title: [[${icon.name}]],
             href: [[${icon.href}]],
             pjax: [[${!icon.external}]],
+            pjaxApp: resolveProtocolApp([[${icon.href}]]),
             external: [[${icon.external}]],
             subtype: [[${icon.type}]],
             dataId: [[${icon.name}]]
@@ -287,6 +329,7 @@
             title: [[${categoryFinder.getByName(catName) != null ? categoryFinder.getByName(catName).spec.displayName : catName}]],
             href: [[${categoryFinder.getByName(catName) != null ? categoryFinder.getByName(catName).status.permalink : '#'}]],
             pjax: true,
+            pjaxApp: 'explorer',
             external: false,
             subtype: 'folder',
             dataId: [[${catName}]]
@@ -298,6 +341,7 @@
             title: [[${tagFinder.getByName(tagName) != null ? tagFinder.getByName(tagName).spec.displayName : tagName}]],
             href: [[${tagFinder.getByName(tagName) != null ? tagFinder.getByName(tagName).status.permalink : '#'}]],
             pjax: true,
+            pjaxApp: 'explorer',
             external: false,
             subtype: 'folder',
             dataId: [[${tagName}]]
@@ -309,6 +353,7 @@
             title: [[${postFinder.getByName(postName) != null ? postFinder.getByName(postName).spec.title : postName}]],
             href: [[${postFinder.getByName(postName) != null ? postFinder.getByName(postName).status.permalink : '#'}]],
             pjax: true,
+            pjaxApp: 'reader',
             external: false,
             subtype: 'document',
             dataId: [[${postName}]]
@@ -320,6 +365,7 @@
             title: [[${singlePageFinder.getByName(pageName) != null ? singlePageFinder.getByName(pageName).spec.title : pageName}]],
             href: [[${singlePageFinder.getByName(pageName) != null ? singlePageFinder.getByName(pageName).status.permalink : '#'}]],
             pjax: true,
+            pjaxApp: 'reader',
             external: false,
             subtype: 'document',
             dataId: [[${pageName}]]
@@ -352,7 +398,7 @@
       layoutVersion=${widgetsLayoutVersion},
       serverLayoutJson=${desktopLayoutJson},
       themeName=${desktopThemeName},
-      themeJsonConfigEndpoint=@{/apis/api.console.halo.run/v1alpha1/themes/{name}/json-config(name=${desktopThemeName})},
+      themeJsonConfigEndpoint=${widgetsEditEnabled} ? @{/apis/api.console.halo.run/v1alpha1/themes/{name}/json-config(name=${desktopThemeName})} : '',
 
       weatherCityName=${widgetsWeatherCityName},
       weatherRefreshMinutes=${widgetsWeatherRefreshMinutes},
@@ -566,6 +612,8 @@
         <th:block th:if="${dockMenu != null}">
           <th:block th:each="menuItem : ${dockMenu.menuItems}">
             <th:block th:with="
+                menuItemHref = ${menuItem.status.href != null ? menuItem.status.href.toString() : ''},
+                menuItemPjaxApp = ${(menuItemHref == '/moments' or menuItemHref == '/moments/' or menuItemHref matches '^/moments/[^/]+/?$') ? 'moments-app' : ((menuItemHref == '/archives' or menuItemHref == '/archives/' or menuItemHref matches '^/(tags|tag|categories|category|author|authors)(/.*)?$') ? 'explorer' : (menuItemHref matches '^/archives/[^/]+/?$' ? 'reader' : ''))},
                 iconType = ${#annotations.getOrDefault(menuItem, 'icon_type', 'iconify')},
                 iconSvg = ${#annotations.getOrDefault(menuItem, 'icon', '')},
                 customSvg = ${#annotations.getOrDefault(menuItem, 'custom_svg', '')},
@@ -573,8 +621,11 @@
                 bgColor = ${#annotations.getOrDefault(menuItem, 'bg_color', '')}">
               
               <!-- 改为 PJAX <a> 链接 -->
-              <a class="dock-icon pjax-link group"
+              <a class="dock-icon group"
                  th:href="${menuItem.status.href}"
+                 th:target="${menuItem.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
+                 th:attr="data-pjax-app=${menuItem.spec.target?.name() != 'BLANK' and !#strings.isEmpty(menuItemPjaxApp) ? menuItemPjaxApp : null}"
+                 th:classappend="${menuItem.spec.target?.name() == 'BLANK' ? '' : ' pjax-link'}"
                  th:style="${iconType != 'image' and !#strings.isEmpty(bgColor) ? 'background-color:' + bgColor : ''}"
                  th:title="${menuItem.status.displayName}">
 
