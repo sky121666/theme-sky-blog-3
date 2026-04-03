@@ -1,0 +1,63 @@
+<th:block th:fragment="content"
+          th:with="momentText=${(moment.spec.content != null and (!#strings.isEmpty(moment.spec.content.raw) or !#strings.isEmpty(moment.spec.content.html))) ? ((!#strings.isEmpty(moment.spec.content.raw) ? moment.spec.content.raw : moment.spec.content.html).replaceAll('&lt;[^&gt;]+&gt;', ' ').replaceAll('&amp;nbsp;', ' ').replaceAll('\\\\s+', ' ').trim()) : ''},
+                   momentLabel=${!#strings.isEmpty(momentText) ? #strings.abbreviate(momentText, 42) : ((moment.spec.content != null and moment.spec.content.medium != null and !#lists.isEmpty(moment.spec.content.medium)) ? '图片瞬间' : '瞬间记录')},
+                   momentSummary=${!#strings.isEmpty(momentText) ? #strings.abbreviate(momentText, 140) : ''},
+                   mediaCount=${(moment.spec.content != null and moment.spec.content.medium != null) ? #lists.size(moment.spec.content.medium) : 0}">
+  <div class="moments-app moments-app--detail">
+    <div class="moment-reader-shell">
+      <div class="moment-reader-frame">
+
+        <!-- 主帖 -->
+        <div class="moment-detail-post">
+          <img class="moment-detail-avatar"
+               th:src="${moment.owner.avatar ?: ''}"
+               th:alt="${moment.owner.displayName ?: ''}" />
+          <div class="moment-detail-main">
+            <div class="moment-detail-nickname" th:text="${moment.owner.displayName ?: '匿名'}"></div>
+
+            <!-- 正文 -->
+            <article id="moment-content"
+                     class="moment-content"
+                     th:if="${moment.spec.content != null and !#strings.isEmpty(moment.spec.content.html)}"
+                     th:utext="${moment.spec.content.html}"></article>
+
+            <!-- 媒体 -->
+            <section class="moment-media-grid"
+                     th:if="${moment.spec.content != null and !#lists.isEmpty(moment.spec.content.medium)}"
+                     th:data-count="${mediaCount}">
+              <th:block th:each="medium : ${moment.spec.content.medium}">
+                <figure class="moment-media-card" th:if="${medium.type.name() == 'PHOTO'}">
+                  <img th:src="${medium.url}" alt="" />
+                </figure>
+                <figure class="moment-media-card moment-media-card--video" th:if="${medium.type.name() == 'VIDEO'}">
+                  <video th:src="${medium.url}" controls="controls"></video>
+                </figure>
+                <figure class="moment-media-card moment-media-card--audio" th:if="${medium.type.name() == 'AUDIO'}">
+                  <audio th:src="${medium.url}" controls="controls"></audio>
+                </figure>
+                <figure class="moment-media-card moment-media-card--post" th:if="${medium.type.name() == 'POST'}">
+                  <div class="moment-media-placeholder">关联文章</div>
+                </figure>
+              </th:block>
+            </section>
+
+            <!-- 时间 -->
+            <div class="moment-detail-time">
+              <time th:text="${moment.spec.releaseTime != null ? #dates.format(moment.spec.releaseTime, 'yyyy年MM月dd日 HH:mm') : ''}"></time>
+            </div>
+          </div>
+        </div>
+
+        <!-- 评论 -->
+        <section id="moment-comments"
+                 class="moment-comments"
+                 th:if="${pluginFinder.available('PluginCommentWidget')}">
+          <h2 class="moment-comments-title">评论</h2>
+          <div class="moment-comments-shell">
+            <halo:comment group="moment.halo.run" kind="Moment" th:attr="name=${moment.metadata.name}"/>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</th:block>

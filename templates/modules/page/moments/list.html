@@ -1,0 +1,71 @@
+<th:block th:fragment="content">
+  <div class="moments-app moments-app--feed">
+    <div class="moments-feed-shell">
+
+      <!-- 封面区 -->
+      <div class="moments-cover">
+        <img class="moments-cover-img"
+             th:src="${site.logo ?: ''}"
+             alt="" />
+        <div class="moments-cover-user">
+          <span class="moments-cover-name" th:text="${site.title ?: ''}"></span>
+          <img class="moments-cover-avatar"
+               th:src="${site.logo ?: ''}"
+               th:if="${site.logo != null}"
+               alt="" />
+        </div>
+      </div>
+
+      <!-- 动态列表 -->
+      <div class="moments-feed-list" th:if="${moments != null and moments.items != null}">
+        <article th:each="moment : ${moments.items}" class="moment-feed-card">
+
+          <!-- 头像列 -->
+          <div class="moment-feed-avatar-col">
+            <img class="moment-feed-avatar"
+                 th:if="${moment.owner != null and moment.owner.avatar != null}"
+                 th:src="${moment.owner.avatar}"
+                 alt="" />
+          </div>
+
+          <!-- 内容列 -->
+          <div class="moment-feed-content-col">
+            <span class="moment-feed-nickname"
+                  th:text="${moment.owner != null ? (moment.owner.displayName ?: '匿名') : '匿名'}"></span>
+
+            <div class="moment-feed-body"
+                 th:if="${moment.spec != null and moment.spec.content != null and moment.spec.content.html != null and !#strings.isEmpty(moment.spec.content.html)}"
+                 th:utext="${moment.spec.content.html}"></div>
+
+            <th:block th:if="${moment.spec != null and moment.spec.content != null and moment.spec.content.medium != null}">
+              <div class="moment-feed-gallery"
+                   th:if="${!#lists.isEmpty(moment.spec.content.medium)}">
+                <th:block th:each="media : ${moment.spec.content.medium}">
+                  <img class="moment-feed-gallery-item"
+                       th:src="${media.url}"
+                       th:if="${media.type != null and media.type.name() == 'PHOTO'}"
+                       alt="" />
+                </th:block>
+              </div>
+            </th:block>
+
+            <div class="moment-feed-footer">
+              <div class="moment-feed-meta">
+                <time th:if="${moment.spec != null and moment.spec.releaseTime != null}"
+                      th:text="${#dates.format(moment.spec.releaseTime, 'yyyy-MM-dd HH:mm')}"></time>
+              </div>
+              <a class="moment-feed-action-btn pjax-link"
+                 th:if="${moment.metadata != null and moment.metadata.name != null}"
+                 th:href="${'/moments/' + moment.metadata.name}"
+                 title="详情">··</a>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <div th:if="${moments == null or moments.items == null or #lists.isEmpty(moments.items)}" class="moment-feed-empty">
+        博主很懒，还没有发布任何瞬间...
+      </div>
+    </div>
+  </div>
+</th:block>

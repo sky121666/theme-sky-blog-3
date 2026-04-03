@@ -1,113 +1,216 @@
+/* ═══════════════════════════════════════════════════════════
+   WeChat Moments — 微信朋友圈风格
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── 窗口级覆写 ── */
+.moments-window {
+  background: #1a1a1a !important;
+}
+
+.moments-window .window-titlebar {
+  background: rgba(26, 26, 26, 0.92) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+.moments-window .window-title-text {
+  color: rgba(255, 255, 255, 0.88) !important;
+}
+
+.moments-window .window-body {
+  background: #1a1a1a;
+}
+
+/* ── 变量 ── */
 .moments-app {
-  --moment-surface: rgba(255, 255, 255, 0.74);
-  --moment-surface-strong: rgba(255, 255, 255, 0.86);
-  --moment-surface-soft: rgba(248, 248, 250, 0.92);
-  --moment-border: rgba(15, 23, 42, 0.08);
-  --moment-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
-  --moment-shadow-soft: 0 12px 28px rgba(15, 23, 42, 0.06);
-  --moment-text: rgba(17, 24, 39, 0.92);
-  --moment-text-soft: rgba(17, 24, 39, 0.62);
-  --moment-text-muted: rgba(17, 24, 39, 0.48);
-  --moment-code-surface: #111319;
-  --moment-code-color: #edf2ff;
-  --moment-code-border: rgba(255, 255, 255, 0.08);
-  --moment-radius: 24px;
-  --moment-radius-lg: 30px;
-  --moment-gap-xs: 0.55em;
-  --moment-gap-sm: 0.8em;
-  --moment-gap-md: 1.25em;
-  --moment-gap-lg: 1.8em;
-  --moment-gap-xl: 2.5em;
+  --wc-bg: #1a1a1a;
+  --wc-bg-elevated: #222;
+  --wc-text: rgba(255, 255, 255, 0.9);
+  --wc-text-secondary: rgba(255, 255, 255, 0.5);
+  --wc-text-muted: rgba(255, 255, 255, 0.32);
+  --wc-border: rgba(255, 255, 255, 0.06);
+  --wc-accent: #576b95;
+  --wc-avatar-size: 40px;
+  --wc-action-bg: rgba(255, 255, 255, 0.08);
+  --wc-cover-height: 260px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
 }
 
+/* light 模式也保持深色（微信朋友圈始终深色调） */
 .dark .moments-app {
-  --moment-surface: rgba(28, 28, 30, 0.78);
-  --moment-surface-strong: rgba(36, 36, 38, 0.9);
-  --moment-surface-soft: rgba(36, 36, 38, 0.92);
-  --moment-border: rgba(255, 255, 255, 0.08);
-  --moment-shadow: 0 22px 48px rgba(0, 0, 0, 0.26);
-  --moment-shadow-soft: 0 14px 32px rgba(0, 0, 0, 0.22);
-  --moment-text: rgba(245, 245, 247, 0.92);
-  --moment-text-soft: rgba(245, 245, 247, 0.7);
-  --moment-text-muted: rgba(245, 245, 247, 0.48);
-  --moment-code-surface: #0c0d10;
-  --moment-code-color: #f5f5f7;
-  --moment-code-border: rgba(255, 255, 255, 0.07);
+  --wc-bg: #111;
+  --wc-bg-elevated: #1c1c1e;
 }
 
+/* ── Feed 页布局 ── */
 .moments-app--feed {
-  padding: 44px clamp(18px, 3vw, 32px) 76px;
+  padding: 0 0 40px;
 }
 
 .moments-app--detail {
-  padding: 52px clamp(18px, 3vw, 36px) 84px;
+  padding: 20px 0 40px;
 }
 
 .moments-feed-shell {
-  width: min(100%, 860px);
-  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
 }
 
-.moments-feed-hero {
-  width: min(100%, 680px);
-  margin: 0 auto 34px;
-  text-align: center;
+/* ── 封面区 ── */
+.moments-cover {
+  position: relative;
+  width: 100%;
+  height: var(--wc-cover-height);
+  overflow: hidden;
+  margin-bottom: 36px;
 }
 
-.moments-feed-kicker,
-.moment-kicker {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 28px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--mac-accent) 16%, var(--moment-border));
-  background: color-mix(in srgb, var(--mac-accent) 10%, var(--moment-surface-strong));
-  color: color-mix(in srgb, var(--mac-accent) 72%, var(--moment-text));
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+.moments-cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
-.moments-feed-title {
-  margin: 18px 0 0;
-  color: var(--moment-text);
-  font-size: clamp(2.1rem, 4vw, 3.2rem);
-  line-height: 1.02;
-  font-weight: 760;
-  letter-spacing: -0.06em;
+/* 封面底部渐变 */
+.moments-cover::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  background: linear-gradient(transparent, var(--wc-bg));
+  pointer-events: none;
 }
 
-.moments-feed-subtitle {
-  margin: 14px auto 0;
-  max-width: 34ch;
-  color: var(--moment-text-soft);
-  font-size: 14px;
-  line-height: 1.72;
+/* 封面上的用户信息 */
+.moments-cover-user {
+  position: absolute;
+  bottom: -16px;
+  right: 16px;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  z-index: 2;
 }
 
+.moments-cover-name {
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  margin-bottom: 10px;
+}
+
+.moments-cover-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  object-fit: cover;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Feed 列表 ── */
 .moments-feed-list {
   display: flex;
   flex-direction: column;
-  gap: 18px;
 }
 
+/* ── 单条动态 ── */
 .moment-feed-card {
-  padding: 24px;
-  border: 1px solid var(--moment-border);
-  border-radius: var(--moment-radius);
-  background: var(--moment-surface);
-  box-shadow: var(--moment-shadow-soft);
-  backdrop-filter: blur(20px) saturate(130%);
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--wc-border);
 }
 
+/* 头像列 */
+.moment-feed-avatar-col {
+  flex-shrink: 0;
+  width: var(--wc-avatar-size);
+}
+
+.moment-feed-avatar {
+  width: var(--wc-avatar-size);
+  height: var(--wc-avatar-size);
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+/* 内容列 */
+.moment-feed-content-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.moment-feed-nickname {
+  display: block;
+  color: var(--wc-accent);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.3;
+  margin-bottom: 4px;
+}
+
+.moment-feed-nickname a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* 正文 */
+.moment-feed-body {
+  color: var(--wc-text);
+  font-size: 15px;
+  line-height: 1.65;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.moment-feed-body > :first-child {
+  margin-top: 0;
+}
+
+.moment-feed-body > :last-child {
+  margin-bottom: 0;
+}
+
+.moment-feed-body p {
+  margin: 0 0 4px;
+}
+
+.moment-feed-body a {
+  color: var(--wc-accent);
+  text-decoration: none;
+}
+
+.moment-feed-body img,
+.moment-feed-body video {
+  display: none; /* 内嵌媒体用 gallery 展示，不在 body 中重复 */
+}
+
+/* ── 图片网格 ── */
 .moment-feed-gallery {
   display: grid;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+/* 单图 */
+.moment-feed-gallery[data-count="1"] {
+  grid-template-columns: minmax(0, 240px);
+}
+
+/* 2 图 */
+.moment-feed-gallery[data-count="2"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 320px;
+}
+
+/* 3+ 图 */
+.moment-feed-gallery:not([data-count="1"]):not([data-count="2"]) {
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 18px;
+  max-width: 320px;
 }
 
 .moment-feed-gallery-item {
@@ -115,120 +218,247 @@
   width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
-  border-radius: 18px;
-  box-shadow: var(--moment-shadow-soft);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* 单图不强制方形 */
+.moment-feed-gallery[data-count="1"] .moment-feed-gallery-item {
+  aspect-ratio: auto;
+  max-height: 240px;
+  border-radius: 6px;
+}
+
+/* ── 底部元信息行 ── */
+.moment-feed-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
 }
 
 .moment-feed-meta {
-  margin-top: 18px;
-  color: var(--moment-text-muted);
+  color: var(--wc-text-muted);
   font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  line-height: 1.4;
 }
 
-.moment-feed-empty {
-  padding: 72px 24px;
-  border: 1px dashed color-mix(in srgb, var(--moment-border) 90%, transparent);
-  border-radius: var(--moment-radius);
-  text-align: center;
-  color: var(--moment-text-muted);
-  background: color-mix(in srgb, var(--moment-surface) 78%, transparent);
+/* ·· 操作按钮 */
+.moment-feed-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 20px;
+  border-radius: 4px;
+  background: var(--wc-action-bg);
+  border: none;
+  cursor: pointer;
+  color: var(--wc-text-secondary);
+  font-size: 14px;
+  letter-spacing: 2px;
+  line-height: 1;
+  padding: 0;
+  transition: background 0.15s;
 }
+
+.moment-feed-action-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* 链接到详情 */
+.moment-feed-card a.moment-feed-link {
+  color: var(--wc-accent);
+  text-decoration: none;
+  font-size: 13px;
+}
+
+/* ── 空状态 ── */
+.moment-feed-empty {
+  padding: 80px 24px;
+  text-align: center;
+  color: var(--wc-text-muted);
+  font-size: 14px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   详情页
+   ═══════════════════════════════════════════════════════════ */
 
 .moment-reader-shell {
-  width: min(100%, 980px);
-  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
+  padding: 0 16px;
+  box-sizing: border-box;
 }
 
 .moment-reader-frame {
-  width: min(100%, 840px);
-  margin: 0 auto;
+  max-width: 100%;
 }
 
-.moment-header {
-  width: min(100%, 760px);
-  margin: 0 auto 42px;
-  text-align: center;
-}
-
-.moment-title {
-  margin: 18px auto 0;
-  max-width: min(100%, 18ch);
-  color: var(--moment-text);
-  font-size: clamp(2.02rem, 4vw, 3.18rem);
-  line-height: 1.06;
-  font-weight: 760;
-  letter-spacing: -0.05em;
-  text-wrap: balance;
-}
-
-.moment-meta {
+/* 主帖区域 */
+.moment-detail-post {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 0;
-  margin-top: 18px;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--wc-border);
 }
 
-.moment-meta-item {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--moment-text-soft);
-  font-size: 12.5px;
-  font-weight: 560;
+.moment-detail-avatar {
+  flex-shrink: 0;
+  width: var(--wc-avatar-size);
+  height: var(--wc-avatar-size);
+  border-radius: 6px;
+  object-fit: cover;
 }
 
-.moment-meta-item:not(:last-child) {
-  margin-right: 14px;
+.moment-detail-main {
+  flex: 1;
+  min-width: 0;
 }
 
-.moment-meta-item:not(:last-child)::after {
-  content: "•";
-  position: relative;
-  margin-left: 14px;
-  color: color-mix(in srgb, var(--moment-text-soft) 38%, transparent);
+.moment-detail-nickname {
+  color: var(--wc-accent);
+  font-size: 15px;
+  font-weight: 500;
+  margin-bottom: 4px;
 }
 
-.moment-summary {
-  width: min(100%, 680px);
-  margin: 18px auto 0;
-  color: var(--moment-text-soft);
-  font-size: 14px;
-  line-height: 1.8;
+/* 正文内容 */
+.moment-content {
+  color: var(--wc-text);
+  font-size: 15px;
+  line-height: 1.65;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
+.moment-content > :first-child {
+  margin-top: 0;
+}
+
+.moment-content > :last-child {
+  margin-bottom: 0;
+}
+
+.moment-content p {
+  margin: 0 0 6px;
+}
+
+.moment-content a {
+  color: var(--wc-accent);
+  text-decoration: none;
+}
+
+.moment-content strong {
+  font-weight: 700;
+}
+
+.moment-content code {
+  padding: 0.1em 0.4em;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.88em;
+}
+
+.moment-content pre {
+  overflow-x: auto;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #111;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  margin: 8px 0;
+}
+
+.moment-content pre code {
+  padding: 0;
+  background: transparent;
+}
+
+.moment-content blockquote {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--wc-accent);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 0 6px 6px 0;
+}
+
+.moment-content :is(ul, ol) {
+  padding-left: 1.4em;
+  margin: 4px 0;
+}
+
+.moment-content li {
+  margin: 2px 0;
+}
+
+.moment-content :is(img, video, iframe) {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 8px 0;
+}
+
+.moment-content audio {
+  width: 100%;
+  margin: 8px 0;
+}
+
+.moment-content hr {
+  height: 1px;
+  border: none;
+  background: var(--wc-border);
+  margin: 16px 0;
+}
+
+/* 媒体网格 (详情页) */
 .moment-media-grid {
   display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+}
+
+.moment-media-grid[data-count="1"] {
+  grid-template-columns: minmax(0, 280px);
+}
+
+.moment-media-grid[data-count="2"] {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  width: min(100%, 760px);
-  margin: 0 auto 34px;
+  max-width: 360px;
+}
+
+.moment-media-grid:not([data-count="1"]):not([data-count="2"]) {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-width: 360px;
 }
 
 .moment-media-card {
   margin: 0;
   overflow: hidden;
-  border-radius: var(--moment-radius);
-  border: 1px solid var(--moment-border);
-  background: var(--moment-surface-soft);
-  box-shadow: var(--moment-shadow-soft);
+  border-radius: 4px;
 }
 
 .moment-media-card img,
 .moment-media-card video {
   display: block;
   width: 100%;
-  height: 100%;
-  min-height: 260px;
+  aspect-ratio: 1;
   object-fit: cover;
 }
 
+.moment-media-grid[data-count="1"] .moment-media-card img,
+.moment-media-grid[data-count="1"] .moment-media-card video {
+  aspect-ratio: auto;
+  max-height: 280px;
+  border-radius: 6px;
+}
+
 .moment-media-card--audio {
-  padding: 18px;
+  padding: 12px;
+  background: var(--wc-bg-elevated);
+  border-radius: 8px;
 }
 
 .moment-media-card--audio audio {
@@ -239,367 +469,109 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 180px;
+  min-height: 80px;
+  background: var(--wc-bg-elevated);
+  border-radius: 8px;
 }
 
 .moment-media-placeholder {
-  color: var(--moment-text-soft);
+  color: var(--wc-text-secondary);
   font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
-.moment-content,
-.moment-feed-body {
-  min-width: 0;
-  max-width: 100%;
-  color: var(--moment-text);
-  font-size: 1.02rem;
-  line-height: 1.84;
-  letter-spacing: 0.01em;
-  word-spacing: 0.02em;
-  overflow-wrap: break-word;
-  word-break: break-word;
-  text-rendering: optimizeLegibility;
+/* 时间行 */
+.moment-detail-time {
+  margin-top: 10px;
+  color: var(--wc-text-muted);
+  font-size: 12px;
 }
 
-.moment-content {
-  width: min(100%, 760px);
-  margin: 0 auto;
-}
-
-.moment-content *,
-.moment-feed-body * {
-  max-width: 100%;
-}
-
-.moment-content > :first-child,
-.moment-feed-body > :first-child {
-  margin-top: 0;
-}
-
-.moment-content > :last-child,
-.moment-feed-body > :last-child {
-  margin-bottom: 0;
-}
-
-.moment-content :is(h1, h2, h3, h4, h5, h6),
-.moment-feed-body :is(h1, h2, h3, h4, h5, h6) {
-  margin-top: var(--moment-gap-xl);
-  margin-bottom: var(--moment-gap-md);
-  color: inherit;
-  font-weight: 700;
-  line-height: 1.24;
-  letter-spacing: -0.025em;
-}
-
-.moment-content h1,
-.moment-feed-body h1 {
-  font-size: 1.82rem;
-  font-weight: 760;
-}
-
-.moment-content h2,
-.moment-feed-body h2 {
-  padding-bottom: 0.38rem;
-  font-size: 1.48rem;
-  border-bottom: 1px solid color-mix(in srgb, currentColor 10%, transparent);
-}
-
-.moment-content h3,
-.moment-feed-body h3 {
-  font-size: 1.24rem;
-}
-
-.moment-content :is(p, ul, ol, blockquote, pre, table, figure, details),
-.moment-feed-body :is(p, ul, ol, blockquote, pre, table, figure, details) {
-  margin-top: 0;
-  margin-bottom: var(--moment-gap-md);
-}
-
-.moment-content p + p,
-.moment-feed-body p + p {
-  margin-top: var(--moment-gap-sm);
-}
-
-.moment-content a,
-.moment-feed-body a {
-  color: var(--mac-accent);
-  text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, var(--mac-accent) 38%, transparent);
-  text-underline-offset: 3px;
-  transition: color 0.2s ease, text-decoration-color 0.2s ease;
-}
-
-.moment-content a:hover,
-.moment-feed-body a:hover {
-  text-decoration-color: var(--mac-accent);
-}
-
-.moment-content strong,
-.moment-feed-body strong {
-  color: inherit;
-  font-weight: 700;
-}
-
-.moment-content mark,
-.moment-feed-body mark {
-  color: inherit;
-  padding: 0.04em 0.22em;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--mac-accent) 18%, transparent);
-}
-
-.moment-content :is(ul, ol),
-.moment-feed-body :is(ul, ol) {
-  padding-left: 1.5em;
-}
-
-.moment-content li,
-.moment-feed-body li {
-  margin: var(--moment-gap-xs) 0;
-}
-
-.moment-content blockquote,
-.moment-feed-body blockquote {
-  position: relative;
-  padding: 1.3rem 1.4rem 1.3rem 1.55rem;
-  border: 1px solid var(--moment-border);
-  border-radius: 20px;
-  background: var(--moment-surface-soft);
-  box-shadow: var(--moment-shadow-soft);
-  color: color-mix(in srgb, var(--moment-text) 88%, transparent);
-}
-
-.moment-content blockquote::before,
-.moment-feed-body blockquote::before {
-  content: "";
-  position: absolute;
-  top: 18px;
-  bottom: 18px;
-  left: 0;
-  width: 4px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--mac-accent) 54%, transparent);
-}
-
-.moment-content code,
-.moment-feed-body code {
-  padding: 0.16em 0.52em;
-  border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--mac-accent) 16%, transparent);
-  background: color-mix(in srgb, var(--mac-accent) 8%, var(--moment-surface-soft));
-  color: color-mix(in srgb, var(--mac-accent) 85%, currentColor);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.86em;
-}
-
-.moment-content pre,
-.moment-feed-body pre {
-  overflow: auto;
-  padding: 1.15rem 1.2rem;
-  border-radius: 20px;
-  border: 1px solid var(--moment-code-border);
-  background: var(--moment-code-surface);
-  color: var(--moment-code-color);
-  box-shadow: var(--moment-shadow);
-}
-
-.moment-content pre code,
-.moment-feed-body pre code {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font-size: inherit;
-}
-
-.moment-content :is(img, video, iframe),
-.moment-feed-body :is(img, video, iframe) {
-  display: block;
-  width: 100%;
-  height: auto;
-  margin: var(--moment-gap-lg) auto;
-  border-radius: var(--moment-radius-lg);
-  box-shadow: var(--moment-shadow);
-}
-
-.moment-content audio,
-.moment-feed-body audio {
-  width: 100%;
-  margin: var(--moment-gap-lg) 0;
-}
-
-.moment-content figcaption,
-.moment-feed-body figcaption {
-  margin-top: 0.8rem;
-  color: var(--moment-text-muted);
-  font-size: 0.88rem;
-  text-align: center;
-}
-
-.moment-content table,
-.moment-feed-body table {
-  width: 100%;
-  overflow: hidden;
-  border-collapse: separate;
-  border-spacing: 0;
-  border: 1px solid var(--moment-border);
-  border-radius: 20px;
-  background: color-mix(in srgb, var(--moment-surface-soft) 92%, white);
-  box-shadow: var(--moment-shadow-soft);
-}
-
-.dark .moment-content table,
-.dark .moment-feed-body table {
-  background: color-mix(in srgb, var(--moment-surface-soft) 94%, #1c1c1e);
-}
-
-.moment-content :is(th, td),
-.moment-feed-body :is(th, td) {
-  padding: 0.9rem 1rem;
-  text-align: left;
-  vertical-align: top;
-  border-bottom: 1px solid color-mix(in srgb, currentColor 8%, transparent);
-}
-
-.moment-content thead,
-.moment-feed-body thead {
-  background: color-mix(in srgb, var(--mac-accent) 10%, var(--moment-surface-strong));
-}
-
-.moment-content tbody tr:last-child td,
-.moment-feed-body tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.moment-content hr,
-.moment-feed-body hr {
-  height: 1px;
-  margin: calc(var(--moment-gap-xl) * 1.05) 0;
-  border: none;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--mac-accent) 34%, transparent) 22%, color-mix(in srgb, var(--mac-accent) 34%, transparent) 78%, transparent);
-}
-
-.moment-content details,
-.moment-feed-body details {
-  overflow: hidden;
-  border: 1px solid var(--moment-border);
-  border-radius: 18px;
-  background: var(--moment-surface-soft);
-  box-shadow: var(--moment-shadow-soft);
-}
-
-.moment-content summary,
-.moment-feed-body summary {
-  position: relative;
-  padding: 1rem 1.2rem 1rem 2.4rem;
-  cursor: pointer;
-  user-select: none;
-  font-weight: 600;
-  list-style: none;
-}
-
-.moment-content summary::-webkit-details-marker,
-.moment-feed-body summary::-webkit-details-marker {
-  display: none;
-}
-
-.moment-content summary::before,
-.moment-feed-body summary::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 1rem;
-  width: 0;
-  height: 0;
-  border-top: 4px solid transparent;
-  border-bottom: 4px solid transparent;
-  border-left: 6px solid currentColor;
-  opacity: 0.45;
-  transform: translateY(-50%);
-}
-
-.moment-content details[open] summary,
-.moment-feed-body details[open] summary {
-  border-bottom: 1px solid var(--moment-border);
-}
-
-.moment-content details > :not(summary),
-.moment-feed-body details > :not(summary) {
-  padding: 1rem 1.2rem;
-}
-
+/* ── 评论区 ── */
 .moment-comments {
-  width: min(100%, 760px);
-  margin: 80px auto 0;
-  padding-top: 30px;
-  border-top: 1px solid var(--moment-border);
+  margin-top: 20px;
+  padding-top: 0;
+  border-top: none;
 }
 
 .moment-comments-title {
-  margin: 0 0 18px;
-  font-size: 1.32rem;
-  line-height: 1.2;
-  font-weight: 760;
-  letter-spacing: -0.04em;
+  display: none; /* 微信风格不显示"评论"标题 */
 }
 
 .moment-comments-shell {
   padding: 0;
 }
 
+/* ═══════════════════════════════════════════════════════════
+   标题栏图标
+   ═══════════════════════════════════════════════════════════ */
+
+.moments-titlebar-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 18px;
+  transition: color 0.15s;
+  text-decoration: none;
+}
+
+.moments-titlebar-back:hover {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.moments-titlebar-icons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.moments-titlebar-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+.moments-titlebar-icon-btn:hover {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   响应式
+   ═══════════════════════════════════════════════════════════ */
+
 @media (width <= 768px) {
-  .moments-app--feed,
+  .moments-app--feed {
+    padding: 0 0 32px;
+  }
+
   .moments-app--detail {
-    padding: 34px 16px 68px;
+    padding: 12px 0 32px;
   }
 
-  .moments-feed-hero {
-    margin-bottom: 26px;
-  }
-
-  .moments-feed-title,
-  .moment-title {
-    max-width: 100%;
-    font-size: clamp(1.8rem, 8vw, 2.6rem);
+  .moments-cover {
+    height: 200px;
+    margin-bottom: 28px;
   }
 
   .moment-feed-card {
-    padding: 18px;
-    border-radius: 20px;
+    padding: 12px 14px;
   }
 
-  .moment-feed-gallery {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .moment-media-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .moment-media-card img,
-  .moment-media-card video {
-    min-height: 220px;
-  }
-
-  .moment-content,
-  .moment-feed-body {
-    font-size: 0.98rem;
-    line-height: 1.78;
-  }
-
-  .moment-content table,
-  .moment-feed-body table {
-    display: block;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .moment-comments {
-    margin-top: 64px;
-    padding-top: 24px;
+  .moment-reader-shell {
+    padding: 0 14px;
   }
 }

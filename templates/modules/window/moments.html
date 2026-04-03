@@ -1,0 +1,72 @@
+<th:block th:fragment="frame (titleText, contentFragment, metricsKey)">
+  <div class="macos-window moments-window flex flex-col pointer-events-auto relative md:absolute w-full h-full md:w-auto md:h-auto md:min-w-[360px] md:min-h-[600px] rounded-none md:rounded-[14px] overflow-hidden origin-center"
+       data-window-surface
+       th:data-window-variant="'moments'"
+       th:data-window-metrics-key="${metricsKey}"
+       th:data-window-resizable="false"
+       th:data-window-maximizable="false"
+       x-data="draggableWindow"
+       @mousemove.window="onPointerMove"
+       @mouseup.window="onPointerEnd"
+       x-transition:enter="transition ease-out duration-200" 
+       x-transition:enter-start="opacity-0 md:scale-95" 
+       x-transition:enter-end="opacity-100 md:scale-100" 
+       x-transition:leave="transition ease-in duration-150" 
+       x-transition:leave-start="opacity-100 md:scale-100" 
+       x-transition:leave-end="opacity-0 md:scale-95">
+       
+    <!-- 微信风格标题栏 -->
+    <div class="window-titlebar relative w-full z-50 h-[48px] md:h-[52px] shrink-0 flex items-center px-3 md:px-4 font-sans"
+         data-window-titlebar
+         x-data="windowTitlebar"
+         @mousedown="onDragStart">
+        
+        <!-- 左侧：交通灯 + 返回箭头(详情页) -->
+        <div class="flex items-center gap-2 min-w-[100px]">
+            <th:block th:replace="~{modules/window/controls :: trafficLights(maximizable=false)}"></th:block>
+            <!-- 详情页时显示返回箭头 -->
+            <a th:if="${titleText == '详情'}"
+               href="/moments"
+               class="moments-titlebar-back pjax-link"
+               title="返回">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+            </a>
+        </div>
+        
+        <!-- 居中标题 -->
+        <div class="flex-1 flex justify-center items-center overflow-hidden px-2">
+            <div class="window-title-text truncate font-medium text-[14px] md:text-[13px] tracking-wide" th:text="${titleText} ?: '朋友圈'"></div>
+        </div>
+
+        <!-- 右侧图标 -->
+        <div class="moments-titlebar-icons min-w-[100px] justify-end">
+            <th:block th:if="${titleText != '详情'}">
+              <!-- Feed 页右侧图标 -->
+              <button type="button" class="moments-titlebar-icon-btn" title="刷新" onclick="window.location.reload()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="23 4 23 10 17 10"></polyline>
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                </svg>
+              </button>
+            </th:block>
+            <th:block th:if="${titleText == '详情'}">
+              <!-- 详情页右侧更多 -->
+              <button type="button" class="moments-titlebar-icon-btn" title="更多">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="5" cy="12" r="2"></circle>
+                  <circle cx="12" cy="12" r="2"></circle>
+                  <circle cx="19" cy="12" r="2"></circle>
+                </svg>
+              </button>
+            </th:block>
+        </div>
+    </div>
+
+    <!-- 内容区 -->
+    <div class="window-body moments-body w-full flex-1 overflow-y-auto relative select-text" data-window-scroll>
+        <th:block th:replace="${contentFragment}" />
+    </div>
+  </div>
+</th:block>
