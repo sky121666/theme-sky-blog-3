@@ -4,7 +4,7 @@
  * 所有逻辑已拆分到独立模块，此文件仅负责组装和注册顺序。
  */
 
-import { initPjax } from './pjax.js';
+import { initPjax } from './pjax/index.js';
 import { observeSearchWidget, openSearchWidget } from './search.js';
 import { registerWindowManager } from './window-manager.js';
 import { registerWindowComponents } from './window.js';

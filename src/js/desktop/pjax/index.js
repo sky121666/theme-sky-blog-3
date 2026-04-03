@@ -1,163 +1,29 @@
 /**
- * Pjax 引擎初始化与 SEO 同步
+ * Pjax engine initialization — link management, Observer, event handlers
+ *
+ * CSS routing:   ./css-router.js
+ * SEO sync:      ./seo.js
  */
 
 import Pjax from 'pjax';
 import NProgress from 'nprogress';
-import { runPageInitializers } from '../shared/page-app.js';
-import { createLogger } from '../shared/debug.js';
+import { runPageInitializers } from '../../shared/page-app.js';
+import { createLogger } from '../../shared/debug.js';
+import {
+  setCurrentPageApp,
+  ensureAppCssLoaded,
+  syncAppCss,
+  parsePageAppFromResponse,
+  inferPageAppFromUrl
+} from './css-router.js';
+import { syncSeoHeadFromResponse } from './seo.js';
 
-// ── Debug logger (enable: 主题设置 → 开发者 → 调试模式) ──
 const { log: pjaxLog, warn: pjaxWarn } = createLogger('pjax');
 
-const SEO_HEAD_SELECTORS = [
-  "meta[name='description']",
-  "meta[name='keywords']",
-  "meta[name='robots']",
-  "link[rel='canonical']",
-  "link[rel='icon']",
-  "link[rel='shortcut icon']",
-  "link[rel='apple-touch-icon']",
-  "meta[property='og:type']",
-  "meta[property='og:url']",
-  "meta[property='og:site_name']",
-  "meta[property='og:title']",
-  "meta[property='og:description']",
-  "meta[property='og:image']",
-  "meta[property='article:published_time']",
-  "meta[property='article:modified_time']",
-  "meta[property='article:author']",
-  "meta[property='article:tag']",
-  "meta[name='twitter:card']",
-  "meta[name='twitter:creator']",
-  "meta[name='twitter:title']",
-  "meta[name='twitter:description']",
-  "meta[name='twitter:image']"
-];
+// ── Link management ──
 
 const PJAX_MANAGED_ATTR = 'data-pjax-managed';
 const PJAX_LINK_SELECTOR = `a.pjax-link[${PJAX_MANAGED_ATTR}="true"]:not([target='_blank'])`;
-
-function normalizePageApp(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-/** In-memory tracked page app – body[data-page-app] is NEVER updated by Pjax. */
-let _currentPageApp = normalizePageApp(document.body?.dataset.pageApp);
-
-function getCurrentPageApp() {
-  return _currentPageApp;
-}
-
-function setCurrentPageApp(value) {
-  _currentPageApp = normalizePageApp(value);
-  if (document.body) {
-    document.body.dataset.pageApp = _currentPageApp;
-  }
-}
-
-// ── CSS lazy-loading ──
-// All Alpine.data registrations are in main.js. Only CSS needs lazy injection.
-const _cssLoadedApps = new Set(['']);
-const _initCssApp = normalizePageApp(document.body?.dataset.pageApp);
-if (_initCssApp) _cssLoadedApps.add(_initCssApp);
-
-// Detect Halo theme asset base from the existing main.css link tag.
-const _themeAssetBase = (() => {
-  const link = document.querySelector('link[href*="/main.css"]');
-  if (link) {
-    const href = link.getAttribute('href').split('?')[0];
-    const idx = href.lastIndexOf('/css/');
-    if (idx >= 0) return href.substring(0, idx + 1);
-  }
-  const s = document.querySelector('script[src*="/main.js"]');
-  if (s) {
-    const src = s.getAttribute('src').split('?')[0];
-    const idx = src.lastIndexOf('/js/');
-    if (idx >= 0) return src.substring(0, idx + 1);
-  }
-  return '/assets/';
-})();
-
-const APP_CSS_NAMES = ['explorer', 'reader', 'moments-app'];
-
-function ensureAppCssLoaded(appName) {
-  if (!appName || _cssLoadedApps.has(appName)) return;
-  _cssLoadedApps.add(appName);
-  if (!document.querySelector(`link[href*="/${appName}.css"]`)) {
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = `${_themeAssetBase}css/${appName}.css`;
-    link.dataset.appCss = appName;
-    document.head.appendChild(link);
-  }
-}
-
-/** Disable CSS for page apps other than `activeApp`. */
-function syncAppCss(activeApp) {
-  for (const name of APP_CSS_NAMES) {
-    const links = document.querySelectorAll(`link[data-app-css="${name}"], link[href*="/${name}.css"]`);
-    links.forEach(link => {
-      link.disabled = !!(activeApp && name !== activeApp);
-    });
-  }
-}
-
-function parsePageAppFromResponse(responseText) {
-  if (!responseText) return '';
-  try {
-    const m = responseText.match(/data-page-app="([^"]*)"/);
-    return m ? normalizePageApp(m[1]) : '';
-  } catch (_) {
-    return '';
-  }
-}
-
-function isMomentsRoute(urlLike) {
-  try {
-    const url = urlLike instanceof URL ? urlLike : new URL(urlLike, window.location.origin);
-    return url.origin === window.location.origin && (url.pathname === '/moments' || url.pathname === '/moments/');
-  } catch (_error) {
-    return false;
-  }
-}
-
-function isMomentsDetailRoute(urlLike) {
-  try {
-    const url = urlLike instanceof URL ? urlLike : new URL(urlLike, window.location.origin);
-    return url.origin === window.location.origin && /^\/moments\/[^/]+\/?$/.test(url.pathname);
-  } catch (_error) {
-    return false;
-  }
-}
-
-function inferPageAppFromUrl(urlLike) {
-  try {
-    const url = urlLike instanceof URL ? urlLike : new URL(urlLike, window.location.origin);
-    if (url.origin !== window.location.origin) return null;
-    const p = url.pathname;
-
-    if (isMomentsRoute(url) || isMomentsDetailRoute(url)) return 'moments-app';
-    if (p === '/') return '';
-
-    // /archives (list page) → explorer
-    // /archives/slug (post detail) → reader
-    if (p === '/archives' || p === '/archives/') return 'explorer';
-    if (/^\/archives\/[^/]+\/?$/.test(p)) return 'reader';
-
-    // Explorer list & detail pages
-    if (/^\/(tags|tag|categories|category|author|authors)(\/|$)/.test(p)) {
-      return 'explorer';
-    }
-  } catch (_error) {
-    return null;
-  }
-
-  return null;
-}
-
-// resolveTargetPageApp / shouldBypassPjax removed –
-// cross-app transitions are handled by dynamic loading in pjax:complete.
 
 function isPjaxManagedLink(link) {
   if (!link || link.target === '_blank' || !link.classList?.contains('pjax-link')) {
@@ -169,22 +35,10 @@ function isPjaxManagedLink(link) {
     if (url.protocol !== window.location.protocol) return false;
     if (url.host !== window.location.host) return false;
     if (link.href.startsWith('javascript:')) return false;
-    // bypass removed — all same-origin pjax-links are managed
     return true;
   } catch (_error) {
     return false;
   }
-}
-
-function shouldAllowNativeModifiedClick(event) {
-  return Boolean(
-    event?.defaultPrevented ||
-    event?.button > 0 ||
-    event?.metaKey ||
-    event?.ctrlKey ||
-    event?.shiftKey ||
-    event?.altKey
-  );
 }
 
 function markPjaxLink(link) {
@@ -222,23 +76,7 @@ function replayPjaxScripts(root) {
   });
 }
 
-function syncSeoHeadFromResponse(responseText) {
-  if (!responseText || typeof responseText !== 'string') return;
-
-  const parser = new DOMParser();
-  const nextDoc = parser.parseFromString(responseText, 'text/html');
-  const currentHead = document.head;
-  const nextHead = nextDoc.head;
-
-  if (!currentHead || !nextHead) return;
-
-  SEO_HEAD_SELECTORS.forEach((selector) => {
-    currentHead.querySelectorAll(selector).forEach((node) => node.remove());
-    nextHead.querySelectorAll(selector).forEach((node) => {
-      currentHead.appendChild(node.cloneNode(true));
-    });
-  });
-}
+// ── Pjax init ──
 
 export function initPjax(Alpine) {
   setTimeout(() => {
@@ -262,7 +100,6 @@ export function initPjax(Alpine) {
     });
 
     // Non-200 responses: full-page redirect to show dedicated error page.
-    // Override handleResponse to intercept errors BEFORE loadContent/latestChance.
     const _origHandleResponse = pjax.handleResponse.bind(pjax);
     pjax.handleResponse = function(responseText, request, href, options) {
       if (responseText === null && request && request.status >= 400) {
@@ -271,8 +108,6 @@ export function initPjax(Alpine) {
         window.location = href;
         return;
       }
-      // For responseText === false (which pjax treats as error and passes to
-      // latestChance), also redirect cleanly.
       if (responseText === false) {
         pjaxWarn('handleResponse: failed response → full redirect', href);
         NProgress.done();
@@ -282,26 +117,25 @@ export function initPjax(Alpine) {
       _origHandleResponse(responseText, request, href, options);
     };
 
-    // Patch attachLink to deduplicate — MoOx/pjax doesn't check data-pjax-state.
+    // Patch attachLink to deduplicate — MoOx/pjax's attachLink never checks
+    // whether a handler is already bound.
+    const ATTACHED = 'data-pjax-attached';
     const _origAttachLink = pjax.attachLink.bind(pjax);
     pjax.attachLink = function(link) {
-      if (link.hasAttribute('data-pjax-state')) return;
+      if (link.hasAttribute(ATTACHED)) return;
+      link.setAttribute(ATTACHED, '1');
       _origAttachLink(link);
     };
 
     window.pjax = pjax;
     pjaxLog('init: Pjax created, #pjax-container exists:', !!document.getElementById('pjax-container'));
 
-    // MoOx/pjax binds click handlers per-element via parseDOM/attachLink.
-    // Dynamic links (from Alpine x-html, widget renderers, etc.) are never
-    // bound. We use a MutationObserver to catch newly inserted <a> elements
-    // and attach pjax to them automatically.
-    const pjaxAttr = 'data-pjax-state';
+    // ── Dynamic link attachment ──
 
     function attachDynamicLinks(root) {
       if (!root || !window.pjax) return;
       markPjaxLinks(root);
-      const links = root.querySelectorAll(`${PJAX_LINK_SELECTOR}:not([${pjaxAttr}])`);
+      const links = root.querySelectorAll(`${PJAX_LINK_SELECTOR}:not([${ATTACHED}])`);
       if (links.length > 0) pjaxLog('attach:', links.length, 'new links in', root.className || root.tagName);
       links.forEach((link) => {
         if (!isPjaxManagedLink(link)) return;
@@ -310,20 +144,19 @@ export function initPjax(Alpine) {
       });
     }
 
-    // Observe the desktop surface for dynamically inserted links
+    // ── MutationObserver for desktop surface ──
+
     const desktopSurface = document.querySelector('.desktop-surface');
     if (desktopSurface) {
       const observer = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
           for (const node of mutation.addedNodes) {
             if (node.nodeType !== Node.ELEMENT_NODE) continue;
-            // Skip clock/weather ticker updates — they never contain links
             if (node.classList?.contains('desktop-widget-clock')) continue;
-            if (node.tagName === 'A' && !node.hasAttribute(pjaxAttr)) {
+            if (node.tagName === 'A' && !node.hasAttribute(ATTACHED)) {
               pjaxLog('observer: new <a>', node.href);
               attachDynamicLinks(node.parentElement);
             } else if (node.querySelectorAll) {
-              // Only process if this subtree might contain links
               if (node.querySelector('a.pjax-link')) {
                 pjaxLog('observer: subtree with links', node.className || node.tagName);
                 attachDynamicLinks(node);
@@ -336,10 +169,7 @@ export function initPjax(Alpine) {
       pjaxLog('observer: watching .desktop-surface');
     }
 
-    // Note: NO initial requestAnimationFrame sweep here.
-    // The MutationObserver handles all dynamically inserted links;
-    // a redundant sweep would double-attach handlers since MoOx/pjax's
-    // attachLink does NOT deduplicate.
+    // ── Pjax events ──
 
     document.addEventListener("pjax:send", (event) => {
       pjaxLog('event:send', event.triggerElement?.href || '');
@@ -347,7 +177,6 @@ export function initPjax(Alpine) {
       const container = document.getElementById('pjax-container');
       if (container) container.classList.add('pjax-loading');
 
-      // Pre-inject CSS for target app to minimise FOUC
       const targetHref = event?.triggerElement?.href || event?.requestOptions?.requestUrl;
       if (targetHref) {
         const targetApp = inferPageAppFromUrl(targetHref);
@@ -369,14 +198,10 @@ export function initPjax(Alpine) {
       if (container) {
         replayPjaxScripts(container);
 
-        // Alpine.data is globally registered — just init the new tree
         if (window.Alpine?.initTree) {
           window.Alpine.initTree(container);
         }
 
-        // Attach pjax to new links in the container.
-        // Do NOT call pjax.refresh() — it triggers parseDOM on ALL links
-        // which re-adds click handlers (MoOx/pjax doesn't deduplicate).
         attachDynamicLinks(container);
 
         requestAnimationFrame(() => {
@@ -406,6 +231,8 @@ export function initPjax(Alpine) {
       pjaxWarn('event:error', event.detail?.request?.status, event.detail?.error?.message);
       NProgress.done();
     });
+
+    // ── Body click router (window manager integration) ──
 
     document.body.addEventListener('click', (e) => {
       const link = e.target.closest('a[href]');
