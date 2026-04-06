@@ -9,7 +9,13 @@
         type = 'website',
         seoFallback = 'meta',
         pageMode = 'browser-list',
-        pageApp = 'explorer'
+        pageApp = 'explorer',
+        windowVariant = 'browser',
+        windowScene = 'none',
+        windowTitle = '所有分类',
+        windowResizable = true,
+        windowMaximizable = true,
+        windowMetricsKey = 'browser'
       )}">
   <th:block th:fragment="categorySidebar(categories, depth)">
     <th:block th:with="currentDepth=${depth != null ? depth : 0}">

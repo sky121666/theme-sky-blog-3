@@ -123,7 +123,7 @@ export function registerWindowManager(Alpine) {
     },
 
     restoreWindowSurface() {
-      const winEl = document.querySelector('.macos-window');
+      const winEl = document.querySelector('[data-window-surface]');
       if (!winEl) return null;
 
       winEl.style.visibility = 'visible';
@@ -138,7 +138,7 @@ export function registerWindowManager(Alpine) {
         winEl.style.top = '';
       }
 
-      const titlebar = winEl.querySelector('.window-titlebar');
+      const titlebar = winEl.querySelector('[data-window-titlebar]');
       if (titlebar) {
         titlebar.style.opacity = '';
         titlebar.style.backdropFilter = '';
@@ -148,10 +148,10 @@ export function registerWindowManager(Alpine) {
       return winEl;
     },
 
-    prepareWindowSurfaceForRestore(winEl = document.querySelector('.macos-window')) {
+    prepareWindowSurfaceForRestore(winEl = document.querySelector('[data-window-surface]')) {
       if (!winEl) return null;
 
-      const titlebar = winEl.querySelector('.window-titlebar');
+      const titlebar = winEl.querySelector('[data-window-titlebar]');
       if (titlebar) {
         titlebar.style.opacity = '';
         titlebar.style.backdropFilter = '';
@@ -225,7 +225,7 @@ export function registerWindowManager(Alpine) {
     async minimize() {
       wmLog('minimize');
       if (this.isAnimating || this.minimized) return;
-      const winEl = document.querySelector('.macos-window');
+      const winEl = document.querySelector('[data-window-surface]');
       if (!winEl) return;
       const animationToken = ++this.animationToken;
 
@@ -252,7 +252,7 @@ export function registerWindowManager(Alpine) {
         action: 'minimize'
       });
       winEl.style.visibility = 'hidden';
-      const titlebar = winEl.querySelector('.window-titlebar');
+      const titlebar = winEl.querySelector('[data-window-titlebar]');
       if (titlebar) {
         titlebar.style.opacity = '0';
         titlebar.style.backdropFilter = 'none';
@@ -284,7 +284,7 @@ export function registerWindowManager(Alpine) {
        this.isAnimating = true;
        this.show = true;
 
-       const winEl = document.querySelector('.macos-window');
+       const winEl = document.querySelector('[data-window-surface]');
        const dockIcon = document.getElementById('minimized-dock-icon');
 
        if (winEl && dockIcon) {

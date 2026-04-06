@@ -9,7 +9,13 @@
         type = 'article',
         seoFallback = 'none',
         pageMode = 'browser-reader',
-        pageApp = 'reader'
+        pageApp = 'reader',
+        windowVariant = 'browser',
+        windowScene = 'none',
+        windowTitle = ${post.spec.title},
+        windowResizable = true,
+        windowMaximizable = true,
+        windowMetricsKey = 'browser'
       )}">
   <th:block th:fragment="ssrBlock">
     <div class="post-reader-shell">

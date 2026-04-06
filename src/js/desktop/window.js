@@ -436,6 +436,7 @@ export function registerWindowComponents(Alpine) {
     resizeStartWindowY: 0,
     isDesktop: window.innerWidth >= 768,
     windowEl: null,
+    metricsKey: 'none',
 
     applyResizeMode() {
       if (!this.windowEl) return;
@@ -491,7 +492,8 @@ export function registerWindowComponents(Alpine) {
 
     syncState() {
       if (!this.isDesktop) return;
-      localStorage.setItem('theme-macOS-window-metrics', JSON.stringify({
+      if (this.metricsKey === 'none') return;
+      localStorage.setItem(`theme-window-metrics-${this.metricsKey}`, JSON.stringify({
         x: this.x,
         y: this.y,
         width: this.width,
@@ -506,22 +508,40 @@ export function registerWindowComponents(Alpine) {
 
     init() {
       this.windowEl = this.$el;
+      this.metricsKey = this.windowEl.dataset.windowMetricsKey || 'none';
       
       try {
-        const storedStr = localStorage.getItem('theme-macOS-window-metrics');
-        if (storedStr) {
-          const stored = JSON.parse(storedStr);
-          this.x = stored.x || 0;
-          this.y = stored.y || 0;
-          this.width = stored.width || 0;
-          this.height = stored.height || 0;
-          this.isMaximized = stored.isMaximized || false;
-          this.preMaxX = stored.preMaxX || 0;
-          this.preMaxY = stored.preMaxY || 0;
-          this.preMaxWidth = stored.preMaxWidth || 0;
-          this.preMaxHeight = stored.preMaxHeight || 0;
+        if (this.metricsKey !== 'none') {
+          const storedStr = localStorage.getItem(`theme-window-metrics-${this.metricsKey}`);
+          if (storedStr) {
+            const stored = JSON.parse(storedStr);
+            this.x = stored.x || 0;
+            this.y = stored.y || 0;
+            this.width = stored.width || 0;
+            this.height = stored.height || 0;
+            this.isMaximized = stored.isMaximized || false;
+            this.preMaxX = stored.preMaxX || 0;
+            this.preMaxY = stored.preMaxY || 0;
+            this.preMaxWidth = stored.preMaxWidth || 0;
+            this.preMaxHeight = stored.preMaxHeight || 0;
+          }
         }
       } catch(e) {}
+
+      // ENFORCE mandatory width if axis restricts horizontal resizing
+      if (this.windowEl.dataset.windowWidth) {
+         const forcedWidth = parseInt(this.windowEl.dataset.windowWidth, 10);
+         const resizableMode = this.windowEl.dataset.windowResizable || 'true';
+         if (!isNaN(forcedWidth) && forcedWidth > 0 && (resizableMode === 'y' || resizableMode === 'false')) {
+            const expectedWidth = Math.min(forcedWidth, window.innerWidth);
+            if (this.width !== expectedWidth && this.width !== 0) {
+               // Re-center around current X if width changes aggressively
+               const centerDiff = (this.width - expectedWidth) / 2;
+               this.width = expectedWidth;
+               this.x += centerDiff;
+            }
+         }
+      }
 
       if (this.width === 0) this.updateMeasurements();
       else if (this.isDesktop) {
@@ -597,8 +617,19 @@ export function registerWindowComponents(Alpine) {
 
     updateMeasurements() {
        if (this.isDesktop) {
-         const width = Math.min(1200, window.innerWidth * 0.85);
-         const height = Math.min(900, Math.max(500, window.innerHeight * 0.85));
+         let width = Math.min(1200, window.innerWidth * 0.85);
+         let height = Math.min(900, Math.max(500, window.innerHeight * 0.85));
+         
+         if (this.windowEl.dataset.windowWidth) {
+            const w = parseInt(this.windowEl.dataset.windowWidth, 10);
+            if (!isNaN(w) && w > 0) width = Math.min(w, window.innerWidth);
+         }
+         
+         if (this.windowEl.dataset.windowHeight) {
+            const h = parseInt(this.windowEl.dataset.windowHeight, 10);
+            if (!isNaN(h) && h > 0) height = Math.min(h, window.innerHeight - 28);
+         }
+
          const x = (window.innerWidth - width) / 2;
          const y = Math.max(28, (window.innerHeight - height) / 2);
 
@@ -627,10 +658,10 @@ export function registerWindowComponents(Alpine) {
     },
 
     toggleMaximize() {
-      if (!this.isDesktop) return;
-      const winEl = document.querySelector('.macos-window');
-      if (!winEl) return;
+      if (!this.isDesktop || !this.windowEl) return;
+      if (this.windowEl.dataset.windowMaximizable === 'false') return;
       
+      const winEl = this.windowEl;
       winEl.style.transition = 'all 0.3s cubic-bezier(0.25, 1, 0.5, 1)';
       if (this.isMaximized) {
         this.width = this.preMaxWidth;
@@ -681,6 +712,7 @@ export function registerWindowComponents(Alpine) {
 
     startResize(direction, e) {
       if (!this.isDesktop || this.isMaximized || !this.windowEl) return;
+      if (this.windowEl.dataset.windowResizable === 'false') return;
 
       this.isResizing = true;
       this.resizeDirection = direction;
@@ -703,21 +735,27 @@ export function registerWindowComponents(Alpine) {
         const direction = this.resizeDirection;
         const minWidth = this.getMinWidth();
         const minHeight = this.getMinHeight();
+        const resizableMode = this.windowEl.dataset.windowResizable || 'true';
 
         let nextX = this.resizeStartWindowX;
         let nextY = this.resizeStartWindowY;
         let nextWidth = this.resizeStartWidth;
         let nextHeight = this.resizeStartHeight;
 
-        if (direction.includes('e')) nextWidth = this.resizeStartWidth + dx;
-        if (direction.includes('s')) nextHeight = this.resizeStartHeight + dy;
-        if (direction.includes('w')) {
-          nextWidth = this.resizeStartWidth - dx;
-          nextX = this.resizeStartWindowX + dx;
+        if (resizableMode !== 'y' && resizableMode !== 'false') {
+          if (direction.includes('e')) nextWidth = this.resizeStartWidth + dx;
+          if (direction.includes('w')) {
+            nextWidth = this.resizeStartWidth - dx;
+            nextX = this.resizeStartWindowX + dx;
+          }
         }
-        if (direction.includes('n')) {
-          nextHeight = this.resizeStartHeight - dy;
-          nextY = this.resizeStartWindowY + dy;
+        
+        if (resizableMode !== 'x' && resizableMode !== 'false') {
+          if (direction.includes('s')) nextHeight = this.resizeStartHeight + dy;
+          if (direction.includes('n')) {
+            nextHeight = this.resizeStartHeight - dy;
+            nextY = this.resizeStartWindowY + dy;
+          }
         }
 
         if (nextWidth < minWidth) {
@@ -728,6 +766,12 @@ export function registerWindowComponents(Alpine) {
         if (nextHeight < minHeight) {
           if (direction.includes('n')) nextY += nextHeight - minHeight;
           nextHeight = minHeight;
+        }
+
+        const maxHeight = window.innerHeight - 44; // 28(menubar) + 16(padding)
+        if (nextHeight > maxHeight) {
+          if (direction.includes('n')) nextY += nextHeight - maxHeight;
+          nextHeight = maxHeight;
         }
 
         if (direction.includes('n') && nextY < 28) {

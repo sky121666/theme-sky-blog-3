@@ -9,7 +9,13 @@
         type = 'website',
         seoFallback = 'meta',
         pageMode = 'browser-error',
-        pageApp = ''
+        pageApp = '',
+        windowVariant = 'none',
+        windowScene = 'none',
+        windowTitle = '',
+        windowResizable = false,
+        windowMaximizable = false,
+        windowMetricsKey = 'none'
       )}">
   <th:block th:fragment="ssrBlock">
     <div th:replace="~{error/modules/dialog :: panel(

@@ -3,49 +3,18 @@
       th:replace="~{modules/layout :: html(
         title = ${'瞬间 - ' + site.title},
         description = ${site.seo?.description ?: site.subtitle},
-        ssrContent = ~{::ssrBlock},
+        ssrContent = ~{modules/page/moments/list :: content},
         canonical = '/moments',
         image = ${site.logo},
         type = 'website',
         seoFallback = 'full',
         pageMode = 'browser-moments',
-        pageApp = 'moments-app'
+        pageApp = 'moments-app',
+        windowVariant = 'moments',
+        windowTitle = '朋友圈',
+        windowScene = 'feed',
+        windowResizable = 'y',
+        windowMaximizable = false,
+        windowMetricsKey = 'moments'
       )}">
-  <th:block th:fragment="ssrBlock">
-    <div class="moments-app moments-app--feed">
-      <div class="moments-feed-shell">
-        <header class="moments-feed-hero">
-          <div class="moments-feed-kicker">Moments</div>
-          <h1 class="moments-feed-title">瞬间</h1>
-          <p class="moments-feed-subtitle">捕获生活中的随机切片</p>
-        </header>
-
-        <div class="moments-feed-list" th:if="${moments != null}">
-          <article th:each="moment : ${moments.items}" class="moment-feed-card">
-            <div class="moment-feed-body"
-                 th:if="${moment.spec.content != null and !#strings.isEmpty(moment.spec.content.html)}"
-                 th:utext="${moment.spec.content.html}"></div>
-
-            <div class="moment-feed-gallery"
-                 th:if="${moment.spec.content != null and not #lists.isEmpty(moment.spec.content.medium)}">
-              <th:block th:each="media : ${moment.spec.content.medium}">
-                <img class="moment-feed-gallery-item"
-                     th:src="${media.url}"
-                     th:if="${media.type.name() == 'PHOTO'}"
-                     alt="" />
-              </th:block>
-            </div>
-
-            <div class="moment-feed-meta">
-              <time th:text="${#dates.format(moment.spec.releaseTime, 'yyyy-MM-dd HH:mm')}"></time>
-            </div>
-          </article>
-        </div>
-
-        <div th:if="${moments == null or #lists.isEmpty(moments.items)}" class="moment-feed-empty">
-          博主很懒，还没有发布任何瞬间...
-        </div>
-      </div>
-    </div>
-  </th:block>
 </html>

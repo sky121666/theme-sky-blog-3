@@ -17,6 +17,7 @@ import {
   inferPageAppFromUrl
 } from './css-router.js';
 import { syncSeoHeadFromResponse } from './seo.js';
+import { syncBodyDatasetFromResponse } from './protocol.js';
 
 const { log: pjaxLog, warn: pjaxWarn } = createLogger('pjax');
 
@@ -95,7 +96,7 @@ export function initPjax(Alpine) {
     }
 
     const pjax = new Pjax({
-      selectors: ["title", "#pjax-container"],
+      selectors: ["title", "#window-frame-root"],
       cacheBust: false,
       elements: PJAX_LINK_SELECTOR
     });
@@ -129,7 +130,7 @@ export function initPjax(Alpine) {
     };
 
     window.pjax = pjax;
-    pjaxLog('init: Pjax created, #pjax-container exists:', !!document.getElementById('pjax-container'));
+    pjaxLog('init: Pjax created, #window-frame-root exists:', !!document.getElementById('window-frame-root'));
 
     // ── Dynamic link attachment ──
 
@@ -152,7 +153,7 @@ export function initPjax(Alpine) {
     }
 
     // ── MutationObserver for pjax container only ──
-    const pjaxContainer = document.getElementById('pjax-container');
+    const pjaxContainer = document.getElementById('window-frame-root');
     if (pjaxContainer) {
       const observer = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
@@ -169,7 +170,7 @@ export function initPjax(Alpine) {
         }
       });
       observer.observe(pjaxContainer, { childList: true, subtree: true });
-      pjaxLog('observer: watching #pjax-container');
+      pjaxLog('observer: watching #window-frame-root');
     }
 
     // ── Pjax events ──
@@ -177,7 +178,7 @@ export function initPjax(Alpine) {
     document.addEventListener("pjax:send", (event) => {
       pjaxLog('event:send', event.triggerElement?.href || '');
       NProgress.start();
-      const container = document.getElementById('pjax-container');
+      const container = document.getElementById('window-frame-root');
       if (container) container.classList.add('pjax-loading');
 
       const targetHref = event?.triggerElement?.href || event?.requestOptions?.requestUrl;
@@ -196,8 +197,9 @@ export function initPjax(Alpine) {
       syncAppCss(nextApp);
 
       syncSeoHeadFromResponse(event?.request?.responseText);
+      syncBodyDatasetFromResponse(event?.request?.responseText);
 
-      const container = document.getElementById('pjax-container');
+      const container = document.getElementById('window-frame-root');
       if (container) {
         replayPjaxScripts(container);
 

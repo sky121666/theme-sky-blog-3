@@ -9,7 +9,13 @@
         type = 'website',
         seoFallback = 'meta',
         pageMode = 'browser-list',
-        pageApp = 'explorer'
+        pageApp = 'explorer',
+        windowVariant = 'browser',
+        windowScene = 'none',
+        windowTitle = ${tag.spec.displayName},
+        windowResizable = true,
+        windowMaximizable = true,
+        windowMetricsKey = 'browser'
       )}">
   <th:block th:fragment="ssrBlock">
     <div class="tag-shell">

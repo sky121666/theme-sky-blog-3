@@ -8,12 +8,27 @@
              th:src="${site.logo ?: ''}"
              alt="" />
         <div class="moments-cover-user">
-          <span class="moments-cover-name" th:text="${site.title ?: ''}"></span>
+          <span class="moments-cover-name" th:text="${site.title}"></span>
           <img class="moments-cover-avatar"
-               th:src="${site.logo ?: ''}"
                th:if="${site.logo != null}"
+               th:src="${site.logo}"
                alt="" />
         </div>
+      </div>
+
+      <!-- 标签区 -->
+      <div class="moments-tags" th:if="${tags != null and !#lists.isEmpty(tags)}" style="padding: 12px 20px 0; display: flex; gap: 8px; flex-wrap: wrap;">
+        <a class="pjax-link" 
+           style="padding: 4px 14px; border-radius: 14px; background: rgba(128,128,128,0.15); font-size: 13px; transition: all 0.2s;"
+           th:styleappend="${(param.tag == null or #lists.isEmpty(param.tag)) ? 'color: var(--text-color, #333); font-weight: 500;' : 'color: var(--text-color, #666); opacity: 0.8;'}"
+           th:href="@{/moments}">全部</a>
+        <th:block th:each="tag : ${tags}">
+          <a class="pjax-link" 
+             style="padding: 4px 14px; border-radius: 14px; background: rgba(128,128,128,0.15); font-size: 13px; transition: all 0.2s;"
+             th:styleappend="${param.tag != null and !#lists.isEmpty(param.tag) and param.tag[0] == tag.name ? 'color: var(--text-color, #333); font-weight: 500;' : 'color: var(--text-color, #666); opacity: 0.8;'}"
+             th:href="@{/moments(tag=${tag.name})}"
+             th:text="${tag.name}"></a>
+        </th:block>
       </div>
 
       <!-- 动态列表 -->
@@ -31,7 +46,7 @@
           <!-- 内容列 -->
           <div class="moment-feed-content-col">
             <span class="moment-feed-nickname"
-                  th:text="${moment.owner != null ? (moment.owner.displayName ?: '匿名') : '匿名'}"></span>
+                  th:text="${moment.owner != null and moment.owner.displayName != null ? moment.owner.displayName : '匿名'}"></span>
 
             <div class="moment-feed-body"
                  th:if="${moment.spec != null and moment.spec.content != null and moment.spec.content.html != null and !#strings.isEmpty(moment.spec.content.html)}"
@@ -45,6 +60,10 @@
                        th:src="${media.url}"
                        th:if="${media.type != null and media.type.name() == 'PHOTO'}"
                        alt="" />
+                  <video class="moment-feed-gallery-item"
+                         th:src="${media.url}"
+                         th:if="${media.type != null and media.type.name() == 'VIDEO'}"
+                         controls="controls" style="max-width: 100%; border-radius: 6px;"></video>
                 </th:block>
               </div>
             </th:block>
@@ -52,7 +71,7 @@
             <div class="moment-feed-footer">
               <div class="moment-feed-meta">
                 <time th:if="${moment.spec != null and moment.spec.releaseTime != null}"
-                      th:text="${#dates.format(moment.spec.releaseTime, 'yyyy-MM-dd HH:mm')}"></time>
+                      th:text="${#dates.format(moment.spec.releaseTime, 'yyyy年MM月dd日 HH:mm')}"></time>
               </div>
               <a class="moment-feed-action-btn pjax-link"
                  th:if="${moment.metadata != null and moment.metadata.name != null}"
@@ -62,9 +81,15 @@
           </div>
         </article>
       </div>
+      
+      <!-- 翻页组件 -->
+      <div class="moments-feed-pagination" style="display: flex; justify-content: center; margin-top: 32px; gap: 16px;" th:if="${moments != null and (moments.hasPrevious() or moments.hasNext())}">
+        <a th:if="${moments.hasPrevious()}" class="pjax-link" style="padding: 6px 16px; background: rgba(255,255,255,0.06); border-radius: 4px; color: rgba(255,255,255,0.8); font-size: 14px;" th:href="@{${moments.prevUrl}}">上一页</a>
+        <a th:if="${moments.hasNext()}" class="pjax-link" style="padding: 6px 16px; background: rgba(255,255,255,0.06); border-radius: 4px; color: rgba(255,255,255,0.8); font-size: 14px;" th:href="@{${moments.nextUrl}}">下一页</a>
+      </div>
 
       <div th:if="${moments == null or moments.items == null or #lists.isEmpty(moments.items)}" class="moment-feed-empty">
-        博主很懒，还没有发布任何瞬间...
+        暂无动态
       </div>
     </div>
   </div>

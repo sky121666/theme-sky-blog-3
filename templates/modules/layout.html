@@ -2,7 +2,7 @@
 <html
   lang="zh-CN"
   xmlns:th="https://www.thymeleaf.org"
-  th:fragment="html (title, description, ssrContent, canonical, image, type, seoFallback, pageMode, pageApp, windowVariant, windowTitle, windowResizable, windowMaximizable, windowMetricsKey)"
+  th:fragment="html (title, description, ssrContent, canonical, image, type, seoFallback, pageMode, pageApp, windowVariant, windowScene, windowTitle, windowResizable, windowMaximizable, windowMetricsKey)"
   th:data-default-theme="${theme.config.header?.theme?.default_mode ?: 'system'}"
 >
   <head
@@ -174,7 +174,7 @@
   <body
     class="overflow-hidden m-0 p-0 text-white w-screen h-screen relative"
     th:classappend="${#strings.isEmpty(wallpaperClass) ? schemeClass : wallpaperClass + ' ' + schemeClass}"
-    th:attr="data-error-page=${isErrorPage},data-page-mode=${pageModeValue},data-page-app=${pageAppValue},data-debug=${debugMode}"
+    th:attr="data-error-page=${isErrorPage},data-page-mode=${pageModeValue},data-page-app=${pageAppValue},data-window-variant=${windowVariant != null ? windowVariant : 'none'},data-window-metrics-key=${windowMetricsKey != null ? windowMetricsKey : ''},data-debug=${debugMode}"
     th:style="${(schemeMode == 'custom' ? '--mac-accent:' + macAccent + ';--mac-selection:' + macSelection + ';--mac-folder1:' + macFolder1 + ';--mac-folder2:' + macFolder2 + ';--mac-folder3:' + macFolder3 + ';--mac-shell-light:' + macShellLight + ';--mac-shell-dark:' + macShellDark + ';' : '') + '--mac-header-dropdown-light-bg:' + headerDropdownLightBg + ';--mac-header-dropdown-dark-bg:' + headerDropdownDarkBg + ';'}"
     th:styleappend="${bgMode == 'image' and bgImageUrl != null ? 'background:url(' + bgImageUrl + ') center/cover no-repeat; background-color:#0f172a;' : (bgMode == 'solid' ? 'background-color:' + (bgConf?.solid_color ?: '#0f172a') + ';' : '')}"
   >
@@ -428,20 +428,32 @@
          style="display: none;">
       
       <div id="window-frame-root">
-        <th:block th:if="${windowVariant == 'moments'}"
-                  th:replace="~{modules/window/moments :: frame(
-                    titleText=${windowTitle},
-                    contentFragment=${ssrContent},
-                    metricsKey=${windowMetricsKey != null ? windowMetricsKey : 'moments'}
-                  )}" />
-        <th:block th:if="${windowVariant != 'moments'}"
-                  th:replace="~{modules/window/browser :: frame(
-                    titleText=${windowTitle},
-                    contentFragment=${ssrContent},
-                    resizable=${windowResizable != null ? windowResizable : 'true'},
-                    maximizable=${windowMaximizable != null ? windowMaximizable : 'true'},
-                    metricsKey=${windowMetricsKey != null ? windowMetricsKey : 'browser'}
-                  )}" />
+        <!-- 朋友圈窗口变体 -->
+        <th:block th:if="${windowVariant == 'moments'}">
+          <th:block th:replace="~{modules/window/moments :: frame(
+                      titleText=${windowTitle},
+                      contentFragment=${ssrContent},
+                      windowResizable=${windowResizable != null ? windowResizable : 'y'},
+                      windowScene=${windowScene != null ? windowScene : 'feed'},
+                      metricsKey=${windowMetricsKey != null ? windowMetricsKey : 'moments'}
+                    )}" />
+        </th:block>
+        
+        <!-- 默认浏览器窗口变体 -->
+        <th:block th:if="${windowVariant == 'browser'}">
+          <th:block th:replace="~{modules/window/browser :: frame(
+                      titleText=${windowTitle},
+                      contentFragment=${ssrContent},
+                      resizable=${windowResizable != null ? windowResizable : 'true'},
+                      maximizable=${windowMaximizable != null ? windowMaximizable : 'true'},
+                      metricsKey=${windowMetricsKey != null ? windowMetricsKey : 'browser'}
+                    )}" />
+        </th:block>
+        
+        <!-- none 变体：无窗口壳层，仅提供占位符（如首页或独立全屏页使用） -->
+        <th:block th:if="${windowVariant == 'none'}">
+          <!-- 不输出任何窗口壳层 -->
+        </th:block>
       </div>
     </div>
 
