@@ -77,6 +77,7 @@ export function attachDynamicLinks(root) {
   links.forEach((link) => {
     if (!isPjaxManagedLink(link)) return;
     window.pjax.attachLink(link);
+    link.setAttribute(PJAX_ATTACHED_ATTR, 'true');
     count++;
   });
   return count;

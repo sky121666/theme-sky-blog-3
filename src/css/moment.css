@@ -1,47 +1,140 @@
 /* ═══════════════════════════════════════════════════════════
-   WeChat Moments — 微信朋友圈风格
+   WeChat Moments — 微信 PC 客户端朋友圈风格
+   Light / Dark 双主题 · Token 驱动
    ═══════════════════════════════════════════════════════════ */
 
-/* ── 窗口级覆写 ── */
-.moments-window {
-  background: #1a1a1a !important;
-}
-
-.moments-window .window-titlebar {
-  background: rgba(26, 26, 26, 0.92) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
-}
-
-.moments-window .window-title-text {
-  color: rgba(255, 255, 255, 0.88) !important;
-}
-
-.moments-window .window-body {
-  background: #1a1a1a;
-}
-
-/* ── 变量 ── */
+/* ── 亮色主题 token (默认) ── */
 .moments-app {
+  --wc-bg: #ededed;
+  --wc-bg-elevated: #fff;
+  --wc-text: #1d1d1f;
+  --wc-text-secondary: #6e6e73;
+  --wc-text-muted: #aeaeb2;
+  --wc-border: rgba(0, 0, 0, 0.06);
+  --wc-accent: #576b95;
+  --wc-accent-hover: #465a80;
+  --wc-avatar-size: 40px;
+  --wc-action-bg: rgba(0, 0, 0, 0.05);
+  --wc-action-bg-hover: rgba(0, 0, 0, 0.09);
+  --wc-cover-height: 260px;
+  --wc-code-bg: rgba(0, 0, 0, 0.04);
+  --wc-pre-bg: #f5f5f7;
+  --wc-pre-border: rgba(0, 0, 0, 0.06);
+  --wc-blockquote-bg: rgba(0, 0, 0, 0.03);
+  --wc-tag-bg: rgba(0, 0, 0, 0.06);
+  --wc-tag-color: #6e6e73;
+  --wc-tag-active-color: #1d1d1f;
+  --wc-pagination-bg: rgba(0, 0, 0, 0.05);
+  --wc-pagination-color: #6e6e73;
+  --wc-video-bg: rgba(0, 0, 0, 0.05);
+  --wc-video-icon: rgba(0, 0, 0, 0.6);
+  --wc-skeleton-surface: rgba(0, 0, 0, 0.06);
+  --wc-skeleton-sheen: rgba(0, 0, 0, 0.10);
+  --wc-skeleton-border: rgba(0, 0, 0, 0.04);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+}
+
+/* ── 暗色主题 token ── */
+.dark .moments-app {
   --wc-bg: #1a1a1a;
   --wc-bg-elevated: #222;
   --wc-text: rgba(255, 255, 255, 0.9);
   --wc-text-secondary: rgba(255, 255, 255, 0.5);
   --wc-text-muted: rgba(255, 255, 255, 0.32);
   --wc-border: rgba(255, 255, 255, 0.06);
-  --wc-accent: #576b95;
-  --wc-avatar-size: 40px;
+  --wc-accent: #7b9dd4;
+  --wc-accent-hover: #92b0e0;
   --wc-action-bg: rgba(255, 255, 255, 0.08);
-  --wc-cover-height: 260px;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  --wc-action-bg-hover: rgba(255, 255, 255, 0.14);
+  --wc-code-bg: rgba(255, 255, 255, 0.08);
+  --wc-pre-bg: #111;
+  --wc-pre-border: rgba(255, 255, 255, 0.06);
+  --wc-blockquote-bg: rgba(255, 255, 255, 0.04);
+  --wc-tag-bg: rgba(255, 255, 255, 0.08);
+  --wc-tag-color: rgba(255, 255, 255, 0.5);
+  --wc-tag-active-color: rgba(255, 255, 255, 0.9);
+  --wc-pagination-bg: rgba(255, 255, 255, 0.06);
+  --wc-pagination-color: rgba(255, 255, 255, 0.6);
+  --wc-video-bg: rgba(255, 255, 255, 0.06);
+  --wc-video-icon: rgba(255, 255, 255, 0.9);
+  --wc-skeleton-surface: rgba(255, 255, 255, 0.06);
+  --wc-skeleton-sheen: rgba(255, 255, 255, 0.12);
+  --wc-skeleton-border: rgba(255, 255, 255, 0.04);
 }
 
-/* light 模式也保持深色（微信朋友圈始终深色调） */
-.dark .moments-app {
-  --wc-bg: #111;
-  --wc-bg-elevated: #1c1c1e;
+/* ═══ 窗口 chrome ═══ */
+.moments-window {
+  background: var(--wc-bg, #ededed) !important;
 }
 
-/* ── Feed 页布局 ── */
+.moments-window .window-titlebar {
+  background: color-mix(in srgb, var(--wc-bg) 92%, transparent) !important;
+  border-bottom: 1px solid var(--wc-border) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+}
+
+.moments-window .window-title-text {
+  color: var(--wc-text) !important;
+}
+
+.moments-window .window-body {
+  background: var(--wc-bg);
+}
+
+.dark .moments-window {
+  background: #1a1a1a !important;
+}
+
+.dark .moments-window .window-titlebar {
+  background: rgba(26, 26, 26, 0.92) !important;
+}
+
+/* ═══ 标题栏图标 ═══ */
+.moments-titlebar-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: var(--wc-text-secondary);
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  transition: color 0.15s;
+  text-decoration: none;
+}
+
+.moments-titlebar-back:hover {
+  color: var(--wc-text);
+}
+
+.moments-titlebar-icons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.moments-titlebar-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: var(--wc-text-secondary);
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+.moments-titlebar-icon-btn:hover {
+  color: var(--wc-text);
+}
+
+/* ═══ Feed 页布局 ═══ */
 .moments-app--feed {
   padding: 0 0 40px;
 }
@@ -72,7 +165,6 @@
   display: block;
 }
 
-/* 封面底部渐变 */
 .moments-cover::after {
   content: "";
   position: absolute;
@@ -84,7 +176,6 @@
   pointer-events: none;
 }
 
-/* 封面上的用户信息 */
 .moments-cover-user {
   position: absolute;
   bottom: -16px;
@@ -111,7 +202,37 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
-/* ── Feed 列表 ── */
+/* ═══ 标签区 ═══ */
+.moments-tags {
+  padding: 12px 20px 0;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.moments-tag {
+  display: inline-block;
+  padding: 4px 14px;
+  border-radius: 14px;
+  background: var(--wc-tag-bg);
+  color: var(--wc-tag-color);
+  font-size: 13px;
+  text-decoration: none;
+  transition: all 0.2s;
+  opacity: 0.85;
+}
+
+.moments-tag:hover {
+  opacity: 1;
+}
+
+.moments-tag.is-active {
+  color: var(--wc-tag-active-color);
+  font-weight: 500;
+  opacity: 1;
+}
+
+/* ═══ Feed 列表 ═══ */
 .moments-feed-list {
   display: flex;
   flex-direction: column;
@@ -167,26 +288,14 @@
   overflow-wrap: break-word;
 }
 
-.moment-feed-body > :first-child {
-  margin-top: 0;
-}
-
-.moment-feed-body > :last-child {
-  margin-bottom: 0;
-}
-
-.moment-feed-body p {
-  margin: 0 0 4px;
-}
-
-.moment-feed-body a {
-  color: var(--wc-accent);
-  text-decoration: none;
-}
+.moment-feed-body > :first-child { margin-top: 0; }
+.moment-feed-body > :last-child  { margin-bottom: 0; }
+.moment-feed-body p  { margin: 0 0 4px; }
+.moment-feed-body a  { color: var(--wc-accent); text-decoration: none; }
 
 .moment-feed-body img,
 .moment-feed-body video {
-  display: none; /* 内嵌媒体用 gallery 展示，不在 body 中重复 */
+  display: none; /* 内嵌媒体用 gallery 展示 */
 }
 
 /* ── 图片网格 ── */
@@ -196,22 +305,9 @@
   margin-top: 8px;
 }
 
-/* 单图 */
-.moment-feed-gallery[data-count="1"] {
-  grid-template-columns: minmax(0, 240px);
-}
-
-/* 2 图 */
-.moment-feed-gallery[data-count="2"] {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  max-width: 320px;
-}
-
-/* 3+ 图 */
-.moment-feed-gallery:not([data-count="1"]):not([data-count="2"]) {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  max-width: 320px;
-}
+.moment-feed-gallery[data-count="1"]  { grid-template-columns: minmax(0, 240px); }
+.moment-feed-gallery[data-count="2"]  { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 320px; }
+.moment-feed-gallery:not([data-count="1"]):not([data-count="2"]) { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 320px; }
 
 .moment-feed-gallery-item {
   display: block;
@@ -222,15 +318,15 @@
   cursor: pointer;
 }
 
-/* 占位 wrapper — 固定宽高比防布局抖动 */
+/* 占位 wrapper */
 .moment-feed-gallery-item-wrapper {
   position: relative;
   aspect-ratio: 1;
   border-radius: 4px;
   overflow: hidden;
-  background: linear-gradient(90deg, rgba(128,128,128,0.08) 25%, rgba(128,128,128,0.16) 50%, rgba(128,128,128,0.08) 75%);
+  background: linear-gradient(90deg, var(--wc-skeleton-surface) 25%, var(--wc-skeleton-sheen) 50%, var(--wc-skeleton-surface) 75%);
   background-size: 200% 100%;
-  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+  animation: wc-shimmer 1.6s ease-in-out infinite;
 }
 
 .moment-feed-gallery-item-wrapper .moment-feed-gallery-item {
@@ -238,25 +334,15 @@
   inset: 0;
 }
 
-@keyframes skeleton-shimmer {
-  0% { background-position: -200% 0; }
+@keyframes wc-shimmer {
+  0%   { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
 
 /* 单图不强制方形 */
-.moment-feed-gallery[data-count="1"] .moment-feed-gallery-item-wrapper {
-  aspect-ratio: auto;
-}
-
-.moment-feed-gallery[data-count="1"] .moment-feed-gallery-item-wrapper .moment-feed-gallery-item {
-  position: static;
-}
-
-.moment-feed-gallery[data-count="1"] .moment-feed-gallery-item {
-  aspect-ratio: auto;
-  max-height: 240px;
-  border-radius: 6px;
-}
+.moment-feed-gallery[data-count="1"] .moment-feed-gallery-item-wrapper { aspect-ratio: auto; }
+.moment-feed-gallery[data-count="1"] .moment-feed-gallery-item-wrapper .moment-feed-gallery-item { position: static; }
+.moment-feed-gallery[data-count="1"] .moment-feed-gallery-item { aspect-ratio: auto; max-height: 240px; border-radius: 6px; }
 
 /* ── 底部元信息行 ── */
 .moment-feed-footer {
@@ -272,7 +358,6 @@
   line-height: 1.4;
 }
 
-/* ·· 操作按钮 */
 .moment-feed-action-btn {
   display: inline-flex;
   align-items: center;
@@ -292,22 +377,13 @@
 }
 
 .moment-feed-action-btn:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--wc-action-bg-hover);
 }
 
-/* 链接到详情 */
 .moment-feed-card a.moment-feed-link {
   color: var(--wc-accent);
   text-decoration: none;
   font-size: 13px;
-}
-
-/* ── 空状态 ── */
-.moment-feed-empty {
-  padding: 80px 24px;
-  text-align: center;
-  color: var(--wc-text-muted);
-  font-size: 14px;
 }
 
 /* ── 视频占位卡 ── */
@@ -320,7 +396,7 @@
   width: 100%;
   aspect-ratio: 16/9;
   max-height: 200px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--wc-video-bg);
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.18s;
@@ -328,13 +404,49 @@
 }
 
 .moment-feed-video-placeholder:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--wc-action-bg-hover);
+}
+
+.moment-feed-video-placeholder svg {
+  fill: var(--wc-video-icon);
 }
 
 .moment-feed-video-label {
   color: var(--wc-text-secondary);
   font-size: 11px;
   letter-spacing: 0.02em;
+}
+
+/* ── 分页区 ── */
+.moments-feed-pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 32px;
+  gap: 16px;
+}
+
+.moments-pagination-btn {
+  display: inline-block;
+  padding: 6px 16px;
+  background: var(--wc-pagination-bg);
+  border-radius: 4px;
+  color: var(--wc-pagination-color);
+  font-size: 14px;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.moments-pagination-btn:hover {
+  background: var(--wc-action-bg-hover);
+  color: var(--wc-text);
+}
+
+/* ── 空状态 ── */
+.moment-feed-empty {
+  padding: 80px 24px;
+  text-align: center;
+  color: var(--wc-text-muted);
+  font-size: 14px;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -389,31 +501,16 @@
   overflow-wrap: break-word;
 }
 
-.moment-content > :first-child {
-  margin-top: 0;
-}
-
-.moment-content > :last-child {
-  margin-bottom: 0;
-}
-
-.moment-content p {
-  margin: 0 0 6px;
-}
-
-.moment-content a {
-  color: var(--wc-accent);
-  text-decoration: none;
-}
-
-.moment-content strong {
-  font-weight: 700;
-}
+.moment-content > :first-child { margin-top: 0; }
+.moment-content > :last-child  { margin-bottom: 0; }
+.moment-content p       { margin: 0 0 6px; }
+.moment-content a       { color: var(--wc-accent); text-decoration: none; }
+.moment-content strong  { font-weight: 700; }
 
 .moment-content code {
   padding: 0.1em 0.4em;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--wc-code-bg);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.88em;
 }
@@ -422,8 +519,8 @@
   overflow-x: auto;
   padding: 12px 14px;
   border-radius: 8px;
-  background: #111;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--wc-pre-bg);
+  border: 1px solid var(--wc-pre-border);
   margin: 8px 0;
 }
 
@@ -436,18 +533,12 @@
   margin: 8px 0;
   padding: 8px 12px;
   border-left: 3px solid var(--wc-accent);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--wc-blockquote-bg);
   border-radius: 0 6px 6px 0;
 }
 
-.moment-content :is(ul, ol) {
-  padding-left: 1.4em;
-  margin: 4px 0;
-}
-
-.moment-content li {
-  margin: 2px 0;
-}
+.moment-content :is(ul, ol) { padding-left: 1.4em; margin: 4px 0; }
+.moment-content li          { margin: 2px 0; }
 
 .moment-content :is(img, video, iframe) {
   display: block;
@@ -457,10 +548,7 @@
   margin: 8px 0;
 }
 
-.moment-content audio {
-  width: 100%;
-  margin: 8px 0;
-}
+.moment-content audio { width: 100%; margin: 8px 0; }
 
 .moment-content hr {
   height: 1px;
@@ -476,19 +564,9 @@
   margin: 8px 0 0;
 }
 
-.moment-media-grid[data-count="1"] {
-  grid-template-columns: minmax(0, 280px);
-}
-
-.moment-media-grid[data-count="2"] {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  max-width: 360px;
-}
-
-.moment-media-grid:not([data-count="1"]):not([data-count="2"]) {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  max-width: 360px;
-}
+.moment-media-grid[data-count="1"]  { grid-template-columns: minmax(0, 280px); }
+.moment-media-grid[data-count="2"]  { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 360px; }
+.moment-media-grid:not([data-count="1"]):not([data-count="2"]) { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 360px; }
 
 .moment-media-card {
   margin: 0;
@@ -517,9 +595,7 @@
   border-radius: 8px;
 }
 
-.moment-media-card--audio audio {
-  width: 100%;
-}
+.moment-media-card--audio audio { width: 100%; }
 
 .moment-media-card--post {
   display: flex;
@@ -550,59 +626,221 @@
 }
 
 .moment-comments-title {
-  display: none; /* 微信风格不显示"评论"标题 */
+  display: none;
 }
 
 .moment-comments-shell {
   padding: 0;
 }
 
+/* 评论组件主题适配 */
+.moment-comments-shell comment-widget,
+.moment-comments-shell .halo-comment-widget {
+  --halo-cw-bg-color: transparent;
+  --halo-cw-text-color: var(--wc-text);
+  --halo-cw-secondary-text-color: var(--wc-text-secondary);
+  --halo-cw-border-color: var(--wc-border);
+  --halo-cw-input-bg-color: var(--wc-action-bg);
+  --halo-cw-link-color: var(--wc-accent);
+  --halo-cw-button-bg-color: var(--wc-accent);
+  --halo-cw-button-text-color: #fff;
+}
+
+.dark .moment-comments-shell comment-widget,
+.dark .moment-comments-shell .halo-comment-widget {
+  color-scheme: dark;
+}
+
 /* ═══════════════════════════════════════════════════════════
-   标题栏图标
+   骨架屏
    ═══════════════════════════════════════════════════════════ */
 
-.moments-titlebar-back {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  color: rgba(255, 255, 255, 0.7);
-  cursor: pointer;
-  border: none;
-  background: none;
+.skeleton-moments {
   padding: 0;
-  font-size: 18px;
-  transition: color 0.15s;
-  text-decoration: none;
 }
 
-.moments-titlebar-back:hover {
-  color: rgba(255, 255, 255, 0.95);
+/* ── Feed 骨架 ── */
+.skeleton-moments-cover {
+  height: var(--wc-cover-height, 260px);
+  background: var(--wc-skeleton-surface);
+  position: relative;
 }
 
-.moments-titlebar-icons {
+.skeleton-moments-cover-user {
+  position: absolute;
+  bottom: -16px;
+  right: 16px;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.skeleton-moments-cover-user .sk-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  background: var(--wc-skeleton-sheen);
+}
+
+.skeleton-moments-cover-user .sk-name {
+  width: 80px;
+  height: 16px;
+  border-radius: 3px;
+  background: var(--wc-skeleton-sheen);
+  margin-bottom: 10px;
+}
+
+.skeleton-moments-list {
+  padding-top: 36px;
+}
+
+.skeleton-moments-card {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--wc-skeleton-border);
+}
+
+.skeleton-moments-card .sk-avatar {
+  flex-shrink: 0;
+  width: var(--wc-avatar-size, 40px);
+  height: var(--wc-avatar-size, 40px);
+  border-radius: 6px;
+  background: var(--wc-skeleton-surface);
+}
+
+.skeleton-moments-card .sk-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
 }
 
-.moments-titlebar-icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  color: rgba(255, 255, 255, 0.7);
-  cursor: pointer;
-  border: none;
-  background: none;
-  padding: 0;
-  transition: color 0.15s;
+.skeleton-moments-card .sk-name {
+  width: 72px;
+  height: 14px;
+  border-radius: 3px;
+  background: var(--wc-skeleton-sheen);
 }
 
-.moments-titlebar-icon-btn:hover {
-  color: rgba(255, 255, 255, 0.95);
+.skeleton-moments-card .sk-line {
+  height: 12px;
+  border-radius: 3px;
+  background: var(--wc-skeleton-surface);
+}
+
+.skeleton-moments-card .sk-line.short { width: 60%; }
+.skeleton-moments-card .sk-line.full  { width: 90%; }
+
+.skeleton-moments-card .sk-media {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  max-width: 240px;
+  margin-top: 2px;
+}
+
+.skeleton-moments-card .sk-media-block {
+  aspect-ratio: 1;
+  border-radius: 4px;
+  background: var(--wc-skeleton-surface);
+}
+
+.skeleton-moments-card .sk-footer {
+  width: 100px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--wc-skeleton-border);
+  margin-top: 2px;
+}
+
+/* shimmer animation */
+.skeleton-moments-cover,
+.skeleton-moments-card .sk-name,
+.skeleton-moments-card .sk-line,
+.skeleton-moments-card .sk-media-block,
+.skeleton-moments-detail-head .sk-avatar,
+.skeleton-moments-detail-head .sk-name,
+.skeleton-moments-detail-body .sk-line,
+.skeleton-moments-detail-media .sk-media-block,
+.skeleton-moments-detail-comments .sk-block {
+  background-size: 200% 100%;
+  animation: wc-shimmer 1.6s ease-in-out infinite;
+}
+
+/* ── Detail 骨架 ── */
+.skeleton-moments-detail {
+  padding: 20px 16px;
+}
+
+.skeleton-moments-detail-head {
+  display: flex;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--wc-skeleton-border);
+}
+
+.skeleton-moments-detail-head .sk-avatar {
+  flex-shrink: 0;
+  width: var(--wc-avatar-size, 40px);
+  height: var(--wc-avatar-size, 40px);
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--wc-skeleton-surface) 25%, var(--wc-skeleton-sheen) 50%, var(--wc-skeleton-surface) 75%);
+}
+
+.skeleton-moments-detail-head .sk-name {
+  width: 80px;
+  height: 14px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--wc-skeleton-sheen) 25%, var(--wc-skeleton-surface) 50%, var(--wc-skeleton-sheen) 75%);
+  margin-top: 4px;
+}
+
+.skeleton-moments-detail-body {
+  padding: 14px 0 14px 52px; /* aligned with content after avatar */
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-moments-detail-body .sk-line {
+  height: 13px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--wc-skeleton-surface) 25%, var(--wc-skeleton-sheen) 50%, var(--wc-skeleton-surface) 75%);
+}
+
+.skeleton-moments-detail-body .sk-line.full  { width: 95%; }
+.skeleton-moments-detail-body .sk-line.short { width: 55%; }
+
+.skeleton-moments-detail-media {
+  padding: 0 0 14px 52px;
+}
+
+.skeleton-moments-detail-media .sk-media {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  max-width: 280px;
+}
+
+.skeleton-moments-detail-media .sk-media-block {
+  aspect-ratio: 1;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--wc-skeleton-surface) 25%, var(--wc-skeleton-sheen) 50%, var(--wc-skeleton-surface) 75%);
+}
+
+.skeleton-moments-detail-comments {
+  padding: 14px 0 0 52px;
+  border-top: 1px solid var(--wc-skeleton-border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skeleton-moments-detail-comments .sk-block {
+  height: 48px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--wc-skeleton-surface) 25%, var(--wc-skeleton-sheen) 50%, var(--wc-skeleton-surface) 75%);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -629,5 +867,15 @@
 
   .moment-reader-shell {
     padding: 0 14px;
+  }
+
+  .skeleton-moments-cover {
+    height: 200px;
+  }
+
+  .skeleton-moments-detail-body,
+  .skeleton-moments-detail-media,
+  .skeleton-moments-detail-comments {
+    padding-left: 0;
   }
 }

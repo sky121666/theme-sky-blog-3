@@ -17,6 +17,7 @@ import {
   PJAX_MANAGED_ATTR
 } from './link-attach.js';
 import {
+  getCurrentPageApp,
   setCurrentPageApp,
   ensureAppCssLoaded,
   syncAppCss,

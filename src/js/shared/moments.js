@@ -23,7 +23,17 @@ export function normalizeMomentRecord(moment) {
   const key = moment?.metadata?.name || '';
   const content = moment?.spec?.content || {};
   const media = Array.isArray(content.medium) ? content.medium : [];
-  const rawText = extractTextPreview(content.html || '') || extractTextPreview(content.raw || '');
+  const tags = Array.isArray(moment?.spec?.tags) ? moment.spec.tags : [];
+  let rawText = extractTextPreview(content.html || '') || extractTextPreview(content.raw || '');
+
+  // Strip inline tag references (e.g. "#人生") that are already shown as separate badges
+  if (rawText && tags.length > 0) {
+    for (const tag of tags) {
+      rawText = rawText.replace(new RegExp(`#${tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'g'), '');
+    }
+    rawText = rawText.replace(/\s+/g, ' ').trim();
+  }
+
   const mediaCount = media.length;
   const title = rawText ? truncateText(rawText, 36) : (mediaCount > 0 ? '图片瞬间' : '瞬间记录');
   const summary = rawText
@@ -41,7 +51,7 @@ export function normalizeMomentRecord(moment) {
     rowBadge: mediaCount > 0 ? `${mediaCount} 项媒体` : '文本',
     mediaLabel: mediaCount > 0 ? `${mediaCount} 项媒体` : '纯文本',
     interactions: `${moment?.stats?.upvote ?? 0} 赞 · ${moment?.stats?.totalComment ?? 0} 评论`,
-    tags: Array.isArray(moment?.spec?.tags) ? moment.spec.tags : [],
+    tags,
     html: content.html || (rawText ? `<p>${escapeHtml(rawText)}</p>` : ''),
     permalink: key ? `/moments/${encodeURIComponent(key)}` : '/moments'
   };

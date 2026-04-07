@@ -17,15 +17,13 @@
       </div>
 
       <!-- 标签区 -->
-      <div class="moments-tags" th:if="${tags != null and !#lists.isEmpty(tags)}" style="padding: 12px 20px 0; display: flex; gap: 8px; flex-wrap: wrap;">
-        <a class="pjax-link" 
-           style="padding: 4px 14px; border-radius: 14px; background: rgba(128,128,128,0.15); font-size: 13px; transition: all 0.2s;"
-           th:styleappend="${(param.tag == null or #lists.isEmpty(param.tag)) ? 'color: var(--text-color, #333); font-weight: 500;' : 'color: var(--text-color, #666); opacity: 0.8;'}"
+      <div class="moments-tags" th:if="${tags != null and !#lists.isEmpty(tags)}">
+        <a class="moments-tag pjax-link"
+           th:classappend="${(param.tag == null or #lists.isEmpty(param.tag)) ? 'is-active' : ''}"
            th:href="@{/moments}">全部</a>
         <th:block th:each="tag : ${tags}">
-          <a class="pjax-link" 
-             style="padding: 4px 14px; border-radius: 14px; background: rgba(128,128,128,0.15); font-size: 13px; transition: all 0.2s;"
-             th:styleappend="${param.tag != null and !#lists.isEmpty(param.tag) and param.tag[0] == tag.name ? 'color: var(--text-color, #333); font-weight: 500;' : 'color: var(--text-color, #666); opacity: 0.8;'}"
+          <a class="moments-tag pjax-link"
+             th:classappend="${param.tag != null and !#lists.isEmpty(param.tag) and param.tag[0] == tag.name ? 'is-active' : ''}"
              th:href="@{/moments(tag=${tag.name})}"
              th:text="${tag.name}"></a>
         </th:block>
@@ -64,12 +62,12 @@
                          decoding="async"
                          alt="" />
                   </div>
-                  <!-- 视频占位卡：不在列表实例化真实 video，点击跳详情 -->
+                  <!-- 视频占位卡 -->
                   <a th:if="${media.type != null and media.type.name() == 'VIDEO'}"
                      th:href="${'/moments/' + moment.metadata.name}"
                      class="moment-feed-video-placeholder pjax-link"
                      title="点击查看视频">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="rgba(255,255,255,0.9)"><path d="M8 5v14l11-7z"/></svg>
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                     <span class="moment-feed-video-label">视频</span>
                   </a>
                 </th:block>
@@ -91,9 +89,9 @@
       </div>
       
       <!-- 翻页组件 -->
-      <div class="moments-feed-pagination" style="display: flex; justify-content: center; margin-top: 32px; gap: 16px;" th:if="${moments != null and (moments.hasPrevious() or moments.hasNext())}">
-        <a th:if="${moments.hasPrevious()}" class="pjax-link" style="padding: 6px 16px; background: rgba(255,255,255,0.06); border-radius: 4px; color: rgba(255,255,255,0.8); font-size: 14px;" th:href="@{${moments.prevUrl}}">上一页</a>
-        <a th:if="${moments.hasNext()}" class="pjax-link" style="padding: 6px 16px; background: rgba(255,255,255,0.06); border-radius: 4px; color: rgba(255,255,255,0.8); font-size: 14px;" th:href="@{${moments.nextUrl}}">下一页</a>
+      <div class="moments-feed-pagination" th:if="${moments != null and (moments.hasPrevious() or moments.hasNext())}">
+        <a th:if="${moments.hasPrevious()}" class="moments-pagination-btn pjax-link" th:href="@{${moments.prevUrl}}">上一页</a>
+        <a th:if="${moments.hasNext()}" class="moments-pagination-btn pjax-link" th:href="@{${moments.nextUrl}}">下一页</a>
       </div>
 
       <div th:if="${moments == null or moments.items == null or #lists.isEmpty(moments.items)}" class="moment-feed-empty">

@@ -16,6 +16,7 @@
        x-transition:leave="transition ease-in duration-150" 
        x-transition:leave-start="opacity-100 md:scale-100" 
        x-transition:leave-end="opacity-0 md:scale-95">
+       <div class="window-resize-handle window-resize-handle--n" @mousedown.stop.prevent="startResize('n', $event)"></div>
        <div class="window-resize-handle window-resize-handle--s" @mousedown.stop.prevent="startResize('s', $event)"></div>
        
     <!-- 微信风格标题栏 -->
@@ -46,7 +47,6 @@
         <!-- 右侧图标 -->
         <div class="moments-titlebar-icons min-w-[100px] justify-end">
             <th:block th:if="${windowScene == 'feed'}">
-              <!-- Feed 页右侧图标 -->
               <button type="button" class="moments-titlebar-icon-btn" title="刷新" onclick="window.location.reload()">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="23 4 23 10 17 10"></polyline>
@@ -55,7 +55,6 @@
               </button>
             </th:block>
             <th:block th:if="${windowScene == 'detail'}">
-              <!-- 详情页右侧更多 -->
               <button type="button" class="moments-titlebar-icon-btn" title="更多">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                   <circle cx="5" cy="12" r="2"></circle>
@@ -71,10 +70,70 @@
     <div class="window-body moments-body w-full flex-1 overflow-y-auto relative select-text" data-window-scroll data-window-content-root>
         <!-- Loading overlay -->
         <div data-window-loading-overlay class="window-loading-overlay" style="display:none;">
-          <div class="skeleton-moments">
-            <div class="skeleton-cover"></div>
-            <div class="skeleton-feed"><div class="skeleton-bar"></div><div class="skeleton-bar short"></div><div class="skeleton-bar"></div><div class="skeleton-bar short"></div></div>
-          </div>
+          <!-- Feed 骨架 -->
+          <th:block th:if="${windowScene == null or windowScene == 'feed'}">
+            <div class="skeleton-moments moments-app">
+              <div class="skeleton-moments-cover">
+                <div class="skeleton-moments-cover-user">
+                  <div class="sk-name"></div>
+                  <div class="sk-avatar"></div>
+                </div>
+              </div>
+              <div class="skeleton-moments-list">
+                <div class="skeleton-moments-card">
+                  <div class="sk-avatar"></div>
+                  <div class="sk-content">
+                    <div class="sk-name"></div>
+                    <div class="sk-line full"></div>
+                    <div class="sk-line short"></div>
+                    <div class="sk-media"><div class="sk-media-block"></div><div class="sk-media-block"></div><div class="sk-media-block"></div></div>
+                    <div class="sk-footer"></div>
+                  </div>
+                </div>
+                <div class="skeleton-moments-card">
+                  <div class="sk-avatar"></div>
+                  <div class="sk-content">
+                    <div class="sk-name"></div>
+                    <div class="sk-line full"></div>
+                    <div class="sk-line full"></div>
+                    <div class="sk-line short"></div>
+                    <div class="sk-footer"></div>
+                  </div>
+                </div>
+                <div class="skeleton-moments-card">
+                  <div class="sk-avatar"></div>
+                  <div class="sk-content">
+                    <div class="sk-name"></div>
+                    <div class="sk-line full"></div>
+                    <div class="sk-line short"></div>
+                    <div class="sk-media"><div class="sk-media-block"></div><div class="sk-media-block"></div><div class="sk-media-block"></div></div>
+                    <div class="sk-footer"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </th:block>
+          <!-- Detail 骨架 -->
+          <th:block th:if="${windowScene == 'detail'}">
+            <div class="skeleton-moments-detail moments-app">
+              <div class="skeleton-moments-detail-head">
+                <div class="sk-avatar"></div>
+                <div class="sk-content"><div class="sk-name"></div></div>
+              </div>
+              <div class="skeleton-moments-detail-body">
+                <div class="sk-line full"></div>
+                <div class="sk-line full"></div>
+                <div class="sk-line short"></div>
+              </div>
+              <div class="skeleton-moments-detail-media">
+                <div class="sk-media"><div class="sk-media-block"></div><div class="sk-media-block"></div><div class="sk-media-block"></div></div>
+              </div>
+              <div class="skeleton-moments-detail-comments">
+                <div class="sk-block"></div>
+                <div class="sk-block"></div>
+              </div>
+            </div>
+          </th:block>
         </div>
         <div data-window-content-variant="moments">
           <th:block th:replace="${contentFragment}" />
