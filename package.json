@@ -1,6 +1,6 @@
 {
-  "name": "theme-mac-os",
-  "version": "1.0.0",
+  "name": "sky-blog-3",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite build --watch",

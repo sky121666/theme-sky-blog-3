@@ -3,7 +3,7 @@ kind: Theme
 metadata:
   name: theme-sky-blog-3
 spec:
-  displayName: macOS Blog Theme
+  displayName: Sky Blog 3(macOS)
   author:
     name: Sky
     website: "https://github.com/sky121666"
@@ -14,7 +14,7 @@ spec:
   issues: "https://github.com/sky121666/theme-sky-blog-3/issues"
   settingName: "theme-sky-blog-3-setting"
   configMapName: "theme-sky-blog-3-configMap"
-  version: "1.0.0"
+  version: "0.1.0"
   requires: ">=2.23.0"
   license:
     - name: "MIT"
