@@ -145,9 +145,9 @@
               </nav>
             </section>
 
-            <section id="post-comments" class="post-comments mac-comment-section" th:if="${pluginFinder.available('PluginCommentWidget')}">
+            <section id="post-comments" class="post-comments mac-comment-section" th:if="${pluginFinder.available('PluginCommentWidget')}" data-lazy-comment>
               <h2 class="post-comments-title mac-comment-title">评论</h2>
-              <div class="post-comments-shell mac-comment-shell">
+              <div class="post-comments-shell mac-comment-shell" data-comment-hidden style="display:none;">
                 <halo:comment group="content.halo.run" kind="Post" th:attr="name=${post.metadata.name}"/>
               </div>
             </section>

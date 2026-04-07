@@ -28,9 +28,9 @@
 
         <article id="article-content" class="post-content" th:utext="${singlePage.content.content}"></article>
 
-        <section id="post-comments" class="post-comments mac-comment-section" th:if="${pluginFinder.available('PluginCommentWidget')}">
+        <section id="post-comments" class="post-comments mac-comment-section" th:if="${pluginFinder.available('PluginCommentWidget')}" data-lazy-comment>
           <h2 class="post-comments-title mac-comment-title">评论</h2>
-          <div class="post-comments-shell mac-comment-shell">
+          <div class="post-comments-shell mac-comment-shell" data-comment-hidden style="display:none;">
             <halo:comment
                 group="content.halo.run"
                 kind="SinglePage"

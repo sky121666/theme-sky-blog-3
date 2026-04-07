@@ -418,3 +418,94 @@
 .traffic-btn.close svg path { stroke: #4d0000; }
 .traffic-btn.minimize svg path { stroke: #995700; }
 .traffic-btn.maximize svg path { fill: #004d09; }
+
+/* ---------- Loading Overlay & Skeleton ---------- */
+.window-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  background: var(--content-body-bg, rgba(255,255,255,0.92));
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: opacity 0.22s ease;
+}
+
+.window-loading-overlay[data-fading] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton-bar,
+.skeleton-block,
+.skeleton-cover {
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(128,128,128,0.08) 25%, rgba(128,128,128,0.16) 50%, rgba(128,128,128,0.08) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+.skeleton-bar {
+  height: 14px;
+  margin-bottom: 12px;
+}
+
+.skeleton-bar.short {
+  width: 60%;
+}
+
+.skeleton-block {
+  height: 120px;
+  margin-bottom: 16px;
+}
+
+/* Browser variant: Finder 三栏骨架 */
+.skeleton-finder {
+  display: flex;
+  gap: 1px;
+  height: 100%;
+  padding: 20px;
+}
+
+.skeleton-finder .skeleton-sidebar {
+  width: 180px;
+  flex-shrink: 0;
+  padding: 12px;
+}
+
+.skeleton-finder .skeleton-list {
+  flex: 1;
+  padding: 12px;
+}
+
+.skeleton-finder .skeleton-preview {
+  width: 260px;
+  flex-shrink: 0;
+  padding: 12px;
+}
+
+/* Moments variant: 封面 + feed 骨架 */
+.skeleton-moments {
+  padding: 0;
+}
+
+.skeleton-moments .skeleton-cover {
+  height: 180px;
+  border-radius: 0;
+  margin-bottom: 20px;
+}
+
+.skeleton-moments .skeleton-feed {
+  padding: 0 20px;
+}
+
+@media (max-width: 767px) {
+  .skeleton-finder .skeleton-sidebar,
+  .skeleton-finder .skeleton-preview {
+    display: none;
+  }
+}

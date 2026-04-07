@@ -68,8 +68,17 @@
     </div>
 
     <!-- 内容区 -->
-    <div class="window-body moments-body w-full flex-1 overflow-y-auto relative select-text" data-window-scroll>
-        <th:block th:replace="${contentFragment}" />
+    <div class="window-body moments-body w-full flex-1 overflow-y-auto relative select-text" data-window-scroll data-window-content-root>
+        <!-- Loading overlay -->
+        <div data-window-loading-overlay class="window-loading-overlay" style="display:none;">
+          <div class="skeleton-moments">
+            <div class="skeleton-cover"></div>
+            <div class="skeleton-feed"><div class="skeleton-bar"></div><div class="skeleton-bar short"></div><div class="skeleton-bar"></div><div class="skeleton-bar short"></div></div>
+          </div>
+        </div>
+        <div data-window-content-variant="moments">
+          <th:block th:replace="${contentFragment}" />
+        </div>
     </div>
   </div>
 </th:block>

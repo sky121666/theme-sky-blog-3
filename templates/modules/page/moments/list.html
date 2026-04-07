@@ -56,14 +56,22 @@
               <div class="moment-feed-gallery"
                    th:if="${!#lists.isEmpty(moment.spec.content.medium)}">
                 <th:block th:each="media : ${moment.spec.content.medium}">
-                  <img class="moment-feed-gallery-item"
-                       th:src="${media.url}"
-                       th:if="${media.type != null and media.type.name() == 'PHOTO'}"
-                       alt="" />
-                  <video class="moment-feed-gallery-item"
-                         th:src="${media.url}"
-                         th:if="${media.type != null and media.type.name() == 'VIDEO'}"
-                         controls="controls" style="max-width: 100%; border-radius: 6px;"></video>
+                  <div class="moment-feed-gallery-item-wrapper"
+                       th:if="${media.type != null and media.type.name() == 'PHOTO'}">
+                    <img class="moment-feed-gallery-item"
+                         th:attr="data-src=${media.url}"
+                         loading="lazy"
+                         decoding="async"
+                         alt="" />
+                  </div>
+                  <!-- 视频占位卡：不在列表实例化真实 video，点击跳详情 -->
+                  <a th:if="${media.type != null and media.type.name() == 'VIDEO'}"
+                     th:href="${'/moments/' + moment.metadata.name}"
+                     class="moment-feed-video-placeholder pjax-link"
+                     title="点击查看视频">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="rgba(255,255,255,0.9)"><path d="M8 5v14l11-7z"/></svg>
+                    <span class="moment-feed-video-label">视频</span>
+                  </a>
                 </th:block>
               </div>
             </th:block>

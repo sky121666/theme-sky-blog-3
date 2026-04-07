@@ -7,6 +7,70 @@
 import { escapeHtml, toPositiveInt } from '../shared/utils.js';
 import { normalizeMomentRecord, renderMomentRow, renderMomentPreview } from '../shared/moments.js';
 
+// ── Batch rendering utility ──
+
+const BATCH_SIZE = 8;
+
+/**
+ * Render HTML items into a container in batches using requestAnimationFrame.
+ *
+ * Key behavior: the FIRST batch is built offscreen in a DocumentFragment,
+ * then the container is cleared and the fragment is appended in a SINGLE frame.
+ * This prevents the user from seeing an empty container ("抽空" flash).
+ * Subsequent batches continue appending to the already-populated container.
+ *
+ * @param {HTMLElement} container - Target container element
+ * @param {string[]} htmlItems - Array of HTML strings, one per item
+ * @param {{ onComplete?: () => void, batchSize?: number }} options
+ */
+function renderBatch(container, htmlItems, options = {}) {
+  const { onComplete, batchSize = BATCH_SIZE } = options;
+  if (!container || !htmlItems.length) {
+    onComplete?.();
+    return;
+  }
+
+  let offset = 0;
+  const range = document.createRange();
+
+  function buildFragment(slice) {
+    // Use a temporary div for createContextualFragment context
+    const tmpRange = document.createRange();
+    tmpRange.selectNodeContents(document.createElement('div'));
+    return tmpRange.createContextualFragment(slice.join(''));
+  }
+
+  function appendNextBatch() {
+    const slice = htmlItems.slice(offset, offset + batchSize);
+    if (!slice.length) {
+      onComplete?.();
+      return;
+    }
+
+    if (offset === 0) {
+      // First batch: build offscreen, then clear+append in one frame
+      const frag = buildFragment(slice);
+      container.innerHTML = '';
+      container.appendChild(frag);
+    } else {
+      // Subsequent batches: append directly
+      range.selectNodeContents(container);
+      const frag = range.createContextualFragment(slice.join(''));
+      container.appendChild(frag);
+    }
+
+    offset += batchSize;
+
+    if (offset < htmlItems.length) {
+      requestAnimationFrame(appendNextBatch);
+    } else {
+      onComplete?.();
+    }
+  }
+
+  requestAnimationFrame(appendNextBatch);
+}
+
 export function registerExplorers(Alpine) {
 
   const TAG_PAGE_SIZE = 20;
@@ -107,7 +171,7 @@ export function registerExplorers(Alpine) {
 
       this.loading = true;
       this.dynamicLoaded = false;
-      this.dynamicPosts = [];
+      // Keep old content visible during loading — don't clear dynamicPosts or DOM
 
       try {
         const url = `/apis/api.content.halo.run/v1alpha1/posts?fieldSelector=${encodeURIComponent('spec.tags=' + tagName)}&page=1&size=${TAG_PAGE_SIZE}&sort=spec.publishTime%2Cdesc`;
@@ -144,8 +208,10 @@ export function registerExplorers(Alpine) {
       const listEl = this.$root.querySelector('[data-tag-posts-list]');
       if (!listEl) return;
 
-      // Build dynamic post rows
-      const postsHtml = items.map((post) => {
+      const prevSelectedKey = this.activePostKey;
+
+      // Build per-item HTML strings for batch rendering
+      const htmlItems = items.map((post) => {
         const key = post.metadata?.name || '';
         const title = escapeHtml(post.spec?.title || '');
         const date = post.spec?.publishTime ? new Date(post.spec.publishTime).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '.') : '';
@@ -179,47 +245,52 @@ export function registerExplorers(Alpine) {
             <span>${comments} 评论</span>
           </span>
         </a>`;
-      }).join('');
+      });
 
-      // Overflow link
-      const overflowHtml = total > TAG_PAGE_SIZE
-        ? `<div class="tags-post-overflow"><a class="tags-post-viewmore pjax-link" data-pjax-app="explorer" href="${escapeHtml(this.activeTagHref)}">查看全部 ${total} 篇文章 →</a></div>`
-        : '';
-
-      const emptyHtml = items.length === 0
+      const emptyItem = items.length === 0
         ? '<div class="tags-post-empty"><p>这个标签下还没有文章。</p></div>'
         : '';
+      if (emptyItem) htmlItems.push(emptyItem);
 
-      listEl.innerHTML = postsHtml + emptyHtml;
-      listEl.style.display = '';
+      const activeTagHref = this.activeTagHref;
 
-      // Insert overflow after list
-      const existingOverflow = listEl.parentElement?.querySelector('.tags-post-overflow');
-      if (existingOverflow) existingOverflow.remove();
-      if (overflowHtml) listEl.insertAdjacentHTML('afterend', overflowHtml);
+      renderBatch(listEl, htmlItems, {
+        onComplete: () => {
+          listEl.style.display = '';
 
-      // Attach pjax links
-      if (window.pjax) {
-        listEl.querySelectorAll('a.pjax-link:not([data-pjax-attached])').forEach((link) => {
-          link.setAttribute('data-pjax-managed', 'true');
-          window.pjax.attachLink(link);
-        });
-        const overflowLink = listEl.parentElement?.querySelector('.tags-post-overflow a.pjax-link:not([data-pjax-attached])');
-        if (overflowLink) {
-          overflowLink.setAttribute('data-pjax-managed', 'true');
-          window.pjax.attachLink(overflowLink);
+          // Overflow link
+          const existingOverflow = listEl.parentElement?.querySelector('.tags-post-overflow');
+          if (existingOverflow) existingOverflow.remove();
+          if (total > TAG_PAGE_SIZE) {
+            listEl.insertAdjacentHTML('afterend',
+              `<div class="tags-post-overflow"><a class="tags-post-viewmore pjax-link" data-pjax-app="explorer" href="${escapeHtml(activeTagHref)}">查看全部 ${total} 篇文章 →</a></div>`);
+          }
+
+          // Attach pjax links
+          if (window.pjax) {
+            listEl.querySelectorAll('a.pjax-link:not([data-pjax-attached])').forEach((link) => {
+              link.setAttribute('data-pjax-managed', 'true');
+              window.pjax.attachLink(link);
+            });
+            const overflowLink = listEl.parentElement?.querySelector('.tags-post-overflow a.pjax-link:not([data-pjax-attached])');
+            if (overflowLink) {
+              overflowLink.setAttribute('data-pjax-managed', 'true');
+              window.pjax.attachLink(overflowLink);
+            }
+          }
+
+          // Restore selection or select first
+          const prevEl = prevSelectedKey ? listEl.querySelector(`[data-post-key="${prevSelectedKey}"]`) : null;
+          const target = prevEl || listEl.querySelector('[data-tag-post-item]');
+          if (target) this.selectPost(target);
+
+          // Scroll to top (only once after full batch)
+          const scroll = this.$root.querySelector('.tag-posts-scroll');
+          if (scroll) scroll.scrollTop = 0;
+          const previewScroll = this.$root.querySelector('.tags-preview-scroll');
+          if (previewScroll) previewScroll.scrollTop = 0;
         }
-      }
-
-      // Select first post
-      const firstPost = listEl.querySelector('[data-tag-post-item]');
-      if (firstPost) this.selectPost(firstPost);
-
-      // Scroll to top
-      const scroll = this.$root.querySelector('.tag-posts-scroll');
-      if (scroll) scroll.scrollTop = 0;
-      const previewScroll = this.$root.querySelector('.tags-preview-scroll');
-      if (previewScroll) previewScroll.scrollTop = 0;
+      });
     },
 
     selectPost(el) {
@@ -547,19 +618,24 @@ export function registerExplorers(Alpine) {
     },
 
     renderMomentPage(momentItems) {
+      const listHtmlItems = momentItems.map((moment) => renderMomentRow(moment));
+      const previewHtmlItems = momentItems.map((moment) => renderMomentPreview(moment, this.authorDisplayName));
+
       if (this.momentListEl) {
-        this.momentListEl.innerHTML = momentItems.map((moment) => renderMomentRow(moment)).join('');
+        renderBatch(this.momentListEl, listHtmlItems, {
+          onComplete: () => {
+            this.syncMomentPanelVisibility();
+          }
+        });
       }
 
       if (this.momentPreviewEl) {
-        this.momentPreviewEl.innerHTML = momentItems.map((moment) => renderMomentPreview(moment, this.authorDisplayName)).join('');
+        renderBatch(this.momentPreviewEl, previewHtmlItems);
       }
 
       if (this.momentEmptyEl) {
         this.momentEmptyEl.hidden = momentItems.length > 0;
       }
-
-      this.syncMomentPanelVisibility();
     },
 
     renderMomentPagination() {
@@ -699,7 +775,7 @@ export function registerExplorers(Alpine) {
 
       this.loading = true;
       this.dynamicLoaded = false;
-      this.dynamicPosts = [];
+      // Keep old content visible during loading — don't clear
 
       try {
         const url = `/apis/api.content.halo.run/v1alpha1/posts?fieldSelector=${encodeURIComponent('spec.categories=' + categoryName)}&page=1&size=${CAT_PAGE_SIZE}&sort=spec.publishTime%2Cdesc`;
@@ -735,7 +811,9 @@ export function registerExplorers(Alpine) {
       const listEl = this.$root.querySelector('[data-category-posts-list]');
       if (!listEl) return;
 
-      const postsHtml = items.map((post) => {
+      const prevSelectedKey = this.activePostKey;
+
+      const htmlItems = items.map((post) => {
         const key = post.metadata?.name || '';
         const title = escapeHtml(post.spec?.title || '');
         const date = post.spec?.publishTime ? new Date(post.spec.publishTime).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '.') : '';
@@ -769,42 +847,47 @@ export function registerExplorers(Alpine) {
             <span>${comments} 评论</span>
           </span>
         </a>`;
-      }).join('');
+      });
 
-      const overflowHtml = total > CAT_PAGE_SIZE
-        ? `<div class="categories-post-overflow"><a class="categories-post-viewmore pjax-link" data-pjax-app="explorer" href="${escapeHtml(this.activeCategoryHref)}">查看全部 ${total} 篇文章 →</a></div>`
-        : '';
-
-      const emptyHtml = items.length === 0
-        ? '<div class="categories-post-empty"><p>这个分类下还没有文章。</p></div>'
-        : '';
-
-      listEl.innerHTML = postsHtml + emptyHtml;
-      listEl.style.display = '';
-
-      const existingOverflow = listEl.parentElement?.querySelector('.categories-post-overflow');
-      if (existingOverflow) existingOverflow.remove();
-      if (overflowHtml) listEl.insertAdjacentHTML('afterend', overflowHtml);
-
-      if (window.pjax) {
-        listEl.querySelectorAll('a.pjax-link:not([data-pjax-attached])').forEach((link) => {
-          link.setAttribute('data-pjax-managed', 'true');
-          window.pjax.attachLink(link);
-        });
-        const overflowLink = listEl.parentElement?.querySelector('.categories-post-overflow a.pjax-link:not([data-pjax-attached])');
-        if (overflowLink) {
-          overflowLink.setAttribute('data-pjax-managed', 'true');
-          window.pjax.attachLink(overflowLink);
-        }
+      if (items.length === 0) {
+        htmlItems.push('<div class="categories-post-empty"><p>这个分类下还没有文章。</p></div>');
       }
 
-      const firstPost = listEl.querySelector('[data-category-post-item]');
-      if (firstPost) this.selectPost(firstPost);
+      const activeCategoryHref = this.activeCategoryHref;
 
-      const scroll = this.$root.querySelector('.category-posts-scroll');
-      if (scroll) scroll.scrollTop = 0;
-      const previewScroll = this.$root.querySelector('.categories-preview-scroll');
-      if (previewScroll) previewScroll.scrollTop = 0;
+      renderBatch(listEl, htmlItems, {
+        onComplete: () => {
+          listEl.style.display = '';
+
+          const existingOverflow = listEl.parentElement?.querySelector('.categories-post-overflow');
+          if (existingOverflow) existingOverflow.remove();
+          if (total > CAT_PAGE_SIZE) {
+            listEl.insertAdjacentHTML('afterend',
+              `<div class="categories-post-overflow"><a class="categories-post-viewmore pjax-link" data-pjax-app="explorer" href="${escapeHtml(activeCategoryHref)}">查看全部 ${total} 篇文章 →</a></div>`);
+          }
+
+          if (window.pjax) {
+            listEl.querySelectorAll('a.pjax-link:not([data-pjax-attached])').forEach((link) => {
+              link.setAttribute('data-pjax-managed', 'true');
+              window.pjax.attachLink(link);
+            });
+            const overflowLink = listEl.parentElement?.querySelector('.categories-post-overflow a.pjax-link:not([data-pjax-attached])');
+            if (overflowLink) {
+              overflowLink.setAttribute('data-pjax-managed', 'true');
+              window.pjax.attachLink(overflowLink);
+            }
+          }
+
+          const prevEl = prevSelectedKey ? listEl.querySelector(`[data-post-key="${prevSelectedKey}"]`) : null;
+          const target = prevEl || listEl.querySelector('[data-category-post-item]');
+          if (target) this.selectPost(target);
+
+          const scroll = this.$root.querySelector('.category-posts-scroll');
+          if (scroll) scroll.scrollTop = 0;
+          const previewScroll = this.$root.querySelector('.categories-preview-scroll');
+          if (previewScroll) previewScroll.scrollTop = 0;
+        }
+      });
     },
 
     selectPost(el) {

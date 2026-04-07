@@ -222,7 +222,36 @@
   cursor: pointer;
 }
 
+/* 占位 wrapper — 固定宽高比防布局抖动 */
+.moment-feed-gallery-item-wrapper {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 4px;
+  overflow: hidden;
+  background: linear-gradient(90deg, rgba(128,128,128,0.08) 25%, rgba(128,128,128,0.16) 50%, rgba(128,128,128,0.08) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+.moment-feed-gallery-item-wrapper .moment-feed-gallery-item {
+  position: absolute;
+  inset: 0;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
 /* 单图不强制方形 */
+.moment-feed-gallery[data-count="1"] .moment-feed-gallery-item-wrapper {
+  aspect-ratio: auto;
+}
+
+.moment-feed-gallery[data-count="1"] .moment-feed-gallery-item-wrapper .moment-feed-gallery-item {
+  position: static;
+}
+
 .moment-feed-gallery[data-count="1"] .moment-feed-gallery-item {
   aspect-ratio: auto;
   max-height: 240px;
@@ -279,6 +308,33 @@
   text-align: center;
   color: var(--wc-text-muted);
   font-size: 14px;
+}
+
+/* ── 视频占位卡 ── */
+.moment-feed-video-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  aspect-ratio: 16/9;
+  max-height: 200px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.18s;
+  text-decoration: none;
+}
+
+.moment-feed-video-placeholder:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.moment-feed-video-label {
+  color: var(--wc-text-secondary);
+  font-size: 11px;
+  letter-spacing: 0.02em;
 }
 
 /* ═══════════════════════════════════════════════════════════

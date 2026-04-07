@@ -5,6 +5,7 @@
  */
 
 import { initPjax } from './pjax/index.js';
+import { initPrefetch } from './pjax/prefetch.js';
 import { observeSearchWidget, openSearchWidget } from './search.js';
 import { registerWindowManager } from './window-manager.js';
 import { registerWindowComponents } from './window.js';
@@ -29,5 +30,10 @@ export function registerShellComponents(Alpine) {
         event.preventDefault();
       }
     }
+  });
+
+  // 6. 轻量预取（不阻塞首屏，空闲时初始化）
+  (typeof requestIdleCallback === 'function' ? requestIdleCallback : (fn) => setTimeout(fn, 1500))(() => {
+    initPrefetch();
   });
 }

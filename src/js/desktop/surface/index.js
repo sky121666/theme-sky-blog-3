@@ -509,7 +509,8 @@ export function registerDesktopSurface(Alpine) {
             await this.exitEditMode();
           }
         } else if (this.hasVisibleWeatherWidget() && !this.weatherState.loading && !this.weatherState.data) {
-          this.loadWeather();
+          // Defer weather load to avoid blocking content navigation
+          (typeof requestIdleCallback === 'function' ? requestIdleCallback : (fn) => setTimeout(fn, 1200))(() => this.loadWeather());
         }
         this.syncDesktopBodyState();
         this.scheduleDesktopRenderCheck();
@@ -538,8 +539,18 @@ export function registerDesktopSurface(Alpine) {
           visibleKeys: this.visibleDesktopNodeKeys
         });
         this.scheduleDesktopRenderCheck();
+
+        // Deferred: weather (cache-first instant, API call idle)
         if (this.hasVisibleWeatherWidget()) {
-          this.loadWeather();
+          (typeof requestIdleCallback === 'function' ? requestIdleCallback : (fn) => setTimeout(fn, 1200))(() => this.loadWeather());
+        }
+
+        // Deferred: widget renderer preload — shell + icons are critical,
+        // widget bodies are deferred to idle time
+        if (this.widgets.some(w => !w.hidden)) {
+          (typeof requestIdleCallback === 'function' ? requestIdleCallback : (fn) => setTimeout(fn, 800))(() => {
+            this.ensureWidgetRendererRuntime();
+          });
         }
       });
     },

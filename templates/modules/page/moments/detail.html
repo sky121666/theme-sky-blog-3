@@ -27,10 +27,10 @@
                      th:data-count="${mediaCount}">
               <th:block th:each="medium : ${moment.spec.content.medium}">
                 <figure class="moment-media-card" th:if="${medium.type.name() == 'PHOTO'}">
-                  <img th:src="${medium.url}" alt="" />
+                  <img th:src="${medium.url}" loading="lazy" decoding="async" alt="" />
                 </figure>
                 <figure class="moment-media-card moment-media-card--video" th:if="${medium.type.name() == 'VIDEO'}">
-                  <video th:src="${medium.url}" controls="controls"></video>
+                  <video th:src="${medium.url}" controls="controls" preload="none"></video>
                 </figure>
                 <figure class="moment-media-card moment-media-card--audio" th:if="${medium.type.name() == 'AUDIO'}">
                   <audio th:src="${medium.url}" controls="controls"></audio>
@@ -51,9 +51,10 @@
         <!-- 评论 -->
         <section id="moment-comments"
                  class="moment-comments"
-                 th:if="${pluginFinder.available('PluginCommentWidget')}">
+                 th:if="${pluginFinder.available('PluginCommentWidget')}"
+                 data-lazy-comment>
           <h2 class="moment-comments-title">评论</h2>
-          <div class="moment-comments-shell">
+          <div class="moment-comments-shell" data-comment-hidden style="display:none;">
             <halo:comment group="moment.halo.run" kind="Moment" th:attr="name=${moment.metadata.name}"/>
           </div>
         </section>
