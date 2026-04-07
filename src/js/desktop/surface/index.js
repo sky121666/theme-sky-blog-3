@@ -1185,6 +1185,10 @@ export function registerDesktopSurface(Alpine) {
       if (!this.hasVisibleWeatherWidget()) {
         return;
       }
+      // Dedup: skip if already in-flight (pageshow + $nextTick can race)
+      if (this.weatherState.loading && !forceRefresh) {
+        return;
+      }
 
       const cityName = this.modules.weather.cityName;
       if (!cityName) {
