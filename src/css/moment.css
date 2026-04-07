@@ -80,6 +80,37 @@
 
 .moments-window .window-body {
   background: var(--wc-bg);
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.3s;
+}
+
+.moments-window .window-body:hover,
+.moments-window .window-body:active {
+  scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
+}
+
+/* Webkit (Chrome / Safari) */
+.moments-window .window-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.moments-window .window-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.moments-window .window-body::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+  transition: background 0.3s;
+}
+
+.moments-window .window-body:hover::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.4);
+}
+
+.moments-window .window-body:hover::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.6);
 }
 
 .dark .moments-window {
@@ -150,12 +181,16 @@
 }
 
 /* ── 封面区 ── */
+.moments-cover-wrapper {
+  position: relative;
+  margin-bottom: 36px;
+}
+
 .moments-cover {
   position: relative;
   width: 100%;
   height: var(--wc-cover-height);
   overflow: hidden;
-  margin-bottom: 36px;
 }
 
 .moments-cover-img {
@@ -174,6 +209,7 @@
   height: 80px;
   background: linear-gradient(transparent, var(--wc-bg));
   pointer-events: none;
+  z-index: 1;
 }
 
 .moments-cover-user {
@@ -186,12 +222,28 @@
   z-index: 2;
 }
 
+.moments-cover-identity {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-bottom: 8px;
+}
+
 .moments-cover-name {
   color: white;
   font-size: 16px;
   font-weight: 600;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
-  margin-bottom: 10px;
+  line-height: 1.3;
+}
+
+.moments-cover-subtitle {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  font-weight: 400;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  margin-top: 2px;
+  line-height: 1.3;
 }
 
 .moments-cover-avatar {
@@ -200,6 +252,23 @@
   border-radius: 10px;
   object-fit: cover;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.moments-cover-avatar--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 24px;
+  font-weight: 600;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* ── 无封面占位 ── */
+.moments-cover-wrapper--empty .moments-cover {
+  background: var(--wc-card-bg);
 }
 
 /* ═══ 标签区 ═══ */

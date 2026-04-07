@@ -3,16 +3,31 @@
     <div class="moments-feed-shell">
 
       <!-- 封面区 -->
-      <div class="moments-cover">
-        <img class="moments-cover-img"
-             th:src="${site.logo ?: ''}"
-             alt="" />
+      <div class="moments-cover-wrapper"
+           th:with="coverImage=${theme.config.moments?.cover?.image_url}"
+           th:classappend="${coverImage == null or #strings.isEmpty(coverImage)} ? 'moments-cover-wrapper--empty'">
+        <div class="moments-cover">
+          <img class="moments-cover-img"
+               th:if="${coverImage != null and !#strings.isEmpty(coverImage)}"
+               th:src="${coverImage}"
+               alt="" />
+        </div>
         <div class="moments-cover-user">
-          <span class="moments-cover-name" th:text="${site.title}"></span>
+          <div class="moments-cover-identity">
+            <span class="moments-cover-name"
+                  th:text="${!#strings.isEmpty(theme.config.moments?.profile?.display_name) ? theme.config.moments.profile.display_name : site.title}"></span>
+            <span class="moments-cover-subtitle"
+                  th:if="${!#strings.isEmpty(theme.config.moments?.profile?.subtitle) or !#strings.isEmpty(site.subtitle)}"
+                  th:text="${!#strings.isEmpty(theme.config.moments?.profile?.subtitle) ? theme.config.moments.profile.subtitle : site.subtitle}"></span>
+          </div>
           <img class="moments-cover-avatar"
-               th:if="${site.logo != null}"
+               th:if="${site.logo != null and !#strings.isEmpty(site.logo)}"
                th:src="${site.logo}"
                alt="" />
+          <div class="moments-cover-avatar moments-cover-avatar--placeholder"
+               th:if="${site.logo == null or #strings.isEmpty(site.logo)}"
+               th:with="initial=${!#strings.isEmpty(theme.config.moments?.profile?.display_name) ? #strings.substring(theme.config.moments.profile.display_name, 0, 1) : (!#strings.isEmpty(site.title) ? #strings.substring(site.title, 0, 1) : 'M')}"
+               th:text="${initial}"></div>
         </div>
       </div>
 

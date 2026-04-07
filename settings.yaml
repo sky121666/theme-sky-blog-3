@@ -5,7 +5,7 @@ metadata:
 spec:
   forms:
     - group: header
-      label: 外观与顶栏
+      label: 顶栏
       formSchema:
         - $formkit: group
           id: header_source_group
@@ -87,7 +87,7 @@ spec:
               value: "rgba(70, 74, 82, 0.72)"
 
     - group: desktop
-      label: 桌面内容
+      label: 桌面
       formSchema:
         - $formkit: group
           id: desktop_appearance_group
@@ -359,12 +359,12 @@ spec:
               multiple: true
               value: []
     - group: widgets
-      label: 桌面小组件
+      label: 小组件
       formSchema:
         - $formkit: group
           id: widgets_behavior_group
           name: behavior
-          label: 基础开关
+          label: 显示与编辑
           value:
             enabled: true
             edit_enabled: true
@@ -395,7 +395,7 @@ spec:
         - $formkit: group
           id: widgets_modules_group
           name: modules
-          label: 组件数据参数
+          label: 组件参数
           value:
             weather:
               city_name: 北京
@@ -420,17 +420,6 @@ spec:
                   min: 10
                   max: 180
 
-    - group: default_layout
-      label: 默认布局
-      formSchema:
-        - $formkit: code
-          id: default_layout_layout_json
-          name: layout_json
-          label: 已发布默认布局 JSON
-          language: json
-          height: 220px
-          help: "由前端桌面编辑器的「保存」动作自动写入，作为全站默认桌面布局。留空时仅使用桌面图标，不显示默认小组件。"
-          value: ""
     - group: dock
       label: Dock
       formSchema:
@@ -467,6 +456,59 @@ spec:
               label: 启用放大效果
               help: 控制鼠标滑过 Dock 图标时是否启用 macOS 风格放大动画，不影响 Dock 固定玻璃底材质。
               value: true
+
+    - group: moments
+      label: 瞬间
+      formSchema:
+        - $formkit: group
+          id: moments_cover_group
+          name: cover
+          label: 封面背景
+          value:
+            image_url: ""
+          children:
+            - $formkit: attachment
+              id: moments_cover_image
+              name: image_url
+              label: 封面图片
+              help: 推荐横向图片，避免头像区被遮挡。留空时不显示封面。
+              value: ""
+              accepts:
+                - "image/png"
+                - "image/jpeg"
+                - "image/webp"
+        - $formkit: group
+          id: moments_profile_group
+          name: profile
+          label: 封面名片
+          value:
+            display_name: ""
+            subtitle: ""
+          children:
+            - $formkit: text
+              id: moments_profile_display_name
+              name: display_name
+              label: 封面名称
+              help: 留空时默认使用站点标题。
+              value: ""
+            - $formkit: text
+              id: moments_profile_subtitle
+              name: subtitle
+              label: 封面副标题
+              help: 留空时默认使用站点副标题。显示在封面名称下方。
+              value: ""
+
+    - group: default_layout
+      label: 默认布局
+      formSchema:
+        - $formkit: code
+          id: default_layout_layout_json
+          name: layout_json
+          label: 已发布默认布局 JSON
+          language: json
+          height: 220px
+          help: "由前端桌面编辑器的「保存」动作自动写入，作为全站默认桌面布局。留空时仅使用桌面图标，不显示默认小组件。"
+          value: ""
 
     - group: developer
       label: 开发者
