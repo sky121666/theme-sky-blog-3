@@ -11,6 +11,12 @@ import NProgress from 'nprogress';
 import { runPageInitializers } from '../../shared/page-app.js';
 import { createLogger } from '../../shared/debug.js';
 import {
+  isPjaxManagedLink,
+  markPjaxLinks,
+  attachDynamicLinks,
+  PJAX_MANAGED_ATTR
+} from './link-attach.js';
+import {
   setCurrentPageApp,
   ensureAppCssLoaded,
   syncAppCss,
@@ -62,47 +68,9 @@ function perfMeasure(name, startLabel, endLabel) {
   } catch (_e) { /* marks may not exist */ }
 }
 
-// ── Link management ──
+// ── Link management (shared via link-attach.js) ──
 
-const PJAX_MANAGED_ATTR = 'data-pjax-managed';
 const PJAX_LINK_SELECTOR = `a.pjax-link[${PJAX_MANAGED_ATTR}="true"]:not([target='_blank'])`;
-
-function isPjaxManagedLink(link) {
-  if (!link || link.target === '_blank' || !link.classList?.contains('pjax-link')) {
-    return false;
-  }
-
-  try {
-    const url = new URL(link.href, window.location.origin);
-    if (url.protocol !== window.location.protocol) return false;
-    if (url.host !== window.location.host) return false;
-    if (link.href.startsWith('javascript:')) return false;
-    return true;
-  } catch (_error) {
-    return false;
-  }
-}
-
-function markPjaxLink(link) {
-  if (!link?.classList?.contains('pjax-link')) return;
-
-  if (isPjaxManagedLink(link)) {
-    if (!link.hasAttribute(PJAX_MANAGED_ATTR)) {
-      link.setAttribute(PJAX_MANAGED_ATTR, 'true');
-    }
-    return;
-  }
-
-  link.removeAttribute(PJAX_MANAGED_ATTR);
-  link.removeAttribute('data-pjax-state');
-}
-
-function markPjaxLinks(root) {
-  if (!root?.querySelectorAll) return;
-  root.querySelectorAll('a.pjax-link[href]').forEach((link) => {
-    markPjaxLink(link);
-  });
-}
 
 function replayPjaxScripts(root) {
   if (!root) return;
@@ -209,19 +177,7 @@ export function initPjax(Alpine) {
     window.pjax = pjax;
     pjaxLog('init: Pjax created, #window-frame-root exists:', !!document.getElementById('window-frame-root'));
 
-    // ── Dynamic link attachment ──
-
-    function attachDynamicLinks(root) {
-      if (!root || !window.pjax) return;
-      markPjaxLinks(root);
-      const links = root.querySelectorAll(`${PJAX_LINK_SELECTOR}:not([${ATTACHED}])`);
-      if (!links.length) return;
-      pjaxLog('attach:', links.length, 'links in', root.className?.split(' ')[0] || root.tagName);
-      links.forEach((link) => {
-        if (!isPjaxManagedLink(link)) return;
-        window.pjax.attachLink(link);
-      });
-    }
+    // ── Dynamic link attachment (using shared link-attach.js) ──
 
     // ── One-time scan for desktop widget links (outside pjax-container) ──
     const desktopSurface = document.querySelector('.desktop-surface');

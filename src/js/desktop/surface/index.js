@@ -14,6 +14,10 @@ import {
 } from '../../icons/index.js';
 import { escapeHtml, toPositiveInt } from '../../shared/utils.js';
 import { normalizeMomentRecord } from '../../shared/moments.js';
+import { markPjaxLinks, attachDynamicLinks } from '../pjax/link-attach.js';
+import { initLazyImages } from '../../shared/lazy-media.js';
+import { initLazyComments } from '../../shared/lazy-comment.js';
+import { createLogger } from '../../shared/debug.js';
 
 import {
   DESKTOP_WIDGET_SIZE_MAP,
@@ -35,6 +39,8 @@ import {
 /* ── Mixin modules ── */
 import { gridMethods } from './grid.js';
 import { placementMethods } from './placement.js';
+
+const { log: widgetPjaxLog } = createLogger('desktop-widget-pjax');
 
 /* ── Helpers ── */
 
@@ -332,6 +338,7 @@ export function registerDesktopSurface(Alpine) {
             this.widgetRenderer = mod.renderDesktopWidget;
             this.invalidateWidgetCache();
             this.widgetRenderVersion += 1;
+            this.scheduleDesktopWidgetEnhancement();
             return this.widgetRenderer;
           })
           .finally(() => {
@@ -514,6 +521,7 @@ export function registerDesktopSurface(Alpine) {
         }
         this.syncDesktopBodyState();
         this.scheduleDesktopRenderCheck();
+        this.scheduleDesktopWidgetEnhancement();
       };
 
       this.resizeHandler = () => {
@@ -552,6 +560,9 @@ export function registerDesktopSurface(Alpine) {
             this.ensureWidgetRendererRuntime();
           });
         }
+
+        // Install widget click delegate (one-time)
+        this.installWidgetClickDelegate();
       });
     },
 
@@ -1271,6 +1282,112 @@ export function registerDesktopSurface(Alpine) {
     /** Invalidate widget render cache (call after data/layout changes) */
     invalidateWidgetCache() {
       if (this._widgetHtmlCache) this._widgetHtmlCache.clear();
+      this.scheduleDesktopWidgetEnhancement();
+    },
+
+    /* ═══ Desktop widget PJAX enhancement ═══ */
+
+    /**
+     * Scan real desktop widget bodies and attach PJAX links + lazy inits.
+     * Only targets `.desktop-widgets-grid .desktop-widget-body`, never
+     * the widget-center preview area.
+     */
+    enhanceDesktopWidgetBodies(root) {
+      const grid = root || this.$refs.grid;
+      if (!grid) return;
+
+      const bodies = grid.querySelectorAll('.desktop-widget-body');
+      if (!bodies.length) return;
+
+      let totalAnchors = 0;
+      let internalLinks = 0;
+      let attachedCount = 0;
+
+      bodies.forEach((body) => {
+        const anchors = body.querySelectorAll('a[href]');
+        totalAnchors += anchors.length;
+
+        markPjaxLinks(body);
+        const attached = attachDynamicLinks(body);
+        attachedCount += attached;
+
+        anchors.forEach((a) => {
+          if (a.classList.contains('pjax-link')) internalLinks++;
+        });
+
+        initLazyImages(body);
+        initLazyComments(body);
+      });
+
+      widgetPjaxLog('enhance:', totalAnchors, 'anchors,', internalLinks, 'internal,', attachedCount, 'attached');
+    },
+
+    /**
+     * Schedule widget enhancement after x-html has finished rendering.
+     * Uses double-rAF inside $nextTick to guarantee DOM is settled.
+     * Coalesces rapid-fire calls — only the last scheduled run executes.
+     */
+    scheduleDesktopWidgetEnhancement() {
+      if (this._widgetEnhanceRafId) {
+        cancelAnimationFrame(this._widgetEnhanceRafId);
+        this._widgetEnhanceRafId = 0;
+      }
+      this.$nextTick(() => {
+        this._widgetEnhanceRafId = requestAnimationFrame(() => {
+          this._widgetEnhanceRafId = requestAnimationFrame(() => {
+            this._widgetEnhanceRafId = 0;
+            this.enhanceDesktopWidgetBodies();
+          });
+        });
+      });
+    },
+
+    /**
+     * One-time click delegate on `.desktop-widgets-grid` as PJAX fallback.
+     * Catches any internal link click that wasn't properly attached.
+     */
+    installWidgetClickDelegate() {
+      if (this._widgetClickDelegateInstalled) return;
+      this._widgetClickDelegateInstalled = true;
+
+      const grid = this.$refs.grid;
+      if (!grid) return;
+
+      grid.addEventListener('click', (e) => {
+        const link = e.target.closest('.desktop-widget-body a[href]');
+        if (!link) return;
+
+        // Skip: widget-center preview, external targets, special protocols
+        if (link.closest('.desktop-widget-center')) return;
+        if (link.target === '_blank') return;
+        if (link.hasAttribute('download')) return;
+        const href = link.getAttribute('href') || '';
+        if (href.startsWith('mailto:') || href.startsWith('tel:') || href.startsWith('javascript:')) return;
+        if (href === '#' || (href.startsWith('#') && !href.startsWith('#/'))) return;
+
+        // Only intercept pjax-link that is internal
+        if (!link.classList.contains('pjax-link')) return;
+
+        try {
+          const url = new URL(link.href, window.location.origin);
+          if (url.origin !== window.location.origin) return;
+        } catch (_err) {
+          return;
+        }
+
+        // If already handled by normal pjax attach, let it through
+        if (link.hasAttribute('data-pjax-attached')) return;
+
+        // Fallback: prevent full-page navigation, use pjax.loadUrl
+        e.preventDefault();
+        e.stopPropagation();
+        widgetPjaxLog('click-delegate fallback:', link.href);
+        if (window.pjax) {
+          window.pjax.loadUrl(link.href);
+        }
+      }, true); // capture phase — run before bubbling handlers
+
+      widgetPjaxLog('click-delegate installed on grid');
     }
   }));
 }
