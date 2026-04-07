@@ -13,7 +13,7 @@ jobs:
     permissions:
       contents: write
     with:
-      app-id: xxx
+      app-id: app-gqnoxtpt
       skip-appstore-release: false
       node-version: 22
       pnpm-version: 10
