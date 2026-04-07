@@ -1,6 +1,16 @@
-# theme-sky-blog-3
+# Sky Blog 3
 
-Apple-like macOS 桌面壳层 Halo 博客主题。
+macOS 桌面风格 Halo 博客主题。
+
+## 预览
+
+| 桌面 | 文章详情 |
+|:---:|:---:|
+| ![桌面](screenshots/desktop.png) | ![文章详情](screenshots/post-detail.png) |
+
+| 归档 Finder | 瞬间列表 | 瞬间详情 |
+|:---:|:---:|:---:|
+| ![归档](screenshots/archives-finder.png) | ![瞬间列表](screenshots/moments-feed.png) | ![瞬间详情](screenshots/moments-detail.png) |
 
 - GitHub: [sky121666/theme-sky-blog-3](https://github.com/sky121666/theme-sky-blog-3)
 - 架构说明: [docs/ARCHITECTURE.md](/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/docs/ARCHITECTURE.md)
