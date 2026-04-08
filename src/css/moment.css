@@ -16,7 +16,7 @@
   --wc-avatar-size: 40px;
   --wc-action-bg: rgba(0, 0, 0, 0.05);
   --wc-action-bg-hover: rgba(0, 0, 0, 0.09);
-  --wc-cover-height: 260px;
+  --wc-cover-height: 340px;
   --wc-code-bg: rgba(0, 0, 0, 0.04);
   --wc-pre-bg: #f5f5f7;
   --wc-pre-border: rgba(0, 0, 0, 0.06);
@@ -31,6 +31,7 @@
   --wc-skeleton-surface: rgba(0, 0, 0, 0.06);
   --wc-skeleton-sheen: rgba(0, 0, 0, 0.10);
   --wc-skeleton-border: rgba(0, 0, 0, 0.04);
+  --wc-card-bg: #e0e0e0;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
 }
 
@@ -60,6 +61,7 @@
   --wc-skeleton-surface: rgba(255, 255, 255, 0.06);
   --wc-skeleton-sheen: rgba(255, 255, 255, 0.12);
   --wc-skeleton-border: rgba(255, 255, 255, 0.04);
+  --wc-card-bg: #2a2a2a;
 }
 
 /* ═══ 窗口 chrome ═══ */
@@ -68,14 +70,67 @@
 }
 
 .moments-window .window-titlebar {
-  background: color-mix(in srgb, var(--wc-bg) 92%, transparent) !important;
-  border-bottom: 1px solid var(--wc-border) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  backdrop-filter: blur(20px) saturate(140%);
+  position: absolute !important;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.05) 70%, transparent) !important;
+  border-bottom: none !important;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .moments-window .window-title-text {
+  display: none;
+}
+
+/* ── 滚出封面后的 titlebar 状态 ── */
+.moments-window .window-titlebar {
+  transition: background 0.25s, border-color 0.25s;
+}
+
+/* 列表页返回按钮仅手机端显示 */
+.moments-window:has(.moments-app--feed) .moments-titlebar-back {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .moments-window:has(.moments-app--feed) .moments-titlebar-back {
+    display: inline-flex !important;
+  }
+}
+
+.moments-window .window-titlebar.scrolled {
+  background: #e0e0e0 !important;
+  border-bottom: 0.5px solid var(--wc-border) !important;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.dark .moments-window .window-titlebar.scrolled {
+  background: #222 !important;
+}
+
+.moments-window .window-titlebar.scrolled .window-title-text {
+  display: block;
+  color: var(--wc-text);
+}
+
+.moments-window .window-titlebar.scrolled .moments-titlebar-icon-btn,
+.moments-window .window-titlebar.scrolled .moments-titlebar-back {
+  color: var(--wc-text-secondary) !important;
+  filter: none !important;
+}
+
+.moments-window .window-titlebar.scrolled .moments-titlebar-icon-btn:hover,
+.moments-window .window-titlebar.scrolled .moments-titlebar-back:hover {
   color: var(--wc-text) !important;
+}
+
+/* 内容区不为 titlebar 留空 */
+.moments-window .window-body {
+  margin-top: 0;
 }
 
 .moments-window .window-body {
@@ -117,10 +172,6 @@
   background: #1a1a1a !important;
 }
 
-.dark .moments-window .window-titlebar {
-  background: rgba(26, 26, 26, 0.92) !important;
-}
-
 /* ═══ 标题栏图标 ═══ */
 .moments-titlebar-back {
   display: inline-flex;
@@ -128,17 +179,18 @@
   justify-content: center;
   width: 28px;
   height: 28px;
-  color: var(--wc-text-secondary);
+  color: rgba(255, 255, 255, 0.9);
   cursor: pointer;
   border: none;
   background: none;
   padding: 0;
   transition: color 0.15s;
   text-decoration: none;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45));
 }
 
 .moments-titlebar-back:hover {
-  color: var(--wc-text);
+  color: #fff;
 }
 
 .moments-titlebar-icons {
@@ -153,16 +205,22 @@
   justify-content: center;
   width: 28px;
   height: 28px;
-  color: var(--wc-text-secondary);
+  color: rgba(255, 255, 255, 0.9);
   cursor: pointer;
   border: none;
   background: none;
   padding: 0;
   transition: color 0.15s;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45));
 }
 
 .moments-titlebar-icon-btn:hover {
-  color: var(--wc-text);
+  color: #fff;
+}
+
+/* 手机端专用元素，桌面端隐藏 */
+.moments-mobile-only {
+  display: none !important;
 }
 
 /* ═══ Feed 页布局 ═══ */
@@ -171,7 +229,39 @@
 }
 
 .moments-app--detail {
-  padding: 20px 0 40px;
+  padding: 56px 0 40px; /* top clears absolute titlebar */
+}
+
+/* 详情页 titlebar：毛玻璃层次感 + 显示标题 + 主题色图标 */
+.moments-window:has(.moments-app--detail) .window-titlebar {
+  background: color-mix(in srgb, var(--wc-bg) 80%, transparent) !important;
+  border-bottom: 0.5px solid var(--wc-border) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+}
+
+.moments-window:has(.moments-app--detail) .window-title-text {
+  display: block;
+  color: var(--wc-text);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* 详情页隐藏 feed 专属按钮（保留容器占位以居中标题） */
+.moments-window:has(.moments-app--detail) .moments-titlebar-icons {
+  visibility: hidden !important;
+  pointer-events: none;
+}
+
+.moments-window:has(.moments-app--detail) .window-titlebar .moments-titlebar-icon-btn,
+.moments-window:has(.moments-app--detail) .window-titlebar .moments-titlebar-back {
+  color: var(--wc-text-secondary) !important;
+  filter: none !important;
+}
+
+.moments-window:has(.moments-app--detail) .window-titlebar .moments-titlebar-icon-btn:hover,
+.moments-window:has(.moments-app--detail) .window-titlebar .moments-titlebar-back:hover {
+  color: var(--wc-text) !important;
 }
 
 .moments-feed-shell {
@@ -233,15 +323,17 @@
   color: white;
   font-size: 16px;
   font-weight: 600;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6), 0 0 1px rgba(0, 0, 0, 0.3);
+  -webkit-text-stroke: 0.3px rgba(0, 0, 0, 0.15);
   line-height: 1.3;
 }
 
 .moments-cover-subtitle {
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.75);
   font-size: 12px;
   font-weight: 400;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 1px rgba(0, 0, 0, 0.25);
+  -webkit-text-stroke: 0.2px rgba(0, 0, 0, 0.12);
   margin-top: 2px;
   line-height: 1.3;
 }
@@ -916,35 +1008,415 @@
    响应式
    ═══════════════════════════════════════════════════════════ */
 
-@media (width <= 768px) {
+@media (max-width: 768px) {
+
+  /* ═══ 全屏布局 ═══ */
+  /* 隐藏系统 menubar 和 Dock，moments 独占手机全屏 */
+  body[data-page-app="moments-app"] .menubar {
+    display: none !important;
+  }
+
+  body[data-page-app="moments-app"] .dock-container {
+    display: none !important;
+  }
+
+  /* menubar 隐藏后，window-layer 从顶部开始 */
+  body[data-page-app="moments-app"] .window-layer {
+    top: 0 !important;
+  }
+
+  /* 窗口撑满视口 */
+  body[data-page-app="moments-app"] #window-frame-root {
+    width: 100%;
+    height: 100%;
+  }
+
+  .moments-window {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    transform: none !important;
+  }
+
+  /* 禁用手机端缩放手柄 */
+  .moments-window .window-resize-handle {
+    display: none !important;
+  }
+
+  /* ═══ 手机端标题栏微调 ═══ */
+  .moments-window .window-titlebar {
+    height: 52px !important;
+    padding: 0 14px !important;
+  }
+
+  /* 隐藏交通灯 */
+  .moments-window .window-titlebar .traffic-lights {
+    display: none !important;
+  }
+
+  /* 手机端专用元素 */
+  .moments-mobile-only {
+    display: none;
+  }
+
+  .moments-titlebar-icon-btn.moments-mobile-only,
+  .moments-titlebar-back.moments-mobile-only {
+    display: inline-flex !important;
+    width: 32px;
+    height: 32px;
+    background: none;
+    color: rgba(255, 255, 255, 0.92);
+    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45));
+  }
+
+  .moments-titlebar-icon-btn.moments-mobile-only:active {
+    opacity: 0.65;
+  }
+
+  /* 详情页返回箭头 */
+  .moments-titlebar-back {
+    width: 32px;
+    height: 32px;
+    background: none;
+    color: rgba(255, 255, 255, 0.92) !important;
+    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45));
+  }
+
+  /* ═══ Feed 页布局 ═══ */
   .moments-app--feed {
-    padding: 0 0 32px;
+    padding: 0 0 24px;
   }
 
   .moments-app--detail {
-    padding: 12px 0 32px;
+    padding: 56px 0 24px;
+  }
+
+  /* ═══ 封面区 ═══ */
+  .moments-cover-wrapper {
+    margin-bottom: 20px;
   }
 
   .moments-cover {
-    height: 200px;
-    margin-bottom: 28px;
+    height: 280px;
   }
 
+  .moments-cover::after {
+    height: 60px;
+  }
+
+  .moments-cover-user {
+    bottom: -12px;
+    right: 14px;
+    gap: 8px;
+    max-width: 70%;
+  }
+
+  .moments-cover-identity {
+    margin-bottom: 6px;
+  }
+
+  .moments-cover-name {
+    font-size: 15px;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  .moments-cover-subtitle {
+    font-size: 11px;
+    line-height: 1.25;
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  .moments-cover-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 8px;
+  }
+
+  .moments-cover-avatar--placeholder {
+    font-size: 20px;
+  }
+
+  /* ═══ Tags 区 ═══ */
+  .moments-tags {
+    padding: 8px 14px 0;
+    gap: 6px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .moments-tags::-webkit-scrollbar {
+    display: none;
+  }
+
+  .moments-tag {
+    flex-shrink: 0;
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    font-size: 13px;
+    border-radius: 16px;
+  }
+
+  /* ═══ Feed 卡片 ═══ */
   .moment-feed-card {
     padding: 12px 14px;
+    gap: 10px;
+    border-bottom: 0.5px solid var(--wc-border);
   }
 
+  .moment-feed-avatar-col {
+    width: 36px;
+  }
+
+  .moment-feed-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 5px;
+  }
+
+  .moment-feed-nickname {
+    font-size: 14px;
+    margin-bottom: 3px;
+  }
+
+  .moment-feed-body {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .moment-feed-meta {
+    font-size: 11px;
+  }
+
+  .moment-feed-action-btn {
+    width: 26px;
+    height: 18px;
+  }
+
+  /* ═══ Feed 媒体 ═══ */
+  .moment-feed-gallery {
+    margin-top: 6px;
+  }
+
+  .moment-feed-gallery[data-count="1"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .moment-feed-gallery[data-count="1"] .moment-feed-gallery-item {
+    max-height: 200px;
+  }
+
+  .moment-feed-gallery[data-count="2"] {
+    max-width: none;
+  }
+
+  .moment-feed-gallery:not([data-count="1"]):not([data-count="2"]) {
+    max-width: none;
+  }
+
+  .moment-feed-video-placeholder {
+    max-height: 140px;
+    aspect-ratio: 16 / 9;
+  }
+
+  /* ═══ 分页区 ═══ */
+  .moments-feed-pagination {
+    margin-top: 20px;
+    gap: 12px;
+    padding: 0 14px;
+  }
+
+  .moments-pagination-btn {
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 18px;
+    font-size: 13px;
+    border-radius: 6px;
+  }
+
+  /* 空状态 */
+  .moment-feed-empty {
+    padding: 60px 20px;
+    font-size: 13px;
+  }
+
+  /* ═══ Detail 主帖 ═══ */
   .moment-reader-shell {
     padding: 0 14px;
   }
 
-  .skeleton-moments-cover {
-    height: 200px;
+  .moment-detail-post {
+    gap: 10px;
+    padding-bottom: 12px;
   }
 
-  .skeleton-moments-detail-body,
-  .skeleton-moments-detail-media,
+  .moment-detail-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 5px;
+  }
+
+  .moment-detail-nickname {
+    font-size: 14px;
+    margin-bottom: 3px;
+  }
+
+  .moment-content {
+    font-size: 14px;
+    line-height: 1.65;
+  }
+
+  .moment-content pre {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  /* ═══ Detail 媒体 ═══ */
+  .moment-media-grid[data-count="1"] {
+    grid-template-columns: 1fr;
+  }
+
+  .moment-media-grid[data-count="1"] .moment-media-card img,
+  .moment-media-grid[data-count="1"] .moment-media-card video {
+    max-height: 240px;
+  }
+
+  .moment-media-grid[data-count="2"] {
+    max-width: none;
+  }
+
+  .moment-media-grid:not([data-count="1"]):not([data-count="2"]) {
+    max-width: none;
+  }
+
+  .moment-detail-time {
+    margin-top: 8px;
+    font-size: 11px;
+  }
+
+  /* ═══ 评论区 ═══ */
+  .moment-comments {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 0.5px solid var(--wc-border);
+  }
+
+  .moment-comments-shell {
+    padding: 0;
+  }
+
+  /* ═══ Feed 骨架 ═══ */
+  .skeleton-moments-cover {
+    height: 280px;
+  }
+
+  .skeleton-moments-cover-user .sk-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 8px;
+  }
+
+  .skeleton-moments-cover-user .sk-name {
+    width: 64px;
+    height: 14px;
+    margin-bottom: 8px;
+  }
+
+  .skeleton-moments-list {
+    padding-top: 24px;
+  }
+
+  .skeleton-moments-card {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  .skeleton-moments-card .sk-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 5px;
+  }
+
+  .skeleton-moments-card .sk-name {
+    width: 60px;
+    height: 12px;
+  }
+
+  .skeleton-moments-card .sk-line {
+    height: 11px;
+  }
+
+  .skeleton-moments-card .sk-media {
+    max-width: 100%;
+  }
+
+  .skeleton-moments-card .sk-footer {
+    width: 80px;
+    height: 9px;
+  }
+
+  /* ═══ Detail 骨架 ═══ */
+  .skeleton-moments-detail {
+    padding: 14px;
+  }
+
+  .skeleton-moments-detail-head {
+    gap: 10px;
+  }
+
+  .skeleton-moments-detail-head .sk-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 5px;
+  }
+
+  .skeleton-moments-detail-head .sk-name {
+    width: 64px;
+    height: 12px;
+  }
+
+  .skeleton-moments-detail-body {
+    padding: 12px 0 12px 0;
+  }
+
+  .skeleton-moments-detail-body .sk-line {
+    height: 12px;
+  }
+
+  .skeleton-moments-detail-media {
+    padding: 0 0 12px 0;
+  }
+
+  .skeleton-moments-detail-media .sk-media {
+    max-width: 100%;
+  }
+
   .skeleton-moments-detail-comments {
-    padding-left: 0;
+    padding: 12px 0 0 0;
+  }
+
+  .skeleton-moments-detail-comments .sk-block {
+    height: 40px;
   }
 }
+

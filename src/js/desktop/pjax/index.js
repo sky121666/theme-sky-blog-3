@@ -332,10 +332,23 @@ export function initPjax(Alpine) {
 
         // Update window title bar
         const titleEl = document.querySelector('[data-window-titlebar] .window-title-text');
-        if (titleEl) titleEl.textContent = parsed.title;
+        const isDetail = contentContainer.querySelector('.moments-app--detail');
+        if (titleEl) {
+          titleEl.textContent = isDetail ? '详情' : parsed.title;
+        }
+        // Sync back button fallback for scene change
+        const backBtn = document.querySelector('.moments-titlebar-back');
+        if (backBtn) {
+          backBtn.dataset.fallback = isDetail ? '/moments' : '/';
+        }
 
         // Scroll content to top
         contentRoot.scrollTop = 0;
+
+        // Reinstall moments scroll listener for feed/detail scene change
+        if (typeof window.__momentsScrollSetup === 'function') {
+          window.__momentsScrollSetup();
+        }
 
         // Performance logging
         perfMeasure('navStart→overlayVisible', 'navStart', 'overlayVisible');
@@ -433,6 +446,8 @@ export function initPjax(Alpine) {
         windowManager.revealAfterNavigation(document.title);
       } else if (window.preventAutoOpen) {
         window.preventAutoOpen = false;
+      } else if (window._sameVariantJustCompleted) {
+        window._sameVariantJustCompleted = false;
       } else {
         window.dispatchEvent(new CustomEvent('open-window'));
       }
@@ -442,6 +457,40 @@ export function initPjax(Alpine) {
       pjaxWarn('event:error', event.detail?.request?.status, event.detail?.error?.message);
       NProgress.done();
     });
+
+    // ── Same-variant capture handler (runs BEFORE Pjax click handler) ──
+    document.addEventListener('click', (e) => {
+      const link = e.target.closest('a[href]');
+      if (!link || link.target || link.hasAttribute('download') || link.href.startsWith('javascript:')) return;
+      if (!link.classList?.contains('pjax-link')) return;
+
+      const targetUrl = new URL(link.href, window.location.origin);
+      if (targetUrl.origin !== window.location.origin) return;
+      if (targetUrl.pathname === '/') return;
+
+      const isSameDocumentRoute =
+        targetUrl.pathname === window.location.pathname &&
+        targetUrl.search === window.location.search;
+      if (isSameDocumentRoute) return;
+
+      const currentVariant = document.body.dataset.windowVariant || '';
+      const targetVariant = inferVariantFromUrl(targetUrl);
+      const currentApp = getCurrentPageApp() || '';
+      const currentMode = document.body.dataset.pageMode || '';
+      const targetApp = inferPageAppFromUrl(targetUrl) || '';
+
+      if (currentVariant && targetVariant &&
+          currentVariant === targetVariant &&
+          currentVariant !== 'none' &&
+          isContentSwitchAllowed(currentApp, currentMode) &&
+          CONTENT_SWITCH_WHITELIST.has(targetApp)) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        pjaxLog('same-variant intercept:', currentVariant, currentApp, currentMode, '→', targetApp, targetUrl.href);
+        window._sameVariantJustCompleted = true;
+        navigateWithinVariant(targetUrl.href);
+      }
+    }, true); // capture phase
 
     // ── Body click router (window manager integration) ──
 
@@ -464,37 +513,11 @@ export function initPjax(Alpine) {
         }
 
         if (isLeavingDesktop) {
-          // Don't intercept — let it flow through normal PJAX
           return;
         }
 
         if (windowManager?.minimized && !isSameDocumentRoute) {
           return;
-        }
-
-        // ── Same-variant interception ──
-        // Only intercept pjax-managed links that are internal and non-home
-        if (targetUrl.origin === window.location.origin && !isHomeLink) {
-          const currentVariant = document.body.dataset.windowVariant || '';
-          const targetVariant = inferVariantFromUrl(targetUrl);
-          const currentApp = getCurrentPageApp() || '';
-          const currentMode = document.body.dataset.pageMode || '';
-          const targetApp = inferPageAppFromUrl(targetUrl) || '';
-
-          // Triple check: variant + pageApp + pageMode all compatible
-          if (currentVariant && targetVariant &&
-              currentVariant === targetVariant &&
-              currentVariant !== 'none' &&
-              isContentSwitchAllowed(currentApp, currentMode) &&
-              CONTENT_SWITCH_WHITELIST.has(targetApp) &&
-              !isSameDocumentRoute &&
-              link.classList?.contains('pjax-link')) {
-            e.preventDefault();
-            e.stopPropagation();
-            pjaxLog('same-variant intercept:', currentVariant, currentApp, currentMode, '→', targetApp, targetUrl.href);
-            navigateWithinVariant(targetUrl.href);
-            return;
-          }
         }
 
         pjaxLog('click:', link.href, 'classes:', link.className, 'pjax-managed:', link.getAttribute(PJAX_MANAGED_ATTR));
