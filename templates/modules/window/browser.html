@@ -33,6 +33,7 @@
              data-window-titlebar
              x-data="windowTitlebar"
              @pjax:complete.window="closeSharePanel(); sync()"
+             @reader:outline-open.window="closeSharePanel()"
              @mousedown="onDragStart">
             
             <!-- 统一左侧 (交通灯 + 返回导航) -->
@@ -41,7 +42,7 @@
 
                 <!-- Navigation 返回 (双端统一样式) -->
                 <div class="flex items-center gap-1">
-                    <button @click="window.history.back()" class="window-nav-btn w-6 md:w-7 h-6 md:h-7 flex items-center justify-center rounded-md" title="返回上一页">
+                    <button onclick="if(window.matchMedia&&window.matchMedia('(max-width: 768px)').matches&&document.body&&document.body.dataset.pageApp==='reader'&&window.__browserBackOrHome){window.__browserBackOrHome('/')}else{window.history.back()}" class="window-nav-btn w-6 md:w-7 h-6 md:h-7 flex items-center justify-center rounded-md" title="返回上一页">
                         <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
                     </button>
                     <button @click="window.history.forward()" class="window-nav-btn hidden md:flex w-7 h-7 items-center justify-center rounded-md" title="前往下一页">
@@ -67,6 +68,21 @@
                       <svg x-show="$store.theme.isDark" style="display: none;" class="w-[17px] h-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
                   </button>
                 </div>
+
+                <button type="button"
+                        class="window-toolbar-btn post-outline-trigger"
+                        data-post-outline-trigger
+                        title="目录"
+                        style="display: none;">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <line x1="8" y1="6" x2="21" y2="6"></line>
+                        <line x1="8" y1="12" x2="21" y2="12"></line>
+                        <line x1="8" y1="18" x2="21" y2="18"></line>
+                        <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                        <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                        <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                    </svg>
+                </button>
 
                 <div class="window-share relative flex items-center">
                   <button @click.stop="toggleSharePanel()" class="window-toolbar-btn window-accent-action p-1.5 rounded-md" title="分享">
@@ -156,6 +172,18 @@
                   </div>
                 </div>
             </div>
+        </div>
+
+        <div class="post-outline-mobile-backdrop" data-post-outline-mobile-backdrop hidden></div>
+        <div class="post-outline-mobile-sheet" data-post-outline-mobile-sheet hidden>
+            <button type="button"
+                    class="post-outline-mobile-sheet-handle"
+                    data-post-outline-mobile-handle
+                    aria-label="拖动关闭目录"></button>
+            <div class="post-outline-mobile-header">
+                <div class="post-outline-mobile-title">目录</div>
+            </div>
+            <nav class="post-outline-mobile-list" data-post-outline-mobile-list></nav>
         </div>
 
         <!-- 内部正文 (PJAX 容器) -->

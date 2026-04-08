@@ -53,6 +53,109 @@ function parsePageModeFromResponse(html) {
   return m ? m[1].trim() : '';
 }
 
+// ── Reader mobile back-stack depth (site-internal only) ──
+
+const BROWSER_NAV_DEPTH_KEY = 'sky_browser_nav_depth';
+const BROWSER_NAV_INDEX_KEY = '__browserNavIndex';
+
+function readBrowserNavDepth() {
+  try {
+    const raw = window.sessionStorage.getItem(BROWSER_NAV_DEPTH_KEY);
+    const value = Number.parseInt(raw || '', 10);
+    return Number.isFinite(value) && value >= 0 ? value : null;
+  } catch (_e) {
+    return null;
+  }
+}
+
+function writeBrowserNavDepth(value) {
+  try {
+    window.sessionStorage.setItem(BROWSER_NAV_DEPTH_KEY, String(Math.max(0, value)));
+  } catch (_e) {
+    // Ignore sessionStorage failures; fallback button will still land on /
+  }
+}
+
+function getBrowserNavDepth() {
+  return readBrowserNavDepth() ?? 0;
+}
+
+function readBrowserNavIndexFromState(state = window.history.state) {
+  const value = state?.[BROWSER_NAV_INDEX_KEY];
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+function replaceBrowserNavState(index, title = document.title, url = window.location.href) {
+  try {
+    const baseState = (window.history.state && typeof window.history.state === 'object')
+      ? window.history.state
+      : {};
+    window.history.replaceState({ ...baseState, [BROWSER_NAV_INDEX_KEY]: index }, title, url);
+  } catch (_e) {
+    // Ignore replaceState failures; sessionStorage still tracks the fallback depth.
+  }
+}
+
+function pushBrowserNavState(index, title, url) {
+  const baseState = (window.history.state && typeof window.history.state === 'object')
+    ? window.history.state
+    : {};
+  window.history.pushState({ ...baseState, [BROWSER_NAV_INDEX_KEY]: index }, title, url);
+}
+
+function syncBrowserNavDepth(index) {
+  const safeIndex = Math.max(0, index);
+  writeBrowserNavDepth(safeIndex);
+  return safeIndex;
+}
+
+function initializeBrowserNavDepth() {
+  const stateIndex = readBrowserNavIndexFromState();
+  if (stateIndex !== null) {
+    syncBrowserNavDepth(stateIndex);
+    return;
+  }
+
+  const existing = readBrowserNavDepth();
+  const navEntry = performance.getEntriesByType?.('navigation')?.[0];
+  const navType = navEntry?.type || '';
+
+  if (navType === 'reload' && existing !== null) {
+    replaceBrowserNavState(existing);
+    return;
+  }
+
+  let hasSameOriginReferrer = false;
+  try {
+    hasSameOriginReferrer = !!document.referrer && new URL(document.referrer).origin === window.location.origin;
+  } catch (_e) {
+    hasSameOriginReferrer = false;
+  }
+
+  const hasBackEntryInThisTab = window.history.length > 1;
+
+  if (!hasSameOriginReferrer || !hasBackEntryInThisTab) {
+    replaceBrowserNavState(syncBrowserNavDepth(0));
+    return;
+  }
+
+  replaceBrowserNavState(syncBrowserNavDepth(Math.max(existing ?? 0, 1)));
+}
+
+function installBrowserNavHelpers() {
+  window.__browserCanGoBackWithinSite = function() {
+    return getBrowserNavDepth() > 0;
+  };
+
+  window.__browserBackOrHome = function(fallback = '/') {
+    if (getBrowserNavDepth() > 0) {
+      window.history.back();
+      return;
+    }
+    window.location.href = fallback;
+  };
+}
+
 // ── Performance instrumentation (debug mode only) ──
 
 function perfMark(label) {
@@ -177,6 +280,15 @@ export function initPjax(Alpine) {
 
     window.pjax = pjax;
     pjaxLog('init: Pjax created, #window-frame-root exists:', !!document.getElementById('window-frame-root'));
+
+    initializeBrowserNavDepth();
+    installBrowserNavHelpers();
+
+    window.addEventListener('popstate', (event) => {
+      window._browserPopstatePending = true;
+      const stateIndex = readBrowserNavIndexFromState(event.state);
+      syncBrowserNavDepth(stateIndex ?? 0);
+    });
 
     // ── Dynamic link attachment (using shared link-attach.js) ──
 
@@ -303,7 +415,9 @@ export function initPjax(Alpine) {
 
         // Sync state
         document.title = parsed.title;
-        history.pushState(null, parsed.title, targetUrl);
+        const nextNavIndex = getBrowserNavDepth() + 1;
+        pushBrowserNavState(nextNavIndex, parsed.title, targetUrl);
+        syncBrowserNavDepth(nextNavIndex);
 
         syncBodyDatasetFromResponse(html);
 
@@ -377,6 +491,7 @@ export function initPjax(Alpine) {
         _sameVariantPending = false;
         // Fallback to full PJAX
         try {
+          window._browserForwardNavPending = true;
           window.pjax.loadUrl(targetUrl);
         } catch (_e) {
           window.location = targetUrl;
@@ -397,11 +512,32 @@ export function initPjax(Alpine) {
       if (targetHref) {
         const targetApp = inferPageAppFromUrl(targetHref);
         ensureAppCssLoaded(targetApp);
+        try {
+          const targetUrl = new URL(targetHref, window.location.origin);
+          const isSameOrigin = targetUrl.origin === window.location.origin;
+          const isSameDocumentRoute =
+            targetUrl.pathname === window.location.pathname &&
+            targetUrl.search === window.location.search;
+
+          if (isSameOrigin && !isSameDocumentRoute && !window._browserPopstatePending) {
+            window._browserForwardNavPending = true;
+          }
+        } catch (_e) {
+          // Ignore malformed URLs from non-standard links.
+        }
       }
     });
     
     document.addEventListener("pjax:complete", (event) => {
       NProgress.done();
+
+      if (window._browserForwardNavPending && !window._browserPopstatePending) {
+        const nextNavIndex = getBrowserNavDepth() + 1;
+        syncBrowserNavDepth(nextNavIndex);
+        replaceBrowserNavState(nextNavIndex);
+      }
+      window._browserForwardNavPending = false;
+      window._browserPopstatePending = false;
 
       const nextApp = parsePageAppFromResponse(event?.request?.responseText);
       setCurrentPageApp(nextApp);
@@ -455,6 +591,8 @@ export function initPjax(Alpine) {
 
     document.addEventListener("pjax:error", (event) => {
       pjaxWarn('event:error', event.detail?.request?.status, event.detail?.error?.message);
+      window._browserForwardNavPending = false;
+      window._browserPopstatePending = false;
       NProgress.done();
     });
 
