@@ -21,6 +21,7 @@
     <th:block th:with="momentsPluginAvailable=${pluginFinder.available('PluginMoments')},
                        authorMoments=${momentsPluginAvailable ? momentFinder.list({
                          page: 1,
+                         size: 10,
                          owner: author.metadata.name,
                          sort: {'spec.releaseTime,desc'}
                        }) : null},
@@ -168,17 +169,18 @@
               <div x-show="activeSource === 'moments'" x-cloak>
                 <div data-author-moment-list>
                   <th:block th:if="${authorMoments != null and !#lists.isEmpty(authorMoments.items)}">
-                    <button type="button"
-                            class="author-moment-row"
-                            th:each="moment : ${authorMoments.items}"
-                            th:with="content=${moment.spec.content},
-                                     media=${content != null ? content.medium : null},
-                                     mediaCount=${media != null ? #lists.size(media) : 0},
-                                     rawText=${content != null and !#strings.isEmpty(content.html) ? content.html.replaceAll('<[^>]*>','').replaceAll('\s+',' ').trim() : ''},
-                                     momentTitle=${!#strings.isEmpty(rawText) ? #strings.abbreviate(rawText, 36) : (mediaCount > 0 ? '图片瞬间' : '瞬间记录')},
-                                     momentSummary=${!#strings.isEmpty(rawText) ? #strings.abbreviate(rawText, 88) : (mediaCount > 0 ? '打开预览查看媒体内容' : '打开预览查看完整内容')}"
-                            data-author-moment-option
-                            th:attr="data-moment-key=${moment.metadata.name},data-moment-title=${momentTitle}">
+                    <a class="author-moment-row pjax-link"
+                       data-pjax-app="moments-app"
+                       th:each="moment : ${authorMoments.items}"
+                       th:with="content=${moment.spec.content},
+                                media=${content != null ? content.medium : null},
+                                mediaCount=${media != null ? #lists.size(media) : 0},
+                                rawText=${content != null and !#strings.isEmpty(content.html) ? content.html.replaceAll('<a[^>]*class=&quot;tag&quot;[^>]*>[^<]*</a>','').replaceAll('<[^>]*>','').replaceAll('\s+',' ').trim() : ''},
+                                momentTitle=${!#strings.isEmpty(rawText) ? #strings.abbreviate(rawText, 36) : (mediaCount > 0 ? '图片瞬间' : '瞬间记录')},
+                                momentSummary=${!#strings.isEmpty(rawText) ? #strings.abbreviate(rawText, 88) : (mediaCount > 0 ? '打开预览查看媒体内容' : '打开预览查看完整内容')}"
+                       data-author-moment-option
+                       th:attr="data-moment-key=${moment.metadata.name},data-moment-title=${momentTitle}"
+                       th:href="@{'/moments/' + ${moment.metadata.name}}">
                       <div class="author-moment-row-main">
                         <span class="author-moment-row-icon" aria-hidden="true">
                           <svg viewBox="0 0 20 20" fill="none">
@@ -196,7 +198,7 @@
                         <span class="author-moment-row-date" th:text="${#dates.format(moment.spec.releaseTime, 'MM.dd HH:mm')}">03.27 19:30</span>
                         <span class="author-moment-row-badge" th:text="${mediaCount > 0 ? (mediaCount + ' 项媒体') : '文本'}">文本</span>
                       </span>
-                    </button>
+                    </a>
                   </th:block>
                 </div>
 
@@ -330,7 +332,7 @@
                            th:with="content=${moment.spec.content},
                                     media=${content != null ? content.medium : null},
                                     mediaCount=${media != null ? #lists.size(media) : 0},
-                                    rawText=${content != null and !#strings.isEmpty(content.html) ? content.html.replaceAll('<[^>]*>','').replaceAll('\s+',' ').trim() : ''},
+                                    rawText=${content != null and !#strings.isEmpty(content.html) ? content.html.replaceAll('<a[^>]*class=&quot;tag&quot;[^>]*>[^<]*</a>','').replaceAll('<[^>]*>','').replaceAll('\s+',' ').trim() : ''},
                                     momentTitle=${!#strings.isEmpty(rawText) ? #strings.abbreviate(rawText, 36) : (mediaCount > 0 ? '图片瞬间' : '瞬间记录')}"
                            data-author-moment-panel
                            th:attr="data-moment-key=${moment.metadata.name}"

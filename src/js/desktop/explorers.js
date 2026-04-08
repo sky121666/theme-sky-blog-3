@@ -625,12 +625,28 @@ export function registerExplorers(Alpine) {
         renderBatch(this.momentListEl, listHtmlItems, {
           onComplete: () => {
             this.syncMomentPanelVisibility();
+            // Attach pjax to dynamically rendered moment anchors
+            if (window.pjax) {
+              this.momentListEl.querySelectorAll('a.pjax-link:not([data-pjax-attached])').forEach((link) => {
+                link.setAttribute('data-pjax-managed', 'true');
+                window.pjax.attachLink(link);
+              });
+            }
           }
         });
       }
 
       if (this.momentPreviewEl) {
-        renderBatch(this.momentPreviewEl, previewHtmlItems);
+        renderBatch(this.momentPreviewEl, previewHtmlItems, {
+          onComplete: () => {
+            if (window.pjax) {
+              this.momentPreviewEl.querySelectorAll('a.pjax-link:not([data-pjax-attached])').forEach((link) => {
+                link.setAttribute('data-pjax-managed', 'true');
+                window.pjax.attachLink(link);
+              });
+            }
+          }
+        });
       }
 
       if (this.momentEmptyEl) {

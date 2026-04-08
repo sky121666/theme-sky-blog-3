@@ -385,6 +385,10 @@
   line-height: 1.75;
 }
 
+.author-moment-preview-body a.tag {
+  display: none;
+}
+
 .author-moment-preview-body p:last-child {
   margin-bottom: 0;
 }

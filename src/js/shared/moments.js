@@ -78,11 +78,12 @@ export function renderMomentMediaTile(medium) {
 
 export function renderMomentRow(moment) {
   return `
-    <button type="button"
-            class="author-moment-row"
-            data-author-moment-option
-            data-moment-key="${escapeHtml(moment.key)}"
-            data-moment-title="${escapeHtml(moment.title)}">
+    <a class="author-moment-row pjax-link"
+       data-pjax-app="moments-app"
+       data-author-moment-option
+       data-moment-key="${escapeHtml(moment.key)}"
+       data-moment-title="${escapeHtml(moment.title)}"
+       href="${escapeHtml(moment.permalink)}">
       <div class="author-moment-row-main">
         <span class="author-moment-row-icon" aria-hidden="true">
           <svg viewBox="0 0 20 20" fill="none">
@@ -100,7 +101,7 @@ export function renderMomentRow(moment) {
         <span class="author-moment-row-date">${escapeHtml(moment.listTime)}</span>
         <span class="author-moment-row-badge">${escapeHtml(moment.rowBadge)}</span>
       </span>
-    </button>
+    </a>
   `;
 }
 
