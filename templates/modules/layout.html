@@ -150,6 +150,7 @@
       widgetsModules = ${widgetsConf?.modules},
 
       widgetsEnabled = ${widgetsBehavior?.enabled != null ? widgetsBehavior.enabled : true},
+      widgetsHideOnMobile = ${widgetsBehavior?.hide_on_mobile != null ? widgetsBehavior.hide_on_mobile : false},
       widgetsEditEnabled = ${widgetsBehavior?.edit_enabled != null ? widgetsBehavior.edit_enabled : true},
       widgetsLayoutVersion = ${widgetsBehavior?.layout_version ?: 'v1'},
       widgetsColumns = ${widgetsBehavior?.grid_columns != null ? widgetsBehavior.grid_columns : 12},
@@ -311,6 +312,7 @@
     <th:block th:replace="~{modules/desktop-widgets :: layer(
       enabled=${widgetsEnabled},
       isHome=${isDesktopHome},
+      hideOnMobile=${widgetsHideOnMobile},
       editEnabled=${widgetsEditEnabled},
       columns=${widgetsColumns},
       gap=${widgetsGap},

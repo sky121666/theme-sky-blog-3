@@ -12,6 +12,7 @@ export function readDesktopWidgetsBootstrap() {
     return {
       enabled: false,
       isHome: false,
+      hideOnMobile: false,
       editEnabled: false,
       columns: 12,
       gap: 18,

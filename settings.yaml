@@ -465,6 +465,7 @@ spec:
           label: 显示与编辑
           value:
             enabled: true
+            hide_on_mobile: false
             edit_enabled: true
             fallback_cover: ""
           children:
@@ -474,6 +475,12 @@ spec:
               label: 启用桌面小组件
               help: 小组件固定显示在桌面层，和桌面图标、Dock 一样不随 PJAX 页面切换消失。
               value: true
+            - $formkit: switch
+              id: widgets_behavior_hide_on_mobile
+              name: hide_on_mobile
+              label: 手机端不显示小组件
+              help: 开启后，当视口宽度不大于 640px 时隐藏桌面小组件，仅保留桌面图标和 Dock。
+              value: false
             - $formkit: switch
               id: widgets_behavior_edit_enabled
               name: edit_enabled

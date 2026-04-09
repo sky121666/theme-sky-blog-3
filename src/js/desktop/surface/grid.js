@@ -11,6 +11,7 @@
  */
 
 import { desktopDebug } from '../../widgets/debug.js';
+import { computeDefaultDesktopIconPlacement } from '../../icons/index.js';
 
 export const gridMethods = {
   isWidgetWithinVisibleArea(widget) {
@@ -42,14 +43,15 @@ export const gridMethods = {
 
   syncGridMetrics(options = {}) {
     const { deferVisibility = false } = options;
-    if (window.innerWidth <= 640) {
+    const shellWidth = this.$refs.gridShell?.clientWidth || window.innerWidth;
+    if (shellWidth <= 640) {
       this.cellSize = 64;
-    } else if (window.innerWidth <= 820) {
+    } else if (shellWidth <= 820) {
       this.cellSize = 60;
     } else {
       this.cellSize = 68;
     }
-    const shellWidth = this.$refs.gridShell?.clientWidth || window.innerWidth;
+    this.syncViewportState(shellWidth);
     const shellHeight = this.$refs.layer?.clientHeight || window.innerHeight;
     const shellStyle = this.$refs.gridShell ? window.getComputedStyle(this.$refs.gridShell) : null;
     const topInset = shellStyle ? parseFloat(shellStyle.paddingTop || '0') : 0;
@@ -57,9 +59,9 @@ export const gridMethods = {
     const usableHeight = Math.max(this.cellSize, shellHeight - topInset);
     const fitColumns = Math.max(4, Math.floor((shellWidth + this.gap) / (this.cellSize + this.gap)));
     this.currentColumns = fitColumns;
-    this.gridWidth = this.currentColumns * this.cellSize + (this.currentColumns - 1) * this.gap;
     this.maxVisibleRows = Math.max(1, Math.floor((usableHeight + this.gap) / (this.cellSize + this.gap)));
     this.normalizeVisibleLayout();
+    this.gridWidth = this.measureGridWidth();
     if (this.previewPlacement) {
       this.previewPlacement = this.findNearestAvailablePlacement(
         this.previewPlacement,
@@ -95,6 +97,11 @@ export const gridMethods = {
    * 组件宽度超过可用列数时，才通过碰撞解析重排。
    */
   normalizeVisibleLayout() {
+    if (this.shouldSuppressWidgetsOnMobile()) {
+      this._normalizeIconsOnlyLayout();
+      return;
+    }
+
     const savedCols = this.serverLayoutPayload?.columns || this.columns || 12;
     const curCols = this.currentColumns;
 
@@ -120,7 +127,8 @@ export const gridMethods = {
     });
 
     const hasIcons = icons.length > 0;
-    const iconCols = hasIcons && curCols >= 6 ? 1 : 0;
+    const hasWidgets = widgets.length > 0;
+    const iconCols = hasIcons && hasWidgets && curCols >= 6 ? 1 : 0;
     const widgetMinX = iconCols + 1;
     const widgetAvailCols = curCols - iconCols;
 
@@ -181,6 +189,37 @@ export const gridMethods = {
         });
       });
     }
+
+    this.applyResolvedPlacements(resolved);
+  },
+
+  measureGridWidth() {
+    if (this.shouldSuppressWidgetsOnMobile()) {
+      const maxIconColumn = this.placedIcons.reduce((max, icon) => Math.max(max, icon.x), 1);
+      return maxIconColumn * this.cellSize + Math.max(0, maxIconColumn - 1) * this.gap;
+    }
+
+    return this.currentColumns * this.cellSize + (this.currentColumns - 1) * this.gap;
+  },
+
+  _normalizeIconsOnlyLayout() {
+    const icons = this.placedIcons.slice().sort((a, b) => {
+      const ay = a.baseY ?? a.y;
+      const by = b.baseY ?? b.y;
+      return ay !== by ? ay - by : (a.baseX ?? a.x) - (b.baseX ?? b.x);
+    });
+
+    const maxRows = Math.max(1, this.maxVisibleRows);
+    const resolved = icons.map((icon, index) => {
+      const placement = computeDefaultDesktopIconPlacement(index, this.currentColumns, maxRows);
+      return {
+        key: icon.key,
+        x: placement.x,
+        y: placement.y,
+        w: 1,
+        h: 1
+      };
+    });
 
     this.applyResolvedPlacements(resolved);
   },

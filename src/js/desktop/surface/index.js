@@ -75,7 +75,9 @@ export function registerDesktopSurface(Alpine) {
     /* ═══ State ═══ */
     enabled: false,
     isHome: false,
+    hideOnMobile: false,
     editEnabled: false,
+    viewportWidth: 0,
     columns: 12,
     currentColumns: 12,
     gap: 18,
@@ -192,8 +194,27 @@ export function registerDesktopSurface(Alpine) {
       return `desktop-widget-drop-preview${this.dragState.kind === 'icon' ? ' is-icon' : ''}`;
     },
 
+    syncViewportState(measuredWidth = null) {
+      if (Number.isFinite(measuredWidth) && measuredWidth > 0) {
+        this.viewportWidth = measuredWidth;
+        return;
+      }
+      const shellWidth = this.$refs.gridShell?.clientWidth;
+      this.viewportWidth = Number.isFinite(shellWidth) && shellWidth > 0
+        ? shellWidth
+        : (typeof window !== 'undefined' ? window.innerWidth : 0);
+    },
+
+    get isMobileViewport() {
+      return this.viewportWidth > 0 && this.viewportWidth <= 640;
+    },
+
+    shouldSuppressWidgetsOnMobile() {
+      return this.hideOnMobile && this.isMobileViewport;
+    },
+
     hasVisibleWidgetType(widgetType) {
-      return this.widgets.some((widget) => widget.widget === widgetType && !widget.hidden);
+      return this.placedWidgets.some((widget) => widget.widget === widgetType);
     },
 
     hasVisibleWeatherWidget() {
@@ -201,7 +222,7 @@ export function registerDesktopSurface(Alpine) {
     },
 
     hasTickSensitiveWidgets() {
-      return this.widgets.some((widget) => !widget.hidden && TICK_SENSITIVE_WIDGETS.has(widget.widget));
+      return this.placedWidgets.some((widget) => TICK_SENSITIVE_WIDGETS.has(widget.widget));
     },
 
     syncTickTimer() {
@@ -454,8 +475,10 @@ export function registerDesktopSurface(Alpine) {
         ? mergeDesktopWidgetLayout(frontendDefaults, serverLayout)
         : frontendDefaults;
 
+      this.syncViewportState();
       this.enabled = !!bootstrap.enabled;
       this.isHome = window.location.pathname === '/';
+      this.hideOnMobile = !!bootstrap.hideOnMobile;
       this.editEnabled = !!bootstrap.editEnabled;
       this.columns = toPositiveInt(bootstrap.columns, 12);
       this.gap = toPositiveInt(bootstrap.gap, 18);
@@ -508,6 +531,7 @@ export function registerDesktopSurface(Alpine) {
       this.syncWidgetRuntimes();
 
       this.routeSyncHandler = async () => {
+        this.syncViewportState();
         this.isHome = window.location.pathname === '/';
         this.closeDesktopContextMenu();
         this.invalidateWidgetCache();
@@ -525,7 +549,9 @@ export function registerDesktopSurface(Alpine) {
       };
 
       this.resizeHandler = () => {
+        this.syncViewportState();
         this.syncGridMetrics({ deferVisibility: true });
+        this.syncWidgetRuntimes();
       };
 
       window.addEventListener('pjax:complete', this.routeSyncHandler);
@@ -555,7 +581,7 @@ export function registerDesktopSurface(Alpine) {
 
         // Deferred: widget renderer preload — shell + icons are critical,
         // widget bodies are deferred to idle time
-        if (this.widgets.some(w => !w.hidden)) {
+        if (this.placedWidgets.length > 0) {
           (typeof requestIdleCallback === 'function' ? requestIdleCallback : (fn) => setTimeout(fn, 800))(() => {
             this.ensureWidgetRendererRuntime();
           });
@@ -569,6 +595,9 @@ export function registerDesktopSurface(Alpine) {
     /* ═══ Computed getters ═══ */
 
     get placedWidgets() {
+      if (this.shouldSuppressWidgetsOnMobile()) {
+        return [];
+      }
       return this.widgets
         .filter((widget) => !widget.hidden)
         .sort((left, right) => {
@@ -1255,10 +1284,9 @@ export function registerDesktopSurface(Alpine) {
     renderWidgetBody(widget, options = {}) {
       const renderVersion = this.widgetRenderVersion;
       const wType = widget?.widget || '';
-      const isMobileViewport = typeof window !== 'undefined' && window.innerWidth <= 640;
       const renderOptions = {
         ...options,
-        compact: options.preview === true ? false : (!isMobileViewport && this.cellSize <= 60)
+        compact: options.preview === true ? false : (!this.isMobileViewport && this.cellSize <= 60)
       };
 
       const renderer = this.widgetRenderer;
