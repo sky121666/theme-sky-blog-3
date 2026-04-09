@@ -1255,9 +1255,10 @@ export function registerDesktopSurface(Alpine) {
     renderWidgetBody(widget, options = {}) {
       const renderVersion = this.widgetRenderVersion;
       const wType = widget?.widget || '';
+      const isMobileViewport = typeof window !== 'undefined' && window.innerWidth <= 640;
       const renderOptions = {
         ...options,
-        compact: options.preview === true ? false : this.cellSize <= 60
+        compact: options.preview === true ? false : (!isMobileViewport && this.cellSize <= 60)
       };
 
       const renderer = this.widgetRenderer;

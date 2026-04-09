@@ -43,7 +43,7 @@ export const gridMethods = {
   syncGridMetrics(options = {}) {
     const { deferVisibility = false } = options;
     if (window.innerWidth <= 640) {
-      this.cellSize = 56;
+      this.cellSize = 64;
     } else if (window.innerWidth <= 820) {
       this.cellSize = 60;
     } else {
