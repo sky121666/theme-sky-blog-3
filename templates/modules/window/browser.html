@@ -37,12 +37,12 @@
              @mousedown="onDragStart">
             
             <!-- 统一左侧 (交通灯 + 返回导航) -->
-            <div class="flex items-center gap-3 md:gap-4 w-[120px] md:w-[240px]">
+            <div class="window-titlebar-leading flex items-center gap-3 md:gap-4 w-[120px] md:w-[240px]">
                 <th:block th:replace="~{modules/window/controls :: trafficLights(maximizable=${maximizable})}"></th:block>
 
                 <!-- Navigation 返回 (双端统一样式) -->
                 <div class="flex items-center gap-1">
-                    <button onclick="if(window.matchMedia&&window.matchMedia('(max-width: 768px)').matches&&document.body&&document.body.dataset.pageApp==='reader'&&window.__browserBackOrHome){window.__browserBackOrHome('/')}else{window.history.back()}" class="window-nav-btn w-6 md:w-7 h-6 md:h-7 flex items-center justify-center rounded-md" title="返回上一页">
+                    <button onclick="if(window.matchMedia&&window.matchMedia('(max-width: 768px)').matches&&window.__browserBackOrHome){window.__browserBackOrHome('/')}else{window.history.back()}" class="window-nav-btn w-6 md:w-7 h-6 md:h-7 flex items-center justify-center rounded-md" title="返回上一页">
                         <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
                     </button>
                     <button @click="window.history.forward()" class="window-nav-btn hidden md:flex w-7 h-7 items-center justify-center rounded-md" title="前往下一页">
@@ -52,11 +52,11 @@
             </div>
             
             <!-- 统一中心 (纯净标题) -->
-            <div class="flex-1 flex justify-center items-center overflow-hidden px-2">
+            <div class="window-titlebar-center flex-1 flex justify-center items-center overflow-hidden px-2">
                 <div class="window-title-text truncate font-medium text-[14px] md:text-[13px] tracking-wide" x-text="title" th:text="${titleText}"></div>
             </div>
 
-            <div class="flex items-center justify-end gap-2 w-[120px] md:w-[240px] pr-0 md:pr-2">
+            <div class="window-titlebar-trailing flex items-center justify-end gap-2 w-[120px] md:w-[240px] pr-0 md:pr-2">
                 <span class="window-toolbar-feedback"
                       x-show="shareFeedback"
                       x-text="shareFeedback"

@@ -31,8 +31,10 @@
       <div class="author-shell tag-shell">
         <div class="author-workspace tag-workspace author-workspace--finder"
              x-data="authorPostsExplorer"
+             :class="{ 'author-workspace--previewless': !previewVisible, 'author-workspace--preview': previewVisible }"
              th:attr="data-default-source=${defaultSource},
                       data-author-name=${author.metadata.name},
+                      data-post-total=${postTotal},
                       data-moments-enabled=${momentsPluginAvailable},
                       data-moment-page-size=${authorMoments != null ? authorMoments.size : 0},
                       data-moment-total=${momentTotal},

@@ -489,3 +489,226 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* ─── previewless 模式选中态弱化（任何宽度） ─── */
+.author-workspace--previewless .author-post-row.tag-post-row.is-active,
+.author-workspace--previewless .author-moment-row.is-active {
+  background: color-mix(in srgb, var(--tags-accent) 2%, var(--tags-row-hover));
+  border-color: color-mix(in srgb, var(--tags-accent) 4%, var(--tags-border-soft));
+  box-shadow: none;
+}
+
+@media (max-width: 768px) {
+  /* ── 1. 壳层沉浸化 ── */
+  body[data-page-app="explorer"]:has(#pjax-container > .author-shell.tag-shell) .menubar,
+  body[data-page-app="explorer"]:has(#pjax-container > .author-shell.tag-shell) .dock-container,
+  body[data-page-app="explorer"]:has(#pjax-container > .author-shell.tag-shell) .traffic-lights,
+  body[data-page-app="explorer"]:has(#pjax-container > .author-shell.tag-shell) .window-resize-handle {
+    display: none !important;
+  }
+
+  body[data-page-app="explorer"]:has(#pjax-container > .author-shell.tag-shell) .window-layer {
+    top: 0 !important;
+  }
+
+  body[data-page-app="explorer"]:has(#pjax-container > .author-shell.tag-shell) #window-frame-root {
+    width: 100% !important;
+    height: 100dvh !important;
+    min-height: 100svh !important;
+  }
+
+  body[data-page-app="explorer"]:has(#pjax-container > .author-shell.tag-shell) .macos-window {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    width: 100% !important;
+    height: 100dvh !important;
+    min-height: 100svh !important;
+    max-width: 100vw !important;
+    max-height: 100dvh !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    transform: none !important;
+    border-radius: 0 !important;
+  }
+
+  body[data-page-app="explorer"]:has(#pjax-container > .author-shell.tag-shell) .window-body {
+    flex: 1 !important;
+    min-height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px) !important;
+  }
+
+  /* ── 2. 标题栏微调 ── */
+  body[data-page-app="explorer"]:has(#pjax-container > .author-shell.tag-shell) .window-titlebar {
+    padding-inline: 8px;
+  }
+
+  body[data-page-app="explorer"]:has(#pjax-container > .author-shell.tag-shell) .window-titlebar-leading {
+    width: auto;
+    min-width: 40px;
+  }
+
+  body[data-page-app="explorer"]:has(#pjax-container > .author-shell.tag-shell) .window-titlebar-trailing {
+    width: auto;
+    min-width: 40px;
+  }
+
+  body[data-page-app="explorer"]:has(#pjax-container > .author-shell.tag-shell) .window-toolbar-feedback {
+    display: none;
+  }
+
+  /* ── 3. 资料卡压缩 ── */
+  .author-profile-pane.tag-folder-pane {
+    padding: 12px 14px;
+  }
+
+  .author-profile-card.tag-folder-card {
+    padding: 14px 12px 12px;
+    gap: 10px;
+  }
+
+  .author-profile-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+  }
+
+  .author-profile-avatar--fallback svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  .author-profile-badge {
+    min-height: 20px;
+    padding: 0 8px;
+    margin-bottom: 8px;
+    font-size: 9.5px;
+  }
+
+  .author-profile-name {
+    font-size: 1.1rem;
+  }
+
+  .author-profile-summary {
+    font-size: 11.5px;
+  }
+
+  .author-profile-bio {
+    font-size: 12px;
+  }
+
+  .author-profile-meta-list.tag-folder-meta-list {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+  }
+
+  /* ── 4. Source 切换区 ── */
+  .author-sources-title.tags-sidebar-title {
+    display: none;
+  }
+
+  .author-source-pane.tags-sidebar {
+    padding: 8px 12px;
+  }
+
+  .author-source-pane .tags-sidebar-nav {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  .author-source-item.tags-sidebar-item {
+    min-height: 38px;
+    padding: 5px 8px;
+  }
+
+  .author-source-item .tags-sidebar-label {
+    font-size: 11.5px;
+  }
+
+  .author-source-meta {
+    font-size: 9.5px;
+  }
+
+  .author-source-count {
+    font-size: 10px;
+  }
+
+  /* ── 5. Posts 列表 ── */
+  .author-items-pane .tags-pane-header {
+    min-height: 34px;
+    padding: 0 10px;
+  }
+
+  .author-items-pane .tags-pane-title {
+    font-size: 11px;
+  }
+
+  .author-items-pane .tags-pane-path {
+    font-size: 10px;
+  }
+
+  .author-post-row.tag-post-row {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 6px 10px;
+    min-height: auto;
+    padding: 8px 9px;
+  }
+
+  .author-post-row-main.tag-post-row-main {
+    flex: 1 1 100%;
+  }
+
+  .author-post-row-meta.tag-post-row-meta {
+    flex: 1 1 100%;
+    width: 100%;
+    padding-left: 24px;
+    font-size: 11px;
+    justify-content: flex-start;
+  }
+
+  /* ── 6. Moments 列表 ── */
+  .author-moment-row {
+    gap: 8px;
+    min-height: auto;
+    padding: 8px 9px;
+  }
+
+  .author-moment-row-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .author-moment-row-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .author-moment-row-summary {
+    -webkit-line-clamp: 2;
+    font-size: 11px;
+  }
+
+  .author-moment-row-date,
+  .author-moment-row-badge {
+    font-size: 10px;
+  }
+
+  /* ── 7. 分页 ── */
+  .author-pagination.tag-pagination {
+    gap: 8px;
+    margin-top: 14px;
+    padding: 0 10px calc(14px + env(safe-area-inset-bottom, 0px));
+    flex-wrap: wrap;
+  }
+
+  .author-page-btn.tag-page-btn,
+  .author-page-indicator.tag-page-indicator {
+    min-height: 32px;
+    padding: 0 10px;
+    font-size: 11.5px;
+  }
+}

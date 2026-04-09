@@ -434,7 +434,7 @@ export function registerWindowComponents(Alpine) {
     resizeStartHeight: 0,
     resizeStartWindowX: 0,
     resizeStartWindowY: 0,
-    isDesktop: window.innerWidth >= 768,
+    isDesktop: window.innerWidth > 768,
     windowEl: null,
     metricsKey: 'none',
 
@@ -569,7 +569,7 @@ export function registerWindowComponents(Alpine) {
       }
       
       const resizeHandler = () => {
-        this.isDesktop = window.innerWidth >= 768;
+        this.isDesktop = window.innerWidth > 768;
         if (!this.isDesktop) {
           this.isDragging = false;
           this.isResizing = false;

@@ -354,6 +354,7 @@ export function registerExplorers(Alpine) {
     activeMomentTitle: '',
     authorDisplayName: '',
     authorName: '',
+    postTotal: 0,
     momentsEnabled: false,
     momentPage: 1,
     renderedMomentPage: 1,
@@ -365,10 +366,43 @@ export function registerExplorers(Alpine) {
     momentPaginationEl: null,
     momentEmptyEl: null,
     momentFetchController: null,
+    previewVisible: true,
+
+    checkPreviewVisible() {
+      const pane = this.$root.querySelector('.author-preview-pane');
+      if (!pane) { this.previewVisible = false; return; }
+      const wasVisible = this.previewVisible;
+      this.previewVisible = pane.offsetWidth > 0 && window.getComputedStyle(pane).display !== 'none';
+
+      // Transition previewless → preview: resync selection and rebuild preview DOM
+      if (!wasVisible && this.previewVisible) {
+        this.syncSourceSelection({ preserveCurrent: true, updateUrl: false });
+        // Re-render moment previews if we skipped them while previewless
+        if (this.activeSource === 'moments' && this.renderedMomentPage > 0) {
+          this.fetchMomentPage(this.momentPage).then((items) => {
+            if (items && this.momentPreviewEl) {
+              const previewHtml = items.map((m) => renderMomentPreview(m, this.authorDisplayName));
+              renderBatch(this.momentPreviewEl, previewHtml, {
+                onComplete: () => {
+                  this.syncMomentPanelVisibility();
+                  if (window.pjax) {
+                    this.momentPreviewEl.querySelectorAll('a.pjax-link:not([data-pjax-attached])').forEach((link) => {
+                      link.setAttribute('data-pjax-managed', 'true');
+                      window.pjax.attachLink(link);
+                    });
+                  }
+                }
+              });
+            }
+          });
+        }
+      }
+    },
 
     async init() {
       this.authorDisplayName = this.$root.querySelector('.author-profile-name')?.textContent?.trim() || '';
       this.authorName = this.$root.dataset.authorName || '';
+      this.postTotal = toPositiveInt(this.$root.dataset.postTotal, 0);
       this.momentsEnabled = this.$root.dataset.momentsEnabled === 'true';
       this.momentPageSize = toPositiveInt(this.$root.dataset.momentPageSize, 10);
       this.momentTotal = toPositiveInt(this.$root.dataset.momentTotal, 0);
@@ -378,6 +412,13 @@ export function registerExplorers(Alpine) {
       this.cacheMomentElements();
       this.normalizeMomentText();
       this.bindMomentControls();
+
+      this.checkPreviewVisible();
+      this._pvResizeHandler = () => {
+        clearTimeout(this._pvResizeTimeout);
+        this._pvResizeTimeout = setTimeout(() => this.checkPreviewVisible(), 120);
+      };
+      window.addEventListener('resize', this._pvResizeHandler);
 
       const urlState = this.readUrlState();
       const defaultSource = this.$root.dataset.defaultSource || 'posts';
@@ -474,18 +515,20 @@ export function registerExplorers(Alpine) {
     },
 
     async syncSourceSelection({ preserveCurrent = false, updateUrl = true } = {}) {
-      if (this.activeSource === 'posts') {
-        if (!preserveCurrent || !this.activePostKey) {
-          const firstPost = this.$root.querySelector('[data-author-post-option]');
-          if (firstPost) {
-            this.selectPost(firstPost.dataset.postKey, firstPost.dataset.postTitle);
+      if (this.previewVisible) {
+        if (this.activeSource === 'posts') {
+          if (!preserveCurrent || !this.activePostKey) {
+            const firstPost = this.$root.querySelector('[data-author-post-option]');
+            if (firstPost) {
+              this.selectPost(firstPost.dataset.postKey, firstPost.dataset.postTitle);
+            }
           }
-        }
-      } else if (this.activeSource === 'moments') {
-        if (!preserveCurrent || !this.activeMomentKey) {
-          const firstMoment = this.$root.querySelector('[data-author-moment-option]');
-          if (firstMoment) {
-            this.selectMoment(firstMoment.dataset.momentKey, firstMoment.dataset.momentTitle);
+        } else if (this.activeSource === 'moments') {
+          if (!preserveCurrent || !this.activeMomentKey) {
+            const firstMoment = this.$root.querySelector('[data-author-moment-option]');
+            if (firstMoment) {
+              this.selectMoment(firstMoment.dataset.momentKey, firstMoment.dataset.momentTitle);
+            }
           }
         }
       }
@@ -498,6 +541,13 @@ export function registerExplorers(Alpine) {
     },
 
     get activeSourcePath() {
+      if (!this.previewVisible) {
+        if (this.activeSource === 'moments') {
+          const pageInfo = this.momentTotalPages > 1 ? ` · ${this.momentPage} / ${this.momentTotalPages}` : '';
+          return `${this.momentTotal} 条公开瞬间${pageInfo}`;
+        }
+        return `${this.postTotal} 篇公开文章`;
+      }
       return this.activeSource === 'moments'
         ? (this.activeMomentTitle || '未选择瞬间')
         : (this.activePostTitle || '未选择文章');
@@ -564,7 +614,7 @@ export function registerExplorers(Alpine) {
       }
 
       this.scrollListToTop();
-      this.scrollPreviewToTop();
+      if (this.previewVisible) this.scrollPreviewToTop();
 
       if (updateUrl) this.writeUrlState();
     },
@@ -636,7 +686,7 @@ export function registerExplorers(Alpine) {
         });
       }
 
-      if (this.momentPreviewEl) {
+      if (this.previewVisible && this.momentPreviewEl) {
         renderBatch(this.momentPreviewEl, previewHtmlItems, {
           onComplete: () => {
             if (window.pjax) {
@@ -695,6 +745,14 @@ export function registerExplorers(Alpine) {
       if (previewScroll) {
         previewScroll.scrollTop = 0;
       }
+    },
+
+    destroy() {
+      if (this._pvResizeHandler) {
+        window.removeEventListener('resize', this._pvResizeHandler);
+        this._pvResizeHandler = null;
+      }
+      clearTimeout(this._pvResizeTimeout);
     }
   }));
 

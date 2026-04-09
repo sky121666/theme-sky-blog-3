@@ -28,11 +28,22 @@
   overscroll-behavior-y: contain;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 768px) {
   .window-body {
     overscroll-behavior-y: auto;
     scrollbar-gutter: stable;
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 88px);
+  }
+
+  /* Neutralize Tailwind md: classes that fire at min-width:768px
+     while our JS runtime is already in mobile mode (> 768) */
+  .window-titlebar .window-nav-btn[title="前往下一页"] {
+    display: none !important;
+  }
+
+  .window-titlebar-leading,
+  .window-titlebar-trailing {
+    width: auto;
   }
 }
 
@@ -116,7 +127,7 @@
   cursor: nesw-resize;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 768px) {
   .window-resize-handle {
     display: none !important;
   }
@@ -137,7 +148,7 @@
   font-weight: 560;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 768px) {
   .window-toolbar-feedback {
     position: absolute;
     right: 48px;
@@ -326,7 +337,7 @@
   margin-top: 10px;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 768px) {
   .share-panel {
     position: fixed;
     top: 40px;
@@ -503,7 +514,7 @@
   padding: 0 20px;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 768px) {
   .skeleton-finder .skeleton-sidebar,
   .skeleton-finder .skeleton-preview {
     display: none;
