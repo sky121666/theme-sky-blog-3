@@ -778,3 +778,121 @@
     padding: 12px;
   }
 }
+
+@media (max-width: 768px) {
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .menubar,
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .dock-container,
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .traffic-lights,
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .window-resize-handle {
+    display: none !important;
+  }
+
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .window-layer {
+    top: 0 !important;
+  }
+
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) #window-frame-root {
+    width: 100% !important;
+    height: 100dvh !important;
+    min-height: 100svh !important;
+  }
+
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .macos-window {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    width: 100% !important;
+    height: 100dvh !important;
+    min-height: 100svh !important;
+    max-width: 100vw !important;
+    max-height: 100dvh !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    transform: none !important;
+    border-radius: 0 !important;
+  }
+
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .window-body {
+    flex: 1 !important;
+    min-height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px) !important;
+  }
+
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .tags-sidebar,
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .tag-folder-pane {
+    padding: 12px 10px 12px 12px;
+  }
+
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .tags-sidebar-nav {
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  }
+
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .tags-pane-header {
+    min-height: 34px;
+    padding: 0 10px;
+  }
+
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .tags-pane-title {
+    font-size: 11px;
+  }
+
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .tags-pane-path,
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .tag-folder-back {
+    font-size: 10px;
+  }
+
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .tags-folder-grid {
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 8px;
+    padding: 10px;
+  }
+
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .tags-folder-card,
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .tag-folder-card {
+    min-height: 84px;
+    padding: 12px;
+  }
+
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .tag-posts-scroll,
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .tags-preview-scroll,
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .tag-preview-scroll {
+    padding: 4px 4px 10px;
+  }
+
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .tag-post-row {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 6px 10px;
+    min-height: auto;
+    padding: 8px 9px;
+  }
+
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .tag-post-row-main {
+    flex: 1 1 100%;
+  }
+
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .tag-post-row-meta {
+    flex: 1 1 100%;
+    width: 100%;
+    padding-left: 24px;
+    font-size: 11px;
+    justify-content: flex-start;
+  }
+
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .tag-pagination {
+    gap: 8px;
+    margin-top: 14px;
+    padding: 0 10px 14px;
+    flex-wrap: wrap;
+  }
+
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .tag-page-btn,
+  body[data-page-app="explorer"]:is(:has(#pjax-container > .tags-shell), :has(#pjax-container > .tag-shell:not(.author-shell))) .tag-page-indicator {
+    min-height: 32px;
+    padding: 0 10px;
+    font-size: 11.5px;
+  }
+}
