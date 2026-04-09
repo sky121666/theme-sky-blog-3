@@ -61,7 +61,7 @@ const DEFAULT_WIDGET_CENTER_CATEGORIES = [{ id: 'all', label: '所有小组件' 
 
 /** Build a lightweight cache key from widget state */
 function widgetCacheKey(widget, options = {}) {
-  return `${widget.widget}:${widget.size}:${widget.key}:preview=${options.preview === true ? 1 : 0}:compact=${options.compact === true ? 1 : 0}`;
+  return `${widget.widget}:${widget.size}:${widget.key}:${widget.appearance || 'follow'}:preview=${options.preview === true ? 1 : 0}:compact=${options.compact === true ? 1 : 0}`;
 }
 
 function renderWidgetLoadingMarkup() {
@@ -1358,6 +1358,17 @@ export function registerDesktopSurface(Alpine) {
       if (!grid) return;
 
       grid.addEventListener('click', (e) => {
+        // [P1] Block widget navigation clicks when editing mode is enabled
+        const isWidget = e.target.closest('.desktop-widget-card');
+        if (this.isEditing && isWidget) {
+          if (!e.target.closest('.desktop-widget-remove-btn')) {
+            e.preventDefault();
+            e.stopPropagation();
+            widgetPjaxLog('navigation blocked in edit mode');
+            return;
+          }
+        }
+
         const link = e.target.closest('.desktop-widget-body a[href]');
         if (!link) return;
 

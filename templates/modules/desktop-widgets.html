@@ -209,7 +209,7 @@
                             </div>
                           </header>
                           <div class="desktop-widget-body"
-                               x-html="renderWidgetBody(selectedWidgetVariant(entry), { preview: true })"></div>
+                               x-widget-content="renderWidgetBody(selectedWidgetVariant(entry), { preview: true })"></div>
                         </article>
                       </div>
 
@@ -275,12 +275,11 @@
                     <div>
                       <p class="desktop-widget-kicker" x-text="widgetKicker(node)"></p>
                       <h2 class="desktop-widget-title" x-text="node.title"></h2>
-                    </div>
-                  </header>
-                  <div class="desktop-widget-body" x-html="renderWidgetBody(node)"></div>
-                </article>
-              </template>
-
+                      </div>
+                      </header>
+                      <div class="desktop-widget-body" x-widget-content="renderWidgetBody(node)"></div>
+                      </article>
+                      </template>
               <!-- 悬浮删除按钮（放在 slot 层，不受 card overflow:hidden 影响） -->
               <button type="button"
                       class="desktop-widget-remove-btn"

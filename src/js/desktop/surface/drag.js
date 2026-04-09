@@ -14,7 +14,10 @@ export const dragMethods = {
     if (!this.isEditing || !this.isHome) return;
     if (this.editStage !== 'decorate') return;
     if (event.button !== undefined && event.button !== 0) return;
-    if (event.target.closest('.desktop-widget-hide-btn, a, button')) return;
+    
+    // Allow clicking the remove button, but for everything else in decorate mode, prioritize dragging
+    if (event.target.closest('.desktop-widget-remove-btn')) return;
+    
     this.selectedDesktopKey = null;
 
     const rect = event.currentTarget.getBoundingClientRect();

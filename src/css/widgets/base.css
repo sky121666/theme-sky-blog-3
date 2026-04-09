@@ -32,11 +32,14 @@
   min-height: 0;
   will-change: transform, opacity;
   pointer-events: auto;
+  transition: transform 0.45s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.3s ease;
 }
 
-.desktop-node-slot--widget {
-  z-index: 2;
+.desktop-node-slot.is-drag-source {
+  z-index: 4;
+  transition: none !important;
 }
+
 
 .desktop-node-slot--icon {
   z-index: 1;
@@ -44,10 +47,6 @@
 
 .desktop-node-slot.is-selected {
   z-index: 3;
-}
-
-.desktop-node-slot.is-drag-source {
-  z-index: 4;
 }
 
 .desktop-node-slot--widget > .desktop-widget-card,

@@ -17,6 +17,7 @@ import './css/error.css';
 
 /* ===== JS：Alpine.js ===== */
 import Alpine from 'alpinejs';
+import morph from '@alpinejs/morph';
 import { registerComponents } from './js/desktop.js';
 import { runPageInitializers } from './js/shared/page-app.js';
 
@@ -24,6 +25,26 @@ if (!window.__THEME_MAIN_LOADED__) {
   window.__THEME_MAIN_LOADED__ = true;
 
   window.Alpine = Alpine;
+
+  Alpine.plugin(morph);
+
+  // Custom directive for incremental widget updates
+  Alpine.directive('widget-content', (el, { expression }, { evaluateLater, effect }) => {
+    const getHtml = evaluateLater(expression);
+    const tagName = el.tagName.toLowerCase();
+    effect(() => {
+      getHtml((html) => {
+        const nextHtml = typeof html === 'string' ? html : '';
+        if (el.innerHTML === nextHtml) return;
+
+        Alpine.morph(el, `<${tagName}>${nextHtml}</${tagName}>`, {
+          updating: (_from, _to, childrenOnly) => {
+            childrenOnly();
+          }
+        });
+      });
+    });
+  });
 
   registerComponents(Alpine);
 

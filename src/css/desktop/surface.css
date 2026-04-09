@@ -47,6 +47,19 @@ html, body {
   background-color: rgba(255, 255, 255, 0.4);
 }
 
+/* Firefox 滚动条适配 - 仅限桌面小组件相关容器 */
+.desktop-widgets-grid,
+.desktop-widget-center-shell,
+.desktop-widget-body {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.25) transparent;
+}
+.dark .desktop-widgets-grid,
+.dark .desktop-widget-center-shell,
+.dark .desktop-widget-body {
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+}
+
 /* ============================================= */
 /*  macOS Liquid Glass 统一材质系统               */
 /*  用法: 给任意元素加 .mac-glass 即获得玻璃质感   */

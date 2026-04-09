@@ -18,6 +18,9 @@ importers:
         specifier: ^1.5.4
         version: 1.5.4
     devDependencies:
+      '@alpinejs/morph':
+        specifier: ^3.15.11
+        version: 3.15.11
       '@halo-dev/theme-package-cli':
         specifier: ^1.0.1
         version: 1.0.1
@@ -54,6 +57,9 @@ packages:
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
     engines: {node: '>=10'}
+
+  '@alpinejs/morph@3.15.11':
+    resolution: {integrity: sha512-BQA0C4nXEZ0cdUI4gjCiccw50sdZ+KT/umzjYyamI1KPfzrc6ibbpBmavWrOIZYaWCH/q/mDSj3ohszjg3DoNw==}
 
   '@emnapi/core@1.9.1':
     resolution: {integrity: sha512-mukuNALVsoix/w1BJwFzwXBN/dHeejQtuVzcDsfOEsdpCumXb/E9j8w11h5S54tT1xhifGfbbSm/ICrObRb3KA==}
@@ -1215,6 +1221,8 @@ packages:
 snapshots:
 
   '@alloc/quick-lru@5.2.0': {}
+
+  '@alpinejs/morph@3.15.11': {}
 
   '@emnapi/core@1.9.1':
     dependencies:
