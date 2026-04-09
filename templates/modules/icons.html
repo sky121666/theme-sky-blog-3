@@ -1,0 +1,60 @@
+<th:block xmlns:th="https://www.thymeleaf.org">
+  <!--
+    默认图标模块 — Header 固定按钮
+    来源：Lucide v1.8.0 (ISC License)
+    统一：viewBox 0 0 24 24 · fill none · stroke currentColor
+    stroke-width 2 · linecap round · linejoin round
+  -->
+
+  <!-- ===== 手机端菜单 (lucide:menu) ===== -->
+  <svg th:fragment="header_mobile_menu"
+       viewBox="0 0 24 24" fill="none" stroke="currentColor"
+       stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+       aria-hidden="true">
+    <path d="M4 5h16"/>
+    <path d="M4 12h16"/>
+    <path d="M4 19h16"/>
+  </svg>
+
+  <!-- ===== 搜索 (lucide:search) ===== -->
+  <svg th:fragment="header_search"
+       viewBox="0 0 24 24" fill="none" stroke="currentColor"
+       stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+       aria-hidden="true">
+    <circle cx="11" cy="11" r="8"/>
+    <path d="m21 21-4.34-4.34"/>
+  </svg>
+
+  <!-- ===== 登录 / 用户 (lucide:user-round) ===== -->
+  <svg th:fragment="header_auth"
+       viewBox="0 0 24 24" fill="none" stroke="currentColor"
+       stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+       aria-hidden="true">
+    <circle cx="12" cy="8" r="5"/>
+    <path d="M20 21a8 8 0 0 0-16 0"/>
+  </svg>
+
+  <!-- ===== 浅色模式 (lucide:sun) ===== -->
+  <svg th:fragment="header_theme_light"
+       viewBox="0 0 24 24" fill="none" stroke="currentColor"
+       stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+       aria-hidden="true">
+    <circle cx="12" cy="12" r="4"/>
+    <path d="M12 2v2"/>
+    <path d="M12 20v2"/>
+    <path d="m4.93 4.93 1.41 1.41"/>
+    <path d="m17.66 17.66 1.41 1.41"/>
+    <path d="M2 12h2"/>
+    <path d="M20 12h2"/>
+    <path d="m6.34 17.66-1.41 1.41"/>
+    <path d="m19.07 4.93-1.41 1.41"/>
+  </svg>
+
+  <!-- ===== 深色模式 (lucide:moon) ===== -->
+  <svg th:fragment="header_theme_dark"
+       viewBox="0 0 24 24" fill="none" stroke="currentColor"
+       stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+       aria-hidden="true">
+    <path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/>
+  </svg>
+</th:block>

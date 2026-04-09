@@ -164,6 +164,48 @@ spec:
               help: 顶栏和手机端登录入口统一使用这个文案。
               value: 登录
         - $formkit: group
+          id: header_icons_group
+          name: icons
+          label: 工具栏图标
+          help: 留空则使用主题内置默认图标，配置后将覆盖对应按钮图标。
+          value:
+            mobile_menu: ""
+            search: ""
+            auth: ""
+            theme_light: ""
+            theme_dark: ""
+          children:
+            - $formkit: iconify
+              id: header_icons_mobile_menu
+              name: mobile_menu
+              label: 菜单按钮
+              help: 留空使用主题默认图标。
+              format: svg
+            - $formkit: iconify
+              id: header_icons_search
+              name: search
+              label: 搜索按钮
+              help: 留空使用主题默认图标。
+              format: svg
+            - $formkit: iconify
+              id: header_icons_auth
+              name: auth
+              label: 登录按钮
+              help: 留空使用主题默认图标。
+              format: svg
+            - $formkit: iconify
+              id: header_icons_theme_light
+              name: theme_light
+              label: 浅色模式
+              help: 留空使用主题默认图标。
+              format: svg
+            - $formkit: iconify
+              id: header_icons_theme_dark
+              name: theme_dark
+              label: 深色模式
+              help: 留空使用主题默认图标。
+              format: svg
+        - $formkit: group
           id: header_dropdown_group
           name: dropdown
           label: 二级菜单

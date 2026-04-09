@@ -1,5 +1,5 @@
 <th:block xmlns:th="https://www.thymeleaf.org">
-  <div th:fragment="bar (siteTitle, logoIcon, headerMenu, enableThemeSetting, searchWidgetAvailable, searchEnabled, authEnabled, mobileMenuEnabled, loginLabel, timeEnabled, timeDesktopPreset, timeMobilePreset, timeHourCycle)"
+  <div th:fragment="bar (siteTitle, logoIcon, headerMenu, enableThemeSetting, searchWidgetAvailable, searchEnabled, authEnabled, mobileMenuEnabled, loginLabel, timeEnabled, timeDesktopPreset, timeMobilePreset, timeHourCycle, iconMobileMenu, iconSearch, iconAuth, iconThemeLight, iconThemeDark)"
        class="menubar"
        x-data="menuBar"
        th:data-site-title="${siteTitle}"
@@ -55,11 +55,10 @@
               :aria-expanded="mobileMenuOpen.toString()"
               aria-label="打开菜单"
               title="菜单">
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M4 7H20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-          <path d="M4 12H20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-          <path d="M4 17H20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-        </svg>
+        <th:block th:if="${!#strings.isEmpty(iconMobileMenu)}" th:utext="${iconMobileMenu}" />
+        <th:block th:unless="${!#strings.isEmpty(iconMobileMenu)}">
+          <th:block th:replace="~{modules/icons :: header_mobile_menu}" />
+        </th:block>
       </button>
 
       <button type="button"
@@ -67,10 +66,10 @@
               th:if="${searchWidgetAvailable and searchEnabled}"
               @click="openSearch()"
               title="聚焦搜索 (Cmd+K)">
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2.2"></circle>
-          <line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"></line>
-        </svg>
+        <th:block th:if="${!#strings.isEmpty(iconSearch)}" th:utext="${iconSearch}" />
+        <th:block th:unless="${!#strings.isEmpty(iconSearch)}">
+          <th:block th:replace="~{modules/icons :: header_search}" />
+        </th:block>
       </button>
 
       <a th:if="${authEnabled}"
@@ -78,38 +77,28 @@
          class="menubar-auth-btn menubar-auth-btn--icon"
          @click="closeMobileMenu()"
          th:attr="title=${loginLabel},aria-label=${loginLabel}">
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12Z"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"></path>
-          <path d="M4 21C4 17.6863 7.58172 15 12 15C16.4183 15 20 17.6863 20 21"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"></path>
-        </svg>
+        <th:block th:if="${!#strings.isEmpty(iconAuth)}" th:utext="${iconAuth}" />
+        <th:block th:unless="${!#strings.isEmpty(iconAuth)}">
+          <th:block th:replace="~{modules/icons :: header_auth}" />
+        </th:block>
       </a>
 
       <button th:if="${enableThemeSetting}"
               @click="$store.theme.setMode($store.theme.isDark ? 'light' : 'dark')"
               class="menubar-icon-btn menubar-theme-btn"
               title="切换外观">
-        <svg x-show="!$store.theme.isDark" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="2.1"/>
-          <line x1="12" y1="1" x2="12" y2="3" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
-          <line x1="12" y1="21" x2="12" y2="23" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
-          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
-          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
-          <line x1="1" y1="12" x2="3" y2="12" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
-          <line x1="21" y1="12" x2="23" y2="12" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
-          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
-          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
-        </svg>
-        <svg x-show="$store.theme.isDark" style="display: none;" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"></path>
-        </svg>
+        <span x-show="!$store.theme.isDark" style="display: contents;">
+          <th:block th:if="${!#strings.isEmpty(iconThemeLight)}" th:utext="${iconThemeLight}" />
+          <th:block th:unless="${!#strings.isEmpty(iconThemeLight)}">
+            <th:block th:replace="~{modules/icons :: header_theme_light}" />
+          </th:block>
+        </span>
+        <span x-show="$store.theme.isDark" style="display: none;">
+          <th:block th:if="${!#strings.isEmpty(iconThemeDark)}" th:utext="${iconThemeDark}" />
+          <th:block th:unless="${!#strings.isEmpty(iconThemeDark)}">
+            <th:block th:replace="~{modules/icons :: header_theme_dark}" />
+          </th:block>
+        </span>
       </button>
 
       <div th:if="${timeEnabled}" class="menubar-time" x-text="timeStr"></div>

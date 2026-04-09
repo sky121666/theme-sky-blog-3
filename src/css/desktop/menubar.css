@@ -69,7 +69,7 @@
   min-width: 0;
 }
 
-.menubar-mobile-trigger {
+button.menubar-mobile-trigger {
   display: none;
 }
 
@@ -369,7 +369,7 @@
     display: none !important;
   }
 
-  .menubar-mobile-trigger {
+  button.menubar-mobile-trigger {
     display: inline-flex;
   }
 

@@ -113,6 +113,11 @@
       headerTimeMobilePreset = ${headerTime?.mobile_preset ?: 'time-only'},
       headerTimeHourCycle = ${headerTime?.hour_cycle ?: '12'},
       headerLoginLabel = ${!#strings.isEmpty(headerAuth?.login_label) ? headerAuth.login_label : '登录'},
+      headerIconMobileMenu = ${theme.config.header?.icons?.mobile_menu?.value ?: ''},
+      headerIconSearch = ${theme.config.header?.icons?.search?.value ?: ''},
+      headerIconAuth = ${theme.config.header?.icons?.auth?.value ?: ''},
+      headerIconThemeLight = ${theme.config.header?.icons?.theme_light?.value ?: ''},
+      headerIconThemeDark = ${theme.config.header?.icons?.theme_dark?.value ?: ''},
       desktopCustomIcons = ${theme.config.desktop?.icons?.custom_icons ?: {}},
       desktopCategories = ${theme.config.desktop?.icons?.categories ?: {}},
       desktopTags = ${theme.config.desktop?.icons?.tags ?: {}},
@@ -204,7 +209,12 @@
       timeEnabled=${headerTimeEnabled},
       timeDesktopPreset=${headerTimeDesktopPreset},
       timeMobilePreset=${headerTimeMobilePreset},
-      timeHourCycle=${headerTimeHourCycle}
+      timeHourCycle=${headerTimeHourCycle},
+      iconMobileMenu=${headerIconMobileMenu},
+      iconSearch=${headerIconSearch},
+      iconAuth=${headerIconAuth},
+      iconThemeLight=${headerIconThemeLight},
+      iconThemeDark=${headerIconThemeDark}
     )}"></th:block>
 
     <script th:inline="javascript">
