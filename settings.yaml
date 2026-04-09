@@ -66,6 +66,104 @@ spec:
                 - label: 深色
                   value: dark
         - $formkit: group
+          id: header_actions_group
+          name: actions
+          label: 开关
+          value:
+            search_enabled: true
+            auth_enabled: true
+            mobile_menu_enabled: true
+          children:
+            - $formkit: switch
+              id: header_actions_search_enabled
+              name: search_enabled
+              label: 搜索
+              help: 关闭后会同时隐藏搜索按钮并禁用 Cmd/Ctrl + K。
+              value: true
+            - $formkit: switch
+              id: header_actions_auth_enabled
+              name: auth_enabled
+              label: 登录
+              help: 仅控制 Header 的登录入口，固定跳转到 /login。
+              value: true
+            - $formkit: switch
+              id: header_actions_mobile_menu_enabled
+              name: mobile_menu_enabled
+              label: 启用手机端菜单
+              help: 关闭后，小屏幕顶部不再提供一级导航入口。
+              value: true
+        - $formkit: group
+          id: header_time_group
+          name: time
+          label: 时间格式方案
+          value:
+            enabled: true
+            desktop_preset: month-day-weekday-time
+            mobile_preset: time-only
+            hour_cycle: 12
+          children:
+            - $formkit: switch
+              id: header_time_enabled
+              name: enabled
+              label: 显示时间
+              value: true
+            - $formkit: toggle
+              id: header_time_desktop_preset
+              name: desktop_preset
+              label: 桌面端格式
+              value: month-day-weekday-time
+              options:
+                - label: 仅时间
+                  value: time-only
+                - label: 时间含秒
+                  value: time-seconds
+                - label: 日期 + 时间
+                  value: date-time
+                - label: 星期 + 日期 + 时间
+                  value: weekday-date-time
+                - label: 月日 + 星期 + 时间
+                  value: month-day-weekday-time
+            - $formkit: toggle
+              id: header_time_mobile_preset
+              name: mobile_preset
+              label: 手机端格式
+              help: 默认建议只显示时间。
+              value: time-only
+              options:
+                - label: 仅时间
+                  value: time-only
+                - label: 时间含秒
+                  value: time-seconds
+                - label: 日期 + 时间
+                  value: date-time
+                - label: 星期 + 日期 + 时间
+                  value: weekday-date-time
+                - label: 月日 + 星期 + 时间
+                  value: month-day-weekday-time
+            - $formkit: toggle
+              id: header_time_hour_cycle
+              name: hour_cycle
+              label: 小时制
+              value: 12
+              options:
+                - label: 12 小时
+                  value: 12
+                - label: 24 小时
+                  value: 24
+        - $formkit: group
+          id: header_auth_group
+          name: auth
+          label: 登录入口
+          value:
+            login_label: 登录
+          children:
+            - $formkit: text
+              id: header_auth_login_label
+              name: login_label
+              label: 登录文案
+              help: 顶栏和手机端登录入口统一使用这个文案。
+              value: 登录
+        - $formkit: group
           id: header_dropdown_group
           name: dropdown
           label: 二级菜单

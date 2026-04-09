@@ -1,0 +1,83 @@
+<!doctype html>
+<html
+  class="auth-gateway-html"
+  lang="zh-CN"
+  xmlns:th="https://www.thymeleaf.org"
+  th:fragment="layout (title, head, body)"
+  th:data-default-theme="${theme.config.header?.theme?.default_mode ?: 'system'}"
+  th:with="
+    bgConf = ${theme.config.desktop?.background},
+    bgMode = ${bgConf?.mode ?: 'preset'},
+    bgPreset = ${bgConf?.preset ?: 'tahoe-dawn'},
+    desktopAppearance = ${theme.config.desktop?.appearance},
+    legacyCustomScheme = ${(desktopAppearance?.mode == null) and (desktopAppearance?.accent_color != null or desktopAppearance?.selection_color != null or desktopAppearance?.folder_color1 != null or desktopAppearance?.folder_color2 != null or desktopAppearance?.folder_color3 != null or desktopAppearance?.glass_light_color != null or desktopAppearance?.glass_dark_color != null)},
+    schemeMode = ${desktopAppearance?.mode ?: (legacyCustomScheme ? 'custom' : 'preset')},
+    schemePreset = ${desktopAppearance?.preset ?: 'blue'},
+    macAccent = ${desktopAppearance?.accent_color ?: '#2E5FBD'},
+    macSelection = ${desktopAppearance?.selection_color ?: '#244D9B'},
+    macFolder1 = ${desktopAppearance?.folder_color1 ?: '#4A90E2'},
+    macFolder2 = ${desktopAppearance?.folder_color2 ?: '#64B5F6'},
+    macFolder3 = ${desktopAppearance?.folder_color3 ?: '#90CAF9'},
+    macShellLight = ${desktopAppearance?.glass_light_color ?: '#FFFFFF'},
+    macShellDark = ${desktopAppearance?.glass_dark_color ?: '#141414'},
+    bgImageUrl = ${bgConf?.image_url ?: bgConf?.image},
+    wallpaperClass = ${bgMode == 'preset' ? 'wallpaper-' + bgPreset : ''},
+    schemeClass = ${schemeMode == 'preset' ? 'scheme-' + schemePreset : 'scheme-custom'},
+    headerLogoIcon = ${theme.config.header?.logo?.icon?.value ?: ''},
+    headerAppName = ${!#strings.isEmpty(theme.config.header?.logo?.title) ? theme.config.header?.logo?.title : (site.title ?: '')},
+    authBrandImage = ${site.logo != null ? site.logo.toString() : ''},
+    themeFallbackIcon = ${#theme.assets('/favicon.svg')}">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title th:text="${title ?: site.title}">登录</title>
+
+    <script>
+      (function() {
+        var root = document.documentElement;
+        var defaultTheme = root.getAttribute('data-default-theme') || 'system';
+        var savedTheme = localStorage.getItem('theme');
+        var theme = savedTheme || defaultTheme;
+        var isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+        root.classList.remove('dark', 'light', 'system', 'color-scheme-auto', 'color-scheme-dark', 'color-scheme-light');
+        root.classList.add(theme === 'system' ? 'color-scheme-auto' : 'color-scheme-' + theme);
+        root.classList.add(theme);
+        root.setAttribute('data-color-scheme', theme);
+        root.style.colorScheme = isDark ? 'dark' : 'light';
+      })();
+    </script>
+
+    <th:block th:replace="~{gateway_fragments/common::basicStaticResources}" />
+    <link rel="stylesheet" th:href="@{/assets/css/main.css(t=${#dates.createNow().getTime()})}" />
+    <link rel="stylesheet" th:href="@{/assets/css/auth.css(t=${#dates.createNow().getTime()})}" />
+    <th:block th:if="${head != null}" th:replace="${head}"></th:block>
+  </head>
+  <body
+    class="auth-gateway-page"
+    th:classappend="${#strings.isEmpty(wallpaperClass) ? schemeClass : wallpaperClass + ' ' + schemeClass}"
+    th:style="${(schemeMode == 'custom' ? '--mac-accent:' + macAccent + ';--mac-selection:' + macSelection + ';--mac-folder1:' + macFolder1 + ';--mac-folder2:' + macFolder2 + ';--mac-folder3:' + macFolder3 + ';--mac-shell-light:' + macShellLight + ';--mac-shell-dark:' + macShellDark + ';' : '')}"
+    th:styleappend="${bgMode == 'image' and bgImageUrl != null ? 'background:url(' + bgImageUrl + ') center/cover no-repeat; background-color:#0f172a;' : (bgMode == 'solid' ? 'background-color:' + (bgConf?.solid_color ?: '#0f172a') + ';' : '')}">
+    <main class="auth-gateway-shell">
+      <section class="auth-gateway-card">
+        <header class="auth-gateway-brand">
+          <div class="auth-gateway-brand-mark">
+            <span th:if="${!#strings.isEmpty(headerLogoIcon)}" th:utext="${headerLogoIcon}"></span>
+            <img th:if="${#strings.isEmpty(headerLogoIcon) and !#strings.isEmpty(authBrandImage)}"
+                 th:src="${authBrandImage}"
+                 th:alt="${headerAppName}" />
+            <img th:if="${#strings.isEmpty(headerLogoIcon) and #strings.isEmpty(authBrandImage)}"
+                 th:src="${themeFallbackIcon}"
+                 th:alt="${headerAppName}" />
+          </div>
+          <div class="auth-gateway-brand-copy">
+            <p class="auth-gateway-kicker">Authentication</p>
+            <h1 class="auth-gateway-title" th:text="${headerAppName}">登录</h1>
+          </div>
+        </header>
+        <div class="auth-gateway-body" th:insert="${body}"></div>
+      </section>
+    </main>
+
+  </body>
+</html>

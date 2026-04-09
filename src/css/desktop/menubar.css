@@ -1,21 +1,25 @@
 /* ---------- 顶部菜单栏 (MenuBar) ---------- */
 .menubar {
   position: fixed;
-  top: 0; left: 0; right: 0;
-  height: 28px;
-  background: var(--shell-menubar-bg) !important;
-  backdrop-filter: blur(28px) saturate(150%) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(150%) !important;
-  border-bottom: 1px solid var(--shell-menubar-border) !important;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  gap: 12px;
+  height: 28px;
+  padding: 0 12px;
+  overflow: visible;
   color: var(--shell-text-primary);
   font-size: 13.5px;
   font-weight: 500;
-  z-index: 9999;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.36);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.36);
+  background: var(--shell-menubar-bg) !important;
+  border-bottom: 1px solid var(--shell-menubar-border) !important;
+  backdrop-filter: blur(28px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(150%) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
     inset 0 -1px 0 rgba(0, 0, 0, 0.06);
@@ -27,7 +31,6 @@
   inset: 0;
   pointer-events: none;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 70%);
-  opacity: 1;
 }
 
 .menubar::after {
@@ -40,75 +43,176 @@
   pointer-events: none;
   background: var(--shell-menubar-border);
 }
-.menubar-item {
-  padding: 0 8px;
-  height: 24px;
-  line-height: 24px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.1s ease, box-shadow 0.1s ease;
+
+.menubar-left,
+.menubar-right {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.menubar-left {
+  flex: 1 1 auto;
+  gap: 2px;
+}
+
+.menubar-right {
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.menubar-nav {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.menubar-mobile-trigger {
+  display: none;
+}
+
+.menubar-menu-group {
+  position: relative;
+}
+
+.menubar-item,
+.menubar-icon-btn,
+.menubar-auth-btn {
   color: var(--shell-text-primary);
   text-decoration: none;
 }
-.menubar-app-name {
-  color: var(--shell-text-primary);
-  font: inherit;
-  letter-spacing: inherit;
-  text-shadow: inherit;
+
+.menubar-item {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 4px;
+  transition: background-color 0.1s ease, box-shadow 0.1s ease;
 }
+
 .menubar-item:hover,
-.menubar-icon-btn:hover {
+.menubar-icon-btn:hover,
+.menubar-auth-btn:hover {
   background: var(--shell-menubar-hover-bg);
 }
+
 .menubar-item.is-open {
   background: color-mix(in srgb, var(--shell-menubar-hover-bg) 82%, rgba(255, 255, 255, 0.035));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
+
 .menubar-icon-btn {
-  padding: 0 6px;
-  height: 24px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
   border-radius: 4px;
   cursor: pointer;
-  transition: background 0.1s ease;
+  background: transparent;
+  transition: background-color 0.1s ease;
+}
+
+.menubar-icon-btn svg,
+.menubar-theme-btn svg,
+.menubar-search-btn svg,
+.menubar-mobile-trigger svg {
+  width: 14px;
+  height: 14px;
+}
+
+.menubar-brand-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.menubar-brand-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.2em;
+  height: 1.2em;
+}
+
+.menubar-brand-glyph > svg,
+.menubar-brand-glyph svg {
+  width: 100%;
+  height: 100%;
+}
+
+.menubar-app-name {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
   color: var(--shell-text-primary);
-  text-decoration: none;
+  letter-spacing: inherit;
+  white-space: nowrap;
+  cursor: default;
 }
 
-/* 顶部菜单栏 暗色适配 */
+.menubar-auth-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.menubar-auth-btn--icon {
+  min-width: 0;
+  width: 24px;
+  padding: 0;
+  border-radius: 4px;
+}
+
+.menubar-auth-btn--icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.menubar-time {
+  min-width: 120px;
+  padding: 0 10px 0 12px;
+  overflow: hidden;
+  color: var(--shell-text-primary);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
+}
+
 .dark .menubar {
-  background: var(--shell-menubar-bg) !important;
-  backdrop-filter: blur(28px) saturate(150%) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(150%) !important;
-  border-bottom: 1px solid var(--shell-menubar-border) !important;
   color: #e5e7eb;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.06);
 }
 
-.dark .menubar::before {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 70%);
-}
-.dark .menubar-item:hover,
-.dark .menubar-icon-btn:hover {
-  background: var(--shell-menubar-hover-bg);
-}
-.dark .menubar-item.is-open {
-  background: color-mix(in srgb, var(--shell-menubar-hover-bg) 84%, rgba(255, 255, 255, 0.03));
-}
-
-/* ---------- 菜单栏下拉面板 ---------- */
+/* ---------- 桌面端 Submenu ---------- */
 .menubar-dropdown {
   position: absolute;
+  top: calc(100% + 2px);
+  left: -4px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  min-width: 196px;
+  padding: 4px;
+  border-radius: 10px;
   background-color: var(--mac-header-dropdown-light-bg, rgba(88, 92, 100, 0.66)) !important;
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.022) 34%, rgba(0, 0, 0, 0.055)) !important;
-  backdrop-filter: blur(32px) saturate(142%) !important;
-  -webkit-backdrop-filter: blur(32px) saturate(142%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.095) !important;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015) 32%, rgba(0, 0, 0, 0.05)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  backdrop-filter: blur(26px) saturate(138%) !important;
+  -webkit-backdrop-filter: blur(26px) saturate(138%) !important;
   box-shadow:
     0 9px 18px rgba(0, 0, 0, 0.22),
     0 1px 0 rgba(255, 255, 255, 0.028) inset,
@@ -117,14 +221,14 @@
 
 @supports (background: color-mix(in srgb, white 50%, black)) {
   .menubar-dropdown {
-    background-color: color-mix(in srgb, var(--mac-header-dropdown-light-bg, rgba(88, 92, 100, 0.66)) 78%, rgba(120, 126, 136, 0.50)) !important;
+    background-color: color-mix(in srgb, var(--mac-header-dropdown-light-bg, rgba(88, 92, 100, 0.66)) 82%, rgba(120, 126, 136, 0.42)) !important;
   }
 }
 
 .dark .menubar-dropdown {
   background-color: var(--mac-header-dropdown-dark-bg, rgba(70, 74, 82, 0.72)) !important;
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.068), rgba(255, 255, 255, 0.016) 34%, rgba(0, 0, 0, 0.072)) !important;
-  border-color: rgba(255, 255, 255, 0.078) !important;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015) 32%, rgba(0, 0, 0, 0.06)) !important;
+  border-color: rgba(255, 255, 255, 0.075) !important;
   box-shadow:
     0 10px 20px rgba(0, 0, 0, 0.25),
     0 1px 0 rgba(255, 255, 255, 0.028) inset,
@@ -133,114 +237,156 @@
 
 @supports (background: color-mix(in srgb, white 50%, black)) {
   .dark .menubar-dropdown {
-    background-color: color-mix(in srgb, var(--mac-header-dropdown-dark-bg, rgba(70, 74, 82, 0.72)) 82%, rgba(108, 114, 124, 0.42)) !important;
+    background-color: color-mix(in srgb, var(--mac-header-dropdown-dark-bg, rgba(70, 74, 82, 0.72)) 84%, rgba(108, 114, 124, 0.36)) !important;
   }
 }
 
 .menubar-dropdown-item {
-  position: relative;
-  z-index: 1;
-  min-height: 28px;
   display: grid;
-  grid-template-columns: 20px minmax(0, 1fr) 16px;
+  grid-template-columns: 18px minmax(0, 1fr) 14px;
   align-items: center;
-  column-gap: 10px;
-  padding: 4px 11px 4px 10px;
-  color: rgba(255, 255, 255, 0.95);
+  column-gap: 8px;
+  min-height: 24px;
+  padding: 3px 9px 3px 8px;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.96);
   text-decoration: none;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.12);
-  line-height: 1.2;
   letter-spacing: -0.005em;
-  transition:
-    background 0.08s ease,
-    box-shadow 0.08s ease,
-    color 0.08s ease;
-}
-
-.menubar-dropdown-separator {
-  height: 1px;
-  margin: 6px 10px 6px 10px;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.015), rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.015));
-}
-
-.menubar-dropdown-leading,
-.menubar-dropdown-trailing {
-  width: 20px;
-  min-width: 20px;
-  min-height: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0.9;
-}
-
-.menubar-dropdown-trailing {
-  width: auto;
-  min-width: 16px;
-  justify-content: flex-end;
-  opacity: 0.66;
-}
-
-.menubar-dropdown-label {
-  flex: 1;
-  min-width: 0;
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.menubar-dropdown-trailing svg {
-  width: 12px;
-  height: 12px;
-}
-
-.menubar-dropdown-icon-svg,
-.menubar-dropdown-icon-image {
-  width: 18px;
-  height: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 1;
-}
-
-.menubar-dropdown-icon-svg svg {
-  width: 100%;
-  height: 100%;
-  color: #ffffff !important;
-  fill: currentColor;
-  stroke: currentColor;
-}
-
-.menubar-dropdown-icon-image {
-  object-fit: contain;
-  border-radius: 3px;
-  background: transparent !important;
+  line-height: 1.2;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.08s ease, box-shadow 0.08s ease, color 0.08s ease;
 }
 
 .menubar-dropdown-item:hover {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--theme-accent) 70%, #5a9cff) 0%, color-mix(in srgb, var(--theme-accent) 80%, #0f62fe) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.065),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.10);
   color: #ffffff;
-}
-.menubar-dropdown-item:hover .menubar-dropdown-trailing {
-  color: rgba(255, 255, 255, 0.84);
-}
-
-.dark .menubar-dropdown-item {
-  color: rgba(255, 255, 255, 0.95);
-}
-
-.dark .menubar-dropdown-separator {
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.025));
-}
-
-.dark .menubar-dropdown-item:hover {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--theme-accent) 72%, #6ba6ff) 0%, color-mix(in srgb, var(--theme-accent) 84%, #0f62fe) 100%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--theme-accent) 72%, #6ba6ff) 0%,
+    color-mix(in srgb, var(--theme-accent) 86%, #0f62fe) 100%
+  );
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* ---------- 手机端 Header ---------- */
+.menubar-mobile-dropdown {
+  position: fixed;
+  top: 36px;
+  left: 10px;
+  right: 10px;
+  z-index: 100;
+  border-radius: 14px;
+  background-color: var(--mac-header-dropdown-light-bg, rgba(88, 92, 100, 0.66)) !important;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02) 34%, rgba(0, 0, 0, 0.05)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(26px) saturate(138%) !important;
+  -webkit-backdrop-filter: blur(26px) saturate(138%) !important;
+  box-shadow:
+    0 12px 24px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.dark .menubar-mobile-dropdown {
+  background-color: var(--mac-header-dropdown-dark-bg, rgba(70, 74, 82, 0.72)) !important;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015) 32%, rgba(0, 0, 0, 0.06)) !important;
+  border-color: rgba(255, 255, 255, 0.075) !important;
+}
+
+.menubar-mobile-dropdown-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+}
+
+.menubar-mobile-item {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.96);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 560;
+}
+
+.menubar-mobile-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.menubar-mobile-item--child {
+  padding-left: 18px;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.menubar-mobile-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.menubar-mobile-section-label {
+  margin: 6px 10px 0;
+  color: rgba(255, 255, 255, 0.56);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.menubar-mobile-dropdown-separator {
+  height: 1px;
+  margin: 4px 10px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.02));
+}
+
+@media (max-width: 640px) {
+  .menubar {
+    gap: 8px;
+    height: 32px;
+    padding: 0 10px;
+  }
+
+  .menubar-left {
+    gap: 4px;
+  }
+
+  .menubar-app-name {
+    max-width: 120px;
+    padding: 0 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 12.5px;
+  }
+
+  .menubar-nav,
+  .menubar-item--desktop,
+  .menubar-dropdown {
+    display: none !important;
+  }
+
+  .menubar-mobile-trigger {
+    display: inline-flex;
+  }
+
+  .menubar-right {
+    gap: 4px;
+  }
+
+  .menubar-icon-btn,
+  .menubar-auth-btn--icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .menubar-time {
+    min-width: 0;
+    max-width: 68px;
+    padding: 0 0 0 6px;
+    font-size: 12px;
+  }
 }

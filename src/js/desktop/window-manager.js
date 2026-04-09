@@ -8,6 +8,63 @@ import { runGenieAnimation } from './window.js';
 import { createLogger } from '../shared/debug.js';
 
 const { log: wmLog } = createLogger('window');
+const HEADER_MOBILE_BREAKPOINT = 640;
+const HEADER_TIME_PRESETS = new Set([
+  'time-only',
+  'time-seconds',
+  'date-time',
+  'weekday-date-time',
+  'month-day-weekday-time'
+]);
+
+function parseBooleanData(value, fallback = false) {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return fallback;
+}
+
+function normalizeHourCycle(value) {
+  return String(value) === '24' ? '24' : '12';
+}
+
+function normalizeTimePreset(value, fallback = 'time-only') {
+  return HEADER_TIME_PRESETS.has(value) ? value : fallback;
+}
+
+function formatDayPeriod(hours) {
+  return hours < 12 ? '上午' : '下午';
+}
+
+function formatHeaderTime(date, preset, hourCycle) {
+  const now = date instanceof Date ? date : new Date();
+  const month = now.getMonth() + 1;
+  const day = now.getDate();
+  const weekday = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][now.getDay()];
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  const is24Hour = hourCycle === '24';
+  const rawHours = now.getHours();
+  const hourNumber = is24Hour ? rawHours : (rawHours % 12 || 12);
+  const hourText = is24Hour ? String(hourNumber).padStart(2, '0') : String(hourNumber);
+  const dayPeriod = is24Hour ? '' : `${formatDayPeriod(rawHours)} `;
+  const timeText = `${dayPeriod}${hourText}:${minutes}`;
+  const timeWithSecondsText = `${timeText}:${seconds}`;
+  const dateText = `${month}月${day}日`;
+
+  switch (preset) {
+    case 'time-seconds':
+      return timeWithSecondsText;
+    case 'date-time':
+      return `${dateText} ${timeText}`;
+    case 'weekday-date-time':
+      return `${weekday} ${dateText} ${timeText}`;
+    case 'month-day-weekday-time':
+      return `${dateText} ${weekday} ${timeText}`;
+    case 'time-only':
+    default:
+      return timeText;
+  }
+}
 
 export function registerWindowManager(Alpine) {
   // =========== 主题管理 ===========
@@ -60,19 +117,72 @@ export function registerWindowManager(Alpine) {
   Alpine.data('menuBar', () => ({
     timeStr: '',
     appName: '',
+    searchEnabled: true,
+    mobileMenuEnabled: true,
+    mobileMenuOpen: false,
+    timeEnabled: true,
+    timeDesktopPreset: 'month-day-weekday-time',
+    timeMobilePreset: 'time-only',
+    timeHourCycle: '12',
     init() {
-      this.appName = this.$el?.dataset?.siteTitle || '';
+      const dataset = this.$el?.dataset || {};
+      this.appName = dataset.siteTitle || '';
+      this.searchEnabled = parseBooleanData(dataset.searchEnabled, true);
+      this.mobileMenuEnabled = parseBooleanData(dataset.mobileMenuEnabled, true);
+      this.timeEnabled = parseBooleanData(dataset.timeEnabled, true);
+      this.timeDesktopPreset = normalizeTimePreset(dataset.timeDesktopPreset, 'month-day-weekday-time');
+      this.timeMobilePreset = normalizeTimePreset(dataset.timeMobilePreset, 'time-only');
+      this.timeHourCycle = normalizeHourCycle(dataset.timeHourCycle);
+
       this.tick();
-      setInterval(() => this.tick(), 1000);
+      this.tickTimer = window.setInterval(() => this.tick(), 1000);
+      this.handleResize = () => {
+        this.tick();
+        if (window.innerWidth >= HEADER_MOBILE_BREAKPOINT) {
+          this.closeMobileMenu();
+        }
+      };
+      this.handlePjaxComplete = () => {
+        this.closeMobileMenu();
+        this.tick();
+      };
+      this.handleEscape = (event) => {
+        if (event.key === 'Escape') {
+          this.closeMobileMenu();
+        }
+      };
+      window.addEventListener('resize', this.handleResize);
+      document.addEventListener('pjax:complete', this.handlePjaxComplete);
+      window.addEventListener('keydown', this.handleEscape);
     },
     openSearch() {
+      if (!this.searchEnabled) return;
+      this.closeMobileMenu();
       openSearchWidget();
     },
+    toggleMobileMenu() {
+      if (!this.mobileMenuEnabled) return;
+      this.mobileMenuOpen = !this.mobileMenuOpen;
+    },
+    closeMobileMenu() {
+      this.mobileMenuOpen = false;
+    },
+    currentTimePreset() {
+      return window.innerWidth < HEADER_MOBILE_BREAKPOINT
+        ? this.timeMobilePreset
+        : this.timeDesktopPreset;
+    },
     tick() {
-      const d = new Date();
-      const dateStr = d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', weekday: 'short' });
-      const timeStr = d.toLocaleTimeString('zh-CN', { hour: 'numeric', minute: '2-digit', hour12: true });
-      this.timeStr = dateStr.replace(/ /g, '') + ' ' + timeStr;
+      if (!this.timeEnabled) {
+        this.timeStr = '';
+        return;
+      }
+
+      this.timeStr = formatHeaderTime(
+        new Date(),
+        this.currentTimePreset(),
+        this.timeHourCycle
+      );
     }
   }));
 

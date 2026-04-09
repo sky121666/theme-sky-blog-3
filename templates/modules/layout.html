@@ -100,8 +100,19 @@
       bgMode = ${bgConf?.mode ?: 'preset'},
       bgPreset = ${bgConf?.preset ?: 'tahoe-dawn'},
       enableThemeSetting = ${theme.config.header?.theme?.enable_frontend_setting != null ? theme.config.header?.theme?.enable_frontend_setting : true},
+      headerActions = ${theme.config.header?.actions},
+      headerTime = ${theme.config.header?.time},
+      headerAuth = ${theme.config.header?.auth},
       headerLogoIcon = ${theme.config.header?.logo?.icon?.value ?: ''},
       headerAppName = ${!#strings.isEmpty(theme.config.header?.logo?.title) ? theme.config.header?.logo?.title : (site.title ?: '')},
+      headerSearchEnabled = ${headerActions?.search_enabled != null ? headerActions.search_enabled : true},
+      headerAuthEnabled = ${headerActions?.auth_enabled != null ? headerActions.auth_enabled : true},
+      headerMobileMenuEnabled = ${headerActions?.mobile_menu_enabled != null ? headerActions.mobile_menu_enabled : true},
+      headerTimeEnabled = ${headerTime?.enabled != null ? headerTime.enabled : true},
+      headerTimeDesktopPreset = ${headerTime?.desktop_preset ?: 'month-day-weekday-time'},
+      headerTimeMobilePreset = ${headerTime?.mobile_preset ?: 'time-only'},
+      headerTimeHourCycle = ${headerTime?.hour_cycle ?: '12'},
+      headerLoginLabel = ${!#strings.isEmpty(headerAuth?.login_label) ? headerAuth.login_label : '登录'},
       desktopCustomIcons = ${theme.config.desktop?.icons?.custom_icons ?: {}},
       desktopCategories = ${theme.config.desktop?.icons?.categories ?: {}},
       desktopTags = ${theme.config.desktop?.icons?.tags ?: {}},
@@ -179,113 +190,21 @@
     th:styleappend="${bgMode == 'image' and bgImageUrl != null ? 'background:url(' + bgImageUrl + ') center/cover no-repeat; background-color:#0f172a;' : (bgMode == 'solid' ? 'background-color:' + (bgConf?.solid_color ?: '#0f172a') + ';' : '')}"
   >
 
-    <!-- ==================== MenuBar ==================== -->
-    <div class="menubar relative z-50 flex items-center justify-between px-3 h-7 antialiased transition-colors" x-data="menuBar" th:data-site-title="${headerAppName}">
-      
-      <!-- 左侧：系统菜单与主导航 -->
-      <div class="flex items-center text-[13.5px] font-medium tracking-tight text-white drop-shadow-md">
-        <!-- Apple Logo / 自定义 Logo -->
-        <a href="javascript:void(0)" class="menubar-icon-btn mx-0.5 text-base justify-center gap-1" title="System">
-          <th:block th:if="${#strings.isEmpty(headerLogoIcon)}">
-            &#63743;
-          </th:block>
-          <th:block th:unless="${#strings.isEmpty(headerLogoIcon)}">
-            <span class="flex items-center justify-center w-[1.2em] h-[1.2em]" th:utext="${headerLogoIcon}"></span>
-          </th:block>
-        </a>
-        
-        <!-- 动态当前应用名 -->
-        <span th:if="${!#strings.isEmpty(headerAppName)}" class="menubar-app-name px-2 h-[22px] flex items-center cursor-default" x-text="appName" th:text="${headerAppName}"></span>
-
-        <!-- 动态渲染 Halo 后台菜单 (含二级下拉) -->
-        <th:block th:if="${headerMenu != null}">
-          <div th:each="menuItem : ${headerMenu.menuItems}"
-               th:with="
-                 menuItemHref = ${menuItem.status.href != null ? menuItem.status.href.toString() : ''},
-                 menuItemPjaxApp = ${(menuItemHref == '/moments' or menuItemHref == '/moments/' or menuItemHref matches '^/moments/[^/]+/?$') ? 'moments-app' : ((menuItemHref == '/archives' or menuItemHref == '/archives/' or menuItemHref matches '^/(tags|tag|categories|category|author|authors)(/.*)?$') ? 'explorer' : (menuItemHref matches '^/archives/[^/]+/?$' ? 'reader' : ''))}"
-               class="relative group"
-               x-data="{ open: false }"
-               @mouseenter="open = true"
-               @mouseleave="open = false"
-               @click.away="open = false">
-            <a th:href="${#lists.isEmpty(menuItem.children) ? menuItem.status.href : 'javascript:void(0)'}" 
-               th:target="${menuItem.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
-               th:attr="data-pjax-app=${#lists.isEmpty(menuItem.children) and !#strings.isEmpty(menuItemPjaxApp) ? menuItemPjaxApp : null}"
-               class="menubar-item hidden sm:inline-flex items-center mx-0.5 transition-none"
-               :class="{ 'is-open': open }"
-               th:classappend="${#lists.isEmpty(menuItem.children) ? 'pjax-link' : ''}"
-               th:text="${menuItem.status.displayName}">
-            </a>
-            
-            <!-- macOS Panel 风格下拉菜单 -->
-            <div th:if="${!#lists.isEmpty(menuItem.children)}"
-                 x-show="open"
-                 x-transition:enter="transition ease-out duration-75"
-                 x-transition:enter-start="opacity-0 -translate-y-0.5"
-                 x-transition:enter-end="opacity-100 translate-y-0"
-                 x-transition:leave="transition ease-in duration-60"
-                 x-transition:leave-start="opacity-100 translate-y-0"
-                 x-transition:leave-end="opacity-0 -translate-y-0.5"
-                 style="display: none;"
-                 class="menubar-dropdown absolute top-[100%] left-[-6px] mt-[3px] min-w-[220px] p-[5px] rounded-[11px] origin-top-left flex flex-col z-[100] drop-shadow-none">
-                 
-                 <th:block th:each="child : ${menuItem.children}"
-                           th:with="
-                             childIconType = ${#annotations.getOrDefault(child, 'icon_type', 'iconify')},
-                             childIconSvg = ${#annotations.getOrDefault(child, 'icon', '')},
-                             childCustomSvg = ${#annotations.getOrDefault(child, 'custom_svg', '')},
-                           childImageUrl = ${#annotations.getOrDefault(child, 'image_url', '')},
-                           childSeparatorBefore = ${#annotations.getOrDefault(child, 'header_separator_before', 'false')},
-                           childSvgContent = ${childIconType == 'custom_svg' ? childCustomSvg : childIconSvg},
-                           childHref = ${child.status.href != null ? child.status.href.toString() : ''},
-                           childPjaxApp = ${(childHref == '/moments' or childHref == '/moments/' or childHref matches '^/moments/[^/]+/?$') ? 'moments-app' : ((childHref == '/archives' or childHref == '/archives/' or childHref matches '^/(tags|tag|categories|category|author|authors)(/.*)?$') ? 'explorer' : (childHref matches '^/archives/[^/]+/?$' ? 'reader' : ''))}">
-                   <div th:if="${childSeparatorBefore == 'true' or childSeparatorBefore == true}" class="menubar-dropdown-separator"></div>
-                   <a th:href="${child.status.href}"
-                      th:target="${child.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
-                      th:attr="data-pjax-app=${child.spec.target?.name() != 'BLANK' and !#strings.isEmpty(childPjaxApp) ? childPjaxApp : null}"
-                      class="menubar-dropdown-item text-[13px] tracking-tight font-medium transition-none rounded-[6px]"
-                      th:classappend="${child.spec.target?.name() == 'BLANK' ? '' : 'pjax-link'}">
-                      <span class="menubar-dropdown-leading">
-                        <img th:if="${childIconType == 'image' and !#strings.isEmpty(childImageUrl)}"
-                             class="menubar-dropdown-icon-image"
-                             th:src="${childImageUrl}"
-                             th:alt="${child.status.displayName}"
-                             draggable="false" />
-                        <span th:if="${childIconType != 'image' and !#strings.isEmpty(childSvgContent)}"
-                              class="menubar-dropdown-icon-svg"
-                              th:utext="${childSvgContent}"></span>
-                      </span>
-                      <span class="menubar-dropdown-label" th:text="${child.status.displayName}"></span>
-                      <span class="menubar-dropdown-trailing">
-                        <svg th:if="${child.spec.target?.name() == 'BLANK'}" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                          <path d="M4 2.5H9.5V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-                          <path d="M8.8 3.2 2.6 9.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                      </span>
-                   </a>
-                 </th:block>
-            </div>
-          </div>
-        </th:block>
-      </div>
-
-      <!-- 右侧：控件与时间 -->
-      <div class="flex items-center gap-[6px] font-medium text-[13px] text-white drop-shadow-md">
-        <!-- Spotlight 全局搜索 (纯净原生极简图标) -->
-        <button type="button" th:if="${pluginFinder.available('PluginSearchWidget')}" @click="openSearch()" class="menubar-icon-btn relative" title="聚焦搜索 (Cmd+K)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-        </button>
-
-        <!-- 主题切换 (极致原生精简缩放) -->
-        <button @click="$store.theme.setMode($store.theme.isDark ? 'light' : 'dark')" class="menubar-icon-btn relative" th:if="${enableThemeSetting}" title="切换外观">
-            <svg x-show="!$store.theme.isDark" class="w-[14px] h-[14px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-            <svg x-show="$store.theme.isDark" style="display: none;" class="w-[14px] h-[14px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-        </button>
-        
-        <!-- 时钟 -->
-        <div class="px-3 py-0.5 cursor-default truncate min-w-[120px] text-right" x-text="timeStr"></div>
-      </div>
-    </div>
+    <th:block th:replace="~{modules/header :: bar(
+      siteTitle=${headerAppName},
+      logoIcon=${headerLogoIcon},
+      headerMenu=${headerMenu},
+      enableThemeSetting=${enableThemeSetting},
+      searchWidgetAvailable=${pluginFinder.available('PluginSearchWidget')},
+      searchEnabled=${headerSearchEnabled},
+      authEnabled=${headerAuthEnabled},
+      mobileMenuEnabled=${headerMobileMenuEnabled},
+      loginLabel=${headerLoginLabel},
+      timeEnabled=${headerTimeEnabled},
+      timeDesktopPreset=${headerTimeDesktopPreset},
+      timeMobilePreset=${headerTimeMobilePreset},
+      timeHourCycle=${headerTimeHourCycle}
+    )}"></th:block>
 
     <script th:inline="javascript">
       (() => {

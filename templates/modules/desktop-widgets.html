@@ -209,6 +209,7 @@
                             </div>
                           </header>
                           <div class="desktop-widget-body"
+                               :data-widget-render-mode="['halo.latest_posts', 'halo.popular_posts'].includes(selectedWidgetVariant(entry).widget) ? 'html' : 'morph'"
                                x-widget-content="renderWidgetBody(selectedWidgetVariant(entry), { preview: true })"></div>
                         </article>
                       </div>
@@ -277,7 +278,9 @@
                       <h2 class="desktop-widget-title" x-text="node.title"></h2>
                       </div>
                       </header>
-                      <div class="desktop-widget-body" x-widget-content="renderWidgetBody(node)"></div>
+                      <div class="desktop-widget-body"
+                           :data-widget-render-mode="['halo.latest_posts', 'halo.popular_posts'].includes(node.widget) ? 'html' : 'morph'"
+                           x-widget-content="renderWidgetBody(node)"></div>
                       </article>
                       </template>
               <!-- 悬浮删除按钮（放在 slot 层，不受 card overflow:hidden 影响） -->

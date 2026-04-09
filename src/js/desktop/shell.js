@@ -10,6 +10,11 @@ import { observeSearchWidget, openSearchWidget } from './search.js';
 import { registerWindowManager } from './window-manager.js';
 import { registerWindowComponents } from './window.js';
 
+function isHeaderSearchEnabled() {
+  const menubar = document.querySelector('.menubar');
+  return menubar?.dataset?.searchEnabled !== 'false';
+}
+
 export function registerShellComponents(Alpine) {
   // 1. Stores 必须最先注册（其它组件依赖 $store.windowManager / $store.theme）
   registerWindowManager(Alpine);
@@ -26,6 +31,7 @@ export function registerShellComponents(Alpine) {
   // 5. 全局快捷键
   window.addEventListener('keydown', (event) => {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+      if (!isHeaderSearchEnabled()) return;
       if (openSearchWidget()) {
         event.preventDefault();
       }

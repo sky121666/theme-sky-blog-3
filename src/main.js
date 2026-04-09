@@ -35,6 +35,15 @@ if (!window.__THEME_MAIN_LOADED__) {
     effect(() => {
       getHtml((html) => {
         const nextHtml = typeof html === 'string' ? html : '';
+        const renderMode = el.dataset.widgetRenderMode || 'morph';
+
+        if (renderMode === 'html') {
+          if (el.innerHTML !== nextHtml) {
+            el.innerHTML = nextHtml;
+          }
+          return;
+        }
+
         if (el.innerHTML === nextHtml) return;
 
         Alpine.morph(el, `<${tagName}>${nextHtml}</${tagName}>`, {

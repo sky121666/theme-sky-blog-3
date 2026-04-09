@@ -1,0 +1,221 @@
+<th:block xmlns:th="https://www.thymeleaf.org">
+  <div th:fragment="bar (siteTitle, logoIcon, headerMenu, enableThemeSetting, searchWidgetAvailable, searchEnabled, authEnabled, mobileMenuEnabled, loginLabel, timeEnabled, timeDesktopPreset, timeMobilePreset, timeHourCycle)"
+       class="menubar"
+       x-data="menuBar"
+       th:data-site-title="${siteTitle}"
+       th:data-search-enabled="${searchEnabled}"
+       th:data-mobile-menu-enabled="${mobileMenuEnabled}"
+       th:data-time-enabled="${timeEnabled}"
+       th:data-time-desktop-preset="${timeDesktopPreset}"
+       th:data-time-mobile-preset="${timeMobilePreset}"
+       th:data-time-hour-cycle="${timeHourCycle}">
+    <div class="menubar-left">
+      <a href="javascript:void(0)" class="menubar-icon-btn menubar-brand-icon" title="System">
+        <th:block th:if="${#strings.isEmpty(logoIcon)}">
+          &#63743;
+        </th:block>
+        <th:block th:unless="${#strings.isEmpty(logoIcon)}">
+          <span class="menubar-brand-glyph" th:utext="${logoIcon}"></span>
+        </th:block>
+      </a>
+
+      <span th:if="${!#strings.isEmpty(siteTitle)}"
+            class="menubar-app-name"
+            x-text="appName"
+            th:text="${siteTitle}"></span>
+
+      <nav class="menubar-nav" th:if="${headerMenu != null}">
+        <div th:each="menuItem : ${headerMenu.menuItems}"
+             th:with="
+               menuItemHref = ${menuItem.status.href != null ? menuItem.status.href.toString() : ''},
+               menuItemPjaxApp = ${(menuItemHref == '/moments' or menuItemHref == '/moments/' or menuItemHref matches '^/moments/[^/]+/?$') ? 'moments-app' : ((menuItemHref == '/archives' or menuItemHref == '/archives/' or menuItemHref matches '^/(tags|tag|categories|category|author|authors)(/.*)?$') ? 'explorer' : (menuItemHref matches '^/archives/[^/]+/?$' ? 'reader' : ''))}"
+             class="menubar-menu-group"
+             x-data="{ open: false }"
+             @mouseenter="open = true"
+             @mouseleave="open = false"
+             @click.away="open = false">
+          <a th:href="${#lists.isEmpty(menuItem.children) ? menuItem.status.href : 'javascript:void(0)'}"
+             th:target="${menuItem.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
+             th:attr="data-pjax-app=${#lists.isEmpty(menuItem.children) and !#strings.isEmpty(menuItemPjaxApp) ? menuItemPjaxApp : null}"
+             class="menubar-item menubar-item--desktop"
+             :class="{ 'is-open': open }"
+             th:classappend="${#lists.isEmpty(menuItem.children) ? 'pjax-link' : ''}"
+             th:text="${menuItem.status.displayName}"></a>
+
+          <th:block th:replace="~{modules/header :: submenu(menuItem=${menuItem})}"></th:block>
+        </div>
+      </nav>
+    </div>
+
+    <div class="menubar-right">
+      <button type="button"
+              class="menubar-icon-btn menubar-mobile-trigger"
+              th:if="${mobileMenuEnabled and headerMenu != null and !#lists.isEmpty(headerMenu.menuItems)}"
+              @click="toggleMobileMenu()"
+              :aria-expanded="mobileMenuOpen.toString()"
+              aria-label="打开菜单"
+              title="菜单">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M4 7H20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M4 12H20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M4 17H20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </button>
+
+      <button type="button"
+              class="menubar-icon-btn menubar-search-btn"
+              th:if="${searchWidgetAvailable and searchEnabled}"
+              @click="openSearch()"
+              title="聚焦搜索 (Cmd+K)">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2.2"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"></line>
+        </svg>
+      </button>
+
+      <a th:if="${authEnabled}"
+         href="/login"
+         class="menubar-auth-btn menubar-auth-btn--icon"
+         @click="closeMobileMenu()"
+         th:attr="title=${loginLabel},aria-label=${loginLabel}">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12Z"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"></path>
+          <path d="M4 21C4 17.6863 7.58172 15 12 15C16.4183 15 20 17.6863 20 21"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"></path>
+        </svg>
+      </a>
+
+      <button th:if="${enableThemeSetting}"
+              @click="$store.theme.setMode($store.theme.isDark ? 'light' : 'dark')"
+              class="menubar-icon-btn menubar-theme-btn"
+              title="切换外观">
+        <svg x-show="!$store.theme.isDark" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="2.1"/>
+          <line x1="12" y1="1" x2="12" y2="3" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
+          <line x1="12" y1="21" x2="12" y2="23" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
+          <line x1="1" y1="12" x2="3" y2="12" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
+          <line x1="21" y1="12" x2="23" y2="12" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
+        </svg>
+        <svg x-show="$store.theme.isDark" style="display: none;" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+      </button>
+
+      <div th:if="${timeEnabled}" class="menubar-time" x-text="timeStr"></div>
+    </div>
+
+    <th:block th:replace="~{modules/header :: mobile_dropdown(
+      headerMenu=${headerMenu},
+      searchWidgetAvailable=${searchWidgetAvailable},
+      searchEnabled=${searchEnabled},
+      authEnabled=${authEnabled},
+      mobileMenuEnabled=${mobileMenuEnabled}
+    )}"></th:block>
+  </div>
+
+  <div th:fragment="submenu (menuItem)"
+       th:if="${!#lists.isEmpty(menuItem.children)}"
+       x-show="open"
+       x-transition.opacity.duration.75ms
+       style="display: none;"
+       class="menubar-dropdown">
+    <th:block th:each="child, childStat : ${menuItem.children}"
+              th:with="
+                childIconType = ${#annotations.getOrDefault(child, 'icon_type', 'iconify')},
+                childIconSvg = ${#annotations.getOrDefault(child, 'icon', '')},
+                childCustomSvg = ${#annotations.getOrDefault(child, 'custom_svg', '')},
+                childImageUrl = ${#annotations.getOrDefault(child, 'image_url', '')},
+                childSeparatorBefore = ${#annotations.getOrDefault(child, 'header_separator_before', 'false')},
+                prevChildSeparatorBefore = ${childStat.index > 0 ? #annotations.getOrDefault(menuItem.children[childStat.index - 1], 'header_separator_before', 'false') : 'false'},
+                childSvgContent = ${childIconType == 'custom_svg' ? childCustomSvg : childIconSvg},
+                childHref = ${child.status.href != null ? child.status.href.toString() : ''},
+                childPjaxApp = ${(childHref == '/moments' or childHref == '/moments/' or childHref matches '^/moments/[^/]+/?$') ? 'moments-app' : ((childHref == '/archives' or childHref == '/archives/' or childHref matches '^/(tags|tag|categories|category|author|authors)(/.*)?$') ? 'explorer' : (childHref matches '^/archives/[^/]+/?$' ? 'reader' : ''))}">
+      <div th:if="${childStat.index > 0 and (childSeparatorBefore == 'true' or childSeparatorBefore == true) and !(prevChildSeparatorBefore == 'true' or prevChildSeparatorBefore == true)}"
+           class="menubar-dropdown-separator"></div>
+
+      <a th:href="${child.status.href}"
+         th:target="${child.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
+         th:attr="data-pjax-app=${child.spec.target?.name() != 'BLANK' and !#strings.isEmpty(childPjaxApp) ? childPjaxApp : null}"
+         class="menubar-dropdown-item"
+         th:classappend="${child.spec.target?.name() == 'BLANK' ? '' : 'pjax-link'}">
+        <span class="menubar-dropdown-leading">
+          <img th:if="${childIconType == 'image' and !#strings.isEmpty(childImageUrl)}"
+               class="menubar-dropdown-icon-image"
+               th:src="${childImageUrl}"
+               th:alt="${child.status.displayName}"
+               draggable="false" />
+          <span th:if="${childIconType != 'image' and !#strings.isEmpty(childSvgContent)}"
+                class="menubar-dropdown-icon-svg"
+                th:utext="${childSvgContent}"></span>
+        </span>
+        <span class="menubar-dropdown-label" th:text="${child.status.displayName}"></span>
+        <span class="menubar-dropdown-trailing">
+          <svg th:if="${child.spec.target?.name() == 'BLANK'}" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M4 2.5H9.5V8" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M8.8 3.2 2.6 9.4" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+      </a>
+    </th:block>
+  </div>
+
+  <div th:fragment="mobile_dropdown (headerMenu, searchWidgetAvailable, searchEnabled, authEnabled, mobileMenuEnabled)"
+       th:if="${mobileMenuEnabled}"
+       x-show="mobileMenuOpen"
+       x-transition.opacity.duration.100ms
+       @click.outside="closeMobileMenu()"
+       style="display: none;"
+       class="menubar-mobile-dropdown">
+    <div class="menubar-mobile-dropdown-inner">
+      <th:block th:if="${headerMenu != null}">
+        <th:block th:each="menuItem : ${headerMenu.menuItems}"
+                  th:with="
+                    menuItemHref = ${menuItem.status.href != null ? menuItem.status.href.toString() : ''},
+                    menuItemPjaxApp = ${(menuItemHref == '/moments' or menuItemHref == '/moments/' or menuItemHref matches '^/moments/[^/]+/?$') ? 'moments-app' : ((menuItemHref == '/archives' or menuItemHref == '/archives/' or menuItemHref matches '^/(tags|tag|categories|category|author|authors)(/.*)?$') ? 'explorer' : (menuItemHref matches '^/archives/[^/]+/?$' ? 'reader' : ''))}">
+          <a th:if="${#lists.isEmpty(menuItem.children)}"
+             th:href="${menuItem.status.href}"
+             th:target="${menuItem.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
+             th:attr="data-pjax-app=${menuItem.spec.target?.name() != 'BLANK' and !#strings.isEmpty(menuItemPjaxApp) ? menuItemPjaxApp : null}"
+             class="menubar-mobile-item"
+             th:classappend="${menuItem.spec.target?.name() == 'BLANK' ? '' : 'pjax-link'}"
+             @click="closeMobileMenu()"
+             th:text="${menuItem.status.displayName}"></a>
+
+          <section th:if="${!#lists.isEmpty(menuItem.children)}" class="menubar-mobile-section">
+            <h3 class="menubar-mobile-section-label" th:text="${menuItem.status.displayName}"></h3>
+
+            <th:block th:each="child, childStat : ${menuItem.children}"
+                      th:with="
+                        childSeparatorBefore = ${#annotations.getOrDefault(child, 'header_separator_before', 'false')},
+                        prevChildSeparatorBefore = ${childStat.index > 0 ? #annotations.getOrDefault(menuItem.children[childStat.index - 1], 'header_separator_before', 'false') : 'false'},
+                        childHref = ${child.status.href != null ? child.status.href.toString() : ''},
+                        childPjaxApp = ${(childHref == '/moments' or childHref == '/moments/' or childHref matches '^/moments/[^/]+/?$') ? 'moments-app' : ((childHref == '/archives' or childHref == '/archives/' or childHref matches '^/(tags|tag|categories|category|author|authors)(/.*)?$') ? 'explorer' : (childHref matches '^/archives/[^/]+/?$' ? 'reader' : ''))}">
+              <div th:if="${childStat.index > 0 and (childSeparatorBefore == 'true' or childSeparatorBefore == true) and !(prevChildSeparatorBefore == 'true' or prevChildSeparatorBefore == true)}"
+                   class="menubar-mobile-dropdown-separator"></div>
+
+              <a th:href="${child.status.href}"
+                 th:target="${child.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
+                 th:attr="data-pjax-app=${child.spec.target?.name() != 'BLANK' and !#strings.isEmpty(childPjaxApp) ? childPjaxApp : null}"
+                 class="menubar-mobile-item menubar-mobile-item--child"
+                 th:classappend="${child.spec.target?.name() == 'BLANK' ? '' : 'pjax-link'}"
+                 @click="closeMobileMenu()"
+                 th:text="${child.status.displayName}"></a>
+            </th:block>
+          </section>
+        </th:block>
+      </th:block>
+
+    </div>
+  </div>
+</th:block>

@@ -4,6 +4,7 @@
 
 @import "tailwindcss";
 @source "../../templates/modules/layout.html";
+@source "../../templates/modules/header.html";
 @source "../../templates/modules/desktop-widgets.html";
 
 @custom-variant dark (&:where(.dark, .dark *));
