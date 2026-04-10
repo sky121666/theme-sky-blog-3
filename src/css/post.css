@@ -1284,7 +1284,7 @@
     max-height: min(62vh, 520px);
     padding: 10px 14px calc(16px + env(safe-area-inset-bottom, 0px));
     border-radius: 22px 22px 0 0;
-    background: color-mix(in srgb, var(--post-soft-surface) 94%, white);
+    background: rgba(248, 248, 250, 0.94);
     border-top: 1px solid rgba(15, 23, 42, 0.08);
     box-shadow: 0 -18px 42px rgba(15, 23, 42, 0.18);
     backdrop-filter: blur(22px) saturate(130%);
