@@ -126,7 +126,7 @@
   --widget-card-surface: rgba(255, 255, 255, 0.72);
   --widget-card-highlight: rgba(255, 255, 255, 0.42);
   --widget-card-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
-  --widget-card-border: rgba(15, 23, 42, 0.08);
+  --widget-card-border: rgba(15, 23, 42, 0.05);
   --widget-card-inner: rgba(255, 255, 255, 0.54);
   --widget-card-outline: rgba(15, 23, 42, 0.03);
   --widget-clock-dial-fill: rgba(255, 255, 255, 0.86);

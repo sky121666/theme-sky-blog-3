@@ -47,34 +47,6 @@
   background: var(--shell-desktop-hover-bg);
 }
 
-.desktop-icon.selected {
-  background: transparent;
-  border-color: transparent;
-}
-
-.desktop-icon.selected .desktop-icon-label {
-  background: color-mix(in srgb, var(--mac-selection) 76%, #10203d);
-  color: #fff;
-  text-shadow: none;
-  box-shadow:
-    0 6px 14px rgba(7, 16, 34, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.16);
-}
-
-.dark .desktop-icon:hover {
-  background: var(--shell-desktop-hover-bg);
-}
-
-.dark .desktop-icon.selected {
-  background: transparent;
-  border-color: transparent;
-}
-
-.dark .desktop-icon-label {
-  color: var(--shell-text-primary);
-  text-shadow: 0 1px 2px rgba(0,0,0,0.62);
-}
-
 @media (max-width: 820px) {
   .desktop-icon {
     padding: 4px;
