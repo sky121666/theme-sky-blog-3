@@ -1250,126 +1250,127 @@
   .post-comments {
     margin-top: 56px;
   }
+}
 
-  body[data-page-app="reader"] .post-outline-trigger {
-    display: inline-flex !important;
-    align-items: center;
-    justify-content: center;
-  }
+/* ────────── Container-Aware TOC Responsive Logic ────────── */
+.macos-window[data-window-narrow="true"] .post-outline-trigger {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+}
 
-  body[data-page-app="reader"] .post-outline {
-    display: none !important;
-  }
+.macos-window[data-window-narrow="true"] .post-outline {
+  display: none !important;
+}
 
-  body[data-page-app="reader"] .post-outline-mobile-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 95;
-    background: rgba(15, 23, 42, 0.36);
-    opacity: 0;
-    transition: opacity 0.22s ease;
-  }
+.macos-window[data-window-narrow="true"] .post-outline-mobile-backdrop {
+  position: absolute; /* changed from fixed to stay inside window */
+  inset: 0;
+  z-index: 95;
+  background: rgba(15, 23, 42, 0.36);
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
 
-  body[data-page-app="reader"] .post-outline-mobile-backdrop[data-open] {
-    opacity: 1;
-  }
+.macos-window[data-window-narrow="true"] .post-outline-mobile-backdrop[data-open] {
+  opacity: 1;
+}
 
-  body[data-page-app="reader"] .post-outline-mobile-sheet {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 96;
-    min-height: 180px;
-    max-height: min(62vh, 520px);
-    padding: 10px 14px calc(16px + env(safe-area-inset-bottom, 0px));
-    border-radius: 22px 22px 0 0;
-    background: rgba(248, 248, 250, 0.94);
-    border-top: 1px solid rgba(15, 23, 42, 0.08);
-    box-shadow: 0 -18px 42px rgba(15, 23, 42, 0.18);
-    backdrop-filter: blur(22px) saturate(130%);
-    -webkit-backdrop-filter: blur(22px) saturate(130%);
-    transform: translateY(100%);
-    transition: transform 0.24s ease;
-    display: flex;
-    flex-direction: column;
-  }
+.macos-window[data-window-narrow="true"] .post-outline-mobile-sheet {
+  position: absolute; /* changed from fixed to stay inside window */
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 96;
+  min-height: 180px;
+  max-height: min(62vh, 520px);
+  padding: 10px 14px calc(16px + env(safe-area-inset-bottom, 0px));
+  border-radius: 22px 22px 0 0;
+  background: rgba(248, 248, 250, 0.94);
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 -18px 42px rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(22px) saturate(130%);
+  -webkit-backdrop-filter: blur(22px) saturate(130%);
+  transform: translateY(100%);
+  transition: transform 0.24s ease;
+  display: flex;
+  flex-direction: column;
+}
 
-  body[data-page-app="reader"] .post-outline-mobile-sheet[data-open] {
-    transform: translateY(0);
-  }
+.macos-window[data-window-narrow="true"] .post-outline-mobile-sheet[data-open] {
+  transform: translateY(0);
+}
 
-  body[data-page-app="reader"] .post-outline-mobile-sheet[data-dragging] {
-    transition: none;
-  }
+.macos-window[data-window-narrow="true"] .post-outline-mobile-sheet[data-dragging] {
+  transition: none;
+}
 
-  body[data-page-app="reader"] .post-outline-mobile-sheet-handle {
-    appearance: none;
-    width: 42px;
-    height: 4px;
-    border-radius: 999px;
-    background: rgba(15, 23, 42, 0.16);
-    margin: 0 auto 10px;
-    flex: none;
-    border: 0;
-    padding: 0;
-    cursor: ns-resize;
-    touch-action: none;
-  }
+.macos-window[data-window-narrow="true"] .post-outline-mobile-sheet-handle {
+  appearance: none;
+  width: 42px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.16);
+  margin: 0 auto 10px;
+  flex: none;
+  border: 0;
+  padding: 0;
+  cursor: ns-resize;
+  touch-action: none;
+}
 
-  body[data-page-app="reader"] .post-outline-mobile-header {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 10px;
-  }
+.macos-window[data-window-narrow="true"] .post-outline-mobile-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+}
 
-  body[data-page-app="reader"] .post-outline-mobile-title {
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: rgba(17, 24, 39, 0.92);
-  }
+.macos-window[data-window-narrow="true"] .post-outline-mobile-title {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: rgba(17, 24, 39, 0.92);
+}
 
-  body[data-page-app="reader"] .post-outline-mobile-list {
-    min-height: 0;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding-bottom: 4px;
-  }
+.macos-window[data-window-narrow="true"] .post-outline-mobile-list {
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 4px;
+}
 
-  body[data-page-app="reader"] .post-outline-mobile-list .post-outline-link {
-    width: 100%;
-    text-align: left;
-    padding: 10px 12px;
-    border-radius: 12px;
-    font-size: 13px;
-    line-height: 1.38;
-  }
+.macos-window[data-window-narrow="true"] .post-outline-mobile-list .post-outline-link {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.38;
+}
 
-  body[data-page-app="reader"] .post-outline-mobile-list .post-outline-link--h3 {
-    padding-left: 24px;
-  }
+.macos-window[data-window-narrow="true"] .post-outline-mobile-list .post-outline-link--h3 {
+  padding-left: 24px;
+}
 
-  body[data-page-app="reader"] .post-outline-mobile-list .post-outline-link--h4 {
-    padding-left: 36px;
-  }
+.macos-window[data-window-narrow="true"] .post-outline-mobile-list .post-outline-link--h4 {
+  padding-left: 36px;
+}
 
-  .dark body[data-page-app="reader"] .post-outline-mobile-sheet {
-    background: color-mix(in srgb, rgba(28, 28, 30, 0.96) 94%, transparent);
-    border-top-color: rgba(255, 255, 255, 0.08);
-    box-shadow: 0 -22px 52px rgba(0, 0, 0, 0.34);
-  }
+.dark .macos-window[data-window-narrow="true"] .post-outline-mobile-sheet {
+  background: color-mix(in srgb, rgba(28, 28, 30, 0.96) 94%, transparent);
+  border-top-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -22px 52px rgba(0, 0, 0, 0.34);
+}
 
-  .dark body[data-page-app="reader"] .post-outline-mobile-sheet-handle {
-    background: rgba(255, 255, 255, 0.18);
-  }
+.dark .macos-window[data-window-narrow="true"] .post-outline-mobile-sheet-handle {
+  background: rgba(255, 255, 255, 0.18);
+}
 
-  .dark body[data-page-app="reader"] .post-outline-mobile-title {
-    color: rgba(245, 245, 247, 0.92);
-  }
+.dark .macos-window[data-window-narrow="true"] .post-outline-mobile-title {
+  color: rgba(245, 245, 247, 0.92);
 }
 
 @container (max-width: 620px) {

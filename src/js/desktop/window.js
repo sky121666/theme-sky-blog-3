@@ -491,6 +491,7 @@ export function registerWindowComponents(Alpine) {
     },
 
     syncState() {
+      this.syncNarrowState();
       if (!this.isDesktop) return;
       if (this.metricsKey === 'none') return;
       localStorage.setItem(`theme-window-metrics-${this.metricsKey}`, JSON.stringify({
@@ -504,6 +505,14 @@ export function registerWindowComponents(Alpine) {
         preMaxWidth: this.preMaxWidth,
         preMaxHeight: this.preMaxHeight
       }));
+    },
+
+    syncNarrowState() {
+      if (!this.isDesktop || (this.width > 0 && this.width < 768)) {
+        this.windowEl.dataset.windowNarrow = 'true';
+      } else {
+        delete this.windowEl.dataset.windowNarrow;
+      }
     },
 
     init() {
@@ -550,12 +559,14 @@ export function registerWindowComponents(Alpine) {
          this.applyTransform();
       }
 
+      this.syncNarrowState();
       this.applyResizeMode();
 
       if (this.isDesktop && window.ResizeObserver) {
         let resizeTimeout;
         const ro = new ResizeObserver(() => {
-          if (!this.isDesktop || this.isMaximized || this.isResizing) return;
+          /* 视口 resize 期间跳过，防止 clipped offsetWidth 污染 this.width */
+          if (this._viewportResizing || !this.isDesktop || this.isMaximized || this.isResizing) return;
           const newW = this.windowEl.offsetWidth;
           const newH = this.windowEl.offsetHeight;
           if (newW && newH && (this.width !== newW || this.height !== newH)) {
@@ -567,19 +578,37 @@ export function registerWindowComponents(Alpine) {
         });
         ro.observe(this.windowEl);
       }
-      
-      const resizeHandler = () => {
-        const wasDesktop = this.isDesktop;
-        this.isDesktop = window.innerWidth > 768;
 
-        if (!this.isDesktop) {
-          /* ── 进入/保持 mobile ── */
-          if (wasDesktop && this.width > 0) {
-            this._savedDesktopWidth = this.width;
-            this._savedDesktopHeight = this.height;
-            this._savedDesktopX = this.x;
-            this._savedDesktopY = this.y;
+      /* ── viewport resize: 暂停 ResizeObserver + 处理 maximized ── */
+      this._viewportResizing = false;
+      let vpTimer;
+      window.addEventListener('resize', () => {
+        this._viewportResizing = true;
+        clearTimeout(vpTimer);
+        vpTimer = setTimeout(() => {
+          this._viewportResizing = false;
+          /* maximized 窗口跟随视口 */
+          if (this.isDesktop && this.isMaximized) {
+            this.width = window.innerWidth;
+            this.height = window.innerHeight - 28;
+            this.windowEl.style.width = `${this.width}px`;
+            this.windowEl.style.height = `${this.height}px`;
+            this.syncState();
           }
+          if (this.isDesktop) {
+            this.clampPositions();
+            this.applyTransform();
+          }
+          this.applyResizeMode();
+        }, 150);
+      });
+
+      /* ── matchMedia: 精确检测 mobile ↔ desktop 阈值跨越 ── */
+      const mql = window.matchMedia('(min-width: 769px)');
+      const onModeChange = (e) => {
+        this.isDesktop = e.matches;
+        if (!this.isDesktop) {
+          /* → mobile: this.width/height 保持不动 */
           this.isDragging = false;
           this.isResizing = false;
           document.body.style.userSelect = '';
@@ -589,16 +618,8 @@ export function registerWindowComponents(Alpine) {
           this.windowEl.style.top = '';
           this.windowEl.style.width = '100%';
           this.windowEl.style.height = '100%';
-
-        } else if (!wasDesktop) {
-          /* ── mobile → desktop 过渡 ── */
-          if (this._savedDesktopWidth > 0) {
-            this.width = this._savedDesktopWidth;
-            this.height = this._savedDesktopHeight;
-            this.x = this._savedDesktopX;
-            this.y = this._savedDesktopY;
-            this._savedDesktopWidth = 0;
-          }
+        } else {
+          /* → desktop: 从未被污染的 this.width/height 恢复 */
           if (this.width === 0) {
             this.updateMeasurements();
           } else {
@@ -624,26 +645,10 @@ export function registerWindowComponents(Alpine) {
             this.applyTransform();
             this.syncState();
           }
-
-        } else {
-          /* ── 保持 desktop — 仅调整位置，不改窗口尺寸 ── */
-          if (this.isMaximized) {
-            this.width = window.innerWidth;
-            this.height = window.innerHeight - 28;
-            this.windowEl.style.width = `${this.width}px`;
-            this.windowEl.style.height = `${this.height}px`;
-            this.syncState();
-          }
-          this.clampPositions();
-          this.applyTransform();
         }
         this.applyResizeMode();
       };
-      let timeout;
-      window.addEventListener('resize', () => {
-        clearTimeout(timeout);
-        timeout = setTimeout(resizeHandler, 100);
-      });
+      mql.addEventListener('change', onModeChange);
 
       const isHome = window.location.pathname === '/';
 
