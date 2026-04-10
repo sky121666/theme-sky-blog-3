@@ -3,7 +3,7 @@
  *
  * 所有方法通过 spread 注入 Alpine.data，内部使用 this 访问组件状态。
  */
-const STRIP_ALPINE_RE = /\s(x-html|x-text|x-show|x-if|x-for|x-bind|x-on|x-transition[^=]*|:class|:style|:data-[^=]*|@[a-z.]+)="[^"]*"/g;
+const STRIP_ALPINE_RE = /\s(x-html|x-widget-content|x-text|x-show|x-if|x-for|x-bind|x-on|x-transition[^=]*|:class|:style|:data-[^=]*|@[a-z.]+)="[^"]*"/g;
 
 export const dragMethods = {
   previewPlacementClass() {
