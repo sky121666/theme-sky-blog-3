@@ -158,8 +158,8 @@ body {
   --theme-shell-light: var(--mac-shell-light, #ffffff);
   --theme-shell-dark: var(--mac-shell-dark, #141414);
   --shell-text-primary: #ffffff;
-  --shell-menubar-bg: rgba(56, 59, 66, 0.26);
-  --shell-menubar-border: rgba(255, 255, 255, 0.09);
+  --shell-menubar-bg: rgba(200, 204, 212, 0.18);
+  --shell-menubar-border: transparent;
   --shell-menubar-hover-bg: rgba(255, 255, 255, 0.08);
   --shell-dock-glass-bg: rgba(52, 56, 63, 0.34);
   --shell-dock-glass-border: rgba(255, 255, 255, 0.10);
@@ -251,6 +251,7 @@ body {
   --content-chrome-hover-bg: rgba(255, 255, 255, 0.09);
   --content-chrome-hover-text: #f5f5f7;
   --content-body-bg: var(--mac-window-dark);
+  --shell-menubar-bg: rgba(20, 22, 28, 0.10);
   --halo-search-widget-base-bg-color: #1c1c1e;
   --halo-search-widget-muted-color: #98989d;
   --halo-search-widget-content-color: #f5f5f7;
