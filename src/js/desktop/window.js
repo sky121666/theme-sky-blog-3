@@ -508,9 +508,11 @@ export function registerWindowComponents(Alpine) {
     },
 
     syncNarrowState() {
-      if (!this.isDesktop || (this.width > 0 && this.width < 768)) {
+      const isNarrow = !this.isDesktop || (this.width > 0 && this.width < 768);
+      
+      if (isNarrow && this.windowEl.dataset.windowNarrow !== 'true') {
         this.windowEl.dataset.windowNarrow = 'true';
-      } else {
+      } else if (!isNarrow && this.windowEl.dataset.windowNarrow === 'true') {
         delete this.windowEl.dataset.windowNarrow;
       }
     },
