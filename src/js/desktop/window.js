@@ -555,7 +555,7 @@ export function registerWindowComponents(Alpine) {
       if (this.isDesktop && window.ResizeObserver) {
         let resizeTimeout;
         const ro = new ResizeObserver(() => {
-          if (this.isMaximized || this.isResizing) return;
+          if (!this.isDesktop || this.isMaximized || this.isResizing) return;
           const newW = this.windowEl.offsetWidth;
           const newH = this.windowEl.offsetHeight;
           if (newW && newH && (this.width !== newW || this.height !== newH)) {
@@ -569,8 +569,17 @@ export function registerWindowComponents(Alpine) {
       }
       
       const resizeHandler = () => {
+        const wasDesktop = this.isDesktop;
         this.isDesktop = window.innerWidth > 768;
+
         if (!this.isDesktop) {
+          /* ── 进入/保持 mobile ── */
+          if (wasDesktop && this.width > 0) {
+            this._savedDesktopWidth = this.width;
+            this._savedDesktopHeight = this.height;
+            this._savedDesktopX = this.x;
+            this._savedDesktopY = this.y;
+          }
           this.isDragging = false;
           this.isResizing = false;
           document.body.style.userSelect = '';
@@ -580,17 +589,53 @@ export function registerWindowComponents(Alpine) {
           this.windowEl.style.top = '';
           this.windowEl.style.width = '100%';
           this.windowEl.style.height = '100%';
+
+        } else if (!wasDesktop) {
+          /* ── mobile → desktop 过渡 ── */
+          if (this._savedDesktopWidth > 0) {
+            this.width = this._savedDesktopWidth;
+            this.height = this._savedDesktopHeight;
+            this.x = this._savedDesktopX;
+            this.y = this._savedDesktopY;
+            this._savedDesktopWidth = 0;
+          }
+          if (this.width === 0) {
+            this.updateMeasurements();
+          } else {
+            if (this.isMaximized) {
+              this.width = window.innerWidth;
+              this.height = window.innerHeight - 28;
+            } else {
+              const maxW = window.innerWidth - 40;
+              const maxH = window.innerHeight - 68;
+              const forcedW = parseInt(this.windowEl.dataset.windowWidth, 10);
+              if (forcedW > 0 && (this.windowEl.dataset.windowResizable === 'y' || this.windowEl.dataset.windowResizable === 'false')) {
+                this.width = Math.min(forcedW, maxW);
+              }
+              if (this.width > maxW) this.width = maxW;
+              if (this.height > maxH) this.height = maxH;
+              if (this.x < 0 || this.x + this.width > window.innerWidth) {
+                this.x = Math.max(0, (window.innerWidth - this.width) / 2);
+              }
+            }
+            this.windowEl.style.width = `${this.width}px`;
+            this.windowEl.style.height = `${this.height}px`;
+            this.clampPositions();
+            this.applyTransform();
+            this.syncState();
+          }
+
         } else {
-           if (this.width === 0) this.updateMeasurements();
-           if (this.isMaximized) {
-             this.width = window.innerWidth;
-             this.height = window.innerHeight - 28;
-             this.windowEl.style.width = `${this.width}px`;
-             this.windowEl.style.height = `${this.height}px`;
-             this.syncState();
-           }
-           this.clampPositions(); 
-           this.applyTransform();
+          /* ── 保持 desktop — 仅调整位置，不改窗口尺寸 ── */
+          if (this.isMaximized) {
+            this.width = window.innerWidth;
+            this.height = window.innerHeight - 28;
+            this.windowEl.style.width = `${this.width}px`;
+            this.windowEl.style.height = `${this.height}px`;
+            this.syncState();
+          }
+          this.clampPositions();
+          this.applyTransform();
         }
         this.applyResizeMode();
       };
