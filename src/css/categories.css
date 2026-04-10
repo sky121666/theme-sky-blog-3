@@ -715,7 +715,7 @@
   100% { background-position: -200% 0; }
 }
 
-@media (max-width: 1080px) {
+@container (max-width: 1080px) {
   .categories-content,
   .category-workspace {
     grid-template-columns: minmax(0, 1fr);
@@ -727,7 +727,7 @@
   }
 }
 
-@media (max-width: 920px) {
+@container (max-width: 920px) {
   #pjax-container:has(> .categories-shell),
   #pjax-container:has(> .category-shell) {
     display: block;
@@ -783,7 +783,7 @@
   }
 }
 
-@media (max-width: 760px) {
+@container (max-width: 760px) {
   .categories-content,
   .category-workspace {
     grid-template-columns: 1fr;

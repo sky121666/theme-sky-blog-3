@@ -606,7 +606,7 @@
   line-height: 1.72;
 }
 
-@media (max-width: 1080px) {
+@container (max-width: 1080px) {
   .archive-columns {
     grid-template-columns: 220px minmax(0, 1fr);
   }
@@ -616,13 +616,13 @@
   }
 }
 
-@media (min-width: 1440px) {
+@container (min-width: 1440px) {
   .archive-columns {
     grid-template-columns: 244px minmax(420px, 1.24fr) minmax(360px, 1fr);
   }
 }
 
-@media (max-width: 920px) {
+@container (max-width: 920px) {
   #pjax-container:has(> .archive-shell) {
     display: block;
     height: auto;
@@ -670,7 +670,7 @@
   }
 }
 
-@media (max-width: 760px) {
+@container (max-width: 760px) {
   .archive-shell {
     min-height: auto;
   }

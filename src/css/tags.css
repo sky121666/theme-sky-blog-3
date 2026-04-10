@@ -686,7 +686,7 @@
   opacity: 0.42;
 }
 
-@media (max-width: 1080px) {
+@container (max-width: 1080px) {
   .tags-content,
   .tag-workspace {
     grid-template-columns: minmax(0, 1fr);
@@ -698,7 +698,7 @@
   }
 }
 
-@media (max-width: 920px) {
+@container (max-width: 920px) {
   #pjax-container:has(> .tags-shell),
   #pjax-container:has(> .tag-shell) {
     display: block;
@@ -754,7 +754,7 @@
   }
 }
 
-@media (max-width: 760px) {
+@container (max-width: 760px) {
   .tags-content,
   .tag-workspace {
     grid-template-columns: 1fr;

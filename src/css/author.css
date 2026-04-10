@@ -393,7 +393,7 @@
   margin-bottom: 0;
 }
 
-@media (width <= 1320px) {
+@container (width <= 1320px) {
   .author-workspace.tag-workspace {
     grid-template-columns: 272px 208px minmax(0, 1fr);
   }
@@ -403,7 +403,7 @@
   }
 }
 
-@media (width <= 980px) {
+@container (width <= 980px) {
   #pjax-container:has(> .author-shell.tag-shell) {
     display: block;
     height: auto;
@@ -459,7 +459,7 @@
   }
 }
 
-@media (width <= 760px) {
+@container (width <= 760px) {
   .author-profile-card.tag-folder-card {
     padding: 16px 14px 14px;
   }
