@@ -586,23 +586,83 @@ spec:
         - $formkit: group
           id: dock_appearance_group
           name: appearance
-          label: Dock 交互
+          label: Dock 外观与交互
           value:
             show_labels: true
             magnification: true
+            icon_size: 48
+            icon_gap: 4
+            dock_padding: 6
+            magnification_scale: 1.4
+            glass_blur: 60
+            glass_opacity: 28
           children:
             - $formkit: switch
               id: dock_appearance_show_labels
               name: show_labels
               label: 显示名称标签
-              help: 控制 Dock 提示气泡是否显示名称，不影响 Dock 固定玻璃底材质。
+              help: 控制 Dock 提示气泡是否显示名称。
               value: true
             - $formkit: switch
               id: dock_appearance_magnification
               name: magnification
               label: 启用放大效果
-              help: 控制鼠标滑过 Dock 图标时是否启用 macOS 风格放大动画，不影响 Dock 固定玻璃底材质。
+              help: 控制鼠标滑过 Dock 图标时是否启用 macOS 风格放大动画。
               value: true
+            - $formkit: number
+              id: dock_appearance_icon_size
+              name: icon_size
+              label: 图标大小
+              help: Dock 图标的基础尺寸，范围 36–64 px。
+              value: 48
+              min: 36
+              max: 64
+              step: 2
+            - $formkit: number
+              id: dock_appearance_icon_gap
+              name: icon_gap
+              label: 图标间距
+              help: Dock 图标之间的间距，范围 2–12 px。
+              value: 4
+              min: 2
+              max: 12
+              step: 1
+            - $formkit: number
+              id: dock_appearance_dock_padding
+              name: dock_padding
+              label: 内边距
+              help: Dock 玻璃面板边缘到图标之间的间距，范围 4–16 px。
+              value: 6
+              min: 4
+              max: 16
+              step: 1
+            - $formkit: number
+              id: dock_appearance_magnification_scale
+              name: magnification_scale
+              label: 放大倍率
+              help: 鼠标悬停时的最大放大比例，范围 1.0–2.0（1.0 = 不放大）。
+              value: 1.4
+              min: 1
+              max: 2
+              step: 0.1
+            - $formkit: number
+              id: dock_appearance_glass_blur
+              name: glass_blur
+              label: 背景模糊
+              help: Dock 玻璃背景的模糊半径，范围 20–100 px。
+              value: 60
+              min: 20
+              max: 100
+              step: 5
+            - $formkit: number
+              id: dock_appearance_glass_opacity
+              name: glass_opacity
+              label: 背景透明度
+              help: Dock 玻璃背景的不透明度，范围 10–80%，数值越小越透明。
+              value: 28
+              min: 10
+              max: 80
+              step: 2
 
     - group: moments
       label: 瞬间

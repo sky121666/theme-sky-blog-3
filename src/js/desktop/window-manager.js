@@ -443,19 +443,47 @@ export function registerWindowManager(Alpine) {
     init() {
       const dockBar = this.$refs.dockBar;
       if (!dockBar) return;
-      const enableMagnification = this.$el.dataset.magnification !== 'false';
-      const showLabels = this.$el.dataset.showLabels === 'true';
-      
-      const baseSize = 48;
-      const maxSize = 60;
-      const range = 120;
-      const maxLift = 10;
+      const el = this.$el;
+      const ds = el.dataset;
+
+      /* ── 从后台设置读取参数 ── */
+      const enableMagnification = ds.magnification !== 'false';
+      const showLabels = ds.showLabels === 'true';
+      const baseSize = Math.max(36, Math.min(64, parseInt(ds.dockIconSize, 10) || 48));
+      const iconGap = Math.max(2, Math.min(12, parseInt(ds.dockIconGap, 10) || 4));
+      const dockPadding = Math.max(4, Math.min(16, parseInt(ds.dockPadding, 10) || 6));
+      const magScale = Math.max(1, Math.min(2, parseFloat(ds.dockMagScale) || 1.4));
+      const glassBlur = Math.max(20, Math.min(100, parseInt(ds.dockGlassBlur, 10) || 60));
+      const glassOpacity = Math.max(10, Math.min(80, parseInt(ds.dockGlassOpacity, 10) || 28));
+
+      /* ── 计算派生参数 ── */
+      const maxSize = Math.round(baseSize * magScale);
+      const range = Math.round(baseSize * 2.9);
+      const maxLift = Math.round(baseSize * 0.29);
+      const maxScale = maxSize / baseSize;
+      const glassHeight = baseSize + dockPadding * 2;
+      const barHeight = baseSize + dockPadding * 2 + 30;  /* +30 = maxLift headroom，放大时图标上浮预留空间 */
+
+      /* ── 将参数注入 CSS 变量 ── */
+      el.style.setProperty('--dock-icon-size', `${baseSize}px`);
+      el.style.setProperty('--dock-gap', `${iconGap}px`);
+      el.style.setProperty('--dock-padding', `${dockPadding}px`);
+      el.style.setProperty('--dock-glass-height', `${glassHeight}px`);
+      el.style.setProperty('--dock-bar-height', `${barHeight}px`);
+      el.style.setProperty('--dock-blur', `${glassBlur}px`);
+      el.style.setProperty('--dock-opacity', `${glassOpacity / 100}`);
+      el.style.setProperty('--dock-icon-radius', `${Math.round(baseSize * 0.25)}px`);
+
       let rafId = null;
+      let lastMouseX = null;
+
+      const ac = new AbortController();
+      const { signal } = ac;
 
       const getIcons = () => Array.from(dockBar.querySelectorAll('.dock-icon'));
-      const maxScale = maxSize / baseSize;
 
       const resetIcons = () => {
+        lastMouseX = null;
         getIcons().forEach((icon) => {
           icon.classList.add('dock-animating');
           icon.classList.remove('dock-tooltip-visible');
@@ -481,12 +509,13 @@ export function registerWindowManager(Alpine) {
           let scale = 1;
           if (distance < range) {
             const ratio = distance / range;
+            /* cos³ 衰减 — 集中中心隆起，边缘平滑 */
             const influence = Math.cos(ratio * Math.PI / 2);
-            const softenedInfluence = influence * influence;
+            const softenedInfluence = influence * influence * influence;
             scale = 1 + (maxScale - 1) * softenedInfluence;
           }
 
-          const lift = ((scale - 1) / (maxScale - 1)) * maxLift;
+          const lift = maxScale > 1 ? ((scale - 1) / (maxScale - 1)) * maxLift : 0;
           icon.style.width = `${baseSize * scale}px`;
           icon.style.height = `${baseSize * scale}px`;
           icon.style.transform = `translateY(-${lift}px)`;
@@ -498,21 +527,43 @@ export function registerWindowManager(Alpine) {
           }
         });
 
-        if (showLabels && tooltipTarget && nearestDistance < range * 0.72) {
+        if (showLabels && tooltipTarget && nearestDistance < range * 0.65) {
           tooltipTarget.classList.add('dock-tooltip-visible');
         }
       };
 
-      this.$el.addEventListener('mousemove', (e) => {
-        if (!enableMagnification) return;
-        cancelAnimationFrame(rafId);
-        rafId = requestAnimationFrame(() => updateDock(e.clientX));
+      /* 初始化图标基础尺寸 */
+      requestAnimationFrame(() => {
+        getIcons().forEach((icon) => {
+          icon.style.width = `${baseSize}px`;
+          icon.style.height = `${baseSize}px`;
+        });
       });
 
-      this.$el.addEventListener('mouseleave', () => {
+      el.addEventListener('mousemove', (e) => {
+        if (!enableMagnification) return;
+        lastMouseX = e.clientX;
+        cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
+          if (lastMouseX !== null) updateDock(lastMouseX);
+        });
+      }, { signal });
+
+      el.addEventListener('mouseleave', () => {
         cancelAnimationFrame(rafId);
         requestAnimationFrame(resetIcons);
-      });
+      }, { signal });
+
+      /* destroy 清理 */
+      this._dockCleanup = () => {
+        cancelAnimationFrame(rafId);
+        ac.abort();
+        resetIcons();
+      };
+    },
+
+    destroy() {
+      if (this._dockCleanup) this._dockCleanup();
     }
   }));
 }

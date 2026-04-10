@@ -138,7 +138,7 @@ function createGenieGhost(sourceWindowEl) {
   return { ghostWrapper, ghostInner };
 }
 
-export function runGenieAnimation({ windowEl, dockEl, action, duration = 420, onBeforeFinish }) {
+export function runGenieAnimation({ windowEl, dockEl, action, duration = 480, onBeforeFinish }) {
   if (!windowEl || !dockEl) return Promise.resolve(false);
 
   const windowRect = windowEl.getBoundingClientRect();
@@ -166,8 +166,8 @@ export function runGenieAnimation({ windowEl, dockEl, action, duration = 420, on
   const scaleX = targetWidth / sourceWidth;
   const scaleY = targetHeight / sourceHeight;
 
-  const easeIn = 'cubic-bezier(0.7, 0, 1, 1)';
-  const easeOut = 'cubic-bezier(0, 0, 0.3, 1)';
+  const easeIn = 'cubic-bezier(0.62, 0, 1, 1)';
+  const easeOut = 'cubic-bezier(0, 0, 0.22, 1)';
 
   const yFrames = action === 'minimize'
     ? [{ transform: 'translateY(0px)' }, { transform: `translateY(${destY}px)` }]

@@ -126,6 +126,12 @@
       rawMenuName = ${theme.config.dock?.source?.menu_name ?: 'primary'},
       dockShowLabels = ${theme.config.dock?.appearance?.show_labels != null ? theme.config.dock?.appearance?.show_labels : true},
       dockMagnification = ${theme.config.dock?.appearance?.magnification != null ? theme.config.dock?.appearance?.magnification : true},
+      dockIconSize = ${theme.config.dock?.appearance?.icon_size ?: 48},
+      dockIconGap = ${theme.config.dock?.appearance?.icon_gap ?: 4},
+      dockPadding = ${theme.config.dock?.appearance?.dock_padding ?: 6},
+      dockMagScale = ${theme.config.dock?.appearance?.magnification_scale ?: 1.4},
+      dockGlassBlur = ${theme.config.dock?.appearance?.glass_blur ?: 60},
+      dockGlassOpacity = ${theme.config.dock?.appearance?.glass_opacity ?: 28},
       headerMenuName = ${theme.config.header?.source?.menu_name ?: 'primary'},
       headerMenu = ${!#strings.isEmpty(headerMenuName) ? menuFinder.getByName(headerMenuName) : menuFinder.getByName('primary')},
       dockMenu = ${!#strings.isEmpty(rawMenuName) ? menuFinder.getByName(rawMenuName) : menuFinder.getByName('primary')},
@@ -395,7 +401,7 @@
     </div>
 
     <!-- ==================== Dock ==================== -->
-    <div class="dock-container" th:attr="data-show-labels=${dockShowLabels},data-magnification=${dockMagnification}" x-data="dock">
+    <div class="dock-container" th:attr="data-show-labels=${dockShowLabels},data-magnification=${dockMagnification},data-dock-icon-size=${dockIconSize},data-dock-icon-gap=${dockIconGap},data-dock-padding=${dockPadding},data-dock-mag-scale=${dockMagScale},data-dock-glass-blur=${dockGlassBlur},data-dock-glass-opacity=${dockGlassOpacity}" x-data="dock">
       <div class="dock-glass"></div>
       <div class="dock-bar relative z-10" x-ref="dockBar">
         <th:block th:if="${dockMenu != null}">
@@ -443,22 +449,19 @@
         <template x-if="$store.windowManager.minimized">
            <div style="display: contents;">
               <!-- macOS 竖向分隔线 -->
-              <div class="w-[1px] h-[40px] bg-white/20 dark:bg-white/15 rounded-full mx-2 mb-[12px] shrink-0"></div>
+              <div class="dock-separator"></div>
               
               <!-- 最小化的应用图标 -->
               <button id="minimized-dock-icon" type="button" class="dock-icon group cursor-pointer relative shrink-0" 
                  @click.stop="$store.windowManager.restore()">
                <!-- Hover Label -->
                <div class="dock-tooltip" x-show="$el.closest('.dock-container').dataset.showLabels === 'true'" x-text="$store.windowManager.title"></div>
-               <!-- 缩略图图标 (macOS 真实窗口微缩) -->
-               <div class="w-[80%] h-[80%] flex justify-center items-center drop-shadow-md">
-                 <svg viewBox="0 0 52 40" fill="none" class="w-full h-full object-contain">
-                    <!-- Window Shape -->
-                    <rect width="52" height="40" rx="4" fill="white" stroke="#000000" stroke-opacity="0.1" stroke-width="0.5"/>
-                    <!-- Titlebar Background -->
-                    <path d="M0 4 C0 1.79 1.79 0 4 0 L48 0 C50.21 0 52 1.79 52 4 L52 10 L0 10 Z" fill="#eef0f2"/>
-                    <rect x="0" y="10" width="52" height="0.5" fill="#000000" fill-opacity="0.1"/>
-                    <!-- Traffic Lights -->
+               <!-- 缩略图图标 (macOS 窗口微缩) -->
+               <div class="dock-minimized-thumb">
+                 <svg viewBox="0 0 52 40" fill="none">
+                    <rect class="dock-thumb-window" width="52" height="40" rx="4"/>
+                    <path class="dock-thumb-titlebar" d="M0 4 C0 1.79 1.79 0 4 0 L48 0 C50.21 0 52 1.79 52 4 L52 10 L0 10 Z"/>
+                    <rect class="dock-thumb-divider" x="0" y="10" width="52" height="0.5"/>
                     <circle cx="6" cy="5" r="1.5" fill="#ff5f56" stroke="#e0443e" stroke-width="0.3"/>
                     <circle cx="11" cy="5" r="1.5" fill="#ffbd2e" stroke="#dea123" stroke-width="0.3"/>
                     <circle cx="16" cy="5" r="1.5" fill="#27c93f" stroke="#1aab29" stroke-width="0.3"/>
