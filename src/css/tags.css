@@ -686,19 +686,7 @@
   opacity: 0.42;
 }
 
-@container (max-width: 1080px) {
-  .tags-content,
-  .tag-workspace {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .tags-pane--preview,
-  .tag-preview-pane {
-    display: none;
-  }
-}
-
-@container (max-width: 920px) {
+@container (max-width: 640px) {
   #pjax-container:has(> .tags-shell),
   #pjax-container:has(> .tag-shell) {
     display: block;
@@ -752,13 +740,6 @@
     overscroll-behavior: auto;
     scrollbar-gutter: auto;
   }
-}
-
-@container (max-width: 760px) {
-  .tags-content,
-  .tag-workspace {
-    grid-template-columns: 1fr;
-  }
 
   .tags-pane + .tags-pane,
   .tag-posts-pane,
@@ -776,6 +757,10 @@
     grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
     gap: 8px;
     padding: 12px;
+  }
+
+  .tags-pane--preview {
+    display: none;
   }
 }
 

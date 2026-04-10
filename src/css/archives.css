@@ -606,23 +606,7 @@
   line-height: 1.72;
 }
 
-@container (max-width: 1080px) {
-  .archive-columns {
-    grid-template-columns: 220px minmax(0, 1fr);
-  }
-
-  .archive-column--preview {
-    display: none;
-  }
-}
-
-@container (min-width: 1440px) {
-  .archive-columns {
-    grid-template-columns: 244px minmax(420px, 1.24fr) minmax(360px, 1fr);
-  }
-}
-
-@container (max-width: 920px) {
+@container (max-width: 640px) {
   #pjax-container:has(> .archive-shell) {
     display: block;
     height: auto;
@@ -632,7 +616,7 @@
 
   .archive-shell {
     height: auto;
-    min-height: 100%;
+    min-height: auto;
     overflow: visible;
   }
 
@@ -668,15 +652,13 @@
     min-height: auto;
     overflow: visible;
   }
-}
-
-@container (max-width: 760px) {
-  .archive-shell {
-    min-height: auto;
-  }
 
   .archive-columns {
     grid-template-columns: 1fr;
+  }
+
+  .archive-column--preview {
+    display: none;
   }
 
   .archive-column + .archive-column {

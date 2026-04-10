@@ -393,17 +393,7 @@
   margin-bottom: 0;
 }
 
-@container (width <= 1320px) {
-  .author-workspace.tag-workspace {
-    grid-template-columns: 272px 208px minmax(0, 1fr);
-  }
-
-  .author-preview-pane.tag-preview-pane {
-    display: none;
-  }
-}
-
-@container (width <= 980px) {
+@container (width <= 640px) {
   #pjax-container:has(> .author-shell.tag-shell) {
     display: block;
     height: auto;
@@ -457,9 +447,7 @@
     box-shadow: 0 -1px 0 var(--tags-divider-shadow);
     overflow: visible;
   }
-}
 
-@container (width <= 760px) {
   .author-profile-card.tag-folder-card {
     padding: 16px 14px 14px;
   }
