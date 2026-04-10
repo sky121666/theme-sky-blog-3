@@ -1253,17 +1253,17 @@
 }
 
 /* ────────── Container-Aware TOC Responsive Logic ────────── */
-.macos-window[data-window-narrow="true"] .post-outline-trigger {
+body[data-page-app="reader"] .macos-window[data-window-narrow="true"] .post-outline-trigger {
   display: inline-flex !important;
   align-items: center;
   justify-content: center;
 }
 
-.macos-window[data-window-narrow="true"] .post-outline {
+body[data-page-app="reader"] .macos-window[data-window-narrow="true"] .post-outline {
   display: none !important;
 }
 
-.macos-window[data-window-narrow="true"] .post-outline-mobile-backdrop {
+body[data-page-app="reader"] .macos-window[data-window-narrow="true"] .post-outline-mobile-backdrop {
   position: absolute; /* changed from fixed to stay inside window */
   inset: 0;
   z-index: 95;
@@ -1272,11 +1272,11 @@
   transition: opacity 0.22s ease;
 }
 
-.macos-window[data-window-narrow="true"] .post-outline-mobile-backdrop[data-open] {
+body[data-page-app="reader"] .macos-window[data-window-narrow="true"] .post-outline-mobile-backdrop[data-open] {
   opacity: 1;
 }
 
-.macos-window[data-window-narrow="true"] .post-outline-mobile-sheet {
+body[data-page-app="reader"] .macos-window[data-window-narrow="true"] .post-outline-mobile-sheet {
   position: absolute; /* changed from fixed to stay inside window */
   left: 0;
   right: 0;
@@ -1297,15 +1297,15 @@
   flex-direction: column;
 }
 
-.macos-window[data-window-narrow="true"] .post-outline-mobile-sheet[data-open] {
+body[data-page-app="reader"] .macos-window[data-window-narrow="true"] .post-outline-mobile-sheet[data-open] {
   transform: translateY(0);
 }
 
-.macos-window[data-window-narrow="true"] .post-outline-mobile-sheet[data-dragging] {
+body[data-page-app="reader"] .macos-window[data-window-narrow="true"] .post-outline-mobile-sheet[data-dragging] {
   transition: none;
 }
 
-.macos-window[data-window-narrow="true"] .post-outline-mobile-sheet-handle {
+body[data-page-app="reader"] .macos-window[data-window-narrow="true"] .post-outline-mobile-sheet-handle {
   appearance: none;
   width: 42px;
   height: 4px;
@@ -1319,21 +1319,21 @@
   touch-action: none;
 }
 
-.macos-window[data-window-narrow="true"] .post-outline-mobile-header {
+body[data-page-app="reader"] .macos-window[data-window-narrow="true"] .post-outline-mobile-header {
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 10px;
 }
 
-.macos-window[data-window-narrow="true"] .post-outline-mobile-title {
+body[data-page-app="reader"] .macos-window[data-window-narrow="true"] .post-outline-mobile-title {
   font-size: 14px;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: rgba(17, 24, 39, 0.92);
 }
 
-.macos-window[data-window-narrow="true"] .post-outline-mobile-list {
+body[data-page-app="reader"] .macos-window[data-window-narrow="true"] .post-outline-mobile-list {
   min-height: 0;
   overflow-y: auto;
   display: flex;
@@ -1342,7 +1342,7 @@
   padding-bottom: 4px;
 }
 
-.macos-window[data-window-narrow="true"] .post-outline-mobile-list .post-outline-link {
+body[data-page-app="reader"] .macos-window[data-window-narrow="true"] .post-outline-mobile-list .post-outline-link {
   width: 100%;
   text-align: left;
   padding: 10px 12px;
@@ -1351,25 +1351,25 @@
   line-height: 1.38;
 }
 
-.macos-window[data-window-narrow="true"] .post-outline-mobile-list .post-outline-link--h3 {
+body[data-page-app="reader"] .macos-window[data-window-narrow="true"] .post-outline-mobile-list .post-outline-link--h3 {
   padding-left: 24px;
 }
 
-.macos-window[data-window-narrow="true"] .post-outline-mobile-list .post-outline-link--h4 {
+body[data-page-app="reader"] .macos-window[data-window-narrow="true"] .post-outline-mobile-list .post-outline-link--h4 {
   padding-left: 36px;
 }
 
-.dark .macos-window[data-window-narrow="true"] .post-outline-mobile-sheet {
+.dark body[data-page-app="reader"] .macos-window[data-window-narrow="true"] .post-outline-mobile-sheet {
   background: color-mix(in srgb, rgba(28, 28, 30, 0.96) 94%, transparent);
   border-top-color: rgba(255, 255, 255, 0.08);
   box-shadow: 0 -22px 52px rgba(0, 0, 0, 0.34);
 }
 
-.dark .macos-window[data-window-narrow="true"] .post-outline-mobile-sheet-handle {
+.dark body[data-page-app="reader"] .macos-window[data-window-narrow="true"] .post-outline-mobile-sheet-handle {
   background: rgba(255, 255, 255, 0.18);
 }
 
-.dark .macos-window[data-window-narrow="true"] .post-outline-mobile-title {
+.dark body[data-page-app="reader"] .macos-window[data-window-narrow="true"] .post-outline-mobile-title {
   color: rgba(245, 245, 247, 0.92);
 }
 

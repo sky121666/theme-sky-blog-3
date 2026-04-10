@@ -607,6 +607,7 @@ export function registerWindowComponents(Alpine) {
       const mql = window.matchMedia('(min-width: 769px)');
       const onModeChange = (e) => {
         this.isDesktop = e.matches;
+        this.syncNarrowState();
         if (!this.isDesktop) {
           /* → mobile: this.width/height 保持不动 */
           this.isDragging = false;
