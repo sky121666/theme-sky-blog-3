@@ -103,10 +103,161 @@
         </article>
       </div>
       
-      <!-- 翻页组件 -->
-      <div class="moments-feed-pagination" th:if="${moments != null and (moments.hasPrevious() or moments.hasNext())}">
-        <a th:if="${moments.hasPrevious()}" class="moments-pagination-btn pjax-link" th:href="@{${moments.prevUrl}}">上一页</a>
-        <a th:if="${moments.hasNext()}" class="moments-pagination-btn pjax-link" th:href="@{${moments.nextUrl}}">下一页</a>
+      <!-- 翻页组件（瀑布流加载） -->
+      <div class="moments-feed-pagination" 
+           th:if="${moments != null and moments.hasNext()}"
+           x-data="{
+               nextUrl: $el.dataset.nextUrl,
+               loading: false,
+               hasMore: true,
+               cacheKey: 'moments_waterfall_cache',
+               debugLog(msg, data = null) {
+                   if (document.body.dataset.debug !== 'true') return;
+                   if (data) {
+                       console.debug(`[waterfall] ${msg}`, data);
+                   } else {
+                       console.debug(`[waterfall] ${msg}`);
+                   }
+               },
+               init() {
+                   // 1. 尝试从单次返回缓存中恢复
+                   const rawCache = sessionStorage.getItem(this.cacheKey);
+                   if (rawCache) {
+                       try {
+                           const cache = JSON.parse(rawCache);
+                           // 校验是否针对当前路由
+                           if (cache.path === location.pathname + location.search) {
+                               if (cache.extraHtml) {
+                                   const targetList = document.querySelector('.moments-feed-list');
+                                   if (targetList) {
+                                       targetList.insertAdjacentHTML('beforeend', cache.extraHtml);
+                                       this.debugLog(`restored extra html from cache, bytes: ${cache.extraHtml.length}`);
+                                       
+                                       if (typeof window.__initLazyImages === 'function') {
+                                           window.__initLazyImages(targetList);
+                                       }
+                                       const pjaxLinks = Array.from(targetList.querySelectorAll('.waterfall-injected a.pjax-link'));
+                                       if (window.pjax && typeof window.pjax.attachLinks === 'function' && pjaxLinks.length > 0) {
+                                           window.pjax.attachLinks(pjaxLinks);
+                                       }
+                                   }
+                               }
+                               this.nextUrl = cache.nextUrl;
+                               this.hasMore = cache.hasMore;
+                               
+                               if (cache.scrollY) {
+                                   setTimeout(() => {
+                                       const scroller = this.$el.closest('.moments-body') || document.querySelector('.moments-body');
+                                       if (!scroller) return;
+                                       let attempts = 0;
+                                       const tryRestore = () => {
+                                           scroller.scrollTop = cache.scrollY;
+                                           attempts++;
+                                           if (Math.abs(scroller.scrollTop - cache.scrollY) > 5 && attempts < 15) {
+                                               setTimeout(tryRestore, 50);
+                                           } else {
+                                               this.debugLog(`final scrollY to ${scroller.scrollTop} / expected ${cache.scrollY}`);
+                                           }
+                                       };
+                                       tryRestore();
+                                   }, 10);
+                               }
+                           }
+                       } catch(e) {}
+                       // 用完即焚，保证刷新等其他动作时获取最新
+                       sessionStorage.removeItem(this.cacheKey);
+                   }
+                   
+                   // 2. 监听下一次离开（仅在 PJAX 跳转时保存状态）
+                   this._onPjaxSend = () => {
+                       const scroller = this.$el.closest('.moments-body') || document.querySelector('.moments-body');
+                       const injected = document.querySelectorAll('.moments-feed-list > article.waterfall-injected');
+                       const currentScroll = scroller ? scroller.scrollTop : 0;
+                       
+                       // 只有产生了下滚或有追加内容才值得缓存
+                       if (injected.length > 0 || currentScroll > 50) {
+                           sessionStorage.setItem(this.cacheKey, JSON.stringify({
+                               path: location.pathname + location.search,
+                               extraHtml: Array.from(injected).map(el => el.outerHTML).join(''),
+                               nextUrl: this.nextUrl,
+                               hasMore: this.hasMore,
+                               scrollY: currentScroll
+                           }));
+                           this.debugLog('saved state before leaving', { scrollY: currentScroll, extraCards: injected.length });
+                       }
+                   };
+                   document.addEventListener('pjax:send', this._onPjaxSend);
+                   document.addEventListener('pjax:same-variant-send', this._onPjaxSend);
+               },
+               destroy() {
+                   document.removeEventListener('pjax:send', this._onPjaxSend);
+                   document.removeEventListener('pjax:same-variant-send', this._onPjaxSend);
+               },
+               async loadNext() {
+                   if (!this.hasMore || this.loading || !this.nextUrl) return;
+                   this.loading = true;
+                   this.debugLog('loading next page', { url: this.nextUrl });
+                   try {
+                       const res = await fetch(this.nextUrl);
+                       const html = await res.text();
+                       const doc = new DOMParser().parseFromString(html, 'text/html');
+                       
+                       const newCards = doc.querySelectorAll('.moments-feed-list > article');
+                       const targetList = document.querySelector('.moments-feed-list');
+                       
+                       if (newCards.length > 0 && targetList) {
+                           newCards.forEach(card => {
+                               card.classList.add('waterfall-injected');
+                               targetList.appendChild(card);
+                           });
+                           this.debugLog(`appended ${newCards.length} cards`);
+                           
+                           // 重新唤醒图片懒加载（关键修复）
+                           if (typeof window.__initLazyImages === 'function') {
+                               window.__initLazyImages(targetList);
+                               this.debugLog('re-initialized lazy images observer');
+                           }
+                           
+                           // 重新挂载 PJAX 事件
+                           const pjaxLinks = Array.from(newCards).flatMap(card => Array.from(card.querySelectorAll('a.pjax-link')));
+                           if (window.pjax && typeof window.pjax.attachLinks === 'function' && pjaxLinks.length > 0) {
+                               window.pjax.attachLinks(pjaxLinks);
+                               this.debugLog(`attached pjax to ${pjaxLinks.length} new links`);
+                           }
+                       }
+                       
+                       // 解析下一页游标
+                       const nextTrigger = doc.querySelector('.moments-feed-pagination');
+                       if (nextTrigger && nextTrigger.dataset.nextUrl) {
+                           this.nextUrl = nextTrigger.dataset.nextUrl;
+                           this.debugLog('has next page', { url: this.nextUrl });
+                       } else {
+                           this.hasMore = false;
+                           this.debugLog('reached end of list');
+                       }
+                   } catch(e) {
+                       if (document.body.dataset.debug === 'true') {
+                           console.error('[waterfall] load error:', e);
+                       }
+                   } finally {
+                       this.loading = false;
+                   }
+               }
+           }"
+           th:data-next-url="${moments.nextUrl}">
+           
+        <!-- 探针区域 -->
+        <div x-intersect.full.margin.200px="loadNext()" class="w-full py-8 flex items-center justify-center text-[13px] text-white/50 tracking-widest">
+            <template x-if="hasMore && loading">
+                <span class="flex items-center gap-2">
+                    <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    加载中...
+                </span>
+            </template>
+            <template x-if="!hasMore">
+                <span class="opacity-80">已经到底啦</span>
+            </template>
+        </div>
       </div>
 
       <div th:if="${moments == null or moments.items == null or #lists.isEmpty(moments.items)}" class="moment-feed-empty">

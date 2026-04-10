@@ -343,6 +343,8 @@ export function initPjax(Alpine) {
       perfMark('overlayVisible');
       NProgress.start();
 
+      document.dispatchEvent(new CustomEvent('pjax:same-variant-send', { detail: { targetUrl: targetUrl } }));
+
       try {
         // Pre-load target CSS
         const targetApp = inferPageAppFromUrl(targetUrl);

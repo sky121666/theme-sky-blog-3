@@ -18,6 +18,9 @@ importers:
         specifier: ^1.5.4
         version: 1.5.4
     devDependencies:
+      '@alpinejs/intersect':
+        specifier: ^3.15.11
+        version: 3.15.11
       '@alpinejs/morph':
         specifier: ^3.15.11
         version: 3.15.11
@@ -57,6 +60,9 @@ packages:
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
     engines: {node: '>=10'}
+
+  '@alpinejs/intersect@3.15.11':
+    resolution: {integrity: sha512-oGbp6vvn19vN8xoph32Wpo6DrGLXcMR/hLr8hh+gGhgrDpseDOG72h+lsjUivZYI58Uzs1oAxl7XPiQdRyRbtw==}
 
   '@alpinejs/morph@3.15.11':
     resolution: {integrity: sha512-BQA0C4nXEZ0cdUI4gjCiccw50sdZ+KT/umzjYyamI1KPfzrc6ibbpBmavWrOIZYaWCH/q/mDSj3ohszjg3DoNw==}
@@ -1221,6 +1227,8 @@ packages:
 snapshots:
 
   '@alloc/quick-lru@5.2.0': {}
+
+  '@alpinejs/intersect@3.15.11': {}
 
   '@alpinejs/morph@3.15.11': {}
 
