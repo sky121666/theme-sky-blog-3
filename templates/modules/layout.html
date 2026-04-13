@@ -392,7 +392,7 @@
         
         <!-- 照片窗口变体 -->
         <th:block th:if="${windowVariant == 'photos'}">
-          <th:block th:replace="~{modules/window/photos :: frame(
+          <th:block th:replace="~{modules/photos-app/window :: frame(
                       titleText=${windowTitle},
                       contentFragment=${ssrContent},
                       resizable=${windowResizable != null ? windowResizable : 'true'},

@@ -290,6 +290,44 @@ Responsibilities:
 - Search widget invocation and shadow DOM styling
 - Dock magnification
 
+### 5.5 Build Output Ownership
+
+Build output root:
+
+- `templates/assets`
+
+Within that tree, ownership is split into two categories:
+
+- **Vite-managed output**
+  - `templates/assets/css`
+  - `templates/assets/js`
+- **Static theme assets**
+  - `templates/assets/images`
+  - `templates/assets/favicon.svg`
+  - other non-`css/js` files intentionally shipped by the theme
+
+Rules:
+
+1. `css/js` directories are build-managed and may be cleared or pruned by the Vite pipeline.
+2. Static asset directories are not pruned by build hygiene logic.
+3. Do not manually place long-lived files inside `templates/assets/css` or `templates/assets/js`.
+4. Sync/editor conflict copies under `templates/assets` are treated as disposable and removed automatically.
+
+Current hygiene owner:
+
+- [/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/vite.config.ts](file:///Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/vite.config.ts)
+
+Current hygiene stages:
+
+- `buildStart`
+  - remove conflict copies
+  - clear Vite-managed `css/js` directories
+- `writeBundle`
+  - remove conflict copies again
+  - prune unexpected managed files
+  - prune empty JS stubs
+  - remove empty directories
+
 ## 6. Rules That Must Stay Stable
 
 1. Shell fixed surfaces do not follow content color mode as separate surface families

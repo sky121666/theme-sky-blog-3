@@ -4,4 +4,4 @@
  * Loaded only on /photos pages via a dedicated <script> tag.
  * (Now primarily handles CSS isolation, with JS logic merged into main via desktop.js for Alpine compatibility)
  */
-import '../css/photos.css';
+import './styles/index.css';

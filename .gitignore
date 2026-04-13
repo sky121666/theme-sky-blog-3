@@ -16,3 +16,7 @@ pnpm-debug.log*
 .idea/
 .vscode/
 .playwright-cli
+
+# macOS / 云同步冲突副本（不要污染主题构建产物）
+templates/assets/**/*冲突副本*
+templates/assets/**/*conflict*

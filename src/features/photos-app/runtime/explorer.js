@@ -11,7 +11,7 @@
  * Here we keep existing cards fixed and only append new cards to the current
  * shortest column.
  */
-import { initLazyImages } from '../shared/lazy-media.js';
+import { initLazyImages } from '../../../js/shared/lazy-media.js';
 
 const PHOTOS_PREFS_KEY = 'theme-photos-explorer-prefs';
 const MIN_COL_COUNT = 2;

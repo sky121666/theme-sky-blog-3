@@ -13,7 +13,7 @@ import { registerExplorers } from './desktop/explorers.js';
 import { registerPostComponents } from './post/upvote.js';
 import { initPostOutline } from './desktop/post-outline.js';
 import { queuePageInitializer } from './shared/page-app.js';
-import { registerPhotosExplorer } from './photos/photos-explorer.js';
+import { registerPhotosExplorer } from '../features/photos-app/runtime/explorer.js';
 
 export function registerComponents(Alpine) {
   registerShellComponents(Alpine);
