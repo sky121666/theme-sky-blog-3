@@ -121,3 +121,22 @@ spec:
       label: 分类图标颜色
       value: ""
       help: 设置图标的点缀颜色，用于桌面分类小组件。
+
+---
+apiVersion: v1alpha1
+kind: AnnotationSetting
+metadata:
+  name: theme-sky-blog-3-photogroup-setting
+spec:
+  targetRef:
+    group: core.halo.run
+    kind: PhotoGroup
+  formSchema:
+    - $formkit: iconify
+      id: photogroup_icon
+      key: photogroup_icon
+      name: icon
+      label: 相册图标 (SVG)
+      format: svg
+      value-only: true
+      help: 选择一个图标用于图库侧边栏分类显示。

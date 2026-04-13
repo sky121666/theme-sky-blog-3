@@ -50,7 +50,7 @@ const _themeAssetBase = (() => {
   return '/assets/';
 })();
 
-const APP_CSS_NAMES = ['explorer', 'reader', 'moments-app'];
+const APP_CSS_NAMES = ['explorer', 'reader', 'moments-app', 'photos-app'];
 
 export function ensureAppCssLoaded(appName) {
   if (!appName || _cssLoadedApps.has(appName)) return;
@@ -112,6 +112,7 @@ export function inferPageAppFromUrl(urlLike) {
     const p = url.pathname;
 
     if (isMomentsRoute(url) || isMomentsDetailRoute(url)) return 'moments-app';
+    if (p === '/photos' || p === '/photos/' || /^\/photos\/page\/[^/]+\/?$/.test(p)) return 'photos-app';
     if (p === '/') return '';
 
     if (p === '/archives' || p === '/archives/') return 'explorer';

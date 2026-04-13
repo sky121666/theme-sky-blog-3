@@ -234,6 +234,9 @@
             if (url.pathname === '/moments' || url.pathname === '/' || url.pathname === '/moments/' || /^\/moments\/[^/]+\/?$/.test(url.pathname)) {
               return url.pathname === '/' ? '' : 'moments-app';
             }
+            if (url.pathname === '/photos' || url.pathname === '/photos/' || /^\/photos\/page\/[^/]+\/?$/.test(url.pathname)) {
+              return 'photos-app';
+            }
             if (url.pathname === '/archives' || url.pathname === '/archives/') return 'explorer';
             if (/^\/archives\/[^/]+\/?$/.test(url.pathname)) return 'reader';
             if (/^\/(tags|tag|categories|category|author|authors)(\/|$)/.test(url.pathname)) {
@@ -387,6 +390,17 @@
                     )}" />
         </th:block>
         
+        <!-- 照片窗口变体 -->
+        <th:block th:if="${windowVariant == 'photos'}">
+          <th:block th:replace="~{modules/window/photos :: frame(
+                      titleText=${windowTitle},
+                      contentFragment=${ssrContent},
+                      resizable=${windowResizable != null ? windowResizable : 'true'},
+                      maximizable=${windowMaximizable != null ? windowMaximizable : 'true'},
+                      metricsKey=${windowMetricsKey != null ? windowMetricsKey : 'photos'}
+                    )}" />
+        </th:block>
+        
         <!-- none 变体：无窗口壳层，仅提供占位符（如首页或独立全屏页使用） -->
         <th:block th:if="${windowVariant == 'none'}">
           <!-- 不输出任何窗口壳层 -->
@@ -408,7 +422,7 @@
           <th:block th:each="menuItem : ${dockMenu.menuItems}">
             <th:block th:with="
                 menuItemHref = ${menuItem.status.href != null ? menuItem.status.href.toString() : ''},
-                menuItemPjaxApp = ${(menuItemHref == '/moments' or menuItemHref == '/moments/' or menuItemHref matches '^/moments/[^/]+/?$') ? 'moments-app' : ((menuItemHref == '/archives' or menuItemHref == '/archives/' or menuItemHref matches '^/(tags|tag|categories|category|author|authors)(/.*)?$') ? 'explorer' : (menuItemHref matches '^/archives/[^/]+/?$' ? 'reader' : ''))},
+                menuItemPjaxApp = ${(menuItemHref == '/moments' or menuItemHref == '/moments/' or menuItemHref matches '^/moments/[^/]+/?$') ? 'moments-app' : ((menuItemHref == '/photos' or menuItemHref == '/photos/' or menuItemHref matches '^/photos/page/[^/]+/?$') ? 'photos-app' : ((menuItemHref == '/archives' or menuItemHref == '/archives/' or menuItemHref matches '^/(tags|tag|categories|category|author|authors)(/.*)?$') ? 'explorer' : (menuItemHref matches '^/archives/[^/]+/?$' ? 'reader' : '')))},
                 iconType = ${#annotations.getOrDefault(menuItem, 'icon_type', 'iconify')},
                 iconSvg = ${#annotations.getOrDefault(menuItem, 'icon', '')},
                 customSvg = ${#annotations.getOrDefault(menuItem, 'custom_svg', '')},

@@ -33,13 +33,10 @@ import {
 
 const { log: pjaxLog, warn: pjaxWarn } = createLogger('pjax');
 
-// ── Same-variant content switch whitelist ──
-// Triple constraint: windowVariant + pageApp + pageMode must ALL match.
-// Maps pageApp → Set of allowed pageModes for content-level switching.
-// Everything else falls through to full PJAX even if windowVariant matches.
 const CONTENT_SWITCH_WHITELIST = new Map([
   ['explorer', new Set(['browser-list'])],
-  ['moments-app', new Set(['browser-moments'])]
+  ['moments-app', new Set(['browser-moments'])],
+  ['photos-app', new Set(['browser-list'])]
 ]);
 
 function isContentSwitchAllowed(pageApp, pageMode) {
@@ -220,6 +217,7 @@ function inferVariantFromUrl(url) {
     const p = u.pathname;
     if (p === '/') return 'none';
     if (p === '/moments' || p === '/moments/' || /^\/moments\/[^/]+\/?$/.test(p)) return 'moments';
+    if (p === '/photos' || p === '/photos/' || /^\/photos\/page\/[^/]+\/?$/.test(p)) return 'photos';
     // Everything else that's internal is 'browser'
     return 'browser';
   } catch (_e) {
@@ -416,9 +414,7 @@ export function initPjax(Alpine) {
         perfMark('contentSwap');
 
         // Sync state
-        document.title = parsed.title;
         const nextNavIndex = getBrowserNavDepth() + 1;
-        pushBrowserNavState(nextNavIndex, parsed.title, targetUrl);
         syncBrowserNavDepth(nextNavIndex);
 
         syncBodyDatasetFromResponse(html);
@@ -449,9 +445,33 @@ export function initPjax(Alpine) {
         // Update window title bar
         const titleEl = document.querySelector('[data-window-titlebar] .window-title-text');
         const isDetail = contentContainer.querySelector('.moments-app--detail');
-        if (titleEl) {
+        const photosShell = contentContainer.querySelector('.photos-shell');
+        if (photosShell) {
+          const photosTitle = photosShell.dataset.photosChromeTitle || '';
+          const photosSubtitle = photosShell.dataset.photosChromeSubtitle || '';
+          const photosSiteTitle = photosShell.dataset.photosSiteTitle || '';
+          const resolvedBrowserTitle = photosTitle
+            ? (photosSiteTitle ? `${photosTitle} - ${photosSiteTitle}` : photosTitle)
+            : parsed.title;
+          document.title = resolvedBrowserTitle;
+          pushBrowserNavState(nextNavIndex, resolvedBrowserTitle, targetUrl);
+          if (titleEl && photosTitle) {
+            titleEl.textContent = photosTitle;
+          }
+          const subtitleEl = document.querySelector('[data-photos-chrome-subtitle]');
+          if (subtitleEl) {
+            subtitleEl.textContent = photosSubtitle;
+          }
+        } else if (titleEl) {
+          document.title = parsed.title;
+          pushBrowserNavState(nextNavIndex, parsed.title, targetUrl);
           titleEl.textContent = isDetail ? '详情' : parsed.title;
+        } else {
+          document.title = parsed.title;
+          pushBrowserNavState(nextNavIndex, parsed.title, targetUrl);
         }
+        syncBrowserNavDepth(nextNavIndex);
+
         // Sync back button fallback for scene change
         const backBtn = document.querySelector('.moments-titlebar-back');
         if (backBtn) {

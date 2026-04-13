@@ -13,6 +13,7 @@ import { registerExplorers } from './desktop/explorers.js';
 import { registerPostComponents } from './post/upvote.js';
 import { initPostOutline } from './desktop/post-outline.js';
 import { queuePageInitializer } from './shared/page-app.js';
+import { registerPhotosExplorer } from './photos/photos-explorer.js';
 
 export function registerComponents(Alpine) {
   registerShellComponents(Alpine);
@@ -20,6 +21,7 @@ export function registerComponents(Alpine) {
   registerArchiveExplorer(Alpine);
   registerExplorers(Alpine);
   registerPostComponents(Alpine);
+  registerPhotosExplorer(Alpine);
 
   queuePageInitializer((root) => {
     initArchiveSidebar(root);

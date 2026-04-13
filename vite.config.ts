@@ -112,6 +112,7 @@ export default defineConfig({
         explorer: path.resolve(__dirname, "src/entries/explorer.js"),
         reader: path.resolve(__dirname, "src/entries/reader.js"),
         "moments-app": path.resolve(__dirname, "src/entries/moments-app.js"),
+        "photos-app": path.resolve(__dirname, "src/entries/photos-app.js"),
       },
       output: {
         format: "es",
