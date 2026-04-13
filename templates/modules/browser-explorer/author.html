@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:th="https://www.thymeleaf.org"
       th:fragment="page"
-      th:replace="~{modules/layout :: html(
+      th:replace="~{modules/shell/layout :: html(
         title = ${author.spec.displayName + ' - ' + site.title},
         description = ${!#strings.isEmpty(author.spec.bio) ? author.spec.bio : author.spec.displayName + ' 发布的 ' + posts.total + ' 篇内容'},
         ssrContent = ~{modules/browser-explorer/author :: content},

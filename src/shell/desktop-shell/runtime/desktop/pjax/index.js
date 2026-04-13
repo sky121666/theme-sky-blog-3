@@ -54,6 +54,11 @@ function parsePageModeFromResponse(html) {
 
 const BROWSER_NAV_DEPTH_KEY = 'sky_browser_nav_depth';
 const BROWSER_NAV_INDEX_KEY = '__browserNavIndex';
+const BROWSER_NAV_CHROME_KEY = '__browserNavChrome';
+
+function createBrowserNavUid() {
+  return `pjax${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
 
 function readBrowserNavDepth() {
   try {
@@ -82,22 +87,97 @@ function readBrowserNavIndexFromState(state = window.history.state) {
   return Number.isFinite(value) && value >= 0 ? value : null;
 }
 
-function replaceBrowserNavState(index, title = document.title, url = window.location.href) {
+function getCurrentScrollPos() {
+  return [
+    document.documentElement.scrollLeft || document.body.scrollLeft || window.scrollX || 0,
+    document.documentElement.scrollTop || document.body.scrollTop || window.scrollY || 0
+  ];
+}
+
+function readBrowserNavChromeSnapshot(overrides = {}) {
+  const titleEl = document.querySelector('[data-window-titlebar] .window-title-text');
+  const subtitleEl = document.querySelector('[data-photos-chrome-subtitle]');
+  return {
+    windowTitle: overrides.windowTitle ?? titleEl?.textContent?.trim() ?? '',
+    windowSubtitle: overrides.windowSubtitle ?? subtitleEl?.textContent?.trim() ?? ''
+  };
+}
+
+function applyBrowserNavChromeState(state = window.history.state) {
+  if (!state || typeof state !== 'object') return;
+
+  if (state.title) {
+    document.title = state.title;
+  }
+
+  const chrome = state[BROWSER_NAV_CHROME_KEY];
+  if (!chrome || typeof chrome !== 'object') return;
+
+  const titleEl = document.querySelector('[data-window-titlebar] .window-title-text');
+  if (titleEl && typeof chrome.windowTitle === 'string' && chrome.windowTitle) {
+    titleEl.textContent = chrome.windowTitle;
+  }
+
+  const subtitleEl = document.querySelector('[data-photos-chrome-subtitle]');
+  if (subtitleEl && typeof chrome.windowSubtitle === 'string') {
+    subtitleEl.textContent = chrome.windowSubtitle;
+  }
+}
+
+function buildBrowserNavState(index, title = document.title, url = window.location.href, chromeOverrides = {}, options = {}) {
+  const {
+    baseState = (window.history.state && typeof window.history.state === 'object') ? window.history.state : {},
+    uid = baseState.uid || createBrowserNavUid(),
+    scrollPos = baseState.scrollPos || getCurrentScrollPos()
+  } = options;
+
+  return {
+    ...baseState,
+    url: url || baseState.url || window.location.href,
+    title: title || baseState.title || document.title,
+    uid,
+    scrollPos,
+    [BROWSER_NAV_INDEX_KEY]: index,
+    [BROWSER_NAV_CHROME_KEY]: readBrowserNavChromeSnapshot(chromeOverrides)
+  };
+}
+
+function replaceBrowserNavState(index, title = document.title, url = window.location.href, chromeOverrides = {}) {
   try {
-    const baseState = (window.history.state && typeof window.history.state === 'object')
-      ? window.history.state
-      : {};
-    window.history.replaceState({ ...baseState, [BROWSER_NAV_INDEX_KEY]: index }, title, url);
+    const nextState = buildBrowserNavState(index, title, url, chromeOverrides);
+    window.history.replaceState(nextState, nextState.title, nextState.url);
   } catch (_e) {
     // Ignore replaceState failures; sessionStorage still tracks the fallback depth.
   }
 }
 
-function pushBrowserNavState(index, title, url) {
-  const baseState = (window.history.state && typeof window.history.state === 'object')
-    ? window.history.state
-    : {};
-  window.history.pushState({ ...baseState, [BROWSER_NAV_INDEX_KEY]: index }, title, url);
+function pushBrowserNavState(index, title, url, chromeOverrides = {}) {
+  const uid = createBrowserNavUid();
+  const nextState = buildBrowserNavState(index, title, url, chromeOverrides, {
+    uid,
+    scrollPos: [0, 0]
+  });
+  window.history.pushState(nextState, nextState.title, nextState.url);
+  if (window.pjax) {
+    window.pjax.lastUid = uid;
+    window.pjax.maxUid = uid;
+  }
+}
+
+function resolveNavigationHref(request, href) {
+  if (typeof href === 'string' && href) return href;
+  if (request?.responseURL) return request.responseURL;
+
+  try {
+    const pjaxUrl = request?.getResponseHeader?.('X-PJAX-URL');
+    if (pjaxUrl) return pjaxUrl;
+    const redirectedTo = request?.getResponseHeader?.('X-XHR-Redirected-To');
+    if (redirectedTo) return redirectedTo;
+  } catch (_e) {
+    // Ignore header access failures and fall through to current location.
+  }
+
+  return window.location.href;
 }
 
 function syncBrowserNavDepth(index) {
@@ -251,16 +331,17 @@ export function initPjax(Alpine) {
     // Non-200 responses: full-page redirect to show dedicated error page.
     const _origHandleResponse = pjax.handleResponse.bind(pjax);
     pjax.handleResponse = function(responseText, request, href, options) {
+      const fallbackHref = resolveNavigationHref(request, href);
       if (responseText === null && request && request.status >= 400) {
-        pjaxWarn('handleResponse: status', request.status, '→ full redirect', href);
+        pjaxWarn('handleResponse: status', request.status, '→ full redirect', fallbackHref);
         NProgress.done();
-        window.location = href;
+        window.location = fallbackHref;
         return;
       }
       if (responseText === false) {
-        pjaxWarn('handleResponse: failed response → full redirect', href);
+        pjaxWarn('handleResponse: failed response → full redirect', fallbackHref);
         NProgress.done();
-        window.location = href;
+        window.location = fallbackHref;
         return;
       }
       _origHandleResponse(responseText, request, href, options);
@@ -286,6 +367,7 @@ export function initPjax(Alpine) {
       window._browserPopstatePending = true;
       const stateIndex = readBrowserNavIndexFromState(event.state);
       syncBrowserNavDepth(stateIndex ?? 0);
+      applyBrowserNavChromeState(event.state);
     });
 
     // ── Dynamic link attachment (using shared link-attach.js) ──
@@ -454,7 +536,10 @@ export function initPjax(Alpine) {
             ? (photosSiteTitle ? `${photosTitle} - ${photosSiteTitle}` : photosTitle)
             : parsed.title;
           document.title = resolvedBrowserTitle;
-          pushBrowserNavState(nextNavIndex, resolvedBrowserTitle, targetUrl);
+          pushBrowserNavState(nextNavIndex, resolvedBrowserTitle, targetUrl, {
+            windowTitle: photosTitle || resolvedBrowserTitle,
+            windowSubtitle: photosSubtitle
+          });
           if (titleEl && photosTitle) {
             titleEl.textContent = photosTitle;
           }
@@ -464,8 +549,11 @@ export function initPjax(Alpine) {
           }
         } else if (titleEl) {
           document.title = parsed.title;
-          pushBrowserNavState(nextNavIndex, parsed.title, targetUrl);
-          titleEl.textContent = isDetail ? '详情' : parsed.title;
+          const chromeTitle = isDetail ? '详情' : parsed.title;
+          pushBrowserNavState(nextNavIndex, parsed.title, targetUrl, {
+            windowTitle: chromeTitle
+          });
+          titleEl.textContent = chromeTitle;
         } else {
           document.title = parsed.title;
           pushBrowserNavState(nextNavIndex, parsed.title, targetUrl);

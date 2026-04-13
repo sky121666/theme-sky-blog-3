@@ -202,7 +202,7 @@
     th:styleappend="${bgMode == 'image' and bgImageUrl != null ? 'background:url(' + bgImageUrl + ') center/cover no-repeat; background-color:#0f172a;' : (bgMode == 'solid' ? 'background-color:' + (bgConf?.solid_color ?: '#0f172a') + ';' : '')}"
   >
 
-    <th:block th:replace="~{modules/header :: bar(
+    <th:block th:replace="~{modules/shell/header :: bar(
       siteTitle=${headerAppName},
       logoIcon=${headerLogoIcon},
       headerMenu=${headerMenu},
@@ -328,7 +328,7 @@
          @contextmenu.prevent="handleDesktopSurfaceContextMenu($event)"
          @keydown.window="handleDesktopKeydown($event)">
 
-    <th:block th:replace="~{modules/desktop-widgets :: layer(
+    <th:block th:replace="~{modules/shell/desktop-widgets :: layer(
       enabled=${widgetsEnabled},
       isHome=${isDesktopHome},
       hideOnMobile=${widgetsHideOnMobile},
@@ -381,7 +381,7 @@
         
         <!-- 默认浏览器窗口变体 -->
         <th:block th:if="${windowVariant == 'browser'}">
-          <th:block th:replace="~{modules/window/browser :: frame(
+          <th:block th:replace="~{modules/shell/browser-window :: frame(
                       titleText=${windowTitle},
                       contentFragment=${ssrContent},
                       resizable=${windowResizable != null ? windowResizable : 'true'},

@@ -1,4 +1,4 @@
-import '../../../css/widgets/editor.css';
+import '../../../styles/widgets/editor.css';
 import { dragMethods } from './drag.js';
 import { editModeMethods } from './edit-mode.js';
 import { installDesktopDebugBridge } from '../../widgets/debug-bridge.js';

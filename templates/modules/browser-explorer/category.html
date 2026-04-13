@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:th="https://www.thymeleaf.org"
       th:fragment="page"
-      th:replace="~{modules/layout :: html(
+      th:replace="~{modules/shell/layout :: html(
         title = ${category.spec.displayName + ' - ' + site.title},
         description = ${!#strings.isEmpty(category.spec.description) ? category.spec.description : category.spec.displayName + ' 下的 ' + posts.total + ' 篇文章'},
         ssrContent = ~{modules/browser-explorer/category :: content},

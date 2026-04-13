@@ -2,7 +2,7 @@
  * 文章大纲导航
  */
 
-import { extractTextPreview } from '../shared/utils.js';
+import { extractTextPreview } from '../../../shell/desktop-shell/runtime/shared/utils.js';
 
 let postOutlineCleanup = null;
 

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html xmlns:th="https://www.thymeleaf.org"
+      th:fragment="page"
+      th:replace="~{modules/shell/layout :: html(
+        title = ${post.spec.title + ' - ' + site.title},
+        description = ${!#strings.isEmpty(post.status.excerpt) ? post.status.excerpt : (site.seo?.description ?: site.subtitle)},
+        ssrContent = ~{modules/browser-reader/post :: content},
+        canonical = ${post.status.permalink},
+        image = ${!#strings.isEmpty(post.spec.cover) ? post.spec.cover : site.logo},
+        type = 'article',
+        seoFallback = 'none',
+        pageMode = 'browser-reader',
+        pageApp = 'reader',
+        windowVariant = 'browser',
+        windowScene = 'none',
+        windowTitle = ${post.spec.title},
+        windowResizable = true,
+        windowMaximizable = true,
+        windowMetricsKey = 'browser'
+      )}">
+  <th:block th:fragment="content">
+    <div class="post-reader-shell">
+      <div class="post-reader-frame" th:attr="data-post-name=${post.metadata.name}">
+        <header class="post-header">
+          <h1 class="post-title" th:text="${post.spec.title}"></h1>
+
+          <div class="post-meta">
+            <div class="post-meta-item post-meta-item--taxonomy"
+                 th:if="${post.categories != null and !#lists.isEmpty(post.categories)}">
+              <span class="post-meta-label">分类</span>
+              <span class="post-meta-taxonomy-list">
+                <th:block th:each="category, categoryStat : ${post.categories}">
+                  <a class="post-meta-link pjax-link"
+                     th:href="${category.status.permalink}"
+                     th:text="${category.spec.displayName}">分类</a>
+                  <span class="post-meta-separator"
+                        th:if="${!categoryStat.last}">/</span>
+                </th:block>
+              </span>
+            </div>
+            <div class="post-meta-item post-meta-item--flag" th:if="${post.spec.pinned}">
+              <span>置顶</span>
+            </div>
+            <div class="post-meta-item">
+              <a class="post-meta-link pjax-link"
+                 th:if="${post.owner != null}"
+                 th:href="${post.owner.permalink}"
+                 th:text="${post.owner.displayName}">Author</a>
+              <span th:unless="${post.owner != null}" th:text="${site.title}">Author</span>
+            </div>
+            <div class="post-meta-item">
+              <time th:text="${#dates.format(post.spec.publishTime, 'yyyy年MM月dd日')}"></time>
+            </div>
+            <div class="post-meta-item" th:if="${post.status.lastModifyTime != null}">
+              <span th:text="${'更新于 ' + #dates.format(post.status.lastModifyTime, 'yyyy年MM月dd日')}">更新于</span>
+            </div>
+          </div>
+
+          <div class="post-actions-shell"
+               x-data="postUpvote($el.dataset.postName, $el.dataset.initialUpvote)"
+               th:attr="data-post-name=${post.metadata.name}, data-initial-upvote=${post.stats?.upvote ?: 0}">
+            <div class="post-actions">
+              <span class="post-action-chip">
+                <svg class="post-action-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <path d="M2.75 10C4.45 6.95 7.05 5.25 10 5.25C12.95 5.25 15.55 6.95 17.25 10C15.55 13.05 12.95 14.75 10 14.75C7.05 14.75 4.45 13.05 2.75 10Z" stroke="currentColor" stroke-width="1.2"></path>
+                  <circle cx="10" cy="10" r="2.35" stroke="currentColor" stroke-width="1.2"></circle>
+                </svg>
+                <span th:text="${post.stats?.visit ?: 0} + ' 浏览'">0 浏览</span>
+              </span>
+
+              <a class="post-action-chip"
+                 th:if="${pluginFinder.available('PluginCommentWidget')}"
+                 href="#post-comments">
+                <svg class="post-action-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <path d="M4.25 5.75H15.75C16.4404 5.75 17 6.30964 17 7V12C17 12.6904 16.4404 13.25 15.75 13.25H8.07322L4.75 15.9659V13.25H4.25C3.55964 13.25 3 12.6904 3 12V7C3 6.30964 3.55964 5.75 4.25 5.75Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"></path>
+                </svg>
+                <span th:text="${post.stats?.comment ?: 0} + ' 评论'">0 评论</span>
+              </a>
+
+              <button type="button"
+                      class="post-action-chip post-action-chip--like"
+                      :class="{ 'is-liked': liked, 'is-pending': pending }"
+                      :disabled="pending || liked"
+                      :aria-pressed="liked.toString()"
+                      @click="upvote()">
+                <svg class="post-action-icon post-action-icon--heart" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <path d="M10 16.2L4.65 10.95C3.61 9.93 3 8.57 3 7.15C3 5.1 4.55 3.75 6.42 3.75C7.58 3.75 8.7 4.31 9.39 5.26L10 6.1L10.61 5.26C11.3 4.31 12.42 3.75 13.58 3.75C15.45 3.75 17 5.1 17 7.15C17 8.57 16.39 9.93 15.35 10.95L10 16.2Z"
+                        :fill="liked ? 'currentColor' : 'none'"
+                        stroke="currentColor"
+                        stroke-width="1.2"
+                        stroke-linejoin="round"></path>
+                </svg>
+                <span x-text="count + ' 点赞'">0 点赞</span>
+              </button>
+            </div>
+
+            <p class="post-action-feedback"
+               x-show="error"
+               x-text="error"
+               style="display: none;"></p>
+          </div>
+
+          <p class="post-summary" th:if="${!#strings.isEmpty(post.status.excerpt)}" th:text="${post.status.excerpt}"></p>
+
+          <figure class="post-cover" th:if="${!#strings.isEmpty(post.spec.cover)}">
+            <img th:src="${post.spec.cover}" th:alt="${post.spec.title}">
+          </figure>
+        </header>
+
+        <div class="post-body-layout">
+          <div class="post-main-column">
+            <article id="article-content" class="post-content" th:utext="${post.content.content}"></article>
+
+            <section class="post-tail"
+                     th:with="postCursor=${postFinder.cursor(post.metadata.name)}"
+                     th:if="${(post.tags != null and !#lists.isEmpty(post.tags)) or (postCursor != null ? (postCursor.hasPrevious() or postCursor.hasNext()) : false)}">
+              <div class="post-tail-block"
+                   th:if="${post.tags != null and !#lists.isEmpty(post.tags)}">
+                <h2 class="post-tail-heading">标签</h2>
+                <div class="post-chip-list">
+                  <a class="post-taxonomy-chip post-taxonomy-chip--tag pjax-link"
+                     th:each="tag : ${post.tags}"
+                     th:href="${tag.status.permalink}"
+                     th:text="${tag.spec.displayName}">标签</a>
+                </div>
+              </div>
+
+              <nav class="post-neighbors"
+                   th:if="${postCursor != null ? (postCursor.hasPrevious() or postCursor.hasNext()) : false}">
+                <a class="post-neighbor-card pjax-link is-prev"
+                   data-pjax-app="reader"
+                   th:if="${postCursor.hasPrevious()}"
+                   th:href="${postCursor.previous.status.permalink}">
+                  <span class="post-neighbor-label">上一篇</span>
+                  <strong class="post-neighbor-title"
+                          th:text="${postCursor.previous.spec.title}">上一篇标题</strong>
+                </a>
+                <a class="post-neighbor-card pjax-link is-next"
+                   data-pjax-app="reader"
+                   th:if="${postCursor.hasNext()}"
+                   th:href="${postCursor.next.status.permalink}">
+                  <span class="post-neighbor-label">下一篇</span>
+                  <strong class="post-neighbor-title"
+                          th:text="${postCursor.next.spec.title}">下一篇标题</strong>
+                </a>
+              </nav>
+            </section>
+
+            <section id="post-comments" class="post-comments mac-comment-section" th:if="${pluginFinder.available('PluginCommentWidget')}" data-lazy-comment>
+              <h2 class="post-comments-title mac-comment-title">评论</h2>
+              <div class="post-comments-shell mac-comment-shell" data-comment-hidden style="display:none;">
+                <halo:comment group="content.halo.run" kind="Post" th:attr="name=${post.metadata.name}"/>
+              </div>
+            </section>
+          </div>
+
+          <aside class="post-outline" data-post-outline hidden>
+            <details class="post-outline-details" open>
+              <summary class="post-outline-summary">目录</summary>
+              <div class="post-outline-card">
+                <div class="post-outline-heading">目录</div>
+                <nav class="post-outline-list" data-post-outline-list></nav>
+              </div>
+            </details>
+          </aside>
+        </div>
+      </div>
+    </div>
+  </th:block>
+</html>

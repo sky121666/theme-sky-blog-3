@@ -3,9 +3,9 @@
 /* ============================== */
 
 @import "tailwindcss";
-@source "../../templates/modules/layout.html";
-@source "../../templates/modules/header.html";
-@source "../../templates/modules/desktop-widgets.html";
+@source "../../../../../templates/modules/shell/layout.html";
+@source "../../../../../templates/modules/shell/header.html";
+@source "../../../../../templates/modules/shell/desktop-widgets.html";
 
 @custom-variant dark (&:where(.dark, .dark *));
 

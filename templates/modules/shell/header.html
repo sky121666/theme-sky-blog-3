@@ -42,7 +42,7 @@
              th:classappend="${#lists.isEmpty(menuItem.children) ? 'pjax-link' : ''}"
              th:text="${menuItem.status.displayName}"></a>
 
-          <th:block th:replace="~{modules/header :: submenu(menuItem=${menuItem})}"></th:block>
+          <th:block th:replace="~{modules/shell/header :: submenu(menuItem=${menuItem})}"></th:block>
         </div>
       </nav>
     </div>
@@ -57,7 +57,7 @@
               title="菜单">
         <th:block th:if="${!#strings.isEmpty(iconMobileMenu)}" th:utext="${iconMobileMenu}" />
         <th:block th:unless="${!#strings.isEmpty(iconMobileMenu)}">
-          <th:block th:replace="~{modules/icons :: header_mobile_menu}" />
+          <th:block th:replace="~{modules/shell/icons :: header_mobile_menu}" />
         </th:block>
       </button>
 
@@ -68,7 +68,7 @@
               title="聚焦搜索 (Cmd+K)">
         <th:block th:if="${!#strings.isEmpty(iconSearch)}" th:utext="${iconSearch}" />
         <th:block th:unless="${!#strings.isEmpty(iconSearch)}">
-          <th:block th:replace="~{modules/icons :: header_search}" />
+          <th:block th:replace="~{modules/shell/icons :: header_search}" />
         </th:block>
       </button>
 
@@ -79,7 +79,7 @@
          th:attr="title=${loginLabel},aria-label=${loginLabel}">
         <th:block th:if="${!#strings.isEmpty(iconAuth)}" th:utext="${iconAuth}" />
         <th:block th:unless="${!#strings.isEmpty(iconAuth)}">
-          <th:block th:replace="~{modules/icons :: header_auth}" />
+          <th:block th:replace="~{modules/shell/icons :: header_auth}" />
         </th:block>
       </a>
 
@@ -90,13 +90,13 @@
         <span x-show="!$store.theme.isDark" style="display: contents;">
           <th:block th:if="${!#strings.isEmpty(iconThemeLight)}" th:utext="${iconThemeLight}" />
           <th:block th:unless="${!#strings.isEmpty(iconThemeLight)}">
-            <th:block th:replace="~{modules/icons :: header_theme_light}" />
+            <th:block th:replace="~{modules/shell/icons :: header_theme_light}" />
           </th:block>
         </span>
         <span x-show="$store.theme.isDark" style="display: none;">
           <th:block th:if="${!#strings.isEmpty(iconThemeDark)}" th:utext="${iconThemeDark}" />
           <th:block th:unless="${!#strings.isEmpty(iconThemeDark)}">
-            <th:block th:replace="~{modules/icons :: header_theme_dark}" />
+            <th:block th:replace="~{modules/shell/icons :: header_theme_dark}" />
           </th:block>
         </span>
       </button>
@@ -104,7 +104,7 @@
       <div th:if="${timeEnabled}" class="menubar-time" x-text="timeStr"></div>
     </div>
 
-    <th:block th:replace="~{modules/header :: mobile_dropdown(
+    <th:block th:replace="~{modules/shell/header :: mobile_dropdown(
       headerMenu=${headerMenu},
       searchWidgetAvailable=${searchWidgetAvailable},
       searchEnabled=${searchEnabled},

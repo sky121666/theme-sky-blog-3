@@ -27,7 +27,7 @@
         
         <!-- 左侧：交通灯 + 返回 -->
         <div class="flex items-center gap-2 min-w-[100px]">
-            <th:block th:replace="~{modules/window/controls :: trafficLights(maximizable=false)}"></th:block>
+            <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=false)}"></th:block>
             <!-- 返回（优先作为标准的 PJAX 链接处理，若浏览器支持历史记录也兼容返回） -->
             <a th:href="${windowScene == 'detail' ? '/moments' : '/'}"
                class="moments-titlebar-back pjax-link"

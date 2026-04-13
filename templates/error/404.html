@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="https://www.thymeleaf.org"
-      th:replace="~{modules/layout :: html(
+      th:replace="~{modules/shell/layout :: html(
         title = ${(error != null and error.status != null ? error.status : 404) + ' - ' + site.title},
         description = ${'当前索引里没有这条路径'},
         ssrContent = ~{::ssrBlock},

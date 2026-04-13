@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="https://www.thymeleaf.org"
-      th:replace="~{modules/layout :: html(
+      th:replace="~{modules/shell/layout :: html(
         title = ${'瞬间 - ' + site.title},
         description = ${site.seo?.description ?: site.subtitle},
         ssrContent = ~{modules/moments-app/list :: content},

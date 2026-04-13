@@ -9,19 +9,19 @@
  */
 
 /* ===== CSS (idempotent — safe to import multiple times) ===== */
-import './css/desktop/surface.css';
-import './css/desktop/shell.css';
-import './css/icons/index.css';
-import './css/widgets/index.css';
-import './css/error.css';
+import './styles/desktop/surface.css';
+import './styles/desktop/shell.css';
+import './styles/icons/index.css';
+import './styles/widgets/index.css';
+import './styles/error.css';
 
 /* ===== JS：Alpine.js ===== */
 import Alpine from 'alpinejs';
 import morph from '@alpinejs/morph';
 import intersect from '@alpinejs/intersect';
-import { registerComponents } from './js/desktop.js';
-import { runPageInitializers } from './js/shared/page-app.js';
-import { initLazyImages } from './js/shared/lazy-media.js';
+import { registerComponents } from './runtime/desktop.js';
+import { runPageInitializers } from './runtime/shared/page-app.js';
+import { initLazyImages } from './runtime/shared/lazy-media.js';
 
 if (!window.__THEME_MAIN_LOADED__) {
   window.__THEME_MAIN_LOADED__ = true;

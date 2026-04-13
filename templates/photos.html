@@ -9,7 +9,7 @@
             resolvedWindowTitle=${isAlbumsView ? '精选集' : (isGroupView ? (groupNameIndex >= 0 ? groups[groupNameIndex].spec.displayName : activeGroup) : baseTitle)},
             resolvedWindowSubtitle=${isAlbumsView ? ((groups != null ? #lists.size(groups) : 0) + ' 个相簿') : ((photos != null ? photos.total : 0) + ' 张照片')},
             resolvedDocumentTitle=${resolvedWindowTitle + ' - ' + site.title}">
-  <html th:replace="~{modules/layout :: html(
+  <html th:replace="~{modules/shell/layout :: html(
           title = ${resolvedDocumentTitle},
           description = '网站图库相册',
           ssrContent = ~{::ssrBlock},
