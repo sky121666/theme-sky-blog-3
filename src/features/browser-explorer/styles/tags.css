@@ -151,6 +151,8 @@
 }
 
 .tags-sidebar-nav {
+  --floating-scrollbar-thumb: var(--tags-scrollbar-thumb);
+  --floating-scrollbar-thumb-hover: var(--tags-scrollbar-thumb-hover);
   display: grid;
   gap: 2px;
   align-content: start;
@@ -159,10 +161,10 @@
   min-height: 0;
   overflow: auto;
   padding-right: 4px;
-  scrollbar-gutter: stable;
   overscroll-behavior: contain;
   scrollbar-width: thin;
-  scrollbar-color: var(--tags-scrollbar-thumb) transparent;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.18s ease;
 }
 
 .tags-sidebar-item,
@@ -348,17 +350,24 @@
 .tags-preview-scroll,
 .tag-posts-scroll,
 .tag-preview-scroll {
+  --floating-scrollbar-thumb: var(--tags-scrollbar-thumb);
+  --floating-scrollbar-thumb-hover: var(--tags-scrollbar-thumb-hover);
   flex: 1;
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
-  scrollbar-color: var(--tags-scrollbar-thumb) transparent;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.18s ease;
 }
 
 .tags-preview-scroll,
 .tag-preview-scroll {
   padding: 18px 20px 20px;
+}
+
+:is(.tags-sidebar-nav, .tags-preview-scroll, .tag-posts-scroll, .tag-preview-scroll):is(:hover, :active, :focus-within, [data-scrollbar-active="true"]) {
+  scrollbar-color: var(--tags-scrollbar-thumb) transparent;
 }
 
 .tags-sidebar-nav::-webkit-scrollbar,
@@ -380,16 +389,19 @@
 .tags-preview-scroll::-webkit-scrollbar-thumb,
 .tag-posts-scroll::-webkit-scrollbar-thumb,
 .tag-preview-scroll::-webkit-scrollbar-thumb {
-  background: var(--tags-scrollbar-thumb);
+  background: transparent;
   border: 3px solid transparent;
   border-radius: 999px;
   background-clip: padding-box;
+  transition: background-color 0.18s ease;
 }
 
-.tags-sidebar-nav::-webkit-scrollbar-thumb:hover,
-.tags-preview-scroll::-webkit-scrollbar-thumb:hover,
-.tag-posts-scroll::-webkit-scrollbar-thumb:hover,
-.tag-preview-scroll::-webkit-scrollbar-thumb:hover {
+:is(.tags-sidebar-nav, .tags-preview-scroll, .tag-posts-scroll, .tag-preview-scroll):is(:hover, :active, :focus-within, [data-scrollbar-active="true"])::-webkit-scrollbar-thumb {
+  background: var(--tags-scrollbar-thumb);
+  background-clip: padding-box;
+}
+
+:is(.tags-sidebar-nav, .tags-preview-scroll, .tag-posts-scroll, .tag-preview-scroll):is(:hover, :active, :focus-within, [data-scrollbar-active="true"])::-webkit-scrollbar-thumb:hover {
   background: var(--tags-scrollbar-thumb-hover);
   background-clip: padding-box;
 }

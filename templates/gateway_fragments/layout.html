@@ -51,6 +51,7 @@
     <th:block th:replace="~{gateway_fragments/common::basicStaticResources}" />
     <link rel="stylesheet" th:href="@{/assets/css/main.css(t=${#dates.createNow().getTime()})}" />
     <link rel="stylesheet" th:href="@{/assets/css/auth.css(t=${#dates.createNow().getTime()})}" />
+    <script type="module" th:src="@{/assets/js/auth.js(t=${#dates.createNow().getTime()})}"></script>
     <th:block th:if="${head != null}" th:replace="${head}"></th:block>
   </head>
   <body

@@ -468,6 +468,8 @@
 }
 
 .desktop-widget-center-grid {
+  --floating-scrollbar-thumb: rgba(255, 255, 255, 0.24);
+  --floating-scrollbar-thumb-hover: rgba(255, 255, 255, 0.38);
   display: flex;
   flex-wrap: wrap;
   gap: 16px 12px;

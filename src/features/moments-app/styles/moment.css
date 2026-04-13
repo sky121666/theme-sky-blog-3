@@ -135,37 +135,8 @@
 
 .moments-window .window-body {
   background: var(--wc-bg);
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-  transition: scrollbar-color 0.3s;
-}
-
-.moments-window .window-body:hover,
-.moments-window .window-body:active {
-  scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
-}
-
-/* Webkit (Chrome / Safari) */
-.moments-window .window-body::-webkit-scrollbar {
-  width: 6px;
-}
-
-.moments-window .window-body::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.moments-window .window-body::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: 3px;
-  transition: background 0.3s;
-}
-
-.moments-window .window-body:hover::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.4);
-}
-
-.moments-window .window-body:hover::-webkit-scrollbar-thumb:hover {
-  background: rgba(128, 128, 128, 0.6);
+  --floating-scrollbar-thumb: rgba(128, 128, 128, 0.4);
+  --floating-scrollbar-thumb-hover: rgba(128, 128, 128, 0.6);
 }
 
 .dark .moments-window {
@@ -929,6 +900,20 @@
   animation: wc-shimmer 1.6s ease-in-out infinite;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-moments-cover,
+  .skeleton-moments-card .sk-name,
+  .skeleton-moments-card .sk-line,
+  .skeleton-moments-card .sk-media-block,
+  .skeleton-moments-detail-head .sk-avatar,
+  .skeleton-moments-detail-head .sk-name,
+  .skeleton-moments-detail-body .sk-line,
+  .skeleton-moments-detail-media .sk-media-block,
+  .skeleton-moments-detail-comments .sk-block {
+    animation: none !important;
+  }
+}
+
 /* ── Detail 骨架 ── */
 .skeleton-moments-detail {
   padding: 20px 16px;
@@ -1419,4 +1404,3 @@
     height: 40px;
   }
 }
-

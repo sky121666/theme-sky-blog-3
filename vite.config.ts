@@ -147,7 +147,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, "src/shell/desktop-shell/entry-main.js"),
-        auth: path.resolve(__dirname, "src/entries/auth.css"),
+        auth: path.resolve(__dirname, "src/entries/auth.js"),
         explorer: path.resolve(__dirname, "src/features/browser-explorer/entry.js"),
         reader: path.resolve(__dirname, "src/features/browser-reader/entry.js"),
         "moments-app": path.resolve(__dirname, "src/features/moments-app/entry.js"),

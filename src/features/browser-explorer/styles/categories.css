@@ -151,6 +151,8 @@
 }
 
 .categories-sidebar-nav {
+  --floating-scrollbar-thumb: var(--categories-scrollbar-thumb);
+  --floating-scrollbar-thumb-hover: var(--categories-scrollbar-thumb-hover);
   display: grid;
   gap: 2px;
   align-content: start;
@@ -159,10 +161,10 @@
   min-height: 0;
   overflow: auto;
   padding-right: 4px;
-  scrollbar-gutter: stable;
   overscroll-behavior: contain;
   scrollbar-width: thin;
-  scrollbar-color: var(--categories-scrollbar-thumb) transparent;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.18s ease;
 }
 
 .categories-sidebar-item,
@@ -344,17 +346,24 @@
 .categories-preview-scroll,
 .category-posts-scroll,
 .category-preview-scroll {
+  --floating-scrollbar-thumb: var(--categories-scrollbar-thumb);
+  --floating-scrollbar-thumb-hover: var(--categories-scrollbar-thumb-hover);
   flex: 1;
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
-  scrollbar-color: var(--categories-scrollbar-thumb) transparent;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.18s ease;
 }
 
 .categories-preview-scroll,
 .category-preview-scroll {
   padding: 18px 20px 20px;
+}
+
+:is(.categories-sidebar-nav, .categories-preview-scroll, .category-posts-scroll, .category-preview-scroll):is(:hover, :active, :focus-within, [data-scrollbar-active="true"]) {
+  scrollbar-color: var(--categories-scrollbar-thumb) transparent;
 }
 
 .categories-sidebar-nav::-webkit-scrollbar,
@@ -376,16 +385,19 @@
 .categories-preview-scroll::-webkit-scrollbar-thumb,
 .category-posts-scroll::-webkit-scrollbar-thumb,
 .category-preview-scroll::-webkit-scrollbar-thumb {
-  background: var(--categories-scrollbar-thumb);
+  background: transparent;
   border: 3px solid transparent;
   border-radius: 999px;
   background-clip: padding-box;
+  transition: background-color 0.18s ease;
 }
 
-.categories-sidebar-nav::-webkit-scrollbar-thumb:hover,
-.categories-preview-scroll::-webkit-scrollbar-thumb:hover,
-.category-posts-scroll::-webkit-scrollbar-thumb:hover,
-.category-preview-scroll::-webkit-scrollbar-thumb:hover {
+:is(.categories-sidebar-nav, .categories-preview-scroll, .category-posts-scroll, .category-preview-scroll):is(:hover, :active, :focus-within, [data-scrollbar-active="true"])::-webkit-scrollbar-thumb {
+  background: var(--categories-scrollbar-thumb);
+  background-clip: padding-box;
+}
+
+:is(.categories-sidebar-nav, .categories-preview-scroll, .category-posts-scroll, .category-preview-scroll):is(:hover, :active, :focus-within, [data-scrollbar-active="true"])::-webkit-scrollbar-thumb:hover {
   background: var(--categories-scrollbar-thumb-hover);
   background-clip: padding-box;
 }
@@ -755,6 +767,12 @@
 @keyframes skeleton-pulse {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-line {
+    animation: none !important;
+  }
 }
 
 @container (max-width: 640px) {

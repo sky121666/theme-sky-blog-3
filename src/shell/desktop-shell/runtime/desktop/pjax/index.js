@@ -270,22 +270,48 @@ function replayPjaxScripts(root) {
 
 // ── Overlay helpers ──
 
+function setBusyState(target, busy) {
+  if (!target) return;
+
+  target.setAttribute('aria-busy', busy ? 'true' : 'false');
+}
+
 function showOverlay(contentRoot) {
   const overlay = contentRoot?.querySelector('[data-window-loading-overlay]');
+  setBusyState(contentRoot, true);
   if (overlay) {
     overlay.removeAttribute('data-fading');
+    overlay.setAttribute('aria-hidden', 'false');
     overlay.style.display = '';
   }
   return overlay;
 }
 
-function hideOverlay(overlay) {
-  if (!overlay) return;
+function hideOverlay(contentRoot, overlay) {
+  if (!overlay) {
+    setBusyState(contentRoot, false);
+    return;
+  }
+
+  overlay.setAttribute('aria-hidden', 'true');
   overlay.setAttribute('data-fading', '');
   setTimeout(() => {
     overlay.style.display = 'none';
     overlay.removeAttribute('data-fading');
+    setBusyState(contentRoot, false);
   }, 240);
+}
+
+function clearBusyState(contentRoot) {
+  setBusyState(contentRoot, false);
+}
+
+function startTopProgress() {
+  NProgress.start();
+}
+
+function stopTopProgress() {
+  NProgress.done();
 }
 
 // ── Variant inference from URL ──
@@ -311,7 +337,13 @@ export function initPjax(Alpine) {
   setTimeout(() => {
     const isErrorPage = document.body?.dataset.errorPage === 'true';
     if (isErrorPage) { pjaxLog('skip: error page'); return; }
-    
+
+    NProgress.configure({
+      minimum: 0.08,
+      showSpinner: false,
+      trickleSpeed: 120
+    });
+
     markPjaxLinks(document);
     const initialLinks = document.querySelectorAll(PJAX_LINK_SELECTOR);
     pjaxLog('init: found', initialLinks.length, 'links, selector:', PJAX_LINK_SELECTOR);
@@ -334,13 +366,13 @@ export function initPjax(Alpine) {
       const fallbackHref = resolveNavigationHref(request, href);
       if (responseText === null && request && request.status >= 400) {
         pjaxWarn('handleResponse: status', request.status, '→ full redirect', fallbackHref);
-        NProgress.done();
+        stopTopProgress();
         window.location = fallbackHref;
         return;
       }
       if (responseText === false) {
         pjaxWarn('handleResponse: failed response → full redirect', fallbackHref);
-        NProgress.done();
+        stopTopProgress();
         window.location = fallbackHref;
         return;
       }
@@ -420,8 +452,11 @@ export function initPjax(Alpine) {
       }
 
       const overlay = showOverlay(contentRoot);
+      const useTopProgress = !overlay;
       perfMark('overlayVisible');
-      NProgress.start();
+      if (useTopProgress) {
+        startTopProgress();
+      }
 
       document.dispatchEvent(new CustomEvent('pjax:same-variant-send', { detail: { targetUrl: targetUrl } }));
 
@@ -443,8 +478,10 @@ export function initPjax(Alpine) {
         const currentVariant = document.body.dataset.windowVariant || '';
         if (targetVariant && targetVariant !== currentVariant) {
           pjaxLog('variant mismatch:', currentVariant, '->', targetVariant, '→ fallback');
-          hideOverlay(overlay);
-          NProgress.done();
+          hideOverlay(contentRoot, overlay);
+          if (useTopProgress) {
+            stopTopProgress();
+          }
           _sameVariantPending = false;
           window.pjax.loadUrl(targetUrl);
           return true;
@@ -459,8 +496,10 @@ export function initPjax(Alpine) {
         if (!isContentSwitchAllowed(currentApp, currentMode) ||
             !isContentSwitchAllowed(responseApp, responseMode)) {
           pjaxLog('content switch not allowed:', currentApp, currentMode, '→', responseApp, responseMode, '→ fallback');
-          hideOverlay(overlay);
-          NProgress.done();
+          hideOverlay(contentRoot, overlay);
+          if (useTopProgress) {
+            stopTopProgress();
+          }
           _sameVariantPending = false;
           window.pjax.loadUrl(targetUrl);
           return true;
@@ -581,8 +620,10 @@ export function initPjax(Alpine) {
         perfMeasure('AlpineInitDone→pageReady', 'AlpineInitDone', 'pageReady');
         perfMeasure('total', 'navStart', 'pageReady');
 
-        NProgress.done();
-        hideOverlay(overlay);
+        if (useTopProgress) {
+          stopTopProgress();
+        }
+        hideOverlay(contentRoot, overlay);
 
         pjaxLog('same-variant navigation complete:', targetUrl);
 
@@ -596,8 +637,10 @@ export function initPjax(Alpine) {
         return true;
       } catch (err) {
         pjaxWarn('same-variant navigation failed:', err.message, '→ fallback');
-        hideOverlay(overlay);
-        NProgress.done();
+        hideOverlay(contentRoot, overlay);
+        if (useTopProgress) {
+          stopTopProgress();
+        }
         _sameVariantPending = false;
         // Fallback to full PJAX
         try {
@@ -614,9 +657,12 @@ export function initPjax(Alpine) {
 
     document.addEventListener("pjax:send", (event) => {
       pjaxLog('event:send', event.triggerElement?.href || '');
-      NProgress.start();
+      startTopProgress();
       const container = document.getElementById('window-frame-root');
-      if (container) container.classList.add('pjax-loading');
+      if (container) {
+        container.classList.add('pjax-loading');
+        setBusyState(container, true);
+      }
 
       const targetHref = event?.triggerElement?.href || event?.requestOptions?.requestUrl;
       if (targetHref) {
@@ -639,7 +685,7 @@ export function initPjax(Alpine) {
     });
     
     document.addEventListener("pjax:complete", (event) => {
-      NProgress.done();
+      stopTopProgress();
 
       if (window._browserForwardNavPending && !window._browserPopstatePending) {
         const nextNavIndex = getBrowserNavDepth() + 1;
@@ -669,6 +715,7 @@ export function initPjax(Alpine) {
 
         requestAnimationFrame(() => {
           container.classList.remove('pjax-loading');
+          clearBusyState(container);
         });
 
         runPageInitializers(container);
@@ -703,7 +750,12 @@ export function initPjax(Alpine) {
       pjaxWarn('event:error', event.detail?.request?.status, event.detail?.error?.message);
       window._browserForwardNavPending = false;
       window._browserPopstatePending = false;
-      NProgress.done();
+      stopTopProgress();
+      const container = document.getElementById('window-frame-root');
+      if (container) {
+        container.classList.remove('pjax-loading');
+        clearBusyState(container);
+      }
     });
 
     // ── Same-variant capture handler (runs BEFORE Pjax click handler) ──

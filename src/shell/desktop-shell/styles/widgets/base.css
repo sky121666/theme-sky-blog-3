@@ -283,6 +283,12 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .desktop-widget-loading-bar {
+    animation: none !important;
+  }
+}
+
 /* ── Analog Clock Widget ── */
 .desktop-widget-clock {
   display: flex;

@@ -189,7 +189,8 @@
         <!-- 内部正文 (PJAX 容器) -->
         <div class="window-body w-full flex-1 overflow-y-auto relative select-text" data-window-scroll data-window-content-root>
             <!-- Loading overlay: 导航或 API 更新时叠加在旧内容之上 -->
-            <div data-window-loading-overlay class="window-loading-overlay" style="display:none;">
+            <div data-window-loading-overlay class="window-loading-overlay" style="display:none;" aria-hidden="true" role="status" aria-live="polite">
+              <span class="sr-only">内容加载中</span>
               <div class="skeleton-finder">
                 <div class="skeleton-sidebar"><div class="skeleton-bar"></div><div class="skeleton-bar short"></div><div class="skeleton-bar"></div><div class="skeleton-bar short"></div></div>
                 <div class="skeleton-list"><div class="skeleton-bar"></div><div class="skeleton-bar"></div><div class="skeleton-bar short"></div><div class="skeleton-bar"></div><div class="skeleton-bar short"></div><div class="skeleton-bar"></div></div>

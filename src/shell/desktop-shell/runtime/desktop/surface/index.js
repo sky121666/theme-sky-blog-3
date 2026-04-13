@@ -65,7 +65,7 @@ function widgetCacheKey(widget, options = {}) {
 }
 
 function renderWidgetLoadingMarkup() {
-  return '<div class="desktop-widget-loading" aria-hidden="true"><span class="desktop-widget-loading-bar"></span><span class="desktop-widget-loading-bar desktop-widget-loading-bar--short"></span></div>';
+  return '<div class="desktop-widget-loading" role="status" aria-live="polite"><span class="sr-only">组件加载中</span><span class="desktop-widget-loading-bar"></span><span class="desktop-widget-loading-bar desktop-widget-loading-bar--short"></span></div>';
 }
 
 /* ── Alpine registration ── */

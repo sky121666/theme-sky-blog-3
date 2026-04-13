@@ -147,6 +147,8 @@
 }
 
 .archive-sidebar-nav {
+  --floating-scrollbar-thumb: var(--archive-scrollbar-thumb);
+  --floating-scrollbar-thumb-hover: var(--archive-scrollbar-thumb-hover);
   display: grid;
   gap: 2px;
   align-content: start;
@@ -155,10 +157,10 @@
   min-height: 0;
   overflow: auto;
   padding-right: 4px;
-  scrollbar-gutter: stable;
   overscroll-behavior: contain;
   scrollbar-width: thin;
-  scrollbar-color: var(--archive-scrollbar-thumb) transparent;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.18s ease;
 }
 
 .archive-sidebar-item {
@@ -274,12 +276,19 @@
 }
 
 .archive-pane-scroll {
+  --floating-scrollbar-thumb: var(--archive-scrollbar-thumb);
+  --floating-scrollbar-thumb-hover: var(--archive-scrollbar-thumb-hover);
   flex: 1;
   min-height: 0;
   overflow: auto;
   padding: 5px 6px 6px;
   overscroll-behavior: contain;
   scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.18s ease;
+}
+
+:is(.archive-sidebar-nav, .archive-pane-scroll):is(:hover, :active, :focus-within, [data-scrollbar-active="true"]) {
   scrollbar-color: var(--archive-scrollbar-thumb) transparent;
 }
 
@@ -300,14 +309,19 @@
 
 .archive-sidebar-nav::-webkit-scrollbar-thumb,
 .archive-pane-scroll::-webkit-scrollbar-thumb {
-  background: var(--archive-scrollbar-thumb);
+  background: transparent;
   border: 3px solid transparent;
   border-radius: 999px;
   background-clip: padding-box;
+  transition: background-color 0.18s ease;
 }
 
-.archive-sidebar-nav::-webkit-scrollbar-thumb:hover,
-.archive-pane-scroll::-webkit-scrollbar-thumb:hover {
+:is(.archive-sidebar-nav, .archive-pane-scroll):is(:hover, :active, :focus-within, [data-scrollbar-active="true"])::-webkit-scrollbar-thumb {
+  background: var(--archive-scrollbar-thumb);
+  background-clip: padding-box;
+}
+
+:is(.archive-sidebar-nav, .archive-pane-scroll):is(:hover, :active, :focus-within, [data-scrollbar-active="true"])::-webkit-scrollbar-thumb:hover {
   background: var(--archive-scrollbar-thumb-hover);
   background-clip: padding-box;
 }

@@ -382,6 +382,8 @@
 
 /* ─── Sidebar ───────────────────────────────────────────────────── */
 .photos-sidebar {
+  --floating-scrollbar-thumb: color-mix(in srgb, var(--photos-text-soft) 48%, transparent);
+  --floating-scrollbar-thumb-hover: color-mix(in srgb, var(--photos-text) 34%, transparent);
   width: var(--photos-sidebar-width);
   flex-shrink: 0;
   height: 100%;
@@ -641,6 +643,8 @@
 
 /* ─── Albums View ───────────────────────────────────────────────── */
 .photos-albums-view {
+  --floating-scrollbar-thumb: color-mix(in srgb, var(--photos-text-soft) 48%, transparent);
+  --floating-scrollbar-thumb-hover: color-mix(in srgb, var(--photos-text) 34%, transparent);
   flex: 1;
   overflow-y: auto;
   padding: 18px 24px 40px;
@@ -817,6 +821,8 @@
 }
 
 .photos-grid-scroll {
+  --floating-scrollbar-thumb: color-mix(in srgb, var(--photos-text-soft) 48%, transparent);
+  --floating-scrollbar-thumb-hover: color-mix(in srgb, var(--photos-text) 34%, transparent);
   flex: 1;
   overflow-y: auto;
   padding: 0;
@@ -1007,6 +1013,14 @@
 @keyframes photos-skeleton-sheen {
   100% {
     transform: translateX(120%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .photo-card::before,
+  .photo-card-skeleton-sheen {
+    animation: none !important;
+    transition: none !important;
   }
 }
 

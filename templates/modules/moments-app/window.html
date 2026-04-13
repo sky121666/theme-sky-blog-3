@@ -72,7 +72,8 @@
     <!-- 内容区 -->
     <div class="window-body moments-body w-full flex-1 overflow-y-auto relative select-text" data-window-scroll data-window-content-root>
         <!-- Loading overlay -->
-        <div data-window-loading-overlay class="window-loading-overlay" style="display:none;">
+        <div data-window-loading-overlay class="window-loading-overlay" style="display:none;" aria-hidden="true" role="status" aria-live="polite">
+          <span class="sr-only">内容加载中</span>
           <!-- Feed 骨架 -->
           <th:block th:if="${windowScene == null or windowScene == 'feed'}">
             <div class="skeleton-moments moments-app">

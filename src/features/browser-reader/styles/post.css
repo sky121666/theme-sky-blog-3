@@ -824,6 +824,8 @@
 }
 
 #article-content pre {
+  --floating-scrollbar-thumb: rgba(255, 255, 255, 0.16);
+  --floating-scrollbar-thumb-hover: rgba(255, 255, 255, 0.28);
   margin: var(--post-gap-lg) 0;
   position: relative;
   padding: 3.15rem 1.25rem 1.3rem;
@@ -834,7 +836,12 @@
   border: 1px solid var(--post-code-border);
   box-shadow: var(--post-shadow-md);
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.18s ease;
+}
+
+#article-content pre:is(:hover, :focus-within, [data-scrollbar-active="true"]) {
+  scrollbar-color: var(--floating-scrollbar-thumb) transparent;
 }
 
 #article-content pre::before {
@@ -862,8 +869,21 @@
 }
 
 #article-content pre::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.16);
+  background: transparent;
+  border: 3px solid transparent;
   border-radius: 999px;
+  background-clip: padding-box;
+  transition: background-color 0.18s ease;
+}
+
+#article-content pre:is(:hover, :focus-within, [data-scrollbar-active="true"])::-webkit-scrollbar-thumb {
+  background: var(--floating-scrollbar-thumb);
+  background-clip: padding-box;
+}
+
+#article-content pre:is(:hover, :focus-within, [data-scrollbar-active="true"])::-webkit-scrollbar-thumb:hover {
+  background: var(--floating-scrollbar-thumb-hover);
+  background-clip: padding-box;
 }
 
 #article-content pre::-webkit-scrollbar-track {
