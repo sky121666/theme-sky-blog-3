@@ -4,7 +4,7 @@
       th:replace="~{modules/layout :: html(
         title = ${((moment.spec.content != null and !#strings.isEmpty(((!#strings.isEmpty(moment.spec.content.raw) ? moment.spec.content.raw : moment.spec.content.html).replaceAll('&lt;[^&gt;]+&gt;', ' ').replaceAll('&amp;nbsp;', ' ').replaceAll('\\s+', ' ').trim()))) ? #strings.abbreviate(((!#strings.isEmpty(moment.spec.content.raw) ? moment.spec.content.raw : moment.spec.content.html).replaceAll('&lt;[^&gt;]+&gt;', ' ').replaceAll('&amp;nbsp;', ' ').replaceAll('\\s+', ' ').trim()), 42) : ((moment.spec.content != null and moment.spec.content.medium != null and !#lists.isEmpty(moment.spec.content.medium)) ? '图片瞬间' : '瞬间记录')) + ' - ' + site.title},
         description = ${((moment.spec.content != null and !#strings.isEmpty(((!#strings.isEmpty(moment.spec.content.raw) ? moment.spec.content.raw : moment.spec.content.html).replaceAll('&lt;[^&gt;]+&gt;', ' ').replaceAll('&amp;nbsp;', ' ').replaceAll('\\s+', ' ').trim()))) ? #strings.abbreviate(((!#strings.isEmpty(moment.spec.content.raw) ? moment.spec.content.raw : moment.spec.content.html).replaceAll('&lt;[^&gt;]+&gt;', ' ').replaceAll('&amp;nbsp;', ' ').replaceAll('\\s+', ' ').trim()), 140) : '') ?: (site.seo?.description ?: site.subtitle)},
-        ssrContent = ~{modules/page/moments/detail :: content},
+        ssrContent = ~{modules/moments-app/detail :: content},
         canonical = ${'/moments/' + moment.metadata.name},
         image = ${(moment.spec.content != null and moment.spec.content.medium != null and !#lists.isEmpty(moment.spec.content.medium) and moment.spec.content.medium[0].type.name() == 'PHOTO') ? moment.spec.content.medium[0].url : site.logo},
         type = 'article',

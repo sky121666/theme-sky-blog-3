@@ -370,7 +370,7 @@
       <div id="window-frame-root">
         <!-- 瞬间窗口变体 -->
         <th:block th:if="${windowVariant == 'moments'}">
-          <th:block th:replace="~{modules/window/moments :: frame(
+          <th:block th:replace="~{modules/moments-app/window :: frame(
                       titleText=${windowTitle},
                       contentFragment=${ssrContent},
                       windowResizable=${windowResizable != null ? windowResizable : 'y'},

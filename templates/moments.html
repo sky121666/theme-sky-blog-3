@@ -3,7 +3,7 @@
       th:replace="~{modules/layout :: html(
         title = ${'瞬间 - ' + site.title},
         description = ${site.seo?.description ?: site.subtitle},
-        ssrContent = ~{modules/page/moments/list :: content},
+        ssrContent = ~{modules/moments-app/list :: content},
         canonical = '/moments',
         image = ${site.logo},
         type = 'website',

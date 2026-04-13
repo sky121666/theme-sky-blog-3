@@ -150,7 +150,7 @@ export default defineConfig({
         auth: path.resolve(__dirname, "src/entries/auth.css"),
         explorer: path.resolve(__dirname, "src/entries/explorer.js"),
         reader: path.resolve(__dirname, "src/entries/reader.js"),
-        "moments-app": path.resolve(__dirname, "src/entries/moments-app.js"),
+        "moments-app": path.resolve(__dirname, "src/features/moments-app/entry.js"),
         "photos-app": path.resolve(__dirname, "src/features/photos-app/entry.js"),
       },
       output: {
