@@ -4,8 +4,8 @@
  * categoriesExplorer / categoryPostsExplorer
  */
 
-import { escapeHtml, toPositiveInt } from '../shared/utils.js';
-import { normalizeMomentRecord, renderMomentRow, renderMomentPreview } from '../shared/moments.js';
+import { escapeHtml, toPositiveInt } from '../../../js/shared/utils.js';
+import { normalizeMomentRecord, renderMomentRow, renderMomentPreview } from '../../../js/shared/moments.js';
 
 // ── Batch rendering utility ──
 

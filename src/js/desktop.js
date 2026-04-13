@@ -8,8 +8,8 @@
 
 import { registerShellComponents } from './desktop/shell.js';
 import { registerDesktopSurface } from './desktop/surface/index.js';
-import { registerArchiveExplorer, initArchiveSidebar } from './desktop/archive-sidebar.js';
-import { registerExplorers } from './desktop/explorers.js';
+import { registerArchiveExplorer, initArchiveSidebar } from '../features/browser-explorer/runtime/archive-sidebar.js';
+import { registerExplorers } from '../features/browser-explorer/runtime/explorers.js';
 import { registerPostComponents } from './post/upvote.js';
 import { initPostOutline } from './desktop/post-outline.js';
 import { queuePageInitializer } from './shared/page-app.js';

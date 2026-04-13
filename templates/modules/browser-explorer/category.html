@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html xmlns:th="https://www.thymeleaf.org"
+      th:fragment="page"
+      th:replace="~{modules/layout :: html(
+        title = ${category.spec.displayName + ' - ' + site.title},
+        description = ${!#strings.isEmpty(category.spec.description) ? category.spec.description : category.spec.displayName + ' 下的 ' + posts.total + ' 篇文章'},
+        ssrContent = ~{modules/browser-explorer/category :: content},
+        canonical = ${category.status.permalink},
+        image = ${!#strings.isEmpty(category.spec.cover) ? category.spec.cover : site.logo},
+        type = 'website',
+        seoFallback = 'full',
+        pageMode = 'browser-list',
+        pageApp = 'explorer',
+        windowVariant = 'browser',
+        windowScene = 'none',
+        windowTitle = ${category.spec.displayName},
+        windowResizable = true,
+        windowMaximizable = true,
+        windowMetricsKey = 'browser'
+      )}">
+  <th:block th:fragment="content">
+    <div class="category-shell">
+      <div class="category-workspace"
+           th:if="${posts != null and !#lists.isEmpty(posts.items)}"
+           x-data="categoryPostsExplorer">
+        <aside class="category-folder-pane">
+          <header class="category-folder-header">
+            <span class="category-folder-kicker">分类文件夹</span>
+            <a class="category-folder-back pjax-link" href="/categories">返回全部分类</a>
+          </header>
+
+          <div class="category-folder-card is-active">
+            <div class="category-folder-icon-wrap">
+              <svg class="categories-folder-icon categories-folder-icon--detail" viewBox="0 0 20 16" fill="none" aria-hidden="true">
+                <path d="M1.5 4.25C1.5 3.00736 2.50736 2 3.75 2H7.375C7.94958 2 8.50106 2.22076 8.91529 2.61612L10.0897 3.75H16.25C17.4926 3.75 18.5 4.75736 18.5 6V11.75C18.5 12.9926 17.4926 14 16.25 14H3.75C2.50736 14 1.5 12.9926 1.5 11.75V4.25Z" fill="currentColor"/>
+              </svg>
+            </div>
+            <div class="category-folder-copy">
+              <h1 class="category-folder-title" th:text="${category.spec.displayName}">分类</h1>
+              <p class="category-folder-meta" th:text="${posts.total} + ' 篇文章'">0 篇文章</p>
+            </div>
+          </div>
+
+          <dl class="category-folder-meta-list">
+            <div>
+              <dt>别名</dt>
+              <dd th:text="${category.spec.slug}">slug</dd>
+            </div>
+            <div>
+              <dt>文章数量</dt>
+              <dd th:text="${posts.total} + ' 篇'">0 篇</dd>
+            </div>
+            <div>
+              <dt>下级分类</dt>
+              <dd th:text="${category.spec.children != null ? #lists.size(category.spec.children) + ' 个' : '0 个'}">0 个</dd>
+            </div>
+            <div th:if="${!#strings.isEmpty(category.spec.description)}">
+              <dt>描述</dt>
+              <dd th:text="${category.spec.description}">分类描述</dd>
+            </div>
+          </dl>
+        </aside>
+
+        <section class="category-posts-pane">
+          <header class="categories-pane-header">
+            <span class="categories-pane-title">文章</span>
+            <span class="categories-pane-path" th:text="${category.spec.displayName}">分类</span>
+          </header>
+
+          <div class="category-posts-scroll">
+            <a class="category-post-row pjax-link"
+               data-pjax-app="reader"
+               th:each="post : ${posts.items}"
+               th:href="${post.status.permalink}"
+               data-category-post-option
+               th:attr="data-post-key=${post.metadata.name},data-post-title=${post.spec.title},data-post-date=${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')},data-post-comments=${post.stats.comment},data-post-excerpt=${post.status.excerpt},data-post-parent-name=${category.spec.displayName},data-post-author=${post.owner != null ? post.owner.displayName : site.title}"
+               @mouseenter="selectPost($el)"
+               @focus="selectPost($el)"
+               @click="selectPost($el)"
+               :class="{ 'is-active': activePostKey === $el.dataset.postKey }">
+              <div class="category-post-row-main">
+                <svg class="category-post-file-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path d="M4 1.75H9.25L12.5 5V12.5C12.5 13.3284 11.8284 14 11 14H4C3.17157 14 2.5 13.3284 2.5 12.5V3.25C2.5 2.42157 3.17157 1.75 4 1.75Z" stroke="currentColor" stroke-width="1.1"/>
+                  <path d="M9 1.75V5.25H12.5" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/>
+                </svg>
+                <span class="category-post-row-title" th:text="${post.spec.title}">文章标题</span>
+              </div>
+              <span class="category-post-row-meta">
+                <time th:text="${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')}">2026.03.26</time>
+                <span th:text="${post.stats.comment} + ' 评论'">0 评论</span>
+              </span>
+            </a>
+          </div>
+
+          <nav class="category-pagination" th:if="${posts.hasPrevious() or posts.hasNext()}">
+            <a class="category-page-btn pjax-link"
+               th:if="${posts.hasPrevious()}"
+               th:href="@{${posts.prevUrl}}">
+              上一页
+            </a>
+            <span class="category-page-btn is-disabled" th:unless="${posts.hasPrevious()}">上一页</span>
+
+            <span class="category-page-indicator" th:text="${posts.page} + ' / ' + ${posts.totalPages}">1 / 1</span>
+
+            <a class="category-page-btn pjax-link"
+               th:if="${posts.hasNext()}"
+               th:href="@{${posts.nextUrl}}">
+              下一页
+            </a>
+            <span class="category-page-btn is-disabled" th:unless="${posts.hasNext()}">下一页</span>
+          </nav>
+        </section>
+
+        <aside class="category-preview-pane">
+          <header class="categories-pane-header">
+            <span class="categories-pane-title">预览</span>
+            <span class="categories-pane-path" x-text="activePostTitle || '未选择文章'"></span>
+          </header>
+
+          <div class="category-preview-scroll">
+            <article class="category-preview-panel" x-show="activePostKey" x-cloak>
+              <header class="category-preview-header">
+                <div class="category-preview-icon">
+                  <svg class="category-post-file-icon category-post-file-icon--preview" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M4 1.75H9.25L12.5 5V12.5C12.5 13.3284 11.8284 14 11 14H4C3.17157 14 2.5 13.3284 2.5 12.5V3.25C2.5 2.42157 3.17157 1.75 4 1.75Z" stroke="currentColor" stroke-width="1.1"/>
+                    <path d="M9 1.75V5.25H12.5" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+                <div class="category-preview-heading">
+                  <h2 class="category-preview-title" x-text="activePostTitle">文章标题</h2>
+                  <p class="category-preview-path" x-text="(activePostParentName || '') + ' / ' + activePostDate">分类 / 时间</p>
+                </div>
+              </header>
+
+              <dl class="category-preview-meta">
+                <div>
+                  <dt>发布日期</dt>
+                  <dd x-text="activePostDate">2026.03.26</dd>
+                </div>
+                <div>
+                  <dt>评论</dt>
+                  <dd x-text="activePostComments + ' 条'">0 条</dd>
+                </div>
+                <div>
+                  <dt>作者</dt>
+                  <dd x-text="activePostAuthor || ''">作者</dd>
+                </div>
+              </dl>
+
+              <p class="category-preview-excerpt" x-show="activePostExcerpt" x-text="activePostExcerpt"></p>
+
+              <a class="category-preview-action pjax-link" data-pjax-app="reader" :href="activePostHref">打开文章</a>
+            </article>
+
+            <section class="category-preview-empty" x-show="!activePostKey" x-cloak>
+              <p>选择一篇文章后，在这里查看摘要与元信息。</p>
+            </section>
+          </div>
+        </aside>
+      </div>
+
+      <div class="category-empty" th:if="${posts == null or #lists.isEmpty(posts.items)}">
+        <div class="category-folder-card is-active">
+          <div class="category-folder-icon-wrap">
+            <svg class="categories-folder-icon categories-folder-icon--detail" viewBox="0 0 20 16" fill="none" aria-hidden="true">
+              <path d="M1.5 4.25C1.5 3.00736 2.50736 2 3.75 2H7.375C7.94958 2 8.50106 2.22076 8.91529 2.61612L10.0897 3.75H16.25C17.4926 3.75 18.5 4.75736 18.5 6V11.75C18.5 12.9926 17.4926 14 16.25 14H3.75C2.50736 14 1.5 12.9926 1.5 11.75V4.25Z" fill="currentColor"/>
+            </svg>
+          </div>
+          <div class="category-folder-copy">
+            <h1 class="category-folder-title" th:text="${category.spec.displayName}">分类</h1>
+            <p class="category-folder-meta">当前分类下没有文章</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </th:block>
+</html>
