@@ -86,11 +86,15 @@ export async function ensureAppAssetsLoaded(appName) {
 
 /** Disable CSS for page apps other than `activeApp`. */
 export function syncAppCss(activeApp) {
+  const normalizedActiveApp = normalizePageApp(activeApp);
+
   for (const name of APP_CSS_NAMES) {
     const segment = assetPathSegment(name);
     const links = document.querySelectorAll(`link[data-app-css="${name}"], link[href*="/css/apps/${segment}/index.css"]`);
     links.forEach(link => {
-      link.disabled = !!(activeApp && name !== activeApp);
+      link.disabled = normalizedActiveApp
+        ? name !== normalizedActiveApp
+        : true;
     });
   }
 }

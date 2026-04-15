@@ -22,10 +22,49 @@ import intersect from '@alpinejs/intersect';
 import { registerComponents } from './runtime/desktop.js';
 import { activateCurrentPageApp } from './runtime/shared/page-app.js';
 import { initLazyImages } from './runtime/shared/lazy-media.js';
+import { getLatestThemeBuildVersion } from '../../shell-core/runtime/resource-registry.js';
+
+const CURRENT_THEME_BUILD_VERSION = typeof __THEME_BUILD_VERSION__ === 'string'
+  ? __THEME_BUILD_VERSION__
+  : '';
+
+let runtimeFreshnessCheckPromise = null;
+let runtimeReloading = false;
+
+async function verifyRuntimeFreshness(force = false) {
+  if (runtimeReloading) return true;
+  if (!CURRENT_THEME_BUILD_VERSION) return false;
+  if (runtimeFreshnessCheckPromise && !force) return runtimeFreshnessCheckPromise;
+
+  const promise = getLatestThemeBuildVersion({ force: true })
+    .then((latestVersion) => {
+      if (!latestVersion || latestVersion === CURRENT_THEME_BUILD_VERSION) {
+        return false;
+      }
+
+      runtimeReloading = true;
+      if (typeof window !== 'undefined') {
+        window.__THEME_RUNTIME_STALE__ = latestVersion;
+        window.location.reload();
+      }
+
+      return true;
+    })
+    .catch(() => false)
+    .finally(() => {
+      if (!runtimeReloading) {
+        runtimeFreshnessCheckPromise = null;
+      }
+    });
+
+  runtimeFreshnessCheckPromise = promise;
+  return promise;
+}
 
 if (!window.__THEME_MAIN_LOADED__) {
   window.__THEME_MAIN_LOADED__ = true;
   window.__THEME_ALPINE_STARTED__ = false;
+  window.__THEME_BUILD_VERSION__ = CURRENT_THEME_BUILD_VERSION;
 
   window.__initLazyImages = initLazyImages;
   window.Alpine = Alpine;
@@ -65,4 +104,15 @@ if (!window.__THEME_MAIN_LOADED__) {
   Alpine.start();
   window.__THEME_ALPINE_STARTED__ = true;
   activateCurrentPageApp(document, { reason: 'initial-load' });
+
+  // Detect when this tab is still running an older shell runtime after a deploy.
+  void verifyRuntimeFreshness();
+  window.addEventListener('pageshow', () => {
+    void verifyRuntimeFreshness(true);
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      void verifyRuntimeFreshness(true);
+    }
+  });
 }

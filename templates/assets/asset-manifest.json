@@ -1,4 +1,7 @@
 {
+  "__meta": {
+    "version": "0.4.0"
+  },
   "explorer-archives": {
     "js": [
       "/themes/theme-sky-blog-3/assets/js/apps/archives/index.js"

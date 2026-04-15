@@ -444,7 +444,7 @@ export function initPjax(Alpine) {
       document.dispatchEvent(new CustomEvent('pjax:same-variant-send', { detail: { targetUrl: targetUrl } }));
 
       try {
-        // Pre-load target CSS
+        // Start loading the target app assets as early as possible.
         const targetApp = inferPageAppForNavigation(targetUrl);
         await ensureAppAssetsLoaded(targetApp);
 
@@ -523,14 +523,13 @@ export function initPjax(Alpine) {
         const nextNavIndex = getBrowserNavDepth() + 1;
         syncBrowserNavDepth(nextNavIndex);
 
-        syncBodyDatasetFromResponse(html);
-
-        const nextApp = parsePageAppFromResponse(html);
-        setCurrentPageApp(nextApp);
-        ensureAppCssLoaded(nextApp);
-        syncAppCss(nextApp);
+        const nextApp = parsePageAppFromResponse(html) || targetApp;
+        await ensureAppAssetsLoaded(nextApp);
 
         syncSeoHeadFromResponse(html);
+        syncBodyDatasetFromResponse(html);
+        setCurrentPageApp(nextApp);
+        syncAppCss(nextApp);
 
         // Alpine + scripts
         replayPjaxScripts(contentContainer);
@@ -659,11 +658,10 @@ export function initPjax(Alpine) {
 
       const nextApp = parsePageAppFromResponse(event?.request?.responseText);
       await ensureAppAssetsLoaded(nextApp);
-      setCurrentPageApp(nextApp);
-      syncAppCss(nextApp);
-
       syncSeoHeadFromResponse(event?.request?.responseText);
       syncBodyDatasetFromResponse(event?.request?.responseText);
+      setCurrentPageApp(nextApp);
+      syncAppCss(nextApp);
 
       const container = document.getElementById('window-frame-root');
       if (container) {

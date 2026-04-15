@@ -16,6 +16,7 @@ const themeYaml = fs.readFileSync(path.resolve(__dirname, "theme.yaml"), "utf-8"
 const themeNameMatch = themeYaml.match(/^\s*name:\s*(.+)$/m);
 const themeName = themeNameMatch ? themeNameMatch[1].trim() : "theme-sky-blog-3";
 const themeAssetBase = `/themes/${themeName}/assets/`;
+const buildVersion = JSON.parse(fs.readFileSync(path.resolve(__dirname, "package.json"), "utf-8")).version;
 const entryNames = new Set([
   "shell-core",
   "auth",
@@ -251,7 +252,11 @@ function pruneEmptyJsStubs(bundle: Record<string, any>) {
 }
 
 function writeAssetManifest(bundle: Record<string, any>) {
-  const manifest: Record<string, { js: string[]; css: string[] }> = {};
+  const manifest: Record<string, any> = {
+    __meta: {
+      version: buildVersion
+    }
+  };
 
   for (const item of Object.values(bundle) as any[]) {
     if (item.type !== "chunk" || !item.isEntry || !item.name) continue;
@@ -306,6 +311,9 @@ function maintainBuildOutputHygiene() {
 
 export default defineConfig({
   base: themeAssetBase,
+  define: {
+    __THEME_BUILD_VERSION__: JSON.stringify(buildVersion),
+  },
   plugins: [maintainBuildOutputHygiene()],
   build: {
     outDir,
@@ -345,7 +353,7 @@ export default defineConfig({
           if (facadeName) {
             return `js/chunks/${facadeName}.js`;
           }
-          return "js/chunks/[name].js";
+          return `js/chunks/[name].js`;
         },
         manualChunks(id) {
           if (!id.includes(`${path.sep}src${path.sep}`) && !id.includes("/src/")) {

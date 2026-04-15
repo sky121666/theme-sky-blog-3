@@ -92,7 +92,7 @@
 	            th:if="${!#strings.isEmpty(pageAppValue)}"
 	            th:attr="data-app-script=${pageAppValue}"
 	            th:src="@{'/assets/js/apps/' + ${(pageAppValue == 'explorer-tags' ? 'tags' : (pageAppValue == 'explorer-categories' ? 'categories' : (pageAppValue == 'explorer-author' ? 'author' : (pageAppValue == 'explorer-archives' ? 'archives' : pageAppValue))))} + '/index.js?t=' + ${#dates.createNow().getTime()}}"></script>
-	    <script type="module" th:src="@{/assets/js/shell-core/index.js}"></script>
+	    <script type="module" th:src="@{/assets/js/shell-core/index.js(t=${#dates.createNow().getTime()})}"></script>
   </head>
 
   <!-- 读取后台配置 -->
