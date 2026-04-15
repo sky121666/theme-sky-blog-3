@@ -1,0 +1,63 @@
+<th:block xmlns:th="https://www.thymeleaf.org">
+  <th:block th:fragment="shell (extraClasses, inlineStyle, contentFragment)">
+    <div class="window-titlebar relative w-full z-50 h-[48px] md:h-[52px] shrink-0 flex items-center px-3 md:px-4 font-sans"
+         th:classappend="${extraClasses}"
+         th:style="${inlineStyle != null ? inlineStyle : ''}"
+         data-window-titlebar
+         x-data="windowTitlebar"
+         @pjax:complete.window="closeSharePanel(); sync()"
+         @reader:outline-open.window="closeSharePanel()"
+         @mousedown="onDragStart">
+      <th:block th:replace="${contentFragment}"></th:block>
+    </div>
+  </th:block>
+
+  <th:block th:fragment="slots (extraClasses, inlineStyle, leadingFragment, centerFragment, trailingFragment, leadingClasses, centerClasses, trailingClasses)">
+    <div class="window-titlebar relative w-full z-50 h-[48px] md:h-[52px] shrink-0 flex items-center px-3 md:px-4 font-sans"
+         th:classappend="${extraClasses}"
+         th:style="${inlineStyle != null ? inlineStyle : ''}"
+         data-window-titlebar
+         x-data="windowTitlebar"
+         @pjax:complete.window="closeSharePanel(); sync()"
+         @reader:outline-open.window="closeSharePanel()"
+         @mousedown="onDragStart">
+      <div class="window-titlebar-leading"
+           data-window-titlebar-leading
+           th:classappend="${leadingClasses != null ? leadingClasses : 'flex items-center gap-3 md:gap-4 w-[120px] md:w-[180px]'}">
+        <th:block th:replace="${leadingFragment}"></th:block>
+      </div>
+
+      <div class="window-titlebar-center"
+           data-window-titlebar-center
+           th:classappend="${centerClasses != null ? centerClasses : 'flex-1 flex justify-center items-center overflow-hidden px-2'}">
+        <th:block th:replace="${centerFragment}"></th:block>
+      </div>
+
+      <div class="window-titlebar-trailing"
+           data-window-titlebar-trailing
+           th:classappend="${trailingClasses != null ? trailingClasses : 'flex items-center justify-end gap-2 w-[120px] md:w-[180px] pr-0 md:pr-2'}">
+        <th:block th:replace="${trailingFragment}"></th:block>
+      </div>
+    </div>
+  </th:block>
+
+  <th:block th:fragment="titleStack (titleText, subtitleText, stackClasses, titleClasses, subtitleClasses)">
+    <div class="window-titlebar-stack"
+         data-window-titlebar-stack
+         th:classappend="${stackClasses != null ? stackClasses : ''}">
+      <div class="window-title-text"
+           data-window-title
+           th:classappend="${titleClasses != null ? titleClasses : 'truncate font-medium text-[14px] md:text-[13px] tracking-wide'}"
+           th:text="${titleText}">
+        标题
+      </div>
+      <div class="window-title-subtitle"
+           data-window-subtitle
+           th:if="${subtitleText != null and !#strings.isEmpty(subtitleText)}"
+           th:classappend="${subtitleClasses != null ? subtitleClasses : ''}"
+           th:text="${subtitleText}">
+        副标题
+      </div>
+    </div>
+  </th:block>
+</th:block>

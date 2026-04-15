@@ -10,7 +10,7 @@
         type = 'website',
         seoFallback = 'meta',
         pageMode = 'browser-list',
-        pageApp = 'explorer',
+        pageApp = 'explorer-author',
         windowVariant = 'browser',
         windowScene = 'none',
         windowTitle = ${author.spec.displayName},
@@ -29,7 +29,8 @@
                        postTotal=${posts != null ? posts.total : 0},
                        momentTotal=${authorMoments != null ? authorMoments.total : 0},
                        defaultSource=${posts != null and !#lists.isEmpty(posts.items) ? 'posts' : (authorMoments != null and !#lists.isEmpty(authorMoments.items) ? 'moments' : 'posts')}">
-      <div class="author-shell tag-shell">
+      <div class="author-shell tag-shell" data-app-root="explorer-author">
+        <script type="application/json" data-app-props="explorer-author">{"version":1,"appId":"explorer-author","data":{"view":"author"}}</script>
         <div class="author-workspace tag-workspace author-workspace--finder"
              x-data="authorPostsExplorer"
              :class="{ 'author-workspace--previewless': !previewVisible, 'author-workspace--preview': previewVisible }"
@@ -51,6 +52,8 @@
                 <img class="author-profile-avatar"
                      th:if="${!#strings.isEmpty(author.spec.avatar)}"
                      th:src="${author.spec.avatar}"
+                     loading="lazy"
+                     decoding="async"
                      th:alt="${author.spec.displayName}">
                 <div class="author-profile-avatar author-profile-avatar--fallback" th:unless="${!#strings.isEmpty(author.spec.avatar)}">
                   <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -173,7 +176,7 @@
                 <div data-author-moment-list>
                   <th:block th:if="${authorMoments != null and !#lists.isEmpty(authorMoments.items)}">
                     <a class="author-moment-row pjax-link"
-                       data-pjax-app="moments-app"
+                       data-pjax-app="moments"
                        th:each="moment : ${authorMoments.items}"
                        th:with="content=${moment.spec.content},
                                 media=${content != null ? content.medium : null},
@@ -359,7 +362,11 @@
                       <div class="author-moment-preview-tile"
                            th:each="medium : ${media}"
                            th:classappend="${medium.type.name() == 'PHOTO'} ? ' is-photo' : (${medium.type.name() == 'VIDEO'} ? ' is-video' : ' is-placeholder')">
-                        <img th:if="${medium.type.name() == 'PHOTO'}" th:src="${medium.url}" alt="">
+                        <img th:if="${medium.type.name() == 'PHOTO'}"
+                             th:src="${medium.url}"
+                             loading="lazy"
+                             decoding="async"
+                             alt="">
                         <video th:if="${medium.type.name() == 'VIDEO'}" th:src="${medium.url}" preload="metadata" controls playsinline></video>
                         <div class="author-moment-preview-placeholder" th:if="${medium.type.name() == 'AUDIO'}">
                           <span>音频</span>
@@ -397,7 +404,7 @@
                          th:if="${content != null and !#strings.isEmpty(content.html)}"
                          th:utext="${content.html}"></div>
 
-                    <a class="author-preview-action tag-preview-action pjax-link" data-pjax-app="moments-app" th:href="@{'/moments/' + ${moment.metadata.name}}">打开瞬间</a>
+                    <a class="author-preview-action tag-preview-action pjax-link" data-pjax-app="moments" th:href="@{'/moments/' + ${moment.metadata.name}}">打开瞬间</a>
                   </article>
                 </th:block>
               </div>

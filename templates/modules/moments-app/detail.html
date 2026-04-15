@@ -3,7 +3,8 @@
                    momentLabel=${!#strings.isEmpty(momentText) ? #strings.abbreviate(momentText, 42) : ((moment.spec.content != null and moment.spec.content.medium != null and !#lists.isEmpty(moment.spec.content.medium)) ? '图片瞬间' : '瞬间记录')},
                    momentSummary=${!#strings.isEmpty(momentText) ? #strings.abbreviate(momentText, 140) : ''},
                    mediaCount=${(moment.spec.content != null and moment.spec.content.medium != null) ? #lists.size(moment.spec.content.medium) : 0}">
-  <div class="moments-app moments-app--detail">
+  <div class="moments-app moments-app--detail" data-app-root="moments">
+    <script type="application/json" data-app-props="moments">{"version":1,"appId":"moments","data":{"scene":"detail"}}</script>
     <div class="moment-reader-shell">
       <div class="moment-reader-frame">
 
@@ -11,6 +12,8 @@
         <div class="moment-detail-post">
           <img class="moment-detail-avatar"
                th:src="${moment.owner != null and moment.owner.avatar != null ? moment.owner.avatar : ''}"
+               loading="lazy"
+               decoding="async"
                th:alt="${moment.owner != null and moment.owner.displayName != null ? moment.owner.displayName : '匿名'}" />
           <div class="moment-detail-main">
             <div class="moment-detail-nickname" th:text="${moment.owner != null and moment.owner.displayName != null ? moment.owner.displayName : '匿名'}"></div>

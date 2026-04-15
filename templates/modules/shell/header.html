@@ -27,8 +27,7 @@
       <nav class="menubar-nav" th:if="${headerMenu != null}">
         <div th:each="menuItem : ${headerMenu.menuItems}"
              th:with="
-               menuItemHref = ${menuItem.status.href != null ? menuItem.status.href.toString() : ''},
-               menuItemPjaxApp = ${(menuItemHref == '/moments' or menuItemHref == '/moments/' or menuItemHref matches '^/moments/[^/]+/?$') ? 'moments-app' : ((menuItemHref == '/archives' or menuItemHref == '/archives/' or menuItemHref matches '^/(tags|tag|categories|category|author|authors)(/.*)?$') ? 'explorer' : (menuItemHref matches '^/archives/[^/]+/?$' ? 'reader' : ''))}"
+               menuItemHref = ${menuItem.status.href != null ? menuItem.status.href.toString() : ''}"
              class="menubar-menu-group"
              x-data="{ open: false }"
              @mouseenter="open = true"
@@ -36,7 +35,6 @@
              @click.away="open = false">
           <a th:href="${#lists.isEmpty(menuItem.children) ? menuItem.status.href : 'javascript:void(0)'}"
              th:target="${menuItem.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
-             th:attr="data-pjax-app=${#lists.isEmpty(menuItem.children) and !#strings.isEmpty(menuItemPjaxApp) ? menuItemPjaxApp : null}"
              class="menubar-item menubar-item--desktop"
              :class="{ 'is-open': open }"
              th:classappend="${#lists.isEmpty(menuItem.children) ? 'pjax-link' : ''}"
@@ -127,15 +125,12 @@
                 childImageUrl = ${#annotations.getOrDefault(child, 'image_url', '')},
                 childSeparatorBefore = ${#annotations.getOrDefault(child, 'header_separator_before', 'false')},
                 prevChildSeparatorBefore = ${childStat.index > 0 ? #annotations.getOrDefault(menuItem.children[childStat.index - 1], 'header_separator_before', 'false') : 'false'},
-                childSvgContent = ${childIconType == 'custom_svg' ? childCustomSvg : childIconSvg},
-                childHref = ${child.status.href != null ? child.status.href.toString() : ''},
-                childPjaxApp = ${(childHref == '/moments' or childHref == '/moments/' or childHref matches '^/moments/[^/]+/?$') ? 'moments-app' : ((childHref == '/archives' or childHref == '/archives/' or childHref matches '^/(tags|tag|categories|category|author|authors)(/.*)?$') ? 'explorer' : (childHref matches '^/archives/[^/]+/?$' ? 'reader' : ''))}">
+                childSvgContent = ${childIconType == 'custom_svg' ? childCustomSvg : childIconSvg}">
       <div th:if="${childStat.index > 0 and (childSeparatorBefore == 'true' or childSeparatorBefore == true) and !(prevChildSeparatorBefore == 'true' or prevChildSeparatorBefore == true)}"
            class="menubar-dropdown-separator"></div>
 
       <a th:href="${child.status.href}"
          th:target="${child.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
-         th:attr="data-pjax-app=${child.spec.target?.name() != 'BLANK' and !#strings.isEmpty(childPjaxApp) ? childPjaxApp : null}"
          class="menubar-dropdown-item"
          th:classappend="${child.spec.target?.name() == 'BLANK' ? '' : 'pjax-link'}">
         <span class="menubar-dropdown-leading">
@@ -143,6 +138,8 @@
                class="menubar-dropdown-icon-image"
                th:src="${childImageUrl}"
                th:alt="${child.status.displayName}"
+               loading="lazy"
+               decoding="async"
                draggable="false" />
           <span th:if="${childIconType != 'image' and !#strings.isEmpty(childSvgContent)}"
                 class="menubar-dropdown-icon-svg"
@@ -170,12 +167,10 @@
       <th:block th:if="${headerMenu != null}">
         <th:block th:each="menuItem : ${headerMenu.menuItems}"
                   th:with="
-                    menuItemHref = ${menuItem.status.href != null ? menuItem.status.href.toString() : ''},
-                    menuItemPjaxApp = ${(menuItemHref == '/moments' or menuItemHref == '/moments/' or menuItemHref matches '^/moments/[^/]+/?$') ? 'moments-app' : ((menuItemHref == '/archives' or menuItemHref == '/archives/' or menuItemHref matches '^/(tags|tag|categories|category|author|authors)(/.*)?$') ? 'explorer' : (menuItemHref matches '^/archives/[^/]+/?$' ? 'reader' : ''))}">
+                    menuItemHref = ${menuItem.status.href != null ? menuItem.status.href.toString() : ''}">
           <a th:if="${#lists.isEmpty(menuItem.children)}"
              th:href="${menuItem.status.href}"
              th:target="${menuItem.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
-             th:attr="data-pjax-app=${menuItem.spec.target?.name() != 'BLANK' and !#strings.isEmpty(menuItemPjaxApp) ? menuItemPjaxApp : null}"
              class="menubar-mobile-item"
              th:classappend="${menuItem.spec.target?.name() == 'BLANK' ? '' : 'pjax-link'}"
              @click="closeMobileMenu()"
@@ -187,15 +182,12 @@
             <th:block th:each="child, childStat : ${menuItem.children}"
                       th:with="
                         childSeparatorBefore = ${#annotations.getOrDefault(child, 'header_separator_before', 'false')},
-                        prevChildSeparatorBefore = ${childStat.index > 0 ? #annotations.getOrDefault(menuItem.children[childStat.index - 1], 'header_separator_before', 'false') : 'false'},
-                        childHref = ${child.status.href != null ? child.status.href.toString() : ''},
-                        childPjaxApp = ${(childHref == '/moments' or childHref == '/moments/' or childHref matches '^/moments/[^/]+/?$') ? 'moments-app' : ((childHref == '/archives' or childHref == '/archives/' or childHref matches '^/(tags|tag|categories|category|author|authors)(/.*)?$') ? 'explorer' : (childHref matches '^/archives/[^/]+/?$' ? 'reader' : ''))}">
+                        prevChildSeparatorBefore = ${childStat.index > 0 ? #annotations.getOrDefault(menuItem.children[childStat.index - 1], 'header_separator_before', 'false') : 'false'}">
               <div th:if="${childStat.index > 0 and (childSeparatorBefore == 'true' or childSeparatorBefore == true) and !(prevChildSeparatorBefore == 'true' or prevChildSeparatorBefore == true)}"
                    class="menubar-mobile-dropdown-separator"></div>
 
               <a th:href="${child.status.href}"
                  th:target="${child.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
-                 th:attr="data-pjax-app=${child.spec.target?.name() != 'BLANK' and !#strings.isEmpty(childPjaxApp) ? childPjaxApp : null}"
                  class="menubar-mobile-item menubar-mobile-item--child"
                  th:classappend="${child.spec.target?.name() == 'BLANK' ? '' : 'pjax-link'}"
                  @click="closeMobileMenu()"

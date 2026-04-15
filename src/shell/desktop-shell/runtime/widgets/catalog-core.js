@@ -3,6 +3,7 @@
  */
 
 import { toPositiveInt } from '../shared/utils.js';
+import { WIDGET_MANIFEST_MAP } from '../../../../widgets/registry.js';
 
 export const DESKTOP_WIDGET_SIZE_MAP = {
   small: { w: 2, h: 2 },
@@ -13,95 +14,17 @@ export const DESKTOP_WIDGET_SIZE_MAP = {
 
 export const DESKTOP_WIDGET_APPEARANCE_OPTIONS = ['follow', 'light', 'dark'];
 
-export const DESKTOP_WIDGET_CATALOG = {
-  'system.clock': {
-    title: '时间',
-    kicker: '系统时间',
-    size: 'small',
-    sizes: ['small'],
-    category: 'system',
-    description: '当前时间与日期'
-  },
-  'system.calendar': {
-    title: '日历',
-    size: 'small',
-    sizes: ['small', 'medium'],
-    sizeOverrides: { medium: { w: 4, h: 3 } },
-    category: 'system',
-    description: '当月概览与日期定位'
-  },
-  'system.weather': {
-    title: '天气',
-    kicker: '天气',
-    size: 'small',
-    sizes: ['small', 'medium'],
-    category: 'system',
-    description: '固定城市天气与体感温度'
-  },
-  'halo.latest_posts': {
-    title: '最新文章',
-    kicker: 'Halo',
-    size: 'medium',
-    sizes: ['small', 'medium', 'large'],
-    category: 'halo',
-    description: '最新发布内容'
-  },
-  'halo.popular_posts': {
-    title: '热门文章',
-    kicker: 'Halo',
-    size: 'medium',
-    sizes: ['small', 'medium', 'large'],
-    category: 'halo',
-    description: '按浏览量排序的高热内容'
-  },
-  'halo.categories': {
-    title: '文章分类',
-    kicker: 'Halo',
-    size: 'medium',
-    sizes: ['medium'],
-    category: 'halo',
-    description: '分类目录与内容入口'
-  },
-  'halo.author_card': {
-    title: '作者卡片',
-    kicker: 'Halo',
-    size: 'small',
-    sizes: ['small'],
-    sizeOverrides: { small: { w: 2, h: 1 } },
-    category: 'halo',
-    description: '站点作者与快捷入口'
-  },
-  'halo.site_stats': {
-    title: '站点统计',
-    kicker: 'Halo',
-    size: 'small',
-    sizes: ['small', 'medium', 'large', 'extra-large'],
-    sizeOverrides: {
-      small: { w: 2, h: 2 },
-      medium: { w: 2, h: 1 },
-      large: { w: 2, h: 2 },
-      'extra-large': { w: 2, h: 2 }
-    },
-    category: 'halo',
-    description: '访问、文章和评论总览'
-  },
-  'halo.random_tags': {
-    title: '随机标签',
-    kicker: 'Halo',
-    size: 'medium',
-    sizes: ['small', 'medium'],
-    category: 'halo',
-    description: '按天稳定刷新的标签探索'
-  },
-  'plugin-moments.recent': {
-    title: '瞬间',
-    kicker: '瞬间',
-    size: 'medium',
-    sizes: ['medium'],
-    category: 'plugin',
-    description: '最新动态与媒体预览'
-  }
-};
+export const DESKTOP_WIDGET_CATALOG = Object.fromEntries(
+  Object.values(WIDGET_MANIFEST_MAP).map((manifest) => [manifest.widgetId, {
+    title: manifest.title,
+    kicker: manifest.kicker || '',
+    size: manifest.defaultSize,
+    sizes: manifest.supportedSizes,
+    sizeOverrides: manifest.sizeOverrides || {},
+    category: manifest.category,
+    description: manifest.description || ''
+  }])
+);
 
 export function normalizeWidgetSize(size) {
   return DESKTOP_WIDGET_SIZE_MAP[size] ? size : 'medium';

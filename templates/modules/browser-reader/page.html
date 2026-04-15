@@ -19,7 +19,8 @@
         windowMetricsKey = 'browser'
       )}">
   <th:block th:fragment="content">
-    <div class="post-reader-shell">
+    <div class="post-reader-shell" data-app-root="reader">
+      <script type="application/json" data-app-props="reader">{"version":1,"appId":"reader","data":{"contentType":"page"}}</script>
       <div class="post-reader-frame">
         <header class="post-header">
           <div class="post-kicker">Page</div>

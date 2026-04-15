@@ -1,16 +1,18 @@
 /**
  * 全局调试日志工具
- * 由主题设置 → 开发者 → 调试模式 控制（body[data-debug="true"]）
+ * 后台开关只表示“允许调试”，真正打印需要显式开启：
+ * 1. localStorage: theme-desktop-debug=1
+ * 2. URL: ?desktop-debug=1
  */
 
-const isDebug = () => document.body?.dataset.debug === 'true';
+import { isDesktopDebugEnabled } from '../widgets/debug-core.js';
 
 export function createLogger(prefix) {
   return {
-    log: (...args) => { if (isDebug()) console.log(`[${prefix}]`, ...args); },
-    warn: (...args) => { if (isDebug()) console.warn(`[${prefix}]`, ...args); },
-    error: (...args) => { if (isDebug()) console.error(`[${prefix}]`, ...args); },
-    group: (label) => { if (isDebug()) console.group(`[${prefix}] ${label}`); },
-    groupEnd: () => { if (isDebug()) console.groupEnd(); },
+    log: (...args) => { if (isDesktopDebugEnabled()) console.log(`[${prefix}]`, ...args); },
+    warn: (...args) => { if (isDesktopDebugEnabled()) console.warn(`[${prefix}]`, ...args); },
+    error: (...args) => { if (isDesktopDebugEnabled()) console.error(`[${prefix}]`, ...args); },
+    group: (label) => { if (isDesktopDebugEnabled()) console.group(`[${prefix}] ${label}`); },
+    groupEnd: () => { if (isDesktopDebugEnabled()) console.groupEnd(); },
   };
 }

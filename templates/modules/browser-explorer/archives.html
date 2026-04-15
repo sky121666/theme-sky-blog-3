@@ -10,7 +10,7 @@
         type = 'website',
         seoFallback = 'full',
         pageMode = 'browser-list',
-        pageApp = 'explorer',
+        pageApp = 'explorer-archives',
         windowVariant = 'browser',
         windowScene = 'none',
         windowTitle = '文章归档',
@@ -19,7 +19,8 @@
         windowMetricsKey = 'browser'
       )}">
   <th:block th:fragment="content">
-    <div class="archive-shell">
+    <div class="archive-shell" data-app-root="explorer-archives">
+      <script type="application/json" data-app-props="explorer-archives">{"version":1,"appId":"explorer-archives","data":{"view":"archives"}}</script>
       <div class="archive-workspace"
            th:if="${archives != null and !#lists.isEmpty(archives.items)}"
            x-data="archiveExplorer">

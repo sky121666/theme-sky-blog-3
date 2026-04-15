@@ -15,9 +15,11 @@ import {
 import { escapeHtml, toPositiveInt } from '../../shared/utils.js';
 import { normalizeMomentRecord } from '../../shared/moments.js';
 import { markPjaxLinks, attachDynamicLinks } from '../pjax/link-attach.js';
+import { inferPageAppFromUrl } from '../../../../../shell-core/runtime/route-manifest.js';
 import { initLazyImages } from '../../shared/lazy-media.js';
 import { initLazyComments } from '../../shared/lazy-comment.js';
 import { createLogger } from '../../shared/debug.js';
+import { loadWidgetRenderer } from '../../../../../widgets/loaders.js';
 
 import {
   DESKTOP_WIDGET_SIZE_MAP,
@@ -44,14 +46,15 @@ const { log: widgetPjaxLog } = createLogger('desktop-widget-pjax');
 
 /* ── Helpers ── */
 
-function createWidgetRendererContext(state) {
+function createWidgetRendererContext(state, options = {}) {
   return {
     now: state.now,
     modules: state.modules,
     sources: state.sources,
     weatherState: state.weatherState,
     escapeHtml,
-    normalizeMomentRecord
+    normalizeMomentRecord,
+    mode: options.mode || (options.preview === true ? 'preview' : 'live')
   };
 }
 
@@ -59,9 +62,15 @@ function createWidgetRendererContext(state) {
 const TICK_SENSITIVE_WIDGETS = new Set(['system.clock']);
 const DEFAULT_WIDGET_CENTER_CATEGORIES = [{ id: 'all', label: '所有小组件' }];
 
+function resolveDesktopIconApp(href, explicitApp = '') {
+  if (explicitApp) return explicitApp;
+  return inferPageAppFromUrl(href) || '';
+}
+
 /** Build a lightweight cache key from widget state */
 function widgetCacheKey(widget, options = {}) {
-  return `${widget.widget}:${widget.size}:${widget.key}:${widget.appearance || 'follow'}:preview=${options.preview === true ? 1 : 0}:compact=${options.compact === true ? 1 : 0}`;
+  const mode = options.mode || (options.preview === true ? 'preview' : 'live');
+  return `${widget.widget}:${widget.size}:${widget.key}:${widget.appearance || 'follow'}:mode=${mode}:compact=${options.compact === true ? 1 : 0}`;
 }
 
 function renderWidgetLoadingMarkup() {
@@ -182,9 +191,9 @@ export function registerDesktopSurface(Alpine) {
     widgetCatalogBuilder: null,
     widgetCenterCategoriesBuilder: null,
     widgetCatalogPromise: null,
-    widgetRenderer: null,
-    widgetRendererPromise: null,
-    widgetRenderVersion: 0,
+    widgetRenderers: {},
+    widgetRendererPromises: {},
+    widgetRenderVersions: {},
 
     /* ═══ Mixin methods ═══ */
     ...gridMethods,
@@ -275,7 +284,7 @@ export function registerDesktopSurface(Alpine) {
       }
 
       if (!this.widgetCatalogPromise) {
-        this.widgetCatalogPromise = import('../../widgets/catalog-editor.js')
+        this.widgetCatalogPromise = import('../../../../../widgets/catalog.js')
           .then((mod) => {
             this.widgetCatalogBuilder = mod.buildWidgetCatalog;
             this.widgetCenterCategoriesBuilder = mod.buildWidgetCenterCategories;
@@ -348,26 +357,31 @@ export function registerDesktopSurface(Alpine) {
       return this.persistenceWriteRuntimePromise;
     },
 
-    async ensureWidgetRendererRuntime() {
-      if (this.widgetRenderer) {
-        return this.widgetRenderer;
+    async ensureWidgetRendererRuntime(widgetType) {
+      const type = String(widgetType || '').trim();
+      if (!type) return null;
+
+      if (this.widgetRenderers[type]) {
+        return this.widgetRenderers[type];
       }
 
-      if (!this.widgetRendererPromise) {
-        this.widgetRendererPromise = import('../../widgets/renderers/index.js')
-          .then((mod) => {
-            this.widgetRenderer = mod.renderDesktopWidget;
-            this.invalidateWidgetCache();
-            this.widgetRenderVersion += 1;
-            this.scheduleDesktopWidgetEnhancement();
-            return this.widgetRenderer;
+      if (!this.widgetRendererPromises[type]) {
+        this.widgetRendererPromises[type] = loadWidgetRenderer(type)
+          .then((renderer) => {
+            if (typeof renderer === 'function') {
+              this.widgetRenderers[type] = renderer;
+              this.widgetRenderVersions[type] = (this.widgetRenderVersions[type] || 0) + 1;
+              this.invalidateWidgetCache(type);
+              this.scheduleDesktopWidgetEnhancement();
+            }
+            return this.widgetRenderers[type] || null;
           })
           .finally(() => {
-            this.widgetRendererPromise = null;
+            delete this.widgetRendererPromises[type];
           });
       }
 
-      return this.widgetRendererPromise;
+      return this.widgetRendererPromises[type];
     },
 
     async beginWidgetDrag(widget, event) {
@@ -583,7 +597,9 @@ export function registerDesktopSurface(Alpine) {
         // widget bodies are deferred to idle time
         if (this.placedWidgets.length > 0) {
           (typeof requestIdleCallback === 'function' ? requestIdleCallback : (fn) => setTimeout(fn, 800))(() => {
-            this.ensureWidgetRendererRuntime();
+            Array.from(new Set(this.placedWidgets.map((widget) => widget.widget))).forEach((widgetType) => {
+              this.ensureWidgetRendererRuntime(widgetType);
+            });
           });
         }
 
@@ -1022,7 +1038,7 @@ export function registerDesktopSurface(Alpine) {
           }),
           href: icon.href,
           pjax: icon.pjax,
-          pjaxApp: icon.pjaxApp || '',
+          pjaxApp: resolveDesktopIconApp(icon.href, icon.pjaxApp || ''),
           external: icon.external,
           subtype: icon.subtype,
           dataId: icon.dataId
@@ -1035,7 +1051,7 @@ export function registerDesktopSurface(Alpine) {
           ...icon,
           href: sourceIcon?.href || '#',
           pjax: sourceIcon?.pjax !== false,
-          pjaxApp: sourceIcon?.pjaxApp || '',
+          pjaxApp: resolveDesktopIconApp(sourceIcon?.href || '#', sourceIcon?.pjaxApp || ''),
           external: sourceIcon?.external === true,
           subtype: sourceIcon?.subtype || 'folder',
           dataId: sourceIcon?.dataId || icon.title
@@ -1049,7 +1065,7 @@ export function registerDesktopSurface(Alpine) {
           ...icon,
           href: sourceIcon?.href || '#',
           pjax: sourceIcon?.pjax !== false,
-          pjaxApp: sourceIcon?.pjaxApp || '',
+          pjaxApp: resolveDesktopIconApp(sourceIcon?.href || '#', sourceIcon?.pjaxApp || ''),
           external: sourceIcon?.external === true,
           subtype: sourceIcon?.subtype || 'folder',
           dataId: sourceIcon?.dataId || icon.title
@@ -1282,39 +1298,51 @@ export function registerDesktopSurface(Alpine) {
     /* ═══ Widget body rendering ═══ */
 
     renderWidgetBody(widget, options = {}) {
-      const renderVersion = this.widgetRenderVersion;
       const wType = widget?.widget || '';
       const renderOptions = {
         ...options,
+        mode: options.mode || (options.preview === true ? 'preview' : 'live'),
         compact: options.preview === true ? false : (!this.isMobileViewport && this.cellSize <= 60)
       };
 
-      const renderer = this.widgetRenderer;
+      const renderer = this.widgetRenderers[wType];
 
       if (!renderer) {
-        void this.ensureWidgetRendererRuntime();
+        void this.ensureWidgetRendererRuntime(wType);
         return renderWidgetLoadingMarkup();
       }
 
       // Tick-sensitive widgets always re-render
       if (TICK_SENSITIVE_WIDGETS.has(wType)) {
-        return renderer(createWidgetRendererContext(this), widget, renderOptions);
+        return renderer(createWidgetRendererContext(this, renderOptions), widget, renderOptions);
       }
 
       // For non-tick widgets, cache and reuse HTML to prevent img flicker
       if (!this._widgetHtmlCache) this._widgetHtmlCache = new Map();
+      const renderVersion = this.widgetRenderVersions[wType] || 0;
       const cKey = `${widgetCacheKey(widget, renderOptions)}:v=${renderVersion}`;
       const cached = this._widgetHtmlCache.get(cKey);
       if (cached !== undefined) return cached;
 
-      const html = renderer(createWidgetRendererContext(this), widget, renderOptions);
+      const html = renderer(createWidgetRendererContext(this, renderOptions), widget, renderOptions);
       this._widgetHtmlCache.set(cKey, html);
       return html;
     },
 
     /** Invalidate widget render cache (call after data/layout changes) */
-    invalidateWidgetCache() {
-      if (this._widgetHtmlCache) this._widgetHtmlCache.clear();
+    invalidateWidgetCache(widgetType = '') {
+      if (this._widgetHtmlCache) {
+        if (!widgetType) {
+          this._widgetHtmlCache.clear();
+        } else {
+          const prefix = `${String(widgetType)}:`;
+          Array.from(this._widgetHtmlCache.keys()).forEach((key) => {
+            if (String(key).includes(prefix) || String(key).startsWith(`${widgetType}:`)) {
+              this._widgetHtmlCache.delete(key);
+            }
+          });
+        }
+      }
       this.scheduleDesktopWidgetEnhancement();
     },
 

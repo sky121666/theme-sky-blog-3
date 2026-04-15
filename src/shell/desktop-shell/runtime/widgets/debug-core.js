@@ -7,6 +7,18 @@ export const DESKTOP_SHELL_VERSION = '20260328-2';
 
 const DESKTOP_DEBUG_STORAGE_KEY = 'theme-desktop-debug';
 
+function hasDesktopDebugQuery() {
+  if (typeof window === 'undefined') return false;
+
+  try {
+    const params = new URLSearchParams(window.location.search || '');
+    const value = (params.get('desktop-debug') || '').trim().toLowerCase();
+    return value === '1' || value === 'true' || value === 'yes' || value === 'on';
+  } catch (_error) {
+    return false;
+  }
+}
+
 export function setDesktopDebugAccess(enabled) {
   if (typeof window === 'undefined') return;
   window.__THEME_DESKTOP_DEBUG_ALLOWED__ = !!enabled;
@@ -15,10 +27,9 @@ export function setDesktopDebugAccess(enabled) {
 export function isDesktopDebugEnabled() {
   if (typeof window === 'undefined') return false;
 
-  // Theme settings toggle (主题设置 → 开发者 → 调试模式)
-  if (document.body?.dataset.debug === 'true') return true;
-
-  if (window.__THEME_DESKTOP_DEBUG_ALLOWED__ !== true) return false;
+  const configAllowsDebug = document.body?.dataset.debug === 'true';
+  const runtimeAllowsDebug = window.__THEME_DESKTOP_DEBUG_ALLOWED__ === true;
+  if (!configAllowsDebug && !runtimeAllowsDebug) return false;
 
   try {
     if (window.localStorage?.getItem(DESKTOP_DEBUG_STORAGE_KEY) === '1') {
@@ -28,8 +39,7 @@ export function isDesktopDebugEnabled() {
     // Ignore storage access errors.
   }
 
-  const host = window.location.hostname || '';
-  return host === '127.0.0.1' || host === 'localhost';
+  return hasDesktopDebugQuery();
 }
 
 export function desktopDebug(label, payload) {

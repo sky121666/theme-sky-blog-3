@@ -10,7 +10,7 @@
         type = 'website',
         seoFallback = 'meta',
         pageMode = 'browser-list',
-        pageApp = 'explorer',
+        pageApp = 'explorer-categories',
         windowVariant = 'browser',
         windowScene = 'none',
         windowTitle = '所有分类',
@@ -41,7 +41,8 @@
   </th:block>
 
   <th:block th:fragment="content">
-    <div class="categories-shell">
+    <div class="categories-shell" data-app-root="explorer-categories">
+      <script type="application/json" data-app-props="explorer-categories">{"version":1,"appId":"explorer-categories","data":{"view":"collection"}}</script>
       <div class="categories-workspace"
            th:if="${categories != null and !#lists.isEmpty(categories)}"
            x-data="categoriesExplorer">
@@ -99,7 +100,7 @@
                 </div>
 
                 <div class="categories-post-overflow" th:if="${firstCatPosts.total > 20}">
-                  <a class="categories-post-viewmore pjax-link" data-pjax-app="explorer"
+                  <a class="categories-post-viewmore pjax-link" data-pjax-app="explorer-categories"
                      th:href="${firstCat.status.permalink}"
                      th:text="'查看全部 ' + ${firstCatPosts.total} + ' 篇文章 →'">查看全部文章 →</a>
                 </div>

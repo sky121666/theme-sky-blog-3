@@ -8,7 +8,7 @@
         type = 'website',
         seoFallback = 'meta',
         pageMode = 'browser-list',
-        pageApp = 'explorer',
+        pageApp = 'explorer-tags',
         windowVariant = 'browser',
         windowScene = 'none',
         windowTitle = '所有标签',
@@ -18,7 +18,8 @@
       )}">
 
 <th:block th:fragment="content">
-  <div class="tags-shell">
+  <div class="tags-shell" data-app-root="explorer-tags">
+    <script type="application/json" data-app-props="explorer-tags">{"version":1,"appId":"explorer-tags","data":{"view":"collection"}}</script>
     <div class="tags-workspace" th:if="${tags != null and !#lists.isEmpty(tags)}" x-data="tagsExplorer">
       <aside class="tags-sidebar">
         <p class="tags-sidebar-title">标签</p>
@@ -86,7 +87,7 @@
               </div>
 
               <div class="tags-post-overflow" th:if="${firstTagPosts.total > 20}">
-                <a class="tags-post-viewmore pjax-link" data-pjax-app="explorer"
+                <a class="tags-post-viewmore pjax-link" data-pjax-app="explorer-tags"
                    th:href="${firstTag.status.permalink}"
                    th:text="'查看全部 ' + ${firstTagPosts.total} + ' 篇文章 →'">查看全部文章 →</a>
               </div>

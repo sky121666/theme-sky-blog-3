@@ -25,6 +25,7 @@ macOS 桌面风格 Halo 博客主题。
 
 - 文档入口：[/docs/文档索引.md](/docs/文档索引.md)
 - 架构总览：[/docs/架构总览.md](/docs/架构总览.md)
+- 开发约束：[/docs/开发约束.md](/docs/开发约束.md)
 - 后台设置：[/docs/设置/后台设置协助说明.md](/docs/设置/后台设置协助说明.md)
 - 图标与注解：[/docs/设置/图标与注解设置指南.md](/docs/设置/图标与注解设置指南.md)
 - 桌面小组件：[/docs/桌面小组件.md](/docs/桌面小组件.md)
@@ -32,9 +33,9 @@ macOS 桌面风格 Halo 博客主题。
 
 ## 开发进度
 
-- 已完成：桌面壳层、图库、瞬间、浏览列表、阅读页独立模块化；跨模块滚动条与加载反馈统一、Windows 交互体验适配
+- 已完成：`shell-core / apps / widgets` 架构收口；桌面壳层、图库、瞬间、浏览列表、阅读页、认证页独立化；跨模块滚动条与加载反馈统一、Windows 交互体验适配
 - 进行中：桌面小组件持续打磨、插件界面适配
-- 待开始：预览资源继续校准
+- 待开始：真实页面 smoke 与预览资源继续校准
 - 详细进度：[/docs/项目进度.md](/docs/项目进度.md)
 
 ## 安装与启用
@@ -48,6 +49,8 @@ macOS 桌面风格 Halo 博客主题。
 ```bash
 pnpm install
 pnpm run build-only
+pnpm run check
+SMOKE_BASE_URL="https://your-site.example.com" pnpm run smoke:playwright
 ```
 
 ### 打包发布

@@ -1,0 +1,61 @@
+<th:block xmlns:th="https://www.thymeleaf.org">
+  <th:block th:fragment="shell (variant, metricsKey, resizable, maximizable, widthAttr, extraClasses, inlineStyle, bodyFragment)">
+    <div class="macos-window flex flex-col pointer-events-auto relative md:absolute w-full h-full md:w-auto md:h-auto rounded-none md:rounded-[14px] overflow-hidden origin-center"
+         data-window-surface
+         th:classappend="${extraClasses}"
+         th:style="${inlineStyle != null ? inlineStyle : ''}"
+         th:data-window-variant="${variant}"
+         th:data-window-metrics-key="${metricsKey}"
+         th:data-window-resizable="${resizable}"
+         th:data-window-maximizable="${maximizable}"
+         th:data-window-width="${widthAttr != null ? widthAttr : ''}"
+         x-data="draggableWindow"
+         :class="{ 'window-resizable': isDesktop && !isMaximized && $el.dataset.windowResizable !== 'false' && $el.dataset.windowResizable !== '' }"
+         @mousemove.window="onPointerMove"
+         @mouseup.window="onPointerEnd"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 md:scale-95"
+         x-transition:enter-end="opacity-100 md:scale-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 md:scale-100"
+         x-transition:leave-end="opacity-0 md:scale-95">
+      <th:block th:replace="${bodyFragment}"></th:block>
+    </div>
+  </th:block>
+
+  <th:block th:fragment="resizeHandles (mode, enabled)">
+    <th:block th:if="${enabled}">
+      <div class="window-resize-handle window-resize-handle--n" @mousedown.stop.prevent="startResize('n', $event)"></div>
+      <div class="window-resize-handle window-resize-handle--s" @mousedown.stop.prevent="startResize('s', $event)"></div>
+
+      <th:block th:if="${mode == 'full'}">
+        <div class="window-resize-handle window-resize-handle--e" @mousedown.stop.prevent="startResize('e', $event)"></div>
+        <div class="window-resize-handle window-resize-handle--w" @mousedown.stop.prevent="startResize('w', $event)"></div>
+        <div class="window-resize-handle window-resize-handle--ne" @mousedown.stop.prevent="startResize('ne', $event)"></div>
+        <div class="window-resize-handle window-resize-handle--nw" @mousedown.stop.prevent="startResize('nw', $event)"></div>
+        <div class="window-resize-handle window-resize-handle--se" @mousedown.stop.prevent="startResize('se', $event)"></div>
+        <div class="window-resize-handle window-resize-handle--sw" @mousedown.stop.prevent="startResize('sw', $event)"></div>
+      </th:block>
+    </th:block>
+  </th:block>
+
+  <th:block th:fragment="loadingOverlay (contentFragment)">
+    <div data-window-loading-overlay class="window-loading-overlay" style="display:none;" aria-hidden="true" role="status" aria-live="polite">
+      <span class="sr-only">内容加载中</span>
+      <th:block th:replace="${contentFragment}"></th:block>
+    </div>
+  </th:block>
+
+  <th:block th:fragment="contentBody (bodyClasses, variant, containerId, containerClasses, overlayFragment, contentFragment)">
+    <div class="window-body"
+         data-window-scroll
+         data-window-content-root
+         th:classappend="${bodyClasses != null ? bodyClasses : ''}">
+      <th:block th:if="${overlayFragment != null}" th:replace="${overlayFragment}"></th:block>
+      <div th:attr="id=${containerId != null ? containerId : null},data-window-content-variant=${variant}"
+           th:classappend="${containerClasses != null ? containerClasses : ''}">
+        <th:block th:replace="${contentFragment}"></th:block>
+      </div>
+    </div>
+  </th:block>
+</th:block>

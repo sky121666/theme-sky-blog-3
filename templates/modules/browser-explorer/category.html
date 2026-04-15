@@ -10,7 +10,7 @@
         type = 'website',
         seoFallback = 'full',
         pageMode = 'browser-list',
-        pageApp = 'explorer',
+        pageApp = 'explorer-categories',
         windowVariant = 'browser',
         windowScene = 'none',
         windowTitle = ${category.spec.displayName},
@@ -19,7 +19,8 @@
         windowMetricsKey = 'browser'
       )}">
   <th:block th:fragment="content">
-    <div class="category-shell">
+    <div class="category-shell" data-app-root="explorer-categories">
+      <script type="application/json" data-app-props="explorer-categories">{"version":1,"appId":"explorer-categories","data":{"view":"detail"}}</script>
       <div class="category-workspace"
            th:if="${posts != null and !#lists.isEmpty(posts.items)}"
            x-data="categoryPostsExplorer">

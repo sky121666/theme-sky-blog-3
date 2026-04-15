@@ -49,26 +49,35 @@
     </script>
 
     <th:block th:replace="~{gateway_fragments/common::basicStaticResources}" />
-    <link rel="stylesheet" th:href="@{/assets/css/main.css(t=${#dates.createNow().getTime()})}" />
-    <link rel="stylesheet" th:href="@{/assets/css/auth.css(t=${#dates.createNow().getTime()})}" />
-    <script type="module" th:src="@{/assets/js/auth.js(t=${#dates.createNow().getTime()})}"></script>
-    <th:block th:if="${head != null}" th:replace="${head}"></th:block>
+    <link rel="stylesheet" th:href="@{/assets/css/shell-core/index.css(t=${#dates.createNow().getTime()})}" />
+    <link rel="stylesheet" th:href="@{/assets/css/apps/auth/index.css(t=${#dates.createNow().getTime()})}" />
+    <script type="module" th:src="@{/assets/js/apps/auth/index.js(t=${#dates.createNow().getTime()})}"></script>
+    <!-- auth gateway 暂不接自定义 head fragment，避免在 Halo gateway 场景下触发 fragment 解析失败 -->
   </head>
   <body
     class="auth-gateway-page"
+    data-app-id="auth"
+    data-page-app="auth"
+    data-page-mode="auth"
+    data-window-variant="none"
     th:classappend="${#strings.isEmpty(wallpaperClass) ? schemeClass : wallpaperClass + ' ' + schemeClass}"
     th:style="${(schemeMode == 'custom' ? '--mac-accent:' + macAccent + ';--mac-selection:' + macSelection + ';--mac-folder1:' + macFolder1 + ';--mac-folder2:' + macFolder2 + ';--mac-folder3:' + macFolder3 + ';--mac-shell-light:' + macShellLight + ';--mac-shell-dark:' + macShellDark + ';' : '')}"
     th:styleappend="${bgMode == 'image' and bgImageUrl != null ? 'background:url(' + bgImageUrl + ') center/cover no-repeat; background-color:#0f172a;' : (bgMode == 'solid' ? 'background-color:' + (bgConf?.solid_color ?: '#0f172a') + ';' : '')}">
-    <main class="auth-gateway-shell">
+    <main class="auth-gateway-shell" data-app-root="auth">
+      <script type="application/json" data-app-props="auth">{"version":1,"appId":"auth","data":{"scene":"gateway"}}</script>
       <section class="auth-gateway-card">
         <header class="auth-gateway-brand">
           <div class="auth-gateway-brand-mark">
             <span th:if="${!#strings.isEmpty(headerLogoIcon)}" th:utext="${headerLogoIcon}"></span>
             <img th:if="${#strings.isEmpty(headerLogoIcon) and !#strings.isEmpty(authBrandImage)}"
                  th:src="${authBrandImage}"
+                 loading="lazy"
+                 decoding="async"
                  th:alt="${headerAppName}" />
             <img th:if="${#strings.isEmpty(headerLogoIcon) and #strings.isEmpty(authBrandImage)}"
                  th:src="${themeFallbackIcon}"
+                 loading="lazy"
+                 decoding="async"
                  th:alt="${headerAppName}" />
           </div>
           <div class="auth-gateway-brand-copy">

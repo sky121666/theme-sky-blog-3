@@ -4,6 +4,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite build --watch",
+    "lint": "node scripts/lint-architecture.mjs",
+    "typecheck": "node scripts/typecheck-contracts.mjs",
+    "smoke": "node scripts/smoke-theme.mjs",
+    "smoke:playwright": "node scripts/smoke-playwright.mjs",
+    "check": "node scripts/lint-architecture.mjs && node scripts/typecheck-contracts.mjs && vite build && node scripts/smoke-theme.mjs",
     "build-only": "vite build",
     "build": "vite build && theme-package",
     "package": "theme-package"
@@ -19,6 +24,7 @@
     "alpinejs": "^3.15.0",
     "autoprefixer": "^10.4.27",
     "esbuild": "^0.27.4",
+    "playwright": "^1.59.1",
     "tailwindcss": "^4.2.2",
     "vite": "^8.0.1"
   },

@@ -3,7 +3,7 @@
  * Parses body dataset attributes from Pjax response text and synchronizes them to the current document body.
  */
 
-const ATTRS_TO_SYNC = ['errorPage', 'pageMode', 'pageApp', 'windowVariant', 'windowMetricsKey'];
+const ATTRS_TO_SYNC = ['errorPage', 'pageMode', 'pageApp', 'appId', 'windowVariant', 'windowMetricsKey'];
 
 /**
  * Parse <body> tag from HTML response text and return a temporary element with its attributes.

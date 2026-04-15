@@ -1,5 +1,3 @@
-import './auth.css';
-
 function isWindowsPlatform() {
   const platform = navigator.userAgentData?.platform || navigator.platform || '';
   return /win/i.test(platform);
@@ -10,6 +8,8 @@ function computeThumbSize(trackHeight, viewportHeight, scrollHeight) {
   const maxThumbHeight = Math.max(36, Math.round(trackHeight * 0.46));
   return Math.min(maxThumbHeight, Math.max(36, rawThumbHeight));
 }
+
+let authScrollbarCleanup = null;
 
 function ensureAuthScrollbar() {
   const root = document.documentElement;
@@ -64,15 +64,22 @@ function syncAuthScrollbar() {
   thumb.style.setProperty('--auth-scrollbar-thumb-height', `${thumbHeight}px`);
 }
 
-function initAuthScrollbars() {
-  const body = document.body;
-  if (!body?.classList.contains('auth-gateway-page')) return;
-  if (!isWindowsPlatform()) return;
+export function initAuthScrollbars(root = document) {
+  if (typeof authScrollbarCleanup === 'function') {
+    authScrollbarCleanup();
+    authScrollbarCleanup = null;
+  }
+
+  const body = root.body || document.body;
+  if (!body?.classList.contains('auth-gateway-page')) return null;
+  if (!isWindowsPlatform()) return null;
 
   syncAuthScrollbar();
 
   let activeTimer = 0;
   let dragState = null;
+  const cleanups = [];
+  const addCleanup = (fn) => cleanups.push(fn);
   const markActive = () => {
     body.classList.add('auth-scrollbar-active');
     window.clearTimeout(activeTimer);
@@ -81,25 +88,33 @@ function initAuthScrollbars() {
     }, 520);
   };
 
-  window.addEventListener('scroll', () => {
+  const onScroll = () => {
     syncAuthScrollbar();
     markActive();
-  }, { passive: true });
+  };
+  window.addEventListener('scroll', onScroll, { passive: true });
+  addCleanup(() => window.removeEventListener('scroll', onScroll));
 
-  window.addEventListener('resize', () => {
+  const onResize = () => {
     syncAuthScrollbar();
-  }, { passive: true });
+  };
+  window.addEventListener('resize', onResize, { passive: true });
+  addCleanup(() => window.removeEventListener('resize', onResize));
 
-  document.addEventListener('pointermove', () => {
+  const onPointerProbe = () => {
     syncAuthScrollbar();
-  }, { passive: true });
+  };
+  document.addEventListener('pointermove', onPointerProbe, { passive: true });
+  addCleanup(() => document.removeEventListener('pointermove', onPointerProbe));
 
-  document.addEventListener('focusin', () => {
+  const onFocusIn = () => {
     syncAuthScrollbar();
     markActive();
-  }, { passive: true });
+  };
+  document.addEventListener('focusin', onFocusIn, { passive: true });
+  addCleanup(() => document.removeEventListener('focusin', onFocusIn));
 
-  document.addEventListener('pointerdown', (event) => {
+  const onPointerDown = (event) => {
     const thumb = event.target instanceof Element
       ? event.target.closest('.auth-scrollbar-thumb')
       : null;
@@ -130,7 +145,9 @@ function initAuthScrollbars() {
     document.body.style.cursor = 'grabbing';
     markActive();
     event.preventDefault();
-  }, { capture: true });
+  };
+  document.addEventListener('pointerdown', onPointerDown, { capture: true });
+  addCleanup(() => document.removeEventListener('pointerdown', onPointerDown, { capture: true }));
 
   const stopDrag = () => {
     if (!dragState) return;
@@ -139,7 +156,7 @@ function initAuthScrollbars() {
     dragState = null;
   };
 
-  window.addEventListener('pointermove', (event) => {
+  const onDragMove = (event) => {
     const scrollEl = document.scrollingElement;
     if (!dragState || !scrollEl || event.pointerId !== dragState.pointerId) return;
 
@@ -149,12 +166,24 @@ function initAuthScrollbars() {
     syncAuthScrollbar();
     markActive();
     event.preventDefault();
-  }, { capture: true });
+  };
+  window.addEventListener('pointermove', onDragMove, { capture: true });
+  addCleanup(() => window.removeEventListener('pointermove', onDragMove, { capture: true }));
 
   window.addEventListener('pointerup', stopDrag, { capture: true });
   window.addEventListener('pointercancel', stopDrag, { capture: true });
+  addCleanup(() => window.removeEventListener('pointerup', stopDrag, { capture: true }));
+  addCleanup(() => window.removeEventListener('pointercancel', stopDrag, { capture: true }));
 
-  window.addEventListener('load', syncAuthScrollbar, { once: true });
+  const onLoad = () => syncAuthScrollbar();
+  window.addEventListener('load', onLoad, { once: true });
+
+  authScrollbarCleanup = () => {
+    window.clearTimeout(activeTimer);
+    stopDrag();
+    body.classList.remove('auth-scrollbar-active');
+    cleanups.forEach((cleanup) => cleanup());
+  };
+
+  return authScrollbarCleanup;
 }
-
-initAuthScrollbars();

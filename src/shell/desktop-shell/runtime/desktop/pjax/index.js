@@ -8,7 +8,12 @@
 
 import Pjax from 'pjax';
 import NProgress from 'nprogress';
-import { runPageInitializers } from '../../shared/page-app.js';
+import {
+  activateCurrentPageApp,
+  activatePageApp,
+  deactivateCurrentPageApp,
+  getActivePageAppDocumentState
+} from '../../shared/page-app.js';
 import { createLogger } from '../../shared/debug.js';
 import {
   isPjaxManagedLink,
@@ -19,11 +24,17 @@ import {
 import {
   getCurrentPageApp,
   setCurrentPageApp,
-  ensureAppCssLoaded,
+  ensureAppAssetsLoaded,
   syncAppCss,
   parsePageAppFromResponse,
+  inferPageAppForNavigation,
   inferPageAppFromUrl
 } from './css-router.js';
+import { inferWindowVariantFromUrl } from '../../../../../shell-core/runtime/route-manifest.js';
+import {
+  isContentSwitchAllowed,
+  supportsSameVariantContentSwitch
+} from '../../../../../shell-core/runtime/app-manifests.js';
 import { syncSeoHeadFromResponse } from './seo.js';
 import {
   syncBodyDatasetFromResponse,
@@ -32,17 +43,6 @@ import {
 } from './protocol.js';
 
 const { log: pjaxLog, warn: pjaxWarn } = createLogger('pjax');
-
-const CONTENT_SWITCH_WHITELIST = new Map([
-  ['explorer', new Set(['browser-list'])],
-  ['moments-app', new Set(['browser-moments'])],
-  ['photos-app', new Set(['browser-list'])]
-]);
-
-function isContentSwitchAllowed(pageApp, pageMode) {
-  const allowedModes = CONTENT_SWITCH_WHITELIST.get(pageApp);
-  return !!(allowedModes && allowedModes.has(pageMode));
-}
 
 function parsePageModeFromResponse(html) {
   if (!html) return '';
@@ -95,8 +95,8 @@ function getCurrentScrollPos() {
 }
 
 function readBrowserNavChromeSnapshot(overrides = {}) {
-  const titleEl = document.querySelector('[data-window-titlebar] .window-title-text');
-  const subtitleEl = document.querySelector('[data-photos-chrome-subtitle]');
+  const titleEl = document.querySelector('[data-window-title]');
+  const subtitleEl = document.querySelector('[data-window-subtitle]');
   return {
     windowTitle: overrides.windowTitle ?? titleEl?.textContent?.trim() ?? '',
     windowSubtitle: overrides.windowSubtitle ?? subtitleEl?.textContent?.trim() ?? ''
@@ -113,12 +113,12 @@ function applyBrowserNavChromeState(state = window.history.state) {
   const chrome = state[BROWSER_NAV_CHROME_KEY];
   if (!chrome || typeof chrome !== 'object') return;
 
-  const titleEl = document.querySelector('[data-window-titlebar] .window-title-text');
+  const titleEl = document.querySelector('[data-window-title]');
   if (titleEl && typeof chrome.windowTitle === 'string' && chrome.windowTitle) {
     titleEl.textContent = chrome.windowTitle;
   }
 
-  const subtitleEl = document.querySelector('[data-photos-chrome-subtitle]');
+  const subtitleEl = document.querySelector('[data-window-subtitle]');
   if (subtitleEl && typeof chrome.windowSubtitle === 'string') {
     subtitleEl.textContent = chrome.windowSubtitle;
   }
@@ -314,23 +314,6 @@ function stopTopProgress() {
   NProgress.done();
 }
 
-// ── Variant inference from URL ──
-
-function inferVariantFromUrl(url) {
-  try {
-    const u = url instanceof URL ? url : new URL(url, window.location.origin);
-    if (u.origin !== window.location.origin) return '';
-    const p = u.pathname;
-    if (p === '/') return 'none';
-    if (p === '/moments' || p === '/moments/' || /^\/moments\/[^/]+\/?$/.test(p)) return 'moments';
-    if (p === '/photos' || p === '/photos/' || /^\/photos\/page\/[^/]+\/?$/.test(p)) return 'photos';
-    // Everything else that's internal is 'browser'
-    return 'browser';
-  } catch (_e) {
-    return '';
-  }
-}
-
 // ── Pjax init ──
 
 export function initPjax(Alpine) {
@@ -462,8 +445,8 @@ export function initPjax(Alpine) {
 
       try {
         // Pre-load target CSS
-        const targetApp = inferPageAppFromUrl(targetUrl);
-        ensureAppCssLoaded(targetApp);
+        const targetApp = inferPageAppForNavigation(targetUrl);
+        await ensureAppAssetsLoaded(targetApp);
 
         const resp = await fetch(targetUrl, {
           headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -525,6 +508,8 @@ export function initPjax(Alpine) {
         const targetContainer = targetContentRoot?.querySelector('[data-window-content-variant]')
           || targetContentRoot?.querySelector('#pjax-container');
 
+        deactivateCurrentPageApp();
+
         if (targetContainer) {
           contentContainer.innerHTML = targetContainer.innerHTML;
         } else {
@@ -558,45 +543,21 @@ export function initPjax(Alpine) {
         // Re-bind links
         attachDynamicLinks(contentContainer);
 
-        // Page initializers
-        runPageInitializers(contentContainer);
+        activatePageApp(nextApp, contentContainer, {
+          reason: 'same-variant',
+          documentTitle: parsed.title
+        });
 
         perfMark('pageReady');
 
-        // Update window title bar
-        const titleEl = document.querySelector('[data-window-titlebar] .window-title-text');
+        const documentState = getActivePageAppDocumentState() || {};
         const isDetail = contentContainer.querySelector('.moments-app--detail');
-        const photosShell = contentContainer.querySelector('.photos-shell');
-        if (photosShell) {
-          const photosTitle = photosShell.dataset.photosChromeTitle || '';
-          const photosSubtitle = photosShell.dataset.photosChromeSubtitle || '';
-          const photosSiteTitle = photosShell.dataset.photosSiteTitle || '';
-          const resolvedBrowserTitle = photosTitle
-            ? (photosSiteTitle ? `${photosTitle} - ${photosSiteTitle}` : photosTitle)
-            : parsed.title;
-          document.title = resolvedBrowserTitle;
-          pushBrowserNavState(nextNavIndex, resolvedBrowserTitle, targetUrl, {
-            windowTitle: photosTitle || resolvedBrowserTitle,
-            windowSubtitle: photosSubtitle
-          });
-          if (titleEl && photosTitle) {
-            titleEl.textContent = photosTitle;
-          }
-          const subtitleEl = document.querySelector('[data-photos-chrome-subtitle]');
-          if (subtitleEl) {
-            subtitleEl.textContent = photosSubtitle;
-          }
-        } else if (titleEl) {
-          document.title = parsed.title;
-          const chromeTitle = isDetail ? '详情' : parsed.title;
-          pushBrowserNavState(nextNavIndex, parsed.title, targetUrl, {
-            windowTitle: chromeTitle
-          });
-          titleEl.textContent = chromeTitle;
-        } else {
-          document.title = parsed.title;
-          pushBrowserNavState(nextNavIndex, parsed.title, targetUrl);
-        }
+        const resolvedTitle = documentState.title || parsed.title;
+        const historyChrome = {
+          windowTitle: documentState.windowTitle || (isDetail ? '详情' : resolvedTitle),
+          windowSubtitle: documentState.windowSubtitle || ''
+        };
+        pushBrowserNavState(nextNavIndex, resolvedTitle, targetUrl, historyChrome);
         syncBrowserNavDepth(nextNavIndex);
 
         // Sync back button fallback for scene change
@@ -657,6 +618,7 @@ export function initPjax(Alpine) {
 
     document.addEventListener("pjax:send", (event) => {
       pjaxLog('event:send', event.triggerElement?.href || '');
+      deactivateCurrentPageApp();
       startTopProgress();
       const container = document.getElementById('window-frame-root');
       if (container) {
@@ -666,8 +628,8 @@ export function initPjax(Alpine) {
 
       const targetHref = event?.triggerElement?.href || event?.requestOptions?.requestUrl;
       if (targetHref) {
-        const targetApp = inferPageAppFromUrl(targetHref);
-        ensureAppCssLoaded(targetApp);
+        const targetApp = inferPageAppForNavigation(targetHref, event?.triggerElement);
+        ensureAppAssetsLoaded(targetApp).catch(() => {});
         try {
           const targetUrl = new URL(targetHref, window.location.origin);
           const isSameOrigin = targetUrl.origin === window.location.origin;
@@ -684,7 +646,7 @@ export function initPjax(Alpine) {
       }
     });
     
-    document.addEventListener("pjax:complete", (event) => {
+    document.addEventListener("pjax:complete", async (event) => {
       stopTopProgress();
 
       if (window._browserForwardNavPending && !window._browserPopstatePending) {
@@ -696,8 +658,8 @@ export function initPjax(Alpine) {
       window._browserPopstatePending = false;
 
       const nextApp = parsePageAppFromResponse(event?.request?.responseText);
+      await ensureAppAssetsLoaded(nextApp);
       setCurrentPageApp(nextApp);
-      ensureAppCssLoaded(nextApp);
       syncAppCss(nextApp);
 
       syncSeoHeadFromResponse(event?.request?.responseText);
@@ -718,7 +680,10 @@ export function initPjax(Alpine) {
           clearBusyState(container);
         });
 
-        runPageInitializers(container);
+        activatePageApp(nextApp, container, {
+          reason: 'pjax-complete',
+          documentTitle: document.title
+        });
 
         // Deferred re-scan: desktop widgets re-render after pjax swap,
         // stripping data-pjax-attached. Catch them once after settle.
@@ -756,6 +721,7 @@ export function initPjax(Alpine) {
         container.classList.remove('pjax-loading');
         clearBusyState(container);
       }
+      activateCurrentPageApp(document, { reason: 'pjax-error-recover' });
     });
 
     // ── Same-variant capture handler (runs BEFORE Pjax click handler) ──
@@ -774,16 +740,16 @@ export function initPjax(Alpine) {
       if (isSameDocumentRoute) return;
 
       const currentVariant = document.body.dataset.windowVariant || '';
-      const targetVariant = inferVariantFromUrl(targetUrl);
+      const targetVariant = inferWindowVariantFromUrl(targetUrl);
       const currentApp = getCurrentPageApp() || '';
       const currentMode = document.body.dataset.pageMode || '';
-      const targetApp = inferPageAppFromUrl(targetUrl) || '';
+      const targetApp = inferPageAppForNavigation(targetUrl, link) || '';
 
       if (currentVariant && targetVariant &&
           currentVariant === targetVariant &&
           currentVariant !== 'none' &&
           isContentSwitchAllowed(currentApp, currentMode) &&
-          CONTENT_SWITCH_WHITELIST.has(targetApp)) {
+          supportsSameVariantContentSwitch(targetApp)) {
         e.preventDefault();
         e.stopImmediatePropagation();
         pjaxLog('same-variant intercept:', currentVariant, currentApp, currentMode, '→', targetApp, targetUrl.href);

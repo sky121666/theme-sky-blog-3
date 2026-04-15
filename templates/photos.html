@@ -5,6 +5,7 @@
             isAlbumsView=${param.view != null and !#lists.isEmpty(param.view) and param.view[0] == 'albums'},
             isGroupView=${param.group != null and !#lists.isEmpty(param.group)},
             activeGroup=${isGroupView ? param.group[0] : ''},
+            photosViewValue=${isAlbumsView ? 'albums' : (isGroupView ? 'group' : 'library')},
             groupNameIndex=${groups != null ? groups.![metadata.name].indexOf(activeGroup) : -1},
             resolvedWindowTitle=${isAlbumsView ? '精选集' : (isGroupView ? (groupNameIndex >= 0 ? groups[groupNameIndex].spec.displayName : activeGroup) : baseTitle)},
             resolvedWindowSubtitle=${isAlbumsView ? ((groups != null ? #lists.size(groups) : 0) + ' 个相簿') : ((photos != null ? photos.total : 0) + ' 张照片')},
@@ -18,7 +19,7 @@
           type = 'website',
           seoFallback = 'meta',
           pageMode = 'browser-list',
-          pageApp = 'photos-app',
+          pageApp = 'photos',
           windowVariant = 'photos',
           windowScene = 'none',
           windowTitle = ${resolvedWindowTitle},
@@ -28,9 +29,11 @@
         )}">
     <th:block th:fragment="ssrBlock">
     <div class="photos-shell"
+         data-app-root="photos"
          x-data="photosExplorer"
-         th:attr="data-photos-view=${isAlbumsView ? 'albums' : (isGroupView ? 'group' : 'library')}"
+         th:attr="data-photos-view=${photosViewValue}"
          th:attrappend=" data-photos-site-title=${site.title}, data-photos-chrome-title=${resolvedWindowTitle}, data-photos-chrome-subtitle=${resolvedWindowSubtitle}">
+      <script type="application/json" data-app-props="photos" th:inline="javascript">{"version":1,"appId":"photos","data":{"view":[[${photosViewValue}]]}}</script>
       <!-- =============== 左侧边栏 =============== -->
       <aside class="photos-sidebar">
         <!-- 固定系统项 -->
@@ -113,7 +116,9 @@
                            class="photos-album-cover-image"
                            th:src="${groupCoverPrimary}"
                            th:alt="${groupItem.spec.displayName}"
-                           loading="lazy" />
+                           loading="lazy"
+                           decoding="async"
+                           fetchpriority="low" />
                       <div th:unless="${!#strings.isEmpty(groupCoverPrimary)}" class="photos-album-cover-placeholder">
                         <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" width="36" height="36">
                           <rect x="6" y="12" width="36" height="28" rx="4" stroke="currentColor" stroke-width="2" stroke-opacity="0.4"/>

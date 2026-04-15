@@ -1,179 +1,26 @@
 <th:block th:fragment="frame (titleText, contentFragment, resizable, maximizable, metricsKey)">
-      <!-- Safari 极简交互窗口 (支持桌面端拖拽与缩放) -->
-      <div class="macos-window flex flex-col pointer-events-auto relative md:absolute w-full h-full md:w-auto md:h-auto md:min-w-[400px] md:min-h-[400px] rounded-none md:rounded-[14px] overflow-hidden origin-center"
-           data-window-surface
-           th:data-window-variant="'browser'"
-           th:data-window-metrics-key="${metricsKey}"
-           th:data-window-resizable="${resizable}"
-           th:data-window-maximizable="${maximizable}"
-           x-data="draggableWindow"
-           :class="{ 'window-resizable': isDesktop && !isMaximized && $el.dataset.windowResizable === 'true' }"
-           @mousemove.window="onPointerMove"
-           @mouseup.window="onPointerEnd"
-           x-transition:enter="transition ease-out duration-200" 
-           x-transition:enter-start="opacity-0 md:scale-95" 
-           x-transition:enter-end="opacity-100 md:scale-100" 
-           x-transition:leave="transition ease-in duration-150" 
-           x-transition:leave-start="opacity-100 md:scale-100" 
-           x-transition:leave-end="opacity-0 md:scale-95">
-           
-          <th:block th:if="${resizable == true or resizable == 'true'}">
-            <div class="window-resize-handle window-resize-handle--n" @mousedown.stop.prevent="startResize('n', $event)"></div>
-            <div class="window-resize-handle window-resize-handle--s" @mousedown.stop.prevent="startResize('s', $event)"></div>
-            <div class="window-resize-handle window-resize-handle--e" @mousedown.stop.prevent="startResize('e', $event)"></div>
-            <div class="window-resize-handle window-resize-handle--w" @mousedown.stop.prevent="startResize('w', $event)"></div>
-            <div class="window-resize-handle window-resize-handle--ne" @mousedown.stop.prevent="startResize('ne', $event)"></div>
-            <div class="window-resize-handle window-resize-handle--nw" @mousedown.stop.prevent="startResize('nw', $event)"></div>
-            <div class="window-resize-handle window-resize-handle--se" @mousedown.stop.prevent="startResize('se', $event)"></div>
-            <div class="window-resize-handle window-resize-handle--sw" @mousedown.stop.prevent="startResize('sw', $event)"></div>
-          </th:block>
-         
+  <th:block th:replace="~{modules/shell/window-frame :: shell(
+      variant='browser',
+      metricsKey=${metricsKey},
+      resizable=${resizable},
+      maximizable=${maximizable},
+      widthAttr='',
+      extraClasses='md:min-w-[400px] md:min-h-[400px]',
+      inlineStyle='',
+      bodyFragment=~{::frameBody(titleText=${titleText}, contentFragment=${contentFragment}, resizable=${resizable}, maximizable=${maximizable})}
+    )}"></th:block>
+</th:block>
+
+<th:block th:fragment="frameBody (titleText, contentFragment, resizable, maximizable)">
+        <th:block th:replace="~{modules/shell/window-frame :: resizeHandles(mode='full', enabled=${resizable == true or resizable == 'true'})}"></th:block>
+
         <!-- macOS 拟真统一窗口标题栏 (双端继承 macOS 美学) -->
-        <div class="window-titlebar relative w-full z-50 h-[48px] md:h-[52px] shrink-0 flex items-center px-3 md:px-4 border-b font-sans" style="-webkit-backdrop-filter: blur(30px) saturate(150%); backdrop-filter: blur(30px) saturate(150%);"
-             data-window-titlebar
-             x-data="windowTitlebar"
-             @pjax:complete.window="closeSharePanel(); sync()"
-             @reader:outline-open.window="closeSharePanel()"
-             @mousedown="onDragStart">
+        <th:block th:replace="~{modules/shell/window-titlebar :: shell(
+            extraClasses='border-b',
+            inlineStyle='-webkit-backdrop-filter: blur(30px) saturate(150%); backdrop-filter: blur(30px) saturate(150%);',
+            contentFragment=~{::titlebarContent(titleText=${titleText}, maximizable=${maximizable})}
+          )}"></th:block>
             
-            <!-- 统一左侧 (交通灯 + 返回导航) -->
-            <div class="window-titlebar-leading flex items-center gap-3 md:gap-4 w-[120px] md:w-[240px]">
-                <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=${maximizable})}"></th:block>
-
-                <!-- Navigation 返回 (双端统一样式) -->
-                <div class="flex items-center gap-1">
-                    <button onclick="if(window.matchMedia&&window.matchMedia('(max-width: 768px)').matches&&window.__browserBackOrHome){window.__browserBackOrHome('/')}else{window.history.back()}" class="window-nav-btn w-6 md:w-7 h-6 md:h-7 flex items-center justify-center rounded-md" title="返回上一页">
-                        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
-                    </button>
-                    <button @click="window.history.forward()" class="window-nav-btn hidden md:flex w-7 h-7 items-center justify-center rounded-md" title="前往下一页">
-                        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-                    </button>
-                </div>
-            </div>
-            
-            <!-- 统一中心 (纯净标题) -->
-            <div class="window-titlebar-center flex-1 flex justify-center items-center overflow-hidden px-2">
-                <div class="window-title-text truncate font-medium text-[14px] md:text-[13px] tracking-wide" x-text="title" th:text="${titleText}"></div>
-            </div>
-
-            <div class="window-titlebar-trailing flex items-center justify-end gap-2 w-[120px] md:w-[240px] pr-0 md:pr-2">
-                <span class="window-toolbar-feedback"
-                      x-show="shareFeedback"
-                      x-text="shareFeedback"
-                      style="display: none;"></span>
-                <!-- 主题切换 -->
-                <div class="relative hidden md:flex items-center" th:if="${theme.config.header?.theme?.enable_frontend_setting != null ? theme.config.header?.theme?.enable_frontend_setting : true}">
-                  <button @click="$store.theme.setMode($store.theme.isDark ? 'light' : 'dark')" class="window-toolbar-btn p-1.5 rounded-md" title="切换深色/浅色">
-                      <svg x-show="!$store.theme.isDark" style="display: none;" class="w-[17px] h-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-                      <svg x-show="$store.theme.isDark" style="display: none;" class="w-[17px] h-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-                  </button>
-                </div>
-
-                <button type="button"
-                        class="window-toolbar-btn post-outline-trigger"
-                        data-post-outline-trigger
-                        title="目录"
-                        style="display: none;">
-                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                        <line x1="8" y1="6" x2="21" y2="6"></line>
-                        <line x1="8" y1="12" x2="21" y2="12"></line>
-                        <line x1="8" y1="18" x2="21" y2="18"></line>
-                        <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                        <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                        <line x1="3" y1="18" x2="3.01" y2="18"></line>
-                    </svg>
-                </button>
-
-                <div class="window-share relative flex items-center">
-                  <button @click.stop="toggleSharePanel()" class="window-toolbar-btn window-accent-action p-1.5 rounded-md" title="分享">
-                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-                  </button>
-
-                  <div class="share-panel"
-                       x-show="shareOpen"
-                       x-transition:enter="transition ease-out duration-180"
-                       x-transition:enter-start="opacity-0 translate-y-1 scale-[0.98]"
-                       x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-                       x-transition:leave="transition ease-in duration-120"
-                       x-transition:leave-start="opacity-100 translate-y-0 scale-100"
-                       x-transition:leave-end="opacity-0 translate-y-1 scale-[0.98]"
-                       @click.outside="closeSharePanel()"
-                       @keydown.escape.window="closeSharePanel()"
-                       style="display: none;">
-                    <div class="share-panel-preview">
-                      <div class="share-panel-host" x-text="shareMeta.host || '分享链接'"></div>
-                      <div class="share-panel-title" x-text="shareMeta.title || title"></div>
-                      <div class="share-panel-description"
-                           x-show="shareMeta.description"
-                           x-text="shareMeta.description"
-                           style="display: none;"></div>
-                    </div>
-
-                    <div class="share-panel-actions" x-show="shareView === 'actions'">
-                      <button class="share-panel-action share-panel-action--primary" @click="copyLink()">
-                        <span class="share-panel-action-label">复制链接</span>
-                        <span class="share-panel-action-meta">发送正式地址</span>
-                      </button>
-                      <button class="share-panel-action" @click="openWeChatShare()">
-                        <span class="share-panel-action-label">微信</span>
-                        <span class="share-panel-action-meta">复制链接或扫码发送</span>
-                      </button>
-                      <button class="share-panel-action" @click="shareToQQ()">
-                        <span class="share-panel-action-label">QQ</span>
-                        <span class="share-panel-action-meta">复制链接后手动发送</span>
-                      </button>
-                      <button class="share-panel-action" @click="shareToTelegram()">
-                        <span class="share-panel-action-label">Telegram</span>
-                        <span class="share-panel-action-meta">发送链接预览</span>
-                      </button>
-                      <button class="share-panel-action" @click="shareToX()">
-                        <span class="share-panel-action-label">X</span>
-                        <span class="share-panel-action-meta">使用标题和链接</span>
-                      </button>
-                      <button class="share-panel-action" @click="shareToEmail()">
-                        <span class="share-panel-action-label">邮件</span>
-                        <span class="share-panel-action-meta">附带标题与摘要</span>
-                      </button>
-                      <button class="share-panel-action"
-                              @click="shareCurrent()"
-                              x-show="typeof navigator !== 'undefined' && !!navigator.share"
-                              style="display: none;">
-                        <span class="share-panel-action-label">更多方式</span>
-                        <span class="share-panel-action-meta">调用系统分享</span>
-                      </button>
-                    </div>
-
-                    <div class="share-panel-wechat" x-show="shareView === 'wechat'" style="display: none;">
-                      <button class="share-panel-back" @click="backToShareActions()">返回分享列表</button>
-                      <div class="share-panel-qr-shell">
-                        <div class="share-panel-qr"
-                             x-show="!wechatQrLoading && !wechatQrError && wechatQrDataUrl"
-                             style="display: none;">
-                          <img :src="wechatQrDataUrl" alt="微信分享二维码" class="share-panel-qr-image">
-                        </div>
-                        <div class="share-panel-qr-placeholder"
-                             x-show="wechatQrLoading"
-                             style="display: none;">正在生成二维码…</div>
-                        <div class="share-panel-qr-placeholder"
-                             x-show="wechatQrError"
-                             x-text="wechatQrError"
-                             style="display: none;"></div>
-                        <div class="share-panel-qr-caption">微信里打开“扫一扫”，或直接复制链接发送。</div>
-                      </div>
-                      <button class="share-panel-action share-panel-action--primary share-panel-action--full" @click="copyLink('已复制链接，可发送到微信')">
-                        <span class="share-panel-action-label">复制链接</span>
-                        <span class="share-panel-action-meta">在微信里粘贴发送</span>
-                      </button>
-                      <button class="share-panel-action share-panel-action--full" @click="saveWeChatQr()">
-                        <span class="share-panel-action-label">保存二维码</span>
-                        <span class="share-panel-action-meta">保存到本地后再发送</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-            </div>
-        </div>
-
         <div class="post-outline-mobile-backdrop" data-post-outline-mobile-backdrop hidden></div>
         <div class="post-outline-mobile-sheet" data-post-outline-mobile-sheet hidden>
             <button type="button"
@@ -186,22 +33,59 @@
             <nav class="post-outline-mobile-list" data-post-outline-mobile-list></nav>
         </div>
 
-        <!-- 内部正文 (PJAX 容器) -->
         <div class="window-body w-full flex-1 overflow-y-auto relative select-text" data-window-scroll data-window-content-root>
-            <!-- Loading overlay: 导航或 API 更新时叠加在旧内容之上 -->
-            <div data-window-loading-overlay class="window-loading-overlay" style="display:none;" aria-hidden="true" role="status" aria-live="polite">
-              <span class="sr-only">内容加载中</span>
-              <div class="skeleton-finder">
-                <div class="skeleton-sidebar"><div class="skeleton-bar"></div><div class="skeleton-bar short"></div><div class="skeleton-bar"></div><div class="skeleton-bar short"></div></div>
-                <div class="skeleton-list"><div class="skeleton-bar"></div><div class="skeleton-bar"></div><div class="skeleton-bar short"></div><div class="skeleton-bar"></div><div class="skeleton-bar short"></div><div class="skeleton-bar"></div></div>
-                <div class="skeleton-preview"><div class="skeleton-block"></div><div class="skeleton-bar"></div><div class="skeleton-bar short"></div></div>
-              </div>
-            </div>
-            <!-- Pjax 的局部无刷新刷新范围死死框定在这里，外壳永远静止 -->
+            <th:block th:replace="~{modules/shell/window-frame :: loadingOverlay(contentFragment=~{::loadingSkeleton})}"></th:block>
             <div id="pjax-container" data-window-content-variant="browser" class="w-full min-h-full">
-                <!-- SSR 渲染的正文注入 -->
                 <th:block th:replace="${contentFragment}" />
             </div>
         </div>
-      </div>
+</th:block>
+
+<th:block th:fragment="titlebarContent (titleText, maximizable)">
+            <div class="window-titlebar-leading flex items-center gap-3 md:gap-4 w-[120px] md:w-[240px]">
+              <th:block th:replace="~{modules/shell/window-titlebar-leading :: browserHistory(maximizable=${maximizable})}"></th:block>
+            </div>
+            <div class="window-titlebar-center flex-1 flex justify-center items-center overflow-hidden px-2">
+              <th:block th:replace="~{::titlebarCenter(titleText=${titleText})}"></th:block>
+            </div>
+            <div class="window-titlebar-trailing flex items-center justify-end gap-2 w-[120px] md:w-[240px] pr-0 md:pr-2">
+              <th:block th:replace="~{::titlebarTrailing}"></th:block>
+            </div>
+</th:block>
+
+<th:block th:fragment="titlebarCenter (titleText)">
+            <th:block th:replace="~{modules/shell/window-titlebar :: titleStack(
+              titleText=${titleText},
+              subtitleText=${null},
+              stackClasses='',
+              titleClasses='truncate font-medium text-[14px] md:text-[13px] tracking-wide',
+              subtitleClasses=''
+            )}"></th:block>
+</th:block>
+
+<th:block th:fragment="titlebarTrailing">
+            <th:block th:replace="~{modules/shell/window-titlebar-actions :: themeToggle(
+              wrapperClasses='relative hidden md:flex items-center',
+              buttonClasses='window-toolbar-btn p-1.5 rounded-md',
+              iconClasses='w-[17px] h-[17px]',
+              titleText='切换深色/浅色'
+            )}"></th:block>
+            <th:block th:replace="~{modules/shell/window-titlebar-actions :: outlineTrigger(
+              buttonClasses='window-toolbar-btn post-outline-trigger',
+              iconClasses='w-4 h-4',
+              titleText='目录'
+            )}"></th:block>
+            <th:block th:replace="~{modules/shell/window-titlebar-actions :: shareMenu(
+              feedbackClasses='window-toolbar-feedback',
+              buttonClasses='window-toolbar-btn window-accent-action p-1.5 rounded-md',
+              iconClasses='w-4 h-4'
+            )}"></th:block>
+</th:block>
+
+<th:block th:fragment="loadingSkeleton">
+  <div class="skeleton-finder">
+    <div class="skeleton-sidebar"><div class="skeleton-bar"></div><div class="skeleton-bar short"></div><div class="skeleton-bar"></div><div class="skeleton-bar short"></div></div>
+    <div class="skeleton-list"><div class="skeleton-bar"></div><div class="skeleton-bar"></div><div class="skeleton-bar short"></div><div class="skeleton-bar"></div><div class="skeleton-bar short"></div><div class="skeleton-bar"></div></div>
+    <div class="skeleton-preview"><div class="skeleton-block"></div><div class="skeleton-bar"></div><div class="skeleton-bar short"></div></div>
+  </div>
 </th:block>

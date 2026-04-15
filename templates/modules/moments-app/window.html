@@ -1,180 +1,133 @@
 <th:block th:fragment="frame (titleText, contentFragment, windowResizable, windowScene, metricsKey)">
-  <div class="macos-window moments-window flex flex-col pointer-events-auto relative md:absolute w-full h-full md:w-auto md:h-auto md:min-w-[560px] md:min-h-[400px] rounded-none md:rounded-[14px] overflow-hidden origin-center"
-       data-window-surface
-       th:data-window-variant="'moments'"
-       th:data-window-metrics-key="${metricsKey}"
-       th:data-window-resizable="${windowResizable != null ? windowResizable : 'y'}"
-       data-window-width="560"
-       th:data-window-maximizable="false"
-       x-data="draggableWindow"
-       :class="{ 'window-resizable': isDesktop && !isMaximized && $el.dataset.windowResizable !== 'false' }"
-       @mousemove.window="onPointerMove"
-       @mouseup.window="onPointerEnd"
-       x-transition:enter="transition ease-out duration-200" 
-       x-transition:enter-start="opacity-0 md:scale-95" 
-       x-transition:enter-end="opacity-100 md:scale-100" 
-       x-transition:leave="transition ease-in duration-150" 
-       x-transition:leave-start="opacity-100 md:scale-100" 
-       x-transition:leave-end="opacity-0 md:scale-95">
-       <div class="window-resize-handle window-resize-handle--n" @mousedown.stop.prevent="startResize('n', $event)"></div>
-       <div class="window-resize-handle window-resize-handle--s" @mousedown.stop.prevent="startResize('s', $event)"></div>
-       
+  <th:block th:replace="~{modules/shell/window-frame :: shell(
+      variant='moments',
+      metricsKey=${metricsKey},
+      resizable=${windowResizable != null ? windowResizable : 'y'},
+      maximizable='false',
+      widthAttr='560',
+      extraClasses='moments-window md:min-w-[560px] md:min-h-[400px]',
+      inlineStyle='',
+      bodyFragment=~{::frameBody(titleText=${titleText}, contentFragment=${contentFragment}, windowScene=${windowScene}, windowResizable=${windowResizable})}
+    )}"></th:block>
+</th:block>
+
+<th:block th:fragment="frameBody (titleText, contentFragment, windowScene, windowResizable)">
+    <th:block th:replace="~{modules/shell/window-frame :: resizeHandles(mode='vertical', enabled=${windowResizable == null or windowResizable != 'false'})}"></th:block>
+
     <!-- 微信风格标题栏 -->
-    <div class="window-titlebar relative w-full z-50 h-[48px] md:h-[52px] shrink-0 flex items-center px-3 md:px-4 font-sans"
-         data-window-titlebar
-         x-data="windowTitlebar"
-         @mousedown="onDragStart">
+    <th:block th:replace="~{modules/shell/window-titlebar :: shell(
+        extraClasses='',
+        inlineStyle='',
+        contentFragment=~{::titlebarContent(titleText=${titleText}, windowScene=${windowScene})}
+      )}"></th:block>
         
-        <!-- 左侧：交通灯 + 返回 -->
-        <div class="flex items-center gap-2 min-w-[100px]">
-            <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=false)}"></th:block>
-            <!-- 返回（优先作为标准的 PJAX 链接处理，若浏览器支持历史记录也兼容返回） -->
-            <a th:href="${windowScene == 'detail' ? '/moments' : '/'}"
-               class="moments-titlebar-back pjax-link"
-               data-pjax-app="moments-app"
-               title="返回"
-               onclick="if(window.history.length > 1) { event.preventDefault(); history.back(); }">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="15 18 9 12 15 6"></polyline>
-              </svg>
-            </a>
-        </div>
-        
-        <!-- 居中标题 -->
-        <div class="flex-1 flex justify-center items-center overflow-hidden px-2">
-            <div class="window-title-text truncate font-medium text-[14px] md:text-[13px] tracking-wide" th:text="${titleText} ?: '瞬间'"></div>
-        </div>
-
-        <!-- 右侧功能键 -->
-        <div class="moments-titlebar-icons min-w-[100px] justify-end">
-            <!-- 刷新 -->
-            <button type="button" class="moments-titlebar-icon-btn" title="刷新"
-                    onclick="window.location.reload()">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="23 4 23 10 17 10"></polyline>
-                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-              </svg>
-            </button>
-
-            <!-- 暗亮切换 -->
-            <button type="button" class="moments-titlebar-icon-btn" title="切换外观"
-                    @click="$store.theme.setMode($store.theme.isDark ? 'light' : 'dark')">
-              <svg x-show="!$store.theme.isDark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-              </svg>
-              <svg x-show="$store.theme.isDark" style="display:none;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-              </svg>
-            </button>
-        </div>
-    </div>
-
-    <!-- 内容区 -->
     <div class="window-body moments-body w-full flex-1 overflow-y-auto relative select-text" data-window-scroll data-window-content-root>
-        <!-- Loading overlay -->
-        <div data-window-loading-overlay class="window-loading-overlay" style="display:none;" aria-hidden="true" role="status" aria-live="polite">
-          <span class="sr-only">内容加载中</span>
-          <!-- Feed 骨架 -->
-          <th:block th:if="${windowScene == null or windowScene == 'feed'}">
-            <div class="skeleton-moments moments-app">
-              <div class="skeleton-moments-cover">
-                <div class="skeleton-moments-cover-user">
-                  <div class="sk-name"></div>
-                  <div class="sk-avatar"></div>
-                </div>
-              </div>
-              <div class="skeleton-moments-list">
-                <div class="skeleton-moments-card">
-                  <div class="sk-avatar"></div>
-                  <div class="sk-content">
-                    <div class="sk-name"></div>
-                    <div class="sk-line full"></div>
-                    <div class="sk-line short"></div>
-                    <div class="sk-media"><div class="sk-media-block"></div><div class="sk-media-block"></div><div class="sk-media-block"></div></div>
-                    <div class="sk-footer"></div>
-                  </div>
-                </div>
-                <div class="skeleton-moments-card">
-                  <div class="sk-avatar"></div>
-                  <div class="sk-content">
-                    <div class="sk-name"></div>
-                    <div class="sk-line full"></div>
-                    <div class="sk-line full"></div>
-                    <div class="sk-line short"></div>
-                    <div class="sk-footer"></div>
-                  </div>
-                </div>
-                <div class="skeleton-moments-card">
-                  <div class="sk-avatar"></div>
-                  <div class="sk-content">
-                    <div class="sk-name"></div>
-                    <div class="sk-line full"></div>
-                    <div class="sk-line short"></div>
-                    <div class="sk-media"><div class="sk-media-block"></div><div class="sk-media-block"></div><div class="sk-media-block"></div></div>
-                    <div class="sk-footer"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </th:block>
-          <!-- Detail 骨架 -->
-          <th:block th:if="${windowScene == 'detail'}">
-            <div class="skeleton-moments-detail moments-app">
-              <div class="skeleton-moments-detail-head">
-                <div class="sk-avatar"></div>
-                <div class="sk-content"><div class="sk-name"></div></div>
-              </div>
-              <div class="skeleton-moments-detail-body">
-                <div class="sk-line full"></div>
-                <div class="sk-line full"></div>
-                <div class="sk-line short"></div>
-              </div>
-              <div class="skeleton-moments-detail-media">
-                <div class="sk-media"><div class="sk-media-block"></div><div class="sk-media-block"></div><div class="sk-media-block"></div></div>
-              </div>
-              <div class="skeleton-moments-detail-comments">
-                <div class="sk-block"></div>
-                <div class="sk-block"></div>
-              </div>
-            </div>
-          </th:block>
-        </div>
+        <th:block th:replace="~{modules/shell/window-frame :: loadingOverlay(contentFragment=~{::loadingSkeleton(windowScene=${windowScene})})}"></th:block>
         <div data-window-content-variant="moments">
           <th:block th:replace="${contentFragment}" />
         </div>
     </div>
-  </div>
+</th:block>
 
-  <!-- 滚动检测 + 场景同步 (全局可复用) -->
-  <script>
-  window.__momentsScrollSetup = function() {
-    var win = document.querySelector('.moments-window');
-    if (!win) return;
-    var body = win.querySelector('.moments-body');
-    var bar  = win.querySelector('.window-titlebar');
-    if (!body || !bar) return;
-    if (body._momentsScrollFn) {
-      body.removeEventListener('scroll', body._momentsScrollFn);
-      body._momentsScrollFn = null;
-    }
-    var isFeed = !!body.querySelector('.moments-app--feed');
-    if (!isFeed) { bar.classList.remove('scrolled'); return; }
-    function onScroll() {
-      var cover = body.querySelector('.moments-cover');
-      var threshold = cover ? cover.offsetHeight - 48 : 200;
-      bar.classList.toggle('scrolled', body.scrollTop > threshold);
-    }
-    body._momentsScrollFn = onScroll;
-    body.addEventListener('scroll', onScroll, { passive: true });
-    var tries = 0;
-    (function poll() {
-      var cover = body.querySelector('.moments-cover');
-      if ((cover && cover.offsetHeight > 0) || tries > 20) { onScroll(); return; }
-      tries++;
-      requestAnimationFrame(poll);
-    })();
-  };
-  window.__momentsScrollSetup();
-  </script>
+<th:block th:fragment="titlebarContent (titleText, windowScene)">
+            <div class="window-titlebar-leading flex items-center gap-2 min-w-[100px]">
+              <th:block th:replace="~{modules/shell/window-titlebar-leading :: momentsBack(windowScene=${windowScene})}"></th:block>
+            </div>
+            <div class="window-titlebar-center flex-1 flex justify-center items-center overflow-hidden px-2">
+              <th:block th:replace="~{::titlebarCenter(titleText=${titleText})}"></th:block>
+            </div>
+            <div class="window-titlebar-trailing moments-titlebar-icons min-w-[100px] justify-end">
+              <th:block th:replace="~{::titlebarTrailing}"></th:block>
+            </div>
+</th:block>
 
+<th:block th:fragment="titlebarCenter (titleText)">
+            <th:block th:replace="~{modules/shell/window-titlebar :: titleStack(
+              titleText=${titleText} ?: '瞬间',
+              subtitleText=${null},
+              stackClasses='',
+              titleClasses='truncate font-medium text-[14px] md:text-[13px] tracking-wide',
+              subtitleClasses=''
+            )}"></th:block>
+</th:block>
+
+<th:block th:fragment="titlebarTrailing">
+            <th:block th:replace="~{modules/shell/window-titlebar-actions :: refreshButton(
+              buttonClasses='moments-titlebar-icon-btn',
+              iconClasses='w-4 h-4',
+              titleText='刷新'
+            )}"></th:block>
+            <th:block th:replace="~{modules/shell/window-titlebar-actions :: themeToggle(
+              wrapperClasses='',
+              buttonClasses='moments-titlebar-icon-btn',
+              iconClasses='w-4 h-4',
+              titleText='切换外观'
+            )}"></th:block>
+</th:block>
+</th:block>
+
+<th:block th:fragment="loadingSkeleton (windowScene)">
+  <th:block th:if="${windowScene == null or windowScene == 'feed'}">
+    <div class="skeleton-moments moments-app">
+      <div class="skeleton-moments-cover">
+        <div class="skeleton-moments-cover-user">
+          <div class="sk-name"></div>
+          <div class="sk-avatar"></div>
+        </div>
+      </div>
+      <div class="skeleton-moments-list">
+        <div class="skeleton-moments-card">
+          <div class="sk-avatar"></div>
+          <div class="sk-content">
+            <div class="sk-name"></div>
+            <div class="sk-line full"></div>
+            <div class="sk-line short"></div>
+            <div class="sk-media"><div class="sk-media-block"></div><div class="sk-media-block"></div><div class="sk-media-block"></div></div>
+            <div class="sk-footer"></div>
+          </div>
+        </div>
+        <div class="skeleton-moments-card">
+          <div class="sk-avatar"></div>
+          <div class="sk-content">
+            <div class="sk-name"></div>
+            <div class="sk-line full"></div>
+            <div class="sk-line full"></div>
+            <div class="sk-line short"></div>
+            <div class="sk-footer"></div>
+          </div>
+        </div>
+        <div class="skeleton-moments-card">
+          <div class="sk-avatar"></div>
+          <div class="sk-content">
+            <div class="sk-name"></div>
+            <div class="sk-line full"></div>
+            <div class="sk-line short"></div>
+            <div class="sk-media"><div class="sk-media-block"></div><div class="sk-media-block"></div><div class="sk-media-block"></div></div>
+            <div class="sk-footer"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </th:block>
+
+  <th:block th:if="${windowScene == 'detail'}">
+    <div class="skeleton-moments-detail moments-app">
+      <div class="skeleton-moments-detail-head">
+        <div class="sk-avatar"></div>
+        <div class="sk-content"><div class="sk-name"></div></div>
+      </div>
+      <div class="skeleton-moments-detail-body">
+        <div class="sk-line full"></div>
+        <div class="sk-line full"></div>
+        <div class="sk-line short"></div>
+      </div>
+      <div class="skeleton-moments-detail-media">
+        <div class="sk-media"><div class="sk-media-block"></div><div class="sk-media-block"></div><div class="sk-media-block"></div></div>
+      </div>
+      <div class="skeleton-moments-detail-comments">
+        <div class="sk-block"></div>
+        <div class="sk-block"></div>
+      </div>
+    </div>
+  </th:block>
 </th:block>

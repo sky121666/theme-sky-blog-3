@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+      - "codex/**"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      SMOKE_BASE_URL: ${{ vars.SMOKE_BASE_URL }}
+      SMOKE_READER_PATH: ${{ vars.SMOKE_READER_PATH }}
+      SMOKE_AUTHOR_PATH: ${{ vars.SMOKE_AUTHOR_PATH }}
+      SMOKE_MOMENT_DETAIL_PATH: ${{ vars.SMOKE_MOMENT_DETAIL_PATH }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Check
+        run: pnpm run check
+
+      - name: Install Playwright Browser
+        if: env.SMOKE_BASE_URL != ''
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Playwright Smoke
+        if: env.SMOKE_BASE_URL != ''
+        run: pnpm run smoke:playwright

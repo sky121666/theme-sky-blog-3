@@ -10,7 +10,7 @@
         type = 'website',
         seoFallback = 'meta',
         pageMode = 'browser-list',
-        pageApp = 'explorer',
+        pageApp = 'explorer-tags',
         windowVariant = 'browser',
         windowScene = 'none',
         windowTitle = ${tag.spec.displayName},
@@ -19,7 +19,8 @@
         windowMetricsKey = 'browser'
       )}">
   <th:block th:fragment="content">
-    <div class="tag-shell">
+    <div class="tag-shell" data-app-root="explorer-tags">
+      <script type="application/json" data-app-props="explorer-tags">{"version":1,"appId":"explorer-tags","data":{"view":"detail"}}</script>
       <div class="tag-workspace"
            th:if="${posts != null and !#lists.isEmpty(posts.items)}"
            x-data="tagPostsExplorer">

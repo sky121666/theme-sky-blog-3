@@ -1,0 +1,178 @@
+<th:block xmlns:th="https://www.thymeleaf.org">
+  <th:block th:fragment="themeToggle (wrapperClasses, buttonClasses, iconClasses, titleText)">
+    <div th:if="${theme.config.header?.theme?.enable_frontend_setting != null ? theme.config.header?.theme?.enable_frontend_setting : true}"
+         th:classappend="${wrapperClasses != null ? wrapperClasses : 'relative hidden md:flex items-center'}">
+      <button type="button"
+              th:classappend="${buttonClasses != null ? buttonClasses : 'window-toolbar-btn p-1.5 rounded-md'}"
+              th:title="${titleText != null ? titleText : '切换深色/浅色'}"
+              @click="$store.theme.setMode($store.theme.isDark ? 'light' : 'dark')">
+        <svg x-show="!$store.theme.isDark"
+             style="display: none;"
+             th:classappend="${iconClasses != null ? iconClasses : 'w-[17px] h-[17px]'}"
+             viewBox="0 0 24 24"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="2">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3"/>
+          <line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/>
+          <line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg x-show="$store.theme.isDark"
+             style="display: none;"
+             th:classappend="${iconClasses != null ? iconClasses : 'w-[17px] h-[17px]'}"
+             viewBox="0 0 24 24"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+    </div>
+  </th:block>
+
+  <th:block th:fragment="refreshButton (buttonClasses, iconClasses, titleText)">
+    <button type="button"
+            th:classappend="${buttonClasses != null ? buttonClasses : 'window-toolbar-btn p-1.5 rounded-md'}"
+            th:title="${titleText != null ? titleText : '刷新'}"
+            onclick="window.location.reload()">
+      <svg th:classappend="${iconClasses != null ? iconClasses : 'w-4 h-4'}"
+           viewBox="0 0 24 24"
+           fill="none"
+           stroke="currentColor"
+           stroke-width="2">
+        <polyline points="23 4 23 10 17 10"></polyline>
+        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+      </svg>
+    </button>
+  </th:block>
+
+  <th:block th:fragment="outlineTrigger (buttonClasses, iconClasses, titleText)">
+    <button type="button"
+            data-post-outline-trigger
+            style="display: none;"
+            th:classappend="${buttonClasses != null ? buttonClasses : 'window-toolbar-btn post-outline-trigger'}"
+            th:title="${titleText != null ? titleText : '目录'}">
+      <svg th:classappend="${iconClasses != null ? iconClasses : 'w-4 h-4'}"
+           viewBox="0 0 24 24"
+           fill="none"
+           stroke="currentColor"
+           stroke-width="2"
+           stroke-linecap="round">
+        <line x1="8" y1="6" x2="21" y2="6"></line>
+        <line x1="8" y1="12" x2="21" y2="12"></line>
+        <line x1="8" y1="18" x2="21" y2="18"></line>
+        <line x1="3" y1="6" x2="3.01" y2="6"></line>
+        <line x1="3" y1="12" x2="3.01" y2="12"></line>
+        <line x1="3" y1="18" x2="3.01" y2="18"></line>
+      </svg>
+    </button>
+  </th:block>
+
+  <th:block th:fragment="shareMenu (feedbackClasses, buttonClasses, iconClasses)">
+    <span th:classappend="${feedbackClasses != null ? feedbackClasses : 'window-toolbar-feedback'}"
+          x-show="shareFeedback"
+          x-text="shareFeedback"
+          style="display: none;"></span>
+    <div class="window-share relative flex items-center">
+      <button @click.stop="toggleSharePanel()"
+              th:classappend="${buttonClasses != null ? buttonClasses : 'window-toolbar-btn window-accent-action p-1.5 rounded-md'}"
+              title="分享">
+        <svg th:classappend="${iconClasses != null ? iconClasses : 'w-4 h-4'}"
+             fill="none"
+             viewBox="0 0 24 24"
+             stroke="currentColor"
+             stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+        </svg>
+      </button>
+
+      <div class="share-panel"
+           x-show="shareOpen"
+           x-transition:enter="transition ease-out duration-180"
+           x-transition:enter-start="opacity-0 translate-y-1 scale-[0.98]"
+           x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+           x-transition:leave="transition ease-in duration-120"
+           x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+           x-transition:leave-end="opacity-0 translate-y-1 scale-[0.98]"
+           @click.outside="closeSharePanel()"
+           @keydown.escape.window="closeSharePanel()"
+           style="display: none;">
+        <div class="share-panel-preview">
+          <div class="share-panel-host" x-text="shareMeta.host || '分享链接'"></div>
+          <div class="share-panel-title" x-text="shareMeta.title || title"></div>
+          <div class="share-panel-description"
+               x-show="shareMeta.description"
+               x-text="shareMeta.description"
+               style="display: none;"></div>
+        </div>
+
+        <div class="share-panel-actions" x-show="shareView === 'actions'">
+          <button class="share-panel-action share-panel-action--primary" @click="copyLink()">
+            <span class="share-panel-action-label">复制链接</span>
+            <span class="share-panel-action-meta">发送正式地址</span>
+          </button>
+          <button class="share-panel-action" @click="openWeChatShare()">
+            <span class="share-panel-action-label">微信</span>
+            <span class="share-panel-action-meta">复制链接或扫码发送</span>
+          </button>
+          <button class="share-panel-action" @click="shareToQQ()">
+            <span class="share-panel-action-label">QQ</span>
+            <span class="share-panel-action-meta">复制链接后手动发送</span>
+          </button>
+          <button class="share-panel-action" @click="shareToTelegram()">
+            <span class="share-panel-action-label">Telegram</span>
+            <span class="share-panel-action-meta">发送链接预览</span>
+          </button>
+          <button class="share-panel-action" @click="shareToX()">
+            <span class="share-panel-action-label">X</span>
+            <span class="share-panel-action-meta">使用标题和链接</span>
+          </button>
+          <button class="share-panel-action" @click="shareToEmail()">
+            <span class="share-panel-action-label">邮件</span>
+            <span class="share-panel-action-meta">附带标题与摘要</span>
+          </button>
+          <button class="share-panel-action"
+                  @click="shareCurrent()"
+                  x-show="typeof navigator !== 'undefined' && !!navigator.share"
+                  style="display: none;">
+            <span class="share-panel-action-label">更多方式</span>
+            <span class="share-panel-action-meta">调用系统分享</span>
+          </button>
+        </div>
+
+        <div class="share-panel-wechat" x-show="shareView === 'wechat'" style="display: none;">
+          <button class="share-panel-back" @click="backToShareActions()">返回分享列表</button>
+          <div class="share-panel-qr-shell">
+            <div class="share-panel-qr"
+                 x-show="!wechatQrLoading && !wechatQrError && wechatQrDataUrl"
+                 style="display: none;">
+              <img :src="wechatQrDataUrl" alt="微信分享二维码" class="share-panel-qr-image" loading="lazy" decoding="async">
+            </div>
+            <div class="share-panel-qr-placeholder"
+                 x-show="wechatQrLoading"
+                 style="display: none;">正在生成二维码…</div>
+            <div class="share-panel-qr-placeholder"
+                 x-show="wechatQrError"
+                 x-text="wechatQrError"
+                 style="display: none;"></div>
+            <div class="share-panel-qr-caption">微信里打开“扫一扫”，或直接复制链接发送。</div>
+          </div>
+          <button class="share-panel-action share-panel-action--primary share-panel-action--full" @click="copyLink('已复制链接，可发送到微信')">
+            <span class="share-panel-action-label">复制链接</span>
+            <span class="share-panel-action-meta">在微信里粘贴发送</span>
+          </button>
+          <button class="share-panel-action share-panel-action--full" @click="saveWeChatQr()">
+            <span class="share-panel-action-label">保存二维码</span>
+            <span class="share-panel-action-meta">保存到本地后再发送</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </th:block>
+</th:block>

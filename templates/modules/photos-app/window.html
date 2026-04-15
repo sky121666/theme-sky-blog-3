@@ -1,40 +1,55 @@
 <th:block th:fragment="frame (titleText, contentFragment, resizable, maximizable, metricsKey)">
-  <div class="macos-window photos-window flex flex-col pointer-events-auto relative md:absolute w-full h-full md:w-auto md:h-auto md:min-w-[700px] md:min-h-[450px] rounded-none md:rounded-[14px] overflow-hidden origin-center"
-       style="--photos-shadow: 0 0 0 0.5px rgba(255,255,255,0.12), 0 22px 70px rgba(0,0,0,0.46), 0 8px 20px rgba(0,0,0,0.20);"
-       data-window-surface
-       th:data-window-variant="'photos'"
-       th:data-window-metrics-key="${metricsKey}"
-       th:data-window-resizable="${resizable}"
-       th:data-window-maximizable="${maximizable}"
-       x-data="draggableWindow"
-       :class="{ 'window-resizable': isDesktop && !isMaximized && $el.dataset.windowResizable === 'true' }"
-       @mousemove.window="onPointerMove"
-       @mouseup.window="onPointerEnd"
-       x-transition:enter="transition ease-out duration-200" 
-       x-transition:enter-start="opacity-0 md:scale-95" 
-       x-transition:enter-end="opacity-100 md:scale-100" 
-       x-transition:leave="transition ease-in duration-150" 
-       x-transition:leave-start="opacity-100 md:scale-100" 
-       x-transition:leave-end="opacity-0 md:scale-95">
-       
-      <div class="window-titlebar photos-titlebar relative w-full z-50 h-[48px] md:h-[52px] shrink-0 flex items-center px-3 md:px-4 font-sans"
-           data-window-titlebar
-           @mousedown="onDragStart">
-          
-          <div class="window-titlebar-leading photos-titlebar-leading flex items-center gap-3 md:gap-4 w-[120px] md:w-[180px]">
-              <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=${maximizable})}"></th:block>
-          </div>
-          
-          <div class="window-titlebar-center photos-titlebar-center flex-1 flex justify-center items-center overflow-hidden px-2">
-              <div class="photos-titlebar-meta flex items-center gap-3">
-                  <div class="photos-titlebar-copy">
-                    <div class="window-title-text photos-title-text truncate font-medium text-[14px] md:text-[13px] tracking-wide" data-photos-chrome-title th:text="${titleText}">图库</div>
-                    <div class="photos-title-subtitle" data-photos-chrome-subtitle>图库</div>
-                  </div>
-              </div>
-          </div>
+  <th:block th:replace="~{modules/shell/window-frame :: shell(
+      variant='photos',
+      metricsKey=${metricsKey},
+      resizable=${resizable},
+      maximizable=${maximizable},
+      widthAttr='',
+      extraClasses='photos-window md:min-w-[700px] md:min-h-[450px]',
+      inlineStyle='--photos-shadow: 0 0 0 0.5px rgba(255,255,255,0.12), 0 22px 70px rgba(0,0,0,0.46), 0 8px 20px rgba(0,0,0,0.20);',
+      bodyFragment=~{::frameBody(titleText=${titleText}, contentFragment=${contentFragment}, resizable=${resizable}, maximizable=${maximizable})}
+    )}"></th:block>
+</th:block>
 
-          <div class="window-titlebar-trailing photos-titlebar-trailing flex items-center justify-end gap-2 w-[120px] md:w-[180px] pr-0 md:pr-2">
+<th:block th:fragment="frameBody (titleText, contentFragment, resizable, maximizable)">
+      <th:block th:replace="~{modules/shell/window-titlebar :: shell(
+          extraClasses='photos-titlebar',
+          inlineStyle='',
+          contentFragment=~{::titlebarContent(titleText=${titleText}, maximizable=${maximizable})}
+        )}"></th:block>
+          
+     <div class="window-body flex-1 overflow-hidden relative select-text" data-window-scroll data-window-content-root>
+         <div id="pjax-container" data-window-content-variant="photos" class="w-full h-full">
+            <th:block th:replace="${contentFragment}" />
+         </div>
+     </div>
+</th:block>
+
+<th:block th:fragment="titlebarContent (titleText, maximizable)">
+              <div class="window-titlebar-leading photos-titlebar-leading flex items-center gap-3 md:gap-4 w-[120px] md:w-[180px]">
+                <th:block th:replace="~{modules/shell/window-titlebar-leading :: trafficLightsOnly(maximizable=${maximizable})}"></th:block>
+              </div>
+              <div class="window-titlebar-center photos-titlebar-center flex-1 flex justify-center items-center overflow-hidden px-2">
+                <th:block th:replace="~{::titlebarCenter(titleText=${titleText})}"></th:block>
+              </div>
+              <div class="window-titlebar-trailing photos-titlebar-trailing flex items-center justify-end gap-2 w-[120px] md:w-[180px] pr-0 md:pr-2">
+                <th:block th:replace="~{::titlebarTrailing}"></th:block>
+              </div>
+</th:block>
+
+<th:block th:fragment="titlebarCenter (titleText)">
+              <div class="photos-titlebar-meta flex items-center gap-3">
+                  <th:block th:replace="~{modules/shell/window-titlebar :: titleStack(
+                    titleText=${titleText},
+                    subtitleText='图库',
+                    stackClasses='photos-titlebar-copy',
+                    titleClasses='photos-title-text truncate font-medium text-[14px] md:text-[13px] tracking-wide',
+                    subtitleClasses='photos-title-subtitle'
+                  )}"></th:block>
+              </div>
+</th:block>
+
+<th:block th:fragment="titlebarTrailing">
               <div class="photos-titlebar-toolbar" data-photos-toolbar>
                   <div class="photos-titlebar-group photos-titlebar-group--mode" data-photos-layout-group>
                       <button type="button"
@@ -78,40 +93,16 @@
                       </button>
                   </div>
               </div>
-              <button type="button" class="photos-titlebar-btn hidden md:inline-flex" title="切换明暗"
-                      th:if="${theme.config.header?.theme?.enable_frontend_setting != null ? theme.config.header?.theme?.enable_frontend_setting : true}"
-                      @click="$store.theme.setMode($store.theme.isDark ? 'light' : 'dark')">
-                  <svg x-show="!$store.theme.isDark" style="display: none;" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-                  </svg>
-                  <svg x-show="$store.theme.isDark" style="display: none;" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                  </svg>
-              </button>
-              <button type="button" class="photos-titlebar-btn" title="刷新" onclick="window.location.reload()">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="23 4 23 10 17 10"></polyline>
-                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-                  </svg>
-              </button>
-          </div>
-      </div>
-
-      <th:block th:if="${resizable == true or resizable == 'true'}">
-        <div class="window-resize-handle window-resize-handle--n" @mousedown.stop.prevent="startResize('n', $event)"></div>
-        <div class="window-resize-handle window-resize-handle--s" @mousedown.stop.prevent="startResize('s', $event)"></div>
-        <div class="window-resize-handle window-resize-handle--e" @mousedown.stop.prevent="startResize('e', $event)"></div>
-        <div class="window-resize-handle window-resize-handle--w" @mousedown.stop.prevent="startResize('w', $event)"></div>
-        <div class="window-resize-handle window-resize-handle--ne" @mousedown.stop.prevent="startResize('ne', $event)"></div>
-        <div class="window-resize-handle window-resize-handle--nw" @mousedown.stop.prevent="startResize('nw', $event)"></div>
-        <div class="window-resize-handle window-resize-handle--se" @mousedown.stop.prevent="startResize('se', $event)"></div>
-        <div class="window-resize-handle window-resize-handle--sw" @mousedown.stop.prevent="startResize('sw', $event)"></div>
-      </th:block>
-
-     <div class="window-body flex-1 overflow-hidden relative select-text" data-window-scroll data-window-content-root>
-         <div id="pjax-container" data-window-content-variant="photos" class="w-full h-full">
-            <th:block th:replace="${contentFragment}" />
-         </div>
-     </div>
-  </div>
+              <th:block th:replace="~{modules/shell/window-titlebar-actions :: themeToggle(
+                wrapperClasses='',
+                buttonClasses='photos-titlebar-btn hidden md:inline-flex',
+                iconClasses='',
+                titleText='切换明暗'
+              )}"></th:block>
+              <th:block th:replace="~{modules/shell/window-titlebar-actions :: refreshButton(
+                buttonClasses='photos-titlebar-btn',
+                iconClasses='',
+                titleText='刷新'
+              )}"></th:block>
+</th:block>
 </th:block>

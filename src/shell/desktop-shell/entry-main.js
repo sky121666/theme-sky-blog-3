@@ -1,7 +1,7 @@
 /**
  * macOS Desktop Theme - 主入口
  *
- * 构建产物：templates/assets/js/main.js + templates/assets/css/main.css
+ * 构建产物：templates/assets/js/shell-core.js + templates/assets/css/shell-core.css
  *
  * Guard: ES modules loaded from different URLs (e.g. with/without cache-busting
  * query) are treated as separate modules by the browser. This flag ensures
@@ -20,11 +20,12 @@ import Alpine from 'alpinejs';
 import morph from '@alpinejs/morph';
 import intersect from '@alpinejs/intersect';
 import { registerComponents } from './runtime/desktop.js';
-import { runPageInitializers } from './runtime/shared/page-app.js';
+import { activateCurrentPageApp } from './runtime/shared/page-app.js';
 import { initLazyImages } from './runtime/shared/lazy-media.js';
 
 if (!window.__THEME_MAIN_LOADED__) {
   window.__THEME_MAIN_LOADED__ = true;
+  window.__THEME_ALPINE_STARTED__ = false;
 
   window.__initLazyImages = initLazyImages;
   window.Alpine = Alpine;
@@ -62,5 +63,6 @@ if (!window.__THEME_MAIN_LOADED__) {
   registerComponents(Alpine);
 
   Alpine.start();
-  runPageInitializers(document);
+  window.__THEME_ALPINE_STARTED__ = true;
+  activateCurrentPageApp(document, { reason: 'initial-load' });
 }

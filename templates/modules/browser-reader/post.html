@@ -19,7 +19,8 @@
         windowMetricsKey = 'browser'
       )}">
   <th:block th:fragment="content">
-    <div class="post-reader-shell">
+    <div class="post-reader-shell" data-app-root="reader">
+      <script type="application/json" data-app-props="reader">{"version":1,"appId":"reader","data":{"contentType":"post"}}</script>
       <div class="post-reader-frame" th:attr="data-post-name=${post.metadata.name}">
         <header class="post-header">
           <h1 class="post-title" th:text="${post.spec.title}"></h1>
@@ -103,7 +104,7 @@
           <p class="post-summary" th:if="${!#strings.isEmpty(post.status.excerpt)}" th:text="${post.status.excerpt}"></p>
 
           <figure class="post-cover" th:if="${!#strings.isEmpty(post.spec.cover)}">
-            <img th:src="${post.spec.cover}" th:alt="${post.spec.title}">
+            <img th:src="${post.spec.cover}" loading="lazy" decoding="async" th:alt="${post.spec.title}">
           </figure>
         </header>
 

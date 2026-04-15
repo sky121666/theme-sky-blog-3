@@ -1,2 +1,2 @@
 export * from './catalog-core.js';
-export * from './catalog-editor.js';
+export * from '../../../../widgets/catalog.js';

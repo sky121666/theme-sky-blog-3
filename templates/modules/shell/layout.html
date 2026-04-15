@@ -83,12 +83,16 @@
     </script>
 
 	    <!-- 本地打包产物 (开发阶段加入时间戳废除缓存) -->
-	    <link rel="stylesheet" th:href="@{/assets/css/main.css(t=${#dates.createNow().getTime()})}" />
+	    <link rel="stylesheet" th:href="@{/assets/css/shell-core/index.css(t=${#dates.createNow().getTime()})}" />
 	    <link rel="stylesheet"
 	          th:if="${!#strings.isEmpty(pageAppValue)}"
 	          th:attr="data-app-css=${pageAppValue}"
-	          th:href="@{'/assets/css/' + ${pageAppValue} + '.css?t=' + ${#dates.createNow().getTime()}}" />
-	    <script type="module" th:src="@{/assets/js/main.js(t=${#dates.createNow().getTime()})}"></script>
+	          th:href="@{'/assets/css/apps/' + ${(pageAppValue == 'explorer-tags' ? 'tags' : (pageAppValue == 'explorer-categories' ? 'categories' : (pageAppValue == 'explorer-author' ? 'author' : (pageAppValue == 'explorer-archives' ? 'archives' : pageAppValue))))} + '/index.css?t=' + ${#dates.createNow().getTime()}}" />
+	    <script type="module"
+	            th:if="${!#strings.isEmpty(pageAppValue)}"
+	            th:attr="data-app-script=${pageAppValue}"
+	            th:src="@{'/assets/js/apps/' + ${(pageAppValue == 'explorer-tags' ? 'tags' : (pageAppValue == 'explorer-categories' ? 'categories' : (pageAppValue == 'explorer-author' ? 'author' : (pageAppValue == 'explorer-archives' ? 'archives' : pageAppValue))))} + '/index.js?t=' + ${#dates.createNow().getTime()}}"></script>
+	    <script type="module" th:src="@{/assets/js/shell-core/index.js}"></script>
   </head>
 
   <!-- 读取后台配置 -->
@@ -197,7 +201,7 @@
   <body
     class="overflow-hidden m-0 p-0 text-white w-screen h-screen relative"
     th:classappend="${#strings.isEmpty(wallpaperClass) ? schemeClass : wallpaperClass + ' ' + schemeClass}"
-    th:attr="data-error-page=${isErrorPage},data-page-mode=${pageModeValue},data-page-app=${pageAppValue},data-window-variant=${windowVariant != null ? windowVariant : 'none'},data-window-metrics-key=${windowMetricsKey != null ? windowMetricsKey : ''},data-debug=${debugMode}"
+    th:attr="data-error-page=${isErrorPage},data-page-mode=${pageModeValue},data-page-app=${pageAppValue},data-app-id=${pageAppValue},data-window-variant=${windowVariant != null ? windowVariant : 'none'},data-window-metrics-key=${windowMetricsKey != null ? windowMetricsKey : ''},data-debug=${debugMode}"
     th:style="${(schemeMode == 'custom' ? '--mac-accent:' + macAccent + ';--mac-selection:' + macSelection + ';--mac-folder1:' + macFolder1 + ';--mac-folder2:' + macFolder2 + ';--mac-folder3:' + macFolder3 + ';--mac-shell-light:' + macShellLight + ';--mac-shell-dark:' + macShellDark + ';' : '') + '--mac-header-dropdown-light-bg:' + headerDropdownLightBg + ';--mac-header-dropdown-dark-bg:' + headerDropdownDarkBg + ';'}"
     th:styleappend="${bgMode == 'image' and bgImageUrl != null ? 'background:url(' + bgImageUrl + ') center/cover no-repeat; background-color:#0f172a;' : (bgMode == 'solid' ? 'background-color:' + (bgConf?.solid_color ?: '#0f172a') + ';' : '')}"
   >
@@ -225,29 +229,6 @@
 
     <script th:inline="javascript">
       (() => {
-        const resolveProtocolApp = (href) => {
-          if (typeof href !== 'string' || !href) return '';
-
-          try {
-            const url = new URL(href, window.location.origin);
-            if (url.origin !== window.location.origin) return '';
-            if (url.pathname === '/moments' || url.pathname === '/' || url.pathname === '/moments/' || /^\/moments\/[^/]+\/?$/.test(url.pathname)) {
-              return url.pathname === '/' ? '' : 'moments-app';
-            }
-            if (url.pathname === '/photos' || url.pathname === '/photos/' || /^\/photos\/page\/[^/]+\/?$/.test(url.pathname)) {
-              return 'photos-app';
-            }
-            if (url.pathname === '/archives' || url.pathname === '/archives/') return 'explorer';
-            if (/^\/archives\/[^/]+\/?$/.test(url.pathname)) return 'reader';
-            if (/^\/(tags|tag|categories|category|author|authors)(\/|$)/.test(url.pathname)) {
-              return 'explorer';
-            }
-          } catch (_error) {
-            return '';
-          }
-
-          return '';
-        };
         const baseColumns = Math.max(Number([[${widgetsColumns}]]) || 12, 12);
         const rawIcons = [
           /*[# th:each="icon : ${desktopCustomIcons}"]*/
@@ -256,7 +237,7 @@
             title: [[${icon.name}]],
             href: [[${icon.href}]],
             pjax: [[${!icon.external}]],
-            pjaxApp: resolveProtocolApp([[${icon.href}]]),
+            pjaxApp: '',
             external: [[${icon.external}]],
             subtype: [[${icon.type}]],
             dataId: [[${icon.name}]]
@@ -268,7 +249,7 @@
             title: [[${categoryFinder.getByName(catName) != null ? categoryFinder.getByName(catName).spec.displayName : catName}]],
             href: [[${categoryFinder.getByName(catName) != null ? categoryFinder.getByName(catName).status.permalink : '#'}]],
             pjax: true,
-            pjaxApp: 'explorer',
+            pjaxApp: 'explorer-categories',
             external: false,
             subtype: 'folder',
             dataId: [[${catName}]]
@@ -280,7 +261,7 @@
             title: [[${tagFinder.getByName(tagName) != null ? tagFinder.getByName(tagName).spec.displayName : tagName}]],
             href: [[${tagFinder.getByName(tagName) != null ? tagFinder.getByName(tagName).status.permalink : '#'}]],
             pjax: true,
-            pjaxApp: 'explorer',
+            pjaxApp: 'explorer-tags',
             external: false,
             subtype: 'folder',
             dataId: [[${tagName}]]
@@ -420,10 +401,7 @@
       <div class="dock-bar relative z-10" x-ref="dockBar">
         <th:block th:if="${dockMenu != null}">
           <th:block th:each="menuItem : ${dockMenu.menuItems}">
-            <th:block th:with="
-                menuItemHref = ${menuItem.status.href != null ? menuItem.status.href.toString() : ''},
-                menuItemPjaxApp = ${(menuItemHref == '/moments' or menuItemHref == '/moments/' or menuItemHref matches '^/moments/[^/]+/?$') ? 'moments-app' : ((menuItemHref == '/photos' or menuItemHref == '/photos/' or menuItemHref matches '^/photos/page/[^/]+/?$') ? 'photos-app' : ((menuItemHref == '/archives' or menuItemHref == '/archives/' or menuItemHref matches '^/(tags|tag|categories|category|author|authors)(/.*)?$') ? 'explorer' : (menuItemHref matches '^/archives/[^/]+/?$' ? 'reader' : '')))},
-                iconType = ${#annotations.getOrDefault(menuItem, 'icon_type', 'iconify')},
+            <th:block th:with="iconType = ${#annotations.getOrDefault(menuItem, 'icon_type', 'iconify')},
                 iconSvg = ${#annotations.getOrDefault(menuItem, 'icon', '')},
                 customSvg = ${#annotations.getOrDefault(menuItem, 'custom_svg', '')},
                 imageUrl = ${#annotations.getOrDefault(menuItem, 'image_url', '')},
@@ -433,7 +411,6 @@
               <a class="dock-icon group"
                  th:href="${menuItem.status.href}"
                  th:target="${menuItem.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
-                 th:attr="data-pjax-app=${menuItem.spec.target?.name() != 'BLANK' and !#strings.isEmpty(menuItemPjaxApp) ? menuItemPjaxApp : null}"
                  th:classappend="${menuItem.spec.target?.name() == 'BLANK' ? '' : ' pjax-link'}"
                  th:style="${iconType != 'image' and !#strings.isEmpty(bgColor) ? 'background-color:' + bgColor : ''}"
                  th:title="${menuItem.status.displayName}">
@@ -443,7 +420,7 @@
 
                 <!-- 图片类型 -->
                 <th:block th:if="${iconType == 'image' and !#strings.isEmpty(imageUrl)}">
-                  <img class="dock-icon-img" th:src="${imageUrl}" th:alt="${menuItem.status.displayName}" draggable="false" />
+                  <img class="dock-icon-img" th:src="${imageUrl}" th:alt="${menuItem.status.displayName}" loading="lazy" decoding="async" draggable="false" />
                 </th:block>
 
                 <!-- SVG 类型 -->

@@ -16,6 +16,159 @@ const themeYaml = fs.readFileSync(path.resolve(__dirname, "theme.yaml"), "utf-8"
 const themeNameMatch = themeYaml.match(/^\s*name:\s*(.+)$/m);
 const themeName = themeNameMatch ? themeNameMatch[1].trim() : "theme-sky-blog-3";
 const themeAssetBase = `/themes/${themeName}/assets/`;
+const entryNames = new Set([
+  "shell-core",
+  "auth",
+  "reader",
+  "moments",
+  "photos",
+  "explorer-tags",
+  "explorer-categories",
+  "explorer-author",
+  "explorer-archives"
+]);
+
+function entryAssetDirName(entryName: string): string {
+  switch (entryName) {
+    case "explorer-tags":
+      return "tags";
+    case "explorer-categories":
+      return "categories";
+    case "explorer-author":
+      return "author";
+    case "explorer-archives":
+      return "archives";
+    default:
+      return sanitizeChunkSegment(entryName);
+  }
+}
+
+function entryJsPath(entryName: string): string {
+  const normalized = entryAssetDirName(entryName);
+  if (entryName === "shell-core") {
+    return "js/shell-core/index.js";
+  }
+  return `js/apps/${normalized}/index.js`;
+}
+
+function entryCssPath(entryName: string): string {
+  const normalized = entryAssetDirName(entryName);
+  if (entryName === "shell-core") {
+    return "css/shell-core/index.css";
+  }
+  return `css/apps/${normalized}/index.css`;
+}
+
+function normalizeRelPath(filePath: string): string {
+  return path.relative(__dirname, filePath).replace(/\\/g, "/");
+}
+
+function sanitizeChunkSegment(value: string): string {
+  return value
+    .replace(/\.[^.]+$/, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase();
+}
+
+function deriveNamedChunk(id: string): string | null {
+  const rel = normalizeRelPath(id);
+  const parts = rel.split("/");
+
+  if (parts[0] !== "src") {
+    return null;
+  }
+
+  if (parts[1] === "widgets") {
+    if (parts[2] === "shared") {
+      return `widgets/shared/${sanitizeChunkSegment(parts[3] || "shared")}`;
+    }
+
+    if (parts.length >= 5) {
+      const scope = sanitizeChunkSegment(parts[2]);
+      const widgetId = sanitizeChunkSegment(parts[3]);
+      const fileName = sanitizeChunkSegment(parts[4]);
+      if (fileName === "render") {
+        return `widgets/${scope}/${widgetId}/render`;
+      }
+      return `widgets/${scope}/${widgetId}/${fileName}`;
+    }
+
+    if (parts.length >= 3) {
+      return `widgets/${sanitizeChunkSegment(parts.slice(2).join("-"))}`;
+    }
+  }
+
+  if (parts[1] === "apps") {
+    if (parts[2] === "explorer" && parts[3] === "shared") {
+      return `apps/explorer/shared/${sanitizeChunkSegment(parts[4] || "shared")}`;
+    }
+
+    if (parts.includes("runtime")) {
+      const appParts = parts[2] === "explorer"
+        ? [entryAssetDirName(`explorer-${sanitizeChunkSegment(parts[3])}`)]
+        : [entryAssetDirName(sanitizeChunkSegment(parts[2]))];
+      const fileName = sanitizeChunkSegment(parts[parts.length - 1]);
+      return `apps/${appParts.join("/")}/${fileName}`;
+    }
+  }
+
+  if (parts[1] === "shared") {
+    return `shared/${sanitizeChunkSegment(parts[2] || "shared")}`;
+  }
+
+  if (parts[1] === "shell-core") {
+    return `shell-core/${sanitizeChunkSegment(parts[parts.length - 1] || "runtime")}`;
+  }
+
+  if (parts[1] === "shell" && parts[2] === "desktop-shell") {
+    const tail = parts.slice(3);
+    if (tail.length) {
+      return `shell-runtime/${tail.map(sanitizeChunkSegment).join("/")}`;
+    }
+  }
+
+  return null;
+}
+
+function deriveFacadeChunkName(id: string): string | null {
+  const rel = normalizeRelPath(id);
+  const parts = rel.split("/");
+
+  if (parts[0] !== "src") {
+    return null;
+  }
+
+  if (parts[1] === "widgets" && parts.length >= 5) {
+    const scope = sanitizeChunkSegment(parts[2]);
+    const widgetId = sanitizeChunkSegment(parts[3]);
+    const fileName = sanitizeChunkSegment(parts[4]);
+    return fileName === "render"
+      ? `widgets/${scope}/${widgetId}/render-entry`
+      : `widgets/${scope}/${widgetId}/${fileName}-entry`;
+  }
+
+  if (parts[1] === "widgets") {
+    return `widgets/${sanitizeChunkSegment(parts.slice(2).join("-"))}-entry`;
+  }
+
+  if (parts[1] === "shell" && parts[2] === "desktop-shell") {
+    return `shell-runtime/${parts.slice(3).map(sanitizeChunkSegment).join("/")}-entry`;
+  }
+
+  if (parts[1] === "apps") {
+    const appParts = parts[2] === "explorer"
+      ? [entryAssetDirName(`explorer-${sanitizeChunkSegment(parts[3])}`)]
+      : [entryAssetDirName(sanitizeChunkSegment(parts[2]))];
+    return `apps/${appParts.join("/")}/${sanitizeChunkSegment(parts[parts.length - 1])}-entry`;
+  }
+
+  if (parts[1] === "shared") {
+    return `shared/${sanitizeChunkSegment(parts[2] || "shared")}-entry`;
+  }
+
+  return null;
+}
 
 function walkFiles(dir: string): string[] {
   if (!fs.existsSync(dir)) {
@@ -97,6 +250,29 @@ function pruneEmptyJsStubs(bundle: Record<string, any>) {
   }
 }
 
+function writeAssetManifest(bundle: Record<string, any>) {
+  const manifest: Record<string, { js: string[]; css: string[] }> = {};
+
+  for (const item of Object.values(bundle) as any[]) {
+    if (item.type !== "chunk" || !item.isEntry || !item.name) continue;
+
+    const cssFiles = Array.from(item.viteMetadata?.importedCss || [])
+      .filter((fileName: string) => typeof fileName === "string" && fileName.startsWith("css/"))
+      .map((fileName: string) => `${themeAssetBase}${fileName}`);
+
+    manifest[item.name] = {
+      js: item.fileName ? [`${themeAssetBase}${item.fileName}`] : [],
+      css: cssFiles
+    };
+  }
+
+  fs.writeFileSync(
+    path.resolve(outDir, "asset-manifest.json"),
+    JSON.stringify(manifest, null, 2),
+    "utf-8"
+  );
+}
+
 function maintainBuildOutputHygiene() {
   let cleanedBeforeBuild = false;
 
@@ -122,6 +298,7 @@ function maintainBuildOutputHygiene() {
       // templates/assets/images and favicon.svg are intentionally preserved.
       pruneUnexpectedManagedFiles(expectedFiles);
       pruneEmptyJsStubs(bundle);
+      writeAssetManifest(bundle);
       removeEmptyDirs(outDir);
     }
   };
@@ -146,21 +323,43 @@ export default defineConfig({
       : null,
     rollupOptions: {
       input: {
-        main: path.resolve(__dirname, "src/shell/desktop-shell/entry-main.js"),
-        auth: path.resolve(__dirname, "src/entries/auth.js"),
-        explorer: path.resolve(__dirname, "src/features/browser-explorer/entry.js"),
-        reader: path.resolve(__dirname, "src/features/browser-reader/entry.js"),
-        "moments-app": path.resolve(__dirname, "src/features/moments-app/entry.js"),
-        "photos-app": path.resolve(__dirname, "src/features/photos-app/entry.js"),
+        "shell-core": path.resolve(__dirname, "src/shell-core/entry.js"),
+        auth: path.resolve(__dirname, "src/apps/auth/entry.js"),
+        reader: path.resolve(__dirname, "src/apps/reader/entry.js"),
+        moments: path.resolve(__dirname, "src/apps/moments/entry.js"),
+        photos: path.resolve(__dirname, "src/apps/photos/entry.js"),
+        "explorer-tags": path.resolve(__dirname, "src/apps/explorer/tags/entry.js"),
+        "explorer-categories": path.resolve(__dirname, "src/apps/explorer/categories/entry.js"),
+        "explorer-author": path.resolve(__dirname, "src/apps/explorer/author/entry.js"),
+        "explorer-archives": path.resolve(__dirname, "src/apps/explorer/archives/entry.js"),
       },
       output: {
         format: "es",
-        entryFileNames: "js/[name].js",
-        chunkFileNames: "js/chunks/[name].js",
+        entryFileNames(chunkInfo) {
+          return entryJsPath(chunkInfo.name);
+        },
+        chunkFileNames(chunkInfo) {
+          const facadeName = chunkInfo.facadeModuleId
+            ? deriveFacadeChunkName(chunkInfo.facadeModuleId)
+            : null;
+          if (facadeName) {
+            return `js/chunks/${facadeName}.js`;
+          }
+          return "js/chunks/[name].js";
+        },
+        manualChunks(id) {
+          if (!id.includes(`${path.sep}src${path.sep}`) && !id.includes("/src/")) {
+            return null;
+          }
+          return deriveNamedChunk(id);
+        },
         assetFileNames: (assetInfo) => {
           if (assetInfo.name?.endsWith(".css")) {
             const baseName = path.basename(assetInfo.name, ".css");
-            return `css/${baseName}.css`;
+            if (entryNames.has(baseName)) {
+              return entryCssPath(baseName);
+            }
+            return `css/chunks/${baseName}.css`;
           }
           return "assets/[name][extname]";
         },

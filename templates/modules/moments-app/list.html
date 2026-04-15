@@ -1,5 +1,6 @@
 <th:block th:fragment="content">
-  <div class="moments-app moments-app--feed">
+  <div class="moments-app moments-app--feed" data-app-root="moments">
+    <script type="application/json" data-app-props="moments">{"version":1,"appId":"moments","data":{"scene":"feed"}}</script>
     <div class="moments-feed-shell">
 
       <!-- 封面区 -->
@@ -10,6 +11,8 @@
           <img class="moments-cover-img"
                th:if="${coverImage != null and !#strings.isEmpty(coverImage)}"
                th:src="${coverImage}"
+               loading="lazy"
+               decoding="async"
                alt="" />
         </div>
         <div class="moments-cover-user">
@@ -23,6 +26,8 @@
           <img class="moments-cover-avatar"
                th:if="${site.logo != null and !#strings.isEmpty(site.logo)}"
                th:src="${site.logo}"
+               loading="lazy"
+               decoding="async"
                alt="" />
           <div class="moments-cover-avatar moments-cover-avatar--placeholder"
                th:if="${site.logo == null or #strings.isEmpty(site.logo)}"
@@ -50,9 +55,11 @@
 
           <!-- 头像列 -->
           <div class="moment-feed-avatar-col">
-            <img class="moment-feed-avatar"
+          <img class="moment-feed-avatar"
                  th:if="${moment.owner != null and moment.owner.avatar != null}"
                  th:src="${moment.owner.avatar}"
+                 loading="lazy"
+                 decoding="async"
                  alt="" />
           </div>
 
