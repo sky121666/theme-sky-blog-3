@@ -191,6 +191,34 @@ body.auth-gateway-page.auth-scrollbar-active .auth-scrollbar-thumb:hover {
   padding: 22px 24px 24px;
 }
 
+.auth-gateway-body .gateway-wrapper {
+  width: min(100%, 380px);
+  margin: 0 auto;
+  display: grid;
+  gap: 18px;
+}
+
+.auth-gateway-body .halo-logo {
+  display: none !important;
+}
+
+.auth-gateway-body .halo-form-wrapper {
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.auth-gateway-body .halo-form {
+  gap: 16px;
+}
+
+.auth-gateway-body .form-item,
+.auth-gateway-body .form-item-compact {
+  margin: 0;
+}
+
 .auth-gateway-body > :first-child {
   margin-top: 0;
 }
@@ -223,6 +251,18 @@ body.auth-gateway-page.auth-scrollbar-active .auth-scrollbar-thumb:hover {
   font-weight: 600;
 }
 
+.auth-gateway-body .form-label-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.auth-gateway-body .form-item-extra-link {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .auth-gateway-body :is(input:not([type='checkbox']):not([type='radio']), select, textarea) {
   width: 100%;
   min-height: 44px;
@@ -239,6 +279,29 @@ body.auth-gateway-page.auth-scrollbar-active .auth-scrollbar-thumb:hover {
 .auth-gateway-body textarea {
   min-height: 110px;
   padding: 12px 14px;
+}
+
+.auth-gateway-body .form-input,
+.auth-gateway-body .form-input-stack {
+  position: relative;
+}
+
+.auth-gateway-body .form-input-stack-icon {
+  position: absolute;
+  inset-inline-end: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: rgba(255, 255, 255, 0.54);
+}
+
+.auth-gateway-body .form-input-stack-icon svg {
+  width: 16px;
+  height: 16px;
 }
 
 .auth-gateway-body :is(input:not([type='checkbox']):not([type='radio']), select, textarea)::placeholder {
@@ -271,6 +334,11 @@ body.auth-gateway-page.auth-scrollbar-active .auth-scrollbar-thumb:hover {
   cursor: pointer;
 }
 
+.auth-gateway-body input[type='submit'],
+.auth-gateway-body button[type='submit'] {
+  width: 100%;
+}
+
 .auth-gateway-body :is(button, input[type='submit'], input[type='button']):hover {
   filter: brightness(1.04);
 }
@@ -292,6 +360,93 @@ body.auth-gateway-page.auth-scrollbar-active .auth-scrollbar-thumb:hover {
   padding: 10px 12px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.08);
+}
+
+.auth-gateway-body .form-item-compact {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 24px;
+}
+
+.auth-gateway-body .form-item-compact input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--theme-accent);
+}
+
+.auth-gateway-body .form-item-compact label {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.auth-gateway-body .divider-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.auth-gateway-body .divider-wrapper hr {
+  flex: 1;
+  height: 1px;
+  margin: 0;
+  border: 0;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.auth-gateway-body .pill-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.auth-gateway-body .pill-items li {
+  margin: 0;
+}
+
+.auth-gateway-body .pill-items a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  text-decoration: none;
+}
+
+.auth-gateway-body .pill-items img {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+}
+
+.auth-gateway-body .pill-items span {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.auth-gateway-body altcha-widget {
+  display: block;
+}
+
+.auth-gateway-body .returntosite-content,
+.auth-gateway-body .signup-notice-content,
+.auth-gateway-body .language-switcher {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 12px;
 }
 
 .auth-gateway-footer {
