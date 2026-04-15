@@ -1,0 +1,74 @@
+{
+  "explorer-archives": {
+    "js": [
+      "/themes/theme-sky-blog-3/assets/js/apps/archives/index.js"
+    ],
+    "css": [
+      "/themes/theme-sky-blog-3/assets/css/apps/archives/index.css"
+    ]
+  },
+  "auth": {
+    "js": [
+      "/themes/theme-sky-blog-3/assets/js/apps/auth/index.js"
+    ],
+    "css": [
+      "/themes/theme-sky-blog-3/assets/css/apps/auth/index.css"
+    ]
+  },
+  "explorer-author": {
+    "js": [
+      "/themes/theme-sky-blog-3/assets/js/apps/author/index.js"
+    ],
+    "css": [
+      "/themes/theme-sky-blog-3/assets/css/apps/author/index.css"
+    ]
+  },
+  "explorer-categories": {
+    "js": [
+      "/themes/theme-sky-blog-3/assets/js/apps/categories/index.js"
+    ],
+    "css": [
+      "/themes/theme-sky-blog-3/assets/css/apps/categories/index.css"
+    ]
+  },
+  "moments": {
+    "js": [
+      "/themes/theme-sky-blog-3/assets/js/apps/moments/index.js"
+    ],
+    "css": [
+      "/themes/theme-sky-blog-3/assets/css/apps/moments/index.css"
+    ]
+  },
+  "photos": {
+    "js": [
+      "/themes/theme-sky-blog-3/assets/js/apps/photos/index.js"
+    ],
+    "css": [
+      "/themes/theme-sky-blog-3/assets/css/apps/photos/index.css"
+    ]
+  },
+  "reader": {
+    "js": [
+      "/themes/theme-sky-blog-3/assets/js/apps/reader/index.js"
+    ],
+    "css": [
+      "/themes/theme-sky-blog-3/assets/css/apps/reader/index.css"
+    ]
+  },
+  "explorer-tags": {
+    "js": [
+      "/themes/theme-sky-blog-3/assets/js/apps/tags/index.js"
+    ],
+    "css": [
+      "/themes/theme-sky-blog-3/assets/css/apps/tags/index.css"
+    ]
+  },
+  "shell-core": {
+    "js": [
+      "/themes/theme-sky-blog-3/assets/js/shell-core/index.js"
+    ],
+    "css": [
+      "/themes/theme-sky-blog-3/assets/css/shell-core/index.css"
+    ]
+  }
+}

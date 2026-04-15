@@ -1,0 +1,1 @@
+function o(r,e=document){if(!r||!e?.querySelector)return null;const n=e.querySelector(`script[data-app-props="${r}"]`);if(!n?.textContent)return null;try{const t=JSON.parse(n.textContent);return t&&typeof t=="object"?t:null}catch{return null}}export{o as t};
