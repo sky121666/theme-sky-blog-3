@@ -66,6 +66,20 @@ for (const [rel, patterns] of protocolChecks) {
   }
 }
 
+const photosWindowChecks = [
+  [
+    'templates/modules/photos-app/window.html',
+    ["th:replace=\"~{modules/shell/window-titlebar-actions :: refreshButton(", "iconClasses='w-4 h-4'", "buttonClasses='photos-titlebar-btn'"]
+  ]
+];
+
+for (const [rel, patterns] of photosWindowChecks) {
+  const content = read(path.join(root, rel));
+  for (const pattern of patterns) {
+    assert(content.includes(pattern), `${rel} 缺少图库标题栏结构: ${pattern}`);
+  }
+}
+
 const authStructureChecks = [
   [
     'templates/gateway_fragments/layout.html',

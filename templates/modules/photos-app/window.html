@@ -32,7 +32,7 @@
               <div class="window-titlebar-center photos-titlebar-center flex-1 flex justify-center items-center overflow-hidden px-2">
                 <th:block th:replace="~{::titlebarCenter(titleText=${titleText})}"></th:block>
               </div>
-              <div class="window-titlebar-trailing photos-titlebar-trailing flex items-center justify-end gap-2 w-[120px] md:w-[180px] pr-0 md:pr-2">
+              <div class="window-titlebar-trailing photos-titlebar-trailing flex items-center justify-end gap-2 w-[120px] md:w-[180px] pr-0">
                 <th:block th:replace="~{::titlebarTrailing}"></th:block>
               </div>
 </th:block>
@@ -101,7 +101,7 @@
               )}"></th:block>
               <th:block th:replace="~{modules/shell/window-titlebar-actions :: refreshButton(
                 buttonClasses='photos-titlebar-btn',
-                iconClasses='',
+                iconClasses='w-4 h-4',
                 titleText='刷新'
               )}"></th:block>
 </th:block>
