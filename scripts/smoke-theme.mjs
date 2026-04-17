@@ -66,4 +66,78 @@ for (const [rel, patterns] of protocolChecks) {
   }
 }
 
+const authStructureChecks = [
+  [
+    'templates/gateway_fragments/layout.html',
+    ['class="auth-gateway-card mac-window"', 'class="mac-titlebar"', 'class="auth-titlebar-leading"', 'class="mac-traffic-lights"', 'class="mac-traffic-light close auth-traffic-link"', 'th:href="@{/}"', 'class="auth-titlebar-back"', 'data-auth-go-back', 'class="auth-titlebar-actions"', 'data-auth-theme-toggle', 'auth-toast-stack', 'data-auth-toast-host', 'gateway_fragments/login::toast']
+  ],
+  [
+    'templates/gateway_fragments/login.html',
+    ['th:text="${!#strings.isEmpty(headerAppName) ? headerAppName : site.title}"', 'data-auth-toast', 'id="login-form" autocomplete="on"']
+  ],
+  [
+    'templates/login_local.html',
+    ['id="password" name="password"', 'autocomplete="current-password"']
+  ],
+  [
+    'templates/gateway_fragments/common.html',
+    ['th:fragment="loginProviderSection"', 'auth-provider-section', 'auth-provider-grid auth-provider-grid-icons', 'th:fragment="returnToSiteContent"', '留空，不再显示底部返回首页', 'loginForm.addEventListener("formdata"', 'event.formData.set("password", encrypted);', 'document.createElement("input")']
+  ],
+  [
+    'templates/gateway_fragments/password_reset_email_send.html',
+    ['邮件已发送', 'auth-status-orb']
+  ],
+  [
+    'templates/gateway_fragments/logout.html',
+    ['auth-logout-flow', 'auth-logout-hero', 'auth-button-stack auth-logout-actions', 'user.spec.avatar', 'user.spec.displayName', 'user.metadata.name']
+  ],
+  [
+    'src/entries/auth.css',
+    ['.auth-login-badge', '.auth-view-title', '.auth-view-subtitle', '.auth-status-orb', '.auth-logout-flow', '.auth-logout-hero', '.auth-logout-actions', '.auth-logout-avatar-orb', '.auth-toast-stack', '.auth-alert-toast', 'padding-left: 52px !important', 'padding-right: 48px !important', 'left: -9999px', '.auth-titlebar-actions', '.auth-theme-toggle', '.auth-titlebar-leading', '.auth-titlebar-back', 'background: none;', 'box-shadow: none;', '.auth-login-badge img', 'border-radius: 18px;', '.auth-traffic-link', '--auth-brand-box-size:', 'aspect-ratio: 1 / 1;', 'min-height: var(--auth-brand-lock-height);']
+  ],
+  [
+    'src/entries/auth.js',
+    ['initAuthThemeToggle', 'initAuthBackLink', 'initAuthToasts', 'data-auth-theme-toggle', 'data-auth-go-back', 'data-auth-toast', "window.history.length > 1", "localStorage.setItem('theme'"]
+  ],
+  [
+    'src/entries/auth.css',
+    ['.altcha {', '.altcha[data-floating] {', 'left: 50% !important;', 'right: auto !important;', 'transform: translateX(-50%) !important;', 'width: min(208px, calc(100vw - 32px)) !important;', '.altcha .altcha-main {', '.altcha .altcha-footer {']
+  ]
+];
+
+for (const [rel, patterns] of authStructureChecks) {
+  const content = read(path.join(root, rel));
+  for (const pattern of patterns) {
+    assert(content.includes(pattern), `${rel} 缺少认证结构: ${pattern}`);
+  }
+}
+
+const authForbiddenBackgroundPatterns = [
+  ['src/entries/auth.css', 'radial-gradient(at 100% 0%, rgba(190, 210, 250, 0.8) 0, transparent 50%)'],
+  ['src/entries/auth.css', 'radial-gradient(at 100% 0%, rgba(20, 50, 100, 0.6) 0, transparent 50%)'],
+  ['src/entries/auth.css', 'background-attachment: fixed;'],
+  ['templates/gateway_fragments/layout.html', 'auth-stage-tools'],
+  ['templates/gateway_fragments/layout.html', '返回上一页</span>'],
+  ['templates/gateway_fragments/logout.html', '@halo'],
+  ['templates/gateway_fragments/logout.html', 'currentUser'],
+  ['templates/gateway_fragments/logout.html', 'auth-alert auth-alert-info'],
+  ['templates/gateway_fragments/logout.html', 'auth-logout-card'],
+  ['templates/gateway_fragments/common.html', 'plainPasswordInput.name = "plainPassword"'],
+  ['templates/gateway_fragments/common.html', '<script type="module" src="/js/main.js"></script>'],
+  ['templates/login_local.html', 'data-auth-encrypted-password'],
+  ['templates/login_local.html', 'auth-toggle-password'],
+  ['templates/login_local.html', 'auth-input-wrap'],
+  ['templates/login_local.html', 'auth-password-wrap'],
+  ['src/entries/auth.js', 'querySelectorAll?.(\'altcha-widget[floating]\')'],
+  ['src/entries/auth.js', "widget.removeAttribute('floating')"],
+  ['templates/gateway_fragments/signup.html', 'autocomplete="off"'],
+  ['templates/gateway_fragments/password_reset_email_reset.html', 'autocomplete="off"'],
+  ['templates/gateway_fragments/password_reset_email_send.html', 'placeholder="name@example.com" autofocus required th:field="*{email}"']
+];
+
+for (const [rel, pattern] of authForbiddenBackgroundPatterns) {
+  const content = read(path.join(root, rel));
+  assert(!content.includes(pattern), `${rel} 不应再包含单独适配的认证背景: ${pattern}`);
+}
+
 console.log('构建 smoke 通过');

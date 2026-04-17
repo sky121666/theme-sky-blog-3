@@ -1,0 +1,38 @@
+<!-- ========================================== -->
+<!--    Login Local - 本地登录表单              -->
+<!--    包含账号密码输入及忘记密码链接功能       -->
+<!-- ========================================== -->
+
+<div th:remove="tag" th:fragment="form">
+
+    <!-- 用户名 -->
+    <div class="auth-field auth-field-compact">
+        <label for="username">用户名 / 邮箱</label>
+        <input id="username" name="username" type="text" placeholder="用户名或邮箱" autocomplete="username" spellcheck="false"
+            autocorrect="off" autocapitalize="off" required autofocus class="auth-input" />
+    </div>
+
+    <!-- =========================================
+         密码：两种模式
+         1. 有 RSA publicKey：使用隐藏 password 字段接收加密值 + plainPassword 明文输入
+         2. 没有 RSA publicKey：直接用 name="password" 字段输入，无需单独 JS 处理
+         ========================================= -->
+    <th:block th:if="${not #strings.isEmpty(publicKey)}">
+        <!-- RSA 模式 -->
+        <div class="auth-field auth-field-compact">
+            <label for="password">密码</label>
+            <input id="password" name="password" type="password" placeholder="密码" autocomplete="current-password"
+                required maxlength="257" class="auth-input" />
+        </div>
+    </th:block>
+
+    <th:block th:unless="${not #strings.isEmpty(publicKey)}">
+        <!-- 普通模式：直接提交 name="password" -->
+        <div class="auth-field auth-field-compact">
+            <label for="password">密码</label>
+            <input id="password" name="password" type="password" placeholder="密码" autocomplete="current-password"
+                required maxlength="257" class="auth-input" />
+        </div>
+    </th:block>
+
+</div>

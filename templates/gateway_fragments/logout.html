@@ -1,0 +1,41 @@
+<!-- ========================================== -->
+<!--    Gateway Fragments - Logout             -->
+<!--    登出表单片段                            -->
+<!-- ========================================== -->
+
+<form th:fragment="form"
+      class="auth-form-stack auth-logout-flow"
+      th:action="@{/logout}"
+      method="post"
+      th:with="
+        userAvatar = ${user != null and user.spec.avatar != null ? user.spec.avatar : (site.logo != null ? site.logo.toString() : themeFallbackIcon)},
+        userName = ${user != null ? (user.spec.displayName ?: user.metadata.name) : (!#strings.isEmpty(headerAppName) ? headerAppName : site.title)},
+        userHandle = ${user != null ? user.metadata.name : ''}">
+
+    <div class="auth-logout-hero">
+        <div class="auth-logout-avatar-orb">
+            <img th:if="${!#strings.isEmpty(userAvatar)}"
+                 th:src="${userAvatar}"
+                 th:alt="${userName}" />
+            <span th:unless="${!#strings.isEmpty(userAvatar)}"
+                  th:text="${#strings.substring((userName ?: 'U'), 0, 1)}">U</span>
+        </div>
+
+        <h2 class="auth-logout-name" th:text="${userName}">账户名称</h2>
+        <p class="auth-logout-handle"
+           th:if="${!#strings.isEmpty(userHandle)}"
+           th:text="'@' + ${userHandle}">@user</p>
+    </div>
+
+    <p class="auth-logout-copy">确定要退出当前账户吗？</p>
+
+    <div class="auth-button-stack auth-logout-actions">
+        <button type="submit" class="auth-btn auth-btn-danger">
+            确认退出
+        </button>
+
+        <a th:href="@{/}" class="auth-btn auth-btn-secondary">
+            取消
+        </a>
+    </div>
+</form>

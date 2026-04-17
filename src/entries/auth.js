@@ -3,6 +3,113 @@ function isWindowsPlatform() {
   return /win/i.test(platform);
 }
 
+function resolveTheme(root = document.documentElement) {
+  const defaultTheme = root?.getAttribute('data-default-theme') || 'system';
+  return localStorage.getItem('theme') || defaultTheme;
+}
+
+function isDarkTheme(theme) {
+  return theme === 'dark'
+    || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+}
+
+function applyTheme(theme, root = document.documentElement) {
+  const nextTheme = theme || 'system';
+  const dark = isDarkTheme(nextTheme);
+
+  root.classList.remove('dark', 'light', 'system', 'color-scheme-auto', 'color-scheme-dark', 'color-scheme-light');
+  root.classList.add(nextTheme === 'system' ? 'color-scheme-auto' : `color-scheme-${nextTheme}`);
+  root.classList.add(nextTheme);
+  root.setAttribute('data-color-scheme', nextTheme);
+  root.style.colorScheme = dark ? 'dark' : 'light';
+
+  document.querySelectorAll('[data-auth-theme-toggle]').forEach((button) => {
+    const showSun = dark;
+    button.setAttribute('data-theme-mode', nextTheme);
+    button.setAttribute('aria-label', showSun ? '切换到亮色模式' : '切换到暗色模式');
+    button.setAttribute('title', showSun ? '切换到亮色模式' : '切换到暗色模式');
+
+    const moon = button.querySelector('.auth-theme-toggle-icon-moon');
+    const sun = button.querySelector('.auth-theme-toggle-icon-sun');
+    if (moon) moon.hidden = showSun;
+    if (sun) sun.hidden = !showSun;
+  });
+}
+
+export function initAuthThemeToggle(root = document) {
+  const buttons = root.querySelectorAll('[data-auth-theme-toggle]');
+  if (!buttons.length) return null;
+
+  const onClick = () => {
+    const current = resolveTheme(document.documentElement);
+    const next = isDarkTheme(current) ? 'light' : 'dark';
+    localStorage.setItem('theme', next);
+    applyTheme(next, document.documentElement);
+  };
+
+  buttons.forEach((button) => {
+    if (button.dataset.themeToggleBound === 'true') return;
+    button.dataset.themeToggleBound = 'true';
+    button.addEventListener('click', onClick);
+  });
+
+  applyTheme(resolveTheme(document.documentElement), document.documentElement);
+
+  return () => {
+    buttons.forEach((button) => {
+      if (button.dataset.themeToggleBound !== 'true') return;
+      button.dataset.themeToggleBound = 'false';
+      button.removeEventListener('click', onClick);
+    });
+  };
+}
+
+export function initAuthBackLink(root = document) {
+  const buttons = root.querySelectorAll('[data-auth-go-back]');
+  if (!buttons.length) return null;
+
+  const onClick = (event) => {
+    event.preventDefault();
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    window.location.href = '/';
+  };
+
+  buttons.forEach((button) => {
+    if (button.dataset.authBackBound === 'true') return;
+    button.dataset.authBackBound = 'true';
+    button.addEventListener('click', onClick);
+  });
+
+  return () => {
+    buttons.forEach((button) => {
+      if (button.dataset.authBackBound !== 'true') return;
+      button.dataset.authBackBound = 'false';
+      button.removeEventListener('click', onClick);
+    });
+  };
+}
+
+export function initAuthToasts(root = document) {
+  const host = root.querySelector('[data-auth-toast-host]');
+  const toasts = host ? host.querySelectorAll('[data-auth-toast]') : root.querySelectorAll('[data-auth-toast]');
+  if (!toasts.length) return null;
+
+  const timers = [];
+  toasts.forEach((toast, index) => {
+    const timer = window.setTimeout(() => {
+      toast.classList.add('is-hidden');
+    }, 2800 + index * 180);
+    timers.push(timer);
+  });
+
+  return () => {
+    timers.forEach((timer) => window.clearTimeout(timer));
+  };
+}
+
 function computeThumbSize(trackHeight, viewportHeight, scrollHeight) {
   const rawThumbHeight = Math.round((viewportHeight / scrollHeight) * trackHeight);
   const maxThumbHeight = Math.max(36, Math.round(trackHeight * 0.46));

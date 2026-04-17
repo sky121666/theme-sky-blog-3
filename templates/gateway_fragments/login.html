@@ -1,0 +1,105 @@
+<!-- ========================================== -->
+<!--    Gateway Fragments - Login              -->
+<!--    登录表单片段                            -->
+<!-- ========================================== -->
+
+<!-- 登录页顶部成功/信息通知 -->
+<div th:remove="tag" th:fragment="toast">
+    <div class="auth-toast-item"
+         th:if="${param.logout.size() > 0 or param.signup.size() > 0 or param.oauth2_bind.size() > 0 or param.password_reset.size() > 0}">
+        <div class="auth-alert auth-alert-success auth-alert-toast"
+            role="status"
+            data-auth-toast
+            th:if="${param.logout.size() > 0}">
+            <svg class="auth-alert-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+            <span>已成功退出登录</span>
+        </div>
+        <div class="auth-alert auth-alert-success auth-alert-toast"
+            role="status"
+            data-auth-toast
+            th:if="${param.signup.size() > 0}">
+            <svg class="auth-alert-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+            <span>注册成功！请登录您的账户</span>
+        </div>
+        <div class="auth-alert auth-alert-info auth-alert-toast"
+            role="status"
+            data-auth-toast
+            th:if="${param.oauth2_bind.size() > 0}">
+            <svg class="auth-alert-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+            <span>请绑定您的账户以完成登录</span>
+        </div>
+        <div class="auth-alert auth-alert-success auth-alert-toast"
+            role="status"
+            data-auth-toast
+            th:if="${param.password_reset.size() > 0}">
+            <svg class="auth-alert-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+            <span>密码已重置，请使用新密码登录</span>
+        </div>
+    </div>
+</div>
+
+<!-- 登录表单 -->
+<div th:fragment="form" class="auth-form-stack auth-login-flow">
+    <div class="auth-view-header auth-view-header-centered">
+        <div class="auth-login-badge">
+            <span class="auth-login-badge-icon"
+                  th:if="${!#strings.isEmpty(headerLogoIcon)}"
+                  th:utext="${headerLogoIcon}"></span>
+            <img th:if="${#strings.isEmpty(headerLogoIcon) and !#strings.isEmpty(authBrandImage)}"
+                 th:src="${authBrandImage}"
+                 loading="lazy"
+                 decoding="async"
+                 th:alt="${headerAppName}" />
+            <img th:if="${#strings.isEmpty(headerLogoIcon) and #strings.isEmpty(authBrandImage)}"
+                 th:src="${themeFallbackIcon}"
+                 loading="lazy"
+                 decoding="async"
+                 th:alt="${headerAppName}" />
+        </div>
+        <h2 class="auth-view-title"
+            th:text="${!#strings.isEmpty(headerAppName) ? headerAppName : site.title}">标题</h2>
+    </div>
+
+    <!-- 错误提示 -->
+    <div class="auth-alert auth-alert-error"
+        role="alert" th:if="${param.error.size() > 0}" th:with="error = ${param.error[0]}">
+        <svg class="auth-alert-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+        <div>
+            <span th:if="${error == 'invalid-credential'}">用户名或密码错误，请重试</span>
+            <span th:if="${error == 'rate-limit-exceeded'}">登录尝试次数过多，请稍后再试</span>
+            <span th:if="${error == 'account-disabled'}">该账户已被禁用</span>
+        </div>
+    </div>
+
+    <!-- 统一表单容器 -->
+    <!-- 重要：保留 halo-form class 以兼容 Passkey 插件的 JS 选择器 -->
+    <form class="halo-form auth-form-stack" name="login-form" id="login-form" autocomplete="on"
+        th:action="${authProvider.spec.authenticationUrl}" th:method="${authProvider.spec.method}">
+
+        <!-- 动态表单内容 (Passkey 或 Standard) -->
+        <div th:replace="~{__${fragmentTemplateName}__::form}"></div>
+
+        <!-- 动作区: 保持登录与提交按钮 -->
+        <div class="auth-action-row">
+            <div class="auth-action-meta">
+                <div th:if="${authProvider.spec.rememberMeSupport}" class="auth-checkbox-row">
+                    <input type="checkbox" id="remember-me" name="remember-me" value="true" th:checked="${rememberMe}" />
+                    <label for="remember-me">保持登录</label>
+                </div>
+
+                <a th:href="@{/password-reset/email}" class="auth-inline-link auth-inline-link-strong">忘记密码？</a>
+            </div>
+
+            <div halo:captcha class="auth-captcha-wrap"></div>
+
+            <button type="submit" class="auth-btn auth-btn-primary">
+                登 录
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- 其他登录方式 -->
+<div th:remove="tag" th:fragment="formAuthProviders">
+    <th:block th:replace="~{gateway_fragments/common::loginProviderSection}"></th:block>
+</div>
