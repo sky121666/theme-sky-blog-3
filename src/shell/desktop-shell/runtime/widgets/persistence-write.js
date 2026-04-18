@@ -95,6 +95,30 @@ function applyDesktopLayoutJsonToGroup(container, layoutJson) {
         );
       }
     }
+
+    // 将前端新增的图标推送到后端的 custom_icons 配置供管理
+    const activeCustomIcons = payload.icons.filter(
+      (i) => i && i.deleted !== true && i.key && i.key.startsWith('icon-custom-')
+    );
+    if (activeCustomIcons.length > 0) {
+      if (!Array.isArray(backendIcons.custom_icons)) {
+        backendIcons.custom_icons = [];
+      }
+      const existingNames = new Set(backendIcons.custom_icons.map((item) => item.name));
+      for (const icon of activeCustomIcons) {
+        // 由于旧数据或 title 未设置，Fallback 为 key 中间的内容
+        const newName = icon.key.replace('icon-custom-', '');
+        if (!existingNames.has(newName)) {
+          existingNames.add(newName);
+          backendIcons.custom_icons.push({
+            name: newName,
+            href: icon.href || '#',
+            type: icon.subtype || 'folder',
+            external: icon.external === true
+          });
+        }
+      }
+    }
   }
 
   return true;

@@ -1027,7 +1027,14 @@ export function registerDesktopSurface(Alpine) {
     },
 
     addCustomIcon(title, href, subtype = 'folder', external = false) {
-      const key = `icon-custom-${Date.now()}`;
+      let basename = title.replace(/\s+/g, '-');
+      let targetKey = `icon-custom-${basename}`;
+      let suffixId = 0;
+      while (this.icons.some(i => i.key === targetKey) || this.iconTombstones.some(i => i.key === targetKey)) {
+        suffixId++;
+        targetKey = `icon-custom-${basename}-${suffixId}`;
+      }
+      const key = targetKey;
       const pos = this.findFreeIconSlot();
       this.icons.push({
         key,
