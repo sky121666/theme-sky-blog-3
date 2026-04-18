@@ -62,6 +62,41 @@ function applyDesktopLayoutJsonToGroup(container, layoutJson) {
     ...desktopGroup,
     layout_json: layoutJson
   };
+
+  // 同步：当前端删除了后端设定的图标时，通过 tombstone 将其从后台主题设置中真实抹除
+  const payload = parseJsonObject(layoutJson);
+  if (payload && Array.isArray(payload.icons) && container.desktop?.icons) {
+    const tombstoneKeys = payload.icons.filter((i) => i && i.deleted === true && i.key).map((i) => i.key);
+    if (tombstoneKeys.length > 0) {
+      const backendIcons = container.desktop.icons;
+      if (Array.isArray(backendIcons.custom_icons)) {
+        backendIcons.custom_icons = backendIcons.custom_icons.filter(
+          (item) => item && !tombstoneKeys.includes(`icon-custom-${item.name}`)
+        );
+      }
+      if (Array.isArray(backendIcons.categories)) {
+        backendIcons.categories = backendIcons.categories.filter(
+          (name) => !tombstoneKeys.includes(`icon-category-${name}`)
+        );
+      }
+      if (Array.isArray(backendIcons.tags)) {
+        backendIcons.tags = backendIcons.tags.filter(
+          (name) => !tombstoneKeys.includes(`icon-tag-${name}`)
+        );
+      }
+      if (Array.isArray(backendIcons.posts)) {
+        backendIcons.posts = backendIcons.posts.filter(
+          (name) => !tombstoneKeys.includes(`icon-post-${name}`)
+        );
+      }
+      if (Array.isArray(backendIcons.single_pages)) {
+        backendIcons.single_pages = backendIcons.single_pages.filter(
+          (name) => !tombstoneKeys.includes(`icon-page-${name}`)
+        );
+      }
+    }
+  }
+
   return true;
 }
 
