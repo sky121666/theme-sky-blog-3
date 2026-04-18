@@ -45,6 +45,7 @@
   z-index: 10030;
   user-select: none;
   -webkit-user-select: none;
+  pointer-events: auto;
 }
 
 :root:not(.dark) .desktop-context-menu {
@@ -103,6 +104,16 @@
   transition: background-color 0.1s ease, color 0.1s ease;
   outline: none;
   letter-spacing: 0.01em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.desktop-context-menu-item svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  opacity: 0.8;
 }
 
 :root:not(.dark) .desktop-context-menu-item {
