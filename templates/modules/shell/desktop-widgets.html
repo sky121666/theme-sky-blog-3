@@ -67,7 +67,7 @@
            x-transition:leave-start="opacity-100 scale-100 translate-y-0"
            x-transition:leave-end="opacity-0 scale-95 translate-y-1"
            style="display: none;">
-        <template x-if="!isEditing && canManageDefaultDesktopLayout">
+        <template x-if="!desktopContextMenu.isEditing && canManageDefaultDesktopLayout">
           <button type="button"
                   class="desktop-context-menu-item"
                   @click="openWidgetEditorFromDesktopMenu()">
@@ -75,7 +75,7 @@
           </button>
         </template>
 
-        <template x-if="isEditing && canManageDefaultDesktopLayout">
+        <template x-if="desktopContextMenu.isEditing && canManageDefaultDesktopLayout">
           <div class="desktop-context-menu-group">
             <button type="button"
                     class="desktop-context-menu-item"

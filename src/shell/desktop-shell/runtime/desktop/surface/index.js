@@ -139,7 +139,8 @@ export function registerDesktopSurface(Alpine) {
     desktopContextMenu: {
       open: false,
       x: 0,
-      y: 0
+      y: 0,
+      isEditing: false
     },
     widgetCenterCategory: 'all',
     widgetCenterSearch: '',
@@ -850,7 +851,8 @@ export function registerDesktopSurface(Alpine) {
       this.desktopContextMenu = {
         open: true,
         x,
-        y
+        y,
+        isEditing: this.isEditing
       };
     },
 
