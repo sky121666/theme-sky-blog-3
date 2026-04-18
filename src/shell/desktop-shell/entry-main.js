@@ -88,6 +88,12 @@ if (!window.__THEME_MAIN_LOADED__) {
           return;
         }
 
+        const loadingRoot = el.firstElementChild?.classList?.contains('desktop-widget-loading') === true;
+        if (loadingRoot && !nextHtml.includes('desktop-widget-loading')) {
+          el.innerHTML = nextHtml;
+          return;
+        }
+
         if (el.innerHTML === nextHtml) return;
 
         Alpine.morph(el, `<${tagName}>${nextHtml}</${tagName}>`, {

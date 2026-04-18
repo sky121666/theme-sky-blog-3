@@ -80,6 +80,28 @@ for (const [rel, patterns] of photosWindowChecks) {
   }
 }
 
+const tagWidgetChecks = [
+  [
+    'src/widgets/halo/random-tags/render.js',
+    ['const limit = size === \'large\' ? (isCompact ? 24 : 30) : (isCompact ? 24 : 30);', 'return `<span class=\"wg-tag-chip-slot\">${chip}</span>`;', 'return chip;']
+  ],
+  [
+    'src/shell/desktop-shell/entry-main.js',
+    ["const loadingRoot = el.firstElementChild?.classList?.contains('desktop-widget-loading') === true;", "if (loadingRoot && !nextHtml.includes('desktop-widget-loading')) {", 'el.innerHTML = nextHtml;']
+  ],
+  [
+    'src/shell/desktop-shell/styles/widgets/content/tags.css',
+    [':root:not(.dark) .desktop-widget-card.widget--halo-random_tags.is-medium[data-widget-appearance="follow"],', '.desktop-widget-card.widget--halo-random_tags.is-medium .desktop-widget-header {', '.desktop-widget-card.widget--halo-random_tags.is-medium .desktop-widget-body {', 'padding: 16px !important;', 'overflow-y: auto;', 'mask-image: linear-gradient(', '.desktop-widget-card.widget--halo-random_tags.is-medium .desktop-widget-body > .wg-tag-wall {', 'display: flex;', 'flex-wrap: wrap;', 'justify-content: center;', '.desktop-widget-card.widget--halo-random_tags.is-medium .wg-tag-chip-slot {', 'display: inline-flex;', '.desktop-widget-card.widget--halo-random_tags.is-medium .wg-tag-chip {', 'background: rgba(255, 255, 255, 0.6);', 'transform: rotate(var(--j-rot, 0deg)) translate(var(--j-tx, 0px), var(--j-ty, 0px));', '.desktop-widget-card.widget--halo-random_tags.is-medium .wg-tag-chip:hover {', 'transform: rotate(0deg) scale(1.05);']
+  ]
+];
+
+for (const [rel, patterns] of tagWidgetChecks) {
+  const content = read(path.join(root, rel));
+  for (const pattern of patterns) {
+    assert(content.includes(pattern), `${rel} 缺少标签小组件 live 布局收口: ${pattern}`);
+  }
+}
+
 const authStructureChecks = [
   [
     'templates/gateway_fragments/layout.html',
@@ -146,7 +168,13 @@ const authForbiddenBackgroundPatterns = [
   ['src/entries/auth.js', "widget.removeAttribute('floating')"],
   ['templates/gateway_fragments/signup.html', 'autocomplete="off"'],
   ['templates/gateway_fragments/password_reset_email_reset.html', 'autocomplete="off"'],
-  ['templates/gateway_fragments/password_reset_email_send.html', 'placeholder="name@example.com" autofocus required th:field="*{email}"']
+  ['templates/gateway_fragments/password_reset_email_send.html', 'placeholder="name@example.com" autofocus required th:field="*{email}"'],
+  ['src/widgets/halo/random-tags/render.js', 'resolveTagCandidateLimit'],
+  ['src/widgets/halo/random-tags/render.js', 'data-tag-pack="balanced"'],
+  ['src/widgets/halo/random-tags/render.js', 'data-tag-pack-order'],
+  ['src/widgets/halo/random-tags/render.js', 'function rebalanceTagWall(wall)'],
+  ['src/widgets/halo/random-tags/render.js', 'document.addEventListener(\'pjax:complete\', scheduleRebalance)'],
+  ['templates/modules/shell/desktop-widgets.html', "'halo.random_tags'"]
 ];
 
 for (const [rel, pattern] of authForbiddenBackgroundPatterns) {

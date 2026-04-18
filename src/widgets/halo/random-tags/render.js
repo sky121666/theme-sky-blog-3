@@ -45,7 +45,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}
     return `<div class="wg-tag-focus-stage" data-tag-focus>${itemsHTML}</div>`;
   }
 
-  const limit = size === 'large' ? (isCompact ? 10 : 12) : (isCompact ? 10 : 12);
+  const limit = size === 'large' ? (isCompact ? 24 : 30) : (isCompact ? 24 : 30);
   const tags = selectDailyRandomTags(sources.randomTags, limit);
   if (!tags.length) {
     return '<div class="desktop-widget-empty">当前没有可展示的标签。</div>';
@@ -57,7 +57,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}
     const tx = ((seededRand(tag.name, 2) - 0.5) * 3.2).toFixed(1);
     const ty = ((seededRand(tag.name, 3) - 0.5) * 3.2).toFixed(1);
     const tone = index % 4;
-    return buildWidgetPjaxLink({
+    const chip = buildWidgetPjaxLink({
       href: escapeHtml(tag.permalink),
       app: 'explorer-tags',
       className: `wg-tag-chip ${extraClass} tone-${tone}`,
@@ -65,6 +65,10 @@ export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}
       disabled: mode === 'preview',
       innerHtml: escapeHtml(tag.name)
     });
+    if (size === 'medium') {
+      return `<span class="wg-tag-chip-slot">${chip}</span>`;
+    }
+    return chip;
   };
 
   let content = '';
