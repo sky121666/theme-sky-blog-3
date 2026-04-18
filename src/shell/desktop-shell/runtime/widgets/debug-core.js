@@ -26,20 +26,8 @@ export function setDesktopDebugAccess(enabled) {
 
 export function isDesktopDebugEnabled() {
   if (typeof window === 'undefined') return false;
-
-  const configAllowsDebug = document.body?.dataset.debug === 'true';
-  const runtimeAllowsDebug = window.__THEME_DESKTOP_DEBUG_ALLOWED__ === true;
-  if (!configAllowsDebug && !runtimeAllowsDebug) return false;
-
-  try {
-    if (window.localStorage?.getItem(DESKTOP_DEBUG_STORAGE_KEY) === '1') {
-      return true;
-    }
-  } catch (_error) {
-    // Ignore storage access errors.
-  }
-
-  return hasDesktopDebugQuery();
+  return document.body?.dataset.debug === 'true'
+    || window.__THEME_DESKTOP_DEBUG_ALLOWED__ === true;
 }
 
 export function desktopDebug(label, payload) {
