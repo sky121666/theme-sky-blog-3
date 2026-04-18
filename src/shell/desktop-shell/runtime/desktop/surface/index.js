@@ -971,6 +971,7 @@ export function registerDesktopSurface(Alpine) {
 
         if (!putResponse.ok) {
           const body = await putResponse.text().catch(() => '');
+          console.error('[Theme] PUT json-config rejected by Halo backend. Status:', putResponse.status, 'Body:', body);
           throw new Error(`PUT theme json-config failed: ${putResponse.status} ${body.slice(0, 160)}`.trim());
         }
 
