@@ -861,12 +861,12 @@ export function registerDesktopSurface(Alpine) {
     },
 
     async openWidgetEditorFromDesktopMenu() {
+      this.closeDesktopContextMenu();
       await this.ensureEditingRuntime();
       const canManage = this.serverLayoutAccessReady
         ? this.canManageDefaultDesktopLayout
         : await this.probeServerLayoutConfigAccess();
       if (!canManage) return;
-      this.closeDesktopContextMenu();
       this.enterEditMode('decorate');
     },
 
