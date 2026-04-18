@@ -68,13 +68,21 @@
            x-transition:leave-end="opacity-0 scale-95 translate-y-1"
            style="display: none;">
         <template x-if="!desktopContextMenu.isEditing && canManageDefaultDesktopLayout">
+          <button type="button"
+                  class="desktop-context-menu-item"
+                  @click="openWidgetEditorFromDesktopMenu()">
+            编辑
+          </button>
+        </template>
+
+        <template x-if="desktopContextMenu.isEditing && canManageDefaultDesktopLayout">
           <div class="desktop-context-menu-group">
             <button type="button"
                     class="desktop-context-menu-item"
-                    @click="openWidgetEditorFromDesktopMenu()">
-              <div class="menu-icon-placeholder"></div>
-              <span>编辑桌面</span>
-            </button>
+                    @click="setEditStage('add'); closeDesktopContextMenu()">添加组件</button>
+            <button type="button"
+                    class="desktop-context-menu-item"
+                    @click="openAddIconForm(); closeDesktopContextMenu()">添加图标</button>
           </div>
         </template>
 
@@ -82,36 +90,20 @@
           <div class="desktop-context-menu-group">
             <button type="button"
                     class="desktop-context-menu-item"
-                    @click="setEditStage('add'); closeDesktopContextMenu()">
-              <svg viewBox="0 0 16 16" fill="none"><path d="M8 3.5V12.5M3.5 8H12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-              <span>添加组件</span>
-            </button>
+                    @click="reArrangeIcons(); closeDesktopContextMenu()">整理图标</button>
             <button type="button"
-                    class="desktop-context-menu-item"
-                    @click="openAddIconForm(); closeDesktopContextMenu()">
-              <svg viewBox="0 0 16 16" fill="none"><path d="M4 2H9L12 5V13A1 1 0 0111 14H4A1 1 0 013 13V3A1 1 0 014 2Z" stroke="currentColor" stroke-width="1.2"/><path d="M8 7V11M6 9H10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-              <span>添加图标</span>
-            </button>
-            <div class="desktop-context-menu-divider"></div>
+                    class="desktop-context-menu-item text-danger"
+                    @click="resetLayout(); closeDesktopContextMenu()">清空桌面</button>
+          </div>
+        </template>
+
+        <template x-if="desktopContextMenu.isEditing && canManageDefaultDesktopLayout">
+          <div class="desktop-context-menu-group">
             <button type="button"
-                    class="desktop-context-menu-item"
-                    @click="reArrangeIcons(); closeDesktopContextMenu()">
-              <svg viewBox="0 0 16 16" fill="none"><path d="M3 5H13M3 8H10M3 11H7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-              <span>整理图标</span>
-            </button>
-            <button type="button"
-                    class="desktop-context-menu-item"
-                    @click="resetLayout(); closeDesktopContextMenu()">
-              <svg viewBox="0 0 16 16" fill="none"><path d="M2.5 4H13.5M5 4V3C5 2.44772 5.44772 2 6 2H10C10.5523 2 11 2.44772 11 3V4M6.5 6.5V11.5M9.5 6.5V11.5M4 4V13C4 13.5523 4.44772 14 5 14H11C11.5523 14 12 13.5523 12 13V4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-              <span>清空桌面</span>
-            </button>
-            <div class="desktop-context-menu-divider"></div>
-            <button type="button"
-                    class="desktop-context-menu-item"
+                    class="desktop-context-menu-item desktop-context-menu-item--primary"
                     :disabled="serverLayoutSaving"
-                    @click="saveDesktopEditing(); closeDesktopContextMenu()">
-              <svg viewBox="0 0 16 16" fill="none"><path d="M4 8.5L6.5 11.5L12 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <span x-text="serverLayoutSaving ? '保存中...' : '完成编辑'"></span>
+                    @click="saveDesktopEditing(); closeDesktopContextMenu()"
+                    x-text="serverLayoutSaving ? '保存中...' : '完成编辑'">
             </button>
           </div>
         </template>

@@ -29,77 +29,110 @@
 
 .desktop-context-menu {
   position: fixed;
-  min-width: 210px;
+  min-width: 180px;
   padding: 5px;
-  border-radius: 9px;
-  background: rgba(30, 32, 36, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow:
-    0 10px 32px rgba(4, 6, 10, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(28px) saturate(160%);
-  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  background: rgba(30, 30, 32, 0.65);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  border: 0.5px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  box-shadow: 
+    0 12px 35px -5px rgba(0, 0, 0, 0.5),
+    0 4px 15px rgba(0, 0, 0, 0.3),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.15);
+  display: flex;
+  flex-direction: column;
   z-index: 10030;
-  pointer-events: auto;
-  color: rgba(255, 255, 255, 0.9);
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 :root:not(.dark) .desktop-context-menu {
-  background: rgba(246, 246, 246, 0.7);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  box-shadow:
-    0 10px 32px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
-  color: rgba(0, 0, 0, 0.85);
+  background: rgba(255, 255, 255, 0.55);
+  border: 0.5px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 
+    0 10px 30px -5px rgba(0, 0, 0, 0.15),
+    0 4px 12px rgba(0, 0, 0, 0.08),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.6);
 }
 
 .desktop-context-menu-group {
-  display: grid;
-  gap: 1px;
+  display: flex;
+  flex-direction: column;
 }
 
-.desktop-context-menu-divider {
-  height: 1px;
-  background: rgba(255, 255, 255, 0.12);
-  margin: 4px 10px;
+.desktop-context-menu-group + .desktop-context-menu-group,
+.desktop-context-menu-item + .desktop-context-menu-group,
+.desktop-context-menu-group + .desktop-context-menu-item {
+  position: relative;
+  margin-top: 5px;
+  padding-top: 5px;
 }
-:root:not(.dark) .desktop-context-menu-divider {
-  background: rgba(0, 0, 0, 0.06);
+
+.desktop-context-menu-group + .desktop-context-menu-group::before,
+.desktop-context-menu-item + .desktop-context-menu-group::before,
+.desktop-context-menu-group + .desktop-context-menu-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 5px;
+  right: 5px;
+  height: 1px;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+:root:not(.dark) .desktop-context-menu-group + .desktop-context-menu-group::before,
+:root:not(.dark) .desktop-context-menu-item + .desktop-context-menu-group::before,
+:root:not(.dark) .desktop-context-menu-group + .desktop-context-menu-item::before {
+  background-color: rgba(0, 0, 0, 0.08);
 }
 
 .desktop-context-menu-item {
   appearance: none;
-  width: 100%;
-  border: 0;
   background: transparent;
-  color: inherit;
+  border: none;
+  width: 100%;
   text-align: left;
   padding: 5px 12px;
   border-radius: 5px;
-  font-size: 13.5px;
+  font-family: inherit;
+  font-size: 13px;
   font-weight: 400;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  color: #f5f5f7;
+  cursor: default;
+  transition: background-color 0.1s ease, color 0.1s ease;
+  outline: none;
+  letter-spacing: 0.01em;
+}
+
+:root:not(.dark) .desktop-context-menu-item {
+  color: #1d1d1f;
 }
 
 .desktop-context-menu-item:hover,
-.desktop-context-menu-item:active {
-  background: var(--theme-accent, #0a60ff);
-  color: #fff;
+.desktop-context-menu-item:focus {
+  background-color: #0a84ff;
+  color: #ffffff;
 }
 
-.desktop-context-menu-item svg {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-  opacity: 0.8;
+:root:not(.dark) .desktop-context-menu-item:hover,
+:root:not(.dark) .desktop-context-menu-item:focus {
+  background-color: #007aff;
+  color: #ffffff;
 }
 
-.desktop-context-menu-item .menu-icon-placeholder {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
+.desktop-context-menu-item--primary {
+  font-weight: 600;
+}
+
+.desktop-context-menu-item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.desktop-context-menu-item:disabled:hover {
+  background-color: transparent;
+  color: inherit;
 }
 
 .desktop-widgets-toolbar-btn {
