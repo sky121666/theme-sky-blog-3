@@ -28,18 +28,26 @@
 }
 
 .desktop-context-menu {
-  position: fixed;
-  min-width: 180px;
-  padding: 5px;
-  background: rgba(30, 30, 32, 0.65);
-  backdrop-filter: blur(40px) saturate(200%);
-  -webkit-backdrop-filter: blur(40px) saturate(200%);
-  border: 0.5px solid rgba(255, 255, 255, 0.15);
-  border-radius: 8px;
-  box-shadow: 
+  --ctx-bg: rgba(30, 30, 32, 0.65);
+  --ctx-border: rgba(255, 255, 255, 0.15);
+  --ctx-shadow: 
     0 12px 35px -5px rgba(0, 0, 0, 0.5),
     0 4px 15px rgba(0, 0, 0, 0.3),
     inset 0 0 0 0.5px rgba(255, 255, 255, 0.15);
+  --ctx-item-text: #f5f5f7;
+  --ctx-item-hover-bg: #0a84ff;
+  --ctx-item-hover-text: #ffffff;
+  --ctx-separator: rgba(255, 255, 255, 0.1);
+
+  position: fixed;
+  min-width: 180px;
+  padding: 5px;
+  background: var(--ctx-bg);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  border: 0.5px solid var(--ctx-border);
+  border-radius: 8px;
+  box-shadow: var(--ctx-shadow);
   display: flex;
   flex-direction: column;
   z-index: 10030;
@@ -49,12 +57,16 @@
 }
 
 :root:not(.dark) .desktop-context-menu {
-  background: rgba(255, 255, 255, 0.55);
-  border: 0.5px solid rgba(0, 0, 0, 0.12);
-  box-shadow: 
+  --ctx-bg: rgba(255, 255, 255, 0.55);
+  --ctx-border: rgba(0, 0, 0, 0.12);
+  --ctx-shadow: 
     0 10px 30px -5px rgba(0, 0, 0, 0.15),
     0 4px 12px rgba(0, 0, 0, 0.08),
     inset 0 0 0 0.5px rgba(255, 255, 255, 0.6);
+  --ctx-item-text: #1d1d1f;
+  --ctx-item-hover-bg: #007aff;
+  --ctx-item-hover-text: #ffffff;
+  --ctx-separator: rgba(0, 0, 0, 0.08);
 }
 
 .desktop-context-menu-group {
@@ -62,30 +74,20 @@
   flex-direction: column;
 }
 
-.desktop-context-menu-group + .desktop-context-menu-group,
-.desktop-context-menu-item + .desktop-context-menu-group,
-.desktop-context-menu-group + .desktop-context-menu-item {
+.desktop-context-menu-group + .desktop-context-menu-group {
   position: relative;
   margin-top: 5px;
   padding-top: 5px;
 }
 
-.desktop-context-menu-group + .desktop-context-menu-group::before,
-.desktop-context-menu-item + .desktop-context-menu-group::before,
-.desktop-context-menu-group + .desktop-context-menu-item::before {
+.desktop-context-menu-group + .desktop-context-menu-group::before {
   content: '';
   position: absolute;
   top: 0;
   left: 5px;
   right: 5px;
   height: 1px;
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-:root:not(.dark) .desktop-context-menu-group + .desktop-context-menu-group::before,
-:root:not(.dark) .desktop-context-menu-item + .desktop-context-menu-group::before,
-:root:not(.dark) .desktop-context-menu-group + .desktop-context-menu-item::before {
-  background-color: rgba(0, 0, 0, 0.08);
+  background-color: var(--ctx-separator);
 }
 
 .desktop-context-menu-item {
@@ -94,14 +96,14 @@
   border: none;
   width: 100%;
   text-align: left;
-  padding: 5px 12px;
-  border-radius: 5px;
+  padding: 4px 10px;
+  border-radius: 4px;
   font-family: inherit;
   font-size: 13px;
   font-weight: 400;
-  color: #f5f5f7;
+  color: var(--ctx-item-text);
   cursor: default;
-  transition: background-color 0.1s ease, color 0.1s ease;
+  transition: none; /* macOS desktop context menu hover is instant */
   outline: none;
   letter-spacing: 0.01em;
   display: flex;
@@ -116,20 +118,15 @@
   opacity: 0.8;
 }
 
-:root:not(.dark) .desktop-context-menu-item {
-  color: #1d1d1f;
-}
-
 .desktop-context-menu-item:hover,
 .desktop-context-menu-item:focus {
-  background-color: #0a84ff;
-  color: #ffffff;
+  background-color: var(--ctx-item-hover-bg);
+  color: var(--ctx-item-hover-text);
 }
 
-:root:not(.dark) .desktop-context-menu-item:hover,
-:root:not(.dark) .desktop-context-menu-item:focus {
-  background-color: #007aff;
-  color: #ffffff;
+.desktop-context-menu-item:hover svg,
+.desktop-context-menu-item:focus svg {
+  opacity: 1;
 }
 
 .desktop-context-menu-item--primary {

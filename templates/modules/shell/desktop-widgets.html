@@ -113,7 +113,14 @@
                       style="color: var(--theme-danger, #ef4444);"
                       @click="resetLayout(); closeDesktopContextMenu()">
                 <svg viewBox="0 0 16 16" fill="none"><path d="M2.5 4H13.5M5 4V3C5 2.44772 5.44772 2 6 2H10C10.5523 2 11 2.44772 11 3V4M6.5 6.5V11.5M9.5 6.5V11.5M4 4V13C4 13.5523 4.44772 14 5 14H11C11.5523 14 12 13.5523 12 13V4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-                <span>清空桌面</span>
+                <span>清空组件</span>
+              </button>
+              <button type="button"
+                      class="desktop-context-menu-item"
+                      style="color: var(--theme-danger, #ef4444);"
+                      @click="clearAllIcons(); closeDesktopContextMenu()">
+                <svg viewBox="0 0 16 16" fill="none"><path d="M3.25 3.25l9.5 9.5M3.25 12.75l9.5-9.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+                <span>清空图标</span>
               </button>
             </div>
 
@@ -124,7 +131,7 @@
                       :disabled="serverLayoutSaving"
                       @click="saveDesktopEditing(); closeDesktopContextMenu()">
                 <svg viewBox="0 0 16 16" fill="none"><path d="M4 8.5L6.5 11.5L12 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                <span x-text="serverLayoutSaving ? '保存中...' : '完成编辑'"></span>
+                <span x-text="serverLayoutSaving ? '保存中...' : '保存'"></span>
               </button>
             </div>
           </div>

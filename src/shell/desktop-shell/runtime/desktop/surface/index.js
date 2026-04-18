@@ -961,19 +961,27 @@ export function registerDesktopSurface(Alpine) {
         const currentConfig = await getResponse.json();
         const { applyDesktopLayoutJsonToThemeConfig } = await this.ensurePersistenceWriteRuntime();
         const nextConfig = applyDesktopLayoutJsonToThemeConfig(currentConfig, layoutJson);
+
+        // Halo 2.x CSRF：从 cookie 中读取 XSRF-TOKEN 并作为 header 回传
+        const csrfToken = document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '';
+        const putHeaders = {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        };
+        if (csrfToken) {
+          putHeaders['X-XSRF-TOKEN'] = decodeURIComponent(csrfToken);
+        }
+
         const putResponse = await fetch(this.themeJsonConfigEndpoint, {
           method: 'PUT',
           credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json'
-          },
+          headers: putHeaders,
           body: JSON.stringify(nextConfig)
         });
 
         if (!putResponse.ok) {
           const body = await putResponse.text().catch(() => '');
-          console.error('[Theme] PUT json-config rejected by Halo backend. Status:', putResponse.status, 'Body:', body);
+          desktopDebugWarn('PUT json-config failed', { status: putResponse.status, body: body.slice(0, 160) });
           throw new Error(`PUT theme json-config failed: ${putResponse.status} ${body.slice(0, 160)}`.trim());
         }
 
@@ -1205,15 +1213,32 @@ export function registerDesktopSurface(Alpine) {
      * 一键整理桌面图标：按当前顺序从 (1,1) 开始列优先重排。
      */
     reArrangeIcons() {
-      this.icons.forEach((icon, index) => {
-        const placement = computeDefaultDesktopIconPlacement(
-          index,
-          this.currentColumns || this.columns || 12,
-          this.maxVisibleRows || 8
-        );
-        icon.x = icon.baseX = placement.x;
-        icon.y = icon.baseY = placement.y;
-      });
+      const cols = this.currentColumns || this.columns || 12;
+      const rows = this.maxVisibleRows || 8;
+
+      // 收集所有可见 widget 占用的格子
+      const occupied = new Set();
+      for (const w of this.widgets.filter(w => !w.hidden)) {
+        for (let dx = 0; dx < (w.w || 1); dx++) {
+          for (let dy = 0; dy < (w.h || 1); dy++) {
+            occupied.add(`${w.x + dx},${w.y + dy}`);
+          }
+        }
+      }
+
+      // 按列优先顺序找空位放置图标
+      let placed = 0;
+      for (let col = 1; placed < this.icons.length && col <= 100; col++) {
+        for (let row = 1; placed < this.icons.length && row <= rows; row++) {
+          if (!occupied.has(`${col},${row}`)) {
+            const icon = this.icons[placed];
+            icon.x = icon.baseX = col;
+            icon.y = icon.baseY = row;
+            placed++;
+          }
+        }
+      }
+
       this.normalizeVisibleLayout();
       this.syncResponsiveVisibility();
       desktopDebug('icons rearranged', { count: this.icons.length });
