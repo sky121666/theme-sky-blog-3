@@ -671,3 +671,188 @@
   opacity: 0.42;
   pointer-events: none;
 }
+
+/* ── 添加图标 modal ── */
+
+.desktop-add-icon-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10035;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.36);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  padding: 20px;
+  pointer-events: auto;  /* 父级 .desktop-widgets-layer 是 none，必须显式覆盖 */
+}
+
+.desktop-add-icon-dialog {
+  width: min(400px, 100%);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.03)),
+    rgba(24, 26, 32, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow:
+    0 24px 56px rgba(4, 5, 8, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(32px) saturate(140%);
+  -webkit-backdrop-filter: blur(32px) saturate(140%);
+  overflow: hidden;
+}
+
+.desktop-add-icon-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.desktop-add-icon-dialog-header h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 620;
+  letter-spacing: -0.03em;
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.desktop-add-icon-close {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.54);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: color 140ms ease;
+}
+
+.desktop-add-icon-close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.desktop-add-icon-close:hover {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.desktop-add-icon-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.desktop-add-icon-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.desktop-add-icon-field > span {
+  font-size: 11px;
+  font-weight: 560;
+  color: rgba(255, 255, 255, 0.44);
+  letter-spacing: 0.04em;
+}
+
+.desktop-add-icon-field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.desktop-add-icon-field input::placeholder {
+  color: rgba(255, 255, 255, 0.26);
+}
+
+.desktop-add-icon-field input:focus {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.desktop-add-icon-type-picker {
+  display: flex;
+  gap: 6px;
+}
+
+.desktop-add-icon-type-btn {
+  appearance: none;
+  flex: 1;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.56);
+  padding: 8px 4px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 540;
+  text-align: center;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.desktop-add-icon-type-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.desktop-add-icon-type-btn.is-active {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.96);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.desktop-add-icon-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 18px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.desktop-add-icon-btn {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.8);
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 560;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.desktop-add-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.desktop-add-icon-btn:active {
+  transform: translateY(1px);
+}
+
+.desktop-add-icon-btn--primary {
+  background: color-mix(in srgb, var(--theme-accent) 54%, rgba(38, 40, 48, 0.42));
+  border-color: color-mix(in srgb, var(--theme-accent) 48%, rgba(255, 255, 255, 0.12));
+  color: rgba(255, 255, 255, 0.96);
+  box-shadow:
+    0 8px 20px color-mix(in srgb, var(--theme-accent) 18%, rgba(6, 8, 12, 0.18)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.desktop-add-icon-btn--primary:disabled {
+  opacity: 0.38;
+  pointer-events: none;
+}

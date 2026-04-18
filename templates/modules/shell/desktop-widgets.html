@@ -82,6 +82,9 @@
                     @click="setEditStage('add'); closeDesktopContextMenu()">添加组件</button>
             <button type="button"
                     class="desktop-context-menu-item"
+                    @click="openAddIconForm(); closeDesktopContextMenu()">添加图标</button>
+            <button type="button"
+                    class="desktop-context-menu-item"
                     @click="setEditStage('decorate'); closeDesktopContextMenu()">装饰</button>
             <button type="button"
                     class="desktop-context-menu-item"
@@ -96,6 +99,69 @@
                     x-text="serverLayoutSaving ? '保存中' : '保存'"></button>
           </div>
         </template>
+      </div>
+
+      <!-- 添加图标 modal -->
+      <div class="desktop-add-icon-backdrop"
+           x-show="addIconForm.open"
+           @click.self="closeAddIconForm()"
+           x-transition:enter="transition ease-out duration-180"
+           x-transition:enter-start="opacity-0"
+           x-transition:enter-end="opacity-100"
+           x-transition:leave="transition ease-in duration-140"
+           x-transition:leave-start="opacity-100"
+           x-transition:leave-end="opacity-0"
+           style="display: none;">
+        <div class="desktop-add-icon-dialog"
+             x-trap.noscroll="addIconForm.open"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+             x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+             x-transition:leave="transition ease-in duration-140"
+             x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+             x-transition:leave-end="opacity-0 scale-95 translate-y-2">
+          <header class="desktop-add-icon-dialog-header">
+            <h2>添加图标</h2>
+            <button type="button" class="desktop-add-icon-close" @click="closeAddIconForm()" aria-label="关闭">
+              <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor" opacity="0.18"/><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            </button>
+          </header>
+          <div class="desktop-add-icon-form">
+            <label class="desktop-add-icon-field">
+              <span>链接地址</span>
+              <input type="url"
+                     placeholder="https://example.com 或 /path"
+                     x-model="addIconForm.href"
+                     @keydown.enter="submitAddIconForm()"
+                     autocomplete="off"
+                     autofocus>
+            </label>
+            <label class="desktop-add-icon-field">
+              <span>显示名称</span>
+              <input type="text"
+                     placeholder="可留空，自动提取域名"
+                     x-model="addIconForm.title"
+                     @keydown.enter="submitAddIconForm()"
+                     autocomplete="off">
+            </label>
+            <div class="desktop-add-icon-field">
+              <span>图标类型</span>
+              <div class="desktop-add-icon-type-picker">
+                <template x-for="t in [['folder','📁文件夹'],['document','📋文档'],['link','🔗链接']]" :key="t[0]">
+                  <button type="button"
+                          class="desktop-add-icon-type-btn"
+                          :class="{ 'is-active': addIconForm.subtype === t[0] }"
+                          @click="addIconForm.subtype = t[0]"
+                          x-text="t[1]"></button>
+                </template>
+              </div>
+            </div>
+          </div>
+          <footer class="desktop-add-icon-dialog-footer">
+            <button type="button" class="desktop-add-icon-btn" @click="closeAddIconForm()">取消</button>
+            <button type="button" class="desktop-add-icon-btn desktop-add-icon-btn--primary" @click="submitAddIconForm()" :disabled="!addIconForm.href.trim()">添加</button>
+          </footer>
+        </div>
       </div>
 
       <div class="desktop-widget-center-backdrop"
@@ -140,6 +206,9 @@
               <button type="button"
                       class="desktop-widget-center-head-action desktop-widget-center-head-action--quiet"
                       @click="reArrangeIcons()">整理图标</button>
+              <button type="button"
+                      class="desktop-widget-center-head-action desktop-widget-center-head-action--quiet"
+                      @click="openAddIconForm()">添加图标</button>
               <button type="button"
                       class="desktop-widget-center-head-action desktop-widget-center-head-action--quiet"
                       @click="setEditStage('decorate')">装饰</button>

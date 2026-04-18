@@ -124,6 +124,12 @@ export function registerDesktopSurface(Alpine) {
     icons: [],
     defaultIcons: [],
     iconTombstones: [],   // [{key}] — 已删图标的 tombstone，保存时写入 JSON 防复活
+    addIconForm: {
+      open: false,
+      title: '',
+      href: '',
+      subtype: 'folder'
+    },
     widgets: [],
     defaultWidgets: [],
     widgetCatalog: [],
@@ -998,6 +1004,70 @@ export function registerDesktopSurface(Alpine) {
     },
 
     /* ═══ Desktop icons ═══ */
+
+    openAddIconForm() {
+      this.addIconForm = { open: true, title: '', href: '', subtype: 'folder' };
+    },
+
+    closeAddIconForm() {
+      this.addIconForm = { open: false, title: '', href: '', subtype: 'folder' };
+    },
+
+    submitAddIconForm() {
+      const href = this.addIconForm.href.trim();
+      if (!href) return;
+      // 自动推断内外链接
+      let isExternal = /^https?:\/\//i.test(href);
+      const title = this.addIconForm.title.trim() || (() => {
+        try { return new URL(href, window.location.origin).hostname || href; } catch { return href; }
+      })();
+      this.addCustomIcon(title, href, this.addIconForm.subtype, isExternal);
+      this.closeAddIconForm();
+    },
+
+    addCustomIcon(title, href, subtype = 'folder', external = false) {
+      const key = `icon-custom-${Date.now()}`;
+      const pos = this.findFreeIconSlot();
+      this.icons.push({
+        key,
+        kind: 'icon',
+        title,
+        href,
+        subtype,
+        pjax: !external,
+        pjaxApp: '',
+        external,
+        dataId: key,
+        x: pos.x,
+        y: pos.y,
+        baseX: pos.x,
+        baseY: pos.y,
+        w: 1,
+        h: 1
+      });
+      this.iconsManaged = true;
+      this.normalizeVisibleLayout();
+      this.syncResponsiveVisibility();
+      desktopDebug('icon added', { key, title, href, pos });
+    },
+
+    findFreeIconSlot() {
+      const occupied = new Set(this.icons.map((ic) => `${ic.baseX ?? ic.x},${ic.baseY ?? ic.y}`));
+      for (const w of this.widgets.filter((w) => !w.hidden)) {
+        for (let dx = 0; dx < (w.w || 1); dx++) {
+          for (let dy = 0; dy < (w.h || 1); dy++) {
+            occupied.add(`${w.x + dx},${w.y + dy}`);
+          }
+        }
+      }
+      const maxRows = this.maxVisibleRows || 8;
+      for (let col = 1; col <= 100; col++) {
+        for (let row = 1; row <= maxRows; row++) {
+          if (!occupied.has(`${col},${row}`)) return { x: col, y: row };
+        }
+      }
+      return { x: this.icons.length + 1, y: 1 };
+    },
 
     handleDesktopIconClick(event, key) {
       const icon = this.findIconByKey(key);
