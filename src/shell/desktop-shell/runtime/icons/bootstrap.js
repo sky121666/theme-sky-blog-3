@@ -26,9 +26,19 @@ export function serializeDesktopIconInstance(icon) {
   return {
     key: icon.key,
     title: icon.title,
+    href: icon.href || '#',
+    pjax: icon.pjax !== false,
+    pjaxApp: icon.pjaxApp || '',
+    external: icon.external === true,
+    subtype: icon.subtype || 'folder',
+    dataId: icon.dataId || icon.key,
     x: icon.baseX ?? icon.x,
     y: icon.baseY ?? icon.y
   };
+}
+
+export function serializeDeletedIconTombstone(key) {
+  return { key, deleted: true };
 }
 
 export function normalizeDesktopIconType(type) {
@@ -76,20 +86,70 @@ export function readDesktopIconsBootstrap() {
   }));
 }
 
-export function mergeDesktopIconLayout(defaultIcons, savedLayout, resolvedWidgets = []) {
+/**
+ * 合并桌面图标布局。
+ *
+ * 支持三种模式：
+ *  1. 无 savedLayout → 直接返回 defaultIcons（后端定义）
+ *  2. savedLayout.hasFullIconDefs = true → 以 serverLayout.icons 为完整来源（前端自管理）
+ *     - 图标定义含 href/title/subtype 等全部字段
+ *     - 支持 { key, deleted: true } tombstone：彻底阻止图标复活
+ *  3. 普通旧格式（仅含位置）→ 以 defaultIcons 为基础，位置由 serverLayout 覆盖
+ *     - 同样支持 tombstone
+ *
+ * @param {Array}  defaultIcons     后端注入的图标定义（首次默认值）
+ * @param {object} savedLayout      从 serverLayout JSON 解析的布局对象
+ * @param {Array}  resolvedWidgets  已放置的 widget 用于占格检测
+ * @param {number} maxVisibleRows   实际视口可见行数（由调用方传入）
+ */
+export function mergeDesktopIconLayout(defaultIcons, savedLayout, resolvedWidgets = [], maxVisibleRows = 8) {
   if (!savedLayout || !Array.isArray(savedLayout.icons)) {
     return defaultIcons;
   }
 
+  // ── 模式 2：前端完全自管理（hasFullIconDefs = true）──
+  if (savedLayout.hasFullIconDefs) {
+    const validIcons = savedLayout.icons.filter((icon) => icon && icon.key && !icon.deleted);
+    return validIcons.map((icon, index) => {
+      const fallback = computeDefaultDesktopIconPlacement(index, 12, Math.max(4, maxVisibleRows));
+      return {
+        key: icon.key,
+        kind: 'icon',
+        title: icon.title || '',
+        href: icon.href || '#',
+        pjax: icon.pjax !== false,
+        pjaxApp: typeof icon.pjaxApp === 'string' ? icon.pjaxApp : '',
+        external: icon.external === true,
+        subtype: normalizeDesktopIconType(icon.subtype || 'folder'),
+        dataId: icon.dataId || icon.key,
+        x: toPositiveInt(icon.x ?? icon.baseX, fallback.x),
+        y: toPositiveInt(icon.y ?? icon.baseY, fallback.y),
+        baseX: toPositiveInt(icon.baseX ?? icon.x, fallback.x),
+        baseY: toPositiveInt(icon.baseY ?? icon.y, fallback.y),
+        w: DESKTOP_ICON_NODE_SPAN.w,
+        h: DESKTOP_ICON_NODE_SPAN.h
+      };
+    });
+  }
+
+  // ── 模式 3：旧格式（位置覆盖 + tombstone）──
   const savedMap = new Map(
     savedLayout.icons
       .filter((icon) => icon && icon.key)
       .map((icon) => [icon.key, icon])
   );
 
-  // Collect all occupied cells from saved icons
+  // 收集 tombstone key：被标记为 deleted 的图标不再出现
+  const tombstoneKeys = new Set(
+    savedLayout.icons
+      .filter((icon) => icon && icon.key && icon.deleted === true)
+      .map((icon) => icon.key)
+  );
+
+  // Collect all occupied cells from saved (non-deleted) icons
   const occupiedCells = new Set();
   for (const saved of savedMap.values()) {
+    if (saved.deleted) continue;
     const sx = toPositiveInt(saved.x ?? saved.baseX, 0);
     const sy = toPositiveInt(saved.y ?? saved.baseY, 0);
     if (sx > 0 && sy > 0) occupiedCells.add(`${sx},${sy}`);
@@ -111,10 +171,11 @@ export function mergeDesktopIconLayout(defaultIcons, savedLayout, resolvedWidget
   }
 
   // Find next free cell (column-major: top-to-bottom, then left-to-right)
-  const maxRows = savedLayout.maxVisibleRows || 8;
+  // maxVisibleRows is now passed from the caller's actual viewport state
+  const safeMaxRows = Math.max(4, maxVisibleRows);
   function findFreeCell() {
     for (let col = 1; col <= 100; col++) {
-      for (let row = 1; row <= maxRows; row++) {
+      for (let row = 1; row <= safeMaxRows; row++) {
         const key = `${col},${row}`;
         if (!occupiedCells.has(key)) {
           occupiedCells.add(key);
@@ -122,32 +183,34 @@ export function mergeDesktopIconLayout(defaultIcons, savedLayout, resolvedWidget
         }
       }
     }
-    // Fallback: just go past all columns
     const fallbackX = occupiedCells.size + 1;
     return { x: fallbackX, y: 1 };
   }
 
-  return defaultIcons.map((icon) => {
-    const saved = savedMap.get(icon.key);
-    if (saved) {
-      const normalized = normalizeDesktopIconInstance(saved, icon);
+  // Filter tombstoned icons before mapping
+  return defaultIcons
+    .filter((icon) => !tombstoneKeys.has(icon.key))
+    .map((icon) => {
+      const saved = savedMap.get(icon.key);
+      if (saved && !saved.deleted) {
+        const normalized = normalizeDesktopIconInstance(saved, icon);
+        return {
+          ...icon,
+          x: normalized.x,
+          y: normalized.y,
+          baseX: normalized.baseX,
+          baseY: normalized.baseY
+        };
+      }
+
+      // New icon not in saved layout → place in first available slot
+      const freePos = findFreeCell();
       return {
         ...icon,
-        x: normalized.x,
-        y: normalized.y,
-        baseX: normalized.baseX,
-        baseY: normalized.baseY
+        x: freePos.x,
+        y: freePos.y,
+        baseX: freePos.x,
+        baseY: freePos.y
       };
-    }
-
-    // New icon not in saved layout → place in first available slot
-    const freePos = findFreeCell();
-    return {
-      ...icon,
-      x: freePos.x,
-      y: freePos.y,
-      baseX: freePos.x,
-      baseY: freePos.y
-    };
-  });
+    });
 }

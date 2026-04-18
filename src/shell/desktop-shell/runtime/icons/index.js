@@ -6,6 +6,7 @@ export {
   normalizeDesktopIconInstance,
   normalizeDesktopIconType,
   readDesktopIconsBootstrap,
+  serializeDeletedIconTombstone,
   serializeDesktopIconInstance
 } from './bootstrap.js';
 export { renderDesktopIconGraphic } from './render.js';

@@ -11,6 +11,7 @@ import {
   normalizeDesktopIconInstance,
   readDesktopIconsBootstrap,
   renderDesktopIconGraphic,
+  serializeDeletedIconTombstone,
 } from '../../icons/index.js';
 import { escapeHtml, toPositiveInt } from '../../shared/utils.js';
 import { normalizeMomentRecord } from '../../shared/moments.js';
@@ -122,6 +123,7 @@ export function registerDesktopSurface(Alpine) {
     iconsManaged: false,
     icons: [],
     defaultIcons: [],
+    iconTombstones: [],   // [{key}] — 已删图标的 tombstone，保存时写入 JSON 防复活
     widgets: [],
     defaultWidgets: [],
     widgetCatalog: [],
@@ -979,7 +981,9 @@ export function registerDesktopSurface(Alpine) {
 
     async saveDefaultLayoutToServer() {
       const { buildDesktopLayoutJsonString } = await this.ensurePersistenceWriteRuntime();
-      const layoutJson = buildDesktopLayoutJsonString(this.layoutVersion, this.widgets, this.icons, this.currentColumns);
+      // 将 tombstone 合并到 icons 数组末尾，写入 JSON 防止被删图标复活
+      const iconsWithTombstones = [...this.icons, ...this.iconTombstones];
+      const layoutJson = buildDesktopLayoutJsonString(this.layoutVersion, this.widgets, iconsWithTombstones, this.currentColumns);
       return this.saveLayoutJsonToServer(layoutJson);
     },
 
@@ -1045,7 +1049,7 @@ export function registerDesktopSurface(Alpine) {
         };
       });
 
-      const serverDefaultIcons = mergeDesktopIconLayout(defaultIcons, serverLayout, this.widgets).map((icon) => {
+      const serverDefaultIcons = mergeDesktopIconLayout(defaultIcons, serverLayout, this.widgets, this.maxVisibleRows || 8).map((icon) => {
         const sourceIcon = defaultIcons.find((item) => item.key === icon.key);
         return {
           ...icon,
@@ -1083,6 +1087,46 @@ export function registerDesktopSurface(Alpine) {
           baseY: icon.baseY
         }))
       });
+    },
+
+    /**
+     * 删除桌面图标。
+     * 写入 tombstone 而非直接移除，防止后端传来的同 key 图标在下次加载时复活。
+     */
+    removeIcon(key) {
+      const index = this.icons.findIndex((icon) => icon.key === key);
+      if (index === -1) return;
+
+      // 记录 tombstone，保存时写入 JSON 阻止后端同 key 图标复活
+      if (!this.iconTombstones.some((t) => t.key === key)) {
+        this.iconTombstones.push(serializeDeletedIconTombstone(key));
+      }
+
+      this.icons = this.icons.filter((icon) => icon.key !== key);
+
+      if (this.dragState.key === key) {
+        this.endDrag();
+      }
+      this.selectedDesktopKey = null;
+      this.syncResponsiveVisibility();
+    },
+
+    /**
+     * 一键整理桌面图标：按当前顺序从 (1,1) 开始列优先重排。
+     */
+    reArrangeIcons() {
+      this.icons.forEach((icon, index) => {
+        const placement = computeDefaultDesktopIconPlacement(
+          index,
+          this.currentColumns || this.columns || 12,
+          this.maxVisibleRows || 8
+        );
+        icon.x = icon.baseX = placement.x;
+        icon.y = icon.baseY = placement.y;
+      });
+      this.normalizeVisibleLayout();
+      this.syncResponsiveVisibility();
+      desktopDebug('icons rearranged', { count: this.icons.length });
     },
 
     /* ═══ Layout integrity ═══ */

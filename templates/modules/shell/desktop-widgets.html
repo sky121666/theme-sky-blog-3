@@ -85,6 +85,9 @@
                     @click="setEditStage('decorate'); closeDesktopContextMenu()">装饰</button>
             <button type="button"
                     class="desktop-context-menu-item"
+                    @click="reArrangeIcons(); closeDesktopContextMenu()">整理图标</button>
+            <button type="button"
+                    class="desktop-context-menu-item"
                     @click="resetLayout(); closeDesktopContextMenu()">默认</button>
             <button type="button"
                     class="desktop-context-menu-item desktop-context-menu-item--primary"
@@ -134,6 +137,9 @@
               <button type="button"
                       class="desktop-widget-center-head-action desktop-widget-center-head-action--quiet"
                       @click="resetLayout()">默认</button>
+              <button type="button"
+                      class="desktop-widget-center-head-action desktop-widget-center-head-action--quiet"
+                      @click="reArrangeIcons()">整理图标</button>
               <button type="button"
                       class="desktop-widget-center-head-action desktop-widget-center-head-action--quiet"
                       @click="setEditStage('decorate')">装饰</button>
@@ -311,6 +317,18 @@
                   <div class="desktop-icon-label" x-text="typeof node !== 'undefined' ? node.title : ''"></div>
                 </a>
               </template>
+              <!-- 图标删除按钮（编辑态可见，放在 slot 层避免被 icon overflow 裁剪） -->
+              <button type="button"
+                      class="desktop-widget-remove-btn"
+                      x-show="isEditing && isIconNode(node)"
+                      @click.stop="removeIcon(node.key)"
+                      style="display: none;"
+                      aria-label="移除图标">
+                <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <circle cx="8" cy="8" r="7" fill="currentColor" opacity="0.9"/>
+                  <path d="M5 8H11" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
+                </svg>
+              </button>
             </div>
           </template>
         </div>

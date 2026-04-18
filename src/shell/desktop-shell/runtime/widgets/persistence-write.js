@@ -15,7 +15,13 @@ function buildDesktopWidgetLayoutPayload(layoutVersion, widgets, icons = [], col
     instances: widgets
       .filter((widget) => !widget.hidden)
       .map((widget) => serializeWidgetInstance(widget)),
-    icons: icons.map((icon) => serializeDesktopIconInstance(icon))
+    // hasFullIconDefs = true 启用前端自管理模式：
+    // icon 含完整定义（href/title/subtype…），deleted:true 为 tombstone
+    hasFullIconDefs: true,
+    icons: icons.map((icon) =>
+      // tombstone 对象直接透传，普通图标走全字段序列化
+      icon.deleted === true ? { key: icon.key, deleted: true } : serializeDesktopIconInstance(icon)
+    )
   };
 }
 
