@@ -865,7 +865,7 @@ export function registerDesktopSurface(Alpine) {
         : await this.probeServerLayoutConfigAccess();
       if (!canManage) return;
       this.closeDesktopContextMenu();
-      this.enterEditMode('add');
+      this.enterEditMode('decorate');
     },
 
     syncDesktopBodyState() {
