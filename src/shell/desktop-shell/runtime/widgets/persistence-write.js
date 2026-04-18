@@ -66,9 +66,9 @@ function applyDesktopLayoutJsonToGroup(container, layoutJson) {
   // 同步：当前端删除了后端设定的图标时，通过 tombstone 将其从后台主题设置中真实抹除
   const payload = parseJsonObject(layoutJson);
   if (payload && Array.isArray(payload.icons) && container.desktop?.icons) {
+    const backendIcons = container.desktop.icons;
     const tombstoneKeys = payload.icons.filter((i) => i && i.deleted === true && i.key).map((i) => i.key);
     if (tombstoneKeys.length > 0) {
-      const backendIcons = container.desktop.icons;
       if (Array.isArray(backendIcons.custom_icons)) {
         backendIcons.custom_icons = backendIcons.custom_icons.filter(
           (item) => item && !tombstoneKeys.includes(`icon-custom-${item.name}`)
