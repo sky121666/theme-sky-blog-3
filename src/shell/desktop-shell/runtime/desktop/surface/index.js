@@ -776,6 +776,9 @@ export function registerDesktopSurface(Alpine) {
           <kbd>${modKey}</kbd> <span>+</span> <kbd>S</kbd> <span class="label">保存</span>
         </div>
         <div class="desktop-save-hint-item">
+          <kbd>${modKey}</kbd> <span>+</span> <kbd>A</kbd> <span class="label">整理图标</span>
+        </div>
+        <div class="desktop-save-hint-item">
           <kbd>Esc</kbd> <span class="label">退出</span>
         </div>
       `;
@@ -805,6 +808,13 @@ export function registerDesktopSurface(Alpine) {
         if (this.isEditing) {
           event.preventDefault();
           this.saveDesktopEditing();
+        }
+      }
+      /* ⌘+A / Ctrl+A → rearrange icons */
+      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === 'a') {
+        if (this.isEditing) {
+          event.preventDefault();
+          this.reArrangeIcons();
         }
       }
       /* Esc → exit editing */
