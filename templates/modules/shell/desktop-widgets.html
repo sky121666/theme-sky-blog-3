@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="https://www.thymeleaf.org">
-  <th:block th:fragment="layer(enabled, isHome, hideOnMobile, editEnabled, columns, gap, layoutVersion, serverLayoutJson, themeName, themeJsonConfigEndpoint, weatherCityName, weatherRefreshMinutes, latestPosts, popularPosts, categoryTree, siteStats, randomTags, momentsAvailable, recentMoments, siteUrl, siteTitle, siteSubtitle, siteLogo, archivesUrl, fallbackCover)">
+  <th:block th:fragment="layer(enabled, isHome, hideOnMobile, editEnabled, columns, gap, layoutVersion, serverLayoutJson, themeName, themeJsonConfigEndpoint, weatherCityName, weatherRefreshMinutes, latestPosts, popularPosts, categoryTree, siteStats, randomTags, momentsAvailable, recentMoments, photosAvailable, photos, photoGroups, siteUrl, siteTitle, siteSubtitle, siteLogo, archivesUrl, fallbackCover)">
     <script th:inline="javascript">
       const widgetProtocol = {
         enabled: [[${enabled}]],
@@ -36,7 +36,11 @@
           momentsAvailable: [[${momentsAvailable}]],
           recentMoments: [[${recentMoments}]],
           archivesUrl: [[${archivesUrl}]],
-          fallbackCover: [[${fallbackCover}]]
+          fallbackCover: [[${fallbackCover}]],
+          photosAvailable: [[${photosAvailable}]],
+          photos: [[${photos}]],
+          photoGroups: [[${photoGroups}]],
+          photosUrl: '/photos'
         }
       };
       window.__THEME_DESKTOP_PROTOCOL__ = Object.assign(window.__THEME_DESKTOP_PROTOCOL__ || {}, {
@@ -196,6 +200,63 @@
           <footer class="desktop-add-icon-dialog-footer">
             <button type="button" class="desktop-add-icon-btn" @click="closeAddIconForm()">取消</button>
             <button type="button" class="desktop-add-icon-btn desktop-add-icon-btn--primary" @click="submitAddIconForm()" :disabled="!addIconForm.href.trim()">添加</button>
+          </footer>
+        </div>
+      </div>
+
+      <!-- 组件配置 modal（用于 hasConfig 组件，如图库分组选择） -->
+      <div class="desktop-add-icon-backdrop"
+           x-show="widgetConfigForm.open"
+           @click.self="closeWidgetConfigForm()"
+           x-transition:enter="transition ease-out duration-180"
+           x-transition:enter-start="opacity-0"
+           x-transition:enter-end="opacity-100"
+           x-transition:leave="transition ease-in duration-140"
+           x-transition:leave-start="opacity-100"
+           x-transition:leave-end="opacity-0"
+           style="display: none;">
+        <div class="desktop-add-icon-dialog"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+             x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+             x-transition:leave="transition ease-in duration-140"
+             x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+             x-transition:leave-end="opacity-0 scale-95 translate-y-2">
+          <header class="desktop-add-icon-dialog-header">
+            <h2>配置图库组件</h2>
+            <button type="button" class="desktop-add-icon-close" @click="closeWidgetConfigForm()" aria-label="关闭">
+              <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor" opacity="0.18"/><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            </button>
+          </header>
+          <div class="desktop-add-icon-form">
+            <div class="desktop-add-icon-field">
+              <span>显示精选集</span>
+              <div class="desktop-widget-config-group-list">
+                <!-- 全部 -->
+                <button type="button"
+                        class="desktop-widget-config-group-btn"
+                        :class="{ 'is-active': !widgetConfigForm.meta.groupName }"
+                        @click="widgetConfigForm.meta.groupName = ''">
+                  <span class="desktop-widget-config-group-name">全部照片</span>
+                  <span class="desktop-widget-config-group-count" x-text="`${(sources?.photos || []).length} 张`"></span>
+                </button>
+                <!-- 各分组 -->
+                <template x-for="group in (sources?.photoGroups || [])" :key="group.metadata?.name">
+                  <button type="button"
+                          class="desktop-widget-config-group-btn"
+                          :class="{ 'is-active': widgetConfigForm.meta.groupName === group.metadata?.name }"
+                          @click="widgetConfigForm.meta.groupName = group.metadata?.name || ''">
+                    <span class="desktop-widget-config-group-name" x-text="group.spec?.displayName || group.metadata?.name"></span>
+                    <span class="desktop-widget-config-group-count"
+                          x-text="`${(sources?.photos || []).filter(p => p.spec?.groupName === group.metadata?.name).length} 张`"></span>
+                  </button>
+                </template>
+              </div>
+            </div>
+          </div>
+          <footer class="desktop-add-icon-dialog-footer">
+            <button type="button" class="desktop-add-icon-btn" @click="closeWidgetConfigForm()">取消</button>
+            <button type="button" class="desktop-add-icon-btn desktop-add-icon-btn--primary" @click="submitWidgetConfigForm()">添加到桌面</button>
           </footer>
         </div>
       </div>

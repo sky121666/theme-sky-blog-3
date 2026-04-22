@@ -1,0 +1,398 @@
+/* ═══════════════════════════════════════════
+   图库小组件 (Photos Widget)
+   支持：small (2×2) / medium (4×2) / large (4×4)
+   原则：图片铺满，信息只在底部渐变区
+   ═══════════════════════════════════════════ */
+
+.desktop-widget-card.widget--plugin-photos-gallery {
+  --photos-text: rgba(255, 255, 255, 0.96);
+  --photos-muted: rgba(255, 255, 255, 0.66);
+  --photos-thumb-border: rgba(255, 255, 255, 0.22);
+  --photos-thumb-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --photos-more-bg: rgba(0, 0, 0, 0.32);
+  --photos-more-text: rgba(255, 255, 255, 0.88);
+  --photos-icon-box-bg: rgba(255, 255, 255, 0.18);
+  --photos-icon-box-border: rgba(255, 255, 255, 0.28);
+  --photos-icon-box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 2px 8px rgba(0,0,0,0.22);
+  --photos-icon-color: rgba(255, 255, 255, 0.94);
+}
+
+.desktop-widget-card.widget--plugin-photos-gallery {
+  padding: 0;
+  gap: 0;
+}
+
+.desktop-widget-card.widget--plugin-photos-gallery > .desktop-widget-header {
+  display: none !important;
+}
+
+.desktop-widget-card.widget--plugin-photos-gallery > .desktop-widget-body {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  z-index: 3;
+}
+
+/* ══════ 公共容器 ══════ */
+.wg-photos-sm,
+.wg-photos-md,
+.wg-photos-lg {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+/* ══════════════════════════════════════════════════════
+   SMALL (2×2)
+   ══════════════════════════════════════════════════════ */
+.wg-photos-sm {
+  position: relative;
+  text-decoration: none;
+  color: var(--photos-text);
+  isolation: isolate;
+}
+
+.wg-photos-sm-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 22%;
+  filter: saturate(1.08) contrast(1.02);
+  transition: transform 0.7s cubic-bezier(0.23, 1, 0.32, 1);
+  z-index: 0;
+}
+.wg-photos-sm:hover .wg-photos-sm-img { transform: scale(1.08); }
+.wg-photos-sm-img.is-placeholder { background: rgba(28, 32, 42, 0.9); }
+
+.wg-photos-sm-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 15%, rgba(255,255,255,0.12), transparent 40%),
+    linear-gradient(to top, rgba(8,12,18,0.90) 0%, rgba(8,12,18,0.22) 48%, transparent 100%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* 左上角胶囊定位 — small */
+.wg-photos-sm-top {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  pointer-events: none;
+}
+.wg-photos-sm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px 4px 7px;
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border: 0.5px solid rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+  pointer-events: none;
+}
+/* sm badge 内文字稍小 */
+.wg-photos-sm-badge .wg-photos-badge-icon { width: 11px; height: 11px; }
+.wg-photos-sm-badge .wg-photos-badge-label { font-size: 9.5px; }
+
+.wg-photos-sm-bottom {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 2;
+  padding: 36px 12px 12px;
+  pointer-events: none;
+}
+.wg-photos-sm-bottom strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 760;
+  line-height: 1.2;
+  color: var(--photos-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 8px rgba(0,0,0,0.5);
+}
+.wg-photos-sm-bottom span {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--photos-muted);
+  margin-top: 2px;
+}
+
+/* ══════════════════════════════════════════════════════
+   MEDIUM (4×2)
+   ══════════════════════════════════════════════════════ */
+.wg-photos-md {
+  position: relative;
+  text-decoration: none;
+  color: var(--photos-text);
+  isolation: isolate;
+}
+
+.wg-photos-md-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 22%;
+  filter: saturate(1.1) contrast(1.02);
+  transition: transform 0.7s cubic-bezier(0.23, 1, 0.32, 1);
+  z-index: 0;
+}
+.wg-photos-md:hover .wg-photos-md-img { transform: scale(1.05); }
+.wg-photos-md-img.is-placeholder { background: rgba(28, 32, 42, 0.9); }
+
+.wg-photos-md-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 65% 10%, rgba(255,255,255,0.08), transparent 50%),
+    linear-gradient(to top, rgba(8,12,18,0.88) 0%, rgba(8,12,18,0.14) 52%, transparent 100%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* 右上角胶囊： icon + 「图库」（固定文字，非分组名） */
+.wg-photos-md-badge {
+  position: absolute;
+  top: 11px;
+  right: 11px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px 4px 7px;
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border: 0.5px solid rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 8px rgba(0,0,0,0.2);
+  pointer-events: none;
+}
+
+/* 公用： badge 内部 icon */
+.wg-photos-badge-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  flex: none;
+  color: rgba(255,255,255,0.88);
+}
+.wg-photos-badge-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+/* 公用： badge 内部文字 */
+.wg-photos-badge-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: rgba(255,255,255,0.88);
+  white-space: nowrap;
+}
+
+.wg-photos-md-bottom {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 2;
+  padding: 48px 16px 14px;
+  pointer-events: none;
+}
+.wg-photos-md-title {
+  display: block;
+  font-size: 17px;
+  font-weight: 760;
+  line-height: 1.15;
+  color: var(--photos-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 2px 14px rgba(0,0,0,0.5);
+  letter-spacing: -0.01em;
+}
+.wg-photos-md-sub {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--photos-muted);
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ══════════════════════════════════════════════════════
+   LARGE (4×4)
+   ══════════════════════════════════════════════════════ */
+.wg-photos-lg {
+  position: relative;
+  flex-direction: column;
+  isolation: isolate;
+}
+
+.wg-photos-lg-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 20%;
+  filter: saturate(1.1) contrast(1.02);
+  transition: transform 0.9s cubic-bezier(0.23, 1, 0.32, 1);
+  z-index: 0;
+}
+.wg-photos-lg:hover .wg-photos-lg-bg { transform: scale(1.04); }
+.wg-photos-lg-bg.is-placeholder { background: rgba(20, 24, 34, 0.92); }
+
+.wg-photos-lg-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(8,12,18,0.04) 0%,
+    rgba(8,12,18,0.12) 40%,
+    rgba(8,12,18,0.80) 75%,
+    rgba(8,12,18,0.94) 100%
+  );
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* 左上角： icon框 + kicker 文字 */
+.wg-photos-lg-top {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+.wg-photos-lg-icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--photos-icon-box-bg);
+  border: 0.5px solid var(--photos-icon-box-border);
+  box-shadow: var(--photos-icon-box-shadow);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  flex: none;
+  color: var(--photos-icon-color);
+}
+.wg-photos-lg-icon-box svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+}
+.wg-photos-lg-kicker {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: rgba(255,255,255,0.88);
+  text-shadow: 0 1px 6px rgba(0,0,0,0.4);
+}
+
+.wg-photos-lg-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  padding: 56px 14px 14px;
+}
+
+.wg-photos-lg-title {
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1.15;
+  color: #fff;
+  margin: 0 0 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 2px 16px rgba(0,0,0,0.5);
+  letter-spacing: -0.02em;
+}
+
+.wg-photos-lg-desc {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--photos-muted);
+  margin: 0 0 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wg-photos-lg-thumbs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.wg-photos-lg-thumb {
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  overflow: hidden;
+  flex: none;
+  border: 1px solid var(--photos-thumb-border);
+  box-shadow: var(--photos-thumb-shadow);
+}
+.wg-photos-lg-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: saturate(1.05);
+  transition: transform 0.45s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.wg-photos-lg-thumb:hover .wg-photos-lg-thumb-img { transform: scale(1.14); }
+.wg-photos-lg-thumb.is-more {
+  background: var(--photos-more-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.wg-photos-lg-thumb.is-more span {
+  font-size: 10px;
+  font-weight: 760;
+  color: var(--photos-more-text);
+}
+
+
+/* ══════ 亮色适配 ══════ */
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"].widget--plugin-photos-gallery,
+.desktop-widget-card[data-widget-appearance="light"].widget--plugin-photos-gallery {
+  --photos-thumb-border: rgba(0, 0, 0, 0.1);
+  --photos-more-bg: rgba(255, 255, 255, 0.38);
+  --photos-more-text: rgba(15, 23, 42, 0.78);
+  --photos-icon-box-bg: rgba(255, 255, 255, 0.28);
+  --photos-icon-box-border: rgba(255, 255, 255, 0.5);
+  --photos-icon-box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 2px 8px rgba(0,0,0,0.12);
+  --photos-icon-color: rgba(255, 255, 255, 0.96);
+}

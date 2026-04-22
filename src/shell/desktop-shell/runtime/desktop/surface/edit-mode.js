@@ -263,6 +263,45 @@ export const editModeMethods = {
   },
 
   async addWidgetFromCatalog(widgetType, size = null, catalogKey = null) {
+    const catalogEntry = getWidgetCatalogEntry(widgetType);
+
+    // 有配置需求的组件先弹配置弹窗
+    if (catalogEntry?.hasConfig) {
+      this.openWidgetConfigForm(widgetType, size, catalogKey);
+      return;
+    }
+
+    await this._doAddWidget(widgetType, size, catalogKey, {});
+  },
+
+  openWidgetConfigForm(widgetType, size, catalogKey) {
+    const resolvedSize = size || 'medium';
+    this.widgetConfigForm = {
+      open: true,
+      widgetType,
+      size: resolvedSize,
+      catalogKey: catalogKey || `${widgetType}:${resolvedSize}`,
+      meta: { groupName: '' }
+    };
+  },
+
+  closeWidgetConfigForm() {
+    this.widgetConfigForm = {
+      open: false,
+      widgetType: '',
+      size: '',
+      catalogKey: '',
+      meta: {}
+    };
+  },
+
+  async submitWidgetConfigForm() {
+    const { widgetType, size, catalogKey, meta } = this.widgetConfigForm;
+    this.closeWidgetConfigForm();
+    await this._doAddWidget(widgetType, size, catalogKey, meta);
+  },
+
+  async _doAddWidget(widgetType, size = null, catalogKey = null, meta = {}) {
     const selKey = catalogKey || `${widgetType}:${size || 'medium'}`;
     const selection = this.widgetCenterSelections[selKey] || {};
     const nextSize = normalizeWidgetSize(size || getWidgetCatalogEntry(widgetType)?.size || 'medium');
@@ -271,7 +310,8 @@ export const editModeMethods = {
     const candidate = createWidgetInstance(widgetType, {
       title: generateWidgetTitle(widgetType),
       size: nextSize,
-      appearance: nextAppearance
+      appearance: nextAppearance,
+      meta
     });
     this.widgets.push(candidate);
 
@@ -304,3 +344,4 @@ export const editModeMethods = {
     this.syncWidgetRuntimes();
   }
 };
+

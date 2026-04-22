@@ -139,4 +139,12 @@ spec:
       label: 相册图标 (SVG)
       format: svg
       value-only: true
-      help: 选择一个图标用于图库侧边栏分类显示。
+      help: 选择一个图标用于图库小组件角标显示。
+
+    - $formkit: text
+      id: photogroup_description
+      key: photogroup_description
+      name: description
+      label: 相册简介
+      value: ""
+      help: 显示在图库小组件底部的一句话说明，建议 15 字以内。

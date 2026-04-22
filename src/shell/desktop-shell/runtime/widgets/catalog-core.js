@@ -22,7 +22,8 @@ export const DESKTOP_WIDGET_CATALOG = Object.fromEntries(
     sizes: manifest.supportedSizes,
     sizeOverrides: manifest.sizeOverrides || {},
     category: manifest.category,
-    description: manifest.description || ''
+    description: manifest.description || '',
+    hasConfig: manifest.hasConfig || false
   }])
 );
 
@@ -54,7 +55,8 @@ export function normalizeWidgetInstance(instance, index = 0) {
     y: toPositiveInt(node?.y ?? node?.baseY ?? node?.row, 1),
     w: span.w,
     h: span.h,
-    hidden: node?.hidden === true
+    hidden: node?.hidden === true,
+    meta: (node?.meta && typeof node.meta === 'object') ? { ...node.meta } : {}
   };
 }
 
@@ -66,7 +68,8 @@ export function serializeWidgetInstance(widget) {
     size: widget.size,
     appearance: normalizeWidgetAppearance(widget.appearance),
     x: widget.baseX ?? widget.x,
-    y: widget.baseY ?? widget.y
+    y: widget.baseY ?? widget.y,
+    meta: (widget.meta && typeof widget.meta === 'object') ? { ...widget.meta } : {}
   };
 }
 
@@ -87,7 +90,8 @@ export function createWidgetInstance(widgetType, overrides = {}) {
     y: toPositiveInt(overrides.y, 1),
     w: span.w,
     h: span.h,
-    hidden: overrides.hidden === true
+    hidden: overrides.hidden === true,
+    meta: (overrides.meta && typeof overrides.meta === 'object') ? { ...overrides.meta } : {}
   };
 }
 

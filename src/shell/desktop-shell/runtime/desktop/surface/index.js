@@ -71,7 +71,10 @@ function resolveDesktopIconApp(href, explicitApp = '') {
 /** Build a lightweight cache key from widget state */
 function widgetCacheKey(widget, options = {}) {
   const mode = options.mode || (options.preview === true ? 'preview' : 'live');
-  return `${widget.widget}:${widget.size}:${widget.key}:${widget.appearance || 'follow'}:mode=${mode}:compact=${options.compact === true ? 1 : 0}`;
+  const metaStr = widget.meta && typeof widget.meta === 'object'
+    ? Object.entries(widget.meta).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${k}=${v}`).join('&')
+    : '';
+  return `${widget.widget}:${widget.size}:${widget.key}:${widget.appearance || 'follow'}:mode=${mode}:compact=${options.compact === true ? 1 : 0}:meta=${metaStr}`;
 }
 
 function renderWidgetLoadingMarkup() {
@@ -129,6 +132,13 @@ export function registerDesktopSurface(Alpine) {
       title: '',
       href: '',
       subtype: 'folder'
+    },
+    widgetConfigForm: {
+      open: false,
+      widgetType: '',
+      size: '',
+      catalogKey: '',
+      meta: {}
     },
     widgets: [],
     defaultWidgets: [],
@@ -533,7 +543,11 @@ export function registerDesktopSurface(Alpine) {
         momentsAvailable: !!bootstrap.sources?.momentsAvailable,
         recentMoments: Array.isArray(bootstrap.sources?.recentMoments) ? bootstrap.sources.recentMoments : [],
         archivesUrl: bootstrap.sources?.archivesUrl || '/archives',
-        fallbackCover: bootstrap.sources?.fallbackCover || ''
+        fallbackCover: bootstrap.sources?.fallbackCover || '',
+        photosAvailable: !!bootstrap.sources?.photosAvailable,
+        photos: Array.isArray(bootstrap.sources?.photos) ? bootstrap.sources.photos : [],
+        photoGroups: Array.isArray(bootstrap.sources?.photoGroups) ? bootstrap.sources.photoGroups : [],
+        photosUrl: bootstrap.sources?.photosUrl || '/photos'
       };
       this.defaultWidgets = resolvedWidgets.map((widget) => ({ ...widget }));
       this.syncDesktopBodyState();

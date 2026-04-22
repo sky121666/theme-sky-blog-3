@@ -41,7 +41,11 @@ export function readDesktopWidgetsBootstrap() {
         siteStats: null,
         randomTags: [],
         momentsAvailable: false,
-        recentMoments: []
+        recentMoments: [],
+        photosAvailable: false,
+        photos: [],
+        photoGroups: [],
+        photosUrl: '/photos'
       }
     };
   }
