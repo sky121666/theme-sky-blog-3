@@ -232,15 +232,7 @@
             <div class="desktop-add-icon-field">
               <span>显示精选集</span>
               <div class="desktop-widget-config-group-list">
-                <!-- 全部 -->
-                <button type="button"
-                        class="desktop-widget-config-group-btn"
-                        :class="{ 'is-active': !widgetConfigForm.meta.groupName }"
-                        @click="widgetConfigForm.meta.groupName = ''">
-                  <span class="desktop-widget-config-group-name">全部照片</span>
-                  <span class="desktop-widget-config-group-count" x-text="`${(sources?.photos || []).length} 张`"></span>
-                </button>
-                <!-- 各分组 -->
+                <!-- 各分组（必须选一个，不能全部） -->
                 <template x-for="group in (sources?.photoGroups || [])" :key="group.metadata?.name">
                   <button type="button"
                           class="desktop-widget-config-group-btn"
@@ -251,12 +243,19 @@
                           x-text="`${(sources?.photos || []).filter(p => p.spec?.groupName === group.metadata?.name).length} 张`"></span>
                   </button>
                 </template>
+                <!-- 无分组时提示 -->
+                <template x-if="!(sources?.photoGroups || []).length">
+                  <p class="desktop-widget-config-empty">还没有相册，请先在后台图库中创建分组。</p>
+                </template>
               </div>
             </div>
           </div>
           <footer class="desktop-add-icon-dialog-footer">
             <button type="button" class="desktop-add-icon-btn" @click="closeWidgetConfigForm()">取消</button>
-            <button type="button" class="desktop-add-icon-btn desktop-add-icon-btn--primary" @click="submitWidgetConfigForm()">添加到桌面</button>
+            <button type="button"
+                    class="desktop-add-icon-btn desktop-add-icon-btn--primary"
+                    :disabled="!(sources?.photoGroups || []).length || !widgetConfigForm.meta.groupName"
+                    @click="submitWidgetConfigForm()">添加到桌面</button>
           </footer>
         </div>
       </div>

@@ -22,12 +22,14 @@ export function renderWidget({ sources, escapeHtml, mode }, widget) {
   const groups = Array.isArray(sources.photoGroups) ? sources.photoGroups : [];
 
   const groupName = widget?.meta?.groupName || '';
+
+  // groupName 为空时回退展示全部照片（兼容旧实例）
   const photos = groupName
     ? allPhotos.filter((p) => p?.spec?.groupName === groupName)
     : allPhotos;
 
   if (!photos.length) {
-    return '<div class="desktop-widget-empty">还没有可展示的照片。</div>';
+    return '<div class="desktop-widget-empty">该相册暂无照片。</div>';
   }
 
   const photosUrl = escapeHtml(sources.photosUrl || '/photos');

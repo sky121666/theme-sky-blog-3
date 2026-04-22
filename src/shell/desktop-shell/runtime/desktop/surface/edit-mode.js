@@ -276,12 +276,18 @@ export const editModeMethods = {
 
   openWidgetConfigForm(widgetType, size, catalogKey) {
     const resolvedSize = size || 'medium';
+    // 图库组件：自动预选第一个相册分组（不允许“全部”模式）
+    let defaultGroupName = '';
+    if (widgetType === 'plugin-photos.gallery') {
+      const groups = Array.isArray(this.sources?.photoGroups) ? this.sources.photoGroups : [];
+      defaultGroupName = groups[0]?.metadata?.name || '';
+    }
     this.widgetConfigForm = {
       open: true,
       widgetType,
       size: resolvedSize,
       catalogKey: catalogKey || `${widgetType}:${resolvedSize}`,
-      meta: { groupName: '' }
+      meta: { groupName: defaultGroupName }
     };
   },
 
