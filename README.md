@@ -51,6 +51,7 @@ macOS 桌面风格 Halo 博客主题。
 pnpm install
 pnpm run build-only
 pnpm run check
+pnpm run verify:reload
 SMOKE_BASE_URL="https://your-site.example.com" pnpm run smoke:playwright
 ```
 

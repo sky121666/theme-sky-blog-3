@@ -365,6 +365,16 @@
                       metricsKey=${windowMetricsKey != null ? windowMetricsKey : 'moments'}
                     )}" />
         </th:block>
+
+        <th:block th:if="${windowVariant == 'friends'}">
+          <th:block th:replace="~{modules/friends-app/window :: frame(
+                      titleText=${windowTitle},
+                      contentFragment=${ssrContent},
+                      windowResizable=${windowResizable != null ? windowResizable : 'y'},
+                      windowScene=${windowScene != null ? windowScene : 'feed'},
+                      metricsKey=${windowMetricsKey != null ? windowMetricsKey : 'friends'}
+                    )}" />
+        </th:block>
         
         <!-- 默认浏览器窗口变体 -->
         <th:block th:if="${windowVariant == 'browser'}">

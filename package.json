@@ -1,6 +1,6 @@
 {
   "name": "sky-blog-3",
-  "version": "0.5.2",
+  "version": "0.5.4",
   "type": "module",
   "scripts": {
     "dev": "vite build --watch",
@@ -8,6 +8,7 @@
     "typecheck": "node scripts/typecheck-contracts.mjs",
     "smoke": "node scripts/smoke-theme.mjs",
     "smoke:playwright": "node scripts/smoke-playwright.mjs",
+    "verify:reload": "node scripts/verify-theme-reload.mjs",
     "check": "node scripts/lint-architecture.mjs && node scripts/typecheck-contracts.mjs && vite build && node scripts/smoke-theme.mjs",
     "build-only": "vite build",
     "build": "vite build && theme-package",

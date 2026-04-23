@@ -1,0 +1,271 @@
+<th:block th:fragment="content"
+          th:with="currentLinkName=${param.linkName != null and !#lists.isEmpty(param.linkName) ? param.linkName[0] : ''},
+                   currentSourceName=${!#strings.isEmpty(currentLinkName) and friends != null and friends.items != null and !#lists.isEmpty(friends.items) and friends.items[0].spec != null and !#strings.isEmpty(friends.items[0].spec.author) ? friends.items[0].spec.author : currentLinkName},
+                   friendsTitle=${title ?: '友链朋友圈'},
+                   profileName=${!#strings.isEmpty(theme.config.friends?.profile?.display_name) ? theme.config.friends.profile.display_name : friendsTitle},
+                   profileSubtitle=${!#strings.isEmpty(theme.config.friends?.profile?.subtitle) ? theme.config.friends.profile.subtitle : (site.subtitle ?: '')},
+                   coverImage=${theme.config.friends?.cover?.image_url}">
+  <div class="friends-app moments-app moments-app--feed friends-app--feed" data-app-root="friends">
+    <script type="application/json" data-app-props="friends">{"version":1,"appId":"friends","data":{"scene":"feed"}}</script>
+    <div class="friends-feed-shell moments-feed-shell"
+         th:attr="data-friends-chrome-title=${friendsTitle}">
+
+      <div class="moments-cover-wrapper friends-cover-wrapper"
+           th:classappend="${coverImage == null or #strings.isEmpty(coverImage)} ? 'moments-cover-wrapper--empty'">
+        <div class="moments-cover friends-cover">
+          <img class="moments-cover-img"
+               th:if="${coverImage != null and !#strings.isEmpty(coverImage)}"
+               th:src="${coverImage}"
+               loading="lazy"
+               decoding="async"
+               alt="" />
+        </div>
+        <div class="moments-cover-user friends-cover-user">
+          <div class="moments-cover-identity">
+            <span class="moments-cover-name" th:text="${profileName}">友链朋友圈</span>
+            <span class="moments-cover-subtitle"
+                  th:if="${!#strings.isEmpty(profileSubtitle)}"
+                  th:text="${profileSubtitle}">从友链 RSS 聚合出的最近更新</span>
+          </div>
+          <img class="moments-cover-avatar"
+               th:if="${site.logo != null and !#strings.isEmpty(site.logo)}"
+               th:src="${site.logo}"
+               loading="lazy"
+               decoding="async"
+               alt="" />
+          <div class="moments-cover-avatar moments-cover-avatar--placeholder"
+               th:if="${site.logo == null or #strings.isEmpty(site.logo)}"
+               th:with="initial=${!#strings.isEmpty(profileName) ? #strings.substring(profileName, 0, 1) : 'F'}"
+               th:text="${initial}">F</div>
+        </div>
+      </div>
+
+      <div class="moments-tags friends-toolbar">
+        <a class="moments-tag pjax-link"
+           th:classappend="${#strings.isEmpty(currentLinkName) ? 'is-active' : ''}"
+           th:href="@{/friends}">
+          全部来源
+        </a>
+        <span class="moments-tag is-active"
+              th:if="${!#strings.isEmpty(currentLinkName)}"
+              th:text="${'来源：' + currentSourceName}">来源</span>
+      </div>
+
+      <div class="moments-feed-list friends-feed-list" th:if="${friends != null and friends.items != null}">
+        <article th:each="friend : ${friends.items}"
+                 th:with="spec=${friend.spec},
+                          authorName=${spec != null and !#strings.isEmpty(spec.author) ? spec.author : '未知来源'},
+                          authorInitial=${#strings.substring(authorName, 0, 1)},
+                          contentText=${spec != null and !#strings.isEmpty(spec.title) ? spec.title : (!#strings.isEmpty(spec.description) ? spec.description : '暂无内容')},
+                          detailText=${spec != null and !#strings.isEmpty(spec.description) and spec.description != contentText ? spec.description : ''}"
+                 class="moment-feed-card friend-feed-card">
+          <div class="moment-feed-avatar-col">
+            <a th:if="${spec != null and !#strings.isEmpty(spec.authorUrl)}"
+               th:href="${spec.authorUrl}"
+               target="_blank"
+               rel="noopener noreferrer"
+               class="friend-feed-avatar-link">
+              <img class="moment-feed-avatar"
+                   th:if="${!#strings.isEmpty(spec.logo)}"
+                   th:src="${spec.logo}"
+                   loading="lazy"
+                   decoding="async"
+                   alt="" />
+              <span class="friend-feed-avatar-placeholder"
+                    th:if="${#strings.isEmpty(spec.logo)}"
+                    th:text="${authorInitial}">F</span>
+            </a>
+            <img class="moment-feed-avatar"
+                 th:if="${spec != null and #strings.isEmpty(spec.authorUrl) and !#strings.isEmpty(spec.logo)}"
+                 th:src="${spec.logo}"
+                 loading="lazy"
+                 decoding="async"
+                 alt="" />
+            <span class="friend-feed-avatar-placeholder"
+                  th:if="${spec == null or (#strings.isEmpty(spec.authorUrl) and #strings.isEmpty(spec.logo))}"
+                  th:text="${authorInitial}">F</span>
+          </div>
+
+          <div class="moment-feed-content-col friend-feed-content-col"
+               x-data="{ open: false }"
+               @click.outside="open = false">
+            <div class="friend-feed-head">
+              <a class="moment-feed-nickname friend-feed-author friend-feed-author-link"
+                 th:if="${spec != null and !#strings.isEmpty(spec.authorUrl)}"
+                 th:href="${spec.authorUrl}"
+                 target="_blank"
+                 rel="noopener noreferrer"
+                 th:text="${authorName}">作者</a>
+              <span class="moment-feed-nickname friend-feed-author"
+                    th:if="${spec == null or #strings.isEmpty(spec.authorUrl)}"
+                    th:text="${authorName}">作者</span>
+            </div>
+
+            <a class="friend-feed-title-link"
+               th:if="${spec != null and !#strings.isEmpty(spec.postLink)}"
+               th:href="${spec.postLink}"
+               target="_blank"
+               rel="noopener noreferrer">
+              <p class="moment-feed-body friend-feed-copy"
+                 th:text="${contentText}">正文</p>
+            </a>
+            <p class="moment-feed-body friend-feed-copy"
+               th:if="${spec == null or #strings.isEmpty(spec.postLink)}"
+               th:text="${contentText}">正文</p>
+            <p class="friend-feed-description"
+               th:if="${!#strings.isEmpty(detailText)}"
+               th:text="${detailText}">描述</p>
+
+            <div class="moment-feed-footer friend-feed-footer">
+              <div class="moment-feed-meta friend-feed-meta">
+                <time th:if="${spec != null and spec.pubDate != null}"
+                      th:text="${#temporals.format(spec.pubDate, 'yyyy年MM月dd日 HH:mm')}"></time>
+              </div>
+              <div class="friend-feed-actions" :class="{ 'is-open': open }">
+                <div class="friend-feed-actions-menu">
+                  <a class="friend-feed-actions-item pjax-link"
+                     th:if="${spec != null and !#strings.isEmpty(spec.linkName)}"
+                     th:href="@{/friends(linkName=${spec.linkName})}">
+                    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                      <path d="M8 1.5 9.91 5.37l4.27.62-3.09 3.02.73 4.25L8 11.26l-3.82 2 .73-4.25L1.82 5.99l4.27-.62L8 1.5Z" fill="currentColor"></path>
+                    </svg>
+                    只看此来源
+                  </a>
+                </div>
+                <button type="button"
+                        class="moment-feed-action-btn friend-feed-action-toggle"
+                        @click="open = !open"
+                        aria-label="更多操作"
+                        title="更多操作">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <div class="friends-feed-pagination moments-feed-pagination"
+           th:if="${friends != null and friends.hasNext()}"
+           x-data="{
+             nextUrl: $el.dataset.nextUrl,
+             loading: false,
+             hasMore: true,
+             cacheKey: 'friends_waterfall_cache',
+             init() {
+               const rawCache = sessionStorage.getItem(this.cacheKey);
+               if (rawCache) {
+                 try {
+                   const cache = JSON.parse(rawCache);
+                   if (cache.path === location.pathname + location.search) {
+                     const targetList = document.querySelector('.friends-feed-list');
+                     if (targetList && cache.extraHtml) {
+                       targetList.insertAdjacentHTML('beforeend', cache.extraHtml);
+                       const injectedCards = Array.from(targetList.querySelectorAll('.waterfall-injected'));
+                       if (window.Alpine && typeof window.Alpine.initTree === 'function' && injectedCards.length > 0) {
+                         injectedCards.forEach((card) => window.Alpine.initTree(card));
+                       }
+                       const pjaxLinks = Array.from(targetList.querySelectorAll('.waterfall-injected a.pjax-link'));
+                       if (window.pjax && typeof window.pjax.attachLinks === 'function' && pjaxLinks.length > 0) {
+                         window.pjax.attachLinks(pjaxLinks);
+                       }
+                     }
+                     this.nextUrl = cache.nextUrl;
+                     this.hasMore = cache.hasMore;
+                     if (cache.scrollY) {
+                       setTimeout(() => {
+                         const scroller = this.$el.closest('.friends-body') || document.querySelector('.friends-body');
+                         if (scroller) scroller.scrollTop = cache.scrollY;
+                       }, 10);
+                     }
+                   }
+                 } catch (_error) {}
+                 sessionStorage.removeItem(this.cacheKey);
+               }
+
+               this._onPjaxSend = () => {
+                 const scroller = this.$el.closest('.friends-body') || document.querySelector('.friends-body');
+                 const injected = document.querySelectorAll('.friends-feed-list > article.waterfall-injected');
+                 const currentScroll = scroller ? scroller.scrollTop : 0;
+                 if (injected.length > 0 || currentScroll > 50) {
+                   sessionStorage.setItem(this.cacheKey, JSON.stringify({
+                     path: location.pathname + location.search,
+                     extraHtml: Array.from(injected).map((el) => el.outerHTML).join(''),
+                     nextUrl: this.nextUrl,
+                     hasMore: this.hasMore,
+                     scrollY: currentScroll
+                   }));
+                 }
+               };
+
+               document.addEventListener('pjax:send', this._onPjaxSend);
+               document.addEventListener('pjax:same-variant-send', this._onPjaxSend);
+             },
+             destroy() {
+               document.removeEventListener('pjax:send', this._onPjaxSend);
+               document.removeEventListener('pjax:same-variant-send', this._onPjaxSend);
+             },
+             async loadNext() {
+               if (!this.hasMore || this.loading || !this.nextUrl) return;
+               this.loading = true;
+               try {
+                 const res = await fetch(this.nextUrl, {
+                   headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                 });
+                 const html = await res.text();
+                 const doc = new DOMParser().parseFromString(html, 'text/html');
+                 const newCards = doc.querySelectorAll('.friends-feed-list > article');
+                 const targetList = document.querySelector('.friends-feed-list');
+
+                 if (newCards.length > 0 && targetList) {
+                   newCards.forEach((card) => {
+                     card.classList.add('waterfall-injected');
+                     targetList.appendChild(card);
+                   });
+                   if (window.Alpine && typeof window.Alpine.initTree === 'function') {
+                     newCards.forEach((card) => window.Alpine.initTree(card));
+                   }
+                   const pjaxLinks = Array.from(newCards).flatMap((card) => Array.from(card.querySelectorAll('a.pjax-link')));
+                   if (window.pjax && typeof window.pjax.attachLinks === 'function' && pjaxLinks.length > 0) {
+                     window.pjax.attachLinks(pjaxLinks);
+                   }
+                 }
+
+                 const nextTrigger = doc.querySelector('.friends-feed-pagination');
+                 if (nextTrigger && nextTrigger.dataset.nextUrl) {
+                   this.nextUrl = nextTrigger.dataset.nextUrl;
+                 } else {
+                   this.hasMore = false;
+                 }
+               } catch (_error) {
+                 this.hasMore = false;
+               } finally {
+                 this.loading = false;
+               }
+             }
+           }"
+           th:data-next-url="${friends.nextUrl}">
+        <div x-intersect.full.margin.200px="loadNext()"
+             class="w-full py-8 flex items-center justify-center text-[13px] text-white/50 tracking-widest">
+          <template x-if="hasMore && loading">
+            <span class="flex items-center gap-2">
+              <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+              加载中...
+            </span>
+          </template>
+          <template x-if="!hasMore">
+            <span class="opacity-80">已经到底啦</span>
+          </template>
+        </div>
+      </div>
+
+      <div th:if="${friends == null or friends.items == null or #lists.isEmpty(friends.items)}"
+           class="moment-feed-empty friends-feed-empty">
+        <h2 class="friends-empty-title">这里还没有同步到动态</h2>
+        <p class="friends-empty-text">确认友链已配置 rss_url，并在朋友圈插件中完成同步后再来查看。</p>
+      </div>
+    </div>
+  </div>
+</th:block>

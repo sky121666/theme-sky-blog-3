@@ -1,6 +1,6 @@
 {
   "__meta": {
-    "version": "0.5.2"
+    "version": "0.5.4"
   },
   "explorer-archives": {
     "js": [
@@ -32,6 +32,14 @@
     ],
     "css": [
       "/themes/theme-sky-blog-3/assets/css/apps/categories/index.css"
+    ]
+  },
+  "friends": {
+    "js": [
+      "/themes/theme-sky-blog-3/assets/js/apps/friends/index.js"
+    ],
+    "css": [
+      "/themes/theme-sky-blog-3/assets/css/apps/friends/index.css"
     ]
   },
   "moments": {

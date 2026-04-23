@@ -68,6 +68,7 @@ async function main() {
       name: 'home',
       target: '/',
       optional: false,
+      requireShellLoaded: false,
       expectedAppId: '',
       expectedPageMode: 'browser-home',
       expectedWindowVariant: 'none',
@@ -77,6 +78,7 @@ async function main() {
       name: 'archives',
       target: '/archives',
       optional: false,
+      requireShellLoaded: true,
       expectedAppId: 'explorer-archives',
       expectedPageMode: 'browser-list',
       expectedWindowVariant: 'browser',
@@ -87,6 +89,7 @@ async function main() {
       name: 'tags',
       target: '/tags',
       optional: false,
+      requireShellLoaded: true,
       expectedAppId: 'explorer-tags',
       expectedPageMode: 'browser-list',
       expectedWindowVariant: 'browser',
@@ -97,6 +100,7 @@ async function main() {
       name: 'categories',
       target: '/categories',
       optional: false,
+      requireShellLoaded: true,
       expectedAppId: 'explorer-categories',
       expectedPageMode: 'browser-list',
       expectedWindowVariant: 'browser',
@@ -107,6 +111,7 @@ async function main() {
       name: 'auth',
       target: '/login',
       optional: false,
+      requireShellLoaded: false,
       expectedAppId: 'auth',
       expectedPageMode: 'auth',
       expectedWindowVariant: 'none',
@@ -117,6 +122,7 @@ async function main() {
       name: 'moments',
       target: '/moments',
       optional: true,
+      requireShellLoaded: true,
       expectedAppId: 'moments',
       expectedPageMode: 'browser-moments',
       expectedWindowVariant: 'moments',
@@ -124,9 +130,21 @@ async function main() {
       appPropsSelector: 'script[data-app-props="moments"]'
     },
     {
+      name: 'friends',
+      target: '/friends',
+      optional: true,
+      requireShellLoaded: true,
+      expectedAppId: 'friends',
+      expectedPageMode: 'browser-friends',
+      expectedWindowVariant: 'friends',
+      appRootSelector: '[data-app-root="friends"]',
+      appPropsSelector: 'script[data-app-props="friends"]'
+    },
+    {
       name: 'photos',
       target: '/photos',
       optional: true,
+      requireShellLoaded: true,
       expectedAppId: 'photos',
       expectedPageMode: 'browser-list',
       expectedWindowVariant: 'photos',
@@ -144,10 +162,11 @@ async function main() {
   routes.push(...extraRoutes);
 
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({
+  const context = await browser.newContext({
     viewport: { width: 1440, height: 960 }
   });
-  const cdp = await page.context().newCDPSession(page);
+  const page = await context.newPage();
+  const cdp = await context.newCDPSession(page);
   await cdp.send('Network.enable');
   await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
 
@@ -192,7 +211,7 @@ async function main() {
 
       const status = response?.status() ?? 0;
       await page.waitForTimeout(route.settleTimeMs ?? 1200);
-      if (route.expectedAppId !== 'auth') {
+      if (route.requireShellLoaded) {
         await page.waitForFunction(
           () => Boolean(window.__THEME_SHELL_CORE_LOADED__ || window.__THEME_MAIN_LOADED__),
           null,
@@ -236,7 +255,7 @@ async function main() {
       throw new Error(`windowVariant 不匹配，期望 ${route.expectedWindowVariant}，实际 ${shellState.windowVariant}`);
     }
 
-    if (!shellState.mainLoaded && route.expectedAppId !== 'auth') {
+    if (route.requireShellLoaded && !shellState.mainLoaded) {
       throw new Error('shell core loaded flag 未就绪');
     }
 
@@ -292,6 +311,74 @@ async function main() {
       pageErrors,
       consoleErrors
     };
+  }
+
+  async function validateFriendsInteractions() {
+    const route = {
+      name: 'friends-interactions',
+      target: '/friends',
+      optional: true,
+      expectedAppId: 'friends',
+      expectedPageMode: 'browser-friends',
+      expectedWindowVariant: 'friends',
+      appRootSelector: '[data-app-root="friends"]',
+      appPropsSelector: 'script[data-app-props="friends"]'
+    };
+
+    const nav = await navigate(route);
+    if (nav.status >= 400) {
+      if (route.optional) {
+        skipped.push(`${route.name}: ${nav.status}`);
+        return null;
+      }
+      throw new Error(`HTTP ${nav.status}`);
+    }
+
+    const baseValidation = await validateRoute(route);
+    const firstCard = page.locator('.friends-feed-list > article').first();
+    if (await firstCard.count() < 1) {
+      return baseValidation;
+    }
+
+    const menuToggle = firstCard.locator('.friend-feed-action-toggle').first();
+    await menuToggle.click();
+    await page.waitForTimeout(150);
+
+    const sourceFilter = firstCard.locator('.friend-feed-actions-menu a.pjax-link').first();
+    if (await sourceFilter.count() < 1) {
+      throw new Error('首条朋友圈缺少“只看此来源”入口');
+    }
+
+    const titleLink = firstCard.locator('.friend-feed-title-link').first();
+    if (await titleLink.count() > 0) {
+      const href = await titleLink.getAttribute('href');
+      if (!href) {
+        throw new Error('标题链接缺少 href');
+      }
+    }
+
+    const authorLink = firstCard.locator('.friend-feed-author-link, .friend-feed-avatar-link').first();
+    if (await authorLink.count() > 0) {
+      const href = await authorLink.getAttribute('href');
+      if (!href) {
+        throw new Error('来源主页链接缺少 href');
+      }
+    }
+
+    await sourceFilter.click();
+    await page.waitForTimeout(1200);
+
+    const pageMode = await page.evaluate(() => document.body?.dataset.pageMode || '');
+    if (pageMode !== 'browser-friends') {
+      throw new Error(`筛选后 pageMode 异常: ${pageMode}`);
+    }
+
+    const search = await page.evaluate(() => window.location.search || '');
+    if (!search.includes('linkName=')) {
+      throw new Error(`筛选后缺少 linkName 参数: ${search}`);
+    }
+
+    return baseValidation;
   }
 
   async function discoverHref(pagePath, selectors, matcher) {
@@ -453,8 +540,24 @@ async function main() {
     }
   }
 
-  await browser.close();
+  try {
+    const interactionResult = await validateFriendsInteractions();
+    if (interactionResult) {
+      routeResults.push({ name: 'friends-interactions', target: '/friends', ...interactionResult });
+    }
+  } catch (error) {
+    const screenshot = await captureFailure(page, 'friends-interactions');
+    failures.push(`friends-interactions: ${error.message} [${screenshot}]`);
+  }
+
   const reportFile = await writeReport({ baseUrl, cacheDisabled: true, skipped, discovered, routes: routeResults, failures });
+
+  await Promise.allSettled([
+    cdp.detach().catch(() => {}),
+    page.close().catch(() => {}),
+    context.close().catch(() => {}),
+    browser.close().catch(() => {})
+  ]);
 
   if (skipped.length) {
     console.log(`可选路由跳过: ${skipped.join(', ')}`);
@@ -468,6 +571,7 @@ async function main() {
   }
 
   console.log(`Playwright smoke 通过\n详细报告: ${reportFile}`);
+  process.exit(0);
 }
 
 main().catch((error) => {

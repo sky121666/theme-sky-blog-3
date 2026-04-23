@@ -3,6 +3,7 @@ import { explorerArchivesAppManifest } from '../../apps/explorer/archives/manife
 import { explorerAuthorAppManifest } from '../../apps/explorer/author/manifest.js';
 import { explorerCategoriesAppManifest } from '../../apps/explorer/categories/manifest.js';
 import { explorerTagsAppManifest } from '../../apps/explorer/tags/manifest.js';
+import { friendsAppManifest } from '../../apps/friends/manifest.js';
 import { momentsAppManifest } from '../../apps/moments/manifest.js';
 import { photosAppManifest } from '../../apps/photos/manifest.js';
 import { readerAppManifest } from '../../apps/reader/manifest.js';
@@ -10,6 +11,7 @@ import { readerAppManifest } from '../../apps/reader/manifest.js';
 export const APP_MANIFESTS = [
   readerAppManifest,
   momentsAppManifest,
+  friendsAppManifest,
   photosAppManifest,
   authAppManifest,
   explorerTagsAppManifest,

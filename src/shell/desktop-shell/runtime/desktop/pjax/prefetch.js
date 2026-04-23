@@ -12,7 +12,7 @@ import { createLogger } from '../../shared/debug.js';
 
 const { log: prefetchLog } = createLogger('pjax');
 
-const HIGH_FREQ_PATHS = new Set(['/moments', '/categories', '/tags', '/archives']);
+const HIGH_FREQ_PATHS = new Set(['/moments', '/friends', '/categories', '/tags', '/archives']);
 
 const _prefetchedUrls = new Set();
 let _hoverTimer = null;

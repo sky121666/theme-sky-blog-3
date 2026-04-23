@@ -7,6 +7,9 @@ dist/
 # Tool caches
 .vite/
 
+# Local secrets
+.env.local
+
 # Logs
 *.log
 pnpm-debug.log*

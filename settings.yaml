@@ -705,6 +705,47 @@ spec:
               help: 留空时默认使用站点副标题。显示在封面名称下方。
               value: ""
 
+    - group: friends
+      label: 朋友圈
+      formSchema:
+        - $formkit: group
+          id: friends_cover_group
+          name: cover
+          label: 封面背景
+          value:
+            image_url: ""
+          children:
+            - $formkit: attachment
+              id: friends_cover_image
+              name: image_url
+              label: 封面图片
+              help: 推荐横向图片，留空时自动使用纯色封面。
+              value: ""
+              accepts:
+                - "image/png"
+                - "image/jpeg"
+                - "image/webp"
+        - $formkit: group
+          id: friends_profile_group
+          name: profile
+          label: 封面名片
+          value:
+            display_name: ""
+            subtitle: ""
+          children:
+            - $formkit: text
+              id: friends_profile_display_name
+              name: display_name
+              label: 封面名称
+              help: 留空时默认使用插件页面标题。
+              value: ""
+            - $formkit: text
+              id: friends_profile_subtitle
+              name: subtitle
+              label: 封面副标题
+              help: 留空时默认使用站点副标题。
+              value: ""
+
     - group: default_layout
       label: 默认布局
       formSchema:
