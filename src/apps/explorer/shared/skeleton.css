@@ -1,0 +1,26 @@
+.browser-explorer-posts-loading {
+  padding: 8px 6px;
+}
+
+.browser-explorer-posts-skeleton {
+  display: flex;
+  align-items: center;
+  min-height: 33px;
+  padding: 0 9px;
+}
+
+.browser-explorer-posts-skeleton-line {
+  width: 100%;
+}
+
+.browser-explorer-posts-skeleton-line.is-wide {
+  width: 85%;
+}
+
+.browser-explorer-posts-skeleton-line.is-full {
+  width: 90%;
+}
+
+.browser-explorer-posts-skeleton-line.is-compact {
+  width: 65%;
+}

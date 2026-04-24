@@ -1,3 +1,5 @@
+@import "../shared/skeleton.css";
+
 [x-cloak] {
   display: none !important;
 }
@@ -44,6 +46,9 @@
   --categories-folder-icon-soft: var(--theme-folder2, var(--mac-folder2, #64b5f6));
   --categories-scrollbar-thumb: rgba(156, 163, 175, 0.48);
   --categories-scrollbar-thumb-hover: rgba(156, 163, 175, 0.68);
+  --window-skeleton-base: color-mix(in srgb, var(--categories-row-hover) 96%, var(--categories-surface-strong));
+  --window-skeleton-mid: color-mix(in srgb, var(--categories-highlight) 88%, var(--categories-row-hover));
+  --window-skeleton-border: color-mix(in srgb, var(--categories-border) 72%, transparent);
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -82,6 +87,9 @@
   --categories-list-active-rim: color-mix(in srgb, var(--categories-accent) 30%, transparent);
   --categories-scrollbar-thumb: rgba(203, 213, 225, 0.26);
   --categories-scrollbar-thumb-hover: rgba(203, 213, 225, 0.38);
+  --window-skeleton-base: color-mix(in srgb, var(--categories-row-hover) 92%, rgba(255, 255, 255, 0.03));
+  --window-skeleton-mid: color-mix(in srgb, var(--categories-highlight) 72%, rgba(255, 255, 255, 0.08));
+  --window-skeleton-border: color-mix(in srgb, var(--categories-border) 84%, transparent);
 }
 
 .categories-workspace {
@@ -736,43 +744,6 @@
 .category-page-btn.is-disabled {
   pointer-events: none;
   opacity: 0.42;
-}
-
-.tag-posts-loading {
-  padding: 8px 6px;
-}
-
-.tag-posts-skeleton {
-  display: flex;
-  align-items: center;
-  min-height: 33px;
-  padding: 0 9px;
-}
-
-.skeleton-line {
-  width: 100%;
-  height: 12px;
-  border-radius: 4px;
-  background: linear-gradient(90deg, var(--categories-row-hover) 30%, var(--categories-highlight) 50%, var(--categories-row-hover) 70%);
-  background-size: 200% 100%;
-  animation: skeleton-pulse 1.4s ease-in-out infinite;
-}
-
-.tag-posts-skeleton:nth-child(2) .skeleton-line { width: 85%; }
-.tag-posts-skeleton:nth-child(3) .skeleton-line { width: 72%; }
-.tag-posts-skeleton:nth-child(4) .skeleton-line { width: 90%; }
-.tag-posts-skeleton:nth-child(5) .skeleton-line { width: 65%; }
-.tag-posts-skeleton:nth-child(6) .skeleton-line { width: 78%; }
-
-@keyframes skeleton-pulse {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .skeleton-line {
-    animation: none !important;
-  }
 }
 
 @container (max-width: 640px) {

@@ -107,11 +107,7 @@
               </th:block>
 
               <!-- loading 骨架 -->
-              <div class="tag-posts-loading" x-show="loading" style="display:none">
-                <div class="tag-posts-skeleton" th:each="i : ${#numbers.sequence(1, 6)}">
-                  <div class="skeleton-line"></div>
-                </div>
-              </div>
+              <th:block th:replace="~{modules/browser-explorer/skeleton :: postListLoading}"></th:block>
             </div>
           </section>
 

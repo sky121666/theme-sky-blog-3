@@ -75,6 +75,15 @@ button.menubar-mobile-trigger {
   position: relative;
 }
 
+.theme-navigation-pending .menubar-dropdown {
+  display: none !important;
+}
+
+.theme-navigation-pending .menubar-item.is-open {
+  background: transparent;
+  box-shadow: none;
+}
+
 .menubar-item,
 .menubar-icon-btn,
 .menubar-auth-btn {

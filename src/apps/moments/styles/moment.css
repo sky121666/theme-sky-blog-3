@@ -803,10 +803,8 @@
   padding: 0;
 }
 
-/* ── Feed 骨架 ── */
 .skeleton-moments-cover {
   height: var(--wc-cover-height, 260px);
-  background: var(--wc-skeleton-surface);
   position: relative;
 }
 
@@ -819,18 +817,17 @@
   gap: 10px;
 }
 
-.skeleton-moments-cover-user .sk-avatar {
+.skeleton-moments-cover-avatar {
   width: 64px;
   height: 64px;
   border-radius: 10px;
-  background: var(--wc-skeleton-sheen);
+  margin-bottom: 0;
+  flex-shrink: 0;
 }
 
-.skeleton-moments-cover-user .sk-name {
+.skeleton-moments-cover-name {
   width: 80px;
   height: 16px;
-  border-radius: 3px;
-  background: var(--wc-skeleton-sheen);
   margin-bottom: 10px;
 }
 
@@ -845,38 +842,35 @@
   border-bottom: 1px solid var(--wc-skeleton-border);
 }
 
-.skeleton-moments-card .sk-avatar {
+.skeleton-moments-avatar {
   flex-shrink: 0;
   width: var(--wc-avatar-size, 40px);
   height: var(--wc-avatar-size, 40px);
   border-radius: 6px;
-  background: var(--wc-skeleton-surface);
+  margin-bottom: 0;
 }
 
-.skeleton-moments-card .sk-content {
+.skeleton-moments-content {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.skeleton-moments-card .sk-name {
+.skeleton-moments-name {
   width: 72px;
   height: 14px;
-  border-radius: 3px;
-  background: var(--wc-skeleton-sheen);
 }
 
-.skeleton-moments-card .sk-line {
+.skeleton-moments-line {
   height: 12px;
-  border-radius: 3px;
-  background: var(--wc-skeleton-surface);
 }
 
-.skeleton-moments-card .sk-line.short { width: 60%; }
-.skeleton-moments-card .sk-line.full  { width: 90%; }
+.skeleton-moments-line.short {
+  width: 60%;
+}
 
-.skeleton-moments-card .sk-media {
+.skeleton-moments-media {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 4px;
@@ -884,49 +878,19 @@
   margin-top: 2px;
 }
 
-.skeleton-moments-card .sk-media-block {
+.skeleton-moments-media-block {
   aspect-ratio: 1;
   border-radius: 4px;
-  background: var(--wc-skeleton-surface);
+  height: auto;
+  margin-bottom: 0;
 }
 
-.skeleton-moments-card .sk-footer {
+.skeleton-moments-footer {
   width: 100px;
   height: 10px;
-  border-radius: 3px;
-  background: var(--wc-skeleton-border);
   margin-top: 2px;
 }
 
-/* shimmer animation */
-.skeleton-moments-cover,
-.skeleton-moments-card .sk-name,
-.skeleton-moments-card .sk-line,
-.skeleton-moments-card .sk-media-block,
-.skeleton-moments-detail-head .sk-avatar,
-.skeleton-moments-detail-head .sk-name,
-.skeleton-moments-detail-body .sk-line,
-.skeleton-moments-detail-media .sk-media-block,
-.skeleton-moments-detail-comments .sk-block {
-  background-size: 200% 100%;
-  animation: wc-shimmer 1.6s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .skeleton-moments-cover,
-  .skeleton-moments-card .sk-name,
-  .skeleton-moments-card .sk-line,
-  .skeleton-moments-card .sk-media-block,
-  .skeleton-moments-detail-head .sk-avatar,
-  .skeleton-moments-detail-head .sk-name,
-  .skeleton-moments-detail-body .sk-line,
-  .skeleton-moments-detail-media .sk-media-block,
-  .skeleton-moments-detail-comments .sk-block {
-    animation: none !important;
-  }
-}
-
-/* ── Detail 骨架 ── */
 .skeleton-moments-detail {
   padding: 20px 16px;
 }
@@ -938,19 +902,7 @@
   border-bottom: 1px solid var(--wc-skeleton-border);
 }
 
-.skeleton-moments-detail-head .sk-avatar {
-  flex-shrink: 0;
-  width: var(--wc-avatar-size, 40px);
-  height: var(--wc-avatar-size, 40px);
-  border-radius: 6px;
-  background: linear-gradient(90deg, var(--wc-skeleton-surface) 25%, var(--wc-skeleton-sheen) 50%, var(--wc-skeleton-surface) 75%);
-}
-
-.skeleton-moments-detail-head .sk-name {
-  width: 80px;
-  height: 14px;
-  border-radius: 3px;
-  background: linear-gradient(90deg, var(--wc-skeleton-sheen) 25%, var(--wc-skeleton-surface) 50%, var(--wc-skeleton-sheen) 75%);
+.skeleton-moments-detail-head .skeleton-moments-name {
   margin-top: 4px;
 }
 
@@ -961,30 +913,24 @@
   gap: 8px;
 }
 
-.skeleton-moments-detail-body .sk-line {
+.skeleton-moments-detail-body .skeleton-moments-line {
   height: 13px;
-  border-radius: 3px;
-  background: linear-gradient(90deg, var(--wc-skeleton-surface) 25%, var(--wc-skeleton-sheen) 50%, var(--wc-skeleton-surface) 75%);
 }
 
-.skeleton-moments-detail-body .sk-line.full  { width: 95%; }
-.skeleton-moments-detail-body .sk-line.short { width: 55%; }
+.skeleton-moments-detail-body .skeleton-moments-line {
+  width: 95%;
+}
+
+.skeleton-moments-detail-body .skeleton-moments-line.short {
+  width: 55%;
+}
 
 .skeleton-moments-detail-media {
   padding: 0 0 14px 52px;
 }
 
-.skeleton-moments-detail-media .sk-media {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 4px;
+.skeleton-moments-detail-media .skeleton-moments-media {
   max-width: 280px;
-}
-
-.skeleton-moments-detail-media .sk-media-block {
-  aspect-ratio: 1;
-  border-radius: 4px;
-  background: linear-gradient(90deg, var(--wc-skeleton-surface) 25%, var(--wc-skeleton-sheen) 50%, var(--wc-skeleton-surface) 75%);
 }
 
 .skeleton-moments-detail-comments {
@@ -995,10 +941,10 @@
   gap: 12px;
 }
 
-.skeleton-moments-detail-comments .sk-block {
+.skeleton-moments-comment-block {
   height: 48px;
   border-radius: 8px;
-  background: linear-gradient(90deg, var(--wc-skeleton-surface) 25%, var(--wc-skeleton-sheen) 50%, var(--wc-skeleton-surface) 75%);
+  margin-bottom: 0;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1327,13 +1273,13 @@
     height: 280px;
   }
 
-  .skeleton-moments-cover-user .sk-avatar {
+  .skeleton-moments-cover-avatar {
     width: 52px;
     height: 52px;
     border-radius: 8px;
   }
 
-  .skeleton-moments-cover-user .sk-name {
+  .skeleton-moments-cover-name {
     width: 64px;
     height: 14px;
     margin-bottom: 8px;
@@ -1348,26 +1294,26 @@
     gap: 10px;
   }
 
-  .skeleton-moments-card .sk-avatar {
+  .skeleton-moments-avatar {
     width: 36px;
     height: 36px;
     border-radius: 5px;
   }
 
-  .skeleton-moments-card .sk-name {
+  .skeleton-moments-name {
     width: 60px;
     height: 12px;
   }
 
-  .skeleton-moments-card .sk-line {
+  .skeleton-moments-line {
     height: 11px;
   }
 
-  .skeleton-moments-card .sk-media {
+  .skeleton-moments-media {
     max-width: 100%;
   }
 
-  .skeleton-moments-card .sk-footer {
+  .skeleton-moments-footer {
     width: 80px;
     height: 9px;
   }
@@ -1381,13 +1327,13 @@
     gap: 10px;
   }
 
-  .skeleton-moments-detail-head .sk-avatar {
+  .skeleton-moments-detail-head .skeleton-moments-avatar {
     width: 36px;
     height: 36px;
     border-radius: 5px;
   }
 
-  .skeleton-moments-detail-head .sk-name {
+  .skeleton-moments-detail-head .skeleton-moments-name {
     width: 64px;
     height: 12px;
   }
@@ -1396,7 +1342,7 @@
     padding: 12px 0 12px 0;
   }
 
-  .skeleton-moments-detail-body .sk-line {
+  .skeleton-moments-detail-body .skeleton-moments-line {
     height: 12px;
   }
 
@@ -1404,7 +1350,7 @@
     padding: 0 0 12px 0;
   }
 
-  .skeleton-moments-detail-media .sk-media {
+  .skeleton-moments-detail-media .skeleton-moments-media {
     max-width: 100%;
   }
 
@@ -1412,7 +1358,7 @@
     padding: 12px 0 0 0;
   }
 
-  .skeleton-moments-detail-comments .sk-block {
+  .skeleton-moments-comment-block {
     height: 40px;
   }
 }

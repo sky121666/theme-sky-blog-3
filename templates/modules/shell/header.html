@@ -32,7 +32,8 @@
              x-data="{ open: false }"
              @mouseenter="open = true"
              @mouseleave="open = false"
-             @click.away="open = false">
+             @click.away="open = false"
+             @theme-menubar-close.window="open = false">
           <a th:href="${#lists.isEmpty(menuItem.children) ? menuItem.status.href : 'javascript:void(0)'}"
              th:target="${menuItem.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
              class="menubar-item menubar-item--desktop"
@@ -132,7 +133,8 @@
       <a th:href="${child.status.href}"
          th:target="${child.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
          class="menubar-dropdown-item"
-         th:classappend="${child.spec.target?.name() == 'BLANK' ? '' : 'pjax-link'}">
+         th:classappend="${child.spec.target?.name() == 'BLANK' ? '' : 'pjax-link'}"
+         @click="open = false; $dispatch('theme-menubar-close')">
         <span class="menubar-dropdown-leading">
           <img th:if="${childIconType == 'image' and !#strings.isEmpty(childImageUrl)}"
                class="menubar-dropdown-icon-image"

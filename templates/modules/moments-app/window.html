@@ -69,41 +69,49 @@
 <th:block th:fragment="loadingSkeleton (windowScene)">
   <th:block th:if="${windowScene == null or windowScene == 'feed'}">
     <div class="skeleton-moments moments-app">
-      <div class="skeleton-moments-cover">
+      <div class="skeleton-cover skeleton-moments-cover">
         <div class="skeleton-moments-cover-user">
-          <div class="sk-name"></div>
-          <div class="sk-avatar"></div>
+          <div class="skeleton-bar skeleton-moments-cover-name"></div>
+          <div class="skeleton-block skeleton-moments-cover-avatar"></div>
         </div>
       </div>
-      <div class="skeleton-moments-list">
+      <div class="skeleton-moments-list skeleton-feed">
         <div class="skeleton-moments-card">
-          <div class="sk-avatar"></div>
-          <div class="sk-content">
-            <div class="sk-name"></div>
-            <div class="sk-line full"></div>
-            <div class="sk-line short"></div>
-            <div class="sk-media"><div class="sk-media-block"></div><div class="sk-media-block"></div><div class="sk-media-block"></div></div>
-            <div class="sk-footer"></div>
+          <div class="skeleton-block skeleton-moments-avatar"></div>
+          <div class="skeleton-moments-content">
+            <div class="skeleton-bar skeleton-moments-name"></div>
+            <div class="skeleton-bar skeleton-moments-line"></div>
+            <div class="skeleton-bar skeleton-moments-line short"></div>
+            <div class="skeleton-moments-media">
+              <div class="skeleton-block skeleton-moments-media-block"></div>
+              <div class="skeleton-block skeleton-moments-media-block"></div>
+              <div class="skeleton-block skeleton-moments-media-block"></div>
+            </div>
+            <div class="skeleton-bar skeleton-moments-footer"></div>
           </div>
         </div>
         <div class="skeleton-moments-card">
-          <div class="sk-avatar"></div>
-          <div class="sk-content">
-            <div class="sk-name"></div>
-            <div class="sk-line full"></div>
-            <div class="sk-line full"></div>
-            <div class="sk-line short"></div>
-            <div class="sk-footer"></div>
+          <div class="skeleton-block skeleton-moments-avatar"></div>
+          <div class="skeleton-moments-content">
+            <div class="skeleton-bar skeleton-moments-name"></div>
+            <div class="skeleton-bar skeleton-moments-line"></div>
+            <div class="skeleton-bar skeleton-moments-line"></div>
+            <div class="skeleton-bar skeleton-moments-line short"></div>
+            <div class="skeleton-bar skeleton-moments-footer"></div>
           </div>
         </div>
         <div class="skeleton-moments-card">
-          <div class="sk-avatar"></div>
-          <div class="sk-content">
-            <div class="sk-name"></div>
-            <div class="sk-line full"></div>
-            <div class="sk-line short"></div>
-            <div class="sk-media"><div class="sk-media-block"></div><div class="sk-media-block"></div><div class="sk-media-block"></div></div>
-            <div class="sk-footer"></div>
+          <div class="skeleton-block skeleton-moments-avatar"></div>
+          <div class="skeleton-moments-content">
+            <div class="skeleton-bar skeleton-moments-name"></div>
+            <div class="skeleton-bar skeleton-moments-line"></div>
+            <div class="skeleton-bar skeleton-moments-line short"></div>
+            <div class="skeleton-moments-media">
+              <div class="skeleton-block skeleton-moments-media-block"></div>
+              <div class="skeleton-block skeleton-moments-media-block"></div>
+              <div class="skeleton-block skeleton-moments-media-block"></div>
+            </div>
+            <div class="skeleton-bar skeleton-moments-footer"></div>
           </div>
         </div>
       </div>
@@ -113,20 +121,24 @@
   <th:block th:if="${windowScene == 'detail'}">
     <div class="skeleton-moments-detail moments-app">
       <div class="skeleton-moments-detail-head">
-        <div class="sk-avatar"></div>
-        <div class="sk-content"><div class="sk-name"></div></div>
+        <div class="skeleton-block skeleton-moments-avatar"></div>
+        <div class="skeleton-moments-content"><div class="skeleton-bar skeleton-moments-name"></div></div>
       </div>
       <div class="skeleton-moments-detail-body">
-        <div class="sk-line full"></div>
-        <div class="sk-line full"></div>
-        <div class="sk-line short"></div>
+        <div class="skeleton-bar skeleton-moments-line"></div>
+        <div class="skeleton-bar skeleton-moments-line"></div>
+        <div class="skeleton-bar skeleton-moments-line short"></div>
       </div>
       <div class="skeleton-moments-detail-media">
-        <div class="sk-media"><div class="sk-media-block"></div><div class="sk-media-block"></div><div class="sk-media-block"></div></div>
+        <div class="skeleton-moments-media">
+          <div class="skeleton-block skeleton-moments-media-block"></div>
+          <div class="skeleton-block skeleton-moments-media-block"></div>
+          <div class="skeleton-block skeleton-moments-media-block"></div>
+        </div>
       </div>
       <div class="skeleton-moments-detail-comments">
-        <div class="sk-block"></div>
-        <div class="sk-block"></div>
+        <div class="skeleton-block skeleton-moments-comment-block"></div>
+        <div class="skeleton-block skeleton-moments-comment-block"></div>
       </div>
     </div>
   </th:block>

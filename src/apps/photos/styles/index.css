@@ -942,7 +942,7 @@
     var(--photos-skeleton-base-mid) 50%,
     var(--photos-skeleton-base-start) 100%);
   background-size: 200% 100%;
-  animation: ph-shimmer 1.6s ease-in-out infinite;
+  animation: ph-shimmer var(--theme-skeleton-duration, 1.6s) var(--theme-skeleton-easing, ease-in-out) infinite;
   pointer-events: none;
   opacity: 1;
   transition: opacity 0.3s ease;
@@ -1007,7 +1007,7 @@
   inset: 0;
   background: linear-gradient(110deg, transparent 0%, var(--photos-skeleton-sheen) 42%, transparent 78%);
   transform: translateX(-120%);
-  animation: photos-skeleton-sheen 1.4s ease-in-out infinite;
+  animation: photos-skeleton-sheen var(--theme-skeleton-duration, 1.6s) var(--theme-skeleton-easing, ease-in-out) infinite;
   pointer-events: none;
   z-index: 2;
 }

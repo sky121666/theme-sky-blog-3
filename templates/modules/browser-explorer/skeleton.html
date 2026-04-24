@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html xmlns:th="https://www.thymeleaf.org">
+<th:block th:fragment="postListLoading">
+  <div class="browser-explorer-posts-loading" x-show="loading" style="display:none">
+    <div class="browser-explorer-posts-skeleton">
+      <div class="browser-explorer-posts-skeleton-line skeleton-line"></div>
+    </div>
+    <div class="browser-explorer-posts-skeleton">
+      <div class="browser-explorer-posts-skeleton-line skeleton-line is-wide"></div>
+    </div>
+    <div class="browser-explorer-posts-skeleton">
+      <div class="browser-explorer-posts-skeleton-line skeleton-line medium"></div>
+    </div>
+    <div class="browser-explorer-posts-skeleton">
+      <div class="browser-explorer-posts-skeleton-line skeleton-line is-full"></div>
+    </div>
+    <div class="browser-explorer-posts-skeleton">
+      <div class="browser-explorer-posts-skeleton-line skeleton-line is-compact"></div>
+    </div>
+    <div class="browser-explorer-posts-skeleton">
+      <div class="browser-explorer-posts-skeleton-line skeleton-line medium"></div>
+    </div>
+  </div>
+</th:block>
+</html>

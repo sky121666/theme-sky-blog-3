@@ -41,6 +41,18 @@ import {
   parseWindowVariantFromResponse,
   parseContentFromResponse
 } from './protocol.js';
+import {
+  createWindowLoadingController,
+  showOverlay,
+  hideOverlay,
+  hasLoadingOverlay,
+  setBusyState,
+  clearBusyState
+} from './loading-controller.js';
+import {
+  closeTransientNavigationUi,
+  clearTransientNavigationUi
+} from './navigation-ui.js';
 
 const { log: pjaxLog, warn: pjaxWarn } = createLogger('pjax');
 
@@ -268,44 +280,6 @@ function replayPjaxScripts(root) {
   });
 }
 
-// ── Overlay helpers ──
-
-function setBusyState(target, busy) {
-  if (!target) return;
-
-  target.setAttribute('aria-busy', busy ? 'true' : 'false');
-}
-
-function showOverlay(contentRoot) {
-  const overlay = contentRoot?.querySelector('[data-window-loading-overlay]');
-  setBusyState(contentRoot, true);
-  if (overlay) {
-    overlay.removeAttribute('data-fading');
-    overlay.setAttribute('aria-hidden', 'false');
-    overlay.style.display = '';
-  }
-  return overlay;
-}
-
-function hideOverlay(contentRoot, overlay) {
-  if (!overlay) {
-    setBusyState(contentRoot, false);
-    return;
-  }
-
-  overlay.setAttribute('aria-hidden', 'true');
-  overlay.setAttribute('data-fading', '');
-  setTimeout(() => {
-    overlay.style.display = 'none';
-    overlay.removeAttribute('data-fading');
-    setBusyState(contentRoot, false);
-  }, 240);
-}
-
-function clearBusyState(contentRoot) {
-  setBusyState(contentRoot, false);
-}
-
 function startTopProgress() {
   NProgress.start();
 }
@@ -375,6 +349,15 @@ export function initPjax(Alpine) {
     window.pjax = pjax;
     pjaxLog('init: Pjax created, #window-frame-root exists:', !!document.getElementById('window-frame-root'));
 
+    const _origLoadUrl = pjax.loadUrl.bind(pjax);
+    pjax.loadUrl = function(url, options = {}) {
+      closeTransientNavigationUi();
+      const targetApp = inferPageAppForNavigation(url, options?.triggerElement || null);
+      return ensureAppAssetsLoaded(targetApp)
+        .catch(() => {})
+        .then(() => _origLoadUrl(url, options));
+    };
+
     initializeBrowserNavDepth();
     installBrowserNavHelpers();
 
@@ -417,6 +400,7 @@ export function initPjax(Alpine) {
     // ── Same-variant content-level navigation ──
 
     let _sameVariantPending = false;
+    let _pjaxLoadingController = null;
 
     /**
      * Navigate within the same window variant — replace only the content root,
@@ -434,8 +418,8 @@ export function initPjax(Alpine) {
         return false;
       }
 
-      const overlay = showOverlay(contentRoot);
-      const useTopProgress = !overlay;
+      const loadingController = showOverlay(contentRoot);
+      const useTopProgress = !hasLoadingOverlay(loadingController);
       perfMark('overlayVisible');
       if (useTopProgress) {
         startTopProgress();
@@ -461,7 +445,7 @@ export function initPjax(Alpine) {
         const currentVariant = document.body.dataset.windowVariant || '';
         if (targetVariant && targetVariant !== currentVariant) {
           pjaxLog('variant mismatch:', currentVariant, '->', targetVariant, '→ fallback');
-          hideOverlay(contentRoot, overlay);
+          await hideOverlay(contentRoot, loadingController, { immediate: true });
           if (useTopProgress) {
             stopTopProgress();
           }
@@ -479,7 +463,7 @@ export function initPjax(Alpine) {
         if (!isContentSwitchAllowed(currentApp, currentMode) ||
             !isContentSwitchAllowed(responseApp, responseMode)) {
           pjaxLog('content switch not allowed:', currentApp, currentMode, '→', responseApp, responseMode, '→ fallback');
-          hideOverlay(contentRoot, overlay);
+          await hideOverlay(contentRoot, loadingController, { immediate: true });
           if (useTopProgress) {
             stopTopProgress();
           }
@@ -583,7 +567,7 @@ export function initPjax(Alpine) {
         if (useTopProgress) {
           stopTopProgress();
         }
-        hideOverlay(contentRoot, overlay);
+        await hideOverlay(contentRoot, loadingController);
 
         pjaxLog('same-variant navigation complete:', targetUrl);
 
@@ -597,7 +581,7 @@ export function initPjax(Alpine) {
         return true;
       } catch (err) {
         pjaxWarn('same-variant navigation failed:', err.message, '→ fallback');
-        hideOverlay(contentRoot, overlay);
+        await hideOverlay(contentRoot, loadingController, { immediate: true });
         if (useTopProgress) {
           stopTopProgress();
         }
@@ -617,15 +601,33 @@ export function initPjax(Alpine) {
 
     document.addEventListener("pjax:send", (event) => {
       pjaxLog('event:send', event.triggerElement?.href || '');
+      closeTransientNavigationUi();
       deactivateCurrentPageApp();
       startTopProgress();
+      const targetHref = event?.triggerElement?.href || event?.requestOptions?.requestUrl;
+      let targetVariant = '';
+      try {
+        targetVariant = targetHref ? inferWindowVariantFromUrl(new URL(targetHref, window.location.origin)) : '';
+      } catch (_e) {
+        targetVariant = '';
+      }
+      const currentVariant = document.body.dataset.windowVariant || '';
+      const canUseWindowOverlay =
+        currentVariant &&
+        targetVariant &&
+        currentVariant === targetVariant &&
+        currentVariant !== 'none';
       const container = document.getElementById('window-frame-root');
       if (container) {
         container.classList.add('pjax-loading');
-        setBusyState(container, true);
+        _pjaxLoadingController = canUseWindowOverlay
+          ? createWindowLoadingController(container).start()
+          : null;
+        if (!_pjaxLoadingController) {
+          setBusyState(container, true);
+        }
       }
 
-      const targetHref = event?.triggerElement?.href || event?.requestOptions?.requestUrl;
       if (targetHref) {
         const targetApp = inferPageAppForNavigation(targetHref, event?.triggerElement);
         ensureAppAssetsLoaded(targetApp).catch(() => {});
@@ -673,15 +675,15 @@ export function initPjax(Alpine) {
 
         attachDynamicLinks(container);
 
-        requestAnimationFrame(() => {
-          container.classList.remove('pjax-loading');
-          clearBusyState(container);
-        });
-
         activatePageApp(nextApp, container, {
           reason: 'pjax-complete',
           documentTitle: document.title
         });
+
+        await _pjaxLoadingController?.finish();
+        _pjaxLoadingController = null;
+        container.classList.remove('pjax-loading');
+        clearBusyState(container);
 
         // Deferred re-scan: desktop widgets re-render after pjax swap,
         // stripping data-pjax-attached. Catch them once after settle.
@@ -707,6 +709,8 @@ export function initPjax(Alpine) {
       } else {
         window.dispatchEvent(new CustomEvent('open-window'));
       }
+
+      clearTransientNavigationUi();
     });
 
     document.addEventListener("pjax:error", (event) => {
@@ -717,9 +721,12 @@ export function initPjax(Alpine) {
       const container = document.getElementById('window-frame-root');
       if (container) {
         container.classList.remove('pjax-loading');
-        clearBusyState(container);
       }
+      _pjaxLoadingController?.finish({ immediate: true });
+      _pjaxLoadingController = null;
+      clearBusyState(container);
       activateCurrentPageApp(document, { reason: 'pjax-error-recover' });
+      clearTransientNavigationUi();
     });
 
     // ── Same-variant capture handler (runs BEFORE Pjax click handler) ──

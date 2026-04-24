@@ -146,6 +146,9 @@ export function registerWindowManager(Alpine) {
         this.closeMobileMenu();
         this.tick();
       };
+      this.handleMenubarClose = () => {
+        this.closeMobileMenu();
+      };
       this.handleEscape = (event) => {
         if (event.key === 'Escape') {
           this.closeMobileMenu();
@@ -153,7 +156,17 @@ export function registerWindowManager(Alpine) {
       };
       window.addEventListener('resize', this.handleResize);
       document.addEventListener('pjax:complete', this.handlePjaxComplete);
+      window.addEventListener('theme-menubar-close', this.handleMenubarClose);
       window.addEventListener('keydown', this.handleEscape);
+    },
+    destroy() {
+      window.removeEventListener('resize', this.handleResize);
+      document.removeEventListener('pjax:complete', this.handlePjaxComplete);
+      window.removeEventListener('theme-menubar-close', this.handleMenubarClose);
+      window.removeEventListener('keydown', this.handleEscape);
+      if (this.tickTimer) {
+        window.clearInterval(this.tickTimer);
+      }
     },
     openSearch() {
       if (!this.searchEnabled) return;

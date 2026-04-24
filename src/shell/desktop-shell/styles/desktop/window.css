@@ -559,7 +559,15 @@
 .traffic-btn.maximize svg path { fill: #004d09; }
 
 /* ---------- Loading Overlay & Skeleton ---------- */
+:root {
+  --theme-skeleton-duration: 1.6s;
+  --theme-skeleton-easing: ease-in-out;
+}
+
 .window-loading-overlay {
+  --window-skeleton-base: color-mix(in srgb, var(--content-chrome-muted, rgba(128, 128, 128, 0.55)) 12%, transparent);
+  --window-skeleton-mid: color-mix(in srgb, var(--content-chrome-muted, rgba(128, 128, 128, 0.55)) 22%, transparent);
+  --window-skeleton-border: color-mix(in srgb, var(--content-window-border, rgba(0, 0, 0, 0.12)) 48%, transparent);
   position: absolute;
   inset: 0;
   z-index: 40;
@@ -592,26 +600,64 @@
 }
 
 .skeleton-bar,
+.skeleton-line,
 .skeleton-block,
-.skeleton-cover {
-  border-radius: 6px;
-  background: linear-gradient(90deg, rgba(128,128,128,0.08) 25%, rgba(128,128,128,0.16) 50%, rgba(128,128,128,0.08) 75%);
+.skeleton-cover,
+.skeleton-chip,
+.skeleton-avatar,
+.skeleton-panel {
+  background: linear-gradient(
+    90deg,
+    var(--window-skeleton-base) 25%,
+    var(--window-skeleton-mid) 50%,
+    var(--window-skeleton-base) 75%
+  );
   background-size: 200% 100%;
-  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+  animation: skeleton-shimmer var(--theme-skeleton-duration) var(--theme-skeleton-easing) infinite;
 }
 
 .skeleton-bar {
   height: 14px;
   margin-bottom: 12px;
+  border-radius: 6px;
 }
 
-.skeleton-bar.short {
+.skeleton-line {
+  height: 12px;
+  border-radius: 4px;
+}
+
+.skeleton-bar.short,
+.skeleton-line.short {
   width: 60%;
+}
+
+.skeleton-bar.medium,
+.skeleton-line.medium {
+  width: 78%;
 }
 
 .skeleton-block {
   height: 120px;
   margin-bottom: 16px;
+  border-radius: 10px;
+}
+
+.skeleton-chip {
+  height: 34px;
+  border-radius: 10px;
+}
+
+.skeleton-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  flex: 0 0 auto;
+}
+
+.skeleton-panel {
+  border: 1px solid var(--window-skeleton-border);
+  border-radius: 14px;
 }
 
 /* Browser variant: Finder 三栏骨架 */
@@ -664,8 +710,12 @@
 @media (prefers-reduced-motion: reduce) {
   .window-loading-overlay,
   .skeleton-bar,
+  .skeleton-line,
   .skeleton-block,
-  .skeleton-cover {
+  .skeleton-cover,
+  .skeleton-chip,
+  .skeleton-avatar,
+  .skeleton-panel {
     transition: none !important;
     animation: none !important;
   }

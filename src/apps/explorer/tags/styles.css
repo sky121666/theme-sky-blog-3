@@ -1,3 +1,5 @@
+@import "../shared/skeleton.css";
+
 [x-cloak] {
   display: none !important;
 }
@@ -44,6 +46,9 @@
   --tags-folder-icon-soft: var(--theme-folder2, var(--mac-folder2, #64b5f6));
   --tags-scrollbar-thumb: rgba(156, 163, 175, 0.48);
   --tags-scrollbar-thumb-hover: rgba(156, 163, 175, 0.68);
+  --window-skeleton-base: color-mix(in srgb, var(--tags-row-hover) 96%, var(--tags-surface-strong));
+  --window-skeleton-mid: color-mix(in srgb, var(--tags-highlight) 88%, var(--tags-row-hover));
+  --window-skeleton-border: color-mix(in srgb, var(--tags-border) 72%, transparent);
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -82,6 +87,9 @@
   --tags-list-active-rim: color-mix(in srgb, var(--tags-accent) 30%, transparent);
   --tags-scrollbar-thumb: rgba(203, 213, 225, 0.26);
   --tags-scrollbar-thumb-hover: rgba(203, 213, 225, 0.38);
+  --window-skeleton-base: color-mix(in srgb, var(--tags-row-hover) 92%, rgba(255, 255, 255, 0.03));
+  --window-skeleton-mid: color-mix(in srgb, var(--tags-highlight) 72%, rgba(255, 255, 255, 0.08));
+  --window-skeleton-border: color-mix(in srgb, var(--tags-border) 84%, transparent);
 }
 
 .tags-workspace {

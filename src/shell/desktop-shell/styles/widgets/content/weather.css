@@ -282,7 +282,7 @@
     var(--widget-weather-skeleton-sheen-end) 80%
   );
   background-size: 200% 100%;
-  animation: wg-skel-shimmer 1.6s ease-in-out infinite;
+  animation: wg-skel-shimmer var(--theme-skeleton-duration, 1.6s) var(--theme-skeleton-easing, ease-in-out) infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -290,7 +290,6 @@
     animation: none !important;
   }
 }
-
 
 
 
