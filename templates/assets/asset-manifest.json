@@ -42,6 +42,14 @@
       "/themes/theme-sky-blog-3/assets/css/apps/friends/index.css"
     ]
   },
+  "links": {
+    "js": [
+      "/themes/theme-sky-blog-3/assets/js/apps/links/index.js"
+    ],
+    "css": [
+      "/themes/theme-sky-blog-3/assets/css/apps/links/index.css"
+    ]
+  },
   "moments": {
     "js": [
       "/themes/theme-sky-blog-3/assets/js/apps/moments/index.js"

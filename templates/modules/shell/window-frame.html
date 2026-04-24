@@ -11,6 +11,7 @@
          th:data-window-width="${widthAttr != null ? widthAttr : ''}"
          x-data="draggableWindow"
          :class="{ 'window-resizable': isDesktop && !isMaximized && $el.dataset.windowResizable !== 'false' && $el.dataset.windowResizable !== '' }"
+         @theme-window-drag-start.window="if (!$event.detail?.surface || $event.detail.surface === $el) onDragStart($event.detail?.sourceEvent || $event)"
          @mousemove.window="onPointerMove"
          @mouseup.window="onPointerEnd"
          x-transition:enter="transition ease-out duration-200"

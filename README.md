@@ -34,7 +34,7 @@ macOS 桌面风格 Halo 博客主题。
 
 ## 开发进度
 
-- 已完成：`shell-core / apps / widgets` 架构收口；桌面壳层、图库、瞬间、浏览列表、阅读页、认证页独立化；构建产物已按页面目录分发；跨模块滚动条与加载反馈统一、Windows 交互体验适配；主题可控图片已接入懒加载；**图库小组件（plugin-photos.gallery）上线**，支持 small/medium/large 三种尺寸，PhotoGroup icon/简介 annotation 接入，widget meta 配置框架（hasConfig + 配置弹窗）完成
+- 已完成：`shell-core / apps / widgets` 架构收口；桌面壳层、图库、瞬间、浏览列表、阅读页、认证页、链接页独立化；构建产物已按页面目录分发；跨模块滚动条与加载反馈统一、Windows 交互体验适配；主题可控图片已接入懒加载；**图库小组件（plugin-photos.gallery）上线**，支持 small/medium/large 三种尺寸，PhotoGroup icon/简介 annotation 接入，widget meta 配置框架（hasConfig + 配置弹窗）完成；**链接 App（/links）上线**，支持独立窗口、分组图标、自助提交插件适配与留言兜底
 - 进行中：桌面小组件持续打磨、插件界面适配
 - 待开始：预览资源继续校准
 - 详细进度：[/docs/项目进度.md](/docs/项目进度.md)

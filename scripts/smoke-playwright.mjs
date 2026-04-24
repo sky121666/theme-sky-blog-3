@@ -141,6 +141,17 @@ async function main() {
       appPropsSelector: 'script[data-app-props="friends"]'
     },
     {
+      name: 'links',
+      target: '/links',
+      optional: true,
+      requireShellLoaded: true,
+      expectedAppId: 'links',
+      expectedPageMode: 'browser-links',
+      expectedWindowVariant: 'links',
+      appRootSelector: '[data-app-root="links"]',
+      appPropsSelector: 'script[data-app-props="links"]'
+    },
+    {
       name: 'photos',
       target: '/photos',
       optional: true,
@@ -381,6 +392,51 @@ async function main() {
     return baseValidation;
   }
 
+  async function validateLinksInteractions() {
+    const route = {
+      name: 'links-interactions',
+      target: '/links',
+      optional: true,
+      expectedAppId: 'links',
+      expectedPageMode: 'browser-links',
+      expectedWindowVariant: 'links',
+      appRootSelector: '[data-app-root="links"]',
+      appPropsSelector: 'script[data-app-props="links"]'
+    };
+
+    const nav = await navigate(route);
+    if (nav.status >= 400) {
+      if (route.optional) {
+        skipped.push(`${route.name}: ${nav.status}`);
+        return null;
+      }
+      throw new Error(`HTTP ${nav.status}`);
+    }
+
+    const baseValidation = await validateRoute(route);
+    const firstCard = page.locator('.link-card').first();
+    if (await firstCard.count() < 1) {
+      return baseValidation;
+    }
+
+    await page.locator('.links-toolbar-search').fill('http');
+    await page.waitForTimeout(250);
+    const visibleCards = await page.locator('.link-card:visible').count();
+    if (visibleCards < 1) {
+      throw new Error('搜索后未保留任何友链卡片');
+    }
+
+    const submitButton = page.locator('.links-toolbar-apply').first();
+    if (await submitButton.count() > 0) {
+      await submitButton.click();
+      await page.waitForSelector('#link-submit-modal[open]');
+      await page.locator('.links-modal-close').click();
+      await page.waitForTimeout(150);
+    }
+
+    return baseValidation;
+  }
+
   async function discoverHref(pagePath, selectors, matcher) {
     const response = await page.goto(toAbsoluteUrl(pagePath), {
       waitUntil: 'networkidle',
@@ -548,6 +604,16 @@ async function main() {
   } catch (error) {
     const screenshot = await captureFailure(page, 'friends-interactions');
     failures.push(`friends-interactions: ${error.message} [${screenshot}]`);
+  }
+
+  try {
+    const interactionResult = await validateLinksInteractions();
+    if (interactionResult) {
+      routeResults.push({ name: 'links-interactions', target: '/links', ...interactionResult });
+    }
+  } catch (error) {
+    const screenshot = await captureFailure(page, 'links-interactions');
+    failures.push(`links-interactions: ${error.message} [${screenshot}]`);
   }
 
   const reportFile = await writeReport({ baseUrl, cacheDisabled: true, skipped, discovered, routes: routeResults, failures });

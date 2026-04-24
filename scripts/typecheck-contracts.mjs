@@ -66,6 +66,7 @@ const routeSamples = [
   ['https://example.com/moments/demo', 'moments', 'moments'],
   ['https://example.com/friends', 'friends', 'friends'],
   ['https://example.com/friends/page/2', 'friends', 'friends'],
+  ['https://example.com/links', 'links', 'links'],
   ['https://example.com/photos', 'photos', 'photos'],
   ['https://example.com/tags', 'explorer-tags', 'browser'],
   ['https://example.com/tags/demo', 'explorer-tags', 'browser'],
@@ -88,8 +89,7 @@ for (const [url, expectedApp, expectedVariant] of routeSamples) {
 
 const unknownRouteSamples = [
   'https://example.com/docs',
-  'https://example.com/about',
-  'https://example.com/links'
+  'https://example.com/about'
 ];
 
 for (const url of unknownRouteSamples) {

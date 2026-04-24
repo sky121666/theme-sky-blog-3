@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<th:block xmlns:th="https://www.thymeleaf.org"
+          th:with="
+            currentGroup=${param.group != null and !#lists.isEmpty(param.group) ? param.group[0] : ''},
+            groupNameIndex=${groups != null ? groups.![metadata.name].indexOf(currentGroup) : -1},
+            baseTitle=${linksTitle ?: '友情链接'},
+            resolvedWindowTitle=${groupNameIndex >= 0 ? groups[groupNameIndex].spec.displayName : baseTitle},
+            resolvedWindowSubtitle=${groupNameIndex >= 0 ? '当前分组' : '全部友链'},
+            resolvedDocumentTitle=${resolvedWindowTitle + ' - ' + site.title}">
+  <html th:replace="~{modules/shell/layout :: html(
+          title = ${resolvedDocumentTitle},
+          description = ${site.seo?.description ?: site.subtitle},
+          ssrContent = ~{modules/links-app/list :: content},
+          canonical = '/links',
+          image = ${site.logo},
+          type = 'website',
+          seoFallback = 'meta',
+          pageMode = 'browser-links',
+          pageApp = 'links',
+          windowVariant = 'links',
+          windowScene = 'collection',
+          windowTitle = ${resolvedWindowTitle},
+          windowResizable = true,
+          windowMaximizable = false,
+          windowMetricsKey = 'links'
+        )}"></html>
+</th:block>

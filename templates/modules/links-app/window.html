@@ -1,0 +1,46 @@
+<th:block th:fragment="frame (titleText, subtitleText, contentFragment, windowResizable, metricsKey)">
+  <th:block th:replace="~{modules/shell/window-frame :: shell(
+      variant='links',
+      metricsKey=${metricsKey},
+      resizable=${windowResizable != null ? windowResizable : 'true'},
+      maximizable='true',
+      widthAttr='1000',
+      extraClasses='links-window md:min-w-[860px] md:min-h-[560px]',
+      inlineStyle='',
+      bodyFragment=~{::frameBody(contentFragment=${contentFragment}, windowResizable=${windowResizable})}
+    )}"></th:block>
+</th:block>
+
+<th:block th:fragment="frameBody (contentFragment, windowResizable)">
+  <th:block th:replace="~{modules/shell/window-frame :: resizeHandles(mode='full', enabled=${windowResizable == null or windowResizable != 'false'})}"></th:block>
+
+  <div class="links-window-content"
+       data-window-scroll
+       data-window-content-root>
+    <th:block th:replace="~{modules/shell/window-frame :: loadingOverlay(contentFragment=~{::loadingSkeleton})}"></th:block>
+    <div id="pjax-container" data-window-content-variant="links" class="links-window-content-inner">
+      <th:block th:replace="${contentFragment}" />
+    </div>
+  </div>
+</th:block>
+
+<th:block th:fragment="loadingSkeleton">
+  <div class="links-window-skeleton" aria-hidden="true">
+    <div class="links-skeleton-sidebar">
+      <div class="links-skeleton-dot-row"></div>
+      <div class="links-skeleton-line is-short"></div>
+      <div class="links-skeleton-pill"></div>
+      <div class="links-skeleton-pill"></div>
+      <div class="links-skeleton-pill"></div>
+    </div>
+    <div class="links-skeleton-main">
+      <div class="links-skeleton-toolbar"></div>
+      <div class="links-skeleton-grid">
+        <div class="links-skeleton-card"></div>
+        <div class="links-skeleton-card"></div>
+        <div class="links-skeleton-card"></div>
+        <div class="links-skeleton-card"></div>
+      </div>
+    </div>
+  </div>
+</th:block>

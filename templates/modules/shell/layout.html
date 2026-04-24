@@ -375,6 +375,16 @@
                       metricsKey=${windowMetricsKey != null ? windowMetricsKey : 'friends'}
                     )}" />
         </th:block>
+
+        <th:block th:if="${windowVariant == 'links'}">
+          <th:block th:replace="~{modules/links-app/window :: frame(
+                      titleText=${windowTitle},
+                      subtitleText='',
+                      contentFragment=${ssrContent},
+                      windowResizable=${windowResizable != null ? windowResizable : 'y'},
+                      metricsKey=${windowMetricsKey != null ? windowMetricsKey : 'links'}
+                    )}" />
+        </th:block>
         
         <!-- 默认浏览器窗口变体 -->
         <th:block th:if="${windowVariant == 'browser'}">

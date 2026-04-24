@@ -148,3 +148,22 @@ spec:
       label: 相册简介
       value: ""
       help: 显示在图库小组件底部的一句话说明，建议 15 字以内。
+
+---
+apiVersion: v1alpha1
+kind: AnnotationSetting
+metadata:
+  name: theme-sky-blog-3-linkgroup-setting
+spec:
+  targetRef:
+    group: core.halo.run
+    kind: LinkGroup
+  formSchema:
+    - $formkit: iconify
+      id: linkgroup_icon
+      key: linkgroup_icon
+      name: icon
+      label: 友链分组图标 (SVG)
+      format: svg
+      value-only: true
+      help: 选择一个图标用于友链 App 的分组侧边栏和分组标题。

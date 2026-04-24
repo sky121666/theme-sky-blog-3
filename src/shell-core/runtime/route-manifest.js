@@ -29,6 +29,14 @@ const ROUTE_RULES = [
     matches: (pathname) => pathname === '/friends' || pathname === '/friends/' || /^\/friends\/page\/[^/]+\/?$/.test(pathname)
   },
   {
+    id: 'links',
+    appId: 'links',
+    windowVariant: 'links',
+    pjaxMode: 'same-app',
+    cacheKeyPolicy: 'app-path-search',
+    matches: (pathname) => pathname === '/links' || pathname === '/links/'
+  },
+  {
     id: 'photos',
     appId: 'photos',
     windowVariant: 'photos',
