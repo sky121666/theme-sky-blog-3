@@ -67,6 +67,8 @@ const routeSamples = [
   ['https://example.com/friends', 'friends', 'friends'],
   ['https://example.com/friends/page/2', 'friends', 'friends'],
   ['https://example.com/links', 'links', 'links'],
+  ['https://example.com/bangumis', 'bangumis', 'bangumis'],
+  ['https://example.com/bangumis/page/2', 'bangumis', 'bangumis'],
   ['https://example.com/photos', 'photos', 'photos'],
   ['https://example.com/tags', 'explorer-tags', 'browser'],
   ['https://example.com/tags/demo', 'explorer-tags', 'browser'],

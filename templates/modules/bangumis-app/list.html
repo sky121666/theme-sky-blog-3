@@ -1,0 +1,224 @@
+<th:block th:fragment="content"
+          th:with="
+            currentType=${param.typeNum != null and !#lists.isEmpty(param.typeNum) ? param.typeNum[0] : (bangumis != null ? bangumis.typeNum : 1)},
+            currentStatus=${param.status != null and !#lists.isEmpty(param.status) ? param.status[0] : (bangumis != null ? bangumis.status : 0)},
+            currentSize=${param.size != null and !#lists.isEmpty(param.size) ? param.size[0] : (bangumis != null ? bangumis.size : '')},
+            isDrama=${currentType == 2 or currentType == '2'},
+            totalCount=${bangumis != null ? bangumis.total : 0},
+            wishCount=${bangumiFinder != null ? bangumiFinder.list(currentType, 1, 1, 1).total : 0},
+            watchingCount=${bangumiFinder != null ? bangumiFinder.list(currentType, 2, 1, 1).total : 0},
+            doneCount=${bangumiFinder != null ? bangumiFinder.list(currentType, 3, 1, 1).total : 0},
+            pageCount=${bangumis != null ? bangumis.totalPages : 1},
+            pageNumber=${bangumis != null ? bangumis.page : 1},
+            headerTitle=${isDrama ? '我的追剧' : '我的追番'},
+            headerSubtitle=${'共 ' + totalCount + ' 部'}">
+  <div class="bangumis-app"
+       data-app-root="bangumis"
+       x-data="bangumisExplorer">
+    <script type="application/json" data-app-props="bangumis">{"version":1,"appId":"bangumis","data":{"scene":"collection"}}</script>
+
+    <div class="bangumis-app-shell"
+         th:attr="data-bangumis-site-title=${site.title},data-bangumis-chrome-title=${headerTitle},data-bangumis-chrome-subtitle=${headerSubtitle}">
+      <aside class="bangumis-sidebar">
+        <div class="bangumis-window-dragbar"
+             @mousedown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
+          <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=true)}"></th:block>
+        </div>
+
+        <div class="bangumis-sidebar-scroll">
+          <section class="bangumis-sidebar-block">
+            <p class="bangumis-sidebar-title">类型</p>
+            <nav class="bangumis-sidebar-nav">
+              <a class="bangumis-sidebar-item pjax-link"
+                 th:href="@{/bangumis(typeNum=1,status=${currentStatus},size=${currentSize})}"
+                 th:classappend="${!isDrama ? 'is-active' : ''}">
+                <span class="bangumis-sidebar-main">
+                  <span class="bangumis-sidebar-icon icon-[lucide--sparkles]" aria-hidden="true"></span>
+                  <span class="bangumis-sidebar-label">追番</span>
+                </span>
+              </a>
+              <a class="bangumis-sidebar-item pjax-link"
+                 th:href="@{/bangumis(typeNum=2,status=${currentStatus},size=${currentSize})}"
+                 th:classappend="${isDrama ? 'is-active' : ''}">
+                <span class="bangumis-sidebar-main">
+                  <span class="bangumis-sidebar-icon icon-[lucide--tv]" aria-hidden="true"></span>
+                  <span class="bangumis-sidebar-label">追剧</span>
+                </span>
+              </a>
+            </nav>
+          </section>
+
+          <section class="bangumis-sidebar-block">
+            <p class="bangumis-sidebar-title">状态</p>
+            <nav class="bangumis-sidebar-nav">
+              <a class="bangumis-sidebar-item pjax-link"
+                 th:href="@{/bangumis(typeNum=${currentType},status=0,size=${currentSize})}"
+                 th:classappend="${currentStatus == 0 or currentStatus == '0' ? 'is-active' : ''}">
+                <span class="bangumis-sidebar-main">
+                  <span class="bangumis-sidebar-icon icon-[lucide--layout-grid]" aria-hidden="true"></span>
+                  <span class="bangumis-sidebar-label">全部</span>
+                </span>
+                <span class="bangumis-sidebar-badge" th:text="${totalCount}">0</span>
+              </a>
+              <a class="bangumis-sidebar-item pjax-link"
+                 th:href="@{/bangumis(typeNum=${currentType},status=1,size=${currentSize})}"
+                 th:classappend="${currentStatus == 1 or currentStatus == '1' ? 'is-active' : ''}">
+                <span class="bangumis-sidebar-main">
+                  <span class="bangumis-sidebar-icon icon-[lucide--bookmark]" aria-hidden="true"></span>
+                  <span class="bangumis-sidebar-label">想看</span>
+                </span>
+                <span class="bangumis-sidebar-badge" th:text="${wishCount}">0</span>
+              </a>
+              <a class="bangumis-sidebar-item pjax-link"
+                 th:href="@{/bangumis(typeNum=${currentType},status=2,size=${currentSize})}"
+                 th:classappend="${currentStatus == 2 or currentStatus == '2' ? 'is-active' : ''}">
+                <span class="bangumis-sidebar-main">
+                  <span class="bangumis-sidebar-icon icon-[lucide--play-circle]" aria-hidden="true"></span>
+                  <span class="bangumis-sidebar-label">在看</span>
+                </span>
+                <span class="bangumis-sidebar-badge" th:text="${watchingCount}">0</span>
+              </a>
+              <a class="bangumis-sidebar-item pjax-link"
+                 th:href="@{/bangumis(typeNum=${currentType},status=3,size=${currentSize})}"
+                 th:classappend="${currentStatus == 3 or currentStatus == '3' ? 'is-active' : ''}">
+                <span class="bangumis-sidebar-main">
+                  <span class="bangumis-sidebar-icon icon-[lucide--check-circle-2]" aria-hidden="true"></span>
+                  <span class="bangumis-sidebar-label">已看</span>
+                </span>
+                <span class="bangumis-sidebar-badge" th:text="${doneCount}">0</span>
+              </a>
+            </nav>
+          </section>
+        </div>
+      </aside>
+
+      <section class="bangumis-main">
+        <header class="bangumis-toolbar">
+          <div class="bangumis-toolbar-heading">
+            <h1 class="bangumis-toolbar-title" th:text="${headerTitle}">我的追番</h1>
+            <span class="bangumis-toolbar-count" th:text="${headerSubtitle}">共 0 部</span>
+          </div>
+
+          <div class="bangumis-toolbar-actions">
+            <label class="bangumis-search-wrap">
+              <span class="bangumis-search-icon icon-[lucide--search]" aria-hidden="true"></span>
+              <input class="bangumis-search"
+                     type="search"
+                     x-model="searchQuery"
+                     th:placeholder="${isDrama ? '搜索剧集...' : '搜索番剧...'}">
+            </label>
+            <span class="bangumis-filter-pill">
+              <span class="icon-[lucide--sliders-horizontal]" aria-hidden="true"></span>
+              <span th:text="${(currentStatus == 1 or currentStatus == '1') ? '想看' : ((currentStatus == 2 or currentStatus == '2') ? '在看' : ((currentStatus == 3 or currentStatus == '3') ? '已看' : '全部'))}">全部</span>
+            </span>
+          </div>
+        </header>
+
+        <div class="bangumis-main-scroll">
+          <section class="bangumis-empty"
+                   th:if="${bangumis == null}">
+            <span class="bangumis-empty-icon icon-[lucide--circle-alert]" aria-hidden="true"></span>
+            <h2 class="bangumis-empty-title">插件未返回数据</h2>
+            <p class="bangumis-empty-text">请确认 Bilibili 追番插件已安装并完成 UID 配置。</p>
+          </section>
+
+          <section class="bangumis-empty"
+                   th:if="${bangumis != null and #lists.isEmpty(bangumis.items)}">
+            <span class="bangumis-empty-icon icon-[lucide--tv-minimal]" aria-hidden="true"></span>
+            <h2 class="bangumis-empty-title">暂无记录</h2>
+            <p class="bangumis-empty-text">当前类型或状态下还没有公开的追番追剧数据。</p>
+          </section>
+
+          <section class="bangumis-library"
+                   th:if="${bangumis != null and !#lists.isEmpty(bangumis.items)}">
+            <div class="bangumis-list">
+              <a class="bangumi-card"
+                 th:each="bangumi : ${bangumis.items}"
+                 th:with="
+                   statusClass=${(currentStatus == 1 or currentStatus == '1') ? 'is-wish' : ((currentStatus == 2 or currentStatus == '2') ? 'is-watching' : ((currentStatus == 3 or currentStatus == '3') ? 'is-done' : 'is-all'))},
+                   statusLabel=${(currentStatus == 1 or currentStatus == '1') ? '想看' : ((currentStatus == 2 or currentStatus == '2') ? '在看' : ((currentStatus == 3 or currentStatus == '3') ? '已看' : '追番'))}"
+                 th:href="${bangumi.spec.url}"
+                 target="_blank"
+                 rel="noopener noreferrer"
+                 data-bangumi-card
+                 x-show="shouldShowItem($el)"
+                 th:attr="data-bangumi-title=${bangumi.spec.title},
+                          data-bangumi-type=${bangumi.spec.type},
+                          data-bangumi-area=${bangumi.spec.area},
+                          data-bangumi-description=${bangumi.spec.des}">
+                <div class="bangumi-cover">
+                  <img th:if="${!#strings.isEmpty(bangumi.spec.cover)}"
+                       th:src="${bangumi.spec.cover}"
+                       th:alt="${bangumi.spec.title}"
+                       loading="lazy"
+                       decoding="async"
+                       referrerpolicy="no-referrer"
+                       onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                  <span class="bangumi-cover-fallback"
+                        th:style="${!#strings.isEmpty(bangumi.spec.cover) ? 'display:none' : ''}">
+                    <span class="icon-[lucide--image-off]" aria-hidden="true"></span>
+                  </span>
+                  <span class="bangumi-score" th:if="${bangumi.spec.score != null}">
+                    <span class="icon-[lucide--star]" aria-hidden="true"></span>
+                    <span th:text="${bangumi.spec.score}">9.9</span>
+                  </span>
+                  <span class="bangumi-episodes" th:if="${!#strings.isEmpty(bangumi.spec.totalCount)}"
+                        th:text="${bangumi.spec.totalCount}">全12话</span>
+                </div>
+
+                <div class="bangumi-card-body">
+                  <div class="bangumi-card-head">
+                    <h2 class="bangumi-card-title" th:text="${bangumi.spec.title}">标题</h2>
+                    <span class="bangumi-status" th:classappend="${statusClass}" th:text="${statusLabel}">追番</span>
+                  </div>
+                  <div class="bangumi-tags">
+                    <span th:if="${!#strings.isEmpty(bangumi.spec.type)}" th:text="${bangumi.spec.type}">类型</span>
+                    <span th:if="${!#strings.isEmpty(bangumi.spec.area)}" th:text="${bangumi.spec.area}">地区</span>
+                  </div>
+                  <p class="bangumi-description"
+                     th:if="${!#strings.isEmpty(bangumi.spec.des)}"
+                     th:text="${bangumi.spec.des}">简介</p>
+                  <div class="bangumi-stats">
+                    <span th:if="${!#strings.isEmpty(bangumi.spec.view)}" title="播放">
+                      <span class="icon-[lucide--play]" aria-hidden="true"></span>
+                      <span th:text="${bangumi.spec.view}">0</span>
+                    </span>
+                    <span th:if="${!#strings.isEmpty(bangumi.spec.danmaku)}" title="弹幕">
+                      <span class="icon-[lucide--message-circle]" aria-hidden="true"></span>
+                      <span th:text="${bangumi.spec.danmaku}">0</span>
+                    </span>
+                    <span th:if="${!#strings.isEmpty(bangumi.spec.follow)}" title="追番人数">
+                      <span class="icon-[lucide--heart]" aria-hidden="true"></span>
+                      <span th:text="${bangumi.spec.follow}">0</span>
+                    </span>
+                    <span th:if="${!#strings.isEmpty(bangumi.spec.coin)}" title="投币">
+                      <span class="icon-[lucide--circle-dollar-sign]" aria-hidden="true"></span>
+                      <span th:text="${bangumi.spec.coin}">0</span>
+                    </span>
+                  </div>
+                </div>
+              </a>
+            </div>
+
+            <section class="bangumis-empty bangumis-empty--inline" x-show="visibleCount() === 0" x-cloak>
+              <span class="bangumis-empty-icon icon-[lucide--search-x]" aria-hidden="true"></span>
+              <h2 class="bangumis-empty-title">没有匹配条目</h2>
+              <p class="bangumis-empty-text">换一个关键词继续搜索当前页。</p>
+            </section>
+
+            <div class="bangumis-infinite-loader"
+                 data-bangumis-loadmore
+                 th:data-next-url="${bangumis.hasNext() ? bangumis.nextUrl : ''}">
+              <span class="bangumis-loadmore-loading" x-show="loading" x-cloak>
+                <span class="icon-[lucide--loader-circle] bangumis-loading-icon" aria-hidden="true"></span>
+                加载中...
+              </span>
+              <span class="bangumis-loadmore-error" x-show="loadError" x-cloak>加载失败，继续滚动时会重试</span>
+              <span class="bangumis-scroll-sentinel" data-bangumis-scroll-sentinel aria-hidden="true"></span>
+            </div>
+          </section>
+        </div>
+      </section>
+    </div>
+  </div>
+</th:block>

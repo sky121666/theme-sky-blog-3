@@ -26,6 +26,14 @@
       "/themes/theme-sky-blog-3/assets/css/apps/author/index.css"
     ]
   },
+  "bangumis": {
+    "js": [
+      "/themes/theme-sky-blog-3/assets/js/apps/bangumis/index.js"
+    ],
+    "css": [
+      "/themes/theme-sky-blog-3/assets/css/apps/bangumis/index.css"
+    ]
+  },
   "explorer-categories": {
     "js": [
       "/themes/theme-sky-blog-3/assets/js/apps/categories/index.js"

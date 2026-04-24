@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<th:block xmlns:th="https://www.thymeleaf.org"
+          th:with="
+            currentType=${param.typeNum != null and !#lists.isEmpty(param.typeNum) ? param.typeNum[0] : (bangumis != null ? bangumis.typeNum : 1)},
+            currentStatus=${param.status != null and !#lists.isEmpty(param.status) ? param.status[0] : (bangumis != null ? bangumis.status : 0)},
+            currentSize=${param.size != null and !#lists.isEmpty(param.size) ? param.size[0] : (bangumis != null ? bangumis.size : '')},
+            isDrama=${currentType == 2 or currentType == '2'},
+            typeTitle=${isDrama ? '我的追剧' : '我的追番'},
+            statusTitle=${(currentStatus == 1 or currentStatus == '1') ? '想看' : ((currentStatus == 2 or currentStatus == '2') ? '在看' : ((currentStatus == 3 or currentStatus == '3') ? '已看' : '全部'))},
+            resolvedWindowTitle=${statusTitle == '全部' ? typeTitle : typeTitle + ' - ' + statusTitle},
+            resolvedWindowSubtitle=${bangumis != null ? ('共 ' + bangumis.total + ' 部') : '插件未返回数据'},
+            resolvedDocumentTitle=${resolvedWindowTitle + ' - ' + site.title}">
+  <html th:replace="~{modules/shell/layout :: html(
+          title = ${resolvedDocumentTitle},
+          description = 'Bilibili 追番追剧记录',
+          ssrContent = ~{modules/bangumis-app/list :: content},
+          canonical = '/bangumis',
+          image = ${site.logo},
+          type = 'website',
+          seoFallback = 'meta',
+          pageMode = 'browser-bangumis',
+          pageApp = 'bangumis',
+          windowVariant = 'bangumis',
+          windowScene = 'collection',
+          windowTitle = ${resolvedWindowTitle},
+          windowResizable = true,
+          windowMaximizable = true,
+          windowMetricsKey = 'bangumis'
+        )}"></html>
+</th:block>

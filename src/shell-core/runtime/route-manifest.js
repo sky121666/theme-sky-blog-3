@@ -37,6 +37,14 @@ const ROUTE_RULES = [
     matches: (pathname) => pathname === '/links' || pathname === '/links/'
   },
   {
+    id: 'bangumis',
+    appId: 'bangumis',
+    windowVariant: 'bangumis',
+    pjaxMode: 'same-app',
+    cacheKeyPolicy: 'app-path-search',
+    matches: (pathname) => pathname === '/bangumis' || pathname === '/bangumis/' || /^\/bangumis\/page\/[^/]+\/?$/.test(pathname)
+  },
+  {
     id: 'photos',
     appId: 'photos',
     windowVariant: 'photos',

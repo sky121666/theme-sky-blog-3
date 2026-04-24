@@ -385,6 +385,16 @@
                       metricsKey=${windowMetricsKey != null ? windowMetricsKey : 'links'}
                     )}" />
         </th:block>
+
+        <th:block th:if="${windowVariant == 'bangumis'}">
+          <th:block th:replace="~{modules/bangumis-app/window :: frame(
+                      titleText=${windowTitle},
+                      subtitleText='',
+                      contentFragment=${ssrContent},
+                      windowResizable=${windowResizable != null ? windowResizable : 'y'},
+                      metricsKey=${windowMetricsKey != null ? windowMetricsKey : 'bangumis'}
+                    )}" />
+        </th:block>
         
         <!-- 默认浏览器窗口变体 -->
         <th:block th:if="${windowVariant == 'browser'}">

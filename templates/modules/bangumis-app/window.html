@@ -1,0 +1,50 @@
+<th:block th:fragment="frame (titleText, subtitleText, contentFragment, windowResizable, metricsKey)">
+  <th:block th:replace="~{modules/shell/window-frame :: shell(
+      variant='bangumis',
+      metricsKey=${metricsKey},
+      resizable=${windowResizable != null ? windowResizable : 'true'},
+      maximizable='true',
+      widthAttr='1100',
+      extraClasses='bangumis-window md:min-w-[900px] md:min-h-[620px]',
+      inlineStyle='',
+      bodyFragment=~{::frameBody(contentFragment=${contentFragment}, windowResizable=${windowResizable})}
+    )}"></th:block>
+</th:block>
+
+<th:block th:fragment="frameBody (contentFragment, windowResizable)">
+  <th:block th:replace="~{modules/shell/window-frame :: resizeHandles(mode='full', enabled=${windowResizable == null or windowResizable != 'false'})}"></th:block>
+
+  <div class="bangumis-window-content"
+       data-window-scroll
+       data-window-content-root>
+    <th:block th:replace="~{modules/shell/window-frame :: loadingOverlay(contentFragment=~{::loadingSkeleton})}"></th:block>
+    <div id="pjax-container" data-window-content-variant="bangumis" class="bangumis-window-content-inner">
+      <th:block th:replace="${contentFragment}" />
+    </div>
+  </div>
+</th:block>
+
+<th:block th:fragment="loadingSkeleton">
+  <div class="bangumis-window-skeleton" aria-hidden="true">
+    <div class="bangumis-skeleton-sidebar">
+      <div class="bangumis-skeleton-dot-row skeleton-line"></div>
+      <div class="bangumis-skeleton-pill skeleton-chip"></div>
+      <div class="bangumis-skeleton-pill skeleton-chip"></div>
+      <div class="bangumis-skeleton-line skeleton-line"></div>
+      <div class="bangumis-skeleton-line skeleton-line is-short"></div>
+    </div>
+    <div class="bangumis-skeleton-main">
+      <div class="bangumis-skeleton-toolbar skeleton-chip"></div>
+      <div class="bangumis-skeleton-grid">
+        <div class="bangumis-skeleton-card skeleton-panel" th:each="i : ${#numbers.sequence(1, 6)}">
+          <div class="bangumis-skeleton-cover skeleton-chip"></div>
+          <div class="bangumis-skeleton-copy">
+            <div class="bangumis-skeleton-title skeleton-line"></div>
+            <div class="bangumis-skeleton-desc skeleton-line"></div>
+            <div class="bangumis-skeleton-desc skeleton-line is-short"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</th:block>

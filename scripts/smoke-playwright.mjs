@@ -152,6 +152,17 @@ async function main() {
       appPropsSelector: 'script[data-app-props="links"]'
     },
     {
+      name: 'bangumis',
+      target: '/bangumis',
+      optional: true,
+      requireShellLoaded: true,
+      expectedAppId: 'bangumis',
+      expectedPageMode: 'browser-bangumis',
+      expectedWindowVariant: 'bangumis',
+      appRootSelector: '[data-app-root="bangumis"]',
+      appPropsSelector: 'script[data-app-props="bangumis"]'
+    },
+    {
       name: 'photos',
       target: '/photos',
       optional: true,
