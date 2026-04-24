@@ -32,9 +32,7 @@
 
           <div class="category-folder-card is-active">
             <div class="category-folder-icon-wrap">
-              <svg class="categories-folder-icon categories-folder-icon--detail" viewBox="0 0 20 16" fill="none" aria-hidden="true">
-                <path d="M1.5 4.25C1.5 3.00736 2.50736 2 3.75 2H7.375C7.94958 2 8.50106 2.22076 8.91529 2.61612L10.0897 3.75H16.25C17.4926 3.75 18.5 4.75736 18.5 6V11.75C18.5 12.9926 17.4926 14 16.25 14H3.75C2.50736 14 1.5 12.9926 1.5 11.75V4.25Z" fill="currentColor"/>
-              </svg>
+              <span class="categories-folder-icon categories-folder-icon--detail icon-[lucide--folder]" aria-hidden="true"></span>
             </div>
             <div class="category-folder-copy">
               <h1 class="category-folder-title" th:text="${category.spec.displayName}">分类</h1>
@@ -80,10 +78,7 @@
                @click="selectPost($el)"
                :class="{ 'is-active': activePostKey === $el.dataset.postKey }">
               <div class="category-post-row-main">
-                <svg class="category-post-file-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <path d="M4 1.75H9.25L12.5 5V12.5C12.5 13.3284 11.8284 14 11 14H4C3.17157 14 2.5 13.3284 2.5 12.5V3.25C2.5 2.42157 3.17157 1.75 4 1.75Z" stroke="currentColor" stroke-width="1.1"/>
-                  <path d="M9 1.75V5.25H12.5" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/>
-                </svg>
+                <span class="category-post-file-icon icon-[lucide--file-text]" aria-hidden="true"></span>
                 <span class="category-post-row-title" th:text="${post.spec.title}">文章标题</span>
               </div>
               <span class="category-post-row-meta">
@@ -122,10 +117,7 @@
             <article class="category-preview-panel" x-show="activePostKey" x-cloak>
               <header class="category-preview-header">
                 <div class="category-preview-icon">
-                  <svg class="category-post-file-icon category-post-file-icon--preview" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <path d="M4 1.75H9.25L12.5 5V12.5C12.5 13.3284 11.8284 14 11 14H4C3.17157 14 2.5 13.3284 2.5 12.5V3.25C2.5 2.42157 3.17157 1.75 4 1.75Z" stroke="currentColor" stroke-width="1.1"/>
-                    <path d="M9 1.75V5.25H12.5" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/>
-                  </svg>
+                  <span class="category-post-file-icon category-post-file-icon--preview icon-[lucide--file-text]" aria-hidden="true"></span>
                 </div>
                 <div class="category-preview-heading">
                   <h2 class="category-preview-title" x-text="activePostTitle">文章标题</h2>
@@ -163,9 +155,7 @@
       <div class="category-empty" th:if="${posts == null or #lists.isEmpty(posts.items)}">
         <div class="category-folder-card is-active">
           <div class="category-folder-icon-wrap">
-            <svg class="categories-folder-icon categories-folder-icon--detail" viewBox="0 0 20 16" fill="none" aria-hidden="true">
-              <path d="M1.5 4.25C1.5 3.00736 2.50736 2 3.75 2H7.375C7.94958 2 8.50106 2.22076 8.91529 2.61612L10.0897 3.75H16.25C17.4926 3.75 18.5 4.75736 18.5 6V11.75C18.5 12.9926 17.4926 14 16.25 14H3.75C2.50736 14 1.5 12.9926 1.5 11.75V4.25Z" fill="currentColor"/>
-            </svg>
+            <span class="categories-folder-icon categories-folder-icon--detail icon-[lucide--folder]" aria-hidden="true"></span>
           </div>
           <div class="category-folder-copy">
             <h1 class="category-folder-title" th:text="${category.spec.displayName}">分类</h1>

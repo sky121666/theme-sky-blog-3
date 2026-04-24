@@ -11,28 +11,28 @@
             role="status"
             data-auth-toast
             th:if="${param.logout.size() > 0}">
-            <svg class="auth-alert-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+            <span class="auth-alert-icon icon-[lucide--circle-check]" aria-hidden="true"></span>
             <span>已成功退出登录</span>
         </div>
         <div class="auth-alert auth-alert-success auth-alert-toast"
             role="status"
             data-auth-toast
             th:if="${param.signup.size() > 0}">
-            <svg class="auth-alert-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+            <span class="auth-alert-icon icon-[lucide--circle-check]" aria-hidden="true"></span>
             <span>注册成功！请登录您的账户</span>
         </div>
         <div class="auth-alert auth-alert-info auth-alert-toast"
             role="status"
             data-auth-toast
             th:if="${param.oauth2_bind.size() > 0}">
-            <svg class="auth-alert-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+            <span class="auth-alert-icon icon-[lucide--info]" aria-hidden="true"></span>
             <span>请绑定您的账户以完成登录</span>
         </div>
         <div class="auth-alert auth-alert-success auth-alert-toast"
             role="status"
             data-auth-toast
             th:if="${param.password_reset.size() > 0}">
-            <svg class="auth-alert-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+            <span class="auth-alert-icon icon-[lucide--circle-check]" aria-hidden="true"></span>
             <span>密码已重置，请使用新密码登录</span>
         </div>
     </div>
@@ -63,7 +63,7 @@
     <!-- 错误提示 -->
     <div class="auth-alert auth-alert-error"
         role="alert" th:if="${param.error.size() > 0}" th:with="error = ${param.error[0]}">
-        <svg class="auth-alert-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+        <span class="auth-alert-icon icon-[lucide--circle-alert]" aria-hidden="true"></span>
         <div>
             <span th:if="${error == 'invalid-credential'}">用户名或密码错误，请重试</span>
             <span th:if="${error == 'rate-limit-exceeded'}">登录尝试次数过多，请稍后再试</span>

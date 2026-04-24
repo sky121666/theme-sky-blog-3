@@ -383,7 +383,8 @@
 }
 
 .links-button-icon,
-.links-toolbar-apply svg {
+.links-toolbar-apply svg,
+.links-toolbar-apply span[class*="icon-["] {
   width: 14px;
   height: 14px;
   flex: 0 0 auto;
@@ -562,6 +563,7 @@
 }
 
 .link-card-url svg,
+.link-card-url span[class*="icon-["],
 .link-card-url-icon {
   width: 13px;
   height: 13px;

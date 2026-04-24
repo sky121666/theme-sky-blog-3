@@ -154,10 +154,7 @@ export function registerCategoriesExplorer(Alpine) {
           @click="selectPost($el)"
           :class="{ 'is-active': activePostKey === $el.dataset.postKey }">
           <div class="category-post-row-main">
-            <svg class="category-post-file-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M4 1.75H9.25L12.5 5V12.5C12.5 13.3284 11.8284 14 11 14H4C3.17157 14 2.5 13.3284 2.5 12.5V3.25C2.5 2.42157 3.17157 1.75 4 1.75Z" stroke="currentColor" stroke-width="1.1" />
-              <path d="M9 1.75V5.25H12.5" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round" />
-            </svg>
+            <span class="category-post-file-icon icon-[lucide--file-text]" aria-hidden="true"></span>
             <span class="category-post-row-title">${title}</span>
           </div>
           <span class="category-post-row-meta">

@@ -57,19 +57,14 @@
                               data-photos-mode-btn="square"
                               title="方格"
                               onclick="this.closest('[data-window-surface]')?.dispatchEvent(new CustomEvent('photos:set-mode', { detail: { mode: 'square' }, bubbles: true }))">
-                          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
-                              <rect x="2" y="2" width="12" height="12" rx="2"></rect>
-                          </svg>
+                          <span class="icon-[lucide--grid-2x2] w-[15px] h-[15px]" aria-hidden="true"></span>
                       </button>
                       <button type="button"
                               class="photos-titlebar-btn photos-titlebar-segment"
                               data-photos-mode-btn="aspect"
                               title="瀑布流"
                               onclick="this.closest('[data-window-surface]')?.dispatchEvent(new CustomEvent('photos:set-mode', { detail: { mode: 'aspect' }, bubbles: true }))">
-                          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
-                              <rect x="2" y="3" width="5" height="10" rx="1"></rect>
-                              <rect x="9" y="5" width="5" height="6" rx="1"></rect>
-                          </svg>
+                          <span class="icon-[lucide--columns-2] w-[15px] h-[15px]" aria-hidden="true"></span>
                       </button>
                   </div>
                   <div class="photos-titlebar-group photos-titlebar-group--density" data-photos-density-group>
@@ -78,18 +73,14 @@
                               data-photos-cols="decrease"
                               title="减少数量"
                               onclick="this.closest('[data-window-surface]')?.dispatchEvent(new CustomEvent('photos:cols-decrease', { bubbles: true }))">
-                          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
-                              <path d="M3 8H13" stroke-linecap="round"></path>
-                          </svg>
+                          <span class="icon-[lucide--minus] w-[15px] h-[15px]" aria-hidden="true"></span>
                       </button>
                       <button type="button"
                               class="photos-titlebar-btn photos-titlebar-action"
                               data-photos-cols="increase"
                               title="增加数量"
                               onclick="this.closest('[data-window-surface]')?.dispatchEvent(new CustomEvent('photos:cols-increase', { bubbles: true }))">
-                          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
-                              <path d="M8 3V13M3 8H13" stroke-linecap="round"></path>
-                          </svg>
+                          <span class="icon-[lucide--plus] w-[15px] h-[15px]" aria-hidden="true"></span>
                       </button>
                   </div>
               </div>

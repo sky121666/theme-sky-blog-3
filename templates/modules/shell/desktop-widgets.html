@@ -76,7 +76,7 @@
             <button type="button"
                     class="desktop-context-menu-item"
                     @click="openWidgetEditorFromDesktopMenu()">
-              <svg viewBox="0 0 16 16" fill="none"><path d="M12 2.5a1.5 1.5 0 0 1 2.12 2.12L6.5 12.25 3 13l.75-3.5 8.25-8.25z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M10.5 4.5l2 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span class="icon-[lucide--pencil]" aria-hidden="true"></span>
               <span>编辑桌面...</span>
             </button>
           </div>
@@ -89,13 +89,13 @@
               <button type="button"
                       class="desktop-context-menu-item"
                       @click="setEditStage('add'); closeDesktopContextMenu()">
-                <svg viewBox="0 0 16 16" fill="none"><path d="M8 3.5V12.5M3.5 8H12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                <span class="icon-[lucide--plus]" aria-hidden="true"></span>
                 <span>添加组件</span>
               </button>
               <button type="button"
                       class="desktop-context-menu-item"
                       @click="openAddIconForm(); closeDesktopContextMenu()">
-                <svg viewBox="0 0 16 16" fill="none"><path d="M4 2H9L12 5V13A1 1 0 0111 14H4A1 1 0 013 13V3A1 1 0 014 2Z" stroke="currentColor" stroke-width="1.2"/><path d="M8 7V11M6 9H10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+                <span class="icon-[lucide--file-plus]" aria-hidden="true"></span>
                 <span>添加图标</span>
               </button>
             </div>
@@ -105,7 +105,7 @@
               <button type="button"
                       class="desktop-context-menu-item"
                       @click="reArrangeIcons(); closeDesktopContextMenu()">
-                <svg viewBox="0 0 16 16" fill="none"><path d="M3 5H13M3 8H10M3 11H7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+                <span class="icon-[lucide--list-ordered]" aria-hidden="true"></span>
                 <span>整理图标</span>
               </button>
             </div>
@@ -116,14 +116,14 @@
                       class="desktop-context-menu-item"
                       style="color: var(--theme-danger, #ef4444);"
                       @click="resetLayout(); closeDesktopContextMenu()">
-                <svg viewBox="0 0 16 16" fill="none"><path d="M2.5 4H13.5M5 4V3C5 2.44772 5.44772 2 6 2H10C10.5523 2 11 2.44772 11 3V4M6.5 6.5V11.5M9.5 6.5V11.5M4 4V13C4 13.5523 4.44772 14 5 14H11C11.5523 14 12 13.5523 12 13V4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+                <span class="icon-[lucide--trash-2]" aria-hidden="true"></span>
                 <span>清空组件</span>
               </button>
               <button type="button"
                       class="desktop-context-menu-item"
                       style="color: var(--theme-danger, #ef4444);"
                       @click="clearAllIcons(); closeDesktopContextMenu()">
-                <svg viewBox="0 0 16 16" fill="none"><path d="M3.25 3.25l9.5 9.5M3.25 12.75l9.5-9.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+                <span class="icon-[lucide--x]" aria-hidden="true"></span>
                 <span>清空图标</span>
               </button>
             </div>
@@ -134,7 +134,7 @@
                       class="desktop-context-menu-item desktop-context-menu-item--primary"
                       :disabled="serverLayoutSaving"
                       @click="saveDesktopEditing(); closeDesktopContextMenu()">
-                <svg viewBox="0 0 16 16" fill="none"><path d="M4 8.5L6.5 11.5L12 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span class="icon-[lucide--check]" aria-hidden="true"></span>
                 <span x-text="serverLayoutSaving ? '保存中...' : '保存'"></span>
               </button>
             </div>
@@ -163,7 +163,7 @@
           <header class="desktop-add-icon-dialog-header">
             <h2>添加图标</h2>
             <button type="button" class="desktop-add-icon-close" @click="closeAddIconForm()" aria-label="关闭">
-              <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor" opacity="0.18"/><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+              <span class="icon-[lucide--x]" aria-hidden="true"></span>
             </button>
           </header>
           <div class="desktop-add-icon-form">
@@ -225,7 +225,7 @@
           <header class="desktop-add-icon-dialog-header">
             <h2>配置图库组件</h2>
             <button type="button" class="desktop-add-icon-close" @click="closeWidgetConfigForm()" aria-label="关闭">
-              <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor" opacity="0.18"/><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+              <span class="icon-[lucide--x]" aria-hidden="true"></span>
             </button>
           </header>
           <div class="desktop-add-icon-form">
@@ -313,10 +313,7 @@
           <div class="desktop-widget-center-shell">
             <aside class="desktop-widget-center-sidebar">
               <label class="desktop-widget-center-search">
-                <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <path d="M7 12.25C9.89949 12.25 12.25 9.89949 12.25 7C12.25 4.10051 9.89949 1.75 7 1.75C4.10051 1.75 1.75 4.10051 1.75 7C1.75 9.89949 4.10051 12.25 7 12.25Z" stroke="currentColor" stroke-width="1.25"></path>
-                  <path d="M11 11L14 14" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"></path>
-                </svg>
+                <span class="icon-[lucide--search]" aria-hidden="true"></span>
                 <input type="search"
                        placeholder="搜索"
                        x-model.trim="widgetCenterSearch">
@@ -456,10 +453,7 @@
                       @click.stop="hideWidget(node.key)"
                       style="display: none;"
                       aria-label="移除组件">
-                <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <circle cx="8" cy="8" r="7" fill="currentColor" opacity="0.9"/>
-                  <path d="M5 8H11" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
-                </svg>
+                <span class="icon-[lucide--minus]" aria-hidden="true"></span>
               </button>
 
               <template x-if="isIconNode(node)">
@@ -483,10 +477,7 @@
                       @click.stop="removeIcon(node.key)"
                       style="display: none;"
                       aria-label="移除图标">
-                <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <circle cx="8" cy="8" r="7" fill="currentColor" opacity="0.9"/>
-                  <path d="M5 8H11" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
-                </svg>
+                <span class="icon-[lucide--minus]" aria-hidden="true"></span>
               </button>
             </div>
           </template>

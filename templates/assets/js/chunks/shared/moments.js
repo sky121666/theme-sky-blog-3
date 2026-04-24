@@ -1,75 +1,67 @@
-import{a as l,c as d,i as a}from"../apps/reader/post-outline.js";function p(e,i="full"){const t=e?new Date(e):null;if(!t||Number.isNaN(t.getTime()))return i==="list"?"--.-- --:--":"未知时间";const r=o=>String(o).padStart(2,"0");return i==="list"?`${r(t.getMonth()+1)}.${r(t.getDate())} ${r(t.getHours())}:${r(t.getMinutes())}`:`${t.getFullYear()}.${r(t.getMonth()+1)}.${r(t.getDate())} ${r(t.getHours())}:${r(t.getMinutes())}`}function w(e){const i=e?.metadata?.name||"",t=e?.spec?.content||{},r=Array.isArray(t.medium)?t.medium:[],o=Array.isArray(e?.spec?.tags)?e.spec.tags:[];let s=l(t.html||"")||l(t.raw||"");if(s&&o.length>0){for(const h of o)s=s.replace(new RegExp(`#${h.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}`,"g"),"");s=s.replace(/\s+/g," ").trim()}const n=r.length,c=s?d(s,36):n>0?"图片瞬间":"瞬间记录",u=s?d(s,88):n>0?"打开预览查看媒体内容":"打开预览查看完整内容";return{key:i,title:c||"瞬间记录",summary:u||"打开预览查看完整内容",listTime:p(e?.spec?.releaseTime,"list"),fullTime:p(e?.spec?.releaseTime,"full"),media:r,mediaCount:n,rowBadge:n>0?`${n} 项媒体`:"文本",mediaLabel:n>0?`${n} 项媒体`:"纯文本",interactions:`${e?.stats?.upvote??0} 赞 · ${e?.stats?.totalComment??0} 评论`,tags:o,html:t.html||(s?`<p>${a(s)}</p>`:""),permalink:i?`/moments/${encodeURIComponent(i)}`:"/moments"}}function m(e){const i=e?.type||"",t=a(e?.url||"");return i==="PHOTO"?`<div class="author-moment-preview-tile is-photo"><img src="${t}" alt=""></div>`:i==="VIDEO"?`<div class="author-moment-preview-tile is-video"><video src="${t}" preload="metadata" controls playsinline></video></div>`:i==="AUDIO"?'<div class="author-moment-preview-tile is-placeholder"><div class="author-moment-preview-placeholder"><span>音频</span></div></div>':'<div class="author-moment-preview-tile is-placeholder"><div class="author-moment-preview-placeholder"><span>文章卡片</span></div></div>'}function g(e){return`
+import{a as l,c as d,i as t}from"../apps/reader/post-outline.js";function p(e,r="full"){const a=e?new Date(e):null;if(!a||Number.isNaN(a.getTime()))return r==="list"?"--.-- --:--":"未知时间";const i=n=>String(n).padStart(2,"0");return r==="list"?`${i(a.getMonth()+1)}.${i(a.getDate())} ${i(a.getHours())}:${i(a.getMinutes())}`:`${a.getFullYear()}.${i(a.getMonth()+1)}.${i(a.getDate())} ${i(a.getHours())}:${i(a.getMinutes())}`}function w(e){const r=e?.metadata?.name||"",a=e?.spec?.content||{},i=Array.isArray(a.medium)?a.medium:[],n=Array.isArray(e?.spec?.tags)?e.spec.tags:[];let s=l(a.html||"")||l(a.raw||"");if(s&&n.length>0){for(const u of n)s=s.replace(new RegExp(`#${u.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}`,"g"),"");s=s.replace(/\s+/g," ").trim()}const o=i.length,c=s?d(s,36):o>0?"图片瞬间":"瞬间记录",m=s?d(s,88):o>0?"打开预览查看媒体内容":"打开预览查看完整内容";return{key:r,title:c||"瞬间记录",summary:m||"打开预览查看完整内容",listTime:p(e?.spec?.releaseTime,"list"),fullTime:p(e?.spec?.releaseTime,"full"),media:i,mediaCount:o,rowBadge:o>0?`${o} 项媒体`:"文本",mediaLabel:o>0?`${o} 项媒体`:"纯文本",interactions:`${e?.stats?.upvote??0} 赞 · ${e?.stats?.totalComment??0} 评论`,tags:n,html:a.html||(s?`<p>${t(s)}</p>`:""),permalink:r?`/moments/${encodeURIComponent(r)}`:"/moments"}}function h(e){const r=e?.type||"",a=t(e?.url||"");return r==="PHOTO"?`<div class="author-moment-preview-tile is-photo"><img src="${a}" alt=""></div>`:r==="VIDEO"?`<div class="author-moment-preview-tile is-video"><video src="${a}" preload="metadata" controls playsinline></video></div>`:r==="AUDIO"?'<div class="author-moment-preview-tile is-placeholder"><div class="author-moment-preview-placeholder"><span>音频</span></div></div>':'<div class="author-moment-preview-tile is-placeholder"><div class="author-moment-preview-placeholder"><span>文章卡片</span></div></div>'}function $(e){return`
     <a class="author-moment-row pjax-link"
        data-pjax-app="moments"
        data-author-moment-option
-       data-moment-key="${a(e.key)}"
-       data-moment-title="${a(e.title)}"
-       href="${a(e.permalink)}">
+       data-moment-key="${t(e.key)}"
+       data-moment-title="${t(e.title)}"
+       href="${t(e.permalink)}">
       <div class="author-moment-row-main">
         <span class="author-moment-row-icon" aria-hidden="true">
-          <svg viewBox="0 0 20 20" fill="none">
-            <path d="M5 5.5H15C16.1046 5.5 17 6.39543 17 7.5V12.5C17 13.6046 16.1046 14.5 15 14.5H5C3.89543 14.5 3 13.6046 3 12.5V7.5C3 6.39543 3.89543 5.5 5 5.5Z" stroke="currentColor" stroke-width="1.15"></path>
-            <path d="M6.25 11.75L8.25 9.75L10 11.5L12.75 8.75" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round"></path>
-            <circle cx="6.75" cy="7.9" r="0.9" fill="currentColor"></circle>
-          </svg>
+          <span class="icon-[lucide--image]" aria-hidden="true"></span>
         </span>
         <span class="author-moment-row-copy">
-          <span class="author-moment-row-title">${a(e.title)}</span>
-          <span class="author-moment-row-summary">${a(e.summary)}</span>
+          <span class="author-moment-row-title">${t(e.title)}</span>
+          <span class="author-moment-row-summary">${t(e.summary)}</span>
         </span>
       </div>
       <span class="author-moment-row-meta">
-        <span class="author-moment-row-date">${a(e.listTime)}</span>
-        <span class="author-moment-row-badge">${a(e.rowBadge)}</span>
+        <span class="author-moment-row-date">${t(e.listTime)}</span>
+        <span class="author-moment-row-badge">${t(e.rowBadge)}</span>
       </span>
     </a>
-  `}function $(e,i){const t=e.mediaCount>0?`<div class="author-moment-preview-media">${e.media.map(o=>m(o)).join("")}</div>`:"",r=e.tags.length>0?`
+  `}function g(e,r){const a=e.mediaCount>0?`<div class="author-moment-preview-media">${e.media.map(n=>h(n)).join("")}</div>`:"",i=e.tags.length>0?`
       <div>
         <dt>标签</dt>
         <dd>
           <span class="author-inline-chip-list">
-            ${e.tags.map(o=>`<span class="author-inline-chip">${a(o)}</span>`).join("")}
+            ${e.tags.map(n=>`<span class="author-inline-chip">${t(n)}</span>`).join("")}
           </span>
         </dd>
       </div>
     `:"";return`
     <article class="author-preview-panel tag-preview-panel author-preview-panel--moment"
              data-author-moment-panel
-             data-moment-key="${a(e.key)}">
+             data-moment-key="${t(e.key)}">
       <header class="author-preview-header tag-preview-header">
         <div class="author-preview-icon tag-preview-icon author-preview-icon--moment">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M7.25 5.75H16.75C18.1307 5.75 19.25 6.86929 19.25 8.25V15.75C19.25 17.1307 18.1307 18.25 16.75 18.25H7.25C5.86929 18.25 4.75 17.1307 4.75 15.75V8.25C4.75 6.86929 5.86929 5.75 7.25 5.75Z" stroke="currentColor" stroke-width="1.25"></path>
-            <path d="M8 14.25L10.5 11.75L12.75 14L15.75 11" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"></path>
-            <circle cx="9" cy="9.25" r="1" fill="currentColor"></circle>
-          </svg>
+          <span class="icon-[lucide--image]" aria-hidden="true"></span>
         </div>
         <div class="author-preview-heading tag-preview-heading">
-          <h2 class="author-preview-title tag-preview-title">${a(e.title)}</h2>
-          <p class="author-preview-path tag-preview-path">${a(`${i||"作者"} / ${e.fullTime}`)}</p>
+          <h2 class="author-preview-title tag-preview-title">${t(e.title)}</h2>
+          <p class="author-preview-path tag-preview-path">${t(`${r||"作者"} / ${e.fullTime}`)}</p>
         </div>
       </header>
 
-      ${t}
+      ${a}
 
       <dl class="author-preview-meta tag-preview-meta">
         <div>
           <dt>发布时间</dt>
-          <dd>${a(e.fullTime)}</dd>
+          <dd>${t(e.fullTime)}</dd>
         </div>
         <div>
           <dt>互动</dt>
-          <dd>${a(e.interactions)}</dd>
+          <dd>${t(e.interactions)}</dd>
         </div>
         <div>
           <dt>内容类型</dt>
-          <dd>${a(e.mediaLabel)}</dd>
+          <dd>${t(e.mediaLabel)}</dd>
         </div>
-        ${r}
+        ${i}
       </dl>
 
       ${e.html?`<div class="author-moment-preview-body">${e.html}</div>`:""}
 
-      <a class="author-preview-action tag-preview-action pjax-link" data-pjax-app="moments" href="${a(e.permalink)}">打开瞬间</a>
+      <a class="author-preview-action tag-preview-action pjax-link" data-pjax-app="moments" href="${t(e.permalink)}">打开瞬间</a>
     </article>
-  `}export{$ as n,g as r,w as t};
+  `}export{g as n,$ as r,w as t};

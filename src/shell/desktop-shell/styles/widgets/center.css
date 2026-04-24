@@ -111,7 +111,8 @@
   gap: 8px;
 }
 
-.desktop-context-menu-item svg {
+.desktop-context-menu-item svg,
+.desktop-context-menu-item span[class*="icon-["] {
   width: 14px;
   height: 14px;
   flex-shrink: 0;
@@ -125,7 +126,9 @@
 }
 
 .desktop-context-menu-item:hover svg,
-.desktop-context-menu-item:focus svg {
+.desktop-context-menu-item:hover span[class*="icon-["],
+.desktop-context-menu-item:focus svg,
+.desktop-context-menu-item:focus span[class*="icon-["] {
   opacity: 1;
 }
 
@@ -517,7 +520,8 @@
   border: 1px solid rgba(255, 255, 255, 0.028);
 }
 
-.desktop-widget-center-search svg {
+.desktop-widget-center-search svg,
+.desktop-widget-center-search span {
   width: 14px;
   height: 14px;
   color: rgba(255, 255, 255, 0.44);
@@ -805,7 +809,8 @@
   transition: color 140ms ease;
 }
 
-.desktop-add-icon-close svg {
+.desktop-add-icon-close svg,
+.desktop-add-icon-close span {
   width: 18px;
   height: 18px;
 }

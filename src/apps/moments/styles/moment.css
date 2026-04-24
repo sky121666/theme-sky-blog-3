@@ -164,7 +164,8 @@
   color: #fff;
 }
 
-.moments-titlebar-back svg {
+.moments-titlebar-back svg,
+.moments-titlebar-back span {
   width: 18px !important;
   height: 18px !important;
   flex: 0 0 18px;
@@ -195,7 +196,8 @@
   color: #fff;
 }
 
-.moments-titlebar-icon-btn svg {
+.moments-titlebar-icon-btn svg,
+.moments-titlebar-icon-btn span {
   width: 16px !important;
   height: 16px !important;
   flex: 0 0 16px;
@@ -551,7 +553,8 @@
   background: var(--wc-action-bg-hover);
 }
 
-.moment-feed-video-placeholder svg {
+.moment-feed-video-placeholder svg,
+.moment-feed-video-placeholder span {
   fill: var(--wc-video-icon);
 }
 

@@ -47,7 +47,8 @@
   letter-spacing: 0.03em;
 }
 
-.wg-cat-title svg {
+.wg-cat-title svg,
+.wg-cat-title span {
   opacity: 0.7;
 }
 
@@ -66,11 +67,13 @@
   color: rgba(255, 255, 255, 0.85);
 }
 
-.wg-cat-more svg {
+.wg-cat-more svg,
+.wg-cat-more span {
   transition: transform 0.2s;
 }
 
-.wg-cat-more:hover svg {
+.wg-cat-more:hover svg,
+.wg-cat-more:hover span {
   transform: translateX(2px);
 }
 
@@ -113,7 +116,8 @@
   transition: transform 0.2s ease, background 0.2s ease;
 }
 
-.wg-cat-icon svg {
+.wg-cat-icon svg,
+.wg-cat-icon span {
   width: 22px;
   height: 22px;
 }

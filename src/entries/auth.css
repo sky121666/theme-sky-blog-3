@@ -413,7 +413,8 @@ html.dark body.auth-gateway-page {
   transform: scale(0.96);
 }
 
-.mac-traffic-light svg {
+.mac-traffic-light svg,
+.mac-traffic-light span {
   color: rgba(0, 0, 0, 0.58);
   height: 8px;
   opacity: 0;
@@ -421,7 +422,8 @@ html.dark body.auth-gateway-page {
   width: 8px;
 }
 
-.mac-traffic-lights:hover .mac-traffic-light svg {
+.mac-traffic-lights:hover .mac-traffic-light svg,
+.mac-traffic-lights:hover .mac-traffic-light span {
   opacity: 1;
 }
 
@@ -782,7 +784,8 @@ html.dark body.auth-gateway-page .auth-gateway-avatar {
   transform: translateY(-50%);
 }
 
-.auth-input-icon svg {
+.auth-input-icon svg,
+.auth-input-icon span {
   display: block;
   height: 18px;
   width: 18px;
@@ -884,7 +887,8 @@ html.dark body.auth-gateway-page .auth-gateway-avatar {
   color: var(--auth-text-primary);
 }
 
-.auth-toggle-password svg {
+.auth-toggle-password svg,
+.auth-toggle-password span {
   display: block;
   height: 16px;
   width: 16px;

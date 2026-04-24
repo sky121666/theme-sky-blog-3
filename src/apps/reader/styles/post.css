@@ -94,7 +94,8 @@
   color: rgba(17, 24, 39, 0.28);
 }
 
-.post-meta-item svg {
+.post-meta-item svg,
+.post-meta-item span[class*="icon-["] {
   display: none;
 }
 

@@ -127,11 +127,16 @@ button.menubar-mobile-trigger {
 }
 
 .menubar-icon-btn svg,
+.menubar-icon-btn [class*="icon-["],
 .menubar-theme-btn svg,
+.menubar-theme-btn [class*="icon-["],
 .menubar-search-btn svg,
-.menubar-mobile-trigger svg {
+.menubar-search-btn [class*="icon-["],
+.menubar-mobile-trigger svg,
+.menubar-mobile-trigger [class*="icon-["] {
   width: 14px;
   height: 14px;
+  flex: 0 0 14px;
 }
 
 .menubar-brand-icon {
@@ -184,9 +189,11 @@ button.menubar-mobile-trigger {
   border-radius: 4px;
 }
 
-.menubar-auth-btn--icon svg {
+.menubar-auth-btn--icon svg,
+.menubar-auth-btn--icon [class*="icon-["] {
   width: 14px;
   height: 14px;
+  flex: 0 0 14px;
 }
 
 .menubar-time {
@@ -311,7 +318,8 @@ button.menubar-mobile-trigger {
   width: 12px;
 }
 
-.menubar-dropdown-trailing svg {
+.menubar-dropdown-trailing svg,
+.menubar-dropdown-trailing span {
   width: 10px;
   height: 10px;
   opacity: 0.5;
@@ -328,7 +336,8 @@ button.menubar-mobile-trigger {
   opacity: 1;
 }
 
-.menubar-dropdown-item:hover .menubar-dropdown-trailing svg {
+.menubar-dropdown-item:hover .menubar-dropdown-trailing svg,
+.menubar-dropdown-item:hover .menubar-dropdown-trailing span {
   opacity: 0.82;
 }
 

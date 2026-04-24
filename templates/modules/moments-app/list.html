@@ -89,7 +89,7 @@
                      th:href="${'/moments/' + moment.metadata.name}"
                      class="moment-feed-video-placeholder pjax-link"
                      title="点击查看视频">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                    <span class="icon-[lucide--play]" aria-hidden="true"></span>
                     <span class="moment-feed-video-label">视频</span>
                   </a>
                 </th:block>
@@ -257,7 +257,7 @@
         <div x-intersect.full.margin.200px="loadNext()" class="w-full py-8 flex items-center justify-center text-[13px] text-white/50 tracking-widest">
             <template x-if="hasMore && loading">
                 <span class="flex items-center gap-2">
-                    <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    <span class="icon-[lucide--loader-circle] animate-spin h-4 w-4" aria-hidden="true"></span>
                     加载中...
                 </span>
             </template>

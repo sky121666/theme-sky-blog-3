@@ -534,7 +534,8 @@
   cursor: pointer;
 }
 
-.traffic-btn svg {
+.traffic-btn svg,
+.traffic-btn span {
   opacity: 0;
   width: 7px;
   height: 7px;
@@ -542,7 +543,8 @@
   pointer-events: none;
 }
 
-.traffic-lights:hover .traffic-btn svg {
+.traffic-lights:hover .traffic-btn svg,
+.traffic-lights:hover .traffic-btn span {
   opacity: 1;
 }
 
@@ -554,9 +556,9 @@
 .dark .traffic-btn.minimize { background-color: #febc2e; }
 .dark .traffic-btn.maximize { background-color: #28c840; }
 
-.traffic-btn.close svg path { stroke: #4d0000; }
-.traffic-btn.minimize svg path { stroke: #995700; }
-.traffic-btn.maximize svg path { fill: #004d09; }
+.traffic-btn.close span { color: #4d0000; }
+.traffic-btn.minimize span { color: #995700; }
+.traffic-btn.maximize span { color: #004d09; }
 
 /* ---------- Loading Overlay & Skeleton ---------- */
 :root {

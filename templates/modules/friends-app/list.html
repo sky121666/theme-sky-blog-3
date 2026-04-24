@@ -126,9 +126,7 @@
                   <a class="friend-feed-actions-item pjax-link"
                      th:if="${spec != null and !#strings.isEmpty(spec.linkName)}"
                      th:href="@{/friends(linkName=${spec.linkName})}">
-                    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                      <path d="M8 1.5 9.91 5.37l4.27.62-3.09 3.02.73 4.25L8 11.26l-3.82 2 .73-4.25L1.82 5.99l4.27-.62L8 1.5Z" fill="currentColor"></path>
-                    </svg>
+                    <span class="icon-[lucide--star]" aria-hidden="true"></span>
                     只看此来源
                   </a>
                 </div>
@@ -251,7 +249,7 @@
              class="w-full py-8 flex items-center justify-center text-[13px] text-white/50 tracking-widest">
           <template x-if="hasMore && loading">
             <span class="flex items-center gap-2">
-              <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+              <span class="icon-[lucide--loader-circle] animate-spin h-4 w-4" aria-hidden="true"></span>
               加载中...
             </span>
           </template>

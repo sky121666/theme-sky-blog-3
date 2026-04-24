@@ -74,27 +74,18 @@
                  class="mac-traffic-light close auth-traffic-link"
                  aria-label="返回首页"
                  title="返回首页">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
+                <span class="icon-[lucide--x]" aria-hidden="true"></span>
               </a>
               <span class="mac-traffic-light min" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
+                <span class="icon-[lucide--minus]" aria-hidden="true"></span>
               </span>
               <span class="mac-traffic-light max" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M14 6L18 6L18 10L14 6ZM6 18L10 18L6 14L6 18ZM15 7L17 7L17 9L15 7ZM7 15L9 15L7 17L7 15Z"></path>
-                </svg>
+                <span class="icon-[lucide--maximize-2]" aria-hidden="true"></span>
               </span>
             </div>
 
             <button type="button" class="auth-titlebar-back" data-auth-go-back aria-label="返回上一页" title="返回上一页">
-              <svg class="auth-back-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <polyline points="15 6 9 12 15 18"></polyline>
-              </svg>
+              <span class="auth-back-link-icon icon-[lucide--chevron-left]" aria-hidden="true"></span>
             </button>
           </div>
           <div class="auth-titlebar-actions">
@@ -103,35 +94,8 @@
                     data-auth-theme-toggle
                     aria-label="切换主题"
                     title="切换主题">
-              <svg class="auth-theme-toggle-icon auth-theme-toggle-icon-moon"
-                   viewBox="0 0 24 24"
-                   fill="none"
-                   stroke="currentColor"
-                   stroke-width="1.9"
-                   stroke-linecap="round"
-                   stroke-linejoin="round"
-                   aria-hidden="true">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3c0 .37.03.74.08 1.1A7 7 0 0 0 19.9 12c.36.05.73.08 1.1.08Z"></path>
-              </svg>
-              <svg class="auth-theme-toggle-icon auth-theme-toggle-icon-sun"
-                   viewBox="0 0 24 24"
-                   fill="none"
-                   stroke="currentColor"
-                   stroke-width="1.9"
-                   stroke-linecap="round"
-                   stroke-linejoin="round"
-                   aria-hidden="true"
-                   hidden>
-                <circle cx="12" cy="12" r="4"></circle>
-                <path d="M12 2v2.2"></path>
-                <path d="M12 19.8V22"></path>
-                <path d="m4.93 4.93 1.55 1.55"></path>
-                <path d="m17.52 17.52 1.55 1.55"></path>
-                <path d="M2 12h2.2"></path>
-                <path d="M19.8 12H22"></path>
-                <path d="m4.93 19.07 1.55-1.55"></path>
-                <path d="m17.52 6.48 1.55-1.55"></path>
-              </svg>
+              <span class="auth-theme-toggle-icon auth-theme-toggle-icon-moon icon-[lucide--moon]" aria-hidden="true"></span>
+              <span class="auth-theme-toggle-icon auth-theme-toggle-icon-sun icon-[lucide--sun]" aria-hidden="true" hidden></span>
             </button>
           </div>
           <span class="auth-gateway-title auth-visually-hidden"

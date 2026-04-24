@@ -1,13 +1,13 @@
 <th:block th:fragment="trafficLights (maximizable)">
     <div class="traffic-lights flex items-center gap-2">
         <button @click="closeWindow()" class="traffic-btn close" title="关闭">
-            <svg viewBox="0 0 14 14" fill="none"><path d="M4 4l6 6m0-6l-6 6" stroke-width="1.6" stroke-linecap="round"/></svg>
+            <span class="icon-[lucide--x]" aria-hidden="true"></span>
         </button>
         <button @click="$store.windowManager.minimize()" class="traffic-btn minimize" title="最小化">
-            <svg viewBox="0 0 14 14" fill="none"><path d="M3 7h8" stroke-width="2" stroke-linecap="round"/></svg>
+            <span class="icon-[lucide--minus]" aria-hidden="true"></span>
         </button>
         <button th:if="${maximizable == true or maximizable == 'true'}" @click="toggleMaximize()" class="traffic-btn maximize" title="最大化">
-            <svg viewBox="0 0 14 14" fill="none"><path d="M8.5 4h-3a1 1 0 00-1 1v3h1.5V5.5H8.5V4zM5.5 10h3a1 1 0 001-1V6H8v2.5H5.5V10z" fill="currentColor"/></svg>
+            <span class="icon-[lucide--maximize-2]" aria-hidden="true"></span>
         </button>
     </div>
 </th:block>

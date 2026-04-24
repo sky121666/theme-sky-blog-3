@@ -135,7 +135,8 @@
   cursor: pointer;
 }
 
-.wg-author-action-btn svg {
+.wg-author-action-btn svg,
+.wg-author-action-btn span {
   width: 12px;
   height: 12px;
 }

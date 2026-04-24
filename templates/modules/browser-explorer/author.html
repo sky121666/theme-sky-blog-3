@@ -56,10 +56,7 @@
                      decoding="async"
                      th:alt="${author.spec.displayName}">
                 <div class="author-profile-avatar author-profile-avatar--fallback" th:unless="${!#strings.isEmpty(author.spec.avatar)}">
-                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M12 12.25C14.3472 12.25 16.25 10.3472 16.25 8C16.25 5.65279 14.3472 3.75 12 3.75C9.65279 3.75 7.75 5.65279 7.75 8C7.75 10.3472 9.65279 12.25 12 12.25Z" stroke="currentColor" stroke-width="1.35"/>
-                    <path d="M5.5 19.25C6.86441 16.8572 9.27133 15.25 12 15.25C14.7287 15.25 17.1356 16.8572 18.5 19.25" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/>
-                  </svg>
+                  <span class="icon-[lucide--user-round]" aria-hidden="true"></span>
                 </div>
               </div>
 
@@ -104,9 +101,7 @@
                       @click="selectSource('posts')"
                       :class="{ 'is-active': activeSource === 'posts' }">
                 <span class="author-source-leading">
-                  <svg class="tags-folder-icon tags-folder-icon--sidebar" viewBox="0 0 20 16" fill="none" aria-hidden="true">
-                    <path d="M1.5 4.25C1.5 3.00736 2.50736 2 3.75 2H7.375C7.94958 2 8.50106 2.22076 8.91529 2.61612L10.0897 3.75H16.25C17.4926 3.75 18.5 4.75736 18.5 6V11.75C18.5 12.9926 17.4926 14 16.25 14H3.75C2.50736 14 1.5 12.9926 1.5 11.75V4.25Z" fill="currentColor"/>
-                  </svg>
+                  <span class="tags-folder-icon tags-folder-icon--sidebar icon-[lucide--folder]" aria-hidden="true"></span>
                   <span class="author-source-copy">
                     <span class="tags-sidebar-label">文章</span>
                     <span class="author-source-meta">已发布内容</span>
@@ -121,9 +116,7 @@
                       @click="selectSource('moments')"
                       :class="{ 'is-active': activeSource === 'moments' }">
                 <span class="author-source-leading">
-                  <svg class="tags-folder-icon tags-folder-icon--sidebar" viewBox="0 0 20 16" fill="none" aria-hidden="true">
-                    <path d="M1.5 4.25C1.5 3.00736 2.50736 2 3.75 2H7.375C7.94958 2 8.50106 2.22076 8.91529 2.61612L10.0897 3.75H16.25C17.4926 3.75 18.5 4.75736 18.5 6V11.75C18.5 12.9926 17.4926 14 16.25 14H3.75C2.50736 14 1.5 12.9926 1.5 11.75V4.25Z" fill="currentColor"/>
-                  </svg>
+                  <span class="tags-folder-icon tags-folder-icon--sidebar icon-[lucide--folder]" aria-hidden="true"></span>
                   <span class="author-source-copy">
                     <span class="tags-sidebar-label">瞬间</span>
                     <span class="author-source-meta">作者动态</span>
@@ -154,10 +147,7 @@
                      @click="selectPost($el.dataset.postKey, $el.dataset.postTitle)"
                      :class="{ 'is-active': activeSource === 'posts' && activePostKey === $el.dataset.postKey }">
                     <div class="author-post-row-main tag-post-row-main">
-                      <svg class="author-post-file-icon tag-post-file-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                        <path d="M4 1.75H9.25L12.5 5V12.5C12.5 13.3284 11.8284 14 11 14H4C3.17157 14 2.5 13.3284 2.5 12.5V3.25C2.5 2.42157 3.17157 1.75 4 1.75Z" stroke="currentColor" stroke-width="1.1"/>
-                        <path d="M9 1.75V5.25H12.5" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/>
-                      </svg>
+                      <span class="author-post-file-icon tag-post-file-icon icon-[lucide--file-text]" aria-hidden="true"></span>
                       <span class="author-post-row-title tag-post-row-title" th:text="${post.spec.title}">文章标题</span>
                     </div>
                     <span class="author-post-row-meta tag-post-row-meta">
@@ -189,11 +179,7 @@
                        th:href="@{'/moments/' + ${moment.metadata.name}}">
                       <div class="author-moment-row-main">
                         <span class="author-moment-row-icon" aria-hidden="true">
-                          <svg viewBox="0 0 20 20" fill="none">
-                            <path d="M5 5.5H15C16.1046 5.5 17 6.39543 17 7.5V12.5C17 13.6046 16.1046 14.5 15 14.5H5C3.89543 14.5 3 13.6046 3 12.5V7.5C3 6.39543 3.89543 5.5 5 5.5Z" stroke="currentColor" stroke-width="1.15"/>
-                            <path d="M6.25 11.75L8.25 9.75L10 11.5L12.75 8.75" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round"/>
-                            <circle cx="6.75" cy="7.9" r="0.9" fill="currentColor"/>
-                          </svg>
+                          <span class="icon-[lucide--image]" aria-hidden="true"></span>
                         </span>
                         <span class="author-moment-row-copy">
                           <span class="author-moment-row-title" data-moment-display-text th:text="${momentTitle}">瞬间标题</span>
@@ -281,10 +267,7 @@
                          x-cloak>
                   <header class="author-preview-header tag-preview-header">
                     <div class="author-preview-icon tag-preview-icon">
-                      <svg class="author-post-file-icon tag-post-file-icon tag-post-file-icon--preview" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                        <path d="M4 1.75H9.25L12.5 5V12.5C12.5 13.3284 11.8284 14 11 14H4C3.17157 14 2.5 13.3284 2.5 12.5V3.25C2.5 2.42157 3.17157 1.75 4 1.75Z" stroke="currentColor" stroke-width="1.1"/>
-                        <path d="M9 1.75V5.25H12.5" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/>
-                      </svg>
+                      <span class="author-post-file-icon tag-post-file-icon tag-post-file-icon--preview icon-[lucide--file-text]" aria-hidden="true"></span>
                     </div>
                     <div class="author-preview-heading tag-preview-heading">
                       <h2 class="author-preview-title tag-preview-title" th:text="${post.spec.title}">文章标题</h2>
@@ -346,11 +329,7 @@
                            x-cloak>
                     <header class="author-preview-header tag-preview-header">
                       <div class="author-preview-icon tag-preview-icon author-preview-icon--moment">
-                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                          <path d="M7.25 5.75H16.75C18.1307 5.75 19.25 6.86929 19.25 8.25V15.75C19.25 17.1307 18.1307 18.25 16.75 18.25H7.25C5.86929 18.25 4.75 17.1307 4.75 15.75V8.25C4.75 6.86929 5.86929 5.75 7.25 5.75Z" stroke="currentColor" stroke-width="1.25"/>
-                          <path d="M8 14.25L10.5 11.75L12.75 14L15.75 11" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-                          <circle cx="9" cy="9.25" r="1" fill="currentColor"/>
-                        </svg>
+                        <span class="icon-[lucide--image]" aria-hidden="true"></span>
                       </div>
                       <div class="author-preview-heading tag-preview-heading">
                         <h2 class="author-preview-title tag-preview-title" data-moment-display-title th:text="${momentTitle}">瞬间标题</h2>

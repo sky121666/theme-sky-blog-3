@@ -62,19 +62,14 @@
                th:attr="data-post-name=${post.metadata.name}, data-initial-upvote=${post.stats?.upvote ?: 0}">
             <div class="post-actions">
               <span class="post-action-chip">
-                <svg class="post-action-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                  <path d="M2.75 10C4.45 6.95 7.05 5.25 10 5.25C12.95 5.25 15.55 6.95 17.25 10C15.55 13.05 12.95 14.75 10 14.75C7.05 14.75 4.45 13.05 2.75 10Z" stroke="currentColor" stroke-width="1.2"></path>
-                  <circle cx="10" cy="10" r="2.35" stroke="currentColor" stroke-width="1.2"></circle>
-                </svg>
+                <span class="post-action-icon icon-[lucide--eye]" aria-hidden="true"></span>
                 <span th:text="${post.stats?.visit ?: 0} + ' 浏览'">0 浏览</span>
               </span>
 
               <a class="post-action-chip"
                  th:if="${pluginFinder.available('PluginCommentWidget')}"
                  href="#post-comments">
-                <svg class="post-action-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                  <path d="M4.25 5.75H15.75C16.4404 5.75 17 6.30964 17 7V12C17 12.6904 16.4404 13.25 15.75 13.25H8.07322L4.75 15.9659V13.25H4.25C3.55964 13.25 3 12.6904 3 12V7C3 6.30964 3.55964 5.75 4.25 5.75Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"></path>
-                </svg>
+                <span class="post-action-icon icon-[lucide--message-circle]" aria-hidden="true"></span>
                 <span th:text="${post.stats?.comment ?: 0} + ' 评论'">0 评论</span>
               </a>
 
@@ -84,13 +79,7 @@
                       :disabled="pending || liked"
                       :aria-pressed="liked.toString()"
                       @click="upvote()">
-                <svg class="post-action-icon post-action-icon--heart" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                  <path d="M10 16.2L4.65 10.95C3.61 9.93 3 8.57 3 7.15C3 5.1 4.55 3.75 6.42 3.75C7.58 3.75 8.7 4.31 9.39 5.26L10 6.1L10.61 5.26C11.3 4.31 12.42 3.75 13.58 3.75C15.45 3.75 17 5.1 17 7.15C17 8.57 16.39 9.93 15.35 10.95L10 16.2Z"
-                        :fill="liked ? 'currentColor' : 'none'"
-                        stroke="currentColor"
-                        stroke-width="1.2"
-                        stroke-linejoin="round"></path>
-                </svg>
+                <span class="post-action-icon post-action-icon--heart icon-[lucide--heart]" aria-hidden="true"></span>
                 <span x-text="count + ' 点赞'">0 点赞</span>
               </button>
             </div>

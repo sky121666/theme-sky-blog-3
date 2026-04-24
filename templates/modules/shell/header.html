@@ -149,10 +149,9 @@
         </span>
         <span class="menubar-dropdown-label" th:text="${child.status.displayName}"></span>
         <span class="menubar-dropdown-trailing">
-          <svg th:if="${child.spec.target?.name() == 'BLANK'}" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-            <path d="M4 2.5H9.5V8" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M8.8 3.2 2.6 9.4" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
+          <span th:if="${child.spec.target?.name() == 'BLANK'}"
+                class="icon-[lucide--external-link]"
+                aria-hidden="true"></span>
         </span>
       </a>
     </th:block>

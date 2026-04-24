@@ -72,7 +72,8 @@
   color: var(--tags-text);
 }
 
-.author-profile-avatar--fallback svg {
+.author-profile-avatar--fallback svg,
+.author-profile-avatar--fallback span {
   width: 34px;
   height: 34px;
 }
@@ -256,7 +257,8 @@
   background: color-mix(in srgb, var(--tags-row-hover) 75%, transparent);
 }
 
-.author-moment-row-icon svg {
+.author-moment-row-icon svg,
+.author-moment-row-icon span {
   width: 16px;
   height: 16px;
 }
@@ -566,7 +568,8 @@
     border-radius: 18px;
   }
 
-  .author-profile-avatar--fallback svg {
+  .author-profile-avatar--fallback svg,
+  .author-profile-avatar--fallback span {
     width: 26px;
     height: 26px;
   }
@@ -672,7 +675,8 @@
     height: 22px;
   }
 
-  .author-moment-row-icon svg {
+  .author-moment-row-icon svg,
+  .author-moment-row-icon span {
     width: 14px;
     height: 14px;
   }

@@ -81,11 +81,7 @@ export function renderMomentRow(moment) {
        href="${escapeHtml(moment.permalink)}">
       <div class="author-moment-row-main">
         <span class="author-moment-row-icon" aria-hidden="true">
-          <svg viewBox="0 0 20 20" fill="none">
-            <path d="M5 5.5H15C16.1046 5.5 17 6.39543 17 7.5V12.5C17 13.6046 16.1046 14.5 15 14.5H5C3.89543 14.5 3 13.6046 3 12.5V7.5C3 6.39543 3.89543 5.5 5 5.5Z" stroke="currentColor" stroke-width="1.15"></path>
-            <path d="M6.25 11.75L8.25 9.75L10 11.5L12.75 8.75" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round"></path>
-            <circle cx="6.75" cy="7.9" r="0.9" fill="currentColor"></circle>
-          </svg>
+          <span class="icon-[lucide--image]" aria-hidden="true"></span>
         </span>
         <span class="author-moment-row-copy">
           <span class="author-moment-row-title">${escapeHtml(moment.title)}</span>
@@ -123,11 +119,7 @@ export function renderMomentPreview(moment, authorDisplayName) {
              data-moment-key="${escapeHtml(moment.key)}">
       <header class="author-preview-header tag-preview-header">
         <div class="author-preview-icon tag-preview-icon author-preview-icon--moment">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M7.25 5.75H16.75C18.1307 5.75 19.25 6.86929 19.25 8.25V15.75C19.25 17.1307 18.1307 18.25 16.75 18.25H7.25C5.86929 18.25 4.75 17.1307 4.75 15.75V8.25C4.75 6.86929 5.86929 5.75 7.25 5.75Z" stroke="currentColor" stroke-width="1.25"></path>
-            <path d="M8 14.25L10.5 11.75L12.75 14L15.75 11" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"></path>
-            <circle cx="9" cy="9.25" r="1" fill="currentColor"></circle>
-          </svg>
+          <span class="icon-[lucide--image]" aria-hidden="true"></span>
         </div>
         <div class="author-preview-heading tag-preview-heading">
           <h2 class="author-preview-title tag-preview-title">${escapeHtml(moment.title)}</h2>

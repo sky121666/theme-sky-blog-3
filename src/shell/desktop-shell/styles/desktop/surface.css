@@ -4,10 +4,10 @@
 
 @import "tailwindcss";
 @plugin "@iconify/tailwind4";
-@source "../../../../../templates/modules/shell/layout.html";
-@source "../../../../../templates/modules/shell/header.html";
-@source "../../../../../templates/modules/shell/desktop-widgets.html";
-@source "../../../../../templates/modules/links-app/list.html";
+@source "../../../../../templates/**/*.html";
+@source "../../../../apps/**/*.js";
+@source "../../../../shared/**/*.js";
+@source "../../../../widgets/**/*.js";
 
 @custom-variant dark (&:where(.dark, .dark *));
 

@@ -61,7 +61,8 @@
   background: rgba(255, 255, 255, 0.2);
 }
 
-.desktop-widget-hide-btn svg {
+.desktop-widget-hide-btn svg,
+.desktop-widget-hide-btn span {
   width: 12px;
   height: 12px;
 }
@@ -105,7 +106,8 @@
   transform: scale(0.92);
 }
 
-.desktop-widget-remove-btn svg {
+.desktop-widget-remove-btn svg,
+.desktop-widget-remove-btn span {
   width: 22px;
   height: 22px;
   filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.35));

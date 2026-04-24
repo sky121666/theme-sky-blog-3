@@ -135,7 +135,8 @@
   white-space: nowrap;
 }
 
-.friend-feed-actions-item svg {
+.friend-feed-actions-item svg,
+.friend-feed-actions-item span[class*="icon-["] {
   width: 13px;
   height: 13px;
   flex: 0 0 auto;
