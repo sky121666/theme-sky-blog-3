@@ -1,6 +1,7 @@
 const LINK_DETAIL_API = '/apis/api.plugin.halo.run/v1alpha1/plugins/PluginLinks/link-detail';
 const LINK_SUBMIT_API = '/apis/anonymous.link.submit.kunkunyu.com/v1alpha1/linksubmits/-/submit';
 const LINK_SUBMIT_GROUPS_API = '/apis/anonymous.link.submit.kunkunyu.com/v1alpha1/linkgroups';
+const DEFAULT_SUBMIT_URL = 'https://www.5ee.net/';
 
 function normalizeText(value) {
   return String(value || '').trim().toLowerCase();
@@ -56,6 +57,7 @@ export function registerLinksExplorer(Alpine) {
     totalLinks: 0,
     groups: [],
     links: [],
+    allLinksTitle: '全部友链',
     _showBoardHandler: null,
 
     init() {
@@ -74,6 +76,7 @@ export function registerLinksExplorer(Alpine) {
     readDataset() {
       const groupNodes = Array.from(this.$root.querySelectorAll('[data-links-group]'));
       const linkNodes = Array.from(this.$root.querySelectorAll('[data-link-card]'));
+      this.allLinksTitle = this.$root.dataset.linksAllTitle || '全部友链';
 
       this.groups = groupNodes.map((node) => ({
         key: node.dataset.groupKey || '',
@@ -201,20 +204,13 @@ export function registerLinksExplorer(Alpine) {
     },
 
     activeGroupLabel() {
-      if (!this.selectedGroup) return '全部友链';
+      if (!this.selectedGroup) return this.allLinksTitle;
       const current = this.groups.find((group) => group.key === this.selectedGroup);
       return current?.label || '当前分组';
     },
 
     activeHeaderTitle() {
       return this.activeView === 'board' ? '留言板' : this.activeGroupLabel();
-    },
-
-    activeHeaderSubtitle() {
-      if (this.activeView === 'board') {
-        return '把友链申请和站点交流集中在这里。';
-      }
-      return '按分组整理的博客与常访问站点。';
     },
 
     cardOrder(el) {
@@ -231,7 +227,7 @@ export function registerLinkSubmitForm(Alpine) {
     form: {
       type: 'add',
       displayName: '',
-      url: '',
+      url: DEFAULT_SUBMIT_URL,
       logo: '',
       email: '',
       description: '',

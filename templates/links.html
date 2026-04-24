@@ -3,9 +3,9 @@
           th:with="
             currentGroup=${param.group != null and !#lists.isEmpty(param.group) ? param.group[0] : ''},
             groupNameIndex=${groups != null ? groups.![metadata.name].indexOf(currentGroup) : -1},
-            baseTitle=${linksTitle ?: '友情链接'},
+            configuredLinksTitle=${!#strings.isEmpty(theme.config.links?.profile?.display_name) ? theme.config.links.profile.display_name : ''},
+            baseTitle=${!#strings.isEmpty(configuredLinksTitle) ? configuredLinksTitle : '全部友链'},
             resolvedWindowTitle=${groupNameIndex >= 0 ? groups[groupNameIndex].spec.displayName : baseTitle},
-            resolvedWindowSubtitle=${groupNameIndex >= 0 ? '当前分组' : '全部友链'},
             resolvedDocumentTitle=${resolvedWindowTitle + ' - ' + site.title}">
   <html th:replace="~{modules/shell/layout :: html(
           title = ${resolvedDocumentTitle},

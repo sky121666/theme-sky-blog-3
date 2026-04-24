@@ -1,49 +1,36 @@
 <th:block th:fragment="content"
-          th:with="
+  th:with="
             currentGroup=${param.group != null and !#lists.isEmpty(param.group) ? param.group[0] : ''},
             groupsData=${groups},
-            profileName=${!#strings.isEmpty(theme.config.links?.profile?.display_name) ? theme.config.links.profile.display_name : (linksTitle ?: '友情链接')},
-            profileSubtitle=${!#strings.isEmpty(theme.config.links?.profile?.subtitle) ? theme.config.links.profile.subtitle : (site.subtitle ?: '')},
-            applyTitle=${!#strings.isEmpty(theme.config.links?.submit?.title) ? theme.config.links.submit.title : '添加友链'},
-            applyDescription=${!#strings.isEmpty(theme.config.links?.submit?.description) ? theme.config.links.submit.description : '输入站点地址，自动提取信息并生成留言申请格式。'}">
-  <div class="links-app"
-       data-app-root="links"
-       th:attr="data-link-submit-enabled=${pluginFinder.available('link-submit')}">
-    <script type="application/json" data-app-props="links">{"version":1,"appId":"links","data":{"scene":"collection"}}</script>
+            allLinksTitle=${!#strings.isEmpty(theme.config.links?.profile?.display_name) ? theme.config.links.profile.display_name : '全部友链'}">
+  <div class="links-app" data-app-root="links"
+    th:attr="data-link-submit-enabled=${pluginFinder.available('link-submit')}">
+    <script type="application/json"
+      data-app-props="links">{"version":1,"appId":"links","data":{"scene":"collection"}}</script>
 
-    <div class="links-app-shell"
-         x-data="linksExplorer"
-         th:attr="data-links-initial-group=${currentGroup},data-links-chrome-title=${linksTitle ?: '友情链接'},data-links-chrome-subtitle=${profileSubtitle}">
+    <div class="links-app-shell" x-data="linksExplorer"
+      th:attr="data-links-initial-group=${currentGroup},data-links-all-title=${allLinksTitle},data-links-chrome-title=${allLinksTitle}">
       <aside class="links-sidebar">
         <div class="links-window-dragbar"
-             @mousedown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
+          @mousedown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
           <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=true)}"></th:block>
-
-          <div class="links-sidebar-profile">
-            <p class="links-sidebar-kicker">Links</p>
-            <h2 class="links-sidebar-profile-name" th:text="${profileName}">友情链接</h2>
-            <p class="links-sidebar-profile-subtitle"
-               th:if="${!#strings.isEmpty(profileSubtitle)}"
-               th:text="${profileSubtitle}">站点副标题</p>
-          </div>
         </div>
 
         <div class="links-sidebar-scroll">
           <div class="links-sidebar-block">
             <nav class="links-sidebar-nav">
-              <button type="button"
-                      class="links-sidebar-item"
-                      :class="{ 'is-active': activeView === 'links' && !selectedGroup }"
-                      @click="setGroup('')">
+              <button type="button" class="links-sidebar-item"
+                :class="{ 'is-active': activeView === 'links' && !selectedGroup }" @click="setGroup('')">
                 <span class="links-sidebar-item-main">
                   <span class="links-sidebar-symbol" aria-hidden="true">
                     <svg viewBox="0 0 20 20" fill="none">
-                      <rect x="3.5" y="4.5" width="13" height="11" rx="2.5" stroke="currentColor" stroke-width="1.5"></rect>
+                      <rect x="3.5" y="4.5" width="13" height="11" rx="2.5" stroke="currentColor" stroke-width="1.5">
+                      </rect>
                       <path d="M7 8H13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
                       <path d="M7 11.25H11.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
                     </svg>
                   </span>
-                  <span class="links-sidebar-label">全部友链</span>
+                  <span class="links-sidebar-label" th:text="${allLinksTitle}">全部友链</span>
                 </span>
                 <span class="links-sidebar-count-pill" x-text="visibleCount()"></span>
               </button>
@@ -53,37 +40,37 @@
           <div class="links-sidebar-block" th:if="${groupsData != null and !#lists.isEmpty(groupsData)}">
             <p class="links-sidebar-title">友链分组</p>
             <nav class="links-sidebar-nav">
-              <button type="button"
-                      class="links-sidebar-item"
-                      th:each="group : ${groupsData}"
-                      th:with="
+              <button type="button" class="links-sidebar-item" th:each="group : ${groupsData}" th:with="
                         resolvedGroupLabel=${!#strings.isEmpty(group.spec.displayName) ? group.spec.displayName : (group.metadata.name == 'ungrouped' ? '未分组' : group.metadata.name)},
-                        groupIcon=${#annotations.get(group, 'icon')}"
-                      data-links-group
-                      th:attr="data-group-key=${group.metadata.name},
+                        groupIcon=${#annotations.get(group, 'icon')}" data-links-group th:attr="data-group-key=${group.metadata.name},
                                data-group-label=${resolvedGroupLabel},
                                data-group-synthetic=${group.metadata.name == 'ungrouped'},
                                data-group-count=${group.links != null ? #lists.size(group.links) : 0}"
-                      :class="{ 'is-active': activeView === 'links' && isGroupActive($el.dataset.groupKey) }"
-                      @click="setGroup($el.dataset.groupKey)">
+                :class="{ 'is-active': activeView === 'links' && isGroupActive($el.dataset.groupKey) }"
+                @click="setGroup($el.dataset.groupKey)">
                 <span class="links-sidebar-item-main">
                   <span class="links-sidebar-symbol" aria-hidden="true">
-                    <span class="links-icon-svg"
-                          th:if="${!#strings.isEmpty(groupIcon)}"
-                          th:utext="${groupIcon}"></span>
-                    <svg th:if="${#strings.isEmpty(groupIcon) and group.metadata.name != 'ungrouped'}" viewBox="0 0 20 16" fill="none">
-                      <path d="M1.75 4.5C1.75 3.5335 2.5335 2.75 3.5 2.75H7.1C7.63609 2.75 8.1483 2.97124 8.51127 3.36135L9.44673 4.375H15.75C16.8546 4.375 17.75 5.27043 17.75 6.375V11.5C17.75 12.6046 16.8546 13.5 15.75 13.5H3.75C2.64543 13.5 1.75 12.6046 1.75 11.5V4.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path>
+                    <span class="links-icon-svg" th:if="${!#strings.isEmpty(groupIcon)}" th:utext="${groupIcon}"></span>
+                    <svg th:if="${#strings.isEmpty(groupIcon) and group.metadata.name != 'ungrouped'}"
+                      viewBox="0 0 20 16" fill="none">
+                      <path
+                        d="M1.75 4.5C1.75 3.5335 2.5335 2.75 3.5 2.75H7.1C7.63609 2.75 8.1483 2.97124 8.51127 3.36135L9.44673 4.375H15.75C16.8546 4.375 17.75 5.27043 17.75 6.375V11.5C17.75 12.6046 16.8546 13.5 15.75 13.5H3.75C2.64543 13.5 1.75 12.6046 1.75 11.5V4.5Z"
+                        stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path>
                     </svg>
-                    <svg th:if="${#strings.isEmpty(groupIcon) and group.metadata.name == 'ungrouped'}" viewBox="0 0 20 20" fill="none">
-                      <path d="M4.75 5.5H15.25C16.2165 5.5 17 6.2835 17 7.25V14.25C17 15.2165 16.2165 16 15.25 16H4.75C3.7835 16 3 15.2165 3 14.25V7.25C3 6.2835 3.7835 5.5 4.75 5.5Z" stroke="currentColor" stroke-width="1.5"></path>
-                      <path d="M6.5 5.5V4.75C6.5 3.7835 7.2835 3 8.25 3H11.75C12.7165 3 13.5 3.7835 13.5 4.75V5.5" stroke="currentColor" stroke-width="1.5"></path>
+                    <svg th:if="${#strings.isEmpty(groupIcon) and group.metadata.name == 'ungrouped'}"
+                      viewBox="0 0 20 20" fill="none">
+                      <path
+                        d="M4.75 5.5H15.25C16.2165 5.5 17 6.2835 17 7.25V14.25C17 15.2165 16.2165 16 15.25 16H4.75C3.7835 16 3 15.2165 3 14.25V7.25C3 6.2835 3.7835 5.5 4.75 5.5Z"
+                        stroke="currentColor" stroke-width="1.5"></path>
+                      <path d="M6.5 5.5V4.75C6.5 3.7835 7.2835 3 8.25 3H11.75C12.7165 3 13.5 3.7835 13.5 4.75V5.5"
+                        stroke="currentColor" stroke-width="1.5"></path>
                     </svg>
                   </span>
                   <span class="links-sidebar-label" th:text="${resolvedGroupLabel}">分组</span>
                 </span>
                 <span class="links-sidebar-count-pill"
-                      x-text="$el.closest('[data-links-group]').dataset.groupCount || '0'"
-                      th:text="${group.links != null ? group.links.size() : 0}">0</span>
+                  x-text="$el.closest('[data-links-group]').dataset.groupCount || '0'"
+                  th:text="${group.links != null ? group.links.size() : 0}">0</span>
               </button>
             </nav>
           </div>
@@ -91,9 +78,7 @@
           <div class="links-sidebar-block">
             <p class="links-sidebar-title">互动与申请</p>
             <nav class="links-sidebar-nav">
-              <button type="button"
-                      class="links-sidebar-item"
-                      @click="openSubmitAssistant()">
+              <button type="button" class="links-sidebar-item" @click="openSubmitAssistant()">
                 <span class="links-sidebar-item-main">
                   <span class="links-sidebar-symbol" aria-hidden="true">
                     <svg viewBox="0 0 20 20" fill="none">
@@ -101,19 +86,18 @@
                       <path d="M4.5 10H15.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path>
                     </svg>
                   </span>
-                  <span class="links-sidebar-label" th:text="${applyTitle}">添加友链</span>
+                  <span class="links-sidebar-label">添加友链</span>
                 </span>
               </button>
-              <button type="button"
-                      id="nav-board"
-                      class="links-sidebar-item"
-                      th:if="${pluginFinder.available('PluginCommentWidget')}"
-                      :class="{ 'is-active': activeView === 'board' }"
-                      @click="showBoard()">
+              <button type="button" id="nav-board" class="links-sidebar-item"
+                th:if="${pluginFinder.available('PluginCommentWidget')}"
+                :class="{ 'is-active': activeView === 'board' }" @click="showBoard()">
                 <span class="links-sidebar-item-main">
                   <span class="links-sidebar-symbol" aria-hidden="true">
                     <svg viewBox="0 0 20 20" fill="none">
-                      <path d="M5.25 5H14.75C15.9926 5 17 6.00736 17 7.25V12.25C17 13.4926 15.9926 14.5 14.75 14.5H9.75L6.25 17V14.5H5.25C4.00736 14.5 3 13.4926 3 12.25V7.25C3 6.00736 4.00736 5 5.25 5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path>
+                      <path
+                        d="M5.25 5H14.75C15.9926 5 17 6.00736 17 7.25V12.25C17 13.4926 15.9926 14.5 14.75 14.5H9.75L6.25 17V14.5H5.25C4.00736 14.5 3 13.4926 3 12.25V7.25C3 6.00736 4.00736 5 5.25 5Z"
+                        stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path>
                     </svg>
                   </span>
                   <span class="links-sidebar-label">留言板</span>
@@ -128,7 +112,6 @@
         <header class="links-main-toolbar">
           <div class="links-toolbar-heading">
             <h1 id="header-title" class="links-toolbar-title" x-text="activeHeaderTitle()">全部友链</h1>
-            <p class="links-toolbar-subtitle" x-text="activeHeaderSubtitle()">按分组整理的博客与常访问站点。</p>
           </div>
 
           <div class="links-toolbar-actions">
@@ -137,10 +120,7 @@
                 <circle cx="9" cy="9" r="5.75" stroke="currentColor" stroke-width="1.5"></circle>
                 <path d="M13.5 13.5L17 17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
               </svg>
-              <input class="links-toolbar-search"
-                     type="search"
-                     x-model="searchQuery"
-                     placeholder="搜索...">
+              <input class="links-toolbar-search" type="search" x-model="searchQuery" placeholder="搜索...">
             </label>
 
             <select class="links-toolbar-select" x-model="sortMode" x-show="activeView === 'links'">
@@ -149,14 +129,11 @@
               <option value="recent">最近收录</option>
             </select>
 
-            <button type="button"
-                    class="links-toolbar-apply"
-                    @click="openSubmitAssistant()">
+            <button type="button" class="links-toolbar-apply" @click="openSubmitAssistant()">
               <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
                 <path d="M10 4.5V15.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path>
                 <path d="M4.5 10H15.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path>
               </svg>
-              <span>添加友链</span>
             </button>
           </div>
         </header>
@@ -164,40 +141,30 @@
         <div class="links-main-scroll">
           <div id="view-links" class="links-view" x-show="activeView === 'links'">
             <div class="links-groups" th:if="${groupsData != null and !#lists.isEmpty(groupsData)}">
-              <section class="links-group"
-                       th:each="group : ${groupsData}"
-                       th:with="
+              <section class="links-group" th:each="group : ${groupsData}" th:with="
                          resolvedGroupLabel=${!#strings.isEmpty(group.spec.displayName) ? group.spec.displayName : (group.metadata.name == 'ungrouped' ? '未分组' : group.metadata.name)},
-                         groupIcon=${#annotations.get(group, 'icon')}"
-                       x-show="hasVisibleGroup($el.dataset.groupKey)"
-                       data-links-group-section
-                       th:attr="data-group-key=${group.metadata.name}">
+                         groupIcon=${#annotations.get(group, 'icon')}" x-show="hasVisibleGroup($el.dataset.groupKey)"
+                data-links-group-section th:attr="data-group-key=${group.metadata.name}">
                 <header class="links-group-header">
                   <span class="links-group-icon" aria-hidden="true">
-                    <span class="links-icon-svg"
-                          th:if="${!#strings.isEmpty(groupIcon)}"
-                          th:utext="${groupIcon}"></span>
+                    <span class="links-icon-svg" th:if="${!#strings.isEmpty(groupIcon)}" th:utext="${groupIcon}"></span>
                     <svg th:if="${#strings.isEmpty(groupIcon)}" viewBox="0 0 20 20" fill="none">
-                      <path d="M4.5 6.5C4.5 5.67157 5.17157 5 6 5H8.6C9.03856 5 9.45675 5.19191 9.74184 5.52489L10.5 6.41026H14.5C15.3284 6.41026 16 7.08183 16 7.91026V13.5C16 14.3284 15.3284 15 14.5 15H5.5C4.67157 15 4 14.3284 4 13.5V7C4 6.72386 4.22386 6.5 4.5 6.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path>
+                      <path
+                        d="M4.5 6.5C4.5 5.67157 5.17157 5 6 5H8.6C9.03856 5 9.45675 5.19191 9.74184 5.52489L10.5 6.41026H14.5C15.3284 6.41026 16 7.08183 16 7.91026V13.5C16 14.3284 15.3284 15 14.5 15H5.5C4.67157 15 4 14.3284 4 13.5V7C4 6.72386 4.22386 6.5 4.5 6.5Z"
+                        stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path>
                     </svg>
                   </span>
                   <h2 class="links-group-title" th:text="${resolvedGroupLabel}">分组</h2>
                   <span class="links-group-count"
-                        x-text="groupVisibleCount($el.closest('[data-links-group-section]').dataset.groupKey)"
-                        th:text="${group.links != null ? group.links.size() : 0}">0</span>
+                    x-text="groupVisibleCount($el.closest('[data-links-group-section]').dataset.groupKey)"
+                    th:text="${group.links != null ? group.links.size() : 0}">0</span>
                   <div class="links-group-divider"></div>
                 </header>
 
                 <div class="links-group-grid">
-                  <a class="link-card"
-                     th:each="link : ${group.links}"
-                     data-link-card
-                     th:href="${link.spec.url}"
-                     target="_blank"
-                     rel="noopener noreferrer"
-                     x-show="shouldShowLink($el)"
-                     x-bind:style="{ order: cardOrder($el) }"
-                     th:attr="data-link-key=${link.metadata.name},
+                  <a class="link-card" th:each="link : ${group.links}" data-link-card th:href="${link.spec.url}"
+                    target="_blank" rel="noopener noreferrer" x-show="shouldShowLink($el)"
+                    x-bind:style="{ order: cardOrder($el) }" th:attr="data-link-key=${link.metadata.name},
                               data-group-key=${group.metadata.name},
                               data-link-name=${link.spec.displayName},
                               data-link-description=${link.spec.description ?: ''},
@@ -205,32 +172,36 @@
                               data-link-priority=${link.spec.priority ?: 0},
                               data-link-created=${link.metadata.creationTimestamp}">
                     <div class="link-card-logo">
-                      <img th:if="${!#strings.isEmpty(link.spec.logo)}"
-                           th:src="${link.spec.logo}"
-                           th:alt="${link.spec.displayName}"
-                           loading="lazy"
-                           decoding="async"
-                           onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-                      <span class="link-card-fallback" th:style="${!#strings.isEmpty(link.spec.logo) ? 'display:none' : ''}">
+                      <img th:if="${!#strings.isEmpty(link.spec.logo)}" th:src="${link.spec.logo}"
+                        th:alt="${link.spec.displayName}" loading="lazy" decoding="async"
+                        onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                      <span class="link-card-fallback"
+                        th:style="${!#strings.isEmpty(link.spec.logo) ? 'display:none' : ''}">
                         <svg viewBox="0 0 20 20" width="20" height="20" fill="none" aria-hidden="true">
                           <circle cx="10" cy="10" r="6.75" stroke="currentColor" stroke-width="1.5"></circle>
                           <path d="M3.5 10H16.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
-                          <path d="M10 3.5C11.9 5.3 13 7.6 13 10C13 12.4 11.9 14.7 10 16.5C8.1 14.7 7 12.4 7 10C7 7.6 8.1 5.3 10 3.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path>
+                          <path
+                            d="M10 3.5C11.9 5.3 13 7.6 13 10C13 12.4 11.9 14.7 10 16.5C8.1 14.7 7 12.4 7 10C7 7.6 8.1 5.3 10 3.5Z"
+                            stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path>
                         </svg>
                       </span>
                     </div>
                     <div class="link-card-copy">
                       <h3 class="link-card-title" th:text="${link.spec.displayName}">站点</h3>
                       <p class="link-card-desc"
-                         th:text="${!#strings.isEmpty(link.spec.description) ? link.spec.description : '这个站点还没有填写简介。'}">描述</p>
+                        th:text="${!#strings.isEmpty(link.spec.description) ? link.spec.description : '这个站点还没有填写简介。'}">
+                        描述</p>
                       <p class="link-card-url">
                         <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                          <path d="M6.5 4H5.5C4.11929 4 3 5.11929 3 6.5V10.5C3 11.8807 4.11929 13 5.5 13H9.5C10.8807 13 12 11.8807 12 10.5V9.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"></path>
+                          <path
+                            d="M6.5 4H5.5C4.11929 4 3 5.11929 3 6.5V10.5C3 11.8807 4.11929 13 5.5 13H9.5C10.8807 13 12 11.8807 12 10.5V9.5"
+                            stroke="currentColor" stroke-width="1.25" stroke-linecap="round"></path>
                           <path d="M8 8L13 3" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"></path>
-                          <path d="M9.5 3H13V6.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"></path>
+                          <path d="M9.5 3H13V6.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"
+                            stroke-linejoin="round"></path>
                         </svg>
                         <span x-text="linkHost($el.closest('[data-link-card]'))"
-                              th:text="${link.spec.url}">example.com</span>
+                          th:text="${link.spec.url}">example.com</span>
                       </p>
                     </div>
                   </a>
@@ -245,7 +216,7 @@
 
             <section class="links-empty" x-show="links.length > 0 && visibleCount() === 0">
               <h2 class="links-empty-title">没有匹配的友链</h2>
-              <p class="links-empty-text">换一个关键词，或者回到全部友链继续浏览。</p>
+              <p class="links-empty-text" x-text="`换一个关键词，或者回到${allLinksTitle}继续浏览。`">换一个关键词，或者回到全部友链继续浏览。</p>
             </section>
           </div>
 
@@ -258,7 +229,7 @@
             </section>
 
             <section class="links-comments" id="links-comments"
-                     th:if="${pluginFinder.available('PluginCommentWidget')}">
+              th:if="${pluginFinder.available('PluginCommentWidget')}">
               <h2 class="links-comments-title">留言板</h2>
               <div class="links-comments-shell">
                 <halo:comment group="plugin.halo.run" kind="Plugin" name="PluginLinks"></halo:comment>
@@ -274,9 +245,7 @@
       </section>
     </div>
 
-    <dialog id="link-submit-modal"
-            class="links-modal"
-            x-data="linkSubmitForm">
+    <dialog id="link-submit-modal" class="links-modal" x-data="linkSubmitForm">
       <div class="links-modal-topbar">
         <div class="links-modal-lights traffic-lights" aria-hidden="true">
           <button type="button" class="links-modal-light is-red" @click="$el.closest('dialog').close()"></button>
@@ -288,15 +257,12 @@
       </div>
 
       <div class="links-modal-body">
-        <p class="links-modal-hint" th:text="${applyDescription}">输入站点地址，自动提取信息并生成留言申请格式。</p>
+        <p class="links-modal-hint">输入站点地址，自动提取信息并生成留言申请格式。</p>
 
         <form class="links-extract-form" @submit.prevent="fillFromUrl">
           <div class="links-extract-row">
-            <input class="links-input"
-                   type="url"
-                   x-model="form.url"
-                   required
-                   placeholder="https://your-site.example.com">
+            <input class="links-input" type="url" x-model="form.url" required
+              placeholder="https://your-site.example.com">
             <button type="submit" class="links-helper-btn" :disabled="fetchingMeta">
               <span x-text="fetchingMeta ? '提取中...' : '提取'"></span>
             </button>
@@ -327,9 +293,8 @@
 
             <label class="links-field">
               <span>分组</span>
-              <select class="links-input"
-                      x-model="form.groupName"
-                      :disabled="loadingGroups || submitGroups.length === 0">
+              <select class="links-input" x-model="form.groupName"
+                :disabled="loadingGroups || submitGroups.length === 0">
                 <option value="" x-text="loadingGroups ? '正在加载分组...' : '请选择分组'"></option>
                 <template x-for="group in submitGroups" :key="group.groupName">
                   <option :value="group.groupName" x-text="group.displayName"></option>
@@ -375,27 +340,18 @@
             </label>
           </div>
 
-          <textarea id="markdownOutput"
-                    class="links-markdown-output"
-                    x-show="isMessageFallbackMode()"
-                    readonly
-                    x-model="markdown"
-                    placeholder="提取结果会展示在这里..."></textarea>
+          <textarea id="markdownOutput" class="links-markdown-output" x-show="isMessageFallbackMode()" readonly
+            x-model="markdown" placeholder="提取结果会展示在这里..."></textarea>
         </div>
 
-        <div class="links-submit-result"
-             x-show="result.show"
-             :class="result.success ? 'is-success' : 'is-error'"
-             x-text="result.message"></div>
+        <div class="links-submit-result" x-show="result.show" :class="result.success ? 'is-success' : 'is-error'"
+          x-text="result.message"></div>
 
         <div class="links-modal-actions">
-          <span class="links-modal-note"
-                x-text="primaryActionNote()"></span>
-          <button id="copyBtn"
-                  type="button"
-                  class="links-submit-primary"
-                  :disabled="isDirectSubmitMode() ? !canSubmitDirect() : !markdown"
-                  @click="isDirectSubmitMode() ? submitLink() : copyAndGotoBoard()">
+          <span class="links-modal-note" x-text="primaryActionNote()"></span>
+          <button id="copyBtn" type="button" class="links-submit-primary"
+            :disabled="isDirectSubmitMode() ? !canSubmitDirect() : !markdown"
+            @click="isDirectSubmitMode() ? submitLink() : copyAndGotoBoard()">
             <span x-text="primaryActionLabel()"></span>
           </button>
         </div>

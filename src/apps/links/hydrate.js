@@ -19,13 +19,12 @@ registerPageAppLifecycle('links', {
   getDocumentState(root, context) {
     const shell = root?.querySelector('.links-app-shell');
     const chromeTitle = shell?.dataset.linksChromeTitle || '';
-    const chromeSubtitle = shell?.dataset.linksChromeSubtitle || '';
     const resolvedTitle = context.documentTitle || document.title;
 
     return {
       title: resolvedTitle,
       windowTitle: chromeTitle || resolvedTitle,
-      windowSubtitle: chromeSubtitle || '',
+      windowSubtitle: '',
       windowVariant: 'links'
     };
   }

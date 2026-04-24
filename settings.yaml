@@ -752,42 +752,15 @@ spec:
         - $formkit: group
           id: links_profile_group
           name: profile
-          label: 侧栏信息
+          label: 页面标题
           value:
             display_name: ""
-            subtitle: ""
           children:
             - $formkit: text
               id: links_profile_display_name
               name: display_name
-              label: 应用名称
-              help: 留空时默认使用插件页面标题。
-              value: ""
-            - $formkit: text
-              id: links_profile_subtitle
-              name: subtitle
-              label: 应用副标题
-              help: 留空时默认使用站点副标题。
-              value: ""
-        - $formkit: group
-          id: links_submit_group
-          name: submit
-          label: 提交引导
-          value:
-            title: ""
-            description: ""
-          children:
-            - $formkit: text
-              id: links_submit_title
-              name: title
-              label: 提交区标题
-              help: 留空时默认显示“提交友链”。
-              value: ""
-            - $formkit: textarea
-              id: links_submit_description
-              name: description
-              label: 提交区说明
-              help: 留空时使用主题默认引导文案。
+              label: 全部友链标题
+              help: 留空时默认显示“全部友链”。
               value: ""
 
     - group: default_layout
