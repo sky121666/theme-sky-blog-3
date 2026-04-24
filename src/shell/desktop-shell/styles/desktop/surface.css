@@ -3,9 +3,11 @@
 /* ============================== */
 
 @import "tailwindcss";
+@plugin "@iconify/tailwind4";
 @source "../../../../../templates/modules/shell/layout.html";
 @source "../../../../../templates/modules/shell/header.html";
 @source "../../../../../templates/modules/shell/desktop-widgets.html";
+@source "../../../../../templates/modules/links-app/list.html";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -139,10 +141,10 @@ body {
   --mac-window-dark-border: rgba(255, 255, 255, 0.08);
   --content-window-border: rgba(0, 0, 0, 0.12);
   --content-window-shadow: 
-    0 0 1px rgba(0, 0, 0, 0.15),
-    0 10px 30px -5px rgba(0, 0, 0, 0.18),
-    0 25px 50px -10px rgba(0, 0, 0, 0.14);
-  --content-window-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+    0 1px 2px rgba(15, 23, 42, 0.06),
+    0 12px 30px -12px rgba(15, 23, 42, 0.18),
+    0 26px 58px -28px rgba(15, 23, 42, 0.16);
+  --content-window-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.42);
   --content-chrome-bg: var(--mac-window-light-chrome);
   --content-chrome-border: var(--mac-window-light-border);
   --content-chrome-text: #1f2937;
@@ -241,10 +243,10 @@ body {
   --content-chrome-border: var(--mac-window-dark-border);
   --content-window-border: rgba(255, 255, 255, 0.15);
   --content-window-shadow: 
-    0 0 1px rgba(0, 0, 0, 0.8),
-    0 25px 60px rgba(0, 0, 0, 0.65),
-    0 40px 100px rgba(0, 0, 0, 0.5);
-  --content-window-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 0 0 0.5px rgba(255, 255, 255, 0.05);
+    0 2px 6px rgba(0, 0, 0, 0.32),
+    0 24px 56px rgba(0, 0, 0, 0.38),
+    0 40px 96px -24px rgba(0, 0, 0, 0.34);
+  --content-window-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   --content-chrome-text: #f5f5f7;
   --content-chrome-muted: rgba(235, 235, 245, 0.72);
   --content-chrome-hover-bg: rgba(255, 255, 255, 0.09);

@@ -2,7 +2,6 @@
 
 .macos-window {
   background: transparent;
-  border: 1px solid var(--content-window-border);
   box-shadow: var(--content-window-shadow), var(--content-window-highlight);
   backdrop-filter: blur(28px) saturate(150%);
   -webkit-backdrop-filter: blur(28px) saturate(150%);

@@ -22,14 +22,7 @@
               <button type="button" class="links-sidebar-item"
                 :class="{ 'is-active': activeView === 'links' && !selectedGroup }" @click="setGroup('')">
                 <span class="links-sidebar-item-main">
-                  <span class="links-sidebar-symbol" aria-hidden="true">
-                    <svg viewBox="0 0 20 20" fill="none">
-                      <rect x="3.5" y="4.5" width="13" height="11" rx="2.5" stroke="currentColor" stroke-width="1.5">
-                      </rect>
-                      <path d="M7 8H13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
-                      <path d="M7 11.25H11.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
-                    </svg>
-                  </span>
+                  <span class="links-sidebar-symbol icon-[lucide--layout-dashboard]" aria-hidden="true"></span>
                   <span class="links-sidebar-label" th:text="${allLinksTitle}">全部友链</span>
                 </span>
                 <span class="links-sidebar-count-pill" x-text="visibleCount()"></span>
@@ -51,20 +44,10 @@
                 <span class="links-sidebar-item-main">
                   <span class="links-sidebar-symbol" aria-hidden="true">
                     <span class="links-icon-svg" th:if="${!#strings.isEmpty(groupIcon)}" th:utext="${groupIcon}"></span>
-                    <svg th:if="${#strings.isEmpty(groupIcon) and group.metadata.name != 'ungrouped'}"
-                      viewBox="0 0 20 16" fill="none">
-                      <path
-                        d="M1.75 4.5C1.75 3.5335 2.5335 2.75 3.5 2.75H7.1C7.63609 2.75 8.1483 2.97124 8.51127 3.36135L9.44673 4.375H15.75C16.8546 4.375 17.75 5.27043 17.75 6.375V11.5C17.75 12.6046 16.8546 13.5 15.75 13.5H3.75C2.64543 13.5 1.75 12.6046 1.75 11.5V4.5Z"
-                        stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path>
-                    </svg>
-                    <svg th:if="${#strings.isEmpty(groupIcon) and group.metadata.name == 'ungrouped'}"
-                      viewBox="0 0 20 20" fill="none">
-                      <path
-                        d="M4.75 5.5H15.25C16.2165 5.5 17 6.2835 17 7.25V14.25C17 15.2165 16.2165 16 15.25 16H4.75C3.7835 16 3 15.2165 3 14.25V7.25C3 6.2835 3.7835 5.5 4.75 5.5Z"
-                        stroke="currentColor" stroke-width="1.5"></path>
-                      <path d="M6.5 5.5V4.75C6.5 3.7835 7.2835 3 8.25 3H11.75C12.7165 3 13.5 3.7835 13.5 4.75V5.5"
-                        stroke="currentColor" stroke-width="1.5"></path>
-                    </svg>
+                    <span class="links-icon-svg icon-[lucide--folder]"
+                      th:if="${#strings.isEmpty(groupIcon) and group.metadata.name != 'ungrouped'}"></span>
+                    <span class="links-icon-svg icon-[lucide--archive]"
+                      th:if="${#strings.isEmpty(groupIcon) and group.metadata.name == 'ungrouped'}"></span>
                   </span>
                   <span class="links-sidebar-label" th:text="${resolvedGroupLabel}">分组</span>
                 </span>
@@ -80,12 +63,7 @@
             <nav class="links-sidebar-nav">
               <button type="button" class="links-sidebar-item" @click="openSubmitAssistant()">
                 <span class="links-sidebar-item-main">
-                  <span class="links-sidebar-symbol" aria-hidden="true">
-                    <svg viewBox="0 0 20 20" fill="none">
-                      <path d="M10 4.5V15.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path>
-                      <path d="M4.5 10H15.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path>
-                    </svg>
-                  </span>
+                  <span class="links-sidebar-symbol icon-[lucide--plus]" aria-hidden="true"></span>
                   <span class="links-sidebar-label">添加友链</span>
                 </span>
               </button>
@@ -93,13 +71,7 @@
                 th:if="${pluginFinder.available('PluginCommentWidget')}"
                 :class="{ 'is-active': activeView === 'board' }" @click="showBoard()">
                 <span class="links-sidebar-item-main">
-                  <span class="links-sidebar-symbol" aria-hidden="true">
-                    <svg viewBox="0 0 20 20" fill="none">
-                      <path
-                        d="M5.25 5H14.75C15.9926 5 17 6.00736 17 7.25V12.25C17 13.4926 15.9926 14.5 14.75 14.5H9.75L6.25 17V14.5H5.25C4.00736 14.5 3 13.4926 3 12.25V7.25C3 6.00736 4.00736 5 5.25 5Z"
-                        stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path>
-                    </svg>
-                  </span>
+                  <span class="links-sidebar-symbol icon-[lucide--message-circle]" aria-hidden="true"></span>
                   <span class="links-sidebar-label">留言板</span>
                 </span>
               </button>
@@ -116,10 +88,7 @@
 
           <div class="links-toolbar-actions">
             <label class="links-toolbar-search-wrap" x-show="activeView === 'links'">
-              <svg class="links-toolbar-search-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                <circle cx="9" cy="9" r="5.75" stroke="currentColor" stroke-width="1.5"></circle>
-                <path d="M13.5 13.5L17 17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
-              </svg>
+              <span class="links-toolbar-search-icon icon-[lucide--search]" aria-hidden="true"></span>
               <input class="links-toolbar-search" type="search" x-model="searchQuery" placeholder="搜索...">
             </label>
 
@@ -129,11 +98,8 @@
               <option value="recent">最近收录</option>
             </select>
 
-            <button type="button" class="links-toolbar-apply" @click="openSubmitAssistant()">
-              <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                <path d="M10 4.5V15.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path>
-                <path d="M4.5 10H15.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path>
-              </svg>
+            <button type="button" class="links-toolbar-apply" @click="openSubmitAssistant()" aria-label="添加友链">
+              <span class="links-button-icon icon-[lucide--plus]" aria-hidden="true"></span>
             </button>
           </div>
         </header>
@@ -148,11 +114,7 @@
                 <header class="links-group-header">
                   <span class="links-group-icon" aria-hidden="true">
                     <span class="links-icon-svg" th:if="${!#strings.isEmpty(groupIcon)}" th:utext="${groupIcon}"></span>
-                    <svg th:if="${#strings.isEmpty(groupIcon)}" viewBox="0 0 20 20" fill="none">
-                      <path
-                        d="M4.5 6.5C4.5 5.67157 5.17157 5 6 5H8.6C9.03856 5 9.45675 5.19191 9.74184 5.52489L10.5 6.41026H14.5C15.3284 6.41026 16 7.08183 16 7.91026V13.5C16 14.3284 15.3284 15 14.5 15H5.5C4.67157 15 4 14.3284 4 13.5V7C4 6.72386 4.22386 6.5 4.5 6.5Z"
-                        stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path>
-                    </svg>
+                    <span class="links-icon-svg icon-[lucide--folder]" th:if="${#strings.isEmpty(groupIcon)}"></span>
                   </span>
                   <h2 class="links-group-title" th:text="${resolvedGroupLabel}">分组</h2>
                   <span class="links-group-count"
@@ -177,13 +139,7 @@
                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
                       <span class="link-card-fallback"
                         th:style="${!#strings.isEmpty(link.spec.logo) ? 'display:none' : ''}">
-                        <svg viewBox="0 0 20 20" width="20" height="20" fill="none" aria-hidden="true">
-                          <circle cx="10" cy="10" r="6.75" stroke="currentColor" stroke-width="1.5"></circle>
-                          <path d="M3.5 10H16.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
-                          <path
-                            d="M10 3.5C11.9 5.3 13 7.6 13 10C13 12.4 11.9 14.7 10 16.5C8.1 14.7 7 12.4 7 10C7 7.6 8.1 5.3 10 3.5Z"
-                            stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path>
-                        </svg>
+                        <span class="link-card-fallback-icon icon-[lucide--globe]" aria-hidden="true"></span>
                       </span>
                     </div>
                     <div class="link-card-copy">
@@ -192,15 +148,8 @@
                         th:text="${!#strings.isEmpty(link.spec.description) ? link.spec.description : '这个站点还没有填写简介。'}">
                         描述</p>
                       <p class="link-card-url">
-                        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                          <path
-                            d="M6.5 4H5.5C4.11929 4 3 5.11929 3 6.5V10.5C3 11.8807 4.11929 13 5.5 13H9.5C10.8807 13 12 11.8807 12 10.5V9.5"
-                            stroke="currentColor" stroke-width="1.25" stroke-linecap="round"></path>
-                          <path d="M8 8L13 3" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"></path>
-                          <path d="M9.5 3H13V6.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"
-                            stroke-linejoin="round"></path>
-                        </svg>
-                        <span x-text="linkHost($el.closest('[data-link-card]'))"
+                        <span class="link-card-url-icon icon-[lucide--external-link]" aria-hidden="true"></span>
+                        <span class="link-card-url-text" x-text="linkHost($el.closest('[data-link-card]'))"
                           th:text="${link.spec.url}">example.com</span>
                       </p>
                     </div>
@@ -253,7 +202,9 @@
           <span class="links-modal-light is-green"></span>
         </div>
         <div class="links-modal-title">添加友链提取助手</div>
-        <button type="button" class="links-modal-close" @click="$el.closest('dialog').close()">✕</button>
+        <button type="button" class="links-modal-close" @click="$el.closest('dialog').close()">
+          <span class="links-button-icon icon-[lucide--x]" aria-hidden="true"></span>
+        </button>
       </div>
 
       <div class="links-modal-body">
