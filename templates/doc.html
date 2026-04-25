@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<th:block xmlns:th="https://www.thymeleaf.org"
+          th:with="
+            resolvedDocTitle=${docTree != null and docTree.spec != null and !#strings.isEmpty(docTree.spec.title) ? docTree.spec.title : (!#strings.isEmpty(title) ? title : '文档')},
+            resolvedProjectTitle=${project != null and project.spec != null and !#strings.isEmpty(project.spec.displayName) ? project.spec.displayName : 'Docsme'},
+            resolvedDescription=${docTree != null and docTree.spec != null and !#strings.isEmpty(docTree.spec.description) ? docTree.spec.description : (project != null and project.spec != null and !#strings.isEmpty(project.spec.description) ? project.spec.description : (!#strings.isEmpty(site.seo?.description) ? site.seo.description : site.subtitle))},
+            resolvedCanonical=${docTree != null and docTree.status != null and !#strings.isEmpty(docTree.status.permalink) ? docTree.status.permalink : ''}">
+  <html th:replace="~{modules/shell/layout :: html(
+          title = ${resolvedDocTitle},
+          description = ${resolvedDescription},
+          ssrContent = ~{modules/docsme-app/content :: document},
+          canonical = ${resolvedCanonical},
+          image = ${project != null and project.spec != null and !#strings.isEmpty(project.spec.icon) ? project.spec.icon : site.logo},
+          type = 'article',
+          seoFallback = 'meta',
+          pageMode = 'browser-docsme',
+          pageApp = 'docsme',
+          windowVariant = 'docsme',
+          windowScene = 'document',
+          windowTitle = ${resolvedProjectTitle},
+          windowResizable = true,
+          windowMaximizable = true,
+          windowMetricsKey = 'docsme'
+        )}"></html>
+</th:block>

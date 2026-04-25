@@ -1,0 +1,24 @@
+<th:block th:fragment="frame (titleText, subtitleText, contentFragment, windowResizable, metricsKey)">
+  <th:block th:replace="~{modules/shell/window-frame :: shell(
+      variant='docsme',
+      metricsKey=${metricsKey},
+      resizable=${windowResizable != null ? windowResizable : 'true'},
+      maximizable='true',
+      widthAttr='1240',
+      extraClasses='docsme-window md:min-w-[960px] md:min-h-[640px]',
+      inlineStyle='',
+      bodyFragment=~{::frameBody(contentFragment=${contentFragment}, windowResizable=${windowResizable})}
+    )}"></th:block>
+</th:block>
+
+<th:block th:fragment="frameBody (contentFragment, windowResizable)">
+  <th:block th:replace="~{modules/shell/window-frame :: resizeHandles(mode='full', enabled=${windowResizable == null or windowResizable != 'false'})}"></th:block>
+
+  <div class="docsme-window-content"
+       data-window-scroll
+       data-window-content-root>
+    <div id="pjax-container" data-window-content-variant="docsme" class="docsme-window-content-inner">
+      <th:block th:replace="${contentFragment}" />
+    </div>
+  </div>
+</th:block>

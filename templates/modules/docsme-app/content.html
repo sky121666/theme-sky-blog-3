@@ -1,0 +1,345 @@
+<th:block th:fragment="projects">
+  <div class="docsme-app docsme-app--projects"
+       data-app-root="docsme"
+       data-docsme-scene="projects"
+       x-data="docsmeApp"
+       th:attr="data-docsme-site-title=${site.title},data-docsme-chrome-title='文档中心',data-docsme-chrome-subtitle='Docsme'">
+    <script type="application/json" data-app-props="docsme">{"version":1,"appId":"docsme","data":{"scene":"projects"}}</script>
+    <div class="docsme-shell">
+      <aside class="docsme-sidebar">
+        <div class="docsme-window-dragbar"
+             @mousedown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
+          <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=true)}"></th:block>
+        </div>
+        <div class="docsme-sidebar-head">
+          <p class="docsme-kicker">Library</p>
+          <h2>文档中心</h2>
+          <p>浏览所有 Docsme 文档项目。</p>
+        </div>
+        <nav class="docsme-sidebar-nav" aria-label="文档导航">
+          <a class="docsme-sidebar-link is-active pjax-link" th:href="@{/docs}">
+            <span class="icon-[lucide--library]" aria-hidden="true"></span>
+            <span>所有文档</span>
+          </a>
+        </nav>
+      </aside>
+
+      <main class="docsme-main">
+        <header class="docsme-toolbar">
+          <div class="docsme-toolbar-heading">
+            <h1>项目大厅</h1>
+            <p>探索站点内的文档、API 参考与使用指南。</p>
+          </div>
+        </header>
+        <section class="docsme-content docsme-content--projects">
+          <div class="docsme-hero">
+            <p class="docsme-kicker">Docsme</p>
+            <h2>文档中心</h2>
+            <p>所有公开可访问的文档项目都会显示在这里。</p>
+          </div>
+
+          <div class="docsme-project-grid" th:if="${projects != null and !#lists.isEmpty(projects)}">
+            <a class="docsme-project-card pjax-link"
+               data-pjax-app="docsme"
+               th:each="projectItem : ${projects}"
+               th:href="${projectItem.status.permalink}">
+              <span class="docsme-project-card__glow" aria-hidden="true"></span>
+              <span class="docsme-project-card__icon">
+                <img th:if="${projectItem.spec != null and !#strings.isEmpty(projectItem.spec.icon)}"
+                     th:src="${projectItem.spec.icon}"
+                     th:alt="${projectItem.spec.displayName}" />
+                <span th:unless="${projectItem.spec != null and !#strings.isEmpty(projectItem.spec.icon)}"
+                      class="icon-[lucide--book-open-text]"
+                      aria-hidden="true"></span>
+              </span>
+              <span class="docsme-project-card__body">
+                <strong th:text="${projectItem.spec != null and !#strings.isEmpty(projectItem.spec.displayName) ? projectItem.spec.displayName : projectItem.metadata.name}">文档项目</strong>
+                <span th:if="${projectItem.spec != null and !#strings.isEmpty(projectItem.spec.description)}"
+                      th:text="${projectItem.spec.description}">项目描述</span>
+                <span class="docsme-project-card__meta">
+                  <span th:text="|${projectItem.status != null ? (projectItem.status.totalDocs ?: 0) : 0} 篇文档|">0 篇文档</span>
+                  <span th:if="${projectItem.spec != null and projectItem.spec.authorizeRequired}">需要授权</span>
+                  <span th:if="${projectItem.spec != null and projectItem.spec.enableComment}">评论开启</span>
+                </span>
+              </span>
+              <span class="docsme-project-card__arrow icon-[lucide--arrow-up-right]" aria-hidden="true"></span>
+            </a>
+          </div>
+
+          <div class="docsme-empty" th:unless="${projects != null and !#lists.isEmpty(projects)}">
+            <span class="icon-[lucide--folder-open]" aria-hidden="true"></span>
+            <h3>暂无文档项目</h3>
+            <p>当前没有可访问的 Docsme 项目。</p>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+</th:block>
+
+<th:block th:fragment="document">
+  <div class="docsme-app docsme-app--document"
+       data-app-root="docsme"
+       data-docsme-scene="document"
+       x-data="docsmeApp"
+       th:attr="data-docsme-site-title=${site.title},data-docsme-chrome-title=${project != null and project.spec != null and !#strings.isEmpty(project.spec.displayName) ? project.spec.displayName : 'Docsme'},data-docsme-chrome-subtitle=${docTree != null and docTree.spec != null and !#strings.isEmpty(docTree.spec.title) ? docTree.spec.title : '文档'},data-docsme-project=${project != null ? project.metadata.name : ''},data-docsme-version=${currentVersion != null ? currentVersion.metadata.name : ''},data-docsme-language=${currentLanguage != null ? currentLanguage.language : ''},data-docsme-template-id=${_templateId}">
+    <script type="application/json" data-app-props="docsme">{"version":1,"appId":"docsme","data":{"scene":"document"}}</script>
+
+    <div class="docsme-shell docsme-shell--reading">
+      <aside class="docsme-sidebar docsme-sidebar--tree">
+        <div class="docsme-window-dragbar"
+             @mousedown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
+          <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=true)}"></th:block>
+        </div>
+        <th:block th:replace="~{modules/docsme-app/content :: sidebarHeader}" />
+        <th:block th:replace="~{modules/docsme-app/content :: treeNav}" />
+      </aside>
+
+      <main class="docsme-main">
+        <th:block th:replace="~{modules/docsme-app/content :: docToolbar}" />
+        <section class="docsme-content docsme-content--document">
+          <header class="docsme-doc-head">
+            <p class="docsme-kicker">Document</p>
+            <h1 th:text="${docTree != null and docTree.spec != null and !#strings.isEmpty(docTree.spec.title) ? docTree.spec.title : '文档'}">文档</h1>
+            <p th:if="${docTree != null and docTree.spec != null and !#strings.isEmpty(docTree.spec.description)}"
+               th:text="${docTree.spec.description}">文档描述</p>
+          </header>
+          <article class="docsme-article" id="content" data-toc-content th:utext="${docInfo.content.content}"></article>
+
+          <div th:if="${haloCommentEnabled}" id="comment" class="docsme-comment">
+            <halo:comment group="doc.halo.run" kind="DocTree" th:attr="name=${docTree.metadata.name}" />
+          </div>
+
+          <th:block th:replace="~{modules/docsme-app/content :: linkNavigation}" />
+        </section>
+      </main>
+
+      <aside class="docsme-toc" data-docsme-toc>
+        <div class="docsme-toc__head">
+          <span>
+            <span class="icon-[lucide--list-tree]" aria-hidden="true"></span>
+            <strong>本页目录</strong>
+          </span>
+          <button class="docsme-toc__collapse"
+                  type="button"
+                  data-docsme-toggle-toc
+                  aria-expanded="true"
+                  title="收起本页目录">
+            <span class="icon-[lucide--panel-right-close]" aria-hidden="true"></span>
+          </button>
+        </div>
+        <nav class="docsme-toc__list" data-docsme-toc-list></nav>
+      </aside>
+    </div>
+  </div>
+</th:block>
+
+<th:block th:fragment="catalog">
+  <div class="docsme-app docsme-app--catalog"
+       data-app-root="docsme"
+       data-docsme-scene="catalog"
+       x-data="docsmeApp"
+       th:attr="data-docsme-site-title=${site.title},data-docsme-chrome-title=${project != null and project.spec != null and !#strings.isEmpty(project.spec.displayName) ? project.spec.displayName : 'Docsme'},data-docsme-chrome-subtitle=${docTree != null and docTree.spec != null and !#strings.isEmpty(docTree.spec.title) ? docTree.spec.title : '目录'},data-docsme-project=${project != null ? project.metadata.name : ''},data-docsme-version=${currentVersion != null ? currentVersion.metadata.name : ''},data-docsme-language=${currentLanguage != null ? currentLanguage.language : ''},data-docsme-template-id=${_templateId}">
+    <script type="application/json" data-app-props="docsme">{"version":1,"appId":"docsme","data":{"scene":"catalog"}}</script>
+
+    <div class="docsme-shell docsme-shell--catalog">
+      <aside class="docsme-sidebar docsme-sidebar--tree">
+        <div class="docsme-window-dragbar"
+             @mousedown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
+          <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=true)}"></th:block>
+        </div>
+        <th:block th:replace="~{modules/docsme-app/content :: sidebarHeader}" />
+        <th:block th:replace="~{modules/docsme-app/content :: treeNav}" />
+      </aside>
+
+      <main class="docsme-main">
+        <th:block th:replace="~{modules/docsme-app/content :: docToolbar}" />
+        <section class="docsme-content docsme-content--catalog">
+          <div class="docsme-catalog-head">
+            <p class="docsme-kicker">Catalog</p>
+            <h1 th:text="${docTree != null and docTree.spec != null and !#strings.isEmpty(docTree.spec.title) ? docTree.spec.title : '目录'}">目录</h1>
+            <p th:if="${docTree != null and docTree.spec != null and !#strings.isEmpty(docTree.spec.description)}"
+               th:text="${docTree.spec.description}">目录描述</p>
+          </div>
+
+          <div class="docsme-catalog-grid" th:if="${sonNodes != null and !#lists.isEmpty(sonNodes)}">
+            <a class="docsme-catalog-card pjax-link"
+               data-pjax-app="docsme"
+               th:each="node : ${sonNodes}"
+               th:href="${node.status.permalink}">
+              <span class="docsme-catalog-card__icon"
+                    th:classappend="${node.spec.type == 'TREE' ? 'is-tree' : 'is-doc'}">
+                <span th:class="${node.spec.type == 'TREE' ? 'icon-[lucide--folder]' : 'icon-[lucide--file-text]'}"
+                      aria-hidden="true"></span>
+              </span>
+              <span class="docsme-catalog-card__body">
+                <strong th:text="${node.spec.title}">目录节点</strong>
+                <span th:if="${!#strings.isEmpty(node.spec.description)}"
+                      th:text="${node.spec.description}">节点描述</span>
+              </span>
+              <span class="docsme-catalog-card__arrow icon-[lucide--chevron-right]" aria-hidden="true"></span>
+            </a>
+          </div>
+
+          <div class="docsme-empty" th:unless="${sonNodes != null and !#lists.isEmpty(sonNodes)}">
+            <span class="icon-[lucide--folder-open]" aria-hidden="true"></span>
+            <h3>目录为空</h3>
+            <p>当前目录下没有子文档。</p>
+          </div>
+
+          <th:block th:replace="~{modules/docsme-app/content :: linkNavigation}" />
+        </section>
+      </main>
+    </div>
+  </div>
+</th:block>
+
+<th:block th:fragment="sidebarHeader">
+  <div class="docsme-sidebar-head docsme-sidebar-head--project">
+    <a class="docsme-back-link pjax-link" data-pjax-app="docsme" th:href="@{/docs}">
+      <span class="icon-[lucide--chevron-left]" aria-hidden="true"></span>
+      <span>项目大厅</span>
+    </a>
+    <span class="docsme-project-icon">
+      <img th:if="${project != null and project.spec != null and !#strings.isEmpty(project.spec.icon)}"
+           th:src="${project.spec.icon}"
+           th:alt="${project.spec.displayName}" />
+      <span th:unless="${project != null and project.spec != null and !#strings.isEmpty(project.spec.icon)}"
+            class="icon-[lucide--book-marked]"
+            aria-hidden="true"></span>
+    </span>
+    <h2 th:text="${project != null and project.spec != null and !#strings.isEmpty(project.spec.displayName) ? project.spec.displayName : 'Docsme'}">Docsme</h2>
+    <p th:text="${project != null and project.spec != null and !#strings.isEmpty(project.spec.description) ? project.spec.description : '文档项目'}">文档项目</p>
+  </div>
+
+  <div class="docsme-switchers">
+    <label class="docsme-switcher" th:if="${versions != null and #lists.size(versions) gt 1}">
+      <span>版本</span>
+      <select data-docsme-switcher
+              th:attr="data-current-link=${currentVersion != null ? currentVersion.status.permalink : ''}">
+        <option th:each="version : ${versions}"
+                th:selected="${currentVersion != null and version.metadata.name == currentVersion.metadata.name}"
+                th:attr="data-link=${version.status.permalink}"
+                th:text="${version.spec.slug}">版本</option>
+      </select>
+    </label>
+    <label class="docsme-switcher" th:if="${languages != null and #lists.size(languages) gt 1}">
+      <span>语言</span>
+      <select data-docsme-switcher
+              th:attr="data-current-link=${currentLanguage != null ? currentLanguage.link : ''}">
+        <option th:each="language : ${languages}"
+                th:selected="${currentLanguage != null and language.language == currentLanguage.language}"
+                th:attr="data-link=${language.link}"
+                th:text="${!#strings.isEmpty(language.label) ? language.label : language.language}">语言</option>
+      </select>
+    </label>
+  </div>
+</th:block>
+
+<th:block th:fragment="docToolbar">
+  <header class="docsme-toolbar docsme-toolbar--doc">
+    <nav class="docsme-breadcrumb" aria-label="面包屑">
+      <a class="pjax-link" data-pjax-app="docsme" th:href="${project.status.permalink}">首页</a>
+      <span class="icon-[lucide--chevron-right]" aria-hidden="true"></span>
+      <th:block th:each="crumb : ${crumbs}">
+        <a class="pjax-link" data-pjax-app="docsme" th:href="${crumb.status.permalink}" th:text="${crumb.spec.title}">节点</a>
+        <span class="icon-[lucide--chevron-right]" aria-hidden="true"></span>
+      </th:block>
+      <strong th:text="${docTree != null and docTree.spec != null and !#strings.isEmpty(docTree.spec.title) ? docTree.spec.title : '文档'}">文档</strong>
+    </nav>
+    <div class="docsme-toolbar-actions">
+      <button class="docsme-toc-reveal"
+              type="button"
+              data-docsme-toggle-toc
+              aria-expanded="false"
+              aria-label="展开本页目录"
+              title="展开本页目录">
+        <span class="icon-[lucide--list-tree]" aria-hidden="true"></span>
+      </button>
+      <button class="docsme-icon-button" type="button" data-docsme-toggle-sidebar title="目录">
+        <span class="icon-[lucide--panel-left]" aria-hidden="true"></span>
+      </button>
+    </div>
+  </header>
+</th:block>
+
+<th:block th:fragment="treeNav">
+  <div class="docsme-tree-head">
+    <span>文档目录</span>
+    <button class="docsme-tree-collapse-button"
+            type="button"
+            data-docsme-tree-collapse-all
+            aria-expanded="true">
+      全部收起
+    </button>
+  </div>
+  <nav class="docsme-tree" aria-label="文档目录">
+    <th:block th:replace="~{modules/docsme-app/content :: treeItems(nodes=${docTrees})}" />
+  </nav>
+</th:block>
+
+<th:block th:fragment="treeItems (nodes)">
+  <th:block th:if="${nodes != null}">
+    <th:block th:each="node : ${nodes}">
+      <div class="docsme-tree-node"
+           data-docsme-tree-node
+           th:if="${node.spec.type == 'TREE'}"
+           th:classappend="${#arrays.contains(crumbs, node) or (docTree != null and node.metadata.name == docTree.metadata.name) ? 'is-open' : ''}">
+        <div class="docsme-tree-row">
+          <button class="docsme-tree-toggle"
+                  type="button"
+                  data-docsme-tree-toggle
+                  th:attr="aria-expanded=${#arrays.contains(crumbs, node) or (docTree != null and node.metadata.name == docTree.metadata.name) ? 'true' : 'false'}"
+                  th:title="|折叠/展开 ${node.spec.title}|">
+            <span class="docsme-tree-chevron icon-[lucide--chevron-right]" aria-hidden="true"></span>
+          </button>
+          <a class="docsme-tree-link pjax-link"
+             data-pjax-app="docsme"
+             th:href="${node.status.permalink}"
+             th:classappend="${docTree != null and node.metadata.name == docTree.metadata.name ? 'is-active' : ''}">
+            <span class="docsme-tree-type icon-[lucide--folder]" aria-hidden="true"></span>
+            <span th:text="${node.spec.title}">目录</span>
+          </a>
+        </div>
+        <div class="docsme-tree-children">
+          <th:block th:replace="~{modules/docsme-app/content :: treeItems(nodes=${node.children})}" />
+        </div>
+      </div>
+      <a class="docsme-tree-link docsme-tree-link--doc pjax-link"
+         data-pjax-app="docsme"
+         th:if="${node.spec.type == 'DOC'}"
+         th:href="${node.status.permalink}"
+         th:title="${node.spec.title}"
+         th:classappend="${docTree != null and node.metadata.name == docTree.metadata.name ? 'is-active' : ''}">
+        <span class="docsme-tree-dot" aria-hidden="true"></span>
+        <span class="docsme-tree-type icon-[lucide--file-text]" aria-hidden="true"></span>
+        <span th:text="${node.spec.title}">文档</span>
+      </a>
+    </th:block>
+  </th:block>
+</th:block>
+
+<th:block th:fragment="linkNavigation">
+  <nav th:if="${linkNavigation}" class="docsme-doc-nav" aria-label="文档翻页">
+    <a th:if="${linkNavigation.hasPrevious}"
+       class="docsme-doc-nav__item docsme-doc-nav__item--prev pjax-link"
+       data-pjax-app="docsme"
+       th:href="${linkNavigation.previous.link}">
+      <span class="icon-[lucide--arrow-left]" aria-hidden="true"></span>
+      <span>
+        <em>上一篇</em>
+        <strong th:text="${linkNavigation.previous.title}">上一篇</strong>
+      </span>
+    </a>
+    <a th:if="${linkNavigation.hasNext}"
+       class="docsme-doc-nav__item docsme-doc-nav__item--next pjax-link"
+       data-pjax-app="docsme"
+       th:href="${linkNavigation.next.link}">
+      <span>
+        <em>下一篇</em>
+        <strong th:text="${linkNavigation.next.title}">下一篇</strong>
+      </span>
+      <span class="icon-[lucide--arrow-right]" aria-hidden="true"></span>
+    </a>
+  </nav>
+</th:block>

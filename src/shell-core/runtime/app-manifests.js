@@ -1,5 +1,6 @@
 import { authAppManifest } from '../../apps/auth/manifest.js';
 import { bangumisAppManifest } from '../../apps/bangumis/manifest.js';
+import { docsmeAppManifest } from '../../apps/docsme/manifest.js';
 import { equipmentsAppManifest } from '../../apps/equipments/manifest.js';
 import { explorerArchivesAppManifest } from '../../apps/explorer/archives/manifest.js';
 import { explorerAuthorAppManifest } from '../../apps/explorer/author/manifest.js';
@@ -18,6 +19,7 @@ export const APP_MANIFESTS = [
   friendsAppManifest,
   linksAppManifest,
   bangumisAppManifest,
+  docsmeAppManifest,
   steamAppManifest,
   equipmentsAppManifest,
   photosAppManifest,

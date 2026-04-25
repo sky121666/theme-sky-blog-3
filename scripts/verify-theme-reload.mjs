@@ -157,6 +157,7 @@ async function main() {
     { name: 'bangumis', path: '/bangumis', pageMode: 'browser-bangumis', windowVariant: 'bangumis', appId: 'bangumis', optional: true },
     { name: 'steam', path: '/steam', pageMode: 'browser-steam', windowVariant: 'steam', appId: 'steam', optional: true },
     { name: 'equipments', path: '/equipments', pageMode: 'browser-equipments', windowVariant: 'equipments', appId: 'equipments', optional: true, verifyFirstGroup: true },
+    { name: 'docsme', path: '/docs', pageMode: 'browser-docsme', windowVariant: 'docsme', appId: 'docsme', optional: true },
     { name: 'photos', path: '/photos', pageMode: 'browser-list', windowVariant: 'photos', appId: 'photos', optional: true }
   ];
 

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<th:block xmlns:th="https://www.thymeleaf.org"
+          th:with="
+            resolvedWindowTitle='文档中心',
+            resolvedWindowSubtitle='Docsme',
+            resolvedDescription=${!#strings.isEmpty(site.seo?.description) ? site.seo.description : site.subtitle}">
+  <html th:replace="~{modules/shell/layout :: html(
+          title = ${resolvedWindowTitle},
+          description = ${resolvedDescription},
+          ssrContent = ~{modules/docsme-app/content :: projects},
+          canonical = '/docs',
+          image = ${site.logo},
+          type = 'website',
+          seoFallback = 'meta',
+          pageMode = 'browser-docsme',
+          pageApp = 'docsme',
+          windowVariant = 'docsme',
+          windowScene = 'projects',
+          windowTitle = ${resolvedWindowTitle},
+          windowResizable = true,
+          windowMaximizable = true,
+          windowMetricsKey = 'docsme'
+        )}"></html>
+</th:block>
