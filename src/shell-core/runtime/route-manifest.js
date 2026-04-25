@@ -45,6 +45,14 @@ const ROUTE_RULES = [
     matches: (pathname) => pathname === '/bangumis' || pathname === '/bangumis/' || /^\/bangumis\/page\/[^/]+\/?$/.test(pathname)
   },
   {
+    id: 'steam',
+    appId: 'steam',
+    windowVariant: 'steam',
+    pjaxMode: 'same-app',
+    cacheKeyPolicy: 'app-path-search',
+    matches: (pathname) => pathname === '/steam' || pathname === '/steam/' || /^\/steam\/page\/[^/]+\/?$/.test(pathname)
+  },
+  {
     id: 'photos',
     appId: 'photos',
     windowVariant: 'photos',

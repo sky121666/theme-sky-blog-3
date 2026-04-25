@@ -135,6 +135,7 @@ async function main() {
     { name: 'friends', path: '/friends', pageMode: 'browser-friends', windowVariant: 'friends', appId: 'friends', optional: true },
     { name: 'links', path: '/links', pageMode: 'browser-links', windowVariant: 'links', appId: 'links', optional: true },
     { name: 'bangumis', path: '/bangumis', pageMode: 'browser-bangumis', windowVariant: 'bangumis', appId: 'bangumis', optional: true },
+    { name: 'steam', path: '/steam', pageMode: 'browser-steam', windowVariant: 'steam', appId: 'steam', optional: true },
     { name: 'photos', path: '/photos', pageMode: 'browser-list', windowVariant: 'photos', appId: 'photos', optional: true }
   ];
 

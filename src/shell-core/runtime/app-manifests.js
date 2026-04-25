@@ -9,6 +9,7 @@ import { linksAppManifest } from '../../apps/links/manifest.js';
 import { momentsAppManifest } from '../../apps/moments/manifest.js';
 import { photosAppManifest } from '../../apps/photos/manifest.js';
 import { readerAppManifest } from '../../apps/reader/manifest.js';
+import { steamAppManifest } from '../../apps/steam/manifest.js';
 
 export const APP_MANIFESTS = [
   readerAppManifest,
@@ -16,6 +17,7 @@ export const APP_MANIFESTS = [
   friendsAppManifest,
   linksAppManifest,
   bangumisAppManifest,
+  steamAppManifest,
   photosAppManifest,
   authAppManifest,
   explorerTagsAppManifest,

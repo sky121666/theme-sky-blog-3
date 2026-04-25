@@ -82,6 +82,14 @@
       "/themes/theme-sky-blog-3/assets/css/apps/reader/index.css"
     ]
   },
+  "steam": {
+    "js": [
+      "/themes/theme-sky-blog-3/assets/js/apps/steam/index.js"
+    ],
+    "css": [
+      "/themes/theme-sky-blog-3/assets/css/apps/steam/index.css"
+    ]
+  },
   "explorer-tags": {
     "js": [
       "/themes/theme-sky-blog-3/assets/js/apps/tags/index.js"

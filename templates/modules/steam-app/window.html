@@ -1,0 +1,58 @@
+<th:block th:fragment="frame (titleText, subtitleText, contentFragment, windowResizable, metricsKey)">
+  <th:block th:replace="~{modules/shell/window-frame :: shell(
+      variant='steam',
+      metricsKey=${metricsKey},
+      resizable=${windowResizable != null ? windowResizable : 'true'},
+      maximizable='true',
+      widthAttr='1200',
+      extraClasses='steam-window md:min-w-[960px] md:min-h-[680px]',
+      inlineStyle='',
+      bodyFragment=~{::frameBody(contentFragment=${contentFragment}, windowResizable=${windowResizable})}
+    )}"></th:block>
+</th:block>
+
+<th:block th:fragment="frameBody (contentFragment, windowResizable)">
+  <th:block th:replace="~{modules/shell/window-frame :: resizeHandles(mode='full', enabled=${windowResizable == null or windowResizable != 'false'})}"></th:block>
+
+  <div class="steam-window-content"
+       data-window-scroll
+       data-window-content-root>
+    <th:block th:replace="~{modules/shell/window-frame :: loadingOverlay(contentFragment=~{::loadingSkeleton})}"></th:block>
+    <div id="pjax-container" data-window-content-variant="steam" class="steam-window-content-inner">
+      <th:block th:replace="${contentFragment}" />
+    </div>
+  </div>
+</th:block>
+
+<th:block th:fragment="loadingSkeleton">
+  <div class="steam-window-skeleton" aria-hidden="true">
+    <div class="steam-skeleton-topbar">
+      <div class="steam-skeleton-lights">
+        <span></span><span></span><span></span>
+      </div>
+      <div class="steam-skeleton-brand">
+        <span class="steam-skeleton-logo skeleton-panel"></span>
+        <span class="steam-skeleton-word skeleton-line"></span>
+      </div>
+      <div class="steam-skeleton-nav">
+        <span class="skeleton-line"></span>
+        <span class="skeleton-line"></span>
+        <span class="skeleton-line"></span>
+      </div>
+    </div>
+    <div class="steam-skeleton-toolbar">
+      <div class="steam-skeleton-heading skeleton-line"></div>
+      <div class="steam-skeleton-tools">
+        <div class="skeleton-line"></div>
+        <div class="skeleton-line"></div>
+      </div>
+    </div>
+    <div class="steam-skeleton-grid">
+      <div class="steam-skeleton-game" th:each="i : ${#numbers.sequence(1, 12)}">
+        <div class="steam-skeleton-cover skeleton-panel"></div>
+        <div class="steam-skeleton-game-title skeleton-line"></div>
+        <div class="steam-skeleton-game-meta skeleton-line"></div>
+      </div>
+    </div>
+  </div>
+</th:block>

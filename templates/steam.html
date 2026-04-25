@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<th:block xmlns:th="https://www.thymeleaf.org"
+          th:with="
+            totalGames=${games != null and games.total != null ? games.total : 0},
+            resolvedWindowTitle=${!#strings.isEmpty(title) ? title : 'Steam 游戏库'},
+            resolvedWindowSubtitle=${totalGames != null ? ('共 ' + totalGames + ' 款游戏') : 'Steam 信息展示'},
+            resolvedDocumentTitle=${resolvedWindowTitle + ' - ' + site.title}">
+  <html th:replace="~{modules/shell/layout :: html(
+          title = ${resolvedDocumentTitle},
+          description = 'Steam 用户资料、游戏库、最近游玩和徽章信息',
+          ssrContent = ~{modules/steam-app/list :: content},
+          canonical = '/steam',
+          image = ${site.logo},
+          type = 'website',
+          seoFallback = 'meta',
+          pageMode = 'browser-steam',
+          pageApp = 'steam',
+          windowVariant = 'steam',
+          windowScene = 'profile',
+          windowTitle = ${resolvedWindowTitle},
+          windowResizable = true,
+          windowMaximizable = true,
+          windowMetricsKey = 'steam'
+        )}"></html>
+</th:block>

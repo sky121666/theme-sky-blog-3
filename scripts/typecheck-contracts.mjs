@@ -69,6 +69,8 @@ const routeSamples = [
   ['https://example.com/links', 'links', 'links'],
   ['https://example.com/bangumis', 'bangumis', 'bangumis'],
   ['https://example.com/bangumis/page/2', 'bangumis', 'bangumis'],
+  ['https://example.com/steam', 'steam', 'steam'],
+  ['https://example.com/steam/page/2', 'steam', 'steam'],
   ['https://example.com/photos', 'photos', 'photos'],
   ['https://example.com/tags', 'explorer-tags', 'browser'],
   ['https://example.com/tags/demo', 'explorer-tags', 'browser'],

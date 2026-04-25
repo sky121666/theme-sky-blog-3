@@ -1,0 +1,367 @@
+<th:block th:fragment="content"
+          th:with="
+            profile=${steamFinder.getProfile()},
+            stats=${steamFinder.getStats()},
+            badges=${steamFinder.getBadges()},
+            recentLimit=${recentGamesLimit != null ? recentGamesLimit : 5},
+            recentGames=${steamFinder.getRecentGames(recentLimit)},
+            profileSummary=${profile != null ? profile.summary : null},
+            profileName=${profileSummary != null and !#strings.isEmpty(profileSummary.personaName) ? profileSummary.personaName : 'Steam Player'},
+            avatarUrl=${profileSummary != null and !#strings.isEmpty(profileSummary.avatarFull) ? profileSummary.avatarFull : ''},
+            profileUrl=${profileSummary != null and !#strings.isEmpty(profileSummary.profileUrl) ? profileSummary.profileUrl : ''},
+            statusText=${profile != null and !#strings.isEmpty(profile.statusText) ? profile.statusText : '状态未知'},
+            steamLevel=${profile != null and profile.steamLevel != null ? profile.steamLevel : 0},
+            totalGames=${stats != null and stats.totalGames != null ? stats.totalGames : (games != null and games.total != null ? games.total : 0)},
+            totalPlaytime=${stats != null and !#strings.isEmpty(stats.totalPlaytimeFormatted) ? stats.totalPlaytimeFormatted : '暂无统计'},
+            recentPlaytime=${stats != null and !#strings.isEmpty(stats.recentPlaytimeFormatted) ? stats.recentPlaytimeFormatted : '暂无统计'},
+            badgeCount=${badges != null and badges.totalBadges != null ? badges.totalBadges : 0},
+            playerXp=${badges != null and badges.playerXp != null ? badges.playerXp : 0},
+            playerLevel=${badges != null and badges.playerLevel != null ? badges.playerLevel : steamLevel},
+            levelProgress=${badges != null and badges.levelProgressPercent != null ? badges.levelProgressPercent : 0},
+            hasProfile=${profile != null and profileSummary != null},
+            hasGames=${games != null and games.items != null and !#lists.isEmpty(games.items)},
+            hasRecent=${recentGames != null and !#lists.isEmpty(recentGames)},
+            hasBadges=${badges != null and badges.badges != null and !#lists.isEmpty(badges.badges)},
+            steamCoverImage=${theme.config.steam?.cover?.image_url},
+            pageNumber=${games != null and games.page != null ? games.page : 1},
+            pageCount=${games != null and games.totalPages != null ? games.totalPages : 1},
+            pageTitleText=${!#strings.isEmpty(title) ? title : 'Steam 游戏库'}">
+  <div class="steam-app"
+       data-app-root="steam"
+       data-steam-initial-view="profile"
+       th:attr="data-steam-cover-image=${steamCoverImage}"
+       x-data="steamExplorer">
+    <script type="application/json" data-app-props="steam">{"version":1,"appId":"steam","data":{"scene":"profile"}}</script>
+
+    <div class="steam-app-shell"
+         th:attr="data-steam-site-title=${site.title},data-steam-chrome-title=${pageTitleText},data-steam-chrome-subtitle=${'共 ' + totalGames + ' 款游戏'}">
+      <header class="steam-client-header"
+              @mousedown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
+        <div class="steam-client-statusbar">
+          <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=true)}"></th:block>
+          <div class="steam-client-status">
+            <span class="steam-status-pill">
+              <span class="icon-[lucide--bell]" aria-hidden="true"></span>
+              <span>Steam 信息展示</span>
+            </span>
+            <a class="steam-status-pill"
+               th:if="${!#strings.isEmpty(profileUrl)}"
+               th:href="${profileUrl}"
+               target="_blank"
+               rel="noopener noreferrer">
+              <span class="icon-[lucide--external-link]" aria-hidden="true"></span>
+              <span>打开资料</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="steam-client-nav">
+          <div class="steam-brand">
+            <span class="steam-brand-mark icon-[lucide--disc-3]" aria-hidden="true"></span>
+            <span>Steam</span>
+          </div>
+          <nav class="steam-main-nav" aria-label="Steam 页面视图">
+            <button type="button"
+                    class="steam-main-nav-item"
+                    :class="{ 'is-active': isView('profile') }"
+                    @click="switchView('profile')">资料</button>
+            <button type="button"
+                    class="steam-main-nav-item"
+                    :class="{ 'is-active': isView('library') }"
+                    @click="switchView('library')">游戏库</button>
+            <button type="button"
+                    class="steam-main-nav-item"
+                    :class="{ 'is-active': isView('badges') }"
+                    @click="switchView('badges')">徽章</button>
+          </nav>
+        </div>
+      </header>
+
+      <main class="steam-main">
+        <div class="steam-main-scroll">
+          <section class="steam-empty"
+                   th:if="${!hasProfile and !hasGames}">
+            <span class="steam-empty-icon icon-[lucide--key-round]" aria-hidden="true"></span>
+            <h2 class="steam-empty-title">Steam 数据暂不可用</h2>
+            <p class="steam-empty-text">请确认插件已配置有效的 Steam API Key 和 Steam ID，并将 Steam 个人资料及游戏详情设为公开。</p>
+          </section>
+
+          <section class="steam-profile-view"
+                   x-show="isView('profile')"
+                   x-cloak>
+            <div class="steam-profile-hero">
+              <div class="steam-profile-hero-shade"></div>
+              <div class="steam-profile-inner">
+                <div class="steam-avatar-shell" th:classappend="${profile != null and profile.playing ? ' is-ingame' : ' is-online'}">
+                  <img th:if="${!#strings.isEmpty(avatarUrl)}"
+                       th:src="${avatarUrl}"
+                       th:alt="${profileName}"
+                       loading="eager"
+                       decoding="async"
+                       referrerpolicy="no-referrer"
+                       onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                  <span class="steam-avatar-fallback"
+                        th:style="${!#strings.isEmpty(avatarUrl) ? 'display:none' : ''}">
+                    <span class="icon-[lucide--user]" aria-hidden="true"></span>
+                  </span>
+                </div>
+                <div class="steam-profile-copy">
+                  <h1 class="steam-profile-name" th:text="${profileName}">Steam Player</h1>
+                  <p class="steam-profile-status" th:classappend="${profile != null and profile.playing ? ' is-ingame' : ''}" th:text="${statusText}">当前在线</p>
+                  <p class="steam-profile-bio">展示 Steam 用户资料、游戏库、最近游玩、徽章和游玩统计。</p>
+                </div>
+                <div class="steam-level-box">
+                  <span>Steam 等级</span>
+                  <strong th:text="${playerLevel}">0</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="steam-profile-content">
+              <div class="steam-profile-primary">
+                <section class="steam-section">
+                  <div class="steam-section-head">
+                    <h2>最近游玩</h2>
+                    <span>近两周</span>
+                  </div>
+                  <div class="steam-recent-list" th:if="${hasRecent}">
+                    <a class="steam-recent-card"
+                       th:each="game : ${recentGames}"
+                       th:href="${enableGameLink ? ('https://store.steampowered.com/app/' + game.appId) : '#'}"
+                       th:target="${enableGameLink ? '_blank' : ''}"
+                       th:rel="${enableGameLink ? 'noopener noreferrer' : ''}">
+                      <img th:if="${!#strings.isEmpty(game.headerImageUrl)}"
+                           th:src="${game.headerImageUrl}"
+                           th:alt="${game.name}"
+                           loading="lazy"
+                           decoding="async"
+                           referrerpolicy="no-referrer">
+                      <span class="steam-game-image-fallback" th:if="${#strings.isEmpty(game.headerImageUrl)}">
+                        <span class="icon-[lucide--gamepad-2]" aria-hidden="true"></span>
+                      </span>
+                      <span class="steam-recent-copy">
+                        <strong th:text="${game.name}">游戏名称</strong>
+                        <span th:if="${!#strings.isEmpty(game.playtime2WeeksFormatted)}" th:text="${'过去 2 周游玩 ' + game.playtime2WeeksFormatted}">过去 2 周游玩 0 小时</span>
+                        <span th:if="${!#strings.isEmpty(game.playtimeFormatted)}" th:text="${'总时数 ' + game.playtimeFormatted}">总时数 0 小时</span>
+                      </span>
+                    </a>
+                  </div>
+                  <div class="steam-inline-empty" th:if="${!hasRecent}">
+                    <span class="icon-[lucide--clock-3]" aria-hidden="true"></span>
+                    <p>暂无最近游玩记录，或 Steam 游戏详情未公开。</p>
+                  </div>
+                </section>
+
+                <section class="steam-section" th:if="${showHeatmap}">
+                  <div class="steam-section-head">
+                    <h2>游玩活跃度</h2>
+                    <span th:text="${heatmapDays != null ? heatmapDays + ' 天' : '年度统计'}">年度统计</span>
+                  </div>
+                  <div class="steam-heatmap-panel"
+                       th:attr="data-steam-heatmap-days=${heatmapDays},data-steam-heatmap-theme=${heatmapColorTheme},data-steam-echarts-url=${echartsUrl}">
+                    <div class="steam-heatmap-meta">
+                      <span data-steam-heatmap-summary>正在读取活跃记录</span>
+                      <span data-steam-heatmap-range></span>
+                    </div>
+                    <div class="steam-heatmap-board">
+                      <div class="steam-heatmap-weekdays" aria-hidden="true">
+                        <span>一</span>
+                        <span>三</span>
+                        <span>五</span>
+                      </div>
+                      <div class="steam-heatmap-grid" data-steam-heatmap-grid aria-label="Steam 游玩活跃度"></div>
+                    </div>
+                    <div class="steam-heatmap-caption">
+                      <span>少</span>
+                      <i></i><i class="is-1"></i><i class="is-2"></i><i class="is-3"></i><i class="is-4"></i>
+                      <span>多</span>
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              <aside class="steam-profile-aside">
+                <section class="steam-side-card">
+                  <h2 th:text="${statusText}">当前在线</h2>
+                  <p>正在同步 Steam 公开资料。</p>
+                </section>
+
+                <section class="steam-side-stats">
+                  <button type="button" class="steam-side-link" @click="switchView('library')">
+                    <span>游戏</span>
+                    <strong th:text="${totalGames}">0</strong>
+                  </button>
+                  <div class="steam-side-stat-row">
+                    <span>总游玩时长</span>
+                    <strong th:text="${totalPlaytime}">暂无统计</strong>
+                  </div>
+                  <div class="steam-side-stat-row">
+                    <span>近两周时长</span>
+                    <strong th:text="${recentPlaytime}">暂无统计</strong>
+                  </div>
+                </section>
+
+                <section class="steam-side-badges">
+                  <button type="button" class="steam-side-link" @click="switchView('badges')">
+                    <span>徽章</span>
+                    <strong th:text="${badgeCount}">0</strong>
+                  </button>
+                  <div class="steam-badge-preview" th:if="${hasBadges}">
+                    <span class="steam-badge-chip"
+                          th:each="badge, iter : ${badges.badges}"
+                          th:if="${iter.index < 8}">
+                      <img th:if="${!#strings.isEmpty(badge.imageUrl)}"
+                           th:src="${badge.imageUrl}"
+                           th:alt="${!#strings.isEmpty(badge.badgeName) ? badge.badgeName : badge.displayName}"
+                           loading="lazy"
+                           decoding="async"
+                           referrerpolicy="no-referrer">
+                      <span th:if="${#strings.isEmpty(badge.imageUrl)}" class="icon-[lucide--badge]" aria-hidden="true"></span>
+                    </span>
+                  </div>
+                  <div class="steam-level-progress">
+                    <span th:text="${'经验值 ' + playerXp}">经验值 0</span>
+                    <span th:text="${levelProgress + '%'}">0%</span>
+                  </div>
+                  <div class="steam-progress-bar">
+                    <span th:style="${'width:' + levelProgress + '%'}"></span>
+                  </div>
+                </section>
+              </aside>
+            </div>
+          </section>
+
+          <section class="steam-library-view"
+                   x-show="isView('library')"
+                   x-cloak>
+            <div class="steam-library-toolbar">
+              <h2>游戏库</h2>
+              <div class="steam-library-actions">
+                <label class="steam-search-wrap">
+                  <input type="search" placeholder="按名称搜索" x-model="searchQuery">
+                  <span class="icon-[lucide--search]" aria-hidden="true"></span>
+                </label>
+                <label class="steam-sort-wrap">
+                  <span class="icon-[lucide--sliders-horizontal]" aria-hidden="true"></span>
+                  <select x-model="sortMode" aria-label="排序">
+                    <option value="playtime">游玩时长</option>
+                    <option value="recent">最近游玩</option>
+                    <option value="name">名称</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div class="steam-library-grid" th:if="${hasGames}">
+              <a class="steam-game-card"
+                 th:each="game, iter : ${games.items}"
+                 th:href="${enableGameLink ? ('https://store.steampowered.com/app/' + game.appId) : '#'}"
+                 th:target="${enableGameLink ? '_blank' : ''}"
+                 th:rel="${enableGameLink ? 'noopener noreferrer' : ''}"
+                 data-steam-game-card
+                 x-show="shouldShowGame($el)"
+                 th:style="${'order:' + iter.index}"
+                 th:attr="data-steam-index=${iter.index},
+                          data-steam-app-id=${game.appId},
+                          data-steam-game-name=${game.name},
+                          data-steam-playtime=${game.playtimeForever != null ? game.playtimeForever : 0},
+                          data-steam-recent=0,
+                          data-steam-last-played=${game.lastPlayedFormatted}">
+                <div class="steam-game-art">
+                  <img th:if="${!#strings.isEmpty(game.headerImageUrl)}"
+                       th:src="${game.headerImageUrl}"
+                       th:alt="${game.name}"
+                       loading="lazy"
+                       decoding="async"
+                       referrerpolicy="no-referrer">
+                  <span class="steam-game-image-fallback" th:if="${#strings.isEmpty(game.headerImageUrl)}">
+                    <span class="icon-[lucide--gamepad-2]" aria-hidden="true"></span>
+                  </span>
+                </div>
+                <div class="steam-game-meta">
+                  <h3 th:text="${game.name}">游戏名称</h3>
+                  <p th:if="${!#strings.isEmpty(game.playtimeFormatted)}" th:text="${game.playtimeFormatted}">0 小时</p>
+                  <p th:if="${!#strings.isEmpty(game.lastPlayedFormatted)}" th:text="${'上次游玩 ' + game.lastPlayedFormatted}">上次游玩</p>
+                </div>
+              </a>
+
+            </div>
+
+            <section class="steam-inline-empty steam-inline-empty--library"
+                     th:if="${hasGames}"
+                     x-show="visibleCount() === 0"
+                     x-cloak>
+              <span class="icon-[lucide--search-x]" aria-hidden="true"></span>
+              <p>没有匹配的游戏。</p>
+            </section>
+
+            <section class="steam-empty steam-empty--compact" th:if="${!hasGames}">
+              <span class="steam-empty-icon icon-[lucide--library]" aria-hidden="true"></span>
+              <h2 class="steam-empty-title">暂无游戏库数据</h2>
+              <p class="steam-empty-text">请检查 Steam 隐私设置，或者确认插件已成功同步游戏库。</p>
+            </section>
+
+            <div class="steam-loadmore"
+                 th:if="${hasGames}"
+                 data-steam-loadmore
+                 th:attr="data-next-url=${games.hasNext() ? games.nextUrl : ''}"
+                 x-show="hasMore || loading || loadError"
+                 x-cloak>
+              <div class="steam-loadmore-skeleton"
+                   x-show="loading"
+                   x-cloak
+                   aria-hidden="true">
+                <div class="steam-load-card" th:each="i : ${#numbers.sequence(1, 6)}">
+                  <span class="steam-load-card-art"></span>
+                  <span class="steam-load-card-title"></span>
+                  <span class="steam-load-card-meta"></span>
+                </div>
+              </div>
+              <div class="steam-loadmore-indicator"
+                   x-show="!loading && hasMore"
+                   data-steam-scroll-sentinel>
+                <span class="steam-loadmore-spinner" aria-hidden="true"></span>
+                <span>继续向下滚动加载</span>
+              </div>
+              <div class="steam-loadmore-error" x-show="loadError" x-cloak>
+                <span class="icon-[lucide--circle-alert]" aria-hidden="true"></span>
+                <span>加载更多游戏失败，请稍后再试。</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="steam-badges-view"
+                   x-show="isView('badges')"
+                   x-cloak>
+            <div class="steam-library-toolbar">
+              <h2>徽章</h2>
+              <span class="steam-toolbar-note" th:text="${'等级 ' + playerLevel + ' · ' + badgeCount + ' 枚徽章'}">等级 0 · 0 枚徽章</span>
+            </div>
+
+            <div class="steam-badge-grid" th:if="${hasBadges}">
+              <article class="steam-badge-card" th:each="badge : ${badges.badges}">
+                <span class="steam-badge-large">
+                  <img th:if="${!#strings.isEmpty(badge.imageUrl)}"
+                       th:src="${badge.imageUrl}"
+                       th:alt="${!#strings.isEmpty(badge.badgeName) ? badge.badgeName : badge.displayName}"
+                       loading="lazy"
+                       decoding="async"
+                       referrerpolicy="no-referrer">
+                  <span th:if="${#strings.isEmpty(badge.imageUrl)}" class="icon-[lucide--badge]" aria-hidden="true"></span>
+                </span>
+                <h3 th:text="${!#strings.isEmpty(badge.badgeName) ? badge.badgeName : badge.displayName}">Steam 徽章</h3>
+                <p th:if="${badge.xp != null}" th:text="${badge.xp + ' XP'}">0 XP</p>
+              </article>
+            </div>
+
+            <section class="steam-empty steam-empty--compact" th:if="${!hasBadges}">
+              <span class="steam-empty-icon icon-[lucide--badge]" aria-hidden="true"></span>
+              <h2 class="steam-empty-title">暂无徽章数据</h2>
+              <p class="steam-empty-text">可在插件后台为 Steam 系统徽章配置自定义图片。</p>
+            </section>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+</th:block>

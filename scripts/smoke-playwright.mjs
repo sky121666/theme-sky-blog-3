@@ -163,6 +163,17 @@ async function main() {
       appPropsSelector: 'script[data-app-props="bangumis"]'
     },
     {
+      name: 'steam',
+      target: '/steam',
+      optional: true,
+      requireShellLoaded: true,
+      expectedAppId: 'steam',
+      expectedPageMode: 'browser-steam',
+      expectedWindowVariant: 'steam',
+      appRootSelector: '[data-app-root="steam"]',
+      appPropsSelector: 'script[data-app-props="steam"]'
+    },
+    {
       name: 'photos',
       target: '/photos',
       optional: true,

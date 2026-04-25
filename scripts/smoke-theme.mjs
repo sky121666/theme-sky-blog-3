@@ -21,7 +21,7 @@ const assetManifestFile = path.join(root, 'templates/assets/asset-manifest.json'
 assert(fs.existsSync(assetManifestFile), '缺少 templates/assets/asset-manifest.json');
 
 const manifest = readJson(assetManifestFile);
-const requiredAssets = ['shell-core', 'auth', 'reader', 'moments', 'friends', 'links', 'bangumis', 'photos', 'explorer-tags', 'explorer-categories', 'explorer-author', 'explorer-archives'];
+const requiredAssets = ['shell-core', 'auth', 'reader', 'moments', 'friends', 'links', 'bangumis', 'steam', 'photos', 'explorer-tags', 'explorer-categories', 'explorer-author', 'explorer-archives'];
 
 for (const key of requiredAssets) {
   assert(manifest[key], `asset-manifest 缺少入口: ${key}`);
@@ -55,6 +55,7 @@ const protocolChecks = [
   ['templates/modules/friends-app/list.html', ['data-app-root="friends"', 'data-app-props="friends"']],
   ['templates/modules/links-app/list.html', ['data-app-root="links"', 'data-app-props="links"']],
   ['templates/modules/bangumis-app/list.html', ['data-app-root="bangumis"', 'data-app-props="bangumis"']],
+  ['templates/modules/steam-app/list.html', ['data-app-root="steam"', 'data-app-props="steam"']],
   ['templates/photos.html', ['data-app-root="photos"', 'data-app-props="photos"']],
   ['templates/modules/browser-explorer/tags.html', ['data-app-root="explorer-tags"', 'data-app-props="explorer-tags"']],
   ['templates/modules/browser-explorer/categories.html', ['data-app-root="explorer-categories"', 'data-app-props="explorer-categories"']],

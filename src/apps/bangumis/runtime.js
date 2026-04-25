@@ -69,21 +69,27 @@ export function registerBangumisExplorer(Alpine) {
       });
 
       this._observer.observe(sentinel);
+      this.installScrollFallback(scroller);
     },
 
     installScrollFallback(scroller) {
       this.removeScrollFallback();
       if (!scroller) return;
 
-      this._fallbackScrollHandler = () => {
-        const distanceToBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
-        if (distanceToBottom < 420) {
-          this.loadNext();
-        }
-      };
+      this._fallbackScrollHandler = () => this.checkScrollFallback();
 
       scroller.addEventListener('scroll', this._fallbackScrollHandler, { passive: true });
-      this._fallbackScrollHandler();
+      this.checkScrollFallback();
+    },
+
+    checkScrollFallback() {
+      const scroller = this.$root.querySelector('.bangumis-main-scroll');
+      if (!scroller) return;
+
+      const distanceToBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+      if (distanceToBottom < 420) {
+        this.loadNext();
+      }
     },
 
     removeScrollFallback() {
@@ -150,6 +156,7 @@ export function registerBangumisExplorer(Alpine) {
 
         this.appendCards(cards);
         this.updatePaginationFrom(doc);
+        this.$nextTick(() => this.checkScrollFallback());
       } catch (error) {
         this.loadError = true;
         if (document.body?.dataset.debug === 'true') {

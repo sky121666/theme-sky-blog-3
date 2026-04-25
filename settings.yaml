@@ -763,6 +763,27 @@ spec:
               help: 留空时默认显示“全部友链”。
               value: ""
 
+    - group: steam
+      label: Steam
+      formSchema:
+        - $formkit: group
+          id: steam_cover_group
+          name: cover
+          label: 背景
+          value:
+            image_url: ""
+          children:
+            - $formkit: attachment
+              id: steam_cover_image
+              name: image_url
+              label: 背景图片
+              help: 用于 Steam App 窗口背景和资料横幅。留空时使用内置游戏背景。
+              value: ""
+              accepts:
+                - "image/png"
+                - "image/jpeg"
+                - "image/webp"
+
     - group: default_layout
       label: 默认布局
       formSchema:
