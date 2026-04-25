@@ -86,13 +86,13 @@
               @click="$store.theme.setMode($store.theme.isDark ? 'light' : 'dark')"
               class="menubar-icon-btn menubar-theme-btn"
               title="切换外观">
-        <span x-show="!$store.theme.isDark" style="display: contents;">
+        <span class="menubar-theme-icon-slot" x-show="!$store.theme.isDark">
           <th:block th:if="${!#strings.isEmpty(iconThemeLight)}" th:utext="${iconThemeLight}" />
           <th:block th:unless="${!#strings.isEmpty(iconThemeLight)}">
             <th:block th:replace="~{modules/shell/icons :: header_theme_light}" />
           </th:block>
         </span>
-        <span x-show="$store.theme.isDark" style="display: none;">
+        <span class="menubar-theme-icon-slot" x-show="$store.theme.isDark" style="display: none;">
           <th:block th:if="${!#strings.isEmpty(iconThemeDark)}" th:utext="${iconThemeDark}" />
           <th:block th:unless="${!#strings.isEmpty(iconThemeDark)}">
             <th:block th:replace="~{modules/shell/icons :: header_theme_dark}" />

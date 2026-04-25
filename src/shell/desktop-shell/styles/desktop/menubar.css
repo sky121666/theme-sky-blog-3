@@ -126,6 +126,15 @@ button.menubar-mobile-trigger {
   transition: background-color 0.1s ease;
 }
 
+.menubar-theme-icon-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  line-height: 1;
+}
+
 .menubar-icon-btn svg,
 .menubar-icon-btn [class*="icon-["],
 .menubar-theme-btn svg,
@@ -134,9 +143,14 @@ button.menubar-mobile-trigger {
 .menubar-search-btn [class*="icon-["],
 .menubar-mobile-trigger svg,
 .menubar-mobile-trigger [class*="icon-["] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 14px;
   height: 14px;
   flex: 0 0 14px;
+  line-height: 1;
+  vertical-align: middle;
 }
 
 .menubar-brand-icon {
@@ -191,19 +205,29 @@ button.menubar-mobile-trigger {
 
 .menubar-auth-btn--icon svg,
 .menubar-auth-btn--icon [class*="icon-["] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 14px;
   height: 14px;
   flex: 0 0 14px;
+  line-height: 1;
+  vertical-align: middle;
 }
 
 .menubar-time {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
   min-width: 120px;
+  height: 24px;
   padding: 0 10px 0 12px;
   overflow: hidden;
   color: var(--shell-text-primary);
   text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1;
   cursor: default;
 }
 
