@@ -784,6 +784,30 @@ spec:
                 - "image/jpeg"
                 - "image/webp"
 
+    - group: equipments
+      label: 装备
+      formSchema:
+        - $formkit: group
+          id: equipments_profile_group
+          name: profile
+          label: 页面标题
+          value:
+            display_name: ""
+            subtitle: ""
+          children:
+            - $formkit: text
+              id: equipments_profile_display_name
+              name: display_name
+              label: 全部装备标题
+              help: 留空时默认使用装备插件设置里的页面标题。
+              value: ""
+            - $formkit: textarea
+              id: equipments_profile_subtitle
+              name: subtitle
+              label: 全部装备描述
+              help: 留空时显示默认装备页描述。
+              value: ""
+
     - group: default_layout
       label: 默认布局
       formSchema:

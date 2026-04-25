@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<th:block xmlns:th="https://www.thymeleaf.org"
+          th:with="
+            currentGroup=${param.group != null and !#lists.isEmpty(param.group) ? param.group[0] : ''},
+            totalCount=${equipments != null and equipments.total != null ? equipments.total : 0},
+            rawEquipmentTitle=${!#strings.isEmpty(title) ? title : '装备'},
+            baseEquipmentTitle=${!#strings.isEmpty(site.title) ? #strings.replace(rawEquipmentTitle, ' - ' + site.title, '') : rawEquipmentTitle},
+            configuredEquipmentTitle=${theme.config.equipments?.profile?.display_name},
+            configuredEquipmentDescription=${theme.config.equipments?.profile?.subtitle},
+            defaultEquipmentTitle=${!#strings.isEmpty(configuredEquipmentTitle) ? configuredEquipmentTitle : baseEquipmentTitle},
+            defaultEquipmentDescription=${!#strings.isEmpty(configuredEquipmentDescription) ? configuredEquipmentDescription : '展示所有已收录的设备、工具与生活物件。'},
+            activeGroupTitle=${defaultEquipmentTitle},
+            activeGroupDescription=${defaultEquipmentDescription},
+            resolvedWindowTitle=${activeGroupTitle},
+            resolvedWindowSubtitle=${'共 ' + totalCount + ' 件装备'},
+            resolvedDocumentTitle=${resolvedWindowTitle}">
+  <html th:replace="~{modules/shell/layout :: html(
+          title = ${resolvedDocumentTitle},
+          description = ${activeGroupDescription},
+          ssrContent = ~{modules/equipments-app/list :: content},
+          canonical = '/equipments',
+          image = ${site.logo},
+          type = 'website',
+          seoFallback = 'meta',
+          pageMode = 'browser-equipments',
+          pageApp = 'equipments',
+          windowVariant = 'equipments',
+          windowScene = 'gallery',
+          windowTitle = ${resolvedWindowTitle},
+          windowResizable = true,
+          windowMaximizable = true,
+          windowMetricsKey = 'equipments'
+        )}"></html>
+</th:block>

@@ -405,6 +405,16 @@
                       metricsKey=${windowMetricsKey != null ? windowMetricsKey : 'steam'}
                     )}" />
         </th:block>
+
+        <th:block th:if="${windowVariant == 'equipments'}">
+          <th:block th:replace="~{modules/equipments-app/window :: frame(
+                      titleText=${windowTitle},
+                      subtitleText='',
+                      contentFragment=${ssrContent},
+                      windowResizable=${windowResizable != null ? windowResizable : 'y'},
+                      metricsKey=${windowMetricsKey != null ? windowMetricsKey : 'equipments'}
+                    )}" />
+        </th:block>
         
         <!-- 默认浏览器窗口变体 -->
         <th:block th:if="${windowVariant == 'browser'}">

@@ -1,0 +1,45 @@
+<th:block th:fragment="frame (titleText, subtitleText, contentFragment, windowResizable, metricsKey)">
+  <th:block th:replace="~{modules/shell/window-frame :: shell(
+      variant='equipments',
+      metricsKey=${metricsKey},
+      resizable=${windowResizable != null ? windowResizable : 'true'},
+      maximizable='true',
+      widthAttr='1220',
+      extraClasses='equipments-window md:min-w-[960px] md:min-h-[680px]',
+      inlineStyle='',
+      bodyFragment=~{::frameBody(contentFragment=${contentFragment}, windowResizable=${windowResizable})}
+    )}"></th:block>
+</th:block>
+
+<th:block th:fragment="frameBody (contentFragment, windowResizable)">
+  <th:block th:replace="~{modules/shell/window-frame :: resizeHandles(mode='full', enabled=${windowResizable == null or windowResizable != 'false'})}"></th:block>
+
+  <div class="equipments-window-content"
+       data-window-scroll
+       data-window-content-root>
+    <th:block th:replace="~{modules/shell/window-frame :: loadingOverlay(contentFragment=~{::loadingSkeleton})}"></th:block>
+    <div id="pjax-container" data-window-content-variant="equipments" class="equipments-window-content-inner">
+      <th:block th:replace="${contentFragment}" />
+    </div>
+  </div>
+</th:block>
+
+<th:block th:fragment="loadingSkeleton">
+  <div class="equipments-window-skeleton" aria-hidden="true">
+    <div class="equipments-skeleton-sidebar">
+      <div class="equipments-skeleton-lights">
+        <span></span><span></span><span></span>
+      </div>
+      <div class="equipments-skeleton-title skeleton-line"></div>
+      <div class="equipments-skeleton-pill skeleton-chip"></div>
+      <div class="equipments-skeleton-pill skeleton-chip"></div>
+      <div class="equipments-skeleton-pill skeleton-chip"></div>
+    </div>
+    <div class="equipments-skeleton-main">
+      <div class="equipments-skeleton-heading skeleton-line"></div>
+      <div class="equipments-skeleton-hero skeleton-panel"></div>
+      <div class="equipments-skeleton-copy skeleton-line"></div>
+      <div class="equipments-skeleton-copy is-short skeleton-line"></div>
+    </div>
+  </div>
+</th:block>

@@ -1,0 +1,161 @@
+<th:block th:fragment="content"
+          th:with="
+            currentGroup=${param.group != null and !#lists.isEmpty(param.group) ? param.group[0] : ''},
+            totalCount=${equipments != null and equipments.total != null ? equipments.total : 0},
+            allCount=${equipmentFinder != null ? equipmentFinder.list(1, 1).total : totalCount},
+            rawEquipmentTitle=${!#strings.isEmpty(title) ? title : '装备'},
+            baseEquipmentTitle=${!#strings.isEmpty(site.title) ? #strings.replace(rawEquipmentTitle, ' - ' + site.title, '') : rawEquipmentTitle},
+            configuredEquipmentTitle=${theme.config.equipments?.profile?.display_name},
+            configuredEquipmentDescription=${theme.config.equipments?.profile?.subtitle},
+            defaultEquipmentTitle=${!#strings.isEmpty(configuredEquipmentTitle) ? configuredEquipmentTitle : baseEquipmentTitle},
+            defaultEquipmentDescription=${!#strings.isEmpty(configuredEquipmentDescription) ? configuredEquipmentDescription : '展示所有已收录的设备、工具与生活物件。'},
+            hasEquipments=${equipments != null and equipments.items != null and !#lists.isEmpty(equipments.items)}">
+  <div class="equipments-app"
+       data-app-root="equipments"
+       x-data="equipmentsExplorer">
+    <script type="application/json" data-app-props="equipments">{"version":1,"appId":"equipments","data":{"scene":"gallery"}}</script>
+
+    <div class="equipments-app-shell"
+         th:attr="data-equipments-site-title=${site.title},data-equipments-chrome-title=${defaultEquipmentTitle},data-equipments-chrome-subtitle=${'共 ' + totalCount + ' 件装备'}">
+      <aside class="equipments-sidebar">
+        <div class="equipments-window-dragbar"
+             @mousedown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
+          <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=true)}"></th:block>
+        </div>
+
+        <div class="equipments-sidebar-head">
+          <div class="equipments-sidebar-summary"
+               th:if="${#strings.isEmpty(currentGroup)}">
+            <h2 th:text="${defaultEquipmentTitle}">我的装备</h2>
+            <p th:text="${defaultEquipmentDescription}">展示所有已收录的设备、工具与生活物件。</p>
+          </div>
+          <th:block th:if="${!#strings.isEmpty(currentGroup)}"
+                    th:each="group : ${groups}">
+            <div class="equipments-sidebar-summary"
+                 th:if="${currentGroup == group.metadata.name}">
+              <h2 th:text="${group.spec.displayName}">装备分组</h2>
+              <p th:text="${group.spec.description}">当前分组下的装备。</p>
+            </div>
+          </th:block>
+        </div>
+
+        <nav class="equipments-group-nav" aria-label="装备分组">
+          <a class="equipments-group-link pjax-link"
+             th:href="@{/equipments}"
+             th:classappend="${#strings.isEmpty(currentGroup) ? 'is-active' : ''}">
+            <span class="equipments-group-main">
+              <span class="equipments-group-icon icon-[lucide--layout-grid]" aria-hidden="true"></span>
+              <span>全部装备</span>
+            </span>
+            <span class="equipments-group-count" th:text="${allCount}">0</span>
+          </a>
+
+          <a class="equipments-group-link pjax-link"
+             th:each="group : ${groups}"
+             th:with="groupIcon=${#annotations.getOrDefault(group, 'icon', '')}"
+             th:href="@{/equipments(group=${group.metadata.name})}"
+             th:classappend="${currentGroup == group.metadata.name ? 'is-active' : ''}">
+            <span class="equipments-group-main">
+              <span th:if="${!#strings.isEmpty(groupIcon)}"
+                    class="equipments-group-custom-icon"
+                    th:utext="${groupIcon}"
+                    aria-hidden="true"></span>
+              <span th:unless="${!#strings.isEmpty(groupIcon)}"
+                    class="equipments-group-icon icon-[lucide--boxes]"
+                    aria-hidden="true"></span>
+              <span th:text="${group.spec.displayName}">分组</span>
+            </span>
+            <span class="equipments-group-count" th:text="${group.status != null and group.status.equipmentCount != null ? group.status.equipmentCount : 0}">0</span>
+          </a>
+        </nav>
+      </aside>
+
+      <main class="equipments-stage">
+        <span class="equipments-stage-count" th:text="${totalCount + ' 件'}">0 件</span>
+
+        <section class="equipments-empty"
+                 th:if="${equipments == null}">
+          <span class="equipments-empty-icon icon-[lucide--package-open]" aria-hidden="true"></span>
+          <h2>装备数据暂不可用</h2>
+          <p>请确认装备管理插件已安装，并至少创建一个装备分组和装备条目。</p>
+        </section>
+
+        <section class="equipments-empty"
+                 th:if="${equipments != null and !hasEquipments}">
+          <span class="equipments-empty-icon icon-[lucide--archive-x]" aria-hidden="true"></span>
+          <h2>无记录</h2>
+          <p>当前分组下暂未收录任何装备。</p>
+        </section>
+
+        <div class="equipments-stage-scroller"
+             th:if="${hasEquipments}">
+          <article class="equipment-hero-card"
+                   th:each="equipment, iter : ${equipments.items}"
+                   data-equipment-card
+                   th:attr="data-equipment-name=${equipment.metadata.name},data-equipment-group=${equipment.spec.groupName}">
+            <div class="equipment-hero-backdrop">
+              <img th:if="${!#strings.isEmpty(equipment.spec.cover)}"
+                   th:src="${equipment.spec.cover}"
+                   th:alt="${equipment.spec.displayName}"
+                   loading="lazy"
+                   decoding="async"
+                   referrerpolicy="no-referrer">
+            </div>
+
+            <div class="equipment-hero-visual">
+              <img th:if="${!#strings.isEmpty(equipment.spec.cover)}"
+                   th:src="${equipment.spec.cover}"
+                   th:alt="${equipment.spec.displayName}"
+                   loading="lazy"
+                   decoding="async"
+                   referrerpolicy="no-referrer"
+                   onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <span class="equipment-hero-fallback"
+                    th:style="${!#strings.isEmpty(equipment.spec.cover) ? 'display:none' : ''}">
+                <span class="icon-[lucide--image-off]" aria-hidden="true"></span>
+              </span>
+            </div>
+
+            <div class="equipment-hero-info">
+              <div class="equipment-hero-copy">
+                <span class="equipment-spec-pill"
+                      th:if="${!#strings.isEmpty(equipment.spec.specification)}"
+                      th:text="${equipment.spec.specification}">规格</span>
+                <h2 th:text="${equipment.spec.displayName}">装备名称</h2>
+                <p th:if="${!#strings.isEmpty(equipment.spec.description)}"
+                   th:text="${equipment.spec.description}">装备描述</p>
+              </div>
+
+              <a class="equipment-hero-link"
+                 th:if="${!#strings.isEmpty(equipment.spec.url)}"
+                 th:href="${equipment.spec.url}"
+                 target="_blank"
+                 rel="noopener noreferrer"
+                 title="查看详情">
+                <span class="icon-[lucide--arrow-up-right]" aria-hidden="true"></span>
+                <span class="sr-only">查看详情</span>
+              </a>
+              <span class="equipment-hero-link is-disabled"
+                    th:if="${#strings.isEmpty(equipment.spec.url)}"
+                    aria-hidden="true">
+                <span class="icon-[lucide--circle]" aria-hidden="true"></span>
+              </span>
+            </div>
+          </article>
+
+          <div class="equipments-infinite-loader"
+               data-equipments-loadmore
+               th:data-next-url="${equipments.hasNext() ? equipments.nextUrl : ''}">
+            <span class="equipments-loadmore-loading" x-show="loading" x-cloak>
+              <span class="icon-[lucide--loader-circle] equipments-loading-icon" aria-hidden="true"></span>
+              加载中...
+            </span>
+            <span class="equipments-loadmore-error" x-show="loadError" x-cloak>加载失败，继续滚动时会重试</span>
+            <span class="equipments-loadmore-done" x-show="!hasMore && !loading && !loadError" x-cloak>已全部加载</span>
+            <span class="equipments-scroll-sentinel" data-equipments-scroll-sentinel aria-hidden="true"></span>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</th:block>

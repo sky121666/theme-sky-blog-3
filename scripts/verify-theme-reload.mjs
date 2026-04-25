@@ -70,7 +70,27 @@ async function verifyRoute(baseUrl, route) {
     assertIncludes(text, `data-app-id="${route.appId}"`, route.path);
   }
 
-  return { name: route.name, path: route.path, status: response.status, skipped: false };
+  let detail = '';
+  if (route.verifyFirstGroup) {
+    const groupHref = text.match(/href="([^"]*\/equipments\?group=[^"]+)"/)?.[1];
+    if (groupHref) {
+      const groupUrl = new URL(groupHref.replace(/&amp;/g, '&'), `${baseUrl}/`).toString();
+      const { response: groupResponse, text: groupText } = await fetchText(groupUrl, {
+        headers: {
+          Accept: 'text/html,application/xhtml+xml'
+        }
+      });
+      if (!groupResponse.ok) {
+        throw new Error(`${new URL(groupUrl).pathname}${new URL(groupUrl).search} 返回 ${groupResponse.status}`);
+      }
+      assertIncludes(groupText, `data-page-mode="${route.pageMode}"`, groupUrl);
+      assertIncludes(groupText, `data-window-variant="${route.windowVariant}"`, groupUrl);
+      assertIncludes(groupText, `data-app-id="${route.appId}"`, groupUrl);
+      detail = ' + group';
+    }
+  }
+
+  return { name: route.name, path: route.path, status: response.status, skipped: false, detail };
 }
 
 async function waitForHome(baseUrl, timeoutMs = 30_000) {
@@ -136,6 +156,7 @@ async function main() {
     { name: 'links', path: '/links', pageMode: 'browser-links', windowVariant: 'links', appId: 'links', optional: true },
     { name: 'bangumis', path: '/bangumis', pageMode: 'browser-bangumis', windowVariant: 'bangumis', appId: 'bangumis', optional: true },
     { name: 'steam', path: '/steam', pageMode: 'browser-steam', windowVariant: 'steam', appId: 'steam', optional: true },
+    { name: 'equipments', path: '/equipments', pageMode: 'browser-equipments', windowVariant: 'equipments', appId: 'equipments', optional: true, verifyFirstGroup: true },
     { name: 'photos', path: '/photos', pageMode: 'browser-list', windowVariant: 'photos', appId: 'photos', optional: true }
   ];
 
@@ -147,7 +168,7 @@ async function main() {
   console.log('\nReload verify result:');
   for (const result of results) {
     const suffix = result.skipped ? ' (skipped)' : '';
-    console.log(`- ${result.name}: ${result.status}${suffix}`);
+    console.log(`- ${result.name}: ${result.status}${result.detail || ''}${suffix}`);
   }
 }
 

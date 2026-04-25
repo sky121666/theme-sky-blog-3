@@ -167,3 +167,22 @@ spec:
       format: svg
       value-only: true
       help: 选择一个图标用于友链 App 的分组侧边栏和分组标题。
+
+---
+apiVersion: v1alpha1
+kind: AnnotationSetting
+metadata:
+  name: theme-sky-blog-3-equipmentgroup-setting
+spec:
+  targetRef:
+    group: equipment.kunkunyu.com
+    kind: EquipmentGroup
+  formSchema:
+    - $formkit: iconify
+      id: equipmentgroup_icon
+      key: equipmentgroup_icon
+      name: icon
+      label: 装备分组图标 (SVG)
+      format: svg
+      value-only: true
+      help: 选择一个图标用于装备 App 的分组导航。
