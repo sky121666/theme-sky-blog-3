@@ -79,16 +79,27 @@
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: none;
+  border: 0;
   border-radius: 50%;
-  background: transparent;
-  color: #FF3B30;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 42%),
+    rgba(255, 69, 58, 0.82);
+  color: #fff;
   cursor: pointer;
   opacity: 0;
   transform: scale(0.6);
-  transition: opacity 0.18s ease, transform 0.18s ease;
+  transform-origin: 50% 50%;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
+    background-color 0.18s ease,
+    box-shadow 0.18s ease;
   pointer-events: none;
   -webkit-tap-highlight-color: transparent;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(120, 0, 0, 0.14);
 }
 
 .desktop-editing .desktop-widget-remove-btn {
@@ -98,19 +109,27 @@
 }
 
 .desktop-widget-remove-btn:hover {
-  color: #FF453A;
-  transform: scale(1.15);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 42%),
+    rgba(255, 82, 72, 0.88);
+  transform: scale(1.04);
 }
 
 .desktop-widget-remove-btn:active {
-  transform: scale(0.92);
+  transform: scale(0.96);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent 42%),
+    rgba(232, 48, 42, 0.86);
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.18),
+    inset 0 1px 2px rgba(120, 0, 0, 0.18);
 }
 
 .desktop-widget-remove-btn svg,
 .desktop-widget-remove-btn span {
-  width: 22px;
-  height: 22px;
-  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.35));
+  width: 12px;
+  height: 12px;
+  filter: none;
 }
 
 .desktop-widget-drop-preview {
