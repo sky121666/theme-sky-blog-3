@@ -21,6 +21,7 @@
       siteBaseUrl = ${site.url != null ? site.url.toString() : ''},
       absoluteCanonical = ${!#strings.isEmpty(rawCanonical) ? ((rawCanonical.startsWith('http://') or rawCanonical.startsWith('https://')) ? rawCanonical : (!#strings.isEmpty(siteBaseUrl) ? ((siteBaseUrl.endsWith('/') and rawCanonical.startsWith('/')) ? siteBaseUrl + rawCanonical.substring(1) : ((!siteBaseUrl.endsWith('/')) and (!rawCanonical.startsWith('/')) ? siteBaseUrl + '/' + rawCanonical : siteBaseUrl + rawCanonical)) : rawCanonical)) : ''},
       absoluteImage = ${!#strings.isEmpty(rawImage) ? ((rawImage.startsWith('http://') or rawImage.startsWith('https://')) ? rawImage : (!#strings.isEmpty(siteBaseUrl) ? ((siteBaseUrl.endsWith('/') and rawImage.startsWith('/')) ? siteBaseUrl + rawImage.substring(1) : ((!siteBaseUrl.endsWith('/')) and (!rawImage.startsWith('/')) ? siteBaseUrl + '/' + rawImage : siteBaseUrl + rawImage)) : rawImage)) : ''},
+      themeAssetVersion = ${theme.spec.version ?: '0.9.0'},
       themeFallbackIcon = ${#theme.assets('/favicon.svg')}">
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -82,17 +83,17 @@
       })();
     </script>
 
-	    <!-- 本地打包产物 (开发阶段加入时间戳废除缓存) -->
-	    <link rel="stylesheet" th:href="@{/assets/css/shell-core/index.css(t=${#dates.createNow().getTime()})}" />
+	    <!-- 本地打包产物：使用主题版本号作为缓存边界 -->
+	    <link rel="stylesheet" th:href="@{/assets/css/shell-core/index.css(v=${themeAssetVersion})}" />
 	    <link rel="stylesheet"
 	          th:if="${!#strings.isEmpty(pageAppValue)}"
 	          th:attr="data-app-css=${pageAppValue}"
-	          th:href="@{'/assets/css/apps/' + ${(pageAppValue == 'explorer-tags' ? 'tags' : (pageAppValue == 'explorer-categories' ? 'categories' : (pageAppValue == 'explorer-author' ? 'author' : (pageAppValue == 'explorer-archives' ? 'archives' : pageAppValue))))} + '/index.css?t=' + ${#dates.createNow().getTime()}}" />
+	          th:href="@{'/assets/css/apps/' + ${(pageAppValue == 'explorer-tags' ? 'tags' : (pageAppValue == 'explorer-categories' ? 'categories' : (pageAppValue == 'explorer-author' ? 'author' : (pageAppValue == 'explorer-archives' ? 'archives' : pageAppValue))))} + '/index.css?v=' + ${themeAssetVersion}}" />
 	    <script type="module"
 	            th:if="${!#strings.isEmpty(pageAppValue)}"
 	            th:attr="data-app-script=${pageAppValue}"
-	            th:src="@{'/assets/js/apps/' + ${(pageAppValue == 'explorer-tags' ? 'tags' : (pageAppValue == 'explorer-categories' ? 'categories' : (pageAppValue == 'explorer-author' ? 'author' : (pageAppValue == 'explorer-archives' ? 'archives' : pageAppValue))))} + '/index.js?t=' + ${#dates.createNow().getTime()}}"></script>
-	    <script type="module" th:src="@{/assets/js/shell-core/index.js(t=${#dates.createNow().getTime()})}"></script>
+	            th:src="@{'/assets/js/apps/' + ${(pageAppValue == 'explorer-tags' ? 'tags' : (pageAppValue == 'explorer-categories' ? 'categories' : (pageAppValue == 'explorer-author' ? 'author' : (pageAppValue == 'explorer-archives' ? 'archives' : pageAppValue))))} + '/index.js?v=' + ${themeAssetVersion}}"></script>
+	    <script type="module" th:src="@{/assets/js/shell-core/index.js(v=${themeAssetVersion})}"></script>
   </head>
 
   <!-- 读取后台配置 -->

@@ -1,7 +1,8 @@
 /**
  * 桌面网格度量 · 可见性同步 · 布局归一化
  *
- * 核心算法: 组右锚定平移 + 碰撞解析
+ * 核心算法: 桌面图标左锚定 + 组件组右锚定平移 + 碰撞解析
+ *   - 图标保持左侧网格列，避免跨浏览器加载时坍缩为单列
  *   - 组件组作为整体平移，保持彼此间距不变
  *   - offset = curCols - savedCols
  *   - 只在组件被挤出左边界或宽度超限时才触发碰撞解析
@@ -128,7 +129,8 @@ export const gridMethods = {
 
     const hasIcons = icons.length > 0;
     const hasWidgets = widgets.length > 0;
-    const iconCols = hasIcons && hasWidgets && curCols >= 6 ? 1 : 0;
+    const shouldReserveIconRail = hasIcons && hasWidgets && curCols <= 8;
+    const iconCols = shouldReserveIconRail ? 1 : 0;
     const widgetMinX = iconCols + 1;
     const widgetAvailCols = curCols - iconCols;
 
@@ -173,12 +175,14 @@ export const gridMethods = {
       });
     });
 
-    /* ── Phase 3: 无独占列时图标混排 ── */
+    /* ── Phase 3: 无独占列时图标按左锚定网格混排 ── */
     if (iconCols === 0 && hasIcons) {
       icons.forEach((icon) => {
+        const baseX = icon.baseX ?? icon.x;
         const baseY = icon.baseY ?? icon.y;
+        const targetX = Math.max(1, Math.min(baseX, curCols));
         const placement = this.findNearestAvailablePlacementInPlacements(
-          icon, 1, Math.max(1, baseY), resolved, icon.key
+          icon, targetX, Math.max(1, baseY), resolved, icon.key
         );
         resolved.push({
           key: icon.key,

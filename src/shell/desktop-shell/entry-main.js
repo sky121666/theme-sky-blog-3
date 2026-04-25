@@ -22,11 +22,10 @@ import intersect from '@alpinejs/intersect';
 import { registerComponents } from './runtime/desktop.js';
 import { activateCurrentPageApp } from './runtime/shared/page-app.js';
 import { initLazyImages } from './runtime/shared/lazy-media.js';
-import { getLatestThemeBuildVersion } from '../../shell-core/runtime/resource-registry.js';
+import { getCurrentThemeAssetVersion, getLatestThemeBuildVersion } from '../../shell-core/runtime/resource-registry.js';
 
-const CURRENT_THEME_BUILD_VERSION = typeof __THEME_BUILD_VERSION__ === 'string'
-  ? __THEME_BUILD_VERSION__
-  : '';
+const CURRENT_THEME_BUILD_VERSION = getCurrentThemeAssetVersion()
+  || (typeof __THEME_BUILD_VERSION__ === 'string' ? __THEME_BUILD_VERSION__ : '');
 
 let runtimeFreshnessCheckPromise = null;
 let runtimeReloading = false;

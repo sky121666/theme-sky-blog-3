@@ -38,6 +38,7 @@ function inferThemeAssetVersionQuery() {
 
   const candidates = [
     document.querySelector('link[href*="/css/shell-core/index.css"]'),
+    document.querySelector('script[src*="/js/shell-core/index.js"]'),
     document.querySelector('script[data-app-script]'),
     document.querySelector('link[data-app-css]')
   ];
@@ -91,6 +92,17 @@ export function withThemeAssetVersion(url) {
     return parsed.toString();
   } catch (_error) {
     return normalized;
+  }
+}
+
+export function getCurrentThemeAssetVersion() {
+  const versionQuery = inferThemeAssetVersionQuery();
+  if (!versionQuery) return '';
+
+  try {
+    return new URLSearchParams(versionQuery).get('v') || '';
+  } catch (_error) {
+    return '';
   }
 }
 
