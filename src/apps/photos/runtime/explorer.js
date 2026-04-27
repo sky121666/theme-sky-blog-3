@@ -20,6 +20,9 @@ const DEFAULT_COL_COUNT = 4;
 const MIN_ALBUM_COL_COUNT = 2;
 const MAX_ALBUM_COL_COUNT = 8;
 const DEFAULT_ALBUM_COL_COUNT = 4;
+const COMPACT_MIN_COL_COUNT = 1;
+const COMPACT_MAX_COL_COUNT = 4;
+const COMPACT_DEFAULT_COL_COUNT = 2;
 const SKELETON_HEIGHTS = [164, 212, 188, 236, 176, 224, 196, 248];
 
 function clampGridColCount(value) {
@@ -55,6 +58,14 @@ function writePreferences(preferences) {
     window.localStorage.setItem(PHOTOS_PREFS_KEY, JSON.stringify(preferences));
   } catch (_error) {
     // Ignore storage failures and keep runtime behavior intact.
+  }
+}
+
+function hasSavedPreferences() {
+  try {
+    return Boolean(window.localStorage.getItem(PHOTOS_PREFS_KEY));
+  } catch (_error) {
+    return false;
   }
 }
 
@@ -122,6 +133,26 @@ export function registerPhotosExplorer(Alpine) {
       return this.$el?.closest('[data-window-surface]') || null;
     },
 
+    _isCompactSurface() {
+      const surface = this._getWindowSurface();
+      const shell = this.$el;
+      const width = surface?.clientWidth || shell?.clientWidth || window.innerWidth;
+      return width <= 600 || window.matchMedia?.('(max-width: 768px)').matches === true;
+    },
+
+    _minColCount() {
+      return this._isCompactSurface() ? COMPACT_MIN_COL_COUNT : MIN_COL_COUNT;
+    },
+
+    _maxGridColCount() {
+      return this._isCompactSurface() ? COMPACT_MAX_COL_COUNT : MAX_COL_COUNT;
+    },
+
+    _maxAlbumColCount() {
+      if (this._isCompactSurface()) return COMPACT_MAX_COL_COUNT;
+      return this._getAlbumViewportMaxColCount();
+    },
+
     _installSurfaceControls() {
       const surface = this._getWindowSurface();
       const engine = this._getEngine();
@@ -163,8 +194,8 @@ export function registerPhotosExplorer(Alpine) {
         chromeSubtitle.textContent = this.$el?.dataset.photosChromeSubtitle || '';
       }
 
-      const minCount = isAlbumsView ? MIN_ALBUM_COL_COUNT : MIN_COL_COUNT;
-      const maxCount = isAlbumsView ? this._getAlbumViewportMaxColCount() : MAX_COL_COUNT;
+      const minCount = this._minColCount();
+      const maxCount = isAlbumsView ? this._maxAlbumColCount() : this._maxGridColCount();
       const densityAdjustable = maxCount > minCount;
 
       if (layoutGroup) {
@@ -209,10 +240,9 @@ export function registerPhotosExplorer(Alpine) {
 
     _resolveEffectiveColCount() {
       if (this.isAlbumsView()) {
-        const viewportMax = this._getAlbumViewportMaxColCount();
-        return Math.max(MIN_ALBUM_COL_COUNT, Math.min(viewportMax, this.albumCols));
+        return Math.max(this._minColCount(), Math.min(this._maxAlbumColCount(), this.albumCols));
       }
-      return Math.max(MIN_COL_COUNT, Math.min(MAX_COL_COUNT, this.activeColCount()));
+      return Math.max(this._minColCount(), Math.min(this._maxGridColCount(), this.activeColCount()));
     },
 
     syncEffectiveColCount() {
@@ -658,16 +688,17 @@ export function registerPhotosExplorer(Alpine) {
 
     increaseCols() {
       if (this.isAlbumsView()) {
-        const viewportMax = this._getAlbumViewportMaxColCount();
-        const nextAlbumCols = Math.min(viewportMax, this.effectiveColCountValue + 1);
+        const nextAlbumCols = Math.min(this._maxAlbumColCount(), this.effectiveColCountValue + 1);
         if (nextAlbumCols === this.effectiveColCountValue) return;
         this.albumCols = nextAlbumCols;
       } else if (this.layoutMode === 'aspect') {
-        if (this.aspectCols >= MAX_COL_COUNT) return;
-        this.aspectCols += 1;
+        const nextAspectCols = Math.min(this._maxGridColCount(), this.effectiveColCountValue + 1);
+        if (nextAspectCols === this.effectiveColCountValue) return;
+        this.aspectCols = nextAspectCols;
       } else {
-        if (this.squareCols >= MAX_COL_COUNT) return;
-        this.squareCols += 1;
+        const nextSquareCols = Math.min(this._maxGridColCount(), this.effectiveColCountValue + 1);
+        if (nextSquareCols === this.effectiveColCountValue) return;
+        this.squareCols = nextSquareCols;
       }
       this.persistPreferences();
       this.$nextTick(() => {
@@ -678,15 +709,17 @@ export function registerPhotosExplorer(Alpine) {
 
     decreaseCols() {
       if (this.isAlbumsView()) {
-        const nextAlbumCols = Math.max(MIN_ALBUM_COL_COUNT, this.effectiveColCountValue - 1);
+        const nextAlbumCols = Math.max(this._minColCount(), this.effectiveColCountValue - 1);
         if (nextAlbumCols === this.effectiveColCountValue) return;
         this.albumCols = nextAlbumCols;
       } else if (this.layoutMode === 'aspect') {
-        if (this.aspectCols <= MIN_COL_COUNT) return;
-        this.aspectCols -= 1;
+        const nextAspectCols = Math.max(this._minColCount(), this.effectiveColCountValue - 1);
+        if (nextAspectCols === this.effectiveColCountValue) return;
+        this.aspectCols = nextAspectCols;
       } else {
-        if (this.squareCols <= MIN_COL_COUNT) return;
-        this.squareCols -= 1;
+        const nextSquareCols = Math.max(this._minColCount(), this.effectiveColCountValue - 1);
+        if (nextSquareCols === this.effectiveColCountValue) return;
+        this.squareCols = nextSquareCols;
       }
       this.persistPreferences();
       this.$nextTick(() => {
@@ -696,7 +729,13 @@ export function registerPhotosExplorer(Alpine) {
     },
 
     init() {
+      const hasPreferences = hasSavedPreferences();
       this.restorePreferences();
+      if (!hasPreferences && this._isCompactSurface()) {
+        this.squareCols = COMPACT_DEFAULT_COL_COUNT;
+        this.aspectCols = COMPACT_DEFAULT_COL_COUNT;
+        this.albumCols = COMPACT_DEFAULT_COL_COUNT;
+      }
       this.syncEffectiveColCount();
       this._getEngine();
 
