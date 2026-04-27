@@ -241,15 +241,34 @@ function renderToc(root) {
 
 function renderMathAndDiagrams(root) {
   if (window.mermaid?.run) {
-    window.mermaid.run({ querySelector: '#content text-diagram[data-type=mermaid]' }).catch(() => {});
+    const mermaidNodes = Array.from(root.querySelectorAll('text-diagram[data-type="mermaid"], .mermaid')).filter((node) => {
+      if (node.dataset.docsmeMermaidRendered === 'true') return false;
+      node.dataset.docsmeMermaidRendered = 'true';
+      return true;
+    });
+
+    if (mermaidNodes.length > 0) {
+      window.mermaid.run({ nodes: mermaidNodes }).catch(() => {
+        mermaidNodes.forEach((node) => {
+          node.dataset.docsmeMermaidRendered = 'false';
+        });
+      });
+    }
   }
 
   if (window.katex?.render) {
-    root.querySelectorAll('[math-inline]').forEach((el) => {
-      window.katex.render(el.innerText, el, { displayMode: false });
-    });
-    root.querySelectorAll('[math-display]').forEach((el) => {
-      window.katex.render(el.innerText, el, { displayMode: true });
+    root.querySelectorAll('[math-inline], [math-display]').forEach((el) => {
+      if (el.dataset.docsmeKatexRendered === 'true') return;
+      const displayMode = el.hasAttribute('math-display');
+      try {
+        window.katex.render(el.innerText, el, {
+          displayMode,
+          throwOnError: false
+        });
+        el.dataset.docsmeKatexRendered = 'true';
+      } catch {
+        el.dataset.docsmeKatexRendered = 'false';
+      }
     });
   }
 }

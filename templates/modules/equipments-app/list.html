@@ -92,7 +92,7 @@
           <article class="equipment-hero-card"
                    th:each="equipment, iter : ${equipments.items}"
                    data-equipment-card
-                   th:attr="data-equipment-name=${equipment.metadata.name},data-equipment-group=${equipment.spec.groupName}">
+                   th:attr="data-equipment-name=${equipment.metadata.name},data-equipment-group=${equipment.spec.groupName},data-equipment-priority=${equipment.spec.priority},data-equipment-url=${equipment.spec.url}">
             <div class="equipment-hero-backdrop">
               <img th:if="${!#strings.isEmpty(equipment.spec.cover)}"
                    th:src="${equipment.spec.cover}"
@@ -121,25 +121,18 @@
                 <span class="equipment-spec-pill"
                       th:if="${!#strings.isEmpty(equipment.spec.specification)}"
                       th:text="${equipment.spec.specification}">规格</span>
-                <h2 th:text="${equipment.spec.displayName}">装备名称</h2>
+                <h2>
+                  <a th:if="${!#strings.isEmpty(equipment.spec.url)}"
+                     th:href="${equipment.spec.url}"
+                     target="_blank"
+                     rel="noopener noreferrer"
+                     th:text="${equipment.spec.displayName}">装备名称</a>
+                  <span th:if="${#strings.isEmpty(equipment.spec.url)}"
+                        th:text="${equipment.spec.displayName}">装备名称</span>
+                </h2>
                 <p th:if="${!#strings.isEmpty(equipment.spec.description)}"
                    th:text="${equipment.spec.description}">装备描述</p>
               </div>
-
-              <a class="equipment-hero-link"
-                 th:if="${!#strings.isEmpty(equipment.spec.url)}"
-                 th:href="${equipment.spec.url}"
-                 target="_blank"
-                 rel="noopener noreferrer"
-                 title="查看详情">
-                <span class="icon-[lucide--arrow-up-right]" aria-hidden="true"></span>
-                <span class="sr-only">查看详情</span>
-              </a>
-              <span class="equipment-hero-link is-disabled"
-                    th:if="${#strings.isEmpty(equipment.spec.url)}"
-                    aria-hidden="true">
-                <span class="icon-[lucide--circle]" aria-hidden="true"></span>
-              </span>
             </div>
           </article>
 
