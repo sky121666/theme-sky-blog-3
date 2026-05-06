@@ -47,11 +47,45 @@ function assertIncludes(haystack, needle, label) {
   }
 }
 
+function countTags(pattern, html) {
+  return [...html.matchAll(pattern)].length;
+}
+
+function collectDuplicateHeadTagWarning(head, pattern, label, routePath) {
+  const count = countTags(pattern, head);
+  if (count > 1) {
+    return `${routePath} SEO 标签重复: ${label} x${count}`;
+  }
+  return '';
+}
+
+function verifySeoHead(text, routePath) {
+  const head = text.match(/<head[^>]*>([\s\S]*?)<\/head>/i)?.[1] || '';
+  return [
+    collectDuplicateHeadTagWarning(head, /<link\b(?=[^>]*\brel=["']canonical["'])[^>]*>/gi, 'canonical', routePath),
+    collectDuplicateHeadTagWarning(head, /<meta\b(?=[^>]*\bname=["']description["'])[^>]*>/gi, 'description', routePath),
+    collectDuplicateHeadTagWarning(head, /<meta\b(?=[^>]*\bproperty=["']og:title["'])[^>]*>/gi, 'og:title', routePath),
+    collectDuplicateHeadTagWarning(head, /<meta\b(?=[^>]*\bproperty=["']og:description["'])[^>]*>/gi, 'og:description', routePath),
+    collectDuplicateHeadTagWarning(head, /<meta\b(?=[^>]*\bproperty=["']og:url["'])[^>]*>/gi, 'og:url', routePath),
+    collectDuplicateHeadTagWarning(head, /<meta\b(?=[^>]*\bname=["']twitter:title["'])[^>]*>/gi, 'twitter:title', routePath),
+    collectDuplicateHeadTagWarning(head, /<meta\b(?=[^>]*\bname=["']twitter:description["'])[^>]*>/gi, 'twitter:description', routePath),
+    collectDuplicateHeadTagWarning(head, /<link\b(?=[^>]*\brel=["']alternate["'])(?=[^>]*\btype=["']application\/rss\+xml["'])[^>]*>/gi, 'rss alternate', routePath)
+  ].filter(Boolean);
+}
+
+function hasCanonical(text) {
+  const head = text.match(/<head[^>]*>([\s\S]*?)<\/head>/i)?.[1] || '';
+  return /<link\b(?=[^>]*\brel=["']canonical["'])[^>]*>/i.test(head);
+}
+
 async function verifyRoute(baseUrl, route) {
   const url = new URL(route.path, `${baseUrl}/`).toString();
-  const { response, text } = await fetchText(url, {
+  const verifyUrl = new URL(url);
+  verifyUrl.searchParams.set('_theme_reload_verify', String(Date.now()));
+  const { response, text } = await fetchText(verifyUrl.toString(), {
     headers: {
-      Accept: 'text/html,application/xhtml+xml'
+      Accept: 'text/html,application/xhtml+xml',
+      'Cache-Control': 'no-cache'
     }
   });
 
@@ -70,14 +104,28 @@ async function verifyRoute(baseUrl, route) {
     assertIncludes(text, `data-app-id="${route.appId}"`, route.path);
   }
 
+  const seoWarnings = verifySeoHead(text, route.path);
+  if (route.requireH1) {
+    assertIncludes(text, '<h1', route.path);
+  }
+  if (route.requireCanonical && !hasCanonical(text)) {
+    throw new Error(`${route.path} 缺少字段: canonical`);
+  }
+
   let detail = '';
+  if (seoWarnings.length) {
+    detail += ` + seo-warning(${seoWarnings.length})`;
+  }
   if (route.verifyFirstGroup) {
     const groupHref = text.match(/href="([^"]*\/equipments\?group=[^"]+)"/)?.[1];
     if (groupHref) {
       const groupUrl = new URL(groupHref.replace(/&amp;/g, '&'), `${baseUrl}/`).toString();
-      const { response: groupResponse, text: groupText } = await fetchText(groupUrl, {
+      const verifyGroupUrl = new URL(groupUrl);
+      verifyGroupUrl.searchParams.set('_theme_reload_verify', String(Date.now()));
+      const { response: groupResponse, text: groupText } = await fetchText(verifyGroupUrl.toString(), {
         headers: {
-          Accept: 'text/html,application/xhtml+xml'
+          Accept: 'text/html,application/xhtml+xml',
+          'Cache-Control': 'no-cache'
         }
       });
       if (!groupResponse.ok) {
@@ -86,11 +134,11 @@ async function verifyRoute(baseUrl, route) {
       assertIncludes(groupText, `data-page-mode="${route.pageMode}"`, groupUrl);
       assertIncludes(groupText, `data-window-variant="${route.windowVariant}"`, groupUrl);
       assertIncludes(groupText, `data-app-id="${route.appId}"`, groupUrl);
-      detail = ' + group';
+      detail += ' + group';
     }
   }
 
-  return { name: route.name, path: route.path, status: response.status, skipped: false, detail };
+  return { name: route.name, path: route.path, status: response.status, skipped: false, detail, warnings: seoWarnings };
 }
 
 async function waitForHome(baseUrl, timeoutMs = 30_000) {
@@ -99,9 +147,12 @@ async function waitForHome(baseUrl, timeoutMs = 30_000) {
 
   while (Date.now() - startedAt < timeoutMs) {
     try {
-      const { response, text } = await fetchText(`${baseUrl}/`, {
+      const homeUrl = new URL('/', `${baseUrl}/`);
+      homeUrl.searchParams.set('_theme_reload_verify', String(Date.now()));
+      const { response, text } = await fetchText(homeUrl.toString(), {
         headers: {
-          Accept: 'text/html,application/xhtml+xml'
+          Accept: 'text/html,application/xhtml+xml',
+          'Cache-Control': 'no-cache'
         }
       });
 
@@ -149,16 +200,18 @@ async function main() {
   await waitForHome(baseUrl);
 
   const routes = [
-    { name: 'home', path: '/', pageMode: 'browser-home', windowVariant: 'none', appId: '' },
-    { name: 'archives', path: '/archives', pageMode: 'browser-list', windowVariant: 'browser', appId: 'explorer-archives' },
-    { name: 'moments', path: '/moments', pageMode: 'browser-moments', windowVariant: 'moments', appId: 'moments', optional: true },
+    { name: 'home', path: '/', pageMode: 'browser-home', windowVariant: 'none', appId: '', requireH1: true, requireCanonical: true },
+    { name: 'archives', path: '/archives', pageMode: 'browser-list', windowVariant: 'browser', appId: 'explorer-archives', requireH1: true, requireCanonical: true },
+    { name: 'categories', path: '/categories', pageMode: 'browser-list', windowVariant: 'browser', appId: 'explorer-categories', requireH1: true, requireCanonical: true },
+    { name: 'tags', path: '/tags', pageMode: 'browser-list', windowVariant: 'browser', appId: 'explorer-tags', requireH1: true, requireCanonical: true },
+    { name: 'moments', path: '/moments', pageMode: 'browser-moments', windowVariant: 'moments', appId: 'moments', optional: true, requireH1: true, requireCanonical: true },
     { name: 'friends', path: '/friends', pageMode: 'browser-friends', windowVariant: 'friends', appId: 'friends', optional: true },
     { name: 'links', path: '/links', pageMode: 'browser-links', windowVariant: 'links', appId: 'links', optional: true },
     { name: 'bangumis', path: '/bangumis', pageMode: 'browser-bangumis', windowVariant: 'bangumis', appId: 'bangumis', optional: true },
     { name: 'steam', path: '/steam', pageMode: 'browser-steam', windowVariant: 'steam', appId: 'steam', optional: true },
     { name: 'equipments', path: '/equipments', pageMode: 'browser-equipments', windowVariant: 'equipments', appId: 'equipments', optional: true, verifyFirstGroup: true },
     { name: 'docsme', path: '/docs', pageMode: 'browser-docsme', windowVariant: 'docsme', appId: 'docsme', optional: true },
-    { name: 'photos', path: '/photos', pageMode: 'browser-list', windowVariant: 'photos', appId: 'photos', optional: true }
+    { name: 'photos', path: '/photos', pageMode: 'browser-list', windowVariant: 'photos', appId: 'photos', optional: true, requireH1: true, requireCanonical: true }
   ];
 
   const results = [];
@@ -170,6 +223,9 @@ async function main() {
   for (const result of results) {
     const suffix = result.skipped ? ' (skipped)' : '';
     console.log(`- ${result.name}: ${result.status}${result.detail || ''}${suffix}`);
+    for (const warning of result.warnings || []) {
+      console.warn(`  warn: ${warning}`);
+    }
   }
 }
 

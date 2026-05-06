@@ -18,6 +18,7 @@
         windowMetricsKey = 'none'
       )}">
   <th:block th:fragment="ssrBlock">
+    <h1 class="sr-only" th:text="${site.title}"></h1>
     <!-- 首页只保留桌面壳层，不向主窗口注入内容。 -->
   </th:block>
 </html>

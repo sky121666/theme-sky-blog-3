@@ -5,7 +5,7 @@
         title = ${'文章归档 - ' + site.title},
         description = ${site.seo?.description ?: site.subtitle},
         ssrContent = ~{modules/browser-explorer/archives :: content},
-        canonical = '',
+        canonical = ${!#strings.isEmpty(site.routes?.archivesUri) ? site.routes.archivesUri : '/archives'},
         image = ${site.logo},
         type = 'website',
         seoFallback = 'full',
@@ -20,6 +20,7 @@
       )}">
   <th:block th:fragment="content">
     <div class="archive-shell" data-app-root="explorer-archives">
+      <h1 class="sr-only">文章归档</h1>
       <script type="application/json" data-app-props="explorer-archives">{"version":1,"appId":"explorer-archives","data":{"view":"archives"}}</script>
       <div class="archive-workspace"
            th:if="${archives != null and !#lists.isEmpty(archives.items)}"

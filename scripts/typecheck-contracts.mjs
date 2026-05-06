@@ -106,4 +106,29 @@ for (const url of unknownRouteSamples) {
   assert(resolveRoute(url) === null, `resolveRoute(${url}) 应返回 null`);
 }
 
+window.__SKY_THEME_ROUTES__ = Object.freeze({
+  categoriesUri: '/topics',
+  tagsUri: '/labels',
+  archivesUri: '/timeline'
+});
+
+const customRouteSamples = [
+  ['https://example.com/topics', 'explorer-categories', 'browser'],
+  ['https://example.com/topics/demo', 'explorer-categories', 'browser'],
+  ['https://example.com/labels', 'explorer-tags', 'browser'],
+  ['https://example.com/labels/demo', 'explorer-tags', 'browser'],
+  ['https://example.com/timeline', 'explorer-archives', 'browser'],
+  ['https://example.com/timeline/2026', 'explorer-archives', 'browser'],
+  ['https://example.com/timeline/2026/05', 'explorer-archives', 'browser']
+];
+
+for (const [url, expectedApp, expectedVariant] of customRouteSamples) {
+  assert(inferPageAppFromUrl(url) === expectedApp, `自定义路由 inferPageAppFromUrl(${url}) 结果错误`);
+  assert(inferWindowVariantFromUrl(url) === expectedVariant, `自定义路由 inferWindowVariantFromUrl(${url}) 结果错误`);
+  assert(resolveRoute(url)?.appId === expectedApp, `自定义路由 resolveRoute(${url}) appId 错误`);
+}
+
+const customUnknownRoute = 'https://example.com/timeline/not-an-archive';
+assert(inferPageAppFromUrl(customUnknownRoute) === null, `自定义归档非年月路径应依赖显式 data-pjax-app: ${customUnknownRoute}`);
+
 console.log('协议 typecheck 通过');

@@ -33,6 +33,7 @@
          x-data="photosExplorer"
          th:attr="data-photos-view=${photosViewValue}"
          th:attrappend=" data-photos-site-title=${site.title}, data-photos-chrome-title=${resolvedWindowTitle}, data-photos-chrome-subtitle=${resolvedWindowSubtitle}">
+      <h1 class="sr-only" th:text="${resolvedWindowTitle}">图库</h1>
       <script type="application/json" data-app-props="photos" th:inline="javascript">{"version":1,"appId":"photos","data":{"view":[[${photosViewValue}]]}}</script>
       <!-- =============== 左侧边栏 =============== -->
       <aside class="photos-sidebar">

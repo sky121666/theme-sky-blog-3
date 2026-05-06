@@ -71,6 +71,115 @@ for (const [rel, patterns] of protocolChecks) {
   }
 }
 
+const seoProtocolChecks = [
+  [
+    'templates/modules/shell/layout.html',
+    [
+      "seoPluginAvailable = ${pluginFinder.available('seo-tools') or pluginFinder.available('plugin-seo-tools')}",
+      "shouldEmitMetaFallback = ${!seoPluginAvailable and (seoFallbackMode == 'meta' or seoFallbackMode == 'full')}",
+      "shouldEmitCanonicalFallback = ${!seoPluginAvailable and !#strings.isEmpty(absoluteCanonical)}",
+      "shouldEmitSocialFallback = ${!seoPluginAvailable and seoFallbackMode == 'full'}",
+      '<meta name="robots" th:if="${error != null}" content="noindex,nofollow" />',
+      '<link rel="canonical"',
+      'th:if="${shouldEmitCanonicalFallback}"',
+      '<meta property="og:description"',
+      'th:if="${shouldEmitSocialFallback and !#strings.isEmpty(pageDescription)}"',
+      '<meta name="twitter:description"',
+      '<link rel="alternate" type="application/rss+xml" title="RSS" th:href="@{/rss.xml}" />',
+      'window.__SKY_THEME_ROUTES__ = Object.freeze({',
+      'categoriesUri: [[${themeCategoriesUri}]]',
+      'tagsUri: [[${themeTagsUri}]]',
+      'archivesUri: [[${themeArchivesUri}]]'
+    ]
+  ],
+  [
+    'src/shell/desktop-shell/runtime/desktop/pjax/seo.js',
+    [
+      "meta[property^='og:']",
+      "meta[property^='article:']",
+      "meta[name^='twitter:']",
+      "script[type='application/ld+json']",
+      "new CustomEvent('pjax:seo-updated'",
+      'detail: { title, url }'
+    ]
+  ],
+  [
+    'src/shell-core/runtime/route-manifest.js',
+    [
+      'function getThemeRoutes()',
+      "categoriesUri: '/categories'",
+      "tagsUri: '/tags'",
+      "archivesUri: '/archives'",
+      'matchesArchiveRoute(pathname)',
+      'matchesDefaultReaderRoute(pathname)'
+    ]
+  ],
+  [
+    'templates/modules/browser-explorer/categories.html',
+    [
+      "canonical = ${!#strings.isEmpty(site.routes?.categoriesUri) ? site.routes.categoriesUri : '/categories'}"
+    ]
+  ],
+  [
+    'templates/modules/browser-explorer/tags.html',
+    [
+      "canonical = ${!#strings.isEmpty(site.routes?.tagsUri) ? site.routes.tagsUri : '/tags'}"
+    ]
+  ],
+  [
+    'templates/modules/browser-explorer/archives.html',
+    [
+      "canonical = ${!#strings.isEmpty(site.routes?.archivesUri) ? site.routes.archivesUri : '/archives'}"
+    ]
+  ],
+  [
+    'templates/gateway_fragments/layout.html',
+    ['<meta name="robots" content="noindex,nofollow" />']
+  ],
+  [
+    'templates/index.html',
+    ['<h1 class="sr-only" th:text="${site.title}"></h1>']
+  ],
+  [
+    'templates/modules/moments-app/list.html',
+    ['<h1 class="sr-only">瞬间</h1>']
+  ],
+  [
+    'templates/photos.html',
+    ['<h1 class="sr-only" th:text="${resolvedWindowTitle}">图库</h1>']
+  ],
+  [
+    'templates/modules/browser-explorer/categories.html',
+    ['<h1 class="sr-only">所有分类</h1>']
+  ],
+  [
+    'templates/modules/browser-explorer/tags.html',
+    ['<h1 class="sr-only">所有标签</h1>']
+  ],
+  [
+    'templates/modules/browser-explorer/archives.html',
+    ['<h1 class="sr-only">文章归档</h1>']
+  ]
+];
+
+for (const [rel, patterns] of seoProtocolChecks) {
+  const content = read(path.join(root, rel));
+  for (const pattern of patterns) {
+    assert(content.includes(pattern), `${rel} 缺少 SEO/PJAX 协议: ${pattern}`);
+  }
+}
+
+const seoForbiddenPatterns = [
+  ['templates/modules/browser-explorer/categories.html', "canonical = '/categories'"],
+  ['templates/modules/browser-explorer/tags.html', "canonical = '/tags'"],
+  ['templates/modules/browser-explorer/archives.html', "canonical = ''"]
+];
+
+for (const [rel, pattern] of seoForbiddenPatterns) {
+  const content = read(path.join(root, rel));
+  assert(!content.includes(pattern), `${rel} 不应再使用硬编码 SEO 路由: ${pattern}`);
+}
+
 const photosWindowChecks = [
   [
     'templates/modules/photos-app/window.html',

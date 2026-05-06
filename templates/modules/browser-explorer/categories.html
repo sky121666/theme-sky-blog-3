@@ -5,7 +5,7 @@
         title = ${'所有分类 - ' + site.title},
         description = ${site.seo?.description ?: site.subtitle},
         ssrContent = ~{modules/browser-explorer/categories :: content},
-        canonical = '/categories',
+        canonical = ${!#strings.isEmpty(site.routes?.categoriesUri) ? site.routes.categoriesUri : '/categories'},
         image = ${site.logo},
         type = 'website',
         seoFallback = 'meta',
@@ -40,6 +40,7 @@
 
   <th:block th:fragment="content">
     <div class="categories-shell" data-app-root="explorer-categories">
+      <h1 class="sr-only">所有分类</h1>
       <script type="application/json" data-app-props="explorer-categories">{"version":1,"appId":"explorer-categories","data":{"view":"collection"}}</script>
       <div class="categories-workspace"
            th:if="${categories != null and !#lists.isEmpty(categories)}"

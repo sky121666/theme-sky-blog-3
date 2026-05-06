@@ -12,8 +12,8 @@
       pageModeValue = ${pageMode != null ? pageMode.toString() : ''},
       pageAppValue = ${pageApp != null ? pageApp.toString() : ''},
       seoFallbackMode = ${seoFallback != null ? seoFallback.toString() : 'none'},
-      shouldEmitMetaFallback = ${seoFallbackMode == 'meta' or seoFallbackMode == 'full'},
-      shouldEmitSocialFallback = ${seoFallbackMode == 'full'},
+      seoPluginAvailable = ${pluginFinder.available('seo-tools') or pluginFinder.available('plugin-seo-tools')},
+      shouldEmitMetaFallback = ${!seoPluginAvailable and (seoFallbackMode == 'meta' or seoFallbackMode == 'full')},
       faviconHref = ${site.favicon != null ? site.favicon.toString() : ''},
       touchIconHref = ${site.logo != null ? site.logo.toString() : ''},
       rawCanonical = ${canonical != null ? canonical.toString() : ''},
@@ -21,6 +21,8 @@
       siteBaseUrl = ${site.url != null ? site.url.toString() : ''},
       absoluteCanonical = ${!#strings.isEmpty(rawCanonical) ? ((rawCanonical.startsWith('http://') or rawCanonical.startsWith('https://')) ? rawCanonical : (!#strings.isEmpty(siteBaseUrl) ? ((siteBaseUrl.endsWith('/') and rawCanonical.startsWith('/')) ? siteBaseUrl + rawCanonical.substring(1) : ((!siteBaseUrl.endsWith('/')) and (!rawCanonical.startsWith('/')) ? siteBaseUrl + '/' + rawCanonical : siteBaseUrl + rawCanonical)) : rawCanonical)) : ''},
       absoluteImage = ${!#strings.isEmpty(rawImage) ? ((rawImage.startsWith('http://') or rawImage.startsWith('https://')) ? rawImage : (!#strings.isEmpty(siteBaseUrl) ? ((siteBaseUrl.endsWith('/') and rawImage.startsWith('/')) ? siteBaseUrl + rawImage.substring(1) : ((!siteBaseUrl.endsWith('/')) and (!rawImage.startsWith('/')) ? siteBaseUrl + '/' + rawImage : siteBaseUrl + rawImage)) : rawImage)) : ''},
+      shouldEmitCanonicalFallback = ${!seoPluginAvailable and !#strings.isEmpty(absoluteCanonical)},
+      shouldEmitSocialFallback = ${!seoPluginAvailable and seoFallbackMode == 'full'},
       themeAssetVersion = ${theme.spec.version ?: '0.9.0'},
       themeFallbackIcon = ${#theme.assets('/favicon.svg')}">
     <meta charset="UTF-8" />
@@ -28,17 +30,18 @@
 
     <!-- SEO -->
     <title th:text="${title}"></title>
+    <meta name="robots" th:if="${error != null}" content="noindex,nofollow" />
     <meta name="description"
           th:if="${shouldEmitMetaFallback and !#strings.isEmpty(pageDescription)}"
           th:content="${pageDescription}" />
     <link rel="canonical"
-          th:if="${!#strings.isEmpty(absoluteCanonical)}"
+          th:if="${shouldEmitCanonicalFallback}"
           th:href="${absoluteCanonical}" />
     <meta property="og:url"
-          th:if="${!#strings.isEmpty(absoluteCanonical)}"
+          th:if="${shouldEmitCanonicalFallback}"
           th:content="${absoluteCanonical}" />
     <meta property="og:site_name"
-          th:if="${!#strings.isEmpty(site.title)}"
+          th:if="${shouldEmitCanonicalFallback and !#strings.isEmpty(site.title)}"
           th:content="${site.title}" />
 
     <meta property="og:description"
@@ -54,6 +57,7 @@
     <meta name="twitter:image"
           th:if="${shouldEmitSocialFallback and !#strings.isEmpty(absoluteImage)}"
           th:content="${absoluteImage}" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" th:href="@{/rss.xml}" />
 
     <link rel="icon" type="image/svg+xml" th:if="${#strings.isEmpty(faviconHref)}" th:href="${themeFallbackIcon}" />
     <link rel="shortcut icon" th:if="${#strings.isEmpty(faviconHref)}" th:href="${themeFallbackIcon}" />
@@ -159,6 +163,9 @@
       isErrorPage = ${error != null},
       debugMode = ${theme.config.developer?.debug_mode != null ? theme.config.developer.debug_mode : false},
       pageCanonical = ${canonical != null ? canonical.toString() : ''},
+      themeCategoriesUri = ${!#strings.isEmpty(site.routes?.categoriesUri) ? site.routes.categoriesUri : '/categories'},
+      themeTagsUri = ${!#strings.isEmpty(site.routes?.tagsUri) ? site.routes.tagsUri : '/tags'},
+      themeArchivesUri = ${!#strings.isEmpty(site.routes?.archivesUri) ? site.routes.archivesUri : '/archives'},
       widgetsConf = ${theme.config.widgets},
       desktopLayoutJson = ${theme.config.default_layout?.layout_json ?: ''},
       desktopThemeName = ${theme.metadata.name ?: 'theme-sky-blog-3'},
@@ -230,6 +237,18 @@
       iconThemeLight=${headerIconThemeLight},
       iconThemeDark=${headerIconThemeDark}
     )}"></th:block>
+
+    <script th:inline="javascript">
+      window.__SKY_THEME_ROUTES__ = Object.freeze({
+        categoriesUri: [[${themeCategoriesUri}]],
+        tagsUri: [[${themeTagsUri}]],
+        archivesUri: [[${themeArchivesUri}]]
+      });
+    </script>
+
+    <th:block th:if="${pageModeValue == 'browser-home'}">
+      <th:block th:replace="${ssrContent}" />
+    </th:block>
 
     <script th:inline="javascript">
       (() => {

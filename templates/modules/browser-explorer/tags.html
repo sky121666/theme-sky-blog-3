@@ -3,7 +3,7 @@
         title = ${'所有标签 - ' + site.title},
         description = ${site.seo?.description ?: site.subtitle},
         ssrContent = ~{modules/browser-explorer/tags :: content},
-        canonical = '/tags',
+        canonical = ${!#strings.isEmpty(site.routes?.tagsUri) ? site.routes.tagsUri : '/tags'},
         image = ${site.logo},
         type = 'website',
         seoFallback = 'meta',
@@ -19,6 +19,7 @@
 
 <th:block th:fragment="content">
   <div class="tags-shell" data-app-root="explorer-tags">
+    <h1 class="sr-only">所有标签</h1>
     <script type="application/json" data-app-props="explorer-tags">{"version":1,"appId":"explorer-tags","data":{"view":"collection"}}</script>
     <div class="tags-workspace" th:if="${tags != null and !#lists.isEmpty(tags)}" x-data="tagsExplorer">
       <aside class="tags-sidebar">

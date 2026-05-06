@@ -2,6 +2,57 @@ import { getKnownAppIds } from './app-manifests.js';
 
 const BROWSER_VARIANT = 'browser';
 const NONE_VARIANT = 'none';
+const DEFAULT_THEME_ROUTES = Object.freeze({
+  categoriesUri: '/categories',
+  tagsUri: '/tags',
+  archivesUri: '/archives'
+});
+
+function normalizeRoutePrefix(value, fallback) {
+  let route = typeof value === 'string' ? value.trim() : '';
+  if (!route) route = fallback;
+
+  route = route.split('#')[0].split('?')[0].trim();
+  if (!route.startsWith('/')) route = `/${route}`;
+  if (route.length > 1) route = route.replace(/\/+$/, '');
+  return route || fallback;
+}
+
+function getThemeRoutes() {
+  const configured = globalThis.window?.__SKY_THEME_ROUTES__ || {};
+  return {
+    categoriesUri: normalizeRoutePrefix(configured.categoriesUri, DEFAULT_THEME_ROUTES.categoriesUri),
+    tagsUri: normalizeRoutePrefix(configured.tagsUri, DEFAULT_THEME_ROUTES.tagsUri),
+    archivesUri: normalizeRoutePrefix(configured.archivesUri, DEFAULT_THEME_ROUTES.archivesUri)
+  };
+}
+
+function matchesRoutePrefix(pathname, routePrefix) {
+  return pathname === routePrefix || pathname.startsWith(`${routePrefix}/`);
+}
+
+function matchesConfiguredOrLegacyRoute(pathname, routeKey, legacyPrefixes = []) {
+  const routePrefix = getThemeRoutes()[routeKey];
+  if (matchesRoutePrefix(pathname, routePrefix)) return true;
+  return legacyPrefixes.some((legacyPrefix) => legacyPrefix !== routePrefix && matchesRoutePrefix(pathname, legacyPrefix));
+}
+
+function matchesArchiveRoute(pathname) {
+  const routePrefix = getThemeRoutes().archivesUri;
+  if (pathname === routePrefix || pathname === `${routePrefix}/`) return true;
+
+  const archivePath = pathname.startsWith(`${routePrefix}/`)
+    ? pathname.slice(routePrefix.length)
+    : '';
+  if (!archivePath) return false;
+
+  return /^\/\d{4}(?:\/\d{1,2})?\/?$/.test(archivePath);
+}
+
+function matchesDefaultReaderRoute(pathname) {
+  if (!/^\/archives\/[^/]+\/?$/.test(pathname)) return false;
+  return !matchesArchiveRoute(pathname);
+}
 
 const ROUTE_RULES = [
   {
@@ -90,7 +141,7 @@ const ROUTE_RULES = [
     windowVariant: BROWSER_VARIANT,
     pjaxMode: 'same-app',
     cacheKeyPolicy: 'app-path-search',
-    matches: (pathname) => pathname === '/archives' || pathname === '/archives/'
+    matches: (pathname) => matchesArchiveRoute(pathname)
   },
   {
     id: 'explorer-tags',
@@ -98,7 +149,7 @@ const ROUTE_RULES = [
     windowVariant: BROWSER_VARIANT,
     pjaxMode: 'same-app',
     cacheKeyPolicy: 'app-path-search',
-    matches: (pathname) => /^\/(tags|tag)(\/|$)/.test(pathname)
+    matches: (pathname) => matchesConfiguredOrLegacyRoute(pathname, 'tagsUri', ['/tags', '/tag'])
   },
   {
     id: 'explorer-categories',
@@ -106,7 +157,7 @@ const ROUTE_RULES = [
     windowVariant: BROWSER_VARIANT,
     pjaxMode: 'same-app',
     cacheKeyPolicy: 'app-path-search',
-    matches: (pathname) => /^\/(categories|category)(\/|$)/.test(pathname)
+    matches: (pathname) => matchesConfiguredOrLegacyRoute(pathname, 'categoriesUri', ['/categories', '/category'])
   },
   {
     id: 'explorer-author',
@@ -122,7 +173,7 @@ const ROUTE_RULES = [
     windowVariant: BROWSER_VARIANT,
     pjaxMode: 'none',
     cacheKeyPolicy: 'app-path-search',
-    matches: (pathname) => /^\/archives\/[^/]+\/?$/.test(pathname)
+    matches: (pathname) => matchesDefaultReaderRoute(pathname)
   }
 ];
 
