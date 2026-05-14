@@ -1,5 +1,5 @@
 <th:block th:fragment="content">
-  <!-- plugin-contract: PluginMoments; contract-version: 1.6.0; status: inferred; source: docs/插件适配契约.md -->
+  <!-- plugin-contract: PluginMoments; contract-version: 1.6.0; tested-version: 1.16.0; status: compatible-tested; source: docs/插件适配契约.md -->
   <div class="moments-app moments-app--feed" data-app-root="moments">
     <h1 class="sr-only">瞬间</h1>
     <script type="application/json" data-app-props="moments">{"version":1,"appId":"moments","data":{"scene":"feed"}}</script>
@@ -76,7 +76,8 @@
 
             <th:block th:if="${moment.spec != null and moment.spec.content != null and moment.spec.content.medium != null}">
               <div class="moment-feed-gallery"
-                   th:if="${!#lists.isEmpty(moment.spec.content.medium)}">
+                   th:if="${!#lists.isEmpty(moment.spec.content.medium)}"
+                   th:data-count="${#lists.size(moment.spec.content.medium)}">
                 <th:block th:each="media : ${moment.spec.content.medium}">
                   <div class="moment-feed-gallery-item-wrapper"
                        th:if="${media.type != null and media.type.name() == 'PHOTO'}">
@@ -89,24 +90,52 @@
                   <!-- 视频占位卡 -->
                   <a th:if="${media.type != null and media.type.name() == 'VIDEO'}"
                      th:href="${'/moments/' + moment.metadata.name}"
-                     class="moment-feed-video-placeholder pjax-link"
+                     class="moment-feed-video-placeholder moment-feed-media-placeholder pjax-link"
                      title="点击查看视频">
                     <span class="icon-[lucide--play]" aria-hidden="true"></span>
                     <span class="moment-feed-video-label">视频</span>
+                  </a>
+                  <a th:if="${media.type != null and media.type.name() == 'AUDIO'}"
+                     th:href="${'/moments/' + moment.metadata.name}"
+                     class="moment-feed-media-placeholder pjax-link"
+                     title="点击收听音频">
+                    <span class="icon-[lucide--music]" aria-hidden="true"></span>
+                    <span class="moment-feed-video-label">音频</span>
+                  </a>
+                  <a th:if="${media.type != null and media.type.name() == 'POST'}"
+                     th:href="${'/moments/' + moment.metadata.name}"
+                     class="moment-feed-media-placeholder pjax-link"
+                     title="查看关联文章">
+                    <span class="icon-[lucide--file-text]" aria-hidden="true"></span>
+                    <span class="moment-feed-video-label">关联文章</span>
                   </a>
                 </th:block>
               </div>
             </th:block>
 
-            <div class="moment-feed-footer">
+            <div class="moment-feed-footer"
+                 th:with="upvoteCount=${moment.stats != null and moment.stats.upvote != null ? moment.stats.upvote : 0},
+                          commentCount=${moment.stats != null ? (moment.stats.approvedComment != null ? moment.stats.approvedComment : (moment.stats.totalComment != null ? moment.stats.totalComment : 0)) : 0}">
               <div class="moment-feed-meta">
                 <time th:if="${moment.spec != null and moment.spec.releaseTime != null}"
                       th:text="${#dates.format(moment.spec.releaseTime, 'yyyy年MM月dd日 HH:mm')}"></time>
               </div>
-              <a class="moment-feed-action-btn pjax-link"
-                 th:if="${moment.metadata != null and moment.metadata.name != null}"
-                 th:href="${'/moments/' + moment.metadata.name}"
-                 title="详情">··</a>
+              <div class="moment-feed-actions">
+                <div class="moment-feed-stats" th:if="${upvoteCount > 0 or commentCount > 0}">
+                  <span class="moment-feed-stat" th:if="${upvoteCount > 0}" th:title="${upvoteCount + ' 个点赞'}">
+                    <span class="icon-[lucide--heart]" aria-hidden="true"></span>
+                    <span th:text="${upvoteCount}"></span>
+                  </span>
+                  <span class="moment-feed-stat" th:if="${commentCount > 0}" th:title="${commentCount + ' 条评论'}">
+                    <span class="icon-[lucide--message-circle]" aria-hidden="true"></span>
+                    <span th:text="${commentCount}"></span>
+                  </span>
+                </div>
+                <a class="moment-feed-action-btn pjax-link"
+                   th:if="${moment.metadata != null and moment.metadata.name != null}"
+                   th:href="${'/moments/' + moment.metadata.name}"
+                   title="详情">··</a>
+              </div>
             </div>
           </div>
         </article>

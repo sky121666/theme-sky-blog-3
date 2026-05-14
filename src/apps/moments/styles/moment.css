@@ -504,6 +504,33 @@
   line-height: 1.4;
 }
 
+.moment-feed-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.moment-feed-stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--wc-text-muted);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.moment-feed-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.moment-feed-stat span[aria-hidden="true"] {
+  width: 13px;
+  height: 13px;
+}
+
 .moment-feed-action-btn {
   display: inline-flex;
   align-items: center;
@@ -533,7 +560,8 @@
 }
 
 /* ── 视频占位卡 ── */
-.moment-feed-video-placeholder {
+.moment-feed-video-placeholder,
+.moment-feed-media-placeholder {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -549,13 +577,17 @@
   text-decoration: none;
 }
 
-.moment-feed-video-placeholder:hover {
+.moment-feed-video-placeholder:hover,
+.moment-feed-media-placeholder:hover {
   background: var(--wc-action-bg-hover);
 }
 
 .moment-feed-video-placeholder svg,
-.moment-feed-video-placeholder span {
+.moment-feed-video-placeholder span,
+.moment-feed-media-placeholder svg,
+.moment-feed-media-placeholder span {
   fill: var(--wc-video-icon);
+  color: var(--wc-video-icon);
 }
 
 .moment-feed-video-label {
@@ -1155,6 +1187,15 @@
   .moment-feed-action-btn {
     width: 26px;
     height: 18px;
+  }
+
+  .moment-feed-actions {
+    gap: 6px;
+  }
+
+  .moment-feed-stats {
+    gap: 6px;
+    font-size: 11px;
   }
 
   /* ═══ Feed 媒体 ═══ */
