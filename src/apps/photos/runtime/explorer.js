@@ -86,16 +86,21 @@ function createSkeletonCard(height, index) {
 
 export function registerPhotosExplorer(Alpine) {
   Alpine.data('photosExplorer', () => ({
-    lightboxOpen: false,
-    currentUrl: '',
-    currentDesc: '',
-    currentName: '',
-    currentDate: '',
     squareCols: DEFAULT_COL_COUNT,
     aspectCols: DEFAULT_COL_COUNT,
     albumCols: DEFAULT_ALBUM_COL_COUNT,
     effectiveColCountValue: DEFAULT_COL_COUNT,
     layoutMode: 'square',
+    infoOpen: false,
+    commentsOpen: false,
+    zoomLevel: 1,
+    panX: 0,
+    panY: 0,
+    photoCanPan: false,
+    photoPanning: false,
+    _panSession: null,
+    _panMoveHandler: null,
+    _panEndHandler: null,
     _observer: null,
     _engine: null,
 
@@ -113,6 +118,7 @@ export function registerPhotosExplorer(Alpine) {
           resizeHandler: null,
           resizeObserver: null,
           surfaceCleanup: null,
+          detailCleanup: null,
         };
       }
       return this._engine;
@@ -131,6 +137,14 @@ export function registerPhotosExplorer(Alpine) {
 
     _getWindowSurface() {
       return this.$el?.closest('[data-window-surface]') || null;
+    },
+
+    _getDetailStage() {
+      return this.$el?.querySelector('.photos-detail-stage') || null;
+    },
+
+    _getDetailImage() {
+      return this.$el?.querySelector('.photos-detail-image') || null;
     },
 
     _isCompactSurface() {
@@ -159,21 +173,299 @@ export function registerPhotosExplorer(Alpine) {
       if (!surface || engine.surfaceCleanup) return;
 
       const onSetMode = (event) => {
+        if (this.isDetailView()) return;
         const mode = event.detail?.mode;
         if (mode) this.setLayoutMode(mode);
       };
-      const onIncrease = () => this.increaseCols();
-      const onDecrease = () => this.decreaseCols();
+      const onIncrease = () => {
+        if (!this.isDetailView()) this.increaseCols();
+      };
+      const onDecrease = () => {
+        if (!this.isDetailView()) this.decreaseCols();
+      };
+      const onZoomSet = (event) => this.setZoomLevel(event.detail?.value);
+      const onZoomIn = () => this.adjustZoom(0.1);
+      const onZoomOut = () => this.adjustZoom(-0.1);
+      const onInfoToggle = () => this.toggleInfo();
+      const onCommentsToggle = () => this.toggleComments();
+      const onCommentsClose = () => {
+        this.commentsOpen = false;
+        this.syncDetailChromeControls();
+      };
 
       surface.addEventListener('photos:set-mode', onSetMode);
       surface.addEventListener('photos:cols-increase', onIncrease);
       surface.addEventListener('photos:cols-decrease', onDecrease);
+      surface.addEventListener('photos:zoom-set', onZoomSet);
+      surface.addEventListener('photos:zoom-in', onZoomIn);
+      surface.addEventListener('photos:zoom-out', onZoomOut);
+      surface.addEventListener('photos:info-toggle', onInfoToggle);
+      surface.addEventListener('photos:comments-toggle', onCommentsToggle);
+      surface.addEventListener('photos:comments-close', onCommentsClose);
 
       engine.surfaceCleanup = () => {
         surface.removeEventListener('photos:set-mode', onSetMode);
         surface.removeEventListener('photos:cols-increase', onIncrease);
         surface.removeEventListener('photos:cols-decrease', onDecrease);
+        surface.removeEventListener('photos:zoom-set', onZoomSet);
+        surface.removeEventListener('photos:zoom-in', onZoomIn);
+        surface.removeEventListener('photos:zoom-out', onZoomOut);
+        surface.removeEventListener('photos:info-toggle', onInfoToggle);
+        surface.removeEventListener('photos:comments-toggle', onCommentsToggle);
+        surface.removeEventListener('photos:comments-close', onCommentsClose);
       };
+    },
+
+    isDetailView() {
+      return this.$el?.dataset.photosView === 'detail';
+    },
+
+    setZoomLevel(value) {
+      const parsed = Number.parseFloat(String(value ?? '1'));
+      this.applyPhotoZoom(Number.isFinite(parsed) ? parsed : 1);
+    },
+
+    applyPhotoZoom(value, origin = null) {
+      const nextZoom = Math.min(2.2, Math.max(0.5, value));
+      const previousZoom = this.zoomLevel || 1;
+      const hadOrigin = origin && Number.isFinite(origin.x) && Number.isFinite(origin.y);
+
+      if (hadOrigin && previousZoom > 0) {
+        const ratio = nextZoom / previousZoom;
+        this.panX = origin.x - ((origin.x - this.panX) * ratio);
+        this.panY = origin.y - ((origin.y - this.panY) * ratio);
+      }
+
+      this.zoomLevel = nextZoom;
+      this.updatePhotoPanAvailability();
+      this.syncDetailChromeControls();
+    },
+
+    adjustZoom(delta) {
+      this.applyPhotoZoom(this.zoomLevel + delta);
+    },
+
+    resetPhotoPan() {
+      this.panX = 0;
+      this.panY = 0;
+      this.photoCanPan = false;
+      this.photoPanning = false;
+      this._panSession = null;
+    },
+
+    resetPhotoZoom() {
+      this.zoomLevel = 1;
+      this.resetPhotoPan();
+      this.syncDetailChromeControls();
+    },
+
+    clampPhotoPan() {
+      this.updatePhotoPanAvailability();
+    },
+
+    _maxPhotoPanX() {
+      const stage = this._getDetailStage();
+      const image = this._getDetailImage();
+      if (!stage || !image) return 0;
+      return Math.max(0, ((image.offsetWidth * this.zoomLevel) - stage.clientWidth) / 2);
+    },
+
+    _maxPhotoPanY() {
+      const stage = this._getDetailStage();
+      const image = this._getDetailImage();
+      if (!stage || !image) return 0;
+      return Math.max(0, ((image.offsetHeight * this.zoomLevel) - stage.clientHeight) / 2);
+    },
+
+    canPanPhoto() {
+      return this.isDetailView();
+    },
+
+    updatePhotoPanAvailability() {
+      this.photoCanPan = this.isDetailView();
+      if (!this.photoCanPan) {
+        this.photoPanning = false;
+        this._removePhotoPanListeners();
+      }
+    },
+
+    _photoStageOrigin(event) {
+      const stage = this._getDetailStage();
+      if (!stage) return null;
+      const rect = stage.getBoundingClientRect();
+      return {
+        x: event.clientX - rect.left - (rect.width / 2),
+        y: event.clientY - rect.top - (rect.height / 2),
+      };
+    },
+
+    handlePhotoWheel(event) {
+      if (!this.isDetailView()) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const normalized = Math.max(-0.18, Math.min(0.18, -event.deltaY * 0.002));
+      this.applyPhotoZoom(this.zoomLevel + normalized, this._photoStageOrigin(event));
+    },
+
+    beginPhotoPan(event) {
+      if (!this.canPanPhoto()) return;
+      if (event.button != null && event.button !== 0) return;
+      if (this.photoPanning) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      this._removePhotoPanListeners();
+      this.photoPanning = true;
+      document.body.style.userSelect = 'none';
+      const eventKind = event.type?.startsWith('mouse') ? 'mouse' : 'pointer';
+      this._panSession = {
+        pointerId: event.pointerId ?? 'mouse',
+        eventKind,
+        startX: event.clientX,
+        startY: event.clientY,
+        panX: this.panX,
+        panY: this.panY,
+      };
+      try {
+        event.currentTarget?.setPointerCapture?.(event.pointerId);
+      } catch (_error) {
+        // Synthetic pointer events and older browsers may not support capture for this pointer.
+      }
+
+      this._panMoveHandler = (moveEvent) => this.updatePhotoPan(moveEvent);
+      this._panEndHandler = (endEvent) => this.endPhotoPan(endEvent);
+      if (eventKind === 'mouse') {
+        window.addEventListener('mousemove', this._panMoveHandler);
+        window.addEventListener('mouseup', this._panEndHandler);
+      } else {
+        window.addEventListener('pointermove', this._panMoveHandler);
+        window.addEventListener('pointerup', this._panEndHandler);
+        window.addEventListener('pointercancel', this._panEndHandler);
+      }
+    },
+
+    updatePhotoPan(event) {
+      const session = this._panSession;
+      if (!session) return;
+      const pointerId = event.pointerId ?? 'mouse';
+      if (session.eventKind !== 'mouse' && session.pointerId !== pointerId) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      this.panX = session.panX + (event.clientX - session.startX);
+      this.panY = session.panY + (event.clientY - session.startY);
+    },
+
+    endPhotoPan(event) {
+      const session = this._panSession;
+      const pointerId = event.pointerId ?? 'mouse';
+      if (session && session.eventKind !== 'mouse' && pointerId != null && session.pointerId !== pointerId) return;
+
+      this.photoPanning = false;
+      this._panSession = null;
+      this._removePhotoPanListeners();
+      document.body.style.userSelect = '';
+      this.updatePhotoPanAvailability();
+    },
+
+    _removePhotoPanListeners() {
+      if (this._panMoveHandler) {
+        window.removeEventListener('pointermove', this._panMoveHandler);
+        window.removeEventListener('mousemove', this._panMoveHandler);
+        this._panMoveHandler = null;
+      }
+      if (this._panEndHandler) {
+        window.removeEventListener('pointerup', this._panEndHandler);
+        window.removeEventListener('pointercancel', this._panEndHandler);
+        window.removeEventListener('mouseup', this._panEndHandler);
+        this._panEndHandler = null;
+      }
+    },
+
+    _installDetailViewerControls() {
+      const engine = this._getEngine();
+      if (engine.detailCleanup || !this.isDetailView()) return;
+
+      const stage = this._getDetailStage();
+      const image = this._getDetailImage();
+      if (!stage || !image) return;
+
+      const onWheel = (event) => this.handlePhotoWheel(event);
+      const onPointerDown = (event) => this.beginPhotoPan(event);
+      const onMouseDown = (event) => this.beginPhotoPan(event);
+      const onAuxClick = (event) => event.preventDefault();
+      const onDblClick = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.resetPhotoZoom();
+      };
+      const onImageLoad = () => this.updatePhotoPanAvailability();
+
+      stage.addEventListener('wheel', onWheel, { passive: false });
+      stage.addEventListener('pointerdown', onPointerDown);
+      stage.addEventListener('mousedown', onMouseDown);
+      stage.addEventListener('auxclick', onAuxClick);
+      stage.addEventListener('dblclick', onDblClick);
+      image.addEventListener('load', onImageLoad);
+
+      engine.detailCleanup = () => {
+        stage.removeEventListener('wheel', onWheel);
+        stage.removeEventListener('pointerdown', onPointerDown);
+        stage.removeEventListener('mousedown', onMouseDown);
+        stage.removeEventListener('auxclick', onAuxClick);
+        stage.removeEventListener('dblclick', onDblClick);
+        image.removeEventListener('load', onImageLoad);
+      };
+
+      this.updatePhotoPanAvailability();
+    },
+
+    toggleInfo() {
+      this.infoOpen = !this.infoOpen;
+      this.syncDetailChromeControls();
+    },
+
+    toggleComments() {
+      this.commentsOpen = !this.commentsOpen;
+      this.syncDetailChromeControls();
+    },
+
+    syncDetailChromeControls() {
+      const surface = this._getWindowSurface();
+      if (!surface) return;
+
+      surface.dataset.photosInfoOpen = this.infoOpen ? 'true' : 'false';
+      surface.dataset.photosCommentsOpen = this.commentsOpen ? 'true' : 'false';
+
+      const zoomInput = surface.querySelector('[data-photos-detail-zoom]');
+      if (zoomInput && String(zoomInput.value) !== String(this.zoomLevel)) {
+        zoomInput.value = String(this.zoomLevel);
+      }
+      if (zoomInput) {
+        const min = Number.parseFloat(zoomInput.min || '0.5');
+        const max = Number.parseFloat(zoomInput.max || '2.2');
+        const value = Number.parseFloat(zoomInput.value || '1');
+        const fill = max > min ? ((value - min) / (max - min)) * 100 : 0;
+        zoomInput.style.setProperty('--photos-zoom-fill', `${Math.min(100, Math.max(0, fill))}%`);
+      }
+
+      const backLink = surface.querySelector('.photos-detail-titlebar-back');
+      const listUrl = this.$el?.dataset.photosListUrl || '/photos';
+      if (backLink && backLink.getAttribute('href') !== listUrl) {
+        backLink.setAttribute('href', listUrl);
+      }
+
+      const infoButton = surface.querySelector('[data-photos-detail-info-btn]');
+      if (infoButton) {
+        infoButton.classList.toggle('is-active', this.infoOpen);
+        infoButton.setAttribute('aria-pressed', this.infoOpen ? 'true' : 'false');
+      }
+
+      const commentsButton = surface.querySelector('[data-photos-detail-comments-btn]');
+      if (commentsButton) {
+        commentsButton.classList.toggle('is-active', this.commentsOpen);
+        commentsButton.setAttribute('aria-pressed', this.commentsOpen ? 'true' : 'false');
+      }
     },
 
     syncChromeControls() {
@@ -192,6 +484,11 @@ export function registerPhotosExplorer(Alpine) {
       }
       if (chromeSubtitle) {
         chromeSubtitle.textContent = this.$el?.dataset.photosChromeSubtitle || '';
+      }
+
+      if (this.isDetailView()) {
+        this.syncDetailChromeControls();
+        return;
       }
 
       const minCount = this._minColCount();
@@ -658,34 +955,6 @@ export function registerPhotosExplorer(Alpine) {
       }
     },
 
-    openLightbox(event) {
-      const el = event.currentTarget;
-      if (!el?.dataset) return;
-
-      this.currentUrl = el.dataset.photoUrl || '';
-      this.currentDesc = el.dataset.photoDesc || '';
-      this.currentName = el.dataset.photoName || '';
-      this.currentDate = el.dataset.photoDate || '';
-      this.lightboxOpen = true;
-      document.body.style.overflow = 'hidden';
-    },
-
-    closeLightbox() {
-      if (!this.lightboxOpen) return;
-
-      this.lightboxOpen = false;
-      document.body.style.overflow = '';
-
-      setTimeout(() => {
-        if (!this.lightboxOpen) {
-          this.currentUrl = '';
-          this.currentDesc = '';
-          this.currentName = '';
-          this.currentDate = '';
-        }
-      }, 300);
-    },
-
     increaseCols() {
       if (this.isAlbumsView()) {
         const nextAlbumCols = Math.min(this._maxAlbumColCount(), this.effectiveColCountValue + 1);
@@ -741,19 +1010,31 @@ export function registerPhotosExplorer(Alpine) {
 
       this.$nextTick(() => {
         this._installSurfaceControls();
-        this._captureInitialCards();
-        this.renderLayout();
+        if (this.isDetailView()) {
+          this._installDetailViewerControls();
+        }
+        if (!this.isDetailView()) {
+          this._captureInitialCards();
+          this.renderLayout();
+        }
         this.syncChromeControls();
         this._installResizeHandler();
-        this._initInfiniteScroll();
+        if (!this.isDetailView()) {
+          this._initInfiniteScroll();
+        }
       });
     },
 
     destroy() {
       const engine = this._getEngine();
+      this._removePhotoPanListeners();
       if (engine.surfaceCleanup) {
         engine.surfaceCleanup();
         engine.surfaceCleanup = null;
+      }
+      if (engine.detailCleanup) {
+        engine.detailCleanup();
+        engine.detailCleanup = null;
       }
 
       if (this._observer) {
@@ -780,10 +1061,6 @@ export function registerPhotosExplorer(Alpine) {
 
       this._clearLoadingSkeletons(true);
 
-      if (this.lightboxOpen) {
-        this.lightboxOpen = false;
-        document.body.style.overflow = '';
-      }
     },
   }));
 }

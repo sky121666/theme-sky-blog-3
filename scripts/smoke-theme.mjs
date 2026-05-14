@@ -58,6 +58,7 @@ const protocolChecks = [
   ['templates/modules/steam-app/list.html', ['data-app-root="steam"', 'data-app-props="steam"']],
   ['templates/modules/equipments-app/list.html', ['data-app-root="equipments"', 'data-app-props="equipments"']],
   ['templates/photos.html', ['data-app-root="photos"', 'data-app-props="photos"']],
+  ['templates/photo.html', ['data-app-root="photos"', 'data-app-props="photos"', '<halo:comment group="core.halo.run" kind="Photo"']],
   ['templates/modules/browser-explorer/tags.html', ['data-app-root="explorer-tags"', 'data-app-props="explorer-tags"']],
   ['templates/modules/browser-explorer/categories.html', ['data-app-root="explorer-categories"', 'data-app-props="explorer-categories"']],
   ['templates/modules/browser-explorer/author.html', ['data-app-root="explorer-author"', 'data-app-props="explorer-author"']],
@@ -111,7 +112,8 @@ const seoProtocolChecks = [
       "tagsUri: '/tags'",
       "archivesUri: '/archives'",
       'matchesArchiveRoute(pathname)',
-      'matchesDefaultReaderRoute(pathname)'
+      'matchesDefaultReaderRoute(pathname)',
+      '^\\/photos\\/(?:page\\/)?[^/]+\\/?$'
     ]
   ],
   [
@@ -178,6 +180,21 @@ const seoForbiddenPatterns = [
 for (const [rel, pattern] of seoForbiddenPatterns) {
   const content = read(path.join(root, rel));
   assert(!content.includes(pattern), `${rel} 不应再使用硬编码 SEO 路由: ${pattern}`);
+}
+
+const photosLightboxForbiddenPatterns = [
+  ['templates/photos.html', 'openLightbox'],
+  ['templates/photos.html', 'photos-lightbox'],
+  ['src/apps/photos/runtime/explorer.js', 'lightboxOpen'],
+  ['src/apps/photos/runtime/explorer.js', 'openLightbox'],
+  ['src/apps/photos/runtime/explorer.js', 'closeLightbox'],
+  ['src/apps/photos/styles/index.css', 'photos-lightbox'],
+  ['src/apps/photos/styles/index.css', 'cursor: zoom-in']
+];
+
+for (const [rel, pattern] of photosLightboxForbiddenPatterns) {
+  const content = read(path.join(root, rel));
+  assert(!content.includes(pattern), `${rel} 不应保留图库内置放大效果: ${pattern}`);
 }
 
 const photosWindowChecks = [

@@ -21,7 +21,7 @@
           pageMode = 'browser-list',
           pageApp = 'photos',
           windowVariant = 'photos',
-          windowScene = 'none',
+          windowScene = 'library',
           windowTitle = ${resolvedWindowTitle},
           windowResizable = true,
           windowMaximizable = true,
@@ -138,21 +138,23 @@
         <div class="photos-grid-view" th:if="${!isAlbumsView}">
           <div class="photos-grid-scroll">
             <div class="photos-grid" :class="{ 'photos-grid--square': layoutMode === 'square', 'photos-grid--masonry': layoutMode === 'aspect' }" :style="{ '--col-count': effectiveColCountValue }">
-              <div class="photo-card"
-                   th:each="photo : ${photos.items}"
-                   @click="openLightbox($event)"
-                   th:attr="data-photo-url=${photo.spec.url},data-photo-desc=${photo.spec.description},data-photo-name=${photo.spec.displayName},data-photo-date=${#dates.format(photo.metadata.creationTimestamp, 'yyyy.MM.dd')}">
-                <div class="photo-card-inner">
+              <a class="photo-card pjax-link"
+                 th:each="photo : ${photos.items}"
+                 th:href="${photoUrl != null ? photoUrl.detail(photo) : ('/photos/' + photo.metadata.name)}"
+                 data-pjax-app="photos"
+                 th:attr="data-photo-name=${photo.metadata.name}">
+                <div class="photo-card-inner"
+                     th:style="${'view-transition-name: photo-' + photo.metadata.name}">
                   <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
-                       th:attr="data-src=${photo.spec.url}"
+                       th:attr="data-src=${!#strings.isEmpty(photo.spec.cover) ? photo.spec.cover : photo.spec.url}"
                        class="photo-card-img lazyload"
-                       alt="" />
+                       th:alt="${photo.spec.displayName}" />
                   <!-- Hover info overlay -->
                   <div class="photo-card-overlay">
                     <span class="photo-card-overlay-text" th:text="${photo.spec.displayName}"></span>
                   </div>
                 </div>
-              </div>
+              </a>
             </div>
 
             <div class="photos-empty" th:if="${photos == null or #lists.isEmpty(photos.items)}">
@@ -177,31 +179,6 @@
           </div>
         </div>
       </div>
-
-      <!-- =============== Lightbox =============== -->
-      <template x-teleport="body">
-        <div class="photos-lightbox"
-             x-show="lightboxOpen"
-             x-transition.opacity.duration.300ms
-             @click="closeLightbox()"
-             @keydown.escape.window="closeLightbox()"
-             tabindex="0"
-             style="display: none;">
-          <div class="photos-lightbox-toolbar" @click.stop>
-            <div class="photos-lightbox-meta">
-              <span class="photos-lightbox-name" x-text="currentName" x-show="currentName"></span>
-              <span class="photos-lightbox-date" x-text="currentDate"></span>
-            </div>
-            <button type="button" class="photos-lightbox-close" @click="closeLightbox()" aria-label="关闭">
-              <span class="icon-[lucide--x]" aria-hidden="true"></span>
-            </button>
-          </div>
-          <div class="photos-lightbox-view" @click.stop>
-            <img :src="currentUrl" class="photos-lightbox-image" alt="大图" />
-            <p class="photos-lightbox-desc" x-show="currentDesc" x-text="currentDesc"></p>
-          </div>
-        </div>
-      </template>
     </div>
     </th:block>
   </html>

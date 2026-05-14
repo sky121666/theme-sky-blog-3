@@ -751,7 +751,7 @@ export function registerWindowComponents(Alpine) {
 
     onDragStart(e) {
       if (!this.isDesktop || this.isMaximized) return;
-      if (this.isResizing || e.target.closest('button, a, .traffic-lights, svg, .desktop-icon, .window-resize-handle')) return;
+      if (this.isResizing || e.target.closest('button, a, input, select, textarea, label, [role="button"], .traffic-lights, svg, .desktop-icon, .window-resize-handle')) return;
       
       this.isDragging = true;
       this.startX = e.clientX;

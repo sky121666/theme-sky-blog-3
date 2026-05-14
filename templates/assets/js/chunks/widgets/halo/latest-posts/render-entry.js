@@ -1,1 +1,1 @@
-import"../../catalog.js";import{t as e}from"./render.js";export{e as renderWidget};
+import"../../catalog.js?v=0.9.30";import{t as e}from"./render.js?v=0.9.30";export{e as renderWidget};

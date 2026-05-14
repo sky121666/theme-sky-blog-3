@@ -11,15 +11,20 @@
   - `templates/modules/**`
   - 其他会被 Halo 后端直接解析的 YAML / HTML 模板文件
 
+- 包管理器固定使用 `pnpm`。
+- 禁止使用 `npm` 安装依赖、运行脚本或格式化。
+- Git 工作流固定只使用 `main` 分支。
+- 禁止创建功能分支、临时分支或 worktree；除非用户明确要求，不执行 `git checkout -b` / `git switch -c`。
+
 - 默认验证命令：
-  - `npm run verify:reload`
+  - `pnpm run verify:reload`
 
 - 如果这次改动还影响前端交互、PJAX、分页/瀑布流或页面协议，继续执行：
-  - `SMOKE_BASE_URL=${HALO_BASE_URL:-http://localhost:8090} npm run smoke:playwright`
+  - `SMOKE_BASE_URL=${HALO_BASE_URL:-http://localhost:8090} pnpm run smoke:playwright`
 
 ## Auth
 
-- `npm run verify:reload` 依赖项目根目录的 `.env.local`
+- `pnpm run verify:reload` 依赖项目根目录的 `.env.local`
 - 使用变量名：
   - `FIVEEE_PAT`
 - 可选变量：

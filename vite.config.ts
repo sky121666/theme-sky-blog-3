@@ -257,6 +257,36 @@ function pruneEmptyJsStubs(bundle: Record<string, any>) {
   }
 }
 
+function appendBuildVersionToStaticImports() {
+  const versionSuffix = `?v=${encodeURIComponent(buildVersion)}`;
+
+  for (const filePath of walkFiles(jsOutDir)) {
+    if (!filePath.endsWith(".js")) {
+      continue;
+    }
+
+    const source = fs.readFileSync(filePath, "utf-8");
+    const appendVersion = (_match: string, prefix: string, specifier: string, quote: string) => (
+      specifier.includes("?")
+        ? `${prefix}${specifier}${quote}`
+        : `${prefix}${specifier}${versionSuffix}${quote}`
+    );
+    const next = source
+      .replace(
+        /((?:import|export)[^"']*?from["'])(\.{1,2}\/[^"']+\.js)(["'])/g,
+        appendVersion
+      )
+      .replace(
+        /((?:import|export)["'])(\.{1,2}\/[^"']+\.js)(["'])/g,
+        appendVersion
+      );
+
+    if (next !== source) {
+      fs.writeFileSync(filePath, next, "utf-8");
+    }
+  }
+}
+
 function writeAssetManifest(bundle: Record<string, any>) {
   const manifest: Record<string, any> = {
     __meta: {
@@ -309,6 +339,7 @@ function maintainBuildOutputHygiene() {
       // templates/assets/images and favicon.svg are intentionally preserved.
       pruneUnexpectedManagedFiles(expectedFiles);
       pruneEmptyJsStubs(bundle);
+      appendBuildVersionToStaticImports();
       writeAssetManifest(bundle);
       removeEmptyDirs(outDir);
     }

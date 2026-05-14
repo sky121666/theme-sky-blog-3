@@ -125,7 +125,7 @@ const ROUTE_RULES = [
     windowVariant: 'photos',
     pjaxMode: 'same-app',
     cacheKeyPolicy: 'app-path-search',
-    matches: (pathname) => pathname === '/photos' || pathname === '/photos/' || /^\/photos\/page\/[^/]+\/?$/.test(pathname)
+    matches: (pathname) => pathname === '/photos' || pathname === '/photos/' || /^\/photos\/(?:page\/)?[^/]+\/?$/.test(pathname)
   },
   {
     id: 'auth',

@@ -1,4 +1,4 @@
-<th:block th:fragment="frame (titleText, contentFragment, resizable, maximizable, metricsKey)">
+<th:block th:fragment="frame (titleText, contentFragment, resizable, maximizable, windowScene, metricsKey)">
   <th:block th:replace="~{modules/shell/window-frame :: shell(
       variant='photos',
       metricsKey=${metricsKey},
@@ -7,15 +7,17 @@
       widthAttr='',
       extraClasses='photos-window md:min-w-[700px] md:min-h-[450px]',
       inlineStyle='--photos-shadow: 0 0 0 0.5px rgba(255,255,255,0.12), 0 22px 70px rgba(0,0,0,0.46), 0 8px 20px rgba(0,0,0,0.20);',
-      bodyFragment=~{::frameBody(titleText=${titleText}, contentFragment=${contentFragment}, resizable=${resizable}, maximizable=${maximizable})}
+      bodyFragment=~{::frameBody(titleText=${titleText}, contentFragment=${contentFragment}, resizable=${resizable}, maximizable=${maximizable}, windowScene=${windowScene})}
     )}"></th:block>
 </th:block>
 
-<th:block th:fragment="frameBody (titleText, contentFragment, resizable, maximizable)">
+<th:block th:fragment="frameBody (titleText, contentFragment, resizable, maximizable, windowScene)">
+      <th:block th:replace="~{modules/shell/window-frame :: resizeHandles(mode='full', enabled=${resizable == true or resizable == 'true'})}"></th:block>
+
       <th:block th:replace="~{modules/shell/window-titlebar :: shell(
           extraClasses='photos-titlebar',
           inlineStyle='',
-          contentFragment=~{::titlebarContent(titleText=${titleText}, maximizable=${maximizable})}
+          contentFragment=~{::titlebarContent(titleText=${titleText}, maximizable=${maximizable}, windowScene=${windowScene})}
         )}"></th:block>
           
      <div class="window-body flex-1 overflow-hidden relative select-text" data-window-scroll data-window-content-root>
@@ -25,15 +27,24 @@
      </div>
 </th:block>
 
-<th:block th:fragment="titlebarContent (titleText, maximizable)">
-              <div class="window-titlebar-leading photos-titlebar-leading flex items-center gap-3 md:gap-4 w-[120px] md:w-[180px]">
+<th:block th:fragment="titlebarContent (titleText, maximizable, windowScene)">
+              <div class="window-titlebar-leading photos-titlebar-leading flex items-center gap-3 md:gap-4 w-[120px] md:w-[180px]"
+                   th:classappend="${windowScene == 'detail' ? ' photos-titlebar-leading--detail' : ''}">
                 <th:block th:replace="~{modules/shell/window-titlebar-leading :: trafficLightsOnly(maximizable=${maximizable})}"></th:block>
+                <a th:if="${windowScene == 'detail'}"
+                        href="/photos"
+                        class="photos-titlebar-btn photos-detail-titlebar-back pjax-link"
+                        data-pjax-app="photos"
+                        title="返回图库">
+                  <span class="icon-[lucide--chevron-left] w-[16px] h-[16px]" aria-hidden="true"></span>
+                </a>
               </div>
               <div class="window-titlebar-center photos-titlebar-center flex-1 flex justify-center items-center overflow-hidden px-2">
                 <th:block th:replace="~{::titlebarCenter(titleText=${titleText})}"></th:block>
               </div>
-              <div class="window-titlebar-trailing photos-titlebar-trailing flex items-center justify-end gap-2 w-[120px] md:w-[180px] pr-0">
-                <th:block th:replace="~{::titlebarTrailing}"></th:block>
+              <div class="window-titlebar-trailing photos-titlebar-trailing flex items-center justify-end gap-2 w-[120px] md:w-[180px] pr-0"
+                   th:classappend="${windowScene == 'detail' ? ' photos-titlebar-trailing--detail' : ''}">
+                <th:block th:replace="~{::titlebarTrailing(windowScene=${windowScene})}"></th:block>
               </div>
 </th:block>
 
@@ -49,8 +60,8 @@
               </div>
 </th:block>
 
-<th:block th:fragment="titlebarTrailing">
-              <div class="photos-titlebar-toolbar" data-photos-toolbar>
+<th:block th:fragment="titlebarTrailing (windowScene)">
+              <div class="photos-titlebar-toolbar" data-photos-toolbar th:if="${windowScene != 'detail'}">
                   <div class="photos-titlebar-group photos-titlebar-group--mode" data-photos-layout-group>
                       <button type="button"
                               class="photos-titlebar-btn photos-titlebar-segment"
@@ -84,16 +95,64 @@
                       </button>
                   </div>
               </div>
-              <th:block th:replace="~{modules/shell/window-titlebar-actions :: themeToggle(
-                wrapperClasses='',
-                buttonClasses='photos-titlebar-btn hidden md:inline-flex',
-                iconClasses='',
-                titleText='切换明暗'
-              )}"></th:block>
-              <th:block th:replace="~{modules/shell/window-titlebar-actions :: refreshButton(
-                buttonClasses='photos-titlebar-btn',
-                iconClasses='w-4 h-4',
-                titleText='刷新'
-              )}"></th:block>
+              <div class="photos-titlebar-detail-toolbar" data-photos-detail-toolbar th:if="${windowScene == 'detail'}">
+                <div class="photos-titlebar-group photos-titlebar-zoom photos-titlebar-group--detail-zoom"
+                     title="缩放"
+                     onmousedown="event.stopPropagation()"
+                     onpointerdown="event.stopPropagation()"
+                     onclick="event.stopPropagation()">
+                  <button type="button"
+                          class="photos-titlebar-zoom-btn"
+                          aria-label="缩小"
+                          onclick="this.closest('[data-window-surface]')?.dispatchEvent(new CustomEvent('photos:zoom-out', { bubbles: true }))">
+                    <span class="icon-[lucide--minus] w-[13px] h-[13px]" aria-hidden="true"></span>
+                  </button>
+                  <input type="range"
+                         min="0.5"
+                         max="2.2"
+                         step="0.05"
+                         value="1"
+                         data-photos-detail-zoom
+                         aria-label="缩放图片"
+                         onmousedown="event.stopPropagation()"
+                         onpointerdown="event.stopPropagation()"
+                         oninput="this.closest('[data-window-surface]')?.dispatchEvent(new CustomEvent('photos:zoom-set', { detail: { value: this.value }, bubbles: true }))" />
+                  <button type="button"
+                          class="photos-titlebar-zoom-btn"
+                          aria-label="放大"
+                          onclick="this.closest('[data-window-surface]')?.dispatchEvent(new CustomEvent('photos:zoom-in', { bubbles: true }))">
+                    <span class="icon-[lucide--plus] w-[13px] h-[13px]" aria-hidden="true"></span>
+                  </button>
+                </div>
+                <div class="photos-titlebar-group photos-titlebar-group--detail-actions">
+                  <button type="button"
+                          class="photos-titlebar-btn"
+                          data-photos-detail-info-btn
+                          title="详情"
+                          onclick="this.closest('[data-window-surface]')?.dispatchEvent(new CustomEvent('photos:info-toggle', { bubbles: true }))">
+                    <span class="icon-[lucide--info] w-[16px] h-[16px]" aria-hidden="true"></span>
+                  </button>
+                  <button type="button"
+                          class="photos-titlebar-btn photos-titlebar-comment-btn"
+                          data-photos-detail-comments-btn
+                          title="评论"
+                          onclick="this.closest('[data-window-surface]')?.dispatchEvent(new CustomEvent('photos:comments-toggle', { bubbles: true }))">
+                    <span class="icon-[lucide--message-circle] w-[16px] h-[16px]" aria-hidden="true"></span>
+                  </button>
+                </div>
+              </div>
+              <th:block th:if="${windowScene != 'detail'}">
+                <th:block th:replace="~{modules/shell/window-titlebar-actions :: themeToggle(
+                  wrapperClasses='',
+                  buttonClasses='photos-titlebar-btn hidden md:inline-flex',
+                  iconClasses='',
+                  titleText='切换明暗'
+                )}"></th:block>
+                <th:block th:replace="~{modules/shell/window-titlebar-actions :: refreshButton(
+                  buttonClasses='photos-titlebar-btn',
+                  iconClasses='w-4 h-4',
+                  titleText='刷新'
+                )}"></th:block>
+              </th:block>
 </th:block>
 </th:block>

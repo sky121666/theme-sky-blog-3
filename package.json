@@ -1,8 +1,10 @@
 {
   "name": "sky-blog-3",
-  "version": "0.9.1",
+  "version": "0.9.30",
   "type": "module",
+  "packageManager": "pnpm@10.0.0",
   "scripts": {
+    "preinstall": "node -e \"if (!/pnpm/.test(process.env.npm_config_user_agent || '')) { console.error('This project uses pnpm only. Do not use npm.'); process.exit(1); }\"",
     "dev": "vite build --watch",
     "lint": "node scripts/lint-architecture.mjs",
     "typecheck": "node scripts/typecheck-contracts.mjs",

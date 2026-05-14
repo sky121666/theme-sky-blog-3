@@ -62,6 +62,16 @@ function parsePageModeFromResponse(html) {
   return m ? m[1].trim() : '';
 }
 
+function syncWindowTitlebarFromDocument(targetDoc) {
+  const nextTitlebar = targetDoc?.querySelector?.('[data-window-titlebar]');
+  const currentTitlebar = document.querySelector('[data-window-titlebar]');
+  if (!nextTitlebar || !currentTitlebar) return null;
+
+  const importedTitlebar = document.importNode(nextTitlebar, true);
+  currentTitlebar.replaceWith(importedTitlebar);
+  return importedTitlebar;
+}
+
 // ── Reader mobile back-stack depth (site-internal only) ──
 
 const BROWSER_NAV_DEPTH_KEY = 'sky_browser_nav_depth';
@@ -491,14 +501,26 @@ export function initPjax(Alpine) {
         const targetContentRoot = targetDoc.querySelector('[data-window-content-root]');
         const targetContainer = targetContentRoot?.querySelector('[data-window-content-variant]')
           || targetContentRoot?.querySelector('#pjax-container');
+        const syncedTitlebar = syncWindowTitlebarFromDocument(targetDoc);
 
-        deactivateCurrentPageApp();
-
-        if (targetContainer) {
-          contentContainer.innerHTML = targetContainer.innerHTML;
+        const performContentSwap = () => {
+          deactivateCurrentPageApp();
+          if (targetContainer) {
+            contentContainer.innerHTML = targetContainer.innerHTML;
+          } else {
+            // Fallback: use full content root innerHTML
+            contentContainer.innerHTML = parsed.contentHtml;
+          }
+        };
+        const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+        const canUseViewTransition = typeof document.startViewTransition === 'function'
+          && !reduceMotion
+          && (currentApp === 'photos' || targetApp === 'photos' || responseApp === 'photos');
+        if (canUseViewTransition) {
+          const transition = document.startViewTransition(performContentSwap);
+          await transition.updateCallbackDone.catch(() => {});
         } else {
-          // Fallback: use full content root innerHTML
-          contentContainer.innerHTML = parsed.contentHtml;
+          performContentSwap();
         }
 
         perfMark('contentSwap');
@@ -525,6 +547,12 @@ export function initPjax(Alpine) {
 
         // Re-bind links
         attachDynamicLinks(contentContainer);
+        if (syncedTitlebar) {
+          attachDynamicLinks(syncedTitlebar);
+          if (window.Alpine?.initTree) {
+            window.Alpine.initTree(syncedTitlebar);
+          }
+        }
 
         activatePageApp(nextApp, contentContainer, {
           reason: 'same-variant',

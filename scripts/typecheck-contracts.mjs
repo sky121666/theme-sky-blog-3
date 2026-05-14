@@ -77,6 +77,7 @@ const routeSamples = [
   ['https://example.com/docs/docsme', 'docsme', 'docsme'],
   ['https://example.com/docs/docsme/start', 'docsme', 'docsme'],
   ['https://example.com/photos', 'photos', 'photos'],
+  ['https://example.com/photos/photo-demo', 'photos', 'photos'],
   ['https://example.com/tags', 'explorer-tags', 'browser'],
   ['https://example.com/tags/demo', 'explorer-tags', 'browser'],
   ['https://example.com/categories', 'explorer-categories', 'browser'],
