@@ -5,6 +5,7 @@
                    profileName=${!#strings.isEmpty(theme.config.friends?.profile?.display_name) ? theme.config.friends.profile.display_name : friendsTitle},
                    profileSubtitle=${!#strings.isEmpty(theme.config.friends?.profile?.subtitle) ? theme.config.friends.profile.subtitle : (site.subtitle ?: '')},
                    coverImage=${theme.config.friends?.cover?.image_url}">
+  <!-- plugin-contract: plugin-friends; contract-version: pending; status: unconfirmed; source: docs/插件适配契约.md -->
   <div class="friends-app moments-app moments-app--feed friends-app--feed" data-app-root="friends">
     <script type="application/json" data-app-props="friends">{"version":1,"appId":"friends","data":{"scene":"feed"}}</script>
     <div class="friends-feed-shell moments-feed-shell"

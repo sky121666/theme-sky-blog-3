@@ -3,6 +3,8 @@
             currentGroup=${param.group != null and !#lists.isEmpty(param.group) ? param.group[0] : ''},
             groupsData=${groups},
             allLinksTitle=${!#strings.isEmpty(theme.config.links?.profile?.display_name) ? theme.config.links.profile.display_name : '全部友链'}">
+  <!-- plugin-contract: PluginLinks; contract-version: 1.7.2; status: inferred; source: docs/插件适配契约.md -->
+  <!-- plugin-contract: link-submit; contract-version: pending; status: unconfirmed; source: docs/插件适配契约.md -->
   <div class="links-app" data-app-root="links"
     th:attr="data-link-submit-enabled=${pluginFinder.available('link-submit')}">
     <script type="application/json"
@@ -177,6 +179,7 @@
               <button type="button" class="links-board-action" @click="openSubmitAssistant()">打开添加友链助手</button>
             </section>
 
+            <!-- plugin-contract: PluginCommentWidget; contract-version: pending; status: unconfirmed; source: docs/插件适配契约.md -->
             <section class="links-comments" id="links-comments"
               th:if="${pluginFinder.available('PluginCommentWidget')}">
               <h2 class="links-comments-title">留言板</h2>

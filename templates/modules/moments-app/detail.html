@@ -3,6 +3,7 @@
                    momentLabel=${!#strings.isEmpty(momentText) ? #strings.abbreviate(momentText, 42) : ((moment.spec.content != null and moment.spec.content.medium != null and !#lists.isEmpty(moment.spec.content.medium)) ? '图片瞬间' : '瞬间记录')},
                    momentSummary=${!#strings.isEmpty(momentText) ? #strings.abbreviate(momentText, 140) : ''},
                    mediaCount=${(moment.spec.content != null and moment.spec.content.medium != null) ? #lists.size(moment.spec.content.medium) : 0}">
+  <!-- plugin-contract: PluginMoments; contract-version: 1.6.0; status: inferred; source: docs/插件适配契约.md -->
   <div class="moments-app moments-app--detail" data-app-root="moments">
     <script type="application/json" data-app-props="moments">{"version":1,"appId":"moments","data":{"scene":"detail"}}</script>
     <div class="moment-reader-shell">
@@ -52,6 +53,7 @@
         </div>
 
         <!-- 评论 -->
+        <!-- plugin-contract: PluginCommentWidget; contract-version: pending; status: unconfirmed; source: docs/插件适配契约.md -->
         <section id="moment-comments"
                  class="moment-comments"
                  th:if="${pluginFinder.available('PluginCommentWidget')}"

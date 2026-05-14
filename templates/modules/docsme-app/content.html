@@ -1,4 +1,5 @@
 <th:block th:fragment="projects">
+  <!-- plugin-contract: plugin-docsme; contract-version: 1.6.0; status: confirmed; source: docs/插件适配契约.md -->
   <div class="docsme-app docsme-app--projects"
        data-app-root="docsme"
        data-docsme-scene="projects"
@@ -78,6 +79,7 @@
 </th:block>
 
 <th:block th:fragment="document">
+  <!-- plugin-contract: plugin-docsme; contract-version: 1.6.0; status: confirmed; source: docs/插件适配契约.md -->
   <div class="docsme-app docsme-app--document"
        data-app-root="docsme"
        data-docsme-scene="document"
@@ -106,6 +108,7 @@
           </header>
           <article class="docsme-article" id="content" data-toc-content th:utext="${docInfo.content.content}"></article>
 
+          <!-- plugin-contract: PluginCommentWidget; contract-version: pending; status: unconfirmed; source: docs/插件适配契约.md -->
           <div th:if="${haloCommentEnabled}" id="comment" class="docsme-comment">
             <halo:comment group="doc.halo.run" kind="DocTree" th:attr="name=${docTree.metadata.name}" />
           </div>
@@ -135,6 +138,7 @@
 </th:block>
 
 <th:block th:fragment="catalog">
+  <!-- plugin-contract: plugin-docsme; contract-version: 1.6.0; status: confirmed; source: docs/插件适配契约.md -->
   <div class="docsme-app docsme-app--catalog"
        data-app-root="docsme"
        data-docsme-scene="catalog"

@@ -27,6 +27,7 @@
           windowMetricsKey = 'photos'
         )}">
     <th:block th:fragment="ssrBlock">
+      <!-- plugin-contract: PluginPhotos; surface: detail; contract-version: 2.1.0; status: inferred; source: docs/插件适配契约.md -->
       <article class="photos-shell photos-detail-shell"
                data-app-root="photos"
                data-photos-view="detail"
@@ -199,6 +200,7 @@
               <span class="icon-[lucide--x]" aria-hidden="true"></span>
             </button>
           </div>
+          <!-- plugin-contract: PluginCommentWidget; contract-version: pending; status: unconfirmed; source: docs/插件适配契约.md -->
           <section th:if="${pluginFinder.available('PluginCommentWidget')}">
             <halo:comment group="core.halo.run" kind="Photo" th:attr="name=${photo.metadata.name}" />
           </section>

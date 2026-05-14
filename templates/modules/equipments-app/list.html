@@ -10,6 +10,7 @@
             defaultEquipmentTitle=${!#strings.isEmpty(configuredEquipmentTitle) ? configuredEquipmentTitle : baseEquipmentTitle},
             defaultEquipmentDescription=${!#strings.isEmpty(configuredEquipmentDescription) ? configuredEquipmentDescription : '展示所有已收录的设备、工具与生活物件。'},
             hasEquipments=${equipments != null and equipments.items != null and !#lists.isEmpty(equipments.items)}">
+  <!-- plugin-contract: equipment; contract-version: pending; status: unconfirmed; source: docs/插件适配契约.md -->
   <div class="equipments-app"
        data-app-root="equipments"
        x-data="equipmentsExplorer">
