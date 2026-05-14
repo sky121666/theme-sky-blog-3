@@ -290,6 +290,39 @@ function replayPjaxScripts(root) {
   });
 }
 
+function runShikiExtraPathRenderer(responseText) {
+  if (!responseText) return;
+
+  const targetDoc = new DOMParser().parseFromString(responseText, 'text/html');
+  const shikiScript = Array.from(targetDoc.head?.querySelectorAll?.('script[data-pjax]') || [])
+    .find((script) => script.textContent?.includes('renderCodeBlock')
+      && script.textContent.includes('/plugins/shiki/assets/static/shiki-code.js'));
+
+  if (!shikiScript) return;
+
+  const source = shikiScript.textContent || '';
+  const importMatch = source.match(/import\s+\{\s*renderCodeBlock\s*\}\s+from\s+['"]([^'"]+)['"]/);
+  const configMatch = source.match(/renderCodeBlock\s*\((\{[\s\S]*?\})\s*\)/);
+  const importPath = importMatch?.[1];
+  const renderConfig = configMatch?.[1];
+
+  if (!importPath || !renderConfig) return;
+
+  const script = document.createElement('script');
+  const replayId = `shiki-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  script.type = 'module';
+  script.dataset.pjax = 'true';
+  script.dataset.themeShikiReplay = 'true';
+  script.dataset.themeShikiReplayId = replayId;
+  script.textContent = [
+    `import { renderCodeBlock } from ${JSON.stringify(importPath)};`,
+    `renderCodeBlock(${renderConfig});`,
+    `document.querySelector('script[data-theme-shiki-replay-id="${replayId}"]')?.remove?.();`
+  ].join('\n');
+  script.addEventListener('error', () => script.remove(), { once: true });
+  document.head.appendChild(script);
+}
+
 function startTopProgress() {
   NProgress.start();
 }
@@ -539,6 +572,7 @@ export function initPjax(Alpine) {
 
         // Alpine + scripts
         replayPjaxScripts(contentContainer);
+        runShikiExtraPathRenderer(html);
         if (window.Alpine?.initTree) {
           window.Alpine.initTree(contentContainer);
         }
@@ -696,6 +730,7 @@ export function initPjax(Alpine) {
       const container = document.getElementById('window-frame-root');
       if (container) {
         replayPjaxScripts(container);
+        runShikiExtraPathRenderer(event?.request?.responseText);
 
         if (window.Alpine?.initTree) {
           window.Alpine.initTree(container);
