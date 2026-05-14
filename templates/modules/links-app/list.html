@@ -196,8 +196,9 @@
 
     <dialog id="link-submit-modal" class="links-modal" x-data="linkSubmitForm">
       <div class="links-modal-topbar">
-        <div class="links-modal-lights traffic-lights" aria-hidden="true">
-          <button type="button" class="links-modal-light is-red" @click="$el.closest('dialog').close()"></button>
+        <div class="links-modal-lights traffic-lights">
+          <button type="button" class="links-modal-light is-red" aria-label="关闭友链申请窗口" title="关闭"
+            @click="$el.closest('dialog').close()"></button>
           <span class="links-modal-light is-yellow"></span>
           <span class="links-modal-light is-green"></span>
         </div>
@@ -233,7 +234,7 @@
             </div>
           </div>
 
-          <div class="links-submit-fields" x-show="isDirectSubmitMode()">
+          <div class="links-submit-fields" x-show="isDirectSubmitMode() || isUpdateMode()">
             <label class="links-field">
               <span>提交类型</span>
               <select class="links-input" x-model="form.type">
@@ -282,6 +283,7 @@
             <label class="links-field links-field--wide" x-show="form.type === 'update'">
               <span>修改说明</span>
               <textarea class="links-textarea" x-model="form.updateDescription" placeholder="说明这次要修改的内容"></textarea>
+              <small>修改不会直接覆盖现有友链，请把修改申请发到留言板，由站长手动处理。</small>
             </label>
 
             <label class="links-field links-field--wide">
@@ -301,7 +303,7 @@
         <div class="links-modal-actions">
           <span class="links-modal-note" x-text="primaryActionNote()"></span>
           <button id="copyBtn" type="button" class="links-submit-primary"
-            :disabled="isDirectSubmitMode() ? !canSubmitDirect() : !markdown"
+            :disabled="isDirectSubmitMode() ? !canSubmitDirect() : !buildMarkdown(form.url)"
             @click="isDirectSubmitMode() ? submitLink() : copyAndGotoBoard()">
             <span x-text="primaryActionLabel()"></span>
           </button>

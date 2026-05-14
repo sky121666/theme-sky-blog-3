@@ -48,6 +48,50 @@ async function copyText(text) {
   return copied;
 }
 
+async function readErrorMessage(response) {
+  try {
+    const payload = await response.clone().json();
+    return String(payload?.detail || payload?.message || payload?.title || '').trim();
+  } catch {
+    try {
+      return String(await response.text() || '').trim();
+    } catch {
+      return '';
+    }
+  }
+}
+
+function formatSubmitFailure(response, message) {
+  const status = Number(response?.status || 0);
+  const genericHttpTitles = new Set([
+    'bad request',
+    'internal server error',
+    'not found',
+    'forbidden',
+    'unauthorized'
+  ]);
+  const normalizedMessage = String(message || '').trim();
+  const rawMessage = genericHttpTitles.has(normalizedMessage.toLowerCase()) ? '' : normalizedMessage;
+
+  if (rawMessage.includes('已存在')) {
+    return '这个链接已经存在，不能直接新增。请切换为“修改友链”，复制修改申请到留言板。';
+  }
+
+  if (status === 400) {
+    return rawMessage || '提交内容没有通过校验，请检查网站地址、名称、描述和分组。';
+  }
+
+  if (status === 404) {
+    return '友链自助提交接口未启用，请复制申请到留言板。';
+  }
+
+  if (status >= 500) {
+    return '友链自助提交服务暂时异常，请复制申请到留言板。';
+  }
+
+  return rawMessage || '友链自助提交没有成功，请复制申请到留言板。';
+}
+
 export function registerLinksExplorer(Alpine) {
   Alpine.data('linksExplorer', () => ({
     activeView: 'links',
@@ -274,7 +318,8 @@ export function registerLinkSubmitForm(Alpine) {
         });
 
         if (!response.ok) {
-          throw new Error(`${response.status}`);
+          const message = await readErrorMessage(response);
+          throw new Error(message || `${response.status}`);
         }
 
         const payload = await response.json();
@@ -381,12 +426,16 @@ export function registerLinkSubmitForm(Alpine) {
       this.markdown = hasSiteDraft ? this.buildMarkdown(this.form.url) : '';
     },
 
+    isUpdateMode() {
+      return this.form.type === 'update';
+    },
+
     isDirectSubmitMode() {
-      return this.submitPluginEnabled && !this.messageFallback;
+      return this.submitPluginEnabled && !this.messageFallback && !this.isUpdateMode();
     },
 
     isMessageFallbackMode() {
-      return !this.submitPluginEnabled || this.messageFallback;
+      return !this.submitPluginEnabled || this.messageFallback || this.isUpdateMode();
     },
 
     canSubmitDirect() {
@@ -403,12 +452,16 @@ export function registerLinkSubmitForm(Alpine) {
     primaryActionLabel() {
       if (this.isDirectSubmitMode()) {
         if (this.submitting) return '提交中...';
-        return this.form.type === 'update' ? '提交修改申请' : '提交友链申请';
+        return '提交友链申请';
       }
+      if (this.isUpdateMode()) return this.copied ? '已复制，前往留言板' : '复制修改申请到留言板';
       return this.copied ? '已复制，前往留言板' : '复制并前往留言板';
     },
 
     primaryActionNote() {
+      if (this.isUpdateMode()) {
+        return '修改不会直接覆盖现有友链，请把修改申请发到留言板，由站长手动处理。';
+      }
       if (this.isDirectSubmitMode()) {
         return '提交后会进入后台审核，发送前可以修改表单。';
       }
@@ -444,7 +497,8 @@ export function registerLinkSubmitForm(Alpine) {
         });
 
         if (!response.ok) {
-          throw new Error(`${response.status}`);
+          const message = await readErrorMessage(response);
+          throw new Error(formatSubmitFailure(response, message));
         }
 
         this.result = {
@@ -452,12 +506,13 @@ export function registerLinkSubmitForm(Alpine) {
           success: true,
           message: '友链申请已提交，等待站点后台审核'
         };
-      } catch (_error) {
+      } catch (error) {
         this.enableMessageFallback();
+        const errorMessage = String(error?.message || '').trim();
         this.result = {
           show: true,
           success: false,
-          message: '提交失败，已切换为留言申请方式'
+          message: `${errorMessage || '友链自助提交没有成功。'} 已为你切换到留言板申请方式。`
         };
       } finally {
         this.submitting = false;
@@ -467,7 +522,7 @@ export function registerLinkSubmitForm(Alpine) {
     buildMarkdown(url = this.form.url) {
       const normalized = normalizeUrl(url) || String(url || '').trim();
       const lines = [
-        '申请交换友链：',
+        this.form.type === 'update' ? '申请修改友链：' : '申请交换友链：',
         `- 网站名称：${this.form.displayName || this.detail.displayName || '请补充网站名称'}`,
         `- 网站地址：${normalized || '请补充网站地址'}`,
         `- 头像链接：${this.form.logo || this.detail.logo || '请补充头像或 Logo 地址'}`,
