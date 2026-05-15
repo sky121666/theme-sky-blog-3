@@ -17,8 +17,9 @@ export function renderRecentMomentsWidget({ sources, escapeHtml, normalizeMoment
   const featured = moments[0];
   const author = resolveDesktopAuthorProfile(sources);
   const tag = featured.tags.length > 0 ? featured.tags[0] : '';
-  const upvote = sources.recentMoments[0]?.stats?.upvote ?? 0;
-  const totalComment = sources.recentMoments[0]?.stats?.totalComment ?? 0;
+  const stats = sources.recentMoments[0]?.stats || {};
+  const upvote = stats.upvote ?? 0;
+  const commentCount = stats.approvedComment ?? stats.totalComment ?? 0;
 
   const svgHeart = '<span class="icon-[lucide--heart]" aria-hidden="true"></span>';
   const svgChat = '<span class="icon-[lucide--message-circle]" aria-hidden="true"></span>';
@@ -42,7 +43,7 @@ export function renderRecentMomentsWidget({ sources, escapeHtml, normalizeMoment
       <span class="wg-moment-social-content">${escapeHtml(featured.summary)}</span>
       <span class="wg-moment-social-bar">
         <span class="wg-moment-social-stat is-heart">${svgHeart}<b>${upvote}</b></span>
-        <span class="wg-moment-social-stat is-chat">${svgChat}<b>${totalComment}</b></span>
+        <span class="wg-moment-social-stat is-chat">${svgChat}<b>${commentCount}</b></span>
       </span>
     `
   });

@@ -321,6 +321,8 @@
                            th:with="content=${moment.spec.content},
                                     media=${content != null ? content.medium : null},
                                     mediaCount=${media != null ? #lists.size(media) : 0},
+                                    upvoteCount=${moment.stats != null and moment.stats.upvote != null ? moment.stats.upvote : 0},
+                                    commentCount=${moment.stats != null ? (moment.stats.approvedComment != null ? moment.stats.approvedComment : (moment.stats.totalComment != null ? moment.stats.totalComment : 0)) : 0},
                                     rawText=${content != null and !#strings.isEmpty(content.html) ? content.html.replaceAll('<a[^>]*class=&quot;tag&quot;[^>]*>[^<]*</a>','').replaceAll('<[^>]*>','').replaceAll('\s+',' ').trim() : ''},
                                     momentTitle=${!#strings.isEmpty(rawText) ? #strings.abbreviate(rawText, 36) : (mediaCount > 0 ? '图片瞬间' : '瞬间记录')}"
                            data-author-moment-panel
@@ -363,7 +365,7 @@
                       </div>
                       <div>
                         <dt>互动</dt>
-                        <dd th:text="${moment.stats.upvote + ' 赞 · ' + moment.stats.totalComment + ' 评论'}">0 赞 · 0 评论</dd>
+                        <dd th:text="${upvoteCount + ' 赞 · ' + commentCount + ' 评论'}">0 赞 · 0 评论</dd>
                       </div>
                       <div>
                         <dt>内容类型</dt>
