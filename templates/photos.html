@@ -65,7 +65,7 @@
                  groupLeadPhoto=${groupItem.photos != null and !#lists.isEmpty(groupItem.photos) ? groupItem.photos[0] : null},
                  groupCover=${groupLeadPhoto != null ? (!#strings.isEmpty(groupLeadPhoto.spec.cover) ? groupLeadPhoto.spec.cover : groupLeadPhoto.spec.url) : ''}
                "
-               th:href="@{/photos(group=${groupItem.metadata.name})}"
+               th:href="${photoUrl != null ? photoUrl.list(groupItem.metadata.name) : ('/photos?group=' + groupItem.metadata.name)}"
                th:classappend="${activeGroup == groupItem.metadata.name ? 'is-active' : ''}">
              
              <!-- 优先使用用户配置的 SVG 图标 -->
@@ -101,7 +101,7 @@
                      groupCoverPrimary=${groupLeadPhoto != null ? (!#strings.isEmpty(groupLeadPhoto.spec.cover) ? groupLeadPhoto.spec.cover : groupLeadPhoto.spec.url) : ''},
                      groupPhotoCount=${groupItem.status?.photoCount ?: 0}
                    "
-                   th:href="@{/photos(group=${groupItem.metadata.name})}">
+                   th:href="${photoUrl != null ? photoUrl.list(groupItem.metadata.name) : ('/photos?group=' + groupItem.metadata.name)}">
                   <div class="photos-album-cover-stack">
                     <div class="photos-album-cover photos-album-cover--front">
                       <img th:if="${!#strings.isEmpty(groupCoverPrimary)}"
