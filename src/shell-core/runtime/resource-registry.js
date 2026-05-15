@@ -106,6 +106,20 @@ export function getCurrentThemeAssetVersion() {
   }
 }
 
+function normalizeManifestAssetQuery(meta = {}) {
+  const explicitQuery = String(meta.query || '').trim().replace(/^\?/, '');
+  if (explicitQuery) return explicitQuery;
+
+  const buildVersion = String(meta.version || '').trim();
+  const buildRevision = String(meta.revision || '').trim();
+  if (!buildVersion && !buildRevision) return '';
+
+  const params = new URLSearchParams();
+  if (buildVersion) params.set('v', buildVersion);
+  if (buildRevision) params.set('r', buildRevision);
+  return params.toString();
+}
+
 export function loadAssetManifest(options = {}) {
   const { force = false } = options;
 
@@ -126,9 +140,9 @@ export function loadAssetManifest(options = {}) {
       return response.json();
     })
     .then((manifest) => {
-      const buildVersion = String(manifest?.__meta?.version || '').trim();
-      if (buildVersion) {
-        themeAssetVersionQueryCache = `v=${encodeURIComponent(buildVersion)}`;
+      const manifestQuery = normalizeManifestAssetQuery(manifest?.__meta);
+      if (manifestQuery) {
+        themeAssetVersionQueryCache = manifestQuery;
       }
       return manifest;
     })

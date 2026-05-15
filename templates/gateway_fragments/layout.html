@@ -27,6 +27,7 @@
     headerAppName = ${!#strings.isEmpty(theme.config.header?.logo?.title) ? theme.config.header?.logo?.title : (site.title ?: '')},
     authBrandImage = ${site.logo != null ? site.logo.toString() : ''},
     themeAssetVersion = ${theme.spec.version ?: '0.9.0'},
+    themeAssetRevision = ${theme.metadata.version ?: themeAssetVersion},
     themeFallbackIcon = ${#theme.assets('/favicon.svg')}">
   <head>
     <meta charset="UTF-8" />
@@ -51,9 +52,9 @@
     </script>
 
     <th:block th:replace="~{gateway_fragments/common::basicScriptResources}" />
-    <link rel="stylesheet" th:href="@{/assets/css/shell-core/index.css(v=${themeAssetVersion})}" />
-    <link rel="stylesheet" th:href="@{/assets/css/apps/auth/index.css(v=${themeAssetVersion})}" />
-    <script type="module" th:src="@{/assets/js/apps/auth/index.js(v=${themeAssetVersion})}"></script>
+    <link rel="stylesheet" th:href="@{/assets/css/shell-core/index.css(v=${themeAssetVersion},r=${themeAssetRevision})}" />
+    <link rel="stylesheet" th:href="@{/assets/css/apps/auth/index.css(v=${themeAssetVersion},r=${themeAssetRevision})}" />
+    <script type="module" th:src="@{/assets/js/apps/auth/index.js(v=${themeAssetVersion},r=${themeAssetRevision})}"></script>
     <!-- auth gateway 暂不接自定义 head fragment，避免在 Halo gateway 场景下触发 fragment 解析失败 -->
   </head>
   <body

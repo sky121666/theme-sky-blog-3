@@ -30,13 +30,13 @@
 </th:block>
 
 <th:block th:fragment="titlebarContent (titleText, windowScene)">
-            <div class="window-titlebar-leading flex items-center gap-2 min-w-[100px]">
+            <div class="window-titlebar-leading moments-titlebar-leading flex items-center gap-2">
               <th:block th:replace="~{modules/shell/window-titlebar-leading :: momentsBack(windowScene=${windowScene})}"></th:block>
             </div>
             <div class="window-titlebar-center flex-1 flex justify-center items-center overflow-hidden px-2">
               <th:block th:replace="~{::titlebarCenter(titleText=${titleText})}"></th:block>
             </div>
-            <div class="window-titlebar-trailing moments-titlebar-icons min-w-[100px] justify-end">
+            <div class="window-titlebar-trailing moments-titlebar-trailing moments-titlebar-icons justify-end">
               <th:block th:replace="~{::titlebarTrailing}"></th:block>
             </div>
 </th:block>
@@ -54,13 +54,16 @@
 <th:block th:fragment="titlebarTrailing">
             <div class="moments-notification"
                  data-moments-notification
-                 data-endpoint=""
+                 data-user-endpoint="/apis/api.console.halo.run/v1alpha1/users/-"
+                 data-endpoint="/apis/api.console.halo.run/v1alpha1/users/-"
+                 data-notifications-endpoint="/apis/api.notification.halo.run/v1alpha1/userspaces/{username}/notifications"
+                 data-console-url="/console/notifications"
                  data-reason-type="new-comment-on-moment">
               <button type="button"
                       class="moments-titlebar-icon-btn moments-notification-btn"
                       data-moments-notification-toggle
-                      title="瞬间互动消息"
-                      aria-label="瞬间互动消息"
+                      title="消息"
+                      aria-label="消息"
                       aria-haspopup="dialog"
                       aria-expanded="false">
                 <span class="icon-[lucide--bell]" aria-hidden="true"></span>
@@ -69,19 +72,12 @@
               <div class="moments-notification-popover"
                    data-moments-notification-panel
                    role="dialog"
-                   aria-label="瞬间互动消息"
+                   aria-label="消息"
                    hidden>
                 <header class="moments-notification-head">
-                  <strong>瞬间互动消息</strong>
-                  <button type="button"
-                          class="moments-notification-more"
-                          data-moments-notification-refresh
-                          aria-label="刷新瞬间互动消息"
-                          title="刷新">
-                    <span class="icon-[lucide--ellipsis]" aria-hidden="true"></span>
-                  </button>
+                  <strong>消息</strong>
                 </header>
-                <div class="moments-notification-status" data-moments-notification-status>打开后加载互动消息</div>
+                <div class="moments-notification-status" data-moments-notification-status>打开后加载消息</div>
                 <div class="moments-notification-list" data-moments-notification-list></div>
               </div>
             </div>

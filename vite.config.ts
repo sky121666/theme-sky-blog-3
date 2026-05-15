@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import { defineConfig } from "vite";
 
@@ -17,6 +18,8 @@ const themeNameMatch = themeYaml.match(/^\s*name:\s*(.+)$/m);
 const themeName = themeNameMatch ? themeNameMatch[1].trim() : "theme-sky-blog-3";
 const themeAssetBase = `/themes/${themeName}/assets/`;
 const buildVersion = JSON.parse(fs.readFileSync(path.resolve(__dirname, "package.json"), "utf-8")).version;
+const buildRevision = computeBuildRevision();
+const buildVersionQuery = `v=${encodeURIComponent(buildVersion)}&r=${encodeURIComponent(buildRevision)}`;
 const entryNames = new Set([
   "shell-core",
   "auth",
@@ -68,6 +71,63 @@ function entryCssPath(entryName: string): string {
 
 function normalizeRelPath(filePath: string): string {
   return path.relative(__dirname, filePath).replace(/\\/g, "/");
+}
+
+function shouldHashBuildInput(filePath: string): boolean {
+  const rel = normalizeRelPath(filePath);
+  if (rel.startsWith("templates/assets/")) {
+    return false;
+  }
+  if (rel.startsWith("node_modules/") || rel.startsWith("dist/") || rel.startsWith("output/")) {
+    return false;
+  }
+
+  return [
+    "src/",
+    "templates/",
+    "package.json",
+    "theme.yaml",
+    "settings.yaml",
+    "theme-setting.yaml",
+    "vite.config.ts",
+    "tsconfig.json"
+  ].some((prefix) => rel === prefix || rel.startsWith(prefix));
+}
+
+function collectBuildInputFiles(): string[] {
+  const roots = [
+    path.resolve(__dirname, "src"),
+    path.resolve(__dirname, "templates"),
+    path.resolve(__dirname, "package.json"),
+    path.resolve(__dirname, "theme.yaml"),
+    path.resolve(__dirname, "settings.yaml"),
+    path.resolve(__dirname, "theme-setting.yaml"),
+    path.resolve(__dirname, "vite.config.ts"),
+    path.resolve(__dirname, "tsconfig.json")
+  ];
+
+  return roots
+    .flatMap((root) => {
+      if (!fs.existsSync(root)) {
+        return [];
+      }
+      const stat = fs.statSync(root);
+      return stat.isDirectory() ? walkFiles(root) : [root];
+    })
+    .filter((filePath) => fs.existsSync(filePath) && fs.statSync(filePath).isFile())
+    .filter(shouldHashBuildInput)
+    .sort((a, b) => normalizeRelPath(a).localeCompare(normalizeRelPath(b)));
+}
+
+function computeBuildRevision(): string {
+  const hash = crypto.createHash("sha256");
+  for (const filePath of collectBuildInputFiles()) {
+    hash.update(normalizeRelPath(filePath));
+    hash.update("\0");
+    hash.update(fs.readFileSync(filePath));
+    hash.update("\0");
+  }
+  return hash.digest("hex").slice(0, 12);
 }
 
 function sanitizeChunkSegment(value: string): string {
@@ -258,7 +318,7 @@ function pruneEmptyJsStubs(bundle: Record<string, any>) {
 }
 
 function appendBuildVersionToStaticImports() {
-  const versionSuffix = `?v=${encodeURIComponent(buildVersion)}`;
+  const versionSuffix = `?${buildVersionQuery}`;
 
   for (const filePath of walkFiles(jsOutDir)) {
     if (!filePath.endsWith(".js")) {
@@ -279,6 +339,22 @@ function appendBuildVersionToStaticImports() {
       .replace(
         /((?:import|export)["'])(\.{1,2}\/[^"']+\.js)(["'])/g,
         appendVersion
+      )
+      .replace(
+        /(import\(["'])(\.{1,2}\/[^"']+\.js)(["']\))/g,
+        appendVersion
+      )
+      .replace(
+        /(["'])((?:js|css)\/chunks\/[^"']+\.(?:js|css))(["'])/g,
+        appendVersion
+      )
+      .replace(
+        /\.endsWith\("\.css"\)/g,
+        '.split("?")[0].endsWith(".css")'
+      )
+      .replace(
+        /\.endsWith\('\.css'\)/g,
+        ".split('?')[0].endsWith('.css')"
       );
 
     if (next !== source) {
@@ -290,7 +366,9 @@ function appendBuildVersionToStaticImports() {
 function writeAssetManifest(bundle: Record<string, any>) {
   const manifest: Record<string, any> = {
     __meta: {
-      version: buildVersion
+      version: buildVersion,
+      revision: buildRevision,
+      query: buildVersionQuery
     }
   };
 
@@ -350,6 +428,7 @@ export default defineConfig({
   base: themeAssetBase,
   define: {
     __THEME_BUILD_VERSION__: JSON.stringify(buildVersion),
+    __THEME_BUILD_REVISION__: JSON.stringify(buildRevision),
   },
   plugins: [maintainBuildOutputHygiene()],
   build: {

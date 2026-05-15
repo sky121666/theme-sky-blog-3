@@ -4,7 +4,8 @@
    ═══════════════════════════════════════════════════════════ */
 
 /* ── 亮色主题 token (默认) ── */
-.moments-app {
+.moments-app,
+.moments-window {
   --wc-bg: #ededed;
   --wc-bg-elevated: #fff;
   --wc-text: #1d1d1f;
@@ -33,19 +34,23 @@
   --wc-skeleton-border: rgba(0, 0, 0, 0.04);
   --wc-card-bg: #e0e0e0;
   --wc-danger: #ff453a;
-  --wc-notification-panel: rgba(28, 28, 30, 0.92);
-  --wc-notification-panel-border: rgba(255, 255, 255, 0.10);
-  --wc-notification-text: rgba(245, 245, 247, 0.94);
-  --wc-notification-text-soft: rgba(245, 245, 247, 0.62);
-  --wc-notification-text-muted: rgba(245, 245, 247, 0.42);
-  --wc-notification-hover: rgba(255, 255, 255, 0.055);
-  --wc-notification-control: rgba(255, 255, 255, 0.08);
-  --wc-notification-shadow: 0 24px 60px rgba(0, 0, 0, 0.44), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --wc-notification-panel: #1f1f22;
+  --wc-notification-panel-raised: #28282c;
+  --wc-notification-panel-border: rgba(255, 255, 255, 0.08);
+  --wc-notification-separator: rgba(255, 255, 255, 0.055);
+  --wc-notification-text: #f5f5f7;
+  --wc-notification-text-soft: #d8d8de;
+  --wc-notification-text-muted: #8e8e93;
+  --wc-notification-name: color-mix(in srgb, var(--wc-accent) 58%, #c8d2e8);
+  --wc-notification-hover: #2a2a2f;
+  --wc-notification-control: #303036;
+  --wc-notification-shadow: 0 22px 45px rgba(0, 0, 0, 0.50), 0 2px 10px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
 }
 
 /* ── 暗色主题 token ── */
-.dark .moments-app {
+.dark .moments-app,
+.dark .moments-window {
   --wc-bg: #1a1a1a;
   --wc-bg-elevated: #222;
   --wc-text: rgba(255, 255, 255, 0.9);
@@ -71,14 +76,16 @@
   --wc-skeleton-sheen: rgba(255, 255, 255, 0.12);
   --wc-skeleton-border: rgba(255, 255, 255, 0.04);
   --wc-card-bg: #2a2a2a;
-  --wc-notification-panel: rgba(28, 28, 30, 0.92);
-  --wc-notification-panel-border: rgba(255, 255, 255, 0.10);
-  --wc-notification-text: rgba(245, 245, 247, 0.94);
-  --wc-notification-text-soft: rgba(245, 245, 247, 0.62);
-  --wc-notification-text-muted: rgba(245, 245, 247, 0.42);
-  --wc-notification-hover: rgba(255, 255, 255, 0.06);
-  --wc-notification-control: rgba(255, 255, 255, 0.08);
-  --wc-notification-shadow: 0 24px 60px rgba(0, 0, 0, 0.44), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --wc-notification-panel: #1f1f22;
+  --wc-notification-panel-raised: #28282c;
+  --wc-notification-panel-border: rgba(255, 255, 255, 0.08);
+  --wc-notification-separator: rgba(255, 255, 255, 0.055);
+  --wc-notification-text: #f5f5f7;
+  --wc-notification-text-soft: #d8d8de;
+  --wc-notification-text-muted: #8e8e93;
+  --wc-notification-name: color-mix(in srgb, var(--wc-accent) 58%, #c8d2e8);
+  --wc-notification-hover: #2a2a2f;
+  --wc-notification-control: #303036;
 }
 
 /* ═══ 窗口 chrome ═══ */
@@ -191,8 +198,23 @@
 .moments-titlebar-icons {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   position: relative;
+}
+
+.moments-titlebar-leading {
+  flex: 0 0 48px;
+  width: 48px;
+  min-width: 48px;
+  justify-content: flex-start;
+}
+
+.moments-titlebar-trailing {
+  flex: 0 0 84px;
+  width: 84px;
+  min-width: 84px;
+  justify-content: flex-end;
+  padding-right: 0;
 }
 
 .moments-titlebar-icon-btn {
@@ -219,6 +241,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 28px;
 }
 
 .moments-notification-btn {
@@ -233,8 +256,8 @@
 
 .moments-notification-dot {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  top: 5px;
+  right: 5px;
   width: 6px;
   height: 6px;
   border-radius: 999px;
@@ -244,21 +267,41 @@
 
 .moments-notification-popover {
   position: absolute;
-  top: calc(100% + 10px);
+  top: calc(100% + 12px);
   right: 0;
   z-index: 80;
-  width: min(360px, calc(100vw - 28px));
+  width: min(330px, calc(100vw - 28px));
   max-height: min(520px, calc(100vh - 96px));
   color: var(--wc-notification-text);
-  background: color-mix(in srgb, var(--wc-bg-elevated) 13%, var(--wc-notification-panel));
+  background: var(--wc-notification-panel);
   border: 1px solid var(--wc-notification-panel-border);
-  border-radius: 12px;
-  -webkit-backdrop-filter: blur(30px) saturate(155%);
-  backdrop-filter: blur(30px) saturate(155%);
+  border-radius: 9px;
   box-shadow: var(--wc-notification-shadow);
-  overflow: hidden;
+  overflow: visible;
   transform-origin: top right;
-  animation: momentsNotificationIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: momentsNotificationIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.moments-notification-popover::before {
+  content: "";
+  position: absolute;
+  top: -8px;
+  right: 6px;
+  width: 16px;
+  height: 16px;
+  background: var(--wc-notification-panel);
+  border-top: 1px solid var(--wc-notification-panel-border);
+  border-left: 1px solid var(--wc-notification-panel-border);
+  transform: rotate(45deg);
+}
+
+.moments-notification-popover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055);
 }
 
 .moments-notification-popover[hidden] {
@@ -268,7 +311,7 @@
 @keyframes momentsNotificationIn {
   from {
     opacity: 0;
-    transform: translateY(-4px) scale(0.98);
+  transform: translateY(-6px) scale(0.975);
   }
 
   to {
@@ -278,54 +321,30 @@
 }
 
 .moments-notification-head {
-  display: grid;
-  grid-template-columns: 32px 1fr 32px;
+  position: relative;
+  z-index: 1;
+  display: flex;
   align-items: center;
-  min-height: 44px;
+  justify-content: center;
+  min-height: 38px;
   padding: 0 10px;
-  border-bottom: 1px solid color-mix(in srgb, var(--wc-notification-panel-border) 64%, transparent);
+  background: var(--wc-notification-panel);
+  border-bottom: 1px solid var(--wc-notification-panel-border);
+  border-radius: 9px 9px 0 0;
 }
 
 .moments-notification-head strong {
-  grid-column: 2;
   text-align: center;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 650;
   letter-spacing: 0;
 }
 
-.moments-notification-more {
-  grid-column: 3;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: 0;
-  border-radius: 999px;
-  color: color-mix(in srgb, var(--wc-notification-text) 72%, transparent);
-  background: transparent;
-  cursor: pointer;
-  transition: background 0.16s, color 0.16s, transform 0.16s;
-}
-
-.moments-notification-more:hover {
-  color: var(--wc-notification-text);
-  background: var(--wc-notification-control);
-}
-
-.moments-notification-more:active {
-  transform: scale(0.94);
-}
-
-.moments-notification-more span {
-  width: 17px !important;
-  height: 17px !important;
-}
-
 .moments-notification-status {
-  padding: 34px 22px;
-  color: color-mix(in srgb, var(--wc-notification-text) 58%, transparent);
+  position: relative;
+  z-index: 1;
+  padding: 30px 22px;
+  color: var(--wc-notification-text-muted);
   text-align: center;
   font-size: 13px;
   line-height: 1.6;
@@ -350,25 +369,33 @@
 }
 
 .moments-notification-list {
+  position: relative;
+  z-index: 1;
   max-height: 454px;
   overflow: auto;
-  padding: 6px 0;
+  padding: 6px 0 8px;
+  background: var(--wc-notification-panel);
+  border-radius: 0 0 9px 9px;
 }
 
 .moments-notification-item {
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) 42px;
+  grid-template-columns: 36px minmax(0, 1fr) 36px;
   gap: 10px;
   align-items: center;
-  min-height: 76px;
-  padding: 8px 16px 8px 18px;
-  color: color-mix(in srgb, var(--wc-notification-text) 92%, transparent);
+  min-height: 62px;
+  margin: 2px 6px;
+  padding: 6px 8px;
+  color: var(--wc-notification-text);
   text-decoration: none;
-  transition: background 0.16s, transform 0.16s;
+  border-radius: 7px;
+  box-shadow: inset 0 -1px 0 var(--wc-notification-separator);
+  transition: background 0.16s, transform 0.16s, opacity 0.16s, box-shadow 0.16s;
 }
 
 .moments-notification-item:hover {
   background: var(--wc-notification-hover);
+  box-shadow: none;
 }
 
 .moments-notification-item:active {
@@ -379,35 +406,36 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 8px;
-  color: color-mix(in srgb, var(--wc-notification-text) 92%, transparent);
-  background: color-mix(in srgb, var(--wc-accent) 50%, var(--wc-notification-control));
-  font-size: 14px;
+  width: 36px;
+  height: 36px;
+  border-radius: 7px;
+  color: var(--wc-notification-text);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--wc-accent) 52%, #384156), var(--wc-notification-control));
+  font-size: 13px;
   font-weight: 700;
-  box-shadow: inset 0 0 0 1px var(--wc-notification-panel-border);
+  box-shadow: inset 0 0 0 1px var(--wc-notification-panel-border), 0 1px 2px rgba(0, 0, 0, 0.28);
 }
 
 .moments-notification-copy {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  gap: 3px;
+  gap: 4px;
 }
 
 .moments-notification-line {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
+  line-height: 1.2;
 }
 
 .moments-notification-line b {
   min-width: 0;
-  color: color-mix(in srgb, var(--wc-accent) 54%, white);
+  color: var(--wc-notification-name);
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 590;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -418,36 +446,45 @@
   color: var(--wc-notification-text-muted);
   white-space: nowrap;
   font-size: 12px;
+  font-weight: 450;
 }
 
-.moments-notification-title,
-.moments-notification-excerpt {
+.moments-notification-message,
+.moments-notification-target {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.moments-notification-title {
-  color: color-mix(in srgb, var(--wc-notification-text) 92%, transparent);
-  font-size: 14px;
-  font-weight: 600;
+.moments-notification-message {
+  color: var(--wc-notification-text);
+  font-size: 14.5px;
+  font-weight: 620;
+  line-height: 1.24;
 }
 
-.moments-notification-excerpt {
-  color: var(--wc-notification-text-soft);
+.moments-notification-message em {
+  color: var(--wc-notification-text);
+  font-style: normal;
+  font-weight: 650;
+}
+
+.moments-notification-target {
+  color: var(--wc-notification-text-muted);
   font-size: 12px;
+  line-height: 1.25;
 }
 
 .moments-notification-thumb {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 3px;
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
   object-fit: cover;
-  background: var(--wc-notification-control);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--wc-notification-panel-border) 60%, transparent);
+  background: var(--wc-notification-panel-raised);
+  box-shadow: inset 0 0 0 1px var(--wc-notification-panel-border);
 }
 
 .moments-notification-thumb span {
@@ -456,12 +493,12 @@
   color: color-mix(in srgb, var(--wc-notification-text) 46%, transparent);
 }
 
-.moments-notification-item.is-unread .moments-notification-title::before {
+.moments-notification-item.is-unread .moments-notification-message::before {
   content: "";
   display: inline-block;
   width: 6px;
   height: 6px;
-  margin-right: 6px;
+  margin-right: 5px;
   vertical-align: 1px;
   border-radius: 999px;
   background: var(--wc-danger);
@@ -1258,6 +1295,24 @@
 
 @media (max-width: 768px) {
 
+  .moments-titlebar-leading,
+  .moments-titlebar-trailing {
+    flex: 0 0 88px;
+    width: 88px;
+    min-width: 88px;
+    padding-right: 0;
+  }
+
+  .moments-window .window-titlebar-center {
+    min-width: 0;
+    padding-inline: 6px;
+  }
+
+  .moments-titlebar-icons {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
   /* ═══ 全屏布局 ═══ */
   /* 隐藏系统 menubar 和 Dock，moments 独占手机全屏 */
   body[data-page-app="moments"] .menubar {
@@ -1329,13 +1384,20 @@
   }
 
   .moments-notification-popover {
-    position: fixed;
-    top: 58px;
-    right: 10px;
-    left: 10px;
-    width: auto;
-    max-height: min(560px, calc(100dvh - 78px));
-    transform-origin: top center;
+    position: absolute;
+    top: calc(100% + 10px);
+    right: -2px;
+    left: auto;
+    width: min(280px, calc(100vw - 28px));
+    max-width: min(280px, calc(100vw - 28px));
+    max-height: min(520px, calc(100dvh - 84px));
+    transform-origin: top right;
+  }
+
+  .moments-notification-popover::before {
+    right: 16px;
+    width: 14px;
+    height: 14px;
   }
 
   .moments-notification-item {

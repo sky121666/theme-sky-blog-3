@@ -56,6 +56,11 @@ function setupMomentsScrollChrome(root = document) {
 }
 
 const MOMENT_NOTIFICATION_PAGE_SIZE = 10;
+const MOMENT_NOTIFICATION_FETCH_SIZE = 50;
+const MOMENT_NOTIFICATION_USER_ENDPOINT = '/apis/api.console.halo.run/v1alpha1/users/-';
+const MOMENT_NOTIFICATION_ENDPOINT = '/apis/api.notification.halo.run/v1alpha1/userspaces/{username}/notifications';
+const MOMENT_NOTIFICATION_MARK_READ_ENDPOINT = '/apis/api.notification.halo.run/v1alpha1/userspaces/{username}/notifications/{name}/mark-as-read';
+const HALO_ANONYMOUS_USERNAME = 'anonymousUser';
 
 function stripHtml(value = '') {
   const template = document.createElement('template');
@@ -97,23 +102,135 @@ function firstLinkFromHtml(value = '') {
   return template.content.querySelector('a[href]')?.getAttribute('href') || '';
 }
 
+function normalizeMomentHref(value = '') {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  try {
+    const url = new URL(raw, window.location.origin);
+    if (/^\/moments(?:\/|\?|#|$)/i.test(url.pathname)) {
+      return `${url.pathname}${url.search}${url.hash}`;
+    }
+    if (url.origin === window.location.origin) {
+      return `${url.pathname}${url.search}${url.hash}`;
+    }
+    return raw;
+  } catch (_error) {
+    return raw;
+  }
+}
+
+function textFromSelector(value = '', selector = '') {
+  const template = document.createElement('template');
+  template.innerHTML = String(value || '');
+  return stripHtml(template.content.querySelector(selector)?.innerHTML || '');
+}
+
+function targetTextFromHtml(value = '') {
+  const template = document.createElement('template');
+  template.innerHTML = String(value || '');
+  const anchor = template.content.querySelector('a[href]');
+  return stripHtml(anchor?.innerHTML || '');
+}
+
+function recipientFromNotification(html = '', raw = '') {
+  const honorific = textFromSelector(html, '.honorific');
+  const source = honorific || stripHtml(raw);
+  const match = source.match(/@?([\w\u4e00-\u9fa5.-]+)\s*你好/);
+  return match?.[1]?.trim() || '';
+}
+
+function interactionFromTitle(title = '', raw = '') {
+  const source = `${title} ${stripHtml(raw)}`.replace(/\s+/g, ' ').trim();
+  const actorMatch = source.match(/^(.+?)\s*(评论了|回复了|回复)/);
+  const actor = actorMatch?.[1]?.trim() || '访客';
+  const verb = actorMatch?.[2] || '';
+  const isReply = verb.includes('回复') || /回复了你的评论|回复你/.test(source);
+  const object = /你的评论|回复你/.test(source) ? '你' : '你的瞬间';
+  const action = isReply ? '回复' : '评论';
+  return { actor, action, object };
+}
+
+function isJsonResponse(response) {
+  return (response.headers.get('content-type') || '').includes('application/json');
+}
+
+async function fetchJson(url, signal) {
+  const response = await fetch(url.toString(), {
+    credentials: 'same-origin',
+    headers: { Accept: 'application/json' },
+    signal
+  });
+  return response;
+}
+
+async function resolveCurrentUsername(endpoint, signal) {
+  const response = await fetchJson(new URL(endpoint, window.location.origin), signal);
+  if (response.status === 401 || response.status === 403 || response.redirected) {
+    return { status: 'unauthenticated' };
+  }
+  if (!response.ok || !isJsonResponse(response)) {
+    return { status: response.status === 404 ? 'unsupported' : 'error' };
+  }
+  const data = await response.json();
+  const username = data?.user?.metadata?.name || data?.metadata?.name || '';
+  if (!username || username === HALO_ANONYMOUS_USERNAME || data?.user?.spec?.disabled === true) {
+    return { status: 'unauthenticated' };
+  }
+  return { status: 'authenticated', username };
+}
+
+function buildUserNotificationUrl(endpoint, username) {
+  const path = endpoint.includes('{username}')
+    ? endpoint.replace('{username}', encodeURIComponent(username))
+    : endpoint;
+  const url = new URL(path, window.location.origin);
+  url.searchParams.set('page', '1');
+  url.searchParams.set('size', String(MOMENT_NOTIFICATION_FETCH_SIZE));
+  url.searchParams.append('sort', 'metadata.creationTimestamp,desc');
+  return url;
+}
+
+function buildMarkNotificationReadUrl(endpoint, username, notificationName) {
+  const path = endpoint
+    .replace('{username}', encodeURIComponent(username))
+    .replace('{name}', encodeURIComponent(notificationName));
+  return new URL(path, window.location.origin);
+}
+
+function isMomentNotification(item = {}) {
+  const spec = item.spec || {};
+  const html = spec.htmlContent || '';
+  const raw = spec.rawContent || '';
+  const link = firstLinkFromHtml(html);
+  const text = `${spec.title || ''} ${stripHtml(html)} ${stripHtml(raw)}`;
+  return /(?:^|\/)moments(?:\/|\?|#|$)/i.test(link)
+    || /(?:瞬间|moment)/i.test(text);
+}
+
 function normalizeMomentNotification(item = {}) {
   const spec = item.spec || {};
   const title = spec.title || '瞬间互动消息';
   const html = spec.htmlContent || '';
   const raw = spec.rawContent || '';
-  const author = title.match(/^(.+?)\s*(?:评论了|回复)/)?.[1]?.trim() || '访客';
-  const content = stripHtml(html) || stripHtml(raw) || title;
-  const excerpt = content
-    .replace(/^.+?你好：?/, '')
+  const interaction = interactionFromTitle(title, raw);
+  const content = textFromSelector(html, '.content') || stripHtml(raw) || stripHtml(html) || title;
+  const body = content
+    .replace(/^@?.+?你好：?/, '')
+    .replace(/^.+?以下是评论的具体内容：?/, '')
+    .replace(/<[^>]*>/g, '')
     .replace(/\s+/g, ' ')
     .trim();
   return {
     id: item.metadata?.name || '',
-    author,
+    author: interaction.actor,
+    action: interaction.action,
+    object: interaction.object,
+    recipient: recipientFromNotification(html, raw),
     title,
-    excerpt: excerpt || title,
-    url: firstLinkFromHtml(html),
+    body: body || title,
+    target: targetTextFromHtml(html),
+    url: normalizeMomentHref(firstLinkFromHtml(html)),
     thumbnail: firstImageFromHtml(html),
     unread: spec.unread === true,
     timeText: timeAgo(item.metadata?.creationTimestamp)
@@ -139,8 +256,8 @@ function renderNotificationItems(list, items) {
             <b>${escapeHtml(item.author)}</b>
             <time>${escapeHtml(item.timeText)}</time>
           </span>
-          <span class="moments-notification-title">${escapeHtml(item.title)}</span>
-          <span class="moments-notification-excerpt">${escapeHtml(item.excerpt)}</span>
+          <span class="moments-notification-message"><em>${escapeHtml(item.action)}${escapeHtml(item.object)}：</em>${escapeHtml(item.body)}</span>
+          ${item.target ? `<span class="moments-notification-target">${escapeHtml(item.target)}</span>` : ''}
         </span>
         ${thumb}
       </a>`;
@@ -174,12 +291,51 @@ function setupMomentNotifications(root = document) {
     const panel = node.querySelector('[data-moments-notification-panel]');
     const list = node.querySelector('[data-moments-notification-list]');
     const dot = node.querySelector('[data-moments-notification-dot]');
-    const refresh = node.querySelector('[data-moments-notification-refresh]');
-    const endpoint = (node.dataset.endpoint || window.__SKY_MOMENTS_NOTIFICATION_ENDPOINT__ || '').trim();
-    const reasonType = node.dataset.reasonType || 'new-comment-on-moment';
+    const userEndpoint = (node.dataset.userEndpoint || window.__SKY_MOMENTS_NOTIFICATION_USER_ENDPOINT__ || MOMENT_NOTIFICATION_USER_ENDPOINT).trim();
+    const endpoint = (node.dataset.notificationsEndpoint || window.__SKY_MOMENTS_NOTIFICATION_ENDPOINT__ || MOMENT_NOTIFICATION_ENDPOINT).trim();
+    const markReadEndpoint = (node.dataset.markReadEndpoint || window.__SKY_MOMENTS_NOTIFICATION_MARK_READ_ENDPOINT__ || MOMENT_NOTIFICATION_MARK_READ_ENDPOINT).trim();
     let loaded = false;
     let loading = false;
     let controller = null;
+    let currentUsername = '';
+
+    function syncUnreadDot() {
+      if (!dot) return;
+      dot.hidden = !list?.querySelector('.moments-notification-item.is-unread');
+    }
+
+    function markItemReadLocally(anchor) {
+      if (!anchor?.classList.contains('is-unread')) return;
+      anchor.classList.remove('is-unread');
+      syncUnreadDot();
+    }
+
+    function removeItemLocally(anchor) {
+      anchor?.remove();
+      syncUnreadDot();
+      if (!list?.querySelector('.moments-notification-item')) {
+        setNotificationState(node, 'empty', '暂无新消息');
+      }
+    }
+
+    async function markNotificationAsRead(notificationName) {
+      if (!currentUsername || !notificationName || !markReadEndpoint) return false;
+      try {
+        const response = await fetch(buildMarkNotificationReadUrl(markReadEndpoint, currentUsername, notificationName), {
+          method: 'PUT',
+          credentials: 'same-origin',
+          headers: {
+            Accept: 'application/json'
+          }
+        });
+        if (!response.ok && response.status !== 404) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return true;
+      } catch (_error) {
+        return false;
+      }
+    }
 
     async function load({ force = false } = {}) {
       if (loading || (loaded && !force)) return;
@@ -196,17 +352,27 @@ function setupMomentNotifications(root = document) {
       setNotificationState(node, 'loading', '正在加载瞬间互动...');
       if (list) list.innerHTML = '';
 
-      const url = new URL(endpoint, window.location.origin);
-      url.searchParams.set('reasonType', reasonType);
-      url.searchParams.set('page', '1');
-      url.searchParams.set('size', String(MOMENT_NOTIFICATION_PAGE_SIZE));
-
       try {
-        const response = await fetch(url.toString(), {
-          credentials: 'same-origin',
-          headers: { Accept: 'application/json' },
-          signal: controller.signal
-        });
+        const user = await resolveCurrentUsername(userEndpoint, controller.signal);
+        if (user.status === 'unauthenticated') {
+          setNotificationState(node, 'unauthenticated', '登录后查看瞬间互动消息');
+          if (dot) dot.hidden = true;
+          loaded = true;
+          return;
+        }
+        if (user.status === 'unsupported') {
+          setNotificationState(node, 'unsupported', '当前 Halo 未开放用户通知接口');
+          if (dot) dot.hidden = true;
+          loaded = true;
+          return;
+        }
+        if (user.status !== 'authenticated') {
+          throw new Error('Unable to resolve current user');
+        }
+
+        currentUsername = user.username;
+        const url = buildUserNotificationUrl(endpoint, user.username);
+        const response = await fetchJson(url, controller.signal);
 
         if (response.status === 401 || response.status === 403 || response.redirected) {
           setNotificationState(node, 'unauthenticated', '登录后查看瞬间互动消息');
@@ -222,20 +388,25 @@ function setupMomentNotifications(root = document) {
           return;
         }
 
-        const contentType = response.headers.get('content-type') || '';
-        if (!response.ok || !contentType.includes('application/json')) {
+        if (!response.ok || !isJsonResponse(response)) {
           throw new Error(`HTTP ${response.status}`);
         }
 
         const data = await response.json();
-        const items = Array.isArray(data.items) ? data.items.map(normalizeMomentNotification) : [];
+        const items = Array.isArray(data.items)
+          ? data.items
+            .filter(isMomentNotification)
+            .map(normalizeMomentNotification)
+            .filter((item) => item.unread)
+            .slice(0, MOMENT_NOTIFICATION_PAGE_SIZE)
+          : [];
         if (!items.length) {
-          setNotificationState(node, 'empty', '暂无瞬间互动');
+          setNotificationState(node, 'empty', '暂无新消息');
           if (dot) dot.hidden = true;
         } else {
           renderNotificationItems(list, items);
           setNotificationState(node, 'ready', '');
-          if (dot) dot.hidden = !items.some((item) => item.unread);
+          syncUnreadDot();
           if (window.pjax?.attachLink) {
             list.querySelectorAll('a.pjax-link:not([data-pjax-attached])').forEach((anchor) => {
               anchor.setAttribute('data-pjax-managed', 'true');
@@ -282,23 +453,43 @@ function setupMomentNotifications(root = document) {
       if (event.key === 'Escape') close();
     }
 
-    function onRefresh(event) {
+    async function onNotificationClick(event) {
+      const anchor = event.target instanceof Element
+        ? event.target.closest('.moments-notification-item[data-notification-id]')
+        : null;
+      if (!anchor) return;
+      if (anchor.dataset.notificationReadPending === 'true') return;
       event.preventDefault();
       event.stopPropagation();
-      loaded = false;
-      load({ force: true });
+      event.stopImmediatePropagation?.();
+      const notificationName = anchor.dataset.notificationId || '';
+      const href = anchor.getAttribute('href') || anchor.href || '';
+      anchor.dataset.notificationReadPending = 'true';
+      markItemReadLocally(anchor);
+      const marked = await markNotificationAsRead(notificationName);
+      if (marked) {
+        removeItemLocally(anchor);
+      }
+      close();
+      if (window.pjax?.loadUrl && href) {
+        window.pjax.loadUrl(href);
+        return;
+      }
+      if (href) {
+        window.location.href = href;
+      }
     }
 
     button?.addEventListener('click', toggle);
-    refresh?.addEventListener('click', onRefresh);
+    list?.addEventListener('click', onNotificationClick, true);
     document.addEventListener('click', onDocumentClick);
     document.addEventListener('keydown', onKeydown);
-    setNotificationState(node, 'idle', '打开后加载互动消息');
+    setNotificationState(node, 'idle', '打开后加载消息');
 
     const cleanup = () => {
       controller?.abort();
       button?.removeEventListener('click', toggle);
-      refresh?.removeEventListener('click', onRefresh);
+      list?.removeEventListener('click', onNotificationClick, true);
       document.removeEventListener('click', onDocumentClick);
       document.removeEventListener('keydown', onKeydown);
       node._momentsNotificationCleanup = null;

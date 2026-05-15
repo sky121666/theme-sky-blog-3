@@ -1,6 +1,8 @@
 {
   "__meta": {
-    "version": "0.9.30"
+    "version": "0.9.30",
+    "revision": "e1bc1bf306cc",
+    "query": "v=0.9.30&r=e1bc1bf306cc"
   },
   "explorer-archives": {
     "js": [

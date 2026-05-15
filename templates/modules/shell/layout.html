@@ -24,6 +24,7 @@
       shouldEmitCanonicalFallback = ${!seoPluginAvailable and !#strings.isEmpty(absoluteCanonical)},
       shouldEmitSocialFallback = ${!seoPluginAvailable and seoFallbackMode == 'full'},
       themeAssetVersion = ${theme.spec.version ?: '0.9.0'},
+      themeAssetRevision = ${theme.metadata.version ?: themeAssetVersion},
       themeFallbackIcon = ${#theme.assets('/favicon.svg')}">
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -87,17 +88,17 @@
       })();
     </script>
 
-	    <!-- 本地打包产物：使用主题版本号作为缓存边界 -->
-	    <link rel="stylesheet" th:href="@{/assets/css/shell-core/index.css(v=${themeAssetVersion})}" />
+	    <!-- 本地打包产物：使用主题版本号 + Halo 主题资源版本作为缓存边界 -->
+	    <link rel="stylesheet" th:href="@{/assets/css/shell-core/index.css(v=${themeAssetVersion},r=${themeAssetRevision})}" />
 	    <link rel="stylesheet"
 	          th:if="${!#strings.isEmpty(pageAppValue)}"
 	          th:attr="data-app-css=${pageAppValue}"
-	          th:href="@{'/assets/css/apps/' + ${(pageAppValue == 'explorer-tags' ? 'tags' : (pageAppValue == 'explorer-categories' ? 'categories' : (pageAppValue == 'explorer-author' ? 'author' : (pageAppValue == 'explorer-archives' ? 'archives' : pageAppValue))))} + '/index.css?v=' + ${themeAssetVersion}}" />
+	          th:href="@{'/assets/css/apps/' + ${(pageAppValue == 'explorer-tags' ? 'tags' : (pageAppValue == 'explorer-categories' ? 'categories' : (pageAppValue == 'explorer-author' ? 'author' : (pageAppValue == 'explorer-archives' ? 'archives' : pageAppValue))))} + '/index.css?v=' + ${themeAssetVersion} + '&r=' + ${themeAssetRevision}}" />
 	    <script type="module"
 	            th:if="${!#strings.isEmpty(pageAppValue)}"
 	            th:attr="data-app-script=${pageAppValue}"
-	            th:src="@{'/assets/js/apps/' + ${(pageAppValue == 'explorer-tags' ? 'tags' : (pageAppValue == 'explorer-categories' ? 'categories' : (pageAppValue == 'explorer-author' ? 'author' : (pageAppValue == 'explorer-archives' ? 'archives' : pageAppValue))))} + '/index.js?v=' + ${themeAssetVersion}}"></script>
-	    <script type="module" th:src="@{/assets/js/shell-core/index.js(v=${themeAssetVersion})}"></script>
+	            th:src="@{'/assets/js/apps/' + ${(pageAppValue == 'explorer-tags' ? 'tags' : (pageAppValue == 'explorer-categories' ? 'categories' : (pageAppValue == 'explorer-author' ? 'author' : (pageAppValue == 'explorer-archives' ? 'archives' : pageAppValue))))} + '/index.js?v=' + ${themeAssetVersion} + '&r=' + ${themeAssetRevision}}"></script>
+	    <script type="module" th:src="@{/assets/js/shell-core/index.js(v=${themeAssetVersion},r=${themeAssetRevision})}"></script>
   </head>
 
   <!-- 读取后台配置 -->
