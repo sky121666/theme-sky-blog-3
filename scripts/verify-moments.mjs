@@ -34,6 +34,44 @@ async function discoverMoments() {
   return Array.isArray(data.items) ? data.items : [];
 }
 
+async function inspectApiContract(moments) {
+  const failures = [];
+  if (!Array.isArray(moments)) {
+    failures.push('api contract: moments list is not an array');
+    return { status: 'failed', failures };
+  }
+
+  const first = moments[0];
+  if (!first) {
+    failures.push('api contract: moments list is empty');
+    return { status: 'failed', failures };
+  }
+
+  if (!first.metadata?.name) failures.push('api contract: missing metadata.name');
+  if (!first.spec?.content) failures.push('api contract: missing spec.content');
+  if (!first.stats) failures.push('api contract: missing stats');
+  if (first.stats && !Object.hasOwn(first.stats, 'approvedComment')) failures.push('api contract: missing stats.approvedComment');
+  if (first.stats && !Object.hasOwn(first.stats, 'totalComment')) failures.push('api contract: missing stats.totalComment');
+  if (first.stats && !Object.hasOwn(first.stats, 'upvote')) failures.push('api contract: missing stats.upvote');
+
+  const detailPath = `/apis/api.moment.halo.run/v1alpha1/moments/${encodeURIComponent(first.metadata.name)}`;
+  const detail = await fetchJson(detailPath);
+  if (detail.metadata?.name !== first.metadata.name) {
+    failures.push(`api contract: detail name mismatch for ${first.metadata.name}`);
+  }
+  if (!detail.spec?.content) failures.push('api contract: detail missing spec.content');
+  if (!detail.stats) failures.push('api contract: detail missing stats');
+
+  return {
+    status: failures.length ? 'failed' : 'passed',
+    path: '/apis/api.moment.halo.run/v1alpha1/moments',
+    detailPath,
+    sample: sampleMeta(detail),
+    listCount: moments.length,
+    failures
+  };
+}
+
 function toMomentPath(moment) {
   const name = moment?.metadata?.name;
   return name ? `/moments/${encodeURIComponent(name)}` : '';
@@ -146,6 +184,9 @@ async function main() {
     checks: []
   };
   const failures = [];
+  const apiCheck = await inspectApiContract(moments);
+  failures.push(...apiCheck.failures);
+  report.checks.push({ name: 'api-contract', ...apiCheck });
 
   if (codePath) {
     const result = await inspectPage(codePath);
