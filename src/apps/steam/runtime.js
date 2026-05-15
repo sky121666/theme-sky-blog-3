@@ -25,6 +25,47 @@ function heatLevel(minutes, maxMinutes) {
   return 1;
 }
 
+function parseSteamRecent(value, fallback) {
+  const numeric = Number(value || 0);
+  if (Number.isFinite(numeric) && numeric > 0) {
+    return numeric < 1000000000000 ? numeric * 1000 : numeric;
+  }
+
+  const text = String(fallback || '').trim();
+  const isoDate = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (isoDate) {
+    const [, year, month, day] = isoDate;
+    return new Date(Number(year), Number(month) - 1, Number(day)).getTime();
+  }
+
+  const parsed = Date.parse(text);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function heatmapThemeColors(theme) {
+  switch (String(theme || '').toLowerCase()) {
+    case 'green':
+    case 'github':
+      return ['rgba(23, 26, 33, 0.5)', 'rgba(48, 209, 88, 0.28)', 'rgba(48, 209, 88, 0.52)', 'rgba(48, 209, 88, 0.76)', '#30d158'];
+    case 'orange':
+    case 'amber':
+      return ['rgba(23, 26, 33, 0.5)', 'rgba(245, 165, 36, 0.28)', 'rgba(245, 165, 36, 0.52)', 'rgba(245, 165, 36, 0.78)', '#f5a524'];
+    case 'purple':
+      return ['rgba(23, 26, 33, 0.5)', 'rgba(191, 90, 242, 0.28)', 'rgba(191, 90, 242, 0.52)', 'rgba(191, 90, 242, 0.78)', '#bf5af2'];
+    case 'blue':
+    case 'steam':
+    default:
+      return ['rgba(23, 26, 33, 0.5)', 'rgba(102, 192, 244, 0.3)', 'rgba(102, 192, 244, 0.58)', 'rgba(102, 192, 244, 0.8)', '#66c0f4'];
+  }
+}
+
+function applyHeatmapTheme(panel) {
+  const colors = heatmapThemeColors(panel?.dataset?.steamHeatmapTheme);
+  colors.forEach((color, index) => {
+    panel.style.setProperty(`--steam-heatmap-${index}`, color);
+  });
+}
+
 function escapeAttribute(value) {
   return String(value || '')
     .replace(/&/g, '&amp;')
@@ -88,7 +129,7 @@ export function registerSteamExplorer(Alpine) {
           appId: card.dataset.steamAppId || '',
           name: card.dataset.steamGameName || '',
           playtime: Number(card.dataset.steamPlaytime || 0),
-          recent: Number(card.dataset.steamRecent || 0) || Date.parse(card.dataset.steamLastPlayed || '') || 0,
+          recent: parseSteamRecent(card.dataset.steamRecent, card.dataset.steamLastPlayed),
           lastPlayed: card.dataset.steamLastPlayed || ''
         };
       });
@@ -179,6 +220,7 @@ export function registerSteamExplorer(Alpine) {
       const grid = panel?.querySelector('[data-steam-heatmap-grid]');
       if (!panel || !grid || this._heatmapLoaded) return;
       this._heatmapLoaded = true;
+      applyHeatmapTheme(panel);
 
       const configuredDays = Number(panel.dataset.steamHeatmapDays || 365);
       const days = Math.min(Math.max(configuredDays || 365, 28), 365);

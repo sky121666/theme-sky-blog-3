@@ -159,7 +159,7 @@
                     <span th:text="${heatmapDays != null ? heatmapDays + ' 天' : '年度统计'}">年度统计</span>
                   </div>
                   <div class="steam-heatmap-panel"
-                       th:attr="data-steam-heatmap-days=${heatmapDays},data-steam-heatmap-theme=${heatmapColorTheme},data-steam-echarts-url=${echartsUrl}">
+                       th:attr="data-steam-heatmap-days=${heatmapDays},data-steam-heatmap-theme=${heatmapColorTheme},data-steam-heatmap-show-legend=${heatmapShowLegend},data-steam-echarts-url=${echartsUrl}">
                     <div class="steam-heatmap-meta">
                       <span data-steam-heatmap-summary>正在读取活跃记录</span>
                       <span data-steam-heatmap-range></span>
@@ -172,7 +172,7 @@
                       </div>
                       <div class="steam-heatmap-grid" data-steam-heatmap-grid aria-label="Steam 游玩活跃度"></div>
                     </div>
-                    <div class="steam-heatmap-caption">
+                    <div class="steam-heatmap-caption" th:if="${heatmapShowLegend == null or heatmapShowLegend}">
                       <span>少</span>
                       <i></i><i class="is-1"></i><i class="is-2"></i><i class="is-3"></i><i class="is-4"></i>
                       <span>多</span>
@@ -266,7 +266,7 @@
                           data-steam-app-id=${game.appId},
                           data-steam-game-name=${game.name},
                           data-steam-playtime=${game.playtimeForever != null ? game.playtimeForever : 0},
-                          data-steam-recent=0,
+                          data-steam-recent=${game.rtimeLastPlayed != null ? game.rtimeLastPlayed : 0},
                           data-steam-last-played=${game.lastPlayedFormatted}">
                 <div class="steam-game-art">
                   <img th:if="${!#strings.isEmpty(game.headerImageUrl)}"

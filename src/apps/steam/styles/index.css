@@ -426,6 +426,11 @@
 }
 
 .steam-heatmap-panel {
+  --steam-heatmap-0: rgba(23, 26, 33, 0.5);
+  --steam-heatmap-1: rgba(102, 192, 244, 0.3);
+  --steam-heatmap-2: rgba(102, 192, 244, 0.58);
+  --steam-heatmap-3: rgba(102, 192, 244, 0.8);
+  --steam-heatmap-4: var(--steam-blue);
   overflow-x: hidden;
   padding: 16px;
 }
@@ -489,31 +494,31 @@
   height: 8px;
   border-radius: 2px;
   border: 1px solid rgba(42, 71, 94, 0.5);
-  background: rgba(23, 26, 33, 0.5);
+  background: var(--steam-heatmap-0);
 }
 
 .steam-heatmap-grid .is-0 {
-  background: rgba(23, 26, 33, 0.5);
+  background: var(--steam-heatmap-0);
 }
 
 .steam-heatmap-grid .is-1,
 .steam-heatmap-caption .is-1 {
-  background: rgba(102, 192, 244, 0.3);
+  background: var(--steam-heatmap-1);
 }
 
 .steam-heatmap-grid .is-2,
 .steam-heatmap-caption .is-2 {
-  background: rgba(102, 192, 244, 0.58);
+  background: var(--steam-heatmap-2);
 }
 
 .steam-heatmap-grid .is-3,
 .steam-heatmap-caption .is-3 {
-  background: rgba(102, 192, 244, 0.8);
+  background: var(--steam-heatmap-3);
 }
 
 .steam-heatmap-grid .is-4,
 .steam-heatmap-caption .is-4 {
-  background: var(--steam-blue);
+  background: var(--steam-heatmap-4);
   box-shadow: 0 0 7px rgba(102, 192, 244, 0.32);
 }
 
