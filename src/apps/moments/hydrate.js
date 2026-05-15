@@ -175,7 +175,7 @@ function setupMomentNotifications(root = document) {
     const list = node.querySelector('[data-moments-notification-list]');
     const dot = node.querySelector('[data-moments-notification-dot]');
     const refresh = node.querySelector('[data-moments-notification-refresh]');
-    const endpoint = node.dataset.endpoint || '/apis/api.uc.halo.run/v1alpha1/userspaces/-/notifications';
+    const endpoint = (node.dataset.endpoint || window.__SKY_MOMENTS_NOTIFICATION_ENDPOINT__ || '').trim();
     const reasonType = node.dataset.reasonType || 'new-comment-on-moment';
     let loaded = false;
     let loading = false;
@@ -183,6 +183,13 @@ function setupMomentNotifications(root = document) {
 
     async function load({ force = false } = {}) {
       if (loading || (loaded && !force)) return;
+      if (!endpoint) {
+        setNotificationState(node, 'unsupported', '当前 Halo 未开放用户通知接口');
+        if (dot) dot.hidden = true;
+        if (list) list.innerHTML = '';
+        loaded = true;
+        return;
+      }
       loading = true;
       controller?.abort();
       controller = new AbortController();
@@ -312,9 +319,15 @@ registerPageAppLifecycle('moments', {
   hydrate(root) {
     const cleanupScroll = setupMomentsScrollChrome(root);
     const cleanupNotifications = setupMomentNotifications(document);
+    let cleanupDeferredNotifications = null;
+    const notificationFrame = requestAnimationFrame(() => {
+      cleanupDeferredNotifications = setupMomentNotifications(document);
+    });
     return () => {
+      cancelAnimationFrame(notificationFrame);
       cleanupScroll?.();
       cleanupNotifications?.();
+      cleanupDeferredNotifications?.();
     };
   },
   getDocumentState(_root, context) {
