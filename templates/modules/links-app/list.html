@@ -3,8 +3,8 @@
             currentGroup=${param.group != null and !#lists.isEmpty(param.group) ? param.group[0] : ''},
             groupsData=${groups},
             allLinksTitle=${!#strings.isEmpty(theme.config.links?.profile?.display_name) ? theme.config.links.profile.display_name : '全部友链'}">
-  <!-- plugin-contract: PluginLinks; contract-version: 1.7.2; status: inferred; source: docs/插件适配契约.md -->
-  <!-- plugin-contract: link-submit; contract-version: pending; status: unconfirmed; source: docs/插件适配契约.md -->
+  <!-- plugin-contract: PluginLinks; contract-version: 1.7.2; tested-version: 1.7.2; status: confirmed; source: docs/插件适配契约.md -->
+  <!-- plugin-contract: link-submit; contract-version: pending; tested-version: 1.0.6; status: compatible-tested; source: docs/插件适配契约.md -->
   <div class="links-app" data-app-root="links"
     th:attr="data-link-submit-enabled=${pluginFinder.available('link-submit')}">
     <script type="application/json"
