@@ -1,5 +1,6 @@
 import { registerPageAppLifecycle } from '../../shared/page-app-bridge.js';
 import { resolveMomentsAppProtocol } from './protocol.js';
+import { setupMomentPublish } from './publish.js';
 
 function setupMomentsScrollChrome(root = document) {
   const appRoot = root && typeof root === 'object' ? root : document;
@@ -510,15 +511,20 @@ registerPageAppLifecycle('moments', {
   hydrate(root) {
     const cleanupScroll = setupMomentsScrollChrome(root);
     const cleanupNotifications = setupMomentNotifications(document);
+    const cleanupPublish = setupMomentPublish(document);
     let cleanupDeferredNotifications = null;
+    let cleanupDeferredPublish = null;
     const notificationFrame = requestAnimationFrame(() => {
       cleanupDeferredNotifications = setupMomentNotifications(document);
+      cleanupDeferredPublish = setupMomentPublish(document);
     });
     return () => {
       cancelAnimationFrame(notificationFrame);
       cleanupScroll?.();
       cleanupNotifications?.();
       cleanupDeferredNotifications?.();
+      cleanupPublish?.();
+      cleanupDeferredPublish?.();
     };
   },
   getDocumentState(_root, context) {

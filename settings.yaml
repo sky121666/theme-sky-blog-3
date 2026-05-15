@@ -704,6 +704,41 @@ spec:
               label: 封面副标题
               help: 留空时默认使用站点副标题。显示在封面名称下方。
               value: ""
+        - $formkit: group
+          id: moments_publish_group
+          name: publish
+          label: 前端发布
+          help: 控制瞬间页面标题栏的前端发布入口。
+          value:
+            enabled: true
+            image_upload: true
+            video_upload: true
+            audio_upload: true
+          children:
+            - $formkit: switch
+              id: moments_publish_enabled
+              name: enabled
+              label: 启用前端发布
+              help: 允许登录用户在前端发布瞬间。
+              value: true
+            - $formkit: switch
+              name: image_upload
+              if: $get(moments_publish_enabled).value
+              label: 启用图片上传
+              help: 通过 Halo UC 附件接口上传图片。
+              value: true
+            - $formkit: switch
+              name: video_upload
+              if: $get(moments_publish_enabled).value
+              label: 启用视频上传
+              help: 通过 Halo UC 附件接口上传视频。
+              value: true
+            - $formkit: switch
+              name: audio_upload
+              if: $get(moments_publish_enabled).value
+              label: 启用音频上传
+              help: 通过 Halo UC 附件接口上传音频。
+              value: true
 
     - group: friends
       label: 朋友圈

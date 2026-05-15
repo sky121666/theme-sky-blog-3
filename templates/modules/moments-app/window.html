@@ -81,17 +81,77 @@
                 <div class="moments-notification-list" data-moments-notification-list></div>
               </div>
             </div>
-            <th:block th:replace="~{modules/shell/window-titlebar-actions :: refreshButton(
-              buttonClasses='moments-titlebar-icon-btn',
-              iconClasses='w-4 h-4',
-              titleText='刷新'
-            )}"></th:block>
             <th:block th:replace="~{modules/shell/window-titlebar-actions :: themeToggle(
               wrapperClasses='',
               buttonClasses='moments-titlebar-icon-btn',
               iconClasses='w-4 h-4',
               titleText='切换外观'
             )}"></th:block>
+            <button type="button"
+                    class="moments-titlebar-icon-btn moments-publish-trigger"
+                    data-moments-publish-open
+                    hidden
+                    th:if="${theme.config.moments?.publish == null or theme.config.moments.publish.enabled == null or theme.config.moments.publish.enabled}"
+                    title="发布瞬间"
+                    aria-label="发布瞬间">
+              <span class="icon-[lucide--camera]" aria-hidden="true"></span>
+            </button>
+            <dialog class="moments-publish-dialog"
+                    data-moments-publish-dialog
+                    th:if="${theme.config.moments?.publish == null or theme.config.moments.publish.enabled == null or theme.config.moments.publish.enabled}"
+                    th:data-image-enabled="${theme.config.moments?.publish == null or theme.config.moments.publish.image_upload == null or theme.config.moments.publish.image_upload}"
+                    th:data-video-enabled="${theme.config.moments?.publish != null and theme.config.moments.publish.video_upload != null ? theme.config.moments.publish.video_upload : true}"
+                    th:data-audio-enabled="${theme.config.moments?.publish != null and theme.config.moments.publish.audio_upload != null ? theme.config.moments.publish.audio_upload : true}"
+                    data-user-endpoint="/apis/api.console.halo.run/v1alpha1/users/-"
+                    data-upload-endpoint="/apis/uc.api.storage.halo.run/v1alpha1/attachments/-/upload"
+                    data-moment-endpoint="/apis/moment.halo.run/v1alpha1/moments">
+              <form class="moments-publish-form" data-moments-publish-form method="dialog">
+                <div class="moments-publish-body">
+                  <textarea class="moments-publish-textarea"
+                            data-moments-publish-content
+                            maxlength="1000"
+                            rows="6"
+                            placeholder="这一刻的想法..."></textarea>
+                  <div class="moments-publish-inline-tools">
+                    <div class="moments-publish-compose-tools">
+                      <button type="button" class="moments-publish-tool" data-moments-publish-emoji-toggle title="表情" aria-label="插入表情">
+                        <span class="icon-[lucide--smile]" aria-hidden="true"></span>
+                      </button>
+                      <button type="button" class="moments-publish-tool" data-moments-publish-tag-toggle title="标签" aria-label="添加标签">
+                        <span class="icon-[lucide--hash]" aria-hidden="true"></span>
+                      </button>
+                    </div>
+                    <div class="moments-publish-media-tools">
+                      <button type="button" class="moments-publish-tool" data-moments-publish-media="image" th:if="${theme.config.moments?.publish == null or theme.config.moments.publish.image_upload == null or theme.config.moments.publish.image_upload}" title="图片 / GIF" aria-label="上传图片或 GIF 表情">
+                        <span class="icon-[lucide--image]" aria-hidden="true"></span>
+                      </button>
+                      <button type="button" class="moments-publish-tool" data-moments-publish-media="video" th:if="${theme.config.moments?.publish != null and theme.config.moments.publish.video_upload != null ? theme.config.moments.publish.video_upload : true}" title="视频" aria-label="上传视频">
+                        <span class="icon-[lucide--video]" aria-hidden="true"></span>
+                      </button>
+                      <button type="button" class="moments-publish-tool" data-moments-publish-media="audio" th:if="${theme.config.moments?.publish != null and theme.config.moments.publish.audio_upload != null ? theme.config.moments.publish.audio_upload : true}" title="音频" aria-label="上传音频">
+                        <span class="icon-[lucide--music]" aria-hidden="true"></span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="moments-publish-emoji-panel" data-moments-publish-emoji-panel hidden></div>
+                  <div class="moments-publish-meta">
+                    <span data-moments-publish-count>0/1000</span>
+                    <span data-moments-publish-status></span>
+                  </div>
+                  <div class="moments-publish-preview" data-moments-publish-preview hidden></div>
+                  <div class="moments-publish-tags" data-moments-publish-tags hidden></div>
+                  <div class="moments-publish-tag-row" data-moments-publish-tag-row hidden>
+                    <input type="text" class="moments-publish-tag-input" data-moments-publish-tag-input maxlength="50" placeholder="添加标签" />
+                    <button type="button" class="moments-publish-plain-btn" data-moments-publish-tag-add>添加</button>
+                  </div>
+                  <input type="file" data-moments-publish-file hidden multiple />
+                </div>
+                <footer class="moments-publish-actions">
+                  <button type="button" class="moments-publish-cancel" data-moments-publish-close>取消</button>
+                  <button type="submit" class="moments-publish-submit" data-moments-publish-submit disabled>发表</button>
+                </footer>
+              </form>
+            </dialog>
 </th:block>
 </th:block>
 

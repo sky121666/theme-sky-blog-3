@@ -37,7 +37,7 @@ macOS 桌面风格 Halo 博客主题。
 
 ## 开发进度
 
-- 已完成：`shell-core / apps / widgets` 架构收口；桌面壳层、图库、瞬间、浏览列表、阅读页、认证页、链接页、追番页、Steam 页、装备页、Docsme 页独立化；构建产物已按页面目录分发；跨模块滚动条与加载反馈统一、PJAX 加载骨架体验收口、Windows 交互体验适配；主题可控图片已接入懒加载；**图库小组件（plugin-photos.gallery）上线**，支持 small/medium/large 三种尺寸，PhotoGroup icon/简介 annotation 接入，widget meta 配置框架（hasConfig + 配置弹窗）完成；**图库详情页（/photos/{name}）上线**，支持 macOS Photos 风格窗口、邻近照片序列、滚轮缩放、拖拽平移、详情浮层和评论抽屉；**链接 App（/links）上线**，支持独立窗口、分组图标、自助提交插件适配与留言兜底；**追番 App（/bangumis）上线**，支持追番/追剧筛选、状态计数、搜索和自动无限加载；**Steam App（/steam）上线**，支持资料、最近游玩、游戏库、徽章和热力图容器；**装备 App（/equipments）上线**，支持分组导航、沉浸式单品展厅和自动加载；**Docsme App（/docs）上线**，支持项目大厅、文档正文、目录页和同窗口 PJAX
+- 已完成：`shell-core / apps / widgets` 架构收口；桌面壳层、图库、瞬间、浏览列表、阅读页、认证页、链接页、追番页、Steam 页、装备页、Docsme 页独立化；构建产物已按页面目录分发；跨模块滚动条与加载反馈统一、PJAX 加载骨架体验收口、Windows 交互体验适配；主题可控图片已接入懒加载；**图库小组件（plugin-photos.gallery）上线**，支持 small/medium/large 三种尺寸，PhotoGroup icon/简介 annotation 接入，widget meta 配置框架（hasConfig + 配置弹窗）完成；**图库详情页（/photos/{name}）上线**，支持 macOS Photos 风格窗口、邻近照片序列、滚轮缩放、拖拽平移、详情浮层和评论抽屉；**瞬间前端发布上线**，支持登录态显示、文字、常用 emoji、标签、图片/GIF、视频和音频上传；**链接 App（/links）上线**，支持独立窗口、分组图标、自助提交插件适配与留言兜底；**追番 App（/bangumis）上线**，支持追番/追剧筛选、状态计数、搜索和自动无限加载；**Steam App（/steam）上线**，支持资料、最近游玩、游戏库、徽章和热力图容器；**装备 App（/equipments）上线**，支持分组导航、沉浸式单品展厅和自动加载；**Docsme App（/docs）上线**，支持项目大厅、文档正文、目录页和同窗口 PJAX
 - 进行中：桌面小组件持续打磨、插件界面适配、插件契约版本补验和更新跟进
 - 待开始：预览资源继续校准
 - 详细进度：[/docs/项目进度.md](/docs/项目进度.md)
