@@ -108,7 +108,7 @@
           </header>
           <article class="docsme-article" id="content" data-toc-content th:utext="${docInfo.content.content}"></article>
 
-          <!-- plugin-contract: PluginCommentWidget; contract-version: pending; status: unconfirmed; source: docs/插件适配契约.md -->
+          <!-- plugin-contract: PluginCommentWidget; contract-version: 3.1.1; tested-version: 3.1.1; status: confirmed; source: docs/插件适配契约.md -->
           <div th:if="${haloCommentEnabled}" id="comment" class="docsme-comment">
             <halo:comment group="doc.halo.run" kind="DocTree" th:attr="name=${docTree.metadata.name}" />
           </div>
