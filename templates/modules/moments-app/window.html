@@ -52,6 +52,39 @@
 </th:block>
 
 <th:block th:fragment="titlebarTrailing">
+            <div class="moments-notification"
+                 data-moments-notification
+                 data-endpoint="/apis/api.uc.halo.run/v1alpha1/userspaces/-/notifications"
+                 data-reason-type="new-comment-on-moment">
+              <button type="button"
+                      class="moments-titlebar-icon-btn moments-notification-btn"
+                      data-moments-notification-toggle
+                      title="瞬间互动消息"
+                      aria-label="瞬间互动消息"
+                      aria-haspopup="dialog"
+                      aria-expanded="false">
+                <span class="icon-[lucide--bell]" aria-hidden="true"></span>
+                <i class="moments-notification-dot" data-moments-notification-dot hidden></i>
+              </button>
+              <div class="moments-notification-popover"
+                   data-moments-notification-panel
+                   role="dialog"
+                   aria-label="瞬间互动消息"
+                   hidden>
+                <header class="moments-notification-head">
+                  <strong>瞬间互动消息</strong>
+                  <button type="button"
+                          class="moments-notification-more"
+                          data-moments-notification-refresh
+                          aria-label="刷新瞬间互动消息"
+                          title="刷新">
+                    <span class="icon-[lucide--ellipsis]" aria-hidden="true"></span>
+                  </button>
+                </header>
+                <div class="moments-notification-status" data-moments-notification-status>打开后加载互动消息</div>
+                <div class="moments-notification-list" data-moments-notification-list></div>
+              </div>
+            </div>
             <th:block th:replace="~{modules/shell/window-titlebar-actions :: refreshButton(
               buttonClasses='moments-titlebar-icon-btn',
               iconClasses='w-4 h-4',

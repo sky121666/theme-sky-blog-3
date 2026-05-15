@@ -32,6 +32,15 @@
   --wc-skeleton-sheen: rgba(0, 0, 0, 0.10);
   --wc-skeleton-border: rgba(0, 0, 0, 0.04);
   --wc-card-bg: #e0e0e0;
+  --wc-danger: #ff453a;
+  --wc-notification-panel: rgba(28, 28, 30, 0.92);
+  --wc-notification-panel-border: rgba(255, 255, 255, 0.10);
+  --wc-notification-text: rgba(245, 245, 247, 0.94);
+  --wc-notification-text-soft: rgba(245, 245, 247, 0.62);
+  --wc-notification-text-muted: rgba(245, 245, 247, 0.42);
+  --wc-notification-hover: rgba(255, 255, 255, 0.055);
+  --wc-notification-control: rgba(255, 255, 255, 0.08);
+  --wc-notification-shadow: 0 24px 60px rgba(0, 0, 0, 0.44), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
 }
 
@@ -62,6 +71,14 @@
   --wc-skeleton-sheen: rgba(255, 255, 255, 0.12);
   --wc-skeleton-border: rgba(255, 255, 255, 0.04);
   --wc-card-bg: #2a2a2a;
+  --wc-notification-panel: rgba(28, 28, 30, 0.92);
+  --wc-notification-panel-border: rgba(255, 255, 255, 0.10);
+  --wc-notification-text: rgba(245, 245, 247, 0.94);
+  --wc-notification-text-soft: rgba(245, 245, 247, 0.62);
+  --wc-notification-text-muted: rgba(245, 245, 247, 0.42);
+  --wc-notification-hover: rgba(255, 255, 255, 0.06);
+  --wc-notification-control: rgba(255, 255, 255, 0.08);
+  --wc-notification-shadow: 0 24px 60px rgba(0, 0, 0, 0.44), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 /* ═══ 窗口 chrome ═══ */
@@ -175,6 +192,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  position: relative;
 }
 
 .moments-titlebar-icon-btn {
@@ -194,6 +212,259 @@
 
 .moments-titlebar-icon-btn:hover {
   color: #fff;
+}
+
+.moments-notification {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.moments-notification-btn {
+  position: relative;
+  border-radius: 999px;
+}
+
+.moments-notification.is-open .moments-notification-btn,
+.moments-notification-btn:hover {
+  background: color-mix(in srgb, currentColor 13%, transparent);
+}
+
+.moments-notification-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--wc-danger);
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--wc-bg) 82%, transparent);
+}
+
+.moments-notification-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 80;
+  width: min(360px, calc(100vw - 28px));
+  max-height: min(520px, calc(100vh - 96px));
+  color: var(--wc-notification-text);
+  background: color-mix(in srgb, var(--wc-bg-elevated) 13%, var(--wc-notification-panel));
+  border: 1px solid var(--wc-notification-panel-border);
+  border-radius: 12px;
+  -webkit-backdrop-filter: blur(30px) saturate(155%);
+  backdrop-filter: blur(30px) saturate(155%);
+  box-shadow: var(--wc-notification-shadow);
+  overflow: hidden;
+  transform-origin: top right;
+  animation: momentsNotificationIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.moments-notification-popover[hidden] {
+  display: none;
+}
+
+@keyframes momentsNotificationIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.moments-notification-head {
+  display: grid;
+  grid-template-columns: 32px 1fr 32px;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--wc-notification-panel-border) 64%, transparent);
+}
+
+.moments-notification-head strong {
+  grid-column: 2;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.moments-notification-more {
+  grid-column: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--wc-notification-text) 72%, transparent);
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.16s, color 0.16s, transform 0.16s;
+}
+
+.moments-notification-more:hover {
+  color: var(--wc-notification-text);
+  background: var(--wc-notification-control);
+}
+
+.moments-notification-more:active {
+  transform: scale(0.94);
+}
+
+.moments-notification-more span {
+  width: 17px !important;
+  height: 17px !important;
+}
+
+.moments-notification-status {
+  padding: 34px 22px;
+  color: color-mix(in srgb, var(--wc-notification-text) 58%, transparent);
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.moments-notification[data-state="loading"] .moments-notification-status::before {
+  content: "";
+  display: block;
+  width: 18px;
+  height: 18px;
+  margin: 0 auto 12px;
+  border: 2px solid color-mix(in srgb, var(--wc-notification-text) 22%, transparent);
+  border-top-color: color-mix(in srgb, var(--wc-notification-text) 86%, transparent);
+  border-radius: 999px;
+  animation: momentsNotificationSpin 0.8s linear infinite;
+}
+
+@keyframes momentsNotificationSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.moments-notification-list {
+  max-height: 454px;
+  overflow: auto;
+  padding: 6px 0;
+}
+
+.moments-notification-item {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 42px;
+  gap: 10px;
+  align-items: center;
+  min-height: 76px;
+  padding: 8px 16px 8px 18px;
+  color: color-mix(in srgb, var(--wc-notification-text) 92%, transparent);
+  text-decoration: none;
+  transition: background 0.16s, transform 0.16s;
+}
+
+.moments-notification-item:hover {
+  background: var(--wc-notification-hover);
+}
+
+.moments-notification-item:active {
+  transform: scale(0.992);
+}
+
+.moments-notification-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  color: color-mix(in srgb, var(--wc-notification-text) 92%, transparent);
+  background: color-mix(in srgb, var(--wc-accent) 50%, var(--wc-notification-control));
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px var(--wc-notification-panel-border);
+}
+
+.moments-notification-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 3px;
+}
+
+.moments-notification-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.moments-notification-line b {
+  min-width: 0;
+  color: color-mix(in srgb, var(--wc-accent) 54%, white);
+  font-size: 14px;
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.moments-notification-line time {
+  margin-left: auto;
+  color: var(--wc-notification-text-muted);
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.moments-notification-title,
+.moments-notification-excerpt {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.moments-notification-title {
+  color: color-mix(in srgb, var(--wc-notification-text) 92%, transparent);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.moments-notification-excerpt {
+  color: var(--wc-notification-text-soft);
+  font-size: 12px;
+}
+
+.moments-notification-thumb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 3px;
+  object-fit: cover;
+  background: var(--wc-notification-control);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--wc-notification-panel-border) 60%, transparent);
+}
+
+.moments-notification-thumb span {
+  width: 17px !important;
+  height: 17px !important;
+  color: color-mix(in srgb, var(--wc-notification-text) 46%, transparent);
+}
+
+.moments-notification-item.is-unread .moments-notification-title::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  vertical-align: 1px;
+  border-radius: 999px;
+  background: var(--wc-danger);
 }
 
 .moments-titlebar-icon-btn svg,
@@ -232,12 +503,6 @@
   font-weight: 500;
 }
 
-/* 详情页隐藏 feed 专属按钮（保留容器占位以居中标题） */
-.moments-window:has(.moments-app--detail) .moments-titlebar-icons {
-  visibility: hidden !important;
-  pointer-events: none;
-}
-
 .moments-window:has(.moments-app--detail) .window-titlebar .moments-titlebar-icon-btn,
 .moments-window:has(.moments-app--detail) .window-titlebar .moments-titlebar-back {
   color: var(--wc-text-secondary) !important;
@@ -247,6 +512,11 @@
 .moments-window:has(.moments-app--detail) .window-titlebar .moments-titlebar-icon-btn:hover,
 .moments-window:has(.moments-app--detail) .window-titlebar .moments-titlebar-back:hover {
   color: var(--wc-text) !important;
+}
+
+.moments-window:has(.moments-app--detail) .moments-notification.is-open .moments-notification-btn,
+.moments-window:has(.moments-app--detail) .moments-notification-btn:hover {
+  background: color-mix(in srgb, var(--wc-text) 10%, transparent);
 }
 
 .moments-feed-shell {
@@ -1056,6 +1326,22 @@
 
   .moments-titlebar-icon-btn.moments-mobile-only:active {
     opacity: 0.65;
+  }
+
+  .moments-notification-popover {
+    position: fixed;
+    top: 58px;
+    right: 10px;
+    left: 10px;
+    width: auto;
+    max-height: min(560px, calc(100dvh - 78px));
+    transform-origin: top center;
+  }
+
+  .moments-notification-item {
+    grid-template-columns: 38px minmax(0, 1fr) 40px;
+    min-height: 74px;
+    padding-inline: 14px;
   }
 
   /* 详情页返回箭头 */
