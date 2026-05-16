@@ -84,6 +84,8 @@
   - 判空调用 `steamFinder.getProfile()`、`steamFinder.getStats()`、`steamFinder.getRecentGames(1)`。
 - Modify: `src/widgets/shared/data.js`
   - 复用作者资料解析，不把身份卡片重新硬编码一套作者字段。
+- Create: `scripts/verify-widgets-presence.mjs`
+  - 用固定输入校验身份状态优先级，防止把“最近玩过”错误显示为“正在游戏”。
 
 ### Docs
 
@@ -352,6 +354,7 @@ git commit -m "fix(widgets): refine widget center feedback"
 - Create: `src/widgets/halo/identity-card/manifest.js`
 - Create: `src/widgets/halo/identity-card/render.js`
 - Create: `src/widgets/shared/presence.js`
+- Create: `scripts/verify-widgets-presence.mjs`
 - Modify: `src/widgets/registry.js`
 - Modify: `src/widgets/loaders.js`
 - Modify: `templates/modules/shell/layout.html`
@@ -383,6 +386,68 @@ Steam boundary:
 - Can show `正在游戏` when `profile.playing === true`.
 - Can show current game name only if the plugin profile summary exposes a dedicated current game field.
 - Must not use `steamFinder.getRecentGames(1)` as “正在玩”; recent games only means “最近玩过”.
+
+Explicitly not doing in v1:
+
+- 不做独立 Steam 小组件；`halo.identity_card` 只提供身份/状态入口。
+- 不做 websocket、长轮询或在线状态实时刷新；桌面可见时读取一次 source，后续遵循现有 widget cache 策略。
+- 不从 `steamRecentGames` 推断当前游戏名；最近游玩只能作为弱信息显示在详情文案里。
+- 不引入新的复杂后台设置；v1 只使用 widget instance `meta` 中的四个开关。
+- 不假设 Docsme、Friends 或 Photos 有私有接口；未确认的数据只做入口或空态。
+- 不替换现有 `halo.author_card`；身份状态卡是增强入口，旧作者卡继续保留。
+
+Source contract:
+
+| Source | Required fields | Optional fields | Fallback |
+| --- | --- | --- | --- |
+| Author | `siteProfile.title`, `siteProfile.subtitle`, `siteProfile.logo` or post owner | `owner.permalink` | 显示站点作者 |
+| Steam | `steamAvailable`, `steamProfile.playing` | `statusText`, `personaName`, `avatarFull`, `steamLevel`, `currentGameName` | 未安装时跳过 Steam 状态 |
+| Moments | `momentsAvailable`, `recentMoments[].metadata.name`, timestamp | `stats.upvote`, media cover | 无时间或超过 48h 时跳过 |
+| Posts | `latestPosts[].status.permalink`, timestamp | cover, owner | 无时间或超过 7d 时跳过 |
+| Photos | `photosAvailable`, `photoGroups[]` or `photos[]` | cover, count | 仅作为弱活动入口 |
+
+Copywriting rules:
+
+- 主状态只显示一个，不把 Steam、瞬间、文章、图库堆成列表。
+- 事件类文案使用短句：`正在游戏`、`刚刚更新瞬间`、`最近写了文章`、`最近整理图库`。
+- 默认态使用作者简介，不写“暂无动态”这种负面文案。
+- `small` 尺寸最多两行文字；`medium` 最多一个状态胶囊和三个快捷入口；`large` 可以显示一行补充说明和三项指标。
+- 外链必须有明确视觉区别；内部链接全部走 `buildWidgetPjaxLink()`。
+
+Size layout contract:
+
+| Size | Grid | Layout | Content budget | Interaction |
+| --- | --- | --- | --- | --- |
+| `small` | 2×1 or 2×2 by catalog | 头像左侧，姓名和状态右侧 | 头像 40px，姓名 1 行，状态 1 行 | 整卡进入当前 presence `href` |
+| `medium` | 4×2 | 左侧 profile，右侧状态胶囊，下方 3 个快捷按钮 | 头像 52px，状态标题 1 行，副标题 1 行 | 状态区进主链接，快捷按钮独立链接 |
+| `large` | 4×4 | 顶部状态 hero，中部 profile，底部指标/快捷入口 | hero 高 42%，最多 3 个 metric | hero 进主链接，底部按钮 44px 命中区 |
+
+Visual system:
+
+- 组件 CSS 只使用 widget token 或本文件局部 token，不在 renderer 字符串里写 raw hex。
+- 根节点设置 `data-presence-type` 和 `data-presence-accent`，CSS 根据状态切换局部 token。
+- 局部 token 名称固定：
+
+```css
+.wg-identity {
+  --wg-identity-accent: var(--theme-accent, var(--accent, #0a84ff));
+  --wg-identity-accent-soft: color-mix(in srgb, var(--wg-identity-accent) 18%, transparent);
+  --wg-identity-surface: color-mix(in srgb, var(--widget-card-surface) 86%, transparent);
+  --wg-identity-border: var(--widget-card-outline);
+}
+```
+
+- Steam 状态允许使用局部 `steam` accent，但只写在 CSS token 中，不扩散到其他小组件。
+- 图片、头像和 hero 必须有固定 `aspect-ratio` 或明确尺寸，避免桌面布局抖动。
+- 卡片内按钮命中区不小于 44px；图标使用 lucide icon class，不使用 emoji。
+
+Motion and accessibility:
+
+- hover/press 只使用 `transform` 和 `opacity`，持续时间 160-260ms。
+- 使用 `cubic-bezier(0.2, 0.8, 0.2, 1)`，和现有桌面小组件动效保持一致。
+- `@media (prefers-reduced-motion: reduce)` 下取消位移和缩放，仅保留必要 opacity。
+- icon-only 快捷按钮必须带 `title` 和 `aria-label`。
+- preview mode 输出 `<span>` 或禁用态节点，不允许点击跳转。
 
 Manifest:
 
@@ -438,6 +503,115 @@ Presence resolver shape:
 }
 ```
 
+Presence resolver acceptance table:
+
+| Case | Input | Meta | Expected |
+| --- | --- | --- | --- |
+| Steam 正在玩 | `steamProfile.playing: true`, `statusText: "正在游戏"` | all true | `type: "steam-playing"`, `href: "/steam"` |
+| Steam 最近玩过但不在线 | `steamProfile.playing: false`, `steamRecentGames: [{ name: "A" }]` | all true | 不返回 `steam-playing` |
+| Moments 24h 内 | `recentMoments[0].metadata.creationTimestamp` 为 `now - 24h` | all true | `type: "moment-recent"` |
+| Moments 超 48h | `recentMoments[0].metadata.creationTimestamp` 为 `now - 72h` | all true | 跳过 Moments |
+| 文章 3 天内 | `latestPosts[0].metadata.creationTimestamp` 为 `now - 3d` | all true | `type: "post-recent"` |
+| 文章超 7 天 | `latestPosts[0].metadata.creationTimestamp` 为 `now - 10d` | all true | 跳过 Posts |
+| 图库可用 | `photosAvailable: true`, `photoGroups.length > 0` | all true | `type: "photos-active"` |
+| 全部插件缺失 | no plugin sources | all true | `type: "default"` |
+| 手动关闭 Steam | `steamProfile.playing: true` | `showSteam: false` | 不返回 `steam-playing` |
+| 时间无效 | timestamp 为 `"invalid"` | all true | 忽略该来源，不抛异常 |
+
+Implementation skeleton for `src/widgets/shared/presence.js`:
+
+```js
+const DEFAULT_META = {
+  showSteam: true,
+  showMoments: true,
+  showPosts: true,
+  showPhotos: true
+};
+
+function isEnabled(meta, key) {
+  return meta?.[key] !== false;
+}
+
+function parseTime(value) {
+  const time = Date.parse(value || '');
+  return Number.isFinite(time) ? time : 0;
+}
+
+function isWithin(time, now, windowMs) {
+  return time > 0 && time <= now && now - time <= windowMs;
+}
+
+export function resolveIdentityPresence(sources = {}, meta = {}, now = Date.now()) {
+  const options = { ...DEFAULT_META, ...meta };
+  if (isEnabled(options, 'showSteam') && sources.steamAvailable && sources.steamProfile?.playing === true) {
+    return {
+      type: 'steam-playing',
+      label: sources.steamProfile.statusText || '正在游戏',
+      title: sources.steamProfile.currentGameName || sources.steamProfile.personaName || 'Steam',
+      subtitle: sources.steamProfile.currentGameName ? sources.steamProfile.personaName || '' : '当前在线',
+      href: '/steam',
+      app: 'steam',
+      cover: sources.steamProfile.avatarFull || '',
+      accent: 'steam'
+    };
+  }
+
+  const moment = Array.isArray(sources.recentMoments) ? sources.recentMoments[0] : null;
+  const momentTime = parseTime(moment?.metadata?.creationTimestamp || moment?.spec?.releaseTime || moment?.status?.lastModifyTime);
+  if (isEnabled(options, 'showMoments') && sources.momentsAvailable && isWithin(momentTime, now, 48 * 60 * 60 * 1000)) {
+    return {
+      type: 'moment-recent',
+      label: '刚刚更新瞬间',
+      title: moment?.spec?.content || moment?.spec?.raw || '新的瞬间',
+      subtitle: '48 小时内',
+      href: moment?.status?.permalink || `/moments/${moment?.metadata?.name || ''}`,
+      app: 'moments',
+      cover: '',
+      accent: 'moments'
+    };
+  }
+
+  const post = Array.isArray(sources.latestPosts) ? sources.latestPosts[0] : null;
+  const postTime = parseTime(post?.metadata?.creationTimestamp || post?.spec?.publishTime || post?.status?.lastModifyTime);
+  if (isEnabled(options, 'showPosts') && isWithin(postTime, now, 7 * 24 * 60 * 60 * 1000)) {
+    return {
+      type: 'post-recent',
+      label: '最近写了文章',
+      title: post?.spec?.title || '最新文章',
+      subtitle: '7 天内',
+      href: post?.status?.permalink || '#',
+      app: 'explorer-post',
+      cover: post?.spec?.cover || '',
+      accent: 'posts'
+    };
+  }
+
+  if (isEnabled(options, 'showPhotos') && sources.photosAvailable && (sources.photoGroups?.length || sources.photos?.length)) {
+    return {
+      type: 'photos-active',
+      label: '最近整理图库',
+      title: '图库',
+      subtitle: '照片入口',
+      href: '/photos',
+      app: 'photos',
+      cover: sources.photoGroups?.[0]?.spec?.cover || sources.photos?.[0]?.spec?.url || '',
+      accent: 'photos'
+    };
+  }
+
+  return {
+    type: 'default',
+    label: '站点作者',
+    title: '',
+    subtitle: '',
+    href: '#',
+    app: 'explorer-author',
+    cover: '',
+    accent: 'default'
+  };
+}
+```
+
 Steps:
 
 - [ ] Add Steam source fields to desktop widget protocol.
@@ -469,6 +643,78 @@ Rules:
 - Clamp date windows: Moments 48 hours, posts 7 days.
 - Use `Date.parse()` defensively and ignore invalid timestamps.
 - Return `default` when data is missing.
+- Never inspect `steamRecentGames` to decide `steam-playing`.
+
+- [ ] Add `scripts/verify-widgets-presence.mjs`.
+
+Script content:
+
+```js
+import assert from 'node:assert/strict';
+import { resolveIdentityPresence } from '../src/widgets/shared/presence.js';
+
+const now = Date.parse('2026-05-16T12:00:00.000Z');
+
+const cases = [
+  {
+    name: 'steam playing wins',
+    sources: {
+      steamAvailable: true,
+      steamProfile: { playing: true, statusText: '正在游戏', personaName: 'Sky' },
+      recentMoments: [{ metadata: { creationTimestamp: '2026-05-16T06:00:00.000Z' } }]
+    },
+    meta: {},
+    expected: 'steam-playing'
+  },
+  {
+    name: 'recent game is not current playing',
+    sources: {
+      steamAvailable: true,
+      steamProfile: { playing: false },
+      steamRecentGames: [{ name: 'Game A' }],
+      recentMoments: []
+    },
+    meta: {},
+    expected: 'default'
+  },
+  {
+    name: 'recent moment within 48h',
+    sources: {
+      momentsAvailable: true,
+      recentMoments: [{ metadata: { name: 'moment-1', creationTimestamp: '2026-05-15T12:00:00.000Z' } }]
+    },
+    meta: {},
+    expected: 'moment-recent'
+  },
+  {
+    name: 'steam toggle off falls through to moment',
+    sources: {
+      steamAvailable: true,
+      steamProfile: { playing: true },
+      momentsAvailable: true,
+      recentMoments: [{ metadata: { name: 'moment-1', creationTimestamp: '2026-05-15T12:00:00.000Z' } }]
+    },
+    meta: { showSteam: false },
+    expected: 'moment-recent'
+  },
+  {
+    name: 'invalid time falls back',
+    sources: {
+      momentsAvailable: true,
+      recentMoments: [{ metadata: { name: 'moment-1', creationTimestamp: 'invalid' } }]
+    },
+    meta: {},
+    expected: 'default'
+  }
+];
+
+for (const item of cases) {
+  const result = resolveIdentityPresence(item.sources, item.meta, now);
+  assert.equal(result.type, item.expected, item.name);
+}
+
+console.log(`presence resolver cases passed: ${cases.length}`);
+```
 
 - [ ] Implement identity-card renderer.
 
@@ -478,6 +724,8 @@ Visual direction:
 - Steam state can borrow dark blue/online accent from Steam, but card still follows widget appearance token.
 - Use one primary status, not a crowded list of every service.
 - Quick actions: 作者页、瞬间、Steam or 图库 depending on available state.
+- Text, icon and metric sizes must stay consistent with `author-card.css` and existing widget header scale.
+- Do not render decorative blobs or gradients that fight the desktop wallpaper; use surface, border and subtle hero imagery only.
 
 - [ ] Register widget manifest and loader.
 
@@ -504,6 +752,7 @@ Run:
 ```bash
 pnpm run typecheck
 pnpm run build-only
+node scripts/verify-widgets-presence.mjs
 pnpm run verify:reload
 SMOKE_BASE_URL=${HALO_BASE_URL:-http://localhost:8090} pnpm run smoke:playwright
 ```
@@ -513,6 +762,7 @@ SMOKE_BASE_URL=${HALO_BASE_URL:-http://localhost:8090} pnpm run smoke:playwright
 ```bash
 git add src/widgets/halo/identity-card \
   src/widgets/shared/presence.js \
+  scripts/verify-widgets-presence.mjs \
   src/widgets/registry.js \
   src/widgets/loaders.js \
   templates/modules/shell/layout.html \
@@ -809,3 +1059,23 @@ git commit -m "docs(widgets): update widget roadmap and usage"
 - [ ] 无权限用户不能保存默认布局。
 - [ ] `pnpm run verify:reload` 通过。
 - [ ] Playwright smoke 通过。
+
+## Visual Quality Gate
+
+- [ ] Widget center 中的预览不可跳转，点击不会改动桌面布局。
+- [ ] 所有新增 icon-only 按钮都有 `title` 或 `aria-label`。
+- [ ] 所有可点击区域在桌面和触屏下至少 44px 命中区。
+- [ ] 小组件内部无横向滚动，长标题使用 1-2 行截断策略。
+- [ ] 卡片高度固定，图片和头像加载前后不改变 grid 尺寸。
+- [ ] `prefers-reduced-motion: reduce` 下无缩放/位移动画。
+- [ ] CSS 组件文件不直接散落 raw hex；状态色通过局部 token 收口。
+- [ ] 明暗外观和 `follow` 外观都能看清文本，正常文本对比度不低于 4.5:1。
+
+## Plan Score
+
+当前方案按可实现性、契约清晰度、视觉一致性、回滚粒度和验证闭环评分：**9.2 / 10**。
+
+仍然没有给满分的原因：
+
+- Friends recent 和 Docsme quick 的可展示数据依赖后续 source 能力，v1 只能稳做入口和空态。
+- Identity 卡片的“实时在线感”受 Steam 插件公开字段限制，主题只能使用已公开的 `profile.playing`，不做前端猜测。
