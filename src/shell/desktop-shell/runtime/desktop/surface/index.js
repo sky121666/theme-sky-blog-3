@@ -192,7 +192,8 @@ export function registerDesktopSurface(Alpine) {
     weatherState: {
       loading: false,
       error: '',
-      data: null
+      data: null,
+      entries: {}
     },
     weatherRequestId: 0,
     now: new Date(),
@@ -285,7 +286,8 @@ export function registerDesktopSurface(Alpine) {
       this.weatherState = {
         loading: false,
         error: '',
-        data: null
+        data: null,
+        entries: {}
       };
       this.invalidateWidgetCache();
     },
@@ -1407,6 +1409,38 @@ export function registerDesktopSurface(Alpine) {
 
     /* ═══ Weather ═══ */
 
+    normalizeWeatherCityName(value) {
+      return String(value || '').trim();
+    },
+
+    weatherEntryKey(cityName) {
+      return this.normalizeWeatherCityName(cityName).toLowerCase();
+    },
+
+    resolveWeatherWidgetConfig(widget) {
+      const meta = widget?.meta && typeof widget.meta === 'object' ? widget.meta : {};
+      const cityName = this.normalizeWeatherCityName(meta.cityName) || this.normalizeWeatherCityName(this.modules.weather.cityName);
+      const refreshMinutes = toPositiveInt(meta.refreshMinutes, this.modules.weather.refreshMinutes || 30);
+      return {
+        cityName,
+        refreshMinutes: Math.min(Math.max(refreshMinutes, 10), 240),
+        key: this.weatherEntryKey(cityName)
+      };
+    },
+
+    resolveWeatherLoadTargets() {
+      const targets = new Map();
+      this.placedWidgets
+        .filter((widget) => widget.widget === 'system.weather')
+        .forEach((widget) => {
+          const config = this.resolveWeatherWidgetConfig(widget);
+          if (config.cityName && config.key) {
+            targets.set(config.key, config);
+          }
+        });
+      return Array.from(targets.values());
+    },
+
     async loadWeather(forceRefresh = false) {
       if (!this.hasVisibleWeatherWidget()) {
         return;
@@ -1416,12 +1450,13 @@ export function registerDesktopSurface(Alpine) {
         return;
       }
 
-      const cityName = this.modules.weather.cityName;
-      if (!cityName) {
+      const targets = this.resolveWeatherLoadTargets();
+      if (!targets.length) {
         this.weatherState = {
           loading: false,
           error: '请先在后台为天气组件配置城市。',
-          data: null
+          data: null,
+          entries: {}
         };
         return;
       }
@@ -1432,37 +1467,87 @@ export function registerDesktopSurface(Alpine) {
         fetchDesktopWidgetWeather
       } = await this.ensureWeatherRuntime();
 
-      if (!forceRefresh) {
-        const cached = loadCachedDesktopWidgetWeather(cityName, this.modules.weather.refreshMinutes);
-        if (cached) {
-          this.weatherState = {
-            loading: false,
-            error: '',
-            data: cached
-          };
-          this.invalidateWidgetCache();
-          return;
+      const nextEntries = { ...(this.weatherState.entries || {}) };
+      const pendingTargets = [];
+
+      targets.forEach((target) => {
+        if (!forceRefresh) {
+          const cached = loadCachedDesktopWidgetWeather(target.cityName, target.refreshMinutes);
+          if (cached) {
+            nextEntries[target.key] = {
+              loading: false,
+              error: '',
+              data: cached
+            };
+            return;
+          }
         }
+        pendingTargets.push(target);
+        nextEntries[target.key] = {
+          loading: true,
+          error: '',
+          data: nextEntries[target.key]?.data || null
+        };
+      });
+
+      const primaryKey = targets[0]?.key || '';
+      const primaryEntry = nextEntries[primaryKey] || null;
+      if (!pendingTargets.length && primaryEntry?.data) {
+        this.weatherState = {
+          loading: false,
+          error: '',
+          data: primaryEntry.data,
+          entries: nextEntries
+        };
+        this.invalidateWidgetCache();
+        return;
       }
 
       this.weatherRequestId += 1;
       const requestId = this.weatherRequestId;
       this.weatherState = {
         ...this.weatherState,
+        entries: nextEntries,
         loading: true,
         error: ''
       };
 
       try {
-        const data = await fetchDesktopWidgetWeather(cityName);
+        const results = await Promise.allSettled(
+          pendingTargets.map(async (target) => {
+            const data = await fetchDesktopWidgetWeather(target.cityName);
+            saveDesktopWidgetWeather(target.cityName, data);
+            return { target, data };
+          })
+        );
         if (requestId !== this.weatherRequestId) return;
 
+        const resolvedEntries = { ...(this.weatherState.entries || {}) };
+        results.forEach((result, index) => {
+          const target = pendingTargets[index];
+          if (result.status === 'fulfilled') {
+            resolvedEntries[target.key] = {
+              loading: false,
+              error: '',
+              data: result.value.data
+            };
+            return;
+          }
+
+          resolvedEntries[target.key] = {
+            loading: false,
+            error: '天气数据暂时不可用。',
+            data: resolvedEntries[target.key]?.data || null
+          };
+        });
+
+        const resolvedPrimary = resolvedEntries[primaryKey] || Object.values(resolvedEntries).find((entry) => entry?.data);
         this.weatherState = {
           loading: false,
-          error: '',
-          data
+          error: resolvedPrimary?.error || '',
+          data: resolvedPrimary?.data || null,
+          entries: resolvedEntries
         };
-        saveDesktopWidgetWeather(cityName, data);
         this.invalidateWidgetCache();
       } catch (_error) {
         if (requestId !== this.weatherRequestId) return;
@@ -1470,7 +1555,12 @@ export function registerDesktopSurface(Alpine) {
         this.weatherState = {
           loading: false,
           error: '天气数据暂时不可用。',
-          data: null
+          data: null,
+          entries: Object.fromEntries(targets.map((target) => [target.key, {
+            loading: false,
+            error: '天气数据暂时不可用。',
+            data: this.weatherState.entries?.[target.key]?.data || null
+          }]))
         };
         this.invalidateWidgetCache();
       }

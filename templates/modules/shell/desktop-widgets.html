@@ -271,6 +271,14 @@
                          @input="updateWidgetConfigMeta(field.key, Number($event.target.value))">
                 </template>
 
+                <template x-if="field.type === 'text'">
+                  <input class="desktop-widget-config-input"
+                         type="text"
+                         :placeholder="field.placeholder || ''"
+                         :value="widgetConfigForm.meta[field.key] || ''"
+                         @input="updateWidgetConfigMeta(field.key, $event.target.value)">
+                </template>
+
                 <template x-if="field.type === 'toggle'">
                   <button type="button"
                           class="desktop-widget-config-toggle"

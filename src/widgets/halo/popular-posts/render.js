@@ -2,15 +2,34 @@ import { formatCompactNumber } from '../../shared/format.js';
 import { buildWidgetPjaxLink } from '../../shared/link.js';
 import { resolveWidgetCover } from '../../shared/data.js';
 
+function clampInteger(value, fallback, min, max) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(Math.max(parsed, min), max);
+}
+
+function defaultLimitForSize(size, isCompact) {
+  if (size === 'small') return 1;
+  if (size === 'large') return isCompact ? 4 : 5;
+  return 3;
+}
+
+function readPostExcerpt(post, maxLength = 38) {
+  const raw = post?.status?.excerpt || post?.spec?.excerpt?.raw || '';
+  const normalized = String(raw || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+  if (!normalized) return '';
+  return normalized.length > maxLength ? `${normalized.slice(0, Math.max(maxLength - 1, 1)).trimEnd()}…` : normalized;
+}
+
 export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}) {
   const isCompact = options.compact === true;
   const size = widget?.size || 'medium';
+  const meta = widget?.meta && typeof widget.meta === 'object' ? widget.meta : {};
+  const limit = clampInteger(meta.limit, defaultLimitForSize(size, isCompact), 1, 8);
+  const showSummary = meta.showSummary === true;
 
-  let limit = 3;
-  if (size === 'small') limit = 1;
-  else if (size === 'large') limit = isCompact ? 4 : 5;
-
-  const posts = sources.popularPosts.slice(0, limit);
+  const sourcePosts = Array.isArray(sources.popularPosts) ? sources.popularPosts : [];
+  const posts = sourcePosts.slice(0, limit);
 
   if (!posts.length) {
     return '<div class="desktop-widget-empty">热门文章暂时为空。</div>';
@@ -52,6 +71,9 @@ export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}
       const t = escapeHtml(post?.spec?.title || '未命名文章');
       const visit = post?.stats?.visit ?? 0;
       const heatPct = Math.round((visit / maxVisit) * 100);
+      const secondary = showSummary
+        ? escapeHtml(readPostExcerpt(post) || formatCompactNumber(visit))
+        : escapeHtml(formatCompactNumber(visit));
       return buildWidgetPjaxLink({
         href: escapeHtml(post?.status?.permalink || '#'),
         app: 'reader',
@@ -63,7 +85,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}
             <span class="wg-hot-md-row-title">${t}</span>
             <div class="wg-hot-md-bar"><span style="width:${heatPct}%"></span></div>
           </div>
-          <span class="wg-hot-md-visits">${escapeHtml(formatCompactNumber(visit))}</span>
+          <span class="wg-hot-md-visits">${secondary}</span>
         `
       });
     }).join('');
@@ -80,6 +102,9 @@ export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}
     const heroTitle = escapeHtml(heroPost?.spec?.title || '未命名文章');
     const heroCover = resolveWidgetCover(heroPost?.spec?.cover, sources.fallbackCover);
     const heroVisit = heroPost?.stats?.visit ?? 0;
+    const heroSecondary = showSummary
+      ? escapeHtml(readPostExcerpt(heroPost, 48) || `${formatCompactNumber(heroVisit)} 阅读`)
+      : `${escapeHtml(formatCompactNumber(heroVisit))} 阅读`;
     const coverImg = heroCover
       ? `<img class="wg-hot-lg-cover-img" src="${escapeHtml(heroCover)}" alt="" loading="lazy" decoding="async" fetchpriority="low" />`
       : '<div class="wg-hot-lg-cover-img is-placeholder"></div>';
@@ -120,7 +145,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}
                 TOP 1
               </span>
               <strong>${heroTitle}</strong>
-              <span class="wg-hot-lg-hero-visits">${escapeHtml(formatCompactNumber(heroVisit))} 阅读</span>
+              <span class="wg-hot-lg-hero-visits">${heroSecondary}</span>
             </div>
           `
         })}

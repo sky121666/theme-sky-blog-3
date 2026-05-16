@@ -264,6 +264,10 @@
   font-size: 10px; font-weight: 600;
   color: var(--widget-hot-faint);
   font-variant-numeric: tabular-nums;
+  max-width: 86px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .wg-hot-wrap--medium.is-compact {
@@ -370,6 +374,10 @@
 .wg-hot-lg-hero-visits {
   font-size: 10px; font-weight: 500;
   color: var(--widget-hot-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* Ranked list */

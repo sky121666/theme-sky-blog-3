@@ -12,6 +12,7 @@ import {
   getWidgetCatalogEntry,
   generateWidgetTitle
 } from '../../widgets/catalog-core.js';
+import { flattenCategoryTree } from '../../../../../widgets/shared/data.js';
 
 export const editModeMethods = {
   /* ── 编辑态进出 ── */
@@ -323,8 +324,20 @@ export const editModeMethods = {
   },
 
   widgetConfigSelectOptions(field) {
+    if (field?.optionsSource === 'categories') {
+      const categories = flattenCategoryTree(this.sources?.categories || []);
+      const options = categories.map((category) => ({
+        value: category.key,
+        label: category.depth > 0 ? `${'· '.repeat(category.depth)}${category.name}` : category.name
+      }));
+      if (field.emptyLabel) {
+        return [{ value: '', label: String(field.emptyLabel) }, ...options];
+      }
+      return options;
+    }
+
     const rawOptions = Array.isArray(field?.options) ? field.options : [];
-    return rawOptions.map((option) => {
+    const options = rawOptions.map((option) => {
       if (option && typeof option === 'object') {
         return {
           value: String(option.value ?? ''),
@@ -336,6 +349,10 @@ export const editModeMethods = {
         label: String(option ?? '')
       };
     }).filter((option) => option.value);
+    if (field?.emptyLabel) {
+      return [{ value: '', label: String(field.emptyLabel) }, ...options];
+    }
+    return options;
   },
 
   widgetConfigPhotoGroups() {
@@ -386,6 +403,9 @@ export const editModeMethods = {
       }
       if (field.type === 'toggle') {
         return true;
+      }
+      if (field.type === 'text') {
+        return String(value ?? '').trim().length > 0;
       }
       return value !== undefined && value !== null && String(value).trim() !== '';
     });
@@ -453,7 +473,7 @@ export const editModeMethods = {
     candidate.h = placement.h;
 
     if (widgetType === 'system.weather') {
-      await this.loadWeather();
+      await this.loadWeather(true);
     }
 
     this.invalidateWidgetCache();

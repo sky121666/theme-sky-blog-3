@@ -268,6 +268,10 @@
   color: var(--widget-news-faint, rgba(255,255,255,0.2));
   font-variant-numeric: tabular-nums;
   flex: none;
+  max-width: 38%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .wg-news-md-foot {
@@ -417,6 +421,10 @@
   font-weight: 600;
   color: var(--widget-news-faint, rgba(255,255,255,0.18));
   font-variant-numeric: tabular-nums;
+  max-width: 34%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   transition: color 0.15s ease;
 }
 

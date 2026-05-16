@@ -1,1 +1,1 @@
-import{n as e,t as i}from"./catalog.js?v=0.9.30&r=291f6dc7e3c8";export{i as buildWidgetCatalog,e as buildWidgetCenterCategories};
+import"../shell-runtime/runtime/desktop/surface/edit-mode.js?v=0.9.30&r=5a21dbbef33f";import{n as i,t as o}from"./catalog.js?v=0.9.30&r=5a21dbbef33f";export{o as buildWidgetCatalog,i as buildWidgetCenterCategories};

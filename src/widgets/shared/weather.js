@@ -1,9 +1,52 @@
-function buildWeatherData(modules, weatherState) {
+function normalizeWeatherCityName(value) {
+  return String(value || '').trim();
+}
+
+function weatherEntryKey(cityName) {
+  return normalizeWeatherCityName(cityName).toLowerCase();
+}
+
+function resolveWeatherConfig(modules, widget) {
+  const meta = widget?.meta && typeof widget.meta === 'object' ? widget.meta : {};
+  const cityName = normalizeWeatherCityName(meta.cityName) || normalizeWeatherCityName(modules.weather.cityName);
+  return { cityName };
+}
+
+function resolveWeatherStateForWidget(modules, weatherState, widget) {
+  const config = resolveWeatherConfig(modules, widget);
+  if (!config.cityName) {
+    return {
+      cityName: '',
+      loading: false,
+      error: '请先在后台设置天气组件城市。',
+      data: null
+    };
+  }
+
+  const entry = weatherState?.entries?.[weatherEntryKey(config.cityName)];
+  if (entry) {
+    return {
+      cityName: config.cityName,
+      loading: entry.loading === true,
+      error: entry.error || '',
+      data: entry.data || null
+    };
+  }
+
+  return {
+    cityName: config.cityName,
+    loading: weatherState?.loading === true,
+    error: weatherState?.error || '',
+    data: weatherState?.data || null
+  };
+}
+
+function buildWeatherData(cityName, weatherState) {
   const weather = weatherState?.data;
   if (weather) return weather;
 
   return {
-    city: modules.weather.cityName || '天气',
+    city: cityName || '天气',
     temperature: '--',
     high: '--',
     low: '--',
@@ -150,17 +193,18 @@ function renderSkeletonMedium() {
 }
 
 export function renderWeatherWidget({ modules, weatherState, escapeHtml }, widget) {
-  const cityName = modules.weather.cityName;
+  const resolvedWeatherState = resolveWeatherStateForWidget(modules, weatherState, widget);
+  const cityName = resolvedWeatherState.cityName;
   const isSmall = widget?.size === 'small';
 
   if (!cityName) {
     return '<div class="desktop-widget-empty">请先在后台设置天气组件城市。</div>';
   }
 
-  if (weatherState.loading && !weatherState.data) {
+  if (resolvedWeatherState.loading && !resolvedWeatherState.data) {
     return isSmall ? renderSkeletonSmall() : renderSkeletonMedium();
   }
 
-  const data = buildWeatherData(modules, weatherState);
+  const data = buildWeatherData(cityName, resolvedWeatherState);
   return isSmall ? renderSmall(data, escapeHtml) : renderMedium(data, escapeHtml);
 }

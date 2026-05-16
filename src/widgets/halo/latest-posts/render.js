@@ -1,15 +1,50 @@
 import { formatWidgetDate } from '../../shared/format.js';
 import { buildWidgetPjaxLink } from '../../shared/link.js';
-import { resolveWidgetCover } from '../../shared/data.js';
+import { flattenCategoryTree, resolveWidgetCover } from '../../shared/data.js';
+
+function clampInteger(value, fallback, min, max) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(Math.max(parsed, min), max);
+}
+
+function defaultLimitForSize(size) {
+  if (size === 'small') return 1;
+  if (size === 'large') return 4;
+  return 3;
+}
+
+function readPostExcerpt(post, maxLength = 34) {
+  const raw = post?.status?.excerpt || post?.spec?.excerpt?.raw || '';
+  const normalized = String(raw || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+  if (!normalized) return '';
+  return normalized.length > maxLength ? `${normalized.slice(0, Math.max(maxLength - 1, 1)).trimEnd()}…` : normalized;
+}
+
+function resolveCategoryFilter(sources, categoryName) {
+  const requested = String(categoryName || '').trim();
+  if (!requested) return null;
+  const categories = flattenCategoryTree(sources?.categories || []);
+  return categories.find((category) => category.key === requested) || null;
+}
+
+function postMatchesCategory(post, categoryName) {
+  const specCategories = Array.isArray(post?.spec?.categories) ? post.spec.categories : [];
+  if (specCategories.includes(categoryName)) return true;
+  const categories = Array.isArray(post?.categories) ? post.categories : [];
+  return categories.some((category) => category?.metadata?.name === categoryName);
+}
 
 export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}) {
   const size = widget?.size || 'medium';
+  const meta = widget?.meta && typeof widget.meta === 'object' ? widget.meta : {};
+  const limit = clampInteger(meta.limit, defaultLimitForSize(size), 1, 8);
+  const showSummary = meta.showSummary === true;
+  const category = resolveCategoryFilter(sources, meta.categoryName);
 
-  let limit = 3;
-  if (size === 'small') limit = 1;
-  else if (size === 'large') limit = 4;
-
-  const posts = sources.latestPosts.slice(0, limit);
+  const sourcePosts = Array.isArray(sources.latestPosts) ? sources.latestPosts : [];
+  const posts = (category ? sourcePosts.filter((post) => postMatchesCategory(post, category.key)) : sourcePosts)
+    .slice(0, limit);
 
   if (!posts.length) {
     return '<div class="desktop-widget-empty">还没有可展示的文章。</div>';
@@ -54,6 +89,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}
     const listHTML = listPosts.map((p) => {
       const t = escapeHtml(p?.spec?.title || '未命名文章');
       const d = escapeHtml(formatWidgetDate(p?.spec?.publishTime) || '');
+      const secondary = showSummary ? escapeHtml(readPostExcerpt(p) || d) : d;
       return buildWidgetPjaxLink({
         href: escapeHtml(p?.status?.permalink || '#'),
         app: 'reader',
@@ -61,7 +97,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}
         disabled: mode === 'preview',
         innerHtml: `
           <span class="wg-news-md-row-title">${t}</span>
-          <span class="wg-news-md-row-date">${d}</span>
+          <span class="wg-news-md-row-date">${secondary}</span>
         `
       });
     }).join('');
@@ -79,7 +115,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}
       })}
       <div class="wg-news-md-body">
         <div class="wg-news-md-meta">
-          <span class="wg-news-md-category">最新发布</span>
+          <span class="wg-news-md-category">${escapeHtml(category?.name || '最新发布')}</span>
           ${buildWidgetPjaxLink({
             href: escapeHtml(post?.status?.permalink || '#'),
             app: 'reader',
@@ -103,6 +139,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}
     const listHTML = listPosts.map((p) => {
       const t = escapeHtml(p?.spec?.title || '未命名文章');
       const d = escapeHtml(formatWidgetDate(p?.spec?.publishTime) || '');
+      const secondary = showSummary ? escapeHtml(readPostExcerpt(p, 40) || d) : d;
       return buildWidgetPjaxLink({
         href: escapeHtml(p?.status?.permalink || '#'),
         app: 'reader',
@@ -111,7 +148,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}
         innerHtml: `
           <span class="wg-news-lg-indicator"></span>
           <span class="wg-news-lg-item-title">${t}</span>
-          <span class="wg-news-lg-item-date">${d}</span>
+          <span class="wg-news-lg-item-date">${secondary}</span>
         `
       });
     }).join('');
@@ -121,7 +158,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}
         ${coverImg}
         <div class="wg-news-lg-cover-scrim"></div>
         <div class="wg-news-lg-cover-text">
-          <span class="wg-news-lg-kicker">最新发布</span>
+          <span class="wg-news-lg-kicker">${escapeHtml(category?.name || '最新发布')}</span>
           <strong>${heroTitle}</strong>
         </div>
       </div>
