@@ -9,5 +9,14 @@ export const pluginPhotosWidgetManifest = {
   appearanceSupport: ['follow', 'light', 'dark'],
   cachePolicy: 'ttl',
   loadWhen: 'desktop-visible',
-  hasConfig: true
+  hasConfig: true,
+  configSchema: [
+    {
+      key: 'groupName',
+      type: 'photo-group',
+      label: '显示精选集',
+      required: true
+    }
+  ],
+  configDefaults: {}
 };

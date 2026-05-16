@@ -23,7 +23,13 @@ export const DESKTOP_WIDGET_CATALOG = Object.fromEntries(
     sizeOverrides: manifest.sizeOverrides || {},
     category: manifest.category,
     description: manifest.description || '',
-    hasConfig: manifest.hasConfig || false
+    hasConfig: manifest.hasConfig || false,
+    configSchema: Array.isArray(manifest.configSchema)
+      ? manifest.configSchema.map((field) => ({ ...field }))
+      : [],
+    configDefaults: (manifest.configDefaults && typeof manifest.configDefaults === 'object')
+      ? { ...manifest.configDefaults }
+      : {}
   }])
 );
 
