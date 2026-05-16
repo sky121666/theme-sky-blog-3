@@ -2,7 +2,11 @@
           th:with="momentText=${(moment.spec.content != null and (!#strings.isEmpty(moment.spec.content.raw) or !#strings.isEmpty(moment.spec.content.html))) ? ((!#strings.isEmpty(moment.spec.content.raw) ? moment.spec.content.raw : moment.spec.content.html).replaceAll('&lt;[^&gt;]+&gt;', ' ').replaceAll('&amp;nbsp;', ' ').replaceAll('\\\\s+', ' ').trim()) : ''},
                    momentLabel=${!#strings.isEmpty(momentText) ? #strings.abbreviate(momentText, 42) : ((moment.spec.content != null and moment.spec.content.medium != null and !#lists.isEmpty(moment.spec.content.medium)) ? '图片瞬间' : '瞬间记录')},
                    momentSummary=${!#strings.isEmpty(momentText) ? #strings.abbreviate(momentText, 140) : ''},
-                   mediaCount=${(moment.spec.content != null and moment.spec.content.medium != null) ? #lists.size(moment.spec.content.medium) : 0}">
+                   mediaCount=${(moment.spec.content != null and moment.spec.content.medium != null) ? #lists.size(moment.spec.content.medium) : 0},
+                   momentName=${moment.metadata != null ? moment.metadata.name : ''},
+                   momentDetailUrl=${!#strings.isEmpty(momentName) ? '/moments/' + momentName : '/moments'},
+                   upvoteCount=${moment.stats != null and moment.stats.upvote != null ? moment.stats.upvote : 0},
+                   commentCount=${moment.stats != null ? (moment.stats.approvedComment != null ? moment.stats.approvedComment : (moment.stats.totalComment != null ? moment.stats.totalComment : 0)) : 0}">
   <!-- plugin-contract: PluginMoments; contract-version: 1.16.0; tested-version: 1.16.0; status: confirmed; source: docs/插件适配契约.md -->
   <div class="moments-app moments-app--detail" data-app-root="moments">
     <script type="application/json" data-app-props="moments">{"version":1,"appId":"moments","data":{"scene":"detail"}}</script>
@@ -55,12 +59,81 @@
         <!-- 评论 -->
         <!-- plugin-contract: PluginCommentWidget; contract-version: 3.1.1; tested-version: 3.1.1; status: confirmed; source: docs/插件适配契约.md -->
         <section id="moment-comments"
-                 class="moment-comments"
-                 th:if="${pluginFinder.available('PluginCommentWidget')}"
-                 data-lazy-comment>
-          <h2 class="moment-comments-title">评论</h2>
-          <div class="moment-comments-shell" data-comment-hidden style="display:none;">
-            <halo:comment group="moment.halo.run" kind="Moment" th:attr="name=${moment.metadata.name}"/>
+                 class="moment-comments moment-comments--custom"
+                 th:attr="data-moment-card=${momentName},
+                          data-moment-name=${momentName},
+                          data-upvote-count=${upvoteCount},
+                          data-comment-count=${commentCount},
+                          data-detail-url=${momentDetailUrl}"
+                 data-moment-detail-comments>
+          <div class="moment-feed-actions moment-detail-actions" th:if="${!#strings.isEmpty(momentName)}">
+            <button class="moment-feed-action-btn"
+                    type="button"
+                    data-moment-action-toggle
+                    title="更多操作"
+                    aria-label="更多操作"
+                    aria-expanded="false">··</button>
+            <div class="moment-feed-action-popover" data-moment-action-popover hidden>
+              <button type="button" class="moment-feed-popover-btn" data-moment-upvote>
+                <span class="icon-[lucide--heart]" aria-hidden="true"></span>
+                <span data-moment-upvote-label>赞</span>
+              </button>
+              <button type="button" class="moment-feed-popover-btn" data-moment-comments-toggle>
+                <span class="icon-[lucide--message-circle]" aria-hidden="true"></span>
+                <span>评论</span>
+              </button>
+            </div>
+          </div>
+          <div class="moment-feed-comments-panel moment-detail-comments-panel"
+               data-moment-comments-panel
+               aria-label="评论">
+            <div class="moment-detail-social" data-moment-stats th:hidden="${upvoteCount <= 0}">
+              <span class="moment-detail-social-item" data-moment-upvote-stat th:hidden="${upvoteCount <= 0}" th:title="${upvoteCount + ' 个点赞'}">
+                <span class="icon-[lucide--heart]" aria-hidden="true"></span>
+                <span data-moment-upvote-count th:text="${upvoteCount}"></span>
+              </span>
+            </div>
+            <div class="moment-feed-comments-status" data-moment-comments-status hidden></div>
+            <div class="moment-feed-comments-list" data-moment-comments-list></div>
+            <button type="button" class="moment-feed-comments-load-more" data-moment-comments-more hidden>查看更多评论</button>
+            <a class="moment-feed-comments-more pjax-link"
+               data-pjax-app="moments"
+               hidden
+               th:href="${momentDetailUrl + '#moment-comments'}">使用兼容评论组件</a>
+            <div class="moment-feed-reply-bar" data-moment-reply-bar hidden>
+              <span data-moment-reply-label></span>
+              <button type="button" data-moment-reply-cancel>取消</button>
+            </div>
+            <form class="moment-feed-comment-form"
+                  data-moment-comment-form
+                  hidden>
+              <div class="moment-feed-comment-editor" data-moment-comment-editor>
+                <textarea class="moment-feed-comment-input"
+                          data-moment-comment-input
+                          rows="1"
+                          maxlength="500"
+                          placeholder="评论..."></textarea>
+                <div class="moment-feed-comment-tools">
+                  <button type="button"
+                          class="moment-feed-comment-tool"
+                          data-moment-emoji-toggle
+                          aria-label="选择表情"
+                          aria-expanded="false">
+                    <span class="icon-[lucide--smile]" aria-hidden="true"></span>
+                  </button>
+                </div>
+                <div class="moment-feed-emoji-panel" data-moment-emoji-panel hidden></div>
+              </div>
+              <button type="submit" class="moment-feed-comment-submit" data-moment-comment-submit disabled>发送</button>
+            </form>
+          </div>
+          <div class="moment-comments-shell"
+               th:if="${pluginFinder.available('PluginCommentWidget')}"
+               data-comment-hidden
+               data-moment-official-comments
+               hidden
+               style="display:none;">
+            <halo:comment group="moment.halo.run" kind="Moment" th:attr="name=${momentName}"/>
           </div>
         </section>
       </div>

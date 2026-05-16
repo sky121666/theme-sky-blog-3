@@ -15,6 +15,9 @@
   --wc-border: rgba(0, 0, 0, 0.06);
   --wc-accent: #576b95;
   --wc-accent-hover: #465a80;
+  --wc-interaction-accent: #07c160;
+  --wc-interaction-accent-hover: #06ad56;
+  --wc-comment-name: #7d8fb3;
   --wc-avatar-size: 40px;
   --wc-action-bg: rgba(0, 0, 0, 0.05);
   --wc-action-bg-hover: rgba(0, 0, 0, 0.09);
@@ -67,8 +70,11 @@
   --wc-text-secondary: rgba(255, 255, 255, 0.5);
   --wc-text-muted: rgba(255, 255, 255, 0.32);
   --wc-border: rgba(255, 255, 255, 0.06);
-  --wc-accent: #7b9dd4;
-  --wc-accent-hover: #92b0e0;
+  --wc-accent: #7d8fb3;
+  --wc-accent-hover: #9aa9ca;
+  --wc-interaction-accent: #07c160;
+  --wc-interaction-accent-hover: #25d675;
+  --wc-comment-name: #7d8fb3;
   --wc-action-bg: rgba(255, 255, 255, 0.08);
   --wc-action-bg-hover: rgba(255, 255, 255, 0.14);
   --wc-code-bg: rgba(255, 255, 255, 0.08);
@@ -103,6 +109,47 @@
   --wc-publish-accent-hover: #06ad56;
   --wc-publish-control: #303034;
   --wc-publish-icon: #a7a7ad;
+}
+
+.moments-window.moments-color-theme,
+.moments-window.moments-color-theme .moments-app,
+.moments-window.moments-color-theme .moments-publish-dialog {
+  --wc-bg: color-mix(in srgb, var(--theme-shell-light, #ffffff) 88%, var(--theme-accent, #2e5fbd) 4%);
+  --wc-bg-elevated: color-mix(in srgb, var(--theme-shell-light, #ffffff) 94%, var(--theme-accent, #2e5fbd) 4%);
+  --wc-text: #1d1d1f;
+  --wc-text-secondary: rgba(29, 29, 31, 0.66);
+  --wc-text-muted: rgba(29, 29, 31, 0.42);
+  --wc-border: color-mix(in srgb, var(--theme-accent, #2e5fbd) 14%, rgba(0, 0, 0, 0.08));
+  --wc-accent: var(--theme-accent, var(--mac-accent, #2e5fbd));
+  --wc-accent-hover: color-mix(in srgb, var(--theme-accent, #2e5fbd) 82%, #000);
+  --wc-action-bg: color-mix(in srgb, var(--theme-accent, #2e5fbd) 7%, rgba(0, 0, 0, 0.05));
+  --wc-action-bg-hover: color-mix(in srgb, var(--theme-accent, #2e5fbd) 12%, rgba(0, 0, 0, 0.07));
+  --wc-card-bg: color-mix(in srgb, var(--theme-accent, #2e5fbd) 5%, #e8eaed);
+  --wc-tag-bg: color-mix(in srgb, var(--theme-accent, #2e5fbd) 9%, rgba(0, 0, 0, 0.05));
+  --wc-tag-active-color: var(--wc-accent);
+  --wc-notification-name: color-mix(in srgb, var(--wc-accent) 72%, #dce7ff);
+  --wc-publish-accent: var(--wc-accent);
+  --wc-publish-accent-hover: var(--wc-accent-hover);
+}
+
+.dark .moments-window.moments-color-theme,
+.dark .moments-window.moments-color-theme .moments-app,
+.dark .moments-window.moments-color-theme .moments-publish-dialog {
+  --wc-bg: color-mix(in srgb, var(--theme-shell-dark, #141414) 88%, var(--theme-accent, #2e5fbd) 5%);
+  --wc-bg-elevated: color-mix(in srgb, #1f2328 88%, var(--theme-accent, #2e5fbd) 5%);
+  --wc-text: rgba(255, 255, 255, 0.91);
+  --wc-text-secondary: rgba(255, 255, 255, 0.58);
+  --wc-text-muted: rgba(255, 255, 255, 0.36);
+  --wc-border: color-mix(in srgb, var(--theme-accent, #2e5fbd) 20%, rgba(255, 255, 255, 0.08));
+  --wc-accent: color-mix(in srgb, var(--theme-accent, #2e5fbd) 78%, #d7e3ff);
+  --wc-accent-hover: color-mix(in srgb, var(--theme-accent, #2e5fbd) 58%, #ffffff);
+  --wc-action-bg: color-mix(in srgb, var(--theme-accent, #2e5fbd) 12%, rgba(255, 255, 255, 0.07));
+  --wc-action-bg-hover: color-mix(in srgb, var(--theme-accent, #2e5fbd) 18%, rgba(255, 255, 255, 0.1));
+  --wc-card-bg: color-mix(in srgb, var(--theme-accent, #2e5fbd) 8%, #24272c);
+  --wc-tag-bg: color-mix(in srgb, var(--theme-accent, #2e5fbd) 14%, rgba(255, 255, 255, 0.07));
+  --wc-tag-active-color: var(--wc-accent);
+  --wc-publish-accent: var(--wc-accent);
+  --wc-publish-accent-hover: var(--wc-accent-hover);
 }
 
 /* ═══ 窗口 chrome ═══ */
@@ -1135,6 +1182,22 @@
   object-fit: cover;
 }
 
+.moment-feed-avatar-link {
+  display: block;
+  width: var(--wc-avatar-size);
+  height: var(--wc-avatar-size);
+  border-radius: 6px;
+  text-decoration: none;
+}
+
+.moment-feed-avatar-link .moment-feed-avatar {
+  display: block;
+}
+
+.moment-feed-gallery-item-wrapper {
+  cursor: pointer;
+}
+
 /* 内容列 */
 .moment-feed-content-col {
   flex: 1;
@@ -1142,17 +1205,28 @@
 }
 
 .moment-feed-nickname {
-  display: block;
+  display: inline-flex;
+  width: fit-content;
   color: var(--wc-accent);
   font-size: 15px;
   font-weight: 500;
   line-height: 1.3;
   margin-bottom: 4px;
+  text-decoration: none;
 }
 
-.moment-feed-nickname a {
+.moment-feed-nickname:hover {
+  color: var(--wc-accent-hover);
+  text-decoration: none;
+}
+
+.moment-feed-time-link {
   color: inherit;
   text-decoration: none;
+}
+
+.moment-feed-time-link:hover {
+  color: var(--wc-accent);
 }
 
 /* 正文 */
@@ -1235,30 +1309,11 @@
 }
 
 .moment-feed-actions {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 0;
   flex: 0 0 auto;
-}
-
-.moment-feed-stats {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--wc-text-muted);
-  font-size: 12px;
-  line-height: 1;
-}
-
-.moment-feed-stat {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-}
-
-.moment-feed-stat span[aria-hidden="true"] {
-  width: 13px;
-  height: 13px;
 }
 
 .moment-feed-action-btn {
@@ -1281,6 +1336,478 @@
 
 .moment-feed-action-btn:hover {
   background: var(--wc-action-bg-hover);
+}
+
+.moment-feed-action-popover {
+  position: absolute;
+  right: 36px;
+  top: 50%;
+  z-index: 8;
+  display: inline-flex;
+  align-items: center;
+  min-width: 166px;
+  height: 40px;
+  overflow: hidden;
+  color: var(--wc-notification-text);
+  background: var(--wc-notification-panel);
+  border: 1px solid var(--wc-notification-panel-border);
+  border-radius: 5px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transform: translateY(-50%);
+  transform-origin: right center;
+  animation: momentActionIn 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.moment-feed-action-popover[hidden] {
+  display: none !important;
+}
+
+.moment-feed-popover-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 83px;
+  height: 100%;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--wc-notification-separator);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  transition: background 0.14s, color 0.14s, transform 0.14s;
+}
+
+.moment-feed-popover-btn:last-child {
+  border-right: 0;
+}
+
+.moment-feed-popover-btn:hover {
+  background: var(--wc-notification-hover);
+}
+
+.moment-feed-popover-btn:active {
+  transform: scale(0.96);
+}
+
+.moment-feed-popover-btn[disabled] {
+  cursor: default;
+  color: var(--wc-notification-text-muted);
+}
+
+.moment-feed-popover-btn span[aria-hidden="true"] {
+  width: 17px;
+  height: 17px;
+}
+
+.moment-feed-card.is-moment-upvoted [data-moment-upvote] span[aria-hidden="true"],
+.moment-feed-card.is-moment-upvoted [data-moment-upvote-label] {
+  color: #e75b6d;
+}
+
+.moment-feed-card.is-upvote-pending [data-moment-upvote] span[aria-hidden="true"] {
+  animation: momentHeartPulse 0.55s cubic-bezier(0.16, 1, 0.3, 1) infinite alternate;
+}
+
+@keyframes momentActionIn {
+  from {
+    opacity: 0;
+    transform: translate(8px, -50%) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, -50%) scale(1);
+  }
+}
+
+@keyframes momentHeartPulse {
+  from { transform: scale(0.9); }
+  to { transform: scale(1.08); }
+}
+
+.moment-feed-comments-panel {
+  margin-top: 8px;
+  padding: 8px 10px 10px;
+  color: var(--wc-text);
+  background: var(--wc-card-bg);
+  border: 1px solid color-mix(in srgb, var(--wc-border) 60%, transparent);
+  border-radius: 6px;
+  animation: momentCommentsIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.moment-feed-comments-panel[hidden] {
+  display: none !important;
+}
+
+.moment-feed-comments-status {
+  margin-bottom: 6px;
+  color: var(--wc-text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.moment-feed-comments-status[data-tone="error"] {
+  color: var(--wc-danger);
+}
+
+.moment-feed-comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.moment-feed-comment {
+  display: block;
+}
+
+.moment-feed-comment-main {
+  min-width: 0;
+}
+
+.moment-feed-comment-author,
+.moment-feed-comment-reply b {
+  color: var(--wc-comment-name);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.55;
+  font-weight: 500;
+}
+
+.moment-feed-comment p,
+.moment-feed-comment-line,
+.moment-feed-comment-reply,
+.moment-feed-comment-reply span,
+.moment-feed-comment-reply b,
+.moment-feed-comment-colon,
+.moment-feed-reply-prefix {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.moment-feed-comment p,
+.moment-feed-comment-line,
+.moment-feed-comment-reply,
+.moment-feed-comment-reply span {
+  color: var(--wc-text);
+  word-break: break-word;
+}
+
+.moment-feed-comment p {
+  margin: 0;
+}
+
+.moment-feed-comment-line,
+.moment-feed-comment-reply {
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 2px 3px;
+  margin-inline: -3px;
+  transition: background 0.14s;
+}
+
+.moment-feed-comment-line:hover,
+.moment-feed-comment-reply:hover {
+  background: color-mix(in srgb, var(--wc-bg-elevated) 34%, transparent);
+}
+
+.moment-feed-comment-line:focus-visible,
+.moment-feed-comment-reply:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--wc-interaction-accent) 58%, transparent);
+  outline-offset: 1px;
+}
+
+.moment-feed-comment-colon,
+.moment-feed-reply-prefix {
+  color: var(--wc-text-secondary);
+}
+
+.moment-feed-comment-replies {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 2px;
+  padding: 0;
+  background: transparent;
+}
+
+.moment-feed-comment-reply {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+}
+
+.moment-feed-replies-more,
+.moment-feed-comments-load-more {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-top: 3px;
+  color: var(--wc-comment-name);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.moment-feed-replies-more:hover,
+.moment-feed-comments-load-more:hover,
+.moment-feed-comments-more:hover {
+  color: var(--wc-accent-hover);
+}
+
+.moment-feed-replies-more:disabled,
+.moment-feed-comments-load-more:disabled {
+  cursor: default;
+  opacity: 0.62;
+}
+
+.moment-feed-comments-empty {
+  margin: 0;
+  color: var(--wc-text-muted);
+  font-size: 13px;
+}
+
+.moment-feed-comments-load-more {
+  margin-top: 6px;
+}
+
+.moment-feed-comments-more {
+  display: inline-flex;
+  margin-top: 8px;
+  color: var(--wc-text-muted);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.moment-feed-comments-more[hidden] {
+  display: none !important;
+}
+
+.moment-feed-reply-bar {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 5px 8px;
+  color: var(--wc-text-muted);
+  background: color-mix(in srgb, var(--wc-bg-elevated) 42%, transparent);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.moment-feed-reply-bar[hidden] {
+  display: none !important;
+}
+
+.moment-feed-reply-bar button {
+  flex: 0 0 auto;
+  color: var(--wc-comment-name);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+}
+
+.moment-feed-comment-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.moment-feed-comment-form[hidden] {
+  display: none !important;
+}
+
+.moment-feed-comment-editor {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 72px;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  color: var(--wc-text);
+  background: color-mix(in srgb, var(--wc-bg-elevated) 68%, transparent);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  transition: background 0.14s, border-color 0.14s;
+}
+
+.moment-feed-comment-editor:focus-within {
+  background: var(--wc-bg-elevated);
+  border-color: color-mix(in srgb, var(--wc-interaction-accent) 55%, var(--wc-border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--wc-interaction-accent) 18%, transparent);
+}
+
+.moment-feed-comment-editor.is-replying::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  bottom: 38px;
+  left: 8px;
+  width: 2px;
+  border-radius: 999px;
+  background: var(--wc-interaction-accent);
+}
+
+.moment-feed-comment-input {
+  min-width: 0;
+  width: 100%;
+  min-height: 38px;
+  max-height: 74px;
+  resize: none;
+  color: var(--wc-text);
+  background: transparent;
+  border: 0;
+  outline: none;
+  padding: 8px 10px 4px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.moment-feed-comment-editor.is-replying .moment-feed-comment-input {
+  padding-left: 13px;
+}
+
+.moment-feed-comment-input::placeholder {
+  color: var(--wc-text-muted);
+}
+
+.moment-feed-comment-tools {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 2px;
+  min-height: 30px;
+  padding: 0 8px 7px;
+}
+
+.moment-feed-comment-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  color: var(--wc-text-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.14s, background 0.14s;
+}
+
+.moment-feed-comment-tool:hover,
+.moment-feed-comment-tool[aria-expanded="true"] {
+  color: var(--wc-text);
+  background: color-mix(in srgb, var(--wc-action-bg-hover) 72%, transparent);
+}
+
+.moment-feed-comment-tool span {
+  width: 18px;
+  height: 18px;
+}
+
+.moment-feed-emoji-panel {
+  position: absolute;
+  right: 6px;
+  bottom: 34px;
+  z-index: 4;
+  width: 202px;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  color: var(--wc-notification-text);
+  background: var(--wc-notification-panel);
+  border: 1px solid var(--wc-notification-panel-border);
+  border-radius: 8px;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.moment-feed-emoji-panel[hidden] {
+  display: none !important;
+}
+
+.moment-feed-emoji {
+  aspect-ratio: 1;
+  width: 100%;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.moment-feed-emoji:hover {
+  background: var(--wc-notification-control);
+}
+
+.moment-feed-comment-submit {
+  flex: 0 0 auto;
+  height: 34px;
+  min-width: 50px;
+  color: #fff;
+  background: var(--wc-interaction-accent);
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0 11px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.moment-feed-comment-submit:not(:disabled):hover {
+  background: var(--wc-interaction-accent-hover);
+}
+
+.moment-feed-comment-submit:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+@keyframes momentCommentsIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes momentCommentsHashPulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--wc-interaction-accent) 34%, transparent);
+  }
+  42% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--wc-interaction-accent) 22%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.moment-feed-comments-panel.is-hash-target {
+  animation: momentCommentsHashPulse 1.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .moment-feed-card a.moment-feed-link {
@@ -1527,11 +2054,79 @@
   font-size: 12px;
 }
 
+.moment-detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 8px auto;
+  position: relative;
+}
+
+.moment-detail-actions .moment-feed-action-popover {
+  right: 36px;
+  top: 50%;
+}
+
 /* ── 评论区 ── */
 .moment-comments {
   margin-top: 20px;
   padding-top: 0;
   border-top: none;
+}
+
+.moment-comments--custom {
+  margin-top: 12px;
+  margin-left: calc(var(--wc-avatar-size) + 12px);
+}
+
+.moment-detail-social {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  min-height: 18px;
+  margin: 0 0 7px;
+  color: var(--wc-comment-name);
+  font-size: 13px;
+}
+
+.moment-detail-social[hidden] {
+  display: none !important;
+}
+
+.moment-detail-social-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.moment-detail-social-item[hidden] {
+  display: none !important;
+}
+
+.moment-detail-social-item span[aria-hidden="true"] {
+  width: 18px;
+  height: 18px;
+  color: var(--wc-comment-name);
+}
+
+.moment-feed-social {
+  margin-bottom: 6px;
+}
+
+.moment-detail-comments-panel {
+  margin-top: 0;
+  padding: 10px 12px 12px;
+  background: var(--wc-card-bg);
+  border-color: color-mix(in srgb, var(--wc-border) 65%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--wc-bg-elevated) 18%, transparent);
+}
+
+.moment-detail-comments-panel .moment-feed-comments-list {
+  gap: 5px;
+}
+
+.moment-detail-comments-panel .moment-feed-comment-form {
+  margin-top: 10px;
 }
 
 .moment-comments-title {
@@ -1550,8 +2145,8 @@
   --halo-cw-secondary-text-color: var(--wc-text-secondary);
   --halo-cw-border-color: var(--wc-border);
   --halo-cw-input-bg-color: var(--wc-action-bg);
-  --halo-cw-link-color: var(--wc-accent);
-  --halo-cw-button-bg-color: var(--wc-accent);
+  --halo-cw-link-color: var(--wc-comment-name);
+  --halo-cw-button-bg-color: var(--wc-interaction-accent);
   --halo-cw-button-text-color: #fff;
 }
 
@@ -1992,13 +2587,32 @@
     height: 18px;
   }
 
+  .moment-feed-action-popover {
+    right: 31px;
+    min-width: 150px;
+    height: 38px;
+  }
+
+  .moment-feed-popover-btn {
+    width: 75px;
+    font-size: 13px;
+  }
+
   .moment-feed-actions {
     gap: 6px;
   }
 
-  .moment-feed-stats {
+  .moment-feed-comments-panel {
+    padding: 9px;
+  }
+
+  .moment-feed-comment-form {
     gap: 6px;
-    font-size: 11px;
+  }
+
+  .moment-feed-comment-submit {
+    min-width: 48px;
+    padding: 0 10px;
   }
 
   /* ═══ Feed 媒体 ═══ */
@@ -2104,11 +2718,36 @@
     font-size: 11px;
   }
 
+  .moment-detail-actions {
+    display: inline-flex;
+    width: fit-content;
+    margin: 0 0 8px auto;
+  }
+
+  .moment-detail-action {
+    min-width: 76px;
+    height: 36px;
+    font-size: 13px;
+  }
+
   /* ═══ 评论区 ═══ */
   .moment-comments {
     margin-top: 16px;
     padding-top: 12px;
     border-top: 0.5px solid var(--wc-border);
+  }
+
+  .moment-comments--custom {
+    margin-left: 0;
+    padding-top: 10px;
+  }
+
+  .moment-detail-social {
+    margin-top: 0;
+  }
+
+  .moment-detail-comments-panel {
+    padding: 9px;
   }
 
   .moment-comments-shell {

@@ -5,7 +5,7 @@
       resizable=${windowResizable != null ? windowResizable : 'y'},
       maximizable='false',
       widthAttr='560',
-      extraClasses='moments-window md:min-w-[560px] md:min-h-[400px]',
+      extraClasses=${'moments-window md:min-w-[560px] md:min-h-[400px] moments-color-' + ((theme.config.moments?.style?.color_mode == 'theme') ? 'theme' : 'wechat')},
       inlineStyle='',
       bodyFragment=~{::frameBody(titleText=${titleText}, contentFragment=${contentFragment}, windowScene=${windowScene}, windowResizable=${windowResizable})}
     )}"></th:block>

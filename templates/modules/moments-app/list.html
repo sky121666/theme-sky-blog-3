@@ -53,12 +53,35 @@
 
       <!-- 动态列表 -->
       <div class="moments-feed-list" th:if="${moments != null and moments.items != null}">
-        <article th:each="moment : ${moments.items}" class="moment-feed-card">
+        <article th:each="moment : ${moments.items}"
+                 class="moment-feed-card"
+                 th:with="upvoteCount=${moment.stats != null and moment.stats.upvote != null ? moment.stats.upvote : 0},
+                          commentCount=${moment.stats != null ? (moment.stats.approvedComment != null ? moment.stats.approvedComment : (moment.stats.totalComment != null ? moment.stats.totalComment : 0)) : 0},
+                          momentName=${moment.metadata != null ? moment.metadata.name : ''},
+                          momentDetailUrl=${!#strings.isEmpty(momentName) ? '/moments/' + momentName : '/moments'},
+                          ownerName=${moment.owner != null and moment.owner.name != null ? moment.owner.name : ''},
+                          ownerUrl=${!#strings.isEmpty(ownerName) ? '/authors/' + ownerName : ''}"
+                 th:attr="data-moment-card=${momentName},
+                          data-moment-name=${momentName},
+                          data-upvote-count=${upvoteCount},
+                          data-comment-count=${commentCount},
+                          data-detail-url=${momentDetailUrl}">
 
           <!-- 头像列 -->
           <div class="moment-feed-avatar-col">
-          <img class="moment-feed-avatar"
-                 th:if="${moment.owner != null and moment.owner.avatar != null}"
+            <a class="moment-feed-avatar-link pjax-link"
+               data-pjax-app="explorer-author"
+               th:if="${!#strings.isEmpty(ownerUrl) and moment.owner != null and moment.owner.avatar != null}"
+               th:href="${ownerUrl}"
+               th:title="${moment.owner.displayName != null ? moment.owner.displayName : ownerName}">
+              <img class="moment-feed-avatar"
+                   th:src="${moment.owner.avatar}"
+                   loading="lazy"
+                   decoding="async"
+                   alt="" />
+            </a>
+            <img class="moment-feed-avatar"
+                 th:if="${#strings.isEmpty(ownerUrl) and moment.owner != null and moment.owner.avatar != null}"
                  th:src="${moment.owner.avatar}"
                  loading="lazy"
                  decoding="async"
@@ -67,7 +90,13 @@
 
           <!-- 内容列 -->
           <div class="moment-feed-content-col">
+            <a class="moment-feed-nickname pjax-link"
+               data-pjax-app="explorer-author"
+               th:if="${!#strings.isEmpty(ownerUrl)}"
+               th:href="${ownerUrl}"
+               th:text="${moment.owner != null and moment.owner.displayName != null ? moment.owner.displayName : ownerName}"></a>
             <span class="moment-feed-nickname"
+                  th:if="${#strings.isEmpty(ownerUrl)}"
                   th:text="${moment.owner != null and moment.owner.displayName != null ? moment.owner.displayName : '匿名'}"></span>
 
             <div class="moment-feed-body"
@@ -89,21 +118,24 @@
                   </div>
                   <!-- 视频占位卡 -->
                   <a th:if="${media.type != null and media.type.name() == 'VIDEO'}"
-                     th:href="${'/moments/' + moment.metadata.name}"
+                     th:href="${momentDetailUrl}"
+                     data-pjax-app="moments"
                      class="moment-feed-video-placeholder moment-feed-media-placeholder pjax-link"
                      title="点击查看视频">
                     <span class="icon-[lucide--play]" aria-hidden="true"></span>
                     <span class="moment-feed-video-label">视频</span>
                   </a>
                   <a th:if="${media.type != null and media.type.name() == 'AUDIO'}"
-                     th:href="${'/moments/' + moment.metadata.name}"
+                     th:href="${momentDetailUrl}"
+                     data-pjax-app="moments"
                      class="moment-feed-media-placeholder pjax-link"
                      title="点击收听音频">
                     <span class="icon-[lucide--music]" aria-hidden="true"></span>
                     <span class="moment-feed-video-label">音频</span>
                   </a>
                   <a th:if="${media.type != null and media.type.name() == 'POST'}"
-                     th:href="${'/moments/' + moment.metadata.name}"
+                     th:href="${momentDetailUrl}"
+                     data-pjax-app="moments"
                      class="moment-feed-media-placeholder pjax-link"
                      title="查看关联文章">
                     <span class="icon-[lucide--file-text]" aria-hidden="true"></span>
@@ -113,30 +145,81 @@
               </div>
             </th:block>
 
-            <div class="moment-feed-footer"
-                 th:with="upvoteCount=${moment.stats != null and moment.stats.upvote != null ? moment.stats.upvote : 0},
-                          commentCount=${moment.stats != null ? (moment.stats.approvedComment != null ? moment.stats.approvedComment : (moment.stats.totalComment != null ? moment.stats.totalComment : 0)) : 0}">
+            <div class="moment-feed-footer">
               <div class="moment-feed-meta">
-                <time th:if="${moment.spec != null and moment.spec.releaseTime != null}"
+                <a class="moment-feed-time-link pjax-link"
+                   data-pjax-app="moments"
+                   th:if="${moment.spec != null and moment.spec.releaseTime != null and !#strings.isEmpty(momentName)}"
+                   th:href="${momentDetailUrl}">
+                  <time th:text="${#dates.format(moment.spec.releaseTime, 'yyyy年MM月dd日 HH:mm')}"></time>
+                </a>
+                <time th:if="${moment.spec != null and moment.spec.releaseTime != null and #strings.isEmpty(momentName)}"
                       th:text="${#dates.format(moment.spec.releaseTime, 'yyyy年MM月dd日 HH:mm')}"></time>
               </div>
               <div class="moment-feed-actions">
-                <div class="moment-feed-stats" th:if="${upvoteCount > 0 or commentCount > 0}">
-                  <span class="moment-feed-stat" th:if="${upvoteCount > 0}" th:title="${upvoteCount + ' 个点赞'}">
+                <button class="moment-feed-action-btn"
+                        type="button"
+                        data-moment-action-toggle
+                        th:if="${!#strings.isEmpty(momentName)}"
+                        title="更多操作"
+                        aria-label="更多操作"
+                        aria-expanded="false">··</button>
+                <div class="moment-feed-action-popover" data-moment-action-popover hidden>
+                  <button type="button" class="moment-feed-popover-btn" data-moment-upvote>
                     <span class="icon-[lucide--heart]" aria-hidden="true"></span>
-                    <span th:text="${upvoteCount}"></span>
-                  </span>
-                  <span class="moment-feed-stat" th:if="${commentCount > 0}" th:title="${commentCount + ' 条评论'}">
+                    <span data-moment-upvote-label>赞</span>
+                  </button>
+                  <button type="button" class="moment-feed-popover-btn" data-moment-comments-toggle>
                     <span class="icon-[lucide--message-circle]" aria-hidden="true"></span>
-                    <span th:text="${commentCount}"></span>
-                  </span>
+                    <span>评论</span>
+                  </button>
                 </div>
-                <a class="moment-feed-action-btn pjax-link"
-                   th:if="${moment.metadata != null and moment.metadata.name != null}"
-                   th:href="${'/moments/' + moment.metadata.name}"
-                   title="详情">··</a>
               </div>
             </div>
+            <section class="moment-feed-comments-panel"
+                     data-moment-comments-panel
+                     hidden
+                     th:attr="aria-label=${'评论 ' + momentName}">
+              <div class="moment-detail-social moment-feed-social" data-moment-stats th:hidden="${upvoteCount <= 0}">
+                <span class="moment-detail-social-item" data-moment-upvote-stat th:hidden="${upvoteCount <= 0}" th:title="${upvoteCount + ' 个点赞'}">
+                  <span class="icon-[lucide--heart]" aria-hidden="true"></span>
+                  <span data-moment-upvote-count th:text="${upvoteCount}"></span>
+                </span>
+              </div>
+              <div class="moment-feed-comments-status" data-moment-comments-status hidden></div>
+              <div class="moment-feed-comments-list" data-moment-comments-list></div>
+              <button type="button" class="moment-feed-comments-load-more" data-moment-comments-more hidden>查看更多评论</button>
+              <a class="moment-feed-comments-more pjax-link"
+                 data-pjax-app="moments"
+                 hidden
+                 th:href="${momentDetailUrl + '#moment-comments'}">打开详情页评论</a>
+              <div class="moment-feed-reply-bar" data-moment-reply-bar hidden>
+                <span data-moment-reply-label></span>
+                <button type="button" data-moment-reply-cancel>取消</button>
+              </div>
+              <form class="moment-feed-comment-form"
+                    data-moment-comment-form
+                    hidden>
+                <div class="moment-feed-comment-editor" data-moment-comment-editor>
+                  <textarea class="moment-feed-comment-input"
+                            data-moment-comment-input
+                            rows="1"
+                            maxlength="500"
+                            placeholder="评论..."></textarea>
+                  <div class="moment-feed-comment-tools">
+                    <button type="button"
+                            class="moment-feed-comment-tool"
+                            data-moment-emoji-toggle
+                            aria-label="选择表情"
+                            aria-expanded="false">
+                      <span class="icon-[lucide--smile]" aria-hidden="true"></span>
+                    </button>
+                  </div>
+                  <div class="moment-feed-emoji-panel" data-moment-emoji-panel hidden></div>
+                </div>
+                <button type="submit" class="moment-feed-comment-submit" data-moment-comment-submit disabled>发送</button>
+              </form>
+            </section>
           </div>
         </article>
       </div>
@@ -171,9 +254,10 @@
                                        targetList.insertAdjacentHTML('beforeend', cache.extraHtml);
                                        this.debugLog(`restored extra html from cache, bytes: ${cache.extraHtml.length}`);
                                        
-                                       if (typeof window.__initLazyImages === 'function') {
+                                   if (typeof window.__initLazyImages === 'function') {
                                            window.__initLazyImages(targetList);
                                        }
+                                       window.dispatchEvent(new CustomEvent('moments:feed-updated', { detail: { source: 'cache' } }));
                                        const pjaxLinks = Array.from(targetList.querySelectorAll('.waterfall-injected a.pjax-link'));
                                        if (window.pjax && typeof window.pjax.attachLinks === 'function' && pjaxLinks.length > 0) {
                                            window.pjax.attachLinks(pjaxLinks);
@@ -262,6 +346,7 @@
                                window.pjax.attachLinks(pjaxLinks);
                                this.debugLog(`attached pjax to ${pjaxLinks.length} new links`);
                            }
+                           window.dispatchEvent(new CustomEvent('moments:feed-updated', { detail: { source: 'waterfall' } }));
                        }
                        
                        // 解析下一页游标

@@ -705,6 +705,24 @@ spec:
               help: 留空时默认使用站点副标题。显示在封面名称下方。
               value: ""
         - $formkit: group
+          id: moments_style_group
+          name: style
+          label: 界面风格
+          value:
+            color_mode: wechat
+          children:
+            - $formkit: radio
+              id: moments_style_color_mode
+              name: color_mode
+              label: 配色模式
+              help: 微信风格使用固定朋友圈配色；跟随主题会映射桌面主题色。
+              value: wechat
+              options:
+                - label: 微信风格
+                  value: wechat
+                - label: 跟随主题
+                  value: theme
+        - $formkit: group
           id: moments_publish_group
           name: publish
           label: 前端发布
