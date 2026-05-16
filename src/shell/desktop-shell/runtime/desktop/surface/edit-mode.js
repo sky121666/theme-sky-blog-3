@@ -217,6 +217,16 @@ export const editModeMethods = {
     return this.getVariantPreviewStyle(entry, entry.size);
   },
 
+  widgetConfigPreviewStyle() {
+    const widget = this.widgetConfigForm?.previewWidget;
+    if (!widget) return '';
+    const catalog = getWidgetCatalogEntry(widget.widget) || {};
+    return this.getVariantPreviewStyle({
+      sizeOverrides: catalog.sizeOverrides || {},
+      size: widget.size
+    }, widget.size);
+  },
+
   getVariantPreviewStyle(entry, size) {
     const span = entry.sizeOverrides?.[size] || DESKTOP_WIDGET_SIZE_MAP[size] || { w: 4, h: 2 };
     const cell = this.cellSize;
@@ -274,37 +284,150 @@ export const editModeMethods = {
     await this._doAddWidget(widgetType, size, catalogKey, {});
   },
 
-  openWidgetConfigForm(widgetType, size, catalogKey) {
-    const resolvedSize = size || 'medium';
-    // 图库组件：自动预选第一个相册分组（不允许“全部”模式）
-    let defaultGroupName = '';
-    if (widgetType === 'plugin-photos.gallery') {
+  createWidgetConfigDefaultMeta(catalogEntry) {
+    const schema = Array.isArray(catalogEntry?.configSchema) ? catalogEntry.configSchema : [];
+    const meta = {
+      ...((catalogEntry?.configDefaults && typeof catalogEntry.configDefaults === 'object') ? catalogEntry.configDefaults : {})
+    };
+
+    schema.forEach((field) => {
+      if (!field?.key || meta[field.key] !== undefined) return;
+      meta[field.key] = this.resolveWidgetConfigFieldDefault(field);
+    });
+
+    return meta;
+  },
+
+  resolveWidgetConfigFieldDefault(field) {
+    if (field.defaultValue !== undefined) return field.defaultValue;
+
+    if (field.type === 'photo-group') {
       const groups = Array.isArray(this.sources?.photoGroups) ? this.sources.photoGroups : [];
-      defaultGroupName = groups[0]?.metadata?.name || '';
+      return groups[0]?.metadata?.name || '';
     }
+
+    if (field.type === 'select') {
+      const options = this.widgetConfigSelectOptions(field);
+      return options[0]?.value || '';
+    }
+
+    if (field.type === 'number') {
+      return Number.isFinite(Number(field.min)) ? Number(field.min) : 0;
+    }
+
+    if (field.type === 'toggle') {
+      return false;
+    }
+
+    return '';
+  },
+
+  widgetConfigSelectOptions(field) {
+    const rawOptions = Array.isArray(field?.options) ? field.options : [];
+    return rawOptions.map((option) => {
+      if (option && typeof option === 'object') {
+        return {
+          value: String(option.value ?? ''),
+          label: String(option.label ?? option.value ?? '')
+        };
+      }
+      return {
+        value: String(option ?? ''),
+        label: String(option ?? '')
+      };
+    }).filter((option) => option.value);
+  },
+
+  widgetConfigPhotoGroups() {
+    return Array.isArray(this.sources?.photoGroups) ? this.sources.photoGroups : [];
+  },
+
+  widgetConfigPhotoGroupCount(group) {
+    const groupName = group?.metadata?.name || '';
+    const photos = Array.isArray(this.sources?.photos) ? this.sources.photos : [];
+    return photos.filter((photo) => photo?.spec?.groupName === groupName).length;
+  },
+
+  updateWidgetConfigMeta(key, value) {
+    this.widgetConfigForm.meta = {
+      ...(this.widgetConfigForm.meta || {}),
+      [key]: value
+    };
+    this.refreshWidgetConfigPreview();
+  },
+
+  refreshWidgetConfigPreview() {
+    const form = this.widgetConfigForm;
+    if (!form?.open || !form.widgetType) return;
+    const selection = this.widgetCenterSelections[form.catalogKey] || {};
+    const appearance = normalizeWidgetAppearance(selection.appearance || 'follow');
+    form.previewWidget = createWidgetInstance(form.widgetType, {
+      key: `config-preview-${form.catalogKey}`,
+      title: generateWidgetTitle(form.widgetType),
+      size: form.size,
+      appearance,
+      meta: { ...(form.meta || {}) }
+    });
+  },
+
+  isWidgetConfigFormValid() {
+    if (!this.widgetConfigForm.open) return false;
+    const schema = Array.isArray(this.widgetConfigForm.configSchema) ? this.widgetConfigForm.configSchema : [];
+    const meta = this.widgetConfigForm.meta || {};
+
+    return schema.every((field) => {
+      if (!field?.required) return true;
+      const value = meta[field.key];
+      if (field.type === 'photo-group') {
+        return this.widgetConfigPhotoGroups().length > 0 && !!value;
+      }
+      if (field.type === 'number') {
+        return Number.isFinite(Number(value));
+      }
+      if (field.type === 'toggle') {
+        return true;
+      }
+      return value !== undefined && value !== null && String(value).trim() !== '';
+    });
+  },
+
+  openWidgetConfigForm(widgetType, size, catalogKey) {
+    const catalogEntry = getWidgetCatalogEntry(widgetType) || {};
+    const resolvedSize = normalizeWidgetSize(size || catalogEntry.size || 'medium');
+    const resolvedCatalogKey = catalogKey || `${widgetType}:${resolvedSize}`;
     this.widgetConfigForm = {
       open: true,
+      widgetId: widgetType,
       widgetType,
       size: resolvedSize,
-      catalogKey: catalogKey || `${widgetType}:${resolvedSize}`,
-      meta: { groupName: defaultGroupName }
+      catalogKey: resolvedCatalogKey,
+      title: catalogEntry.title || generateWidgetTitle(widgetType),
+      configSchema: Array.isArray(catalogEntry.configSchema) ? catalogEntry.configSchema.map((field) => ({ ...field })) : [],
+      meta: this.createWidgetConfigDefaultMeta(catalogEntry),
+      previewWidget: null
     };
+    this.refreshWidgetConfigPreview();
   },
 
   closeWidgetConfigForm() {
     this.widgetConfigForm = {
       open: false,
+      widgetId: '',
       widgetType: '',
       size: '',
       catalogKey: '',
-      meta: {}
+      title: '',
+      configSchema: [],
+      meta: {},
+      previewWidget: null
     };
   },
 
   async submitWidgetConfigForm() {
+    if (!this.isWidgetConfigFormValid()) return;
     const { widgetType, size, catalogKey, meta } = this.widgetConfigForm;
     this.closeWidgetConfigForm();
-    await this._doAddWidget(widgetType, size, catalogKey, meta);
+    await this._doAddWidget(widgetType, size, catalogKey, { ...(meta || {}) });
   },
 
   async _doAddWidget(widgetType, size = null, catalogKey = null, meta = {}) {
@@ -350,4 +473,3 @@ export const editModeMethods = {
     this.syncWidgetRuntimes();
   }
 };
-

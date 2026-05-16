@@ -215,7 +215,7 @@
            x-transition:leave-start="opacity-100"
            x-transition:leave-end="opacity-0"
            style="display: none;">
-        <div class="desktop-add-icon-dialog"
+        <div class="desktop-add-icon-dialog desktop-widget-config-dialog"
              x-transition:enter="transition ease-out duration-200"
              x-transition:enter-start="opacity-0 scale-95 translate-y-2"
              x-transition:enter-end="opacity-100 scale-100 translate-y-0"
@@ -223,38 +223,95 @@
              x-transition:leave-start="opacity-100 scale-100 translate-y-0"
              x-transition:leave-end="opacity-0 scale-95 translate-y-2">
           <header class="desktop-add-icon-dialog-header">
-            <h2>配置图库组件</h2>
+            <h2 x-text="widgetConfigForm.title ? `配置${widgetConfigForm.title}` : '配置组件'">配置组件</h2>
             <button type="button" class="desktop-add-icon-close" @click="closeWidgetConfigForm()" aria-label="关闭">
               <span class="icon-[lucide--x]" aria-hidden="true"></span>
             </button>
           </header>
           <div class="desktop-add-icon-form">
-            <div class="desktop-add-icon-field">
-              <span>显示精选集</span>
-              <div class="desktop-widget-config-group-list">
-                <!-- 各分组（必须选一个，不能全部） -->
-                <template x-for="group in (sources?.photoGroups || [])" :key="group.metadata?.name">
+            <template x-for="field in widgetConfigForm.configSchema" :key="field.key">
+              <div class="desktop-add-icon-field desktop-widget-config-field">
+                <span x-text="field.label || field.key"></span>
+
+                <template x-if="field.type === 'photo-group'">
+                  <div class="desktop-widget-config-group-list">
+                    <template x-for="group in widgetConfigPhotoGroups()" :key="group.metadata?.name">
+                      <button type="button"
+                              class="desktop-widget-config-group-btn"
+                              :class="{ 'is-active': widgetConfigForm.meta[field.key] === group.metadata?.name }"
+                              @click="updateWidgetConfigMeta(field.key, group.metadata?.name || '')">
+                        <span class="desktop-widget-config-group-name" x-text="group.spec?.displayName || group.metadata?.name"></span>
+                        <span class="desktop-widget-config-group-count"
+                              x-text="`${widgetConfigPhotoGroupCount(group)} 张`"></span>
+                      </button>
+                    </template>
+                    <template x-if="!widgetConfigPhotoGroups().length">
+                      <p class="desktop-widget-config-empty">还没有相册，请先在后台图库中创建分组。</p>
+                    </template>
+                  </div>
+                </template>
+
+                <template x-if="field.type === 'select'">
+                  <select class="desktop-widget-config-select"
+                          :value="widgetConfigForm.meta[field.key] || ''"
+                          @change="updateWidgetConfigMeta(field.key, $event.target.value)">
+                    <template x-for="option in widgetConfigSelectOptions(field)" :key="option.value">
+                      <option :value="option.value" x-text="option.label"></option>
+                    </template>
+                  </select>
+                </template>
+
+                <template x-if="field.type === 'number'">
+                  <input class="desktop-widget-config-input"
+                         type="number"
+                         :min="field.min"
+                         :max="field.max"
+                         :step="field.step || 1"
+                         :value="widgetConfigForm.meta[field.key]"
+                         @input="updateWidgetConfigMeta(field.key, Number($event.target.value))">
+                </template>
+
+                <template x-if="field.type === 'toggle'">
                   <button type="button"
-                          class="desktop-widget-config-group-btn"
-                          :class="{ 'is-active': widgetConfigForm.meta.groupName === group.metadata?.name }"
-                          @click="widgetConfigForm.meta.groupName = group.metadata?.name || ''">
-                    <span class="desktop-widget-config-group-name" x-text="group.spec?.displayName || group.metadata?.name"></span>
-                    <span class="desktop-widget-config-group-count"
-                          x-text="`${(sources?.photos || []).filter(p => p.spec?.groupName === group.metadata?.name).length} 张`"></span>
+                          class="desktop-widget-config-toggle"
+                          :class="{ 'is-active': widgetConfigForm.meta[field.key] !== false }"
+                          :aria-pressed="widgetConfigForm.meta[field.key] !== false"
+                          @click="updateWidgetConfigMeta(field.key, widgetConfigForm.meta[field.key] === false)">
+                    <span class="desktop-widget-config-toggle-label"
+                          x-text="widgetConfigForm.meta[field.key] !== false ? '已开启' : '已关闭'"></span>
+                    <span class="desktop-widget-config-toggle-track" aria-hidden="true">
+                      <span class="desktop-widget-config-toggle-knob"></span>
+                    </span>
                   </button>
                 </template>
-                <!-- 无分组时提示 -->
-                <template x-if="!(sources?.photoGroups || []).length">
-                  <p class="desktop-widget-config-empty">还没有相册，请先在后台图库中创建分组。</p>
-                </template>
               </div>
-            </div>
+            </template>
+
+            <template x-if="widgetConfigForm.previewWidget">
+              <div class="desktop-widget-config-preview" aria-label="组件预览">
+                <p class="desktop-widget-config-preview-label">预览</p>
+                <article class="desktop-widget-card desktop-widget-card--preview desktop-widget-config-preview-card"
+                         :style="widgetConfigPreviewStyle()"
+                         :data-widget-appearance="widgetAppearanceValue(widgetConfigForm.previewWidget)"
+                         :class="widgetClassName(widgetConfigForm.previewWidget)">
+                  <header class="desktop-widget-header">
+                    <div>
+                      <p class="desktop-widget-kicker" x-text="widgetKicker(widgetConfigForm.previewWidget)"></p>
+                      <h2 class="desktop-widget-title" x-text="widgetConfigForm.previewWidget.title"></h2>
+                    </div>
+                  </header>
+                  <div class="desktop-widget-body"
+                       :data-widget-render-mode="['halo.latest_posts', 'halo.popular_posts'].includes(widgetConfigForm.previewWidget.widget) ? 'html' : 'morph'"
+                       x-widget-content="renderWidgetBody(widgetConfigForm.previewWidget, { preview: true })"></div>
+                </article>
+              </div>
+            </template>
           </div>
           <footer class="desktop-add-icon-dialog-footer">
             <button type="button" class="desktop-add-icon-btn" @click="closeWidgetConfigForm()">取消</button>
             <button type="button"
                     class="desktop-add-icon-btn desktop-add-icon-btn--primary"
-                    :disabled="!(sources?.photoGroups || []).length || !widgetConfigForm.meta.groupName"
+                    :disabled="!isWidgetConfigFormValid()"
                     @click="submitWidgetConfigForm()">添加到桌面</button>
           </footer>
         </div>

@@ -779,6 +779,10 @@
   overflow: hidden;
 }
 
+.desktop-widget-config-dialog {
+  width: min(560px, 100%);
+}
+
 .desktop-add-icon-dialog-header {
   display: flex;
   align-items: center;
@@ -945,6 +949,98 @@
   overscroll-behavior: contain;
 }
 
+.desktop-widget-config-field {
+  gap: 8px;
+}
+
+.desktop-widget-config-select,
+.desktop-widget-config-input {
+  width: 100%;
+  min-height: 38px;
+  border: 0.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  padding: 8px 11px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.desktop-widget-config-select:focus,
+.desktop-widget-config-input:focus {
+  border-color: color-mix(in srgb, var(--mac-accent, #2563eb) 44%, rgba(255,255,255,0.12));
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mac-accent, #2563eb) 18%, transparent);
+}
+
+.desktop-widget-config-toggle {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 38px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 0.5px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 12px;
+  font-weight: 560;
+  cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.desktop-widget-config-toggle.is-active {
+  border-color: color-mix(in srgb, var(--mac-accent, #2563eb) 38%, rgba(255,255,255,0.12));
+  background: color-mix(in srgb, var(--mac-accent, #2563eb) 12%, rgba(255,255,255,0.06));
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.desktop-widget-config-toggle-label {
+  line-height: 1;
+}
+
+.desktop-widget-config-toggle-track {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 1px 2px rgba(0, 0, 0, 0.22);
+  flex: none;
+  transition: background-color 180ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 180ms ease;
+}
+
+.desktop-widget-config-toggle.is-active .desktop-widget-config-toggle-track {
+  background: color-mix(in srgb, var(--mac-accent, #2563eb) 72%, rgba(255, 255, 255, 0.18));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 6px 14px color-mix(in srgb, var(--mac-accent, #2563eb) 16%, transparent);
+}
+
+.desktop-widget-config-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.desktop-widget-config-toggle.is-active .desktop-widget-config-toggle-knob {
+  transform: translateX(18px);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.24);
+}
+
 .desktop-widget-config-group-btn {
   display: flex;
   align-items: center;
@@ -993,6 +1089,27 @@
   font-size: 12px;
   color: rgba(255, 255, 255, 0.45);
   text-align: center;
+}
+
+.desktop-widget-config-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.desktop-widget-config-preview-label {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 620;
+  color: rgba(255, 255, 255, 0.46);
+}
+
+.desktop-widget-config-preview-card {
+  transform: scale(0.78);
+  transform-origin: left top;
+  margin: 0;
+  pointer-events: none;
 }
 
 /* 注：对话框背景永远是暗色，无需亮色覆盖 */

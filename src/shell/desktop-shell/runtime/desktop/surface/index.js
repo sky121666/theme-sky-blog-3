@@ -135,10 +135,14 @@ export function registerDesktopSurface(Alpine) {
     },
     widgetConfigForm: {
       open: false,
+      widgetId: '',
       widgetType: '',
       size: '',
       catalogKey: '',
-      meta: {}
+      title: '',
+      configSchema: [],
+      meta: {},
+      previewWidget: null
     },
     widgets: [],
     defaultWidgets: [],
@@ -217,6 +221,10 @@ export function registerDesktopSurface(Alpine) {
     /* ═══ Mixin methods ═══ */
     ...gridMethods,
     ...placementMethods,
+
+    isWidgetConfigFormValid() {
+      return false;
+    },
 
     previewPlacementClass() {
       return `desktop-widget-drop-preview${this.dragState.kind === 'icon' ? ' is-icon' : ''}`;
