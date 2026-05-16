@@ -111,6 +111,9 @@
                   <div class="moment-feed-gallery-item-wrapper"
                        th:if="${media.type != null and media.type.name() == 'PHOTO'}"
                        data-moment-photo
+                       role="button"
+                       tabindex="0"
+                       aria-label="预览图片"
                        th:attr="data-moment-photo-url=${media.url},
                                 data-moment-photo-type=${media.originType}">
                     <img class="moment-feed-gallery-item"

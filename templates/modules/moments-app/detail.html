@@ -37,6 +37,9 @@
                 <figure class="moment-media-card"
                         th:if="${medium.type.name() == 'PHOTO'}"
                         data-moment-photo
+                        role="button"
+                        tabindex="0"
+                        aria-label="预览图片"
                         th:attr="data-moment-photo-url=${medium.url},
                                  data-moment-photo-type=${medium.originType}">
                   <img th:src="${medium.url}" loading="lazy" decoding="async" alt="" />

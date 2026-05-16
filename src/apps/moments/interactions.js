@@ -432,6 +432,13 @@ function getPhotoViewer(root = document.body) {
     <div class="moment-photo-viewer-stage" data-photo-stage>
       <img class="moment-photo-viewer-image" data-photo-image alt="">
       <video class="moment-photo-viewer-live" data-photo-live playsinline muted loop hidden></video>
+      <div class="moment-photo-viewer-loading" data-photo-loading>
+        <span class="moment-photo-viewer-spinner" aria-hidden="true"></span>
+      </div>
+      <div class="moment-photo-viewer-error" data-photo-error hidden>
+        <span class="icon-[lucide--image-off]" aria-hidden="true"></span>
+        <span>图片加载失败</span>
+      </div>
     </div>
     <button type="button" class="moment-photo-viewer-close" data-photo-close aria-label="关闭">
       <span class="icon-[lucide--x]" aria-hidden="true"></span>
@@ -460,6 +467,16 @@ function getPhotoViewer(root = document.body) {
     pointY: 0,
     panning: false,
     live: false,
+    activePointers: new Map(),
+    pinchStartDistance: 0,
+    pinchStartScale: 1,
+    pinchStartPointX: 0,
+    pinchStartPointY: 0,
+    previousFocus: null,
+    lastTapTime: 0,
+    lastTapX: 0,
+    lastTapY: 0,
+    swipePointerType: '',
     startX: 0,
     startY: 0,
     oldPointX: 0,
@@ -468,6 +485,8 @@ function getPhotoViewer(root = document.body) {
   const stage = overlay.querySelector('[data-photo-stage]');
   const image = overlay.querySelector('[data-photo-image]');
   const live = overlay.querySelector('[data-photo-live]');
+  const loading = overlay.querySelector('[data-photo-loading]');
+  const error = overlay.querySelector('[data-photo-error]');
   const counter = overlay.querySelector('[data-photo-counter]');
   const liveToggle = overlay.querySelector('[data-photo-live-toggle]');
   const closeButton = overlay.querySelector('.moment-photo-viewer-close');
@@ -485,6 +504,49 @@ function getPhotoViewer(root = document.body) {
     overlay.dataset.scale = String(Math.round(state.scale * 100));
   }
 
+  function clampScale(value) {
+    return Math.min(4, Math.max(0.5, Number(value.toFixed(2))));
+  }
+
+  function setScale(nextScale, focal = null) {
+    const next = clampScale(nextScale);
+    if (next === state.scale) return;
+    if (focal) {
+      const rect = stage.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const contentX = (focal.x - centerX - state.pointX) / state.scale;
+      const contentY = (focal.y - centerY - state.pointY) / state.scale;
+      state.pointX = focal.x - centerX - contentX * next;
+      state.pointY = focal.y - centerY - contentY * next;
+    }
+    state.scale = next;
+    updateTransform();
+  }
+
+  function setScaleFromBase(nextScale, focal, baseScale, basePointX, basePointY) {
+    const next = clampScale(nextScale);
+    if (focal) {
+      const rect = stage.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const contentX = (focal.x - centerX - basePointX) / baseScale;
+      const contentY = (focal.y - centerY - basePointY) / baseScale;
+      state.pointX = focal.x - centerX - contentX * next;
+      state.pointY = focal.y - centerY - contentY * next;
+    }
+    state.scale = next;
+    updateTransform({ immediate: true });
+  }
+
+  function stageCenter() {
+    const rect = stage.getBoundingClientRect();
+    return {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2
+    };
+  }
+
   function resetView() {
     state.scale = 1;
     state.pointX = 0;
@@ -492,9 +554,33 @@ function getPhotoViewer(root = document.body) {
     state.live = false;
     live.pause();
     live.hidden = true;
-    image.hidden = false;
+    image.hidden = true;
+    loading.hidden = false;
+    error.hidden = true;
+    overlay.classList.remove('is-image-error');
+    overlay.classList.add('is-loading');
     liveToggle?.classList.remove('is-active');
     updateTransform();
+  }
+
+  function setImageError() {
+    image.hidden = true;
+    live.hidden = true;
+    loading.hidden = true;
+    error.hidden = false;
+    overlay.classList.remove('is-loading');
+    overlay.classList.add('is-image-error');
+  }
+
+  function preloadAdjacent() {
+    if (state.items.length <= 1) return;
+    [-1, 1].forEach((step) => {
+      const item = state.items[(state.index + step + state.items.length) % state.items.length];
+      if (!item?.url) return;
+      const preload = new Image();
+      preload.decoding = 'async';
+      preload.src = item.url;
+    });
   }
 
   function render() {
@@ -503,28 +589,44 @@ function getPhotoViewer(root = document.body) {
     resetView();
     image.src = item.url;
     image.dataset.originType = item.type;
+    if (image.complete && image.naturalWidth > 0) {
+      loading.hidden = true;
+      overlay.classList.remove('is-loading');
+      image.hidden = false;
+    }
     if (item.liveUrl) live.src = item.liveUrl;
     else live.removeAttribute('src');
     liveToggle.hidden = !item.liveUrl;
     counter.textContent = state.items.length > 1 ? `${state.index + 1} / ${state.items.length}` : '';
     overlay.querySelector('[data-photo-prev]').hidden = state.items.length <= 1;
     overlay.querySelector('[data-photo-next]').hidden = state.items.length <= 1;
+    preloadAdjacent();
   }
 
   function close() {
     overlay.hidden = true;
     overlay.parentElement?.classList.remove('is-photo-viewer-open');
+    overlay.classList.remove('is-panning');
+    state.panning = false;
+    state.activePointers.clear();
+    state.pinchStartDistance = 0;
     live.pause();
     image.removeAttribute('src');
     live.removeAttribute('src');
+    if (state.previousFocus?.isConnected) {
+      state.previousFocus.focus({ preventScroll: true });
+    }
+    state.previousFocus = null;
   }
 
-  function show(items, index = 0) {
+  function show(items, index = 0, trigger = null) {
     state.items = items;
     state.index = index;
+    state.previousFocus = trigger instanceof HTMLElement ? trigger : document.activeElement;
     overlay.hidden = false;
     overlay.parentElement?.classList.add('is-photo-viewer-open');
     render();
+    overlay.focus({ preventScroll: true });
     requestAnimationFrame(() => closeButton?.focus({ preventScroll: true }));
   }
 
@@ -535,8 +637,34 @@ function getPhotoViewer(root = document.body) {
   }
 
   function zoom(delta) {
-    state.scale = Math.min(4, Math.max(0.5, Number((state.scale + delta).toFixed(2))));
-    updateTransform();
+    setScale(state.scale + delta, stageCenter());
+  }
+
+  function pointerDistance() {
+    const points = Array.from(state.activePointers.values());
+    if (points.length < 2) return 0;
+    return Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+  }
+
+  function pointerCenter() {
+    const points = Array.from(state.activePointers.values());
+    if (points.length < 2) return null;
+    return {
+      x: (points[0].x + points[1].x) / 2,
+      y: (points[0].y + points[1].y) / 2
+    };
+  }
+
+  function toggleZoomAt(x, y) {
+    if (overlay.classList.contains('is-image-error')) return;
+    if (state.scale > 1.02) {
+      state.scale = 1;
+      state.pointX = 0;
+      state.pointY = 0;
+      updateTransform();
+      return;
+    }
+    setScale(2, { x, y });
   }
 
   overlay.addEventListener('click', (event) => {
@@ -558,15 +686,46 @@ function getPhotoViewer(root = document.body) {
     }
   });
 
+  image.addEventListener('load', () => {
+    loading.hidden = true;
+    error.hidden = true;
+    overlay.classList.remove('is-loading');
+    overlay.classList.remove('is-image-error');
+    if (!state.live) image.hidden = false;
+  });
+
+  image.addEventListener('error', setImageError);
+
   stage.addEventListener('wheel', (event) => {
     event.preventDefault();
-    zoom(event.deltaY > 0 ? -0.12 : 0.12);
+    setScale(state.scale + (event.deltaY > 0 ? -0.12 : 0.12), { x: event.clientX, y: event.clientY });
   }, { passive: false });
 
-  stage.addEventListener('mousedown', (event) => {
-    if (event.button !== 0) return;
+  stage.addEventListener('dblclick', (event) => {
     event.preventDefault();
+    toggleZoomAt(event.clientX, event.clientY);
+  });
+
+  stage.addEventListener('pointerdown', (event) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    event.preventDefault();
+    try {
+      stage.setPointerCapture?.(event.pointerId);
+    } catch {
+      // Pointer capture may be unavailable for synthetic or cancelled pointers.
+    }
+    state.activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (state.activePointers.size === 2) {
+      state.panning = false;
+      state.pinchStartDistance = pointerDistance();
+      state.pinchStartScale = state.scale;
+      state.pinchStartPointX = state.pointX;
+      state.pinchStartPointY = state.pointY;
+      overlay.classList.remove('is-panning');
+      return;
+    }
     state.panning = true;
+    state.swipePointerType = event.pointerType;
     state.startX = event.clientX;
     state.startY = event.clientY;
     state.oldPointX = state.pointX;
@@ -575,19 +734,74 @@ function getPhotoViewer(root = document.body) {
     updateTransform({ immediate: true });
   });
 
-  window.addEventListener('mousemove', (event) => {
-    if (!state.panning || overlay.hidden) return;
+  stage.addEventListener('pointermove', (event) => {
+    if (overlay.hidden || !state.activePointers.has(event.pointerId)) return;
+    event.preventDefault();
+    state.activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (state.activePointers.size >= 2 && state.pinchStartDistance > 0) {
+      const nextDistance = pointerDistance();
+      const ratio = nextDistance / state.pinchStartDistance;
+      setScaleFromBase(
+        state.pinchStartScale * ratio,
+        pointerCenter(),
+        state.pinchStartScale,
+        state.pinchStartPointX,
+        state.pinchStartPointY
+      );
+      return;
+    }
+    if (!state.panning) return;
     state.pointX = state.oldPointX + event.clientX - state.startX;
     state.pointY = state.oldPointY + event.clientY - state.startY;
     updateTransform({ immediate: true });
   });
 
-  window.addEventListener('mouseup', () => {
-    if (!state.panning) return;
+  function endPointer(event) {
+    const dx = event.clientX - state.startX;
+    const dy = event.clientY - state.startY;
+    const elapsed = Date.now() - state.lastTapTime;
+    const tapDistance = Math.hypot(event.clientX - state.lastTapX, event.clientY - state.lastTapY);
+    const isTap = Math.hypot(dx, dy) < 10;
+    if (state.activePointers.has(event.pointerId)) {
+      state.activePointers.delete(event.pointerId);
+    }
+    try {
+      stage.releasePointerCapture?.(event.pointerId);
+    } catch {
+      // Pointer capture may already be released by the browser.
+    }
+    if (state.activePointers.size === 1) {
+      const point = Array.from(state.activePointers.values())[0];
+      state.panning = true;
+      state.startX = point.x;
+      state.startY = point.y;
+      state.oldPointX = state.pointX;
+      state.oldPointY = state.pointY;
+      overlay.classList.add('is-panning');
+      return;
+    }
+    state.pinchStartDistance = 0;
     state.panning = false;
     overlay.classList.remove('is-panning');
+    if (state.swipePointerType !== 'mouse' && Math.abs(dx) > 64 && Math.abs(dx) > Math.abs(dy) * 1.5 && state.scale <= 1.08) {
+      move(dx < 0 ? 1 : -1);
+      return;
+    }
+    if (state.swipePointerType !== 'mouse' && isTap) {
+      if (elapsed > 0 && elapsed < 300 && tapDistance < 28) {
+        toggleZoomAt(event.clientX, event.clientY);
+        state.lastTapTime = 0;
+      } else {
+        state.lastTapTime = Date.now();
+        state.lastTapX = event.clientX;
+        state.lastTapY = event.clientY;
+      }
+    }
     updateTransform();
-  });
+  }
+
+  stage.addEventListener('pointerup', endPointer);
+  stage.addEventListener('pointercancel', endPointer);
 
   window.addEventListener('keydown', (event) => {
     if (overlay.hidden) return;
@@ -613,7 +827,7 @@ function openPhotoViewer(target) {
   const { items, index } = collectPhotoItems(target);
   if (!items.length) return;
   const root = target.closest('.moments-window') || target.closest('[data-window-frame]') || document.body;
-  getPhotoViewer(root).show(items, index);
+  getPhotoViewer(root).show(items, index, target);
 }
 
 function renderCard(card) {
@@ -1139,6 +1353,13 @@ export function setupMomentInteractions(root = document) {
   }
 
   function onKeydown(event) {
+    const mediaThumb = event.target?.closest?.('[data-moment-photo]');
+    if (mediaThumb && eventHost.contains(mediaThumb) && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      openPhotoViewer(mediaThumb);
+      return;
+    }
+
     if (event.key === 'Escape') {
       closeAllMenus(container);
       const card = getCard(event.target);
@@ -1185,8 +1406,8 @@ export function setupMomentInteractions(root = document) {
   }
 
   eventHost.addEventListener('click', onClick);
+  eventHost.addEventListener('keydown', onKeydown);
   container.addEventListener('input', onInput);
-  container.addEventListener('keydown', onKeydown);
   container.addEventListener('submit', onSubmit);
   ownerDocument.addEventListener('click', onDocumentClick);
   window.addEventListener('moments:feed-updated', onFeedUpdated);
@@ -1200,8 +1421,8 @@ export function setupMomentInteractions(root = document) {
       state.commentsLoading = false;
     });
     eventHost.removeEventListener('click', onClick);
+    eventHost.removeEventListener('keydown', onKeydown);
     container.removeEventListener('input', onInput);
-    container.removeEventListener('keydown', onKeydown);
     container.removeEventListener('submit', onSubmit);
     ownerDocument.removeEventListener('click', onDocumentClick);
     window.removeEventListener('moments:feed-updated', onFeedUpdated);
