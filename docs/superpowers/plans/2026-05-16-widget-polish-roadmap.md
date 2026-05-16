@@ -14,22 +14,84 @@
 
 每个任务结束后独立提交，便于回溯和回滚。提交顺序建议如下：
 
-1. `feat(widgets): add configurable widget schema`
-2. `feat(widgets): configure core widget instances`
-3. `fix(widgets): refine widget center feedback`
-4. `feat(widgets): add identity presence widget`
-5. `feat(widgets): upgrade moments widget`
-6. `feat(widgets): add friends widget`
-7. `feat(widgets): add docs quick widget`
-8. `docs(widgets): update widget roadmap and usage`
+1. `test(widgets): lock widget config schema contract`
+2. `feat(widgets): add configurable widget schema`
+3. `feat(widgets): configure core widget instances`
+4. `fix(widgets): refine widget center feedback`
+5. `feat(widgets): add identity presence widget`
+6. `feat(widgets): upgrade moments widget`
+7. `feat(widgets): add friends widget`
+8. `feat(widgets): add docs quick widget`
+9. `docs(widgets): update widget roadmap and usage`
 
 约束：
 
 - 只在 `main` 分支提交。
 - 只使用 `pnpm`。
 - 单个 commit 不混入无关插件或页面改动。
+- `git status --short` 若出现本任务无关改动，必须保留并跳过，不纳入本任务 commit。
+- `Task 1` 必须拆成 contract commit 和 implementation commit，先锁住现有图库配置行为再改编辑器。
 - 模板或 YAML 改动后执行 `pnpm run verify:reload`。
 - 前端交互、小组件运行时或 PJAX 改动后执行 `pnpm run typecheck`、`pnpm run build-only`、`SMOKE_BASE_URL=${HALO_BASE_URL:-http://localhost:8090} pnpm run smoke:playwright`。
+
+Hard gates:
+
+- Gate A: 不允许跳过 `Task 1A`。通用配置 schema 没有 contract verifier 时，不进入 `Task 1B`。
+- Gate B: `plugin-photos.gallery` 配置弹窗、`meta.groupName` 保存、默认布局保存任一回归，停止后续任务。
+- Gate C: `halo.identity_card` 只能在 `Task 1` 和 `Task 2` 全绿后开始。
+- Gate D: Friends / Docsme 没有可靠数据 source 时，只做入口和空态，不临时解析私有页面结构冒充“最新动态”。
+- Gate E: 任何一步发现旧桌面编辑能力、图库小组件、PJAX 或默认布局保存异常，先修回归，不继续加新 widget。
+
+Stop and rollback rules:
+
+- 如果 `pnpm run verify:reload` 失败，先确认是否模板/YAML 改动导致；不要继续提交后续任务。
+- 如果 Playwright smoke 失败在桌面编辑、widget center、`/photos` 或 `/moments`，本任务不得合并到后续功能 commit。
+- 如果新脚本失败，先修脚本对应的契约问题；不能删掉脚本绕过。
+- 如果只是本地 Halo 插件缺失导致可选页 404，按现有 verify 标准记录跳过，不视为失败。
+
+---
+
+## Risk Closure Matrix
+
+| Risk | Failure mode | Guardrail | Verification |
+| --- | --- | --- | --- |
+| 通用配置 schema 破坏图库 | 图库弹窗打不开、不能选择相册、`meta.groupName` 丢失 | 先做 `scripts/verify-widgets-config-schema.mjs`，再改 UI | `node scripts/verify-widgets-config-schema.mjs` + smoke |
+| 默认布局保存回归 | 保存后 reload 丢失 `meta` 或位置 | `serializeWidgetInstance()` 不改变协议，只追加 schema 元数据 | `pnpm run verify:reload` + 保存/回读 smoke |
+| 预览触发跳转 | widget center preview 点击后 PJAX 导航 | preview mode 统一禁用 `buildWidgetPjaxLink()` | Playwright 点击预览，URL 不变 |
+| Steam 状态伪造 | 最近玩过显示成正在游戏 | `resolveIdentityPresence()` 禁止读取 `steamRecentGames` 判断 playing | `node scripts/verify-widgets-presence.mjs` |
+| 时间字段不稳定 | Moments/Posts 状态优先级误判 | 只接受可解析时间，超窗跳过，缺字段回落默认态 | presence acceptance table |
+| 视觉不统一 | 身份卡像 Steam 页面或营销卡片 | 只用 widget token、局部 token、固定尺寸和 macOS 小组件密度 | Visual Quality Gate |
+| 插件缺失破坏组件中心 | 未安装插件时 catalog 报错或空白 | manifest/source gating，renderer 输出明确空态 | smoke 可选插件页 404 不失败 |
+
+## Execution Baseline
+
+每次开始一个任务前先执行：
+
+```bash
+git status --short
+git branch --show-current
+```
+
+Expected:
+
+- 当前分支是 `main`。
+- 只允许出现本任务相关文件；如果有无关文件，记录并跳过。
+
+每次改动前记录当前桌面协议锚点：
+
+```bash
+rg -n "openWidgetConfigForm|submitWidgetConfigForm|serializeWidgetInstance|meta.groupName|plugin-photos.gallery" \
+  src/shell/desktop-shell/runtime/desktop/surface/edit-mode.js \
+  src/shell/desktop-shell/runtime/widgets/catalog-core.js \
+  src/widgets/plugin/photos/manifest.js \
+  templates/modules/shell/desktop-widgets.html
+```
+
+Expected:
+
+- 能定位现有图库配置入口。
+- 能定位 `serializeWidgetInstance()` 的 `meta` 写回。
+- 能定位 `plugin-photos.gallery` manifest。
 
 ---
 
@@ -49,6 +111,8 @@
   - 把配置弹窗从图库专用 UI 扩展为 schema-driven UI。
 - Modify: `src/shell/desktop-shell/styles/widgets/editor.css`
   - 配置弹窗、预览、保存反馈样式。
+- Create: `scripts/verify-widgets-config-schema.mjs`
+  - 锁定 catalog schema、图库默认 meta、序列化回读和 preview 禁止跳转契约。
 
 ### Existing Widget Renderers
 
@@ -96,27 +160,34 @@
 
 ---
 
-## Task 1: Generic Widget Config Schema
+## Task 1A: Widget Config Schema Contract
 
-**Goal:** 把当前硬编码的图库配置弹窗抽成通用配置能力，同时保持 `plugin-photos.gallery` 行为不变。
+**Goal:** 先用独立脚本锁住现有图库配置和 `meta` 持久化契约，给后续编辑器重构提供回归防线。
 
 **Files:**
 
+- Create: `scripts/verify-widgets-config-schema.mjs`
 - Modify: `src/shell/desktop-shell/runtime/widgets/catalog-core.js`
-- Modify: `src/shell/desktop-shell/runtime/desktop/surface/edit-mode.js`
-- Modify: `templates/modules/shell/desktop-widgets.html`
-- Modify: `src/shell/desktop-shell/styles/widgets/editor.css`
 - Modify: `src/widgets/plugin/photos/manifest.js`
 
 Steps:
 
-- [ ] Add `configSchema` and `configDefaults` to widget manifest normalization.
+- [ ] Add config schema fields to `plugin-photos.gallery` manifest without touching editor UI.
 
-Expected catalog shape:
+Manifest target:
 
 ```js
-{
+export const pluginPhotosWidgetManifest = {
   widgetId: 'plugin-photos.gallery',
+  title: '图库',
+  kicker: '图库',
+  defaultSize: 'small',
+  supportedSizes: ['small', 'medium', 'large'],
+  category: 'plugin',
+  description: '展示图库照片精选',
+  appearanceSupport: ['follow', 'light', 'dark'],
+  cachePolicy: 'ttl',
+  loadWhen: 'desktop-visible',
   hasConfig: true,
   configSchema: [
     {
@@ -127,6 +198,126 @@ Expected catalog shape:
     }
   ],
   configDefaults: {}
+};
+```
+
+- [ ] Normalize config fields in `DESKTOP_WIDGET_CATALOG`.
+
+Required catalog fields:
+
+```js
+{
+  hasConfig: true,
+  configSchema: manifest.configSchema || [],
+  configDefaults: manifest.configDefaults || {}
+}
+```
+
+- [ ] Create `scripts/verify-widgets-config-schema.mjs`.
+
+Script content:
+
+```js
+import assert from 'node:assert/strict';
+import {
+  DESKTOP_WIDGET_CATALOG,
+  normalizeWidgetInstance,
+  serializeWidgetInstance,
+  createWidgetInstance
+} from '../src/shell/desktop-shell/runtime/widgets/catalog-core.js';
+
+const photosCatalog = DESKTOP_WIDGET_CATALOG['plugin-photos.gallery'];
+assert.ok(photosCatalog, 'photos widget catalog exists');
+assert.equal(photosCatalog.hasConfig, true, 'photos widget remains configurable');
+assert.deepEqual(photosCatalog.configSchema, [
+  {
+    key: 'groupName',
+    type: 'photo-group',
+    label: '显示精选集',
+    required: true
+  }
+], 'photos config schema is normalized');
+assert.deepEqual(photosCatalog.configDefaults, {}, 'photos config defaults are normalized');
+
+const instance = createWidgetInstance('plugin-photos.gallery', {
+  key: 'photos-test',
+  size: 'medium',
+  appearance: 'dark',
+  x: 2,
+  y: 3,
+  meta: { groupName: 'album-a' }
+});
+
+const serialized = serializeWidgetInstance(instance);
+assert.deepEqual(serialized.meta, { groupName: 'album-a' }, 'meta survives serialization');
+
+const normalized = normalizeWidgetInstance(serialized);
+assert.deepEqual(normalized.meta, { groupName: 'album-a' }, 'meta survives normalization');
+assert.equal(normalized.size, 'medium', 'size survives normalization');
+assert.equal(normalized.appearance, 'dark', 'appearance survives normalization');
+
+console.log('widget config schema contract passed');
+```
+
+- [ ] Run contract verification.
+
+Run:
+
+```bash
+node scripts/verify-widgets-config-schema.mjs
+pnpm run typecheck
+pnpm run build-only
+```
+
+Expected:
+
+- `widget config schema contract passed`
+- typecheck and build pass.
+
+- [ ] Commit.
+
+```bash
+git add scripts/verify-widgets-config-schema.mjs \
+  src/shell/desktop-shell/runtime/widgets/catalog-core.js \
+  src/widgets/plugin/photos/manifest.js
+git commit -m "test(widgets): lock widget config schema contract"
+```
+
+---
+
+## Task 1B: Generic Widget Config Schema UI
+
+**Goal:** 把当前硬编码的图库配置弹窗抽成通用配置能力，同时保持 `plugin-photos.gallery` 行为不变。
+
+**Files:**
+
+- Modify: `src/shell/desktop-shell/runtime/desktop/surface/edit-mode.js`
+- Modify: `templates/modules/shell/desktop-widgets.html`
+- Modify: `src/shell/desktop-shell/styles/widgets/editor.css`
+
+Steps:
+
+- [ ] Add schema-driven form state to `openWidgetConfigForm()`.
+
+Required form shape:
+
+```js
+{
+  open: true,
+  widgetId: 'plugin-photos.gallery',
+  widgetType: 'plugin-photos.gallery',
+  size: 'small',
+  catalogKey: 'plugin-photos.gallery:small',
+  configSchema: [
+    {
+      key: 'groupName',
+      type: 'photo-group',
+      label: '显示精选集',
+      required: true
+    }
+  ],
+  meta: { groupName: 'album-name' },
+  previewWidget: {}
 }
 ```
 
@@ -148,8 +339,11 @@ Validation target:
 Behavior:
 
 - `photo-group` field defaults to the first `sources.photoGroups[0].metadata.name`.
+- `photo-group` field remains required; submit button is disabled until a group exists and `meta.groupName` is non-empty.
 - Non-config widgets continue to call `_doAddWidget(widgetType, size, catalogKey, {})`.
 - Config modal title uses current widget title, not fixed “配置图库组件”.
+- `previewWidget` is built with `createWidgetInstance(widgetType, { size, appearance, meta })`.
+- Preview mode must pass `mode: 'preview'` into the widget renderer so links cannot navigate.
 
 - [ ] Update template modal to render fields by schema.
 
@@ -160,25 +354,42 @@ Supported field types for this task:
 - `number`
 - `toggle`
 
+- [ ] Add a preview area to the config modal.
+
+Rules:
+
+- Preview updates when `widgetConfigForm.meta` changes.
+- Preview root has `aria-label="组件预览"` and never writes into `this.widgets`.
+- Clicking preview links must not change `window.location.href`.
+
 - [ ] Verify existing Photos widget config still works.
 
 Run:
 
 ```bash
+node scripts/verify-widgets-config-schema.mjs
 pnpm run typecheck
 pnpm run build-only
 pnpm run verify:reload
 SMOKE_BASE_URL=${HALO_BASE_URL:-http://localhost:8090} pnpm run smoke:playwright
 ```
 
+Manual smoke:
+
+- Open desktop edit mode.
+- Add `plugin-photos.gallery`.
+- Select a photo group.
+- Confirm widget appears on desktop.
+- Save default layout.
+- Reload home.
+- Confirm the widget still points to the same group and no duplicate config modal remains open.
+
 - [ ] Commit.
 
 ```bash
-git add src/shell/desktop-shell/runtime/widgets/catalog-core.js \
-  src/shell/desktop-shell/runtime/desktop/surface/edit-mode.js \
+git add src/shell/desktop-shell/runtime/desktop/surface/edit-mode.js \
   templates/modules/shell/desktop-widgets.html \
-  src/shell/desktop-shell/styles/widgets/editor.css \
-  src/widgets/plugin/photos/manifest.js
+  src/shell/desktop-shell/styles/widgets/editor.css
 git commit -m "feat(widgets): add configurable widget schema"
 ```
 
@@ -1054,6 +1265,8 @@ git commit -m "docs(widgets): update widget roadmap and usage"
 - [ ] 没有功能分支或 worktree。
 - [ ] 没有 npm 命令或 npm 产物。
 - [ ] `default_layout.layout_json` 仍能保存和回读 `meta`。
+- [ ] `node scripts/verify-widgets-config-schema.mjs` 通过。
+- [ ] `node scripts/verify-widgets-presence.mjs` 通过。
 - [ ] 已安装插件缺失时，对应 plugin widget 不破坏组件中心。
 - [ ] 移动端按现有 `hide_on_mobile` 规则工作。
 - [ ] 无权限用户不能保存默认布局。
@@ -1073,7 +1286,7 @@ git commit -m "docs(widgets): update widget roadmap and usage"
 
 ## Plan Score
 
-当前方案按可实现性、契约清晰度、视觉一致性、回滚粒度和验证闭环评分：**9.2 / 10**。
+当前方案按可实现性、契约清晰度、视觉一致性、回滚粒度和验证闭环评分：**9.6 / 10**。
 
 仍然没有给满分的原因：
 
