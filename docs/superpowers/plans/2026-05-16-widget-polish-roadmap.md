@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 把桌面小组件从“能添加”推进到“可配置、可预览、可回溯扩展”，并优先增强瞬间、朋友圈、Docsme 等和当前主题主线最贴合的小组件。
+**Goal:** 把桌面小组件从“能添加”推进到“可配置、可预览、可回溯扩展”，并引入身份状态型小组件，把作者、Steam、瞬间、文章和图库状态组合成更有个人桌面感的内容入口。
 
-**Architecture:** 小组件仍保持 `src/widgets/*` 为内容边界，桌面编辑器只负责配置、预览、布局和保存。每个 widget 通过 manifest 声明尺寸、外观和配置 schema，实例配置继续写入 `default_layout.layout_json.instances[].meta`。插件数据只通过已确认契约或明确的前端 fetch 边界进入 widget，不把页面私有 DOM 直接耦合进渲染器。
+**Architecture:** 小组件仍保持 `src/widgets/*` 为内容边界，桌面编辑器只负责配置、预览、布局和保存。每个 widget 通过 manifest 声明尺寸、外观和配置 schema，实例配置继续写入 `default_layout.layout_json.instances[].meta`。插件数据只通过已确认契约或明确的前端 fetch 边界进入 widget，不把页面私有 DOM 直接耦合进渲染器；身份状态卡片使用统一的 presence resolver 汇总真实数据，不伪造在线、正在游玩或最近活动。
 
 **Tech Stack:** Halo Thymeleaf templates, Alpine runtime, Vite ESM, `src/widgets` lazy renderers, `pnpm` scripts, main branch only.
 
@@ -17,10 +17,11 @@
 1. `feat(widgets): add configurable widget schema`
 2. `feat(widgets): configure core widget instances`
 3. `fix(widgets): refine widget center feedback`
-4. `feat(widgets): upgrade moments widget`
-5. `feat(widgets): add friends widget`
-6. `feat(widgets): add docs quick widget`
-7. `docs(widgets): update widget roadmap and usage`
+4. `feat(widgets): add identity presence widget`
+5. `feat(widgets): upgrade moments widget`
+6. `feat(widgets): add friends widget`
+7. `feat(widgets): add docs quick widget`
+8. `docs(widgets): update widget roadmap and usage`
 
 约束：
 
@@ -51,6 +52,9 @@
 
 ### Existing Widget Renderers
 
+- Create: `src/widgets/halo/identity-card/manifest.js`
+- Create: `src/widgets/halo/identity-card/render.js`
+- Create: `src/widgets/shared/presence.js`
 - Modify: `src/widgets/system/weather/manifest.js`
 - Modify: `src/widgets/system/weather/render.js`
 - Modify: `src/shell/desktop-shell/runtime/widgets/weather-runtime.js`
@@ -71,6 +75,15 @@
   - 增加 `friendsAvailable`、`docsmeAvailable`、必要 source 字段。
 - Modify: `templates/modules/shell/layout.html`
   - 向 desktop widgets fragment 传入插件可用性与必要 URL。
+
+### Identity Presence Data
+
+- Modify: `templates/modules/shell/desktop-widgets.html`
+  - 向 widget protocol 传入 Steam presence、recent game、必要 profile 字段。
+- Modify: `templates/modules/shell/layout.html`
+  - 判空调用 `steamFinder.getProfile()`、`steamFinder.getStats()`、`steamFinder.getRecentGames(1)`。
+- Modify: `src/widgets/shared/data.js`
+  - 复用作者资料解析，不把身份卡片重新硬编码一套作者字段。
 
 ### Docs
 
@@ -330,7 +343,190 @@ git commit -m "fix(widgets): refine widget center feedback"
 
 ---
 
-## Task 4: Moments Widget Upgrade
+## Task 4: Identity Presence Widget
+
+**Goal:** 新增身份状态型小组件，参考 sky-blog-1 侧边栏 Steam 状态卡片思路，把作者卡片升级成能根据真实数据切换状态的桌面名片。
+
+**Files:**
+
+- Create: `src/widgets/halo/identity-card/manifest.js`
+- Create: `src/widgets/halo/identity-card/render.js`
+- Create: `src/widgets/shared/presence.js`
+- Modify: `src/widgets/registry.js`
+- Modify: `src/widgets/loaders.js`
+- Modify: `templates/modules/shell/layout.html`
+- Modify: `templates/modules/shell/desktop-widgets.html`
+- Create: `src/shell/desktop-shell/styles/widgets/content/identity-card.css`
+- Modify: `src/shell/desktop-shell/styles/widgets/content/index.css`
+- Modify: `docs/桌面小组件.md`
+- Modify: `docs/功能/Steam.md`
+
+Design principle:
+
+- 这是身份状态卡，不是单独 Steam 小组件。
+- 默认显示作者身份；当有真实活动时，自动切换主状态。
+- 状态判断只来自主题已有数据或已确认插件契约，不根据最近游玩列表伪造“正在玩”。
+
+Presence priority:
+
+| Priority | Condition | Primary text | Link |
+| --- | --- | --- | --- |
+| 1 | `sources.steamProfile.playing === true` | `正在游戏` 或插件 `statusText` | `/steam` |
+| 2 | 最近 Moments 在 48 小时内 | `刚刚更新瞬间` | `/moments/{name}` |
+| 3 | 最新文章在 7 天内 | `最近写了文章` | 最新文章 |
+| 4 | Photos 有可用照片 | `最近整理图库` | `/photos` |
+| 5 | 无活动 | 作者简介 | 作者页 |
+
+Steam boundary:
+
+- Can show `profile.statusText` when available.
+- Can show `正在游戏` when `profile.playing === true`.
+- Can show current game name only if the plugin profile summary exposes a dedicated current game field.
+- Must not use `steamFinder.getRecentGames(1)` as “正在玩”; recent games only means “最近玩过”.
+
+Manifest:
+
+```js
+export const haloIdentityCardWidgetManifest = {
+  widgetId: 'halo.identity_card',
+  title: '身份状态',
+  kicker: 'Halo',
+  defaultSize: 'medium',
+  supportedSizes: ['small', 'medium', 'large'],
+  category: 'halo',
+  description: '作者身份与当前状态',
+  appearanceSupport: ['follow', 'light', 'dark'],
+  cachePolicy: 'ttl',
+  loadWhen: 'desktop-visible',
+  hasConfig: true,
+  configSchema: [
+    { key: 'showSteam', type: 'toggle', label: '显示 Steam 状态', defaultValue: true },
+    { key: 'showMoments', type: 'toggle', label: '显示瞬间状态', defaultValue: true },
+    { key: 'showPosts', type: 'toggle', label: '显示文章状态', defaultValue: true },
+    { key: 'showPhotos', type: 'toggle', label: '显示图库状态', defaultValue: true }
+  ],
+  configDefaults: {
+    showSteam: true,
+    showMoments: true,
+    showPosts: true,
+    showPhotos: true
+  }
+};
+```
+
+Renderer behavior:
+
+- `small`: avatar + name + one-line presence.
+- `medium`: avatar/profile + presence capsule + 3 quick actions.
+- `large`: cover/status hero + profile + status details + quick metrics.
+- Use author avatar/name from `resolveDesktopAuthorProfile(sources)`.
+- Use `buildWidgetPjaxLink()` for internal links and disable navigation in preview mode.
+- Empty or unavailable plugin data gracefully falls back to the default author profile.
+
+Presence resolver shape:
+
+```js
+{
+  type: 'steam-playing' | 'moment-recent' | 'post-recent' | 'photos-active' | 'default',
+  label: '正在游戏',
+  title: 'Steam Player',
+  subtitle: '当前在线',
+  href: '/steam',
+  app: 'steam',
+  cover: '',
+  accent: 'steam'
+}
+```
+
+Steps:
+
+- [ ] Add Steam source fields to desktop widget protocol.
+
+Source shape:
+
+```js
+steamAvailable: true,
+steamProfile: {
+  playing: true,
+  statusText: '正在游戏',
+  personaName: 'Steam Player',
+  avatarFull: '',
+  profileUrl: '',
+  steamLevel: 0
+},
+steamStats: {
+  totalGames: 0,
+  recentPlaytimeFormatted: ''
+},
+steamRecentGames: []
+```
+
+- [ ] Implement `resolveIdentityPresence(sources, meta, now)` in `src/widgets/shared/presence.js`.
+
+Rules:
+
+- Respect meta toggles.
+- Clamp date windows: Moments 48 hours, posts 7 days.
+- Use `Date.parse()` defensively and ignore invalid timestamps.
+- Return `default` when data is missing.
+
+- [ ] Implement identity-card renderer.
+
+Visual direction:
+
+- Calm macOS card, not Steam page clone.
+- Steam state can borrow dark blue/online accent from Steam, but card still follows widget appearance token.
+- Use one primary status, not a crowded list of every service.
+- Quick actions: 作者页、瞬间、Steam or 图库 depending on available state.
+
+- [ ] Register widget manifest and loader.
+
+Files:
+
+```bash
+src/widgets/registry.js
+src/widgets/loaders.js
+src/shell/desktop-shell/styles/widgets/content/index.css
+```
+
+- [ ] Document the data boundary.
+
+Docs must state:
+
+- Steam currently playing only uses explicit `profile.playing`.
+- Recent game is not treated as currently playing.
+- The widget falls back to author profile when plugins are missing.
+
+- [ ] Verify.
+
+Run:
+
+```bash
+pnpm run typecheck
+pnpm run build-only
+pnpm run verify:reload
+SMOKE_BASE_URL=${HALO_BASE_URL:-http://localhost:8090} pnpm run smoke:playwright
+```
+
+- [ ] Commit.
+
+```bash
+git add src/widgets/halo/identity-card \
+  src/widgets/shared/presence.js \
+  src/widgets/registry.js \
+  src/widgets/loaders.js \
+  templates/modules/shell/layout.html \
+  templates/modules/shell/desktop-widgets.html \
+  src/shell/desktop-shell/styles/widgets/content/identity-card.css \
+  src/shell/desktop-shell/styles/widgets/content/index.css \
+  docs/桌面小组件.md \
+  docs/功能/Steam.md
+git commit -m "feat(widgets): add identity presence widget"
+```
+
+---
+
+## Task 5: Moments Widget Upgrade
 
 **Goal:** 让瞬间小组件更接近朋友圈/照片回忆卡片，同时不提前加载全部评论。
 
@@ -401,7 +597,7 @@ git commit -m "feat(widgets): upgrade moments widget"
 
 ---
 
-## Task 5: Friends Recent Widget
+## Task 6: Friends Recent Widget
 
 **Goal:** 新增朋友圈小组件，展示最新友链动态入口。
 
@@ -474,7 +670,7 @@ git commit -m "feat(widgets): add friends widget"
 
 ---
 
-## Task 6: Docsme Quick Widget
+## Task 7: Docsme Quick Widget
 
 **Goal:** 新增 Docsme 快捷入口小组件，先做稳定入口，不做复杂文档索引。
 
@@ -544,7 +740,7 @@ git commit -m "feat(widgets): add docs quick widget"
 
 ---
 
-## Task 7: Documentation And Final Verification
+## Task 8: Documentation And Final Verification
 
 **Goal:** 把小组件能力、配置方式、后续增强边界写清楚，并做最终回归。
 
@@ -561,7 +757,7 @@ Steps:
 Document:
 
 - 系统：时间、日历、天气
-- Halo：最新文章、热门文章、分类、作者卡片、站点统计、随机标签
+- Halo：身份状态、最新文章、热门文章、分类、作者卡片、站点统计、随机标签
 - 插件：瞬间、图库、朋友圈、Docsme
 
 - [ ] Update configuration guide.
@@ -577,7 +773,7 @@ Document:
 Keep future items:
 
 - 追番小组件
-- Steam 小组件
+- 独立 Steam 小组件（身份状态卡已覆盖“正在游戏/最近游戏”的轻量入口）
 - Equipment 随机装备小组件
 - Douban 页面完成后再评估 Douban 小组件
 
@@ -613,4 +809,3 @@ git commit -m "docs(widgets): update widget roadmap and usage"
 - [ ] 无权限用户不能保存默认布局。
 - [ ] `pnpm run verify:reload` 通过。
 - [ ] Playwright smoke 通过。
-
