@@ -135,7 +135,7 @@
                       :disabled="serverLayoutSaving"
                       @click="saveDesktopEditing(); closeDesktopContextMenu()">
                 <span class="icon-[lucide--check]" aria-hidden="true"></span>
-                <span x-text="serverLayoutSaving ? '保存中...' : '保存'"></span>
+                <span x-text="desktopLayoutSaveButtonLabel()"></span>
               </button>
             </div>
           </div>
@@ -359,8 +359,15 @@
           <header class="desktop-widget-center-header">
             <div class="desktop-widget-center-heading">
               <h2>小组件</h2>
+              <p x-show="desktopLayoutSaveFeedbackText"
+                 :class="desktopLayoutSaveFeedbackClass"
+                 x-text="desktopLayoutSaveFeedbackText"
+                 style="display: none;"></p>
             </div>
             <div class="desktop-widget-center-actions">
+              <button type="button"
+                      class="desktop-widget-center-head-action desktop-widget-center-head-action--quiet"
+                      @click="applyRecommendedWidgetLayout()">推荐布局</button>
               <button type="button"
                       class="desktop-widget-center-head-action desktop-widget-center-head-action--quiet"
                       @click="resetLayout()">清空组件</button>
@@ -371,7 +378,7 @@
                       class="desktop-widget-center-head-action desktop-widget-center-head-action--primary"
                       :disabled="serverLayoutSaving"
                       @click="saveDesktopEditing()"
-                      x-text="serverLayoutSaving ? '保存中' : '保存'"></button>
+                      x-text="desktopLayoutSaveButtonLabel()"></button>
             </div>
           </header>
 
@@ -445,10 +452,16 @@
                       <!-- 底栏 -->
                       <div class="desktop-widget-center-item-foot">
                         <div class="desktop-widget-center-item-info">
-                          <h3 class="desktop-widget-center-item-title">
-                            <span x-text="entry.title"></span>
-                            <span class="desktop-widget-center-size-badge" x-text="entry.sizeLabel"></span>
-                          </h3>
+                          <div class="desktop-widget-center-item-title-row">
+                            <h3 class="desktop-widget-center-item-title">
+                              <span x-text="entry.title"></span>
+                              <span class="desktop-widget-center-size-badge" x-text="entry.sizeLabel"></span>
+                            </h3>
+                            <span class="desktop-widget-center-added-badge"
+                                  x-show="widgetCatalogAddedCount(entry) > 0"
+                                  x-text="`已添加 ${widgetCatalogAddedCount(entry)} 个`"
+                                  style="display: none;"></span>
+                          </div>
                           <p class="desktop-widget-center-item-meta" x-text="catalogStatusText(entry)"></p>
                         </div>
                         <div class="desktop-widget-center-item-controls">

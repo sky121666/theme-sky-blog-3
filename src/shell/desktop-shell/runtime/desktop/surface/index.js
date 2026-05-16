@@ -108,6 +108,8 @@ export function registerDesktopSurface(Alpine) {
     canManageDefaultDesktopLayout: false,
     serverLayoutAccessReady: false,
     serverLayoutSaving: false,
+    serverLayoutSaveState: 'idle',
+    serverLayoutSaveMessage: '',
     modules: {
       weather: {
         cityName: '北京',
@@ -802,6 +804,9 @@ export function registerDesktopSurface(Alpine) {
     get saveShortcutHintMarkup() {
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const modKey = isMac ? '⌘' : 'Ctrl';
+      const feedback = this.serverLayoutSaveMessage
+        ? `<div class="desktop-save-hint-item desktop-save-hint-item--state is-${this.serverLayoutSaveState}"><span class="label">${escapeHtml(this.serverLayoutSaveMessage)}</span></div>`
+        : '';
       return `
         <div class="desktop-save-hint-item">
           <kbd>${modKey}</kbd> <span>+</span> <kbd>S</kbd> <span class="label">保存</span>
@@ -812,7 +817,16 @@ export function registerDesktopSurface(Alpine) {
         <div class="desktop-save-hint-item">
           <kbd>Esc</kbd> <span class="label">退出</span>
         </div>
+        ${feedback}
       `;
+    },
+
+    get desktopLayoutSaveFeedbackText() {
+      return this.serverLayoutSaveMessage || '';
+    },
+
+    get desktopLayoutSaveFeedbackClass() {
+      return `desktop-widget-center-save-feedback is-${this.serverLayoutSaveState || 'idle'}`;
     },
 
     /* ═══ Desktop interaction ═══ */
@@ -912,6 +926,18 @@ export function registerDesktopSurface(Alpine) {
       }));
     },
 
+    markDesktopLayoutDirty(message = '有未保存更改') {
+      if (this.serverLayoutSaving) return;
+      this.serverLayoutSaveState = 'dirty';
+      this.serverLayoutSaveMessage = message;
+    },
+
+    desktopLayoutSaveButtonLabel() {
+      if (this.serverLayoutSaving || this.serverLayoutSaveState === 'saving') return '保存中...';
+      if (this.serverLayoutSaveState === 'saved') return '已保存';
+      return '保存';
+    },
+
     /* ═══ Server persistence ═══ */
 
     async probeServerLayoutConfigAccess() {
@@ -954,6 +980,8 @@ export function registerDesktopSurface(Alpine) {
 
     async saveLayoutJsonToServer(layoutJson) {
       if (!this.themeJsonConfigEndpoint || !this.canManageDefaultDesktopLayout) {
+        this.serverLayoutSaveState = 'failed';
+        this.serverLayoutSaveMessage = '保存失败，请检查登录状态或后台权限';
         desktopDebugWarn('desktop default layout save skipped: no permission', {
           endpoint: this.themeJsonConfigEndpoint,
           themeName: this.themeName,
@@ -963,6 +991,8 @@ export function registerDesktopSurface(Alpine) {
       }
 
       this.serverLayoutSaving = true;
+      this.serverLayoutSaveState = 'saving';
+      this.serverLayoutSaveMessage = '保存中...';
       desktopDebug('desktop default layout save start', {
         endpoint: this.themeJsonConfigEndpoint,
         themeName: this.themeName,
@@ -1012,6 +1042,8 @@ export function registerDesktopSurface(Alpine) {
         this.serverLayoutJson = layoutJson;
         this.serverLayoutPayload = parseDesktopLayoutPayload(layoutJson, this.layoutVersion, 'saved-server');
         this.syncCurrentLayoutAsDefaults();
+        this.serverLayoutSaveState = 'saved';
+        this.serverLayoutSaveMessage = '已保存';
         desktopDebug('desktop default layout saved to server', {
           endpoint: this.themeJsonConfigEndpoint,
           themeName: this.themeName,
@@ -1019,6 +1051,8 @@ export function registerDesktopSurface(Alpine) {
         });
         return true;
       } catch (error) {
+        this.serverLayoutSaveState = 'failed';
+        this.serverLayoutSaveMessage = '保存失败，请检查登录状态或后台权限';
         desktopDebugWarn('desktop default layout save failed', {
           endpoint: this.themeJsonConfigEndpoint,
           themeName: this.themeName,
@@ -1090,6 +1124,7 @@ export function registerDesktopSurface(Alpine) {
       this.iconsManaged = true;
       this.normalizeVisibleLayout();
       this.syncResponsiveVisibility();
+      this.markDesktopLayoutDirty('图标已添加，保存后生效');
       desktopDebug('icon added', { key, title, href, pos });
     },
 
@@ -1231,6 +1266,7 @@ export function registerDesktopSurface(Alpine) {
       }
       this.selectedDesktopKey = null;
       this.syncResponsiveVisibility();
+      this.markDesktopLayoutDirty('图标已移除，保存后生效');
     },
 
     /**
@@ -1265,6 +1301,7 @@ export function registerDesktopSurface(Alpine) {
 
       this.normalizeVisibleLayout();
       this.syncResponsiveVisibility();
+      this.markDesktopLayoutDirty('图标已整理，保存后生效');
       desktopDebug('icons rearranged', { count: this.icons.length });
     },
 

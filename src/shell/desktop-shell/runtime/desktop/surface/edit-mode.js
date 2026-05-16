@@ -34,6 +34,8 @@ export const editModeMethods = {
     this._widgetCenterOpenedAt = Date.now();
     this.widgetCenterCategory = 'all';
     this.widgetCenterSearch = '';
+    this.serverLayoutSaveState = 'idle';
+    this.serverLayoutSaveMessage = '';
     this.ensureWidgetCenterSelections();
     this.syncDesktopBodyState();
   },
@@ -162,11 +164,11 @@ export const editModeMethods = {
   },
 
   catalogStatusText(entry) {
-    const count = this.countVisibleWidgetsByType(entry.widget);
-    if (count > 0) {
-      return `桌面已有 ${count} 个`;
-    }
     return entry.description || (entry.category === 'plugin' ? '来自插件' : '可添加到桌面');
+  },
+
+  widgetCatalogAddedCount(entry) {
+    return this.countVisibleWidgetsByType(entry?.widget || '');
   },
 
   buildPreviewWidget(entry, appearance = 'follow') {
@@ -259,6 +261,7 @@ export const editModeMethods = {
     this.invalidateWidgetCache();
     this.syncGridMetrics();
     this.syncWidgetRuntimes();
+    this.markDesktopLayoutDirty('组件已清空，保存后生效');
   },
 
   clearAllIcons() {
@@ -271,6 +274,53 @@ export const editModeMethods = {
     this.dragState.active = false;
     this.selectedDesktopKey = null;
     this.syncResponsiveVisibility();
+    this.markDesktopLayoutDirty('图标已清空，保存后生效');
+  },
+
+  async applyRecommendedWidgetLayout() {
+    const firstPhotoGroupName = Array.isArray(this.sources?.photoGroups)
+      ? this.sources.photoGroups[0]?.metadata?.name || ''
+      : '';
+    const recommended = [
+      { widget: 'system.clock', size: 'small' },
+      { widget: 'system.calendar', size: 'small' },
+      { widget: 'system.weather', size: 'small' },
+      { widget: 'halo.latest_posts', size: 'medium' },
+      { widget: 'halo.site_stats', size: 'small' }
+    ];
+
+    if (this.sources?.momentsAvailable) {
+      recommended.push({ widget: 'plugin-moments.recent', size: 'medium' });
+    }
+
+    if (this.sources?.photosAvailable && firstPhotoGroupName) {
+      recommended.push({
+        widget: 'plugin-photos.gallery',
+        size: 'small',
+        meta: { groupName: firstPhotoGroupName }
+      });
+    }
+
+    let added = 0;
+    for (const item of recommended) {
+      if (this.countVisibleWidgetsByType(item.widget) > 0) continue;
+      const catalogEntry = getWidgetCatalogEntry(item.widget);
+      if (!catalogEntry) continue;
+      const meta = {
+        ...this.createWidgetConfigDefaultMeta(catalogEntry),
+        ...(item.meta || {})
+      };
+      await this._doAddWidget(item.widget, item.size, `${item.widget}:${item.size}`, meta);
+      added += 1;
+    }
+
+    if (added > 0) {
+      this.markDesktopLayoutDirty('推荐布局已应用，保存后生效');
+      return;
+    }
+
+    this.serverLayoutSaveState = 'dirty';
+    this.serverLayoutSaveMessage = '推荐布局已在桌面';
   },
 
   async addWidgetFromCatalog(widgetType, size = null, catalogKey = null) {
@@ -479,6 +529,7 @@ export const editModeMethods = {
     this.invalidateWidgetCache();
     this.syncResponsiveVisibility();
     this.syncWidgetRuntimes();
+    this.markDesktopLayoutDirty('组件已添加，保存后生效');
   },
 
   async hideWidget(key) {
@@ -491,5 +542,6 @@ export const editModeMethods = {
     }
     this.syncResponsiveVisibility();
     this.syncWidgetRuntimes();
+    this.markDesktopLayoutDirty('组件已移除，保存后生效');
   }
 };

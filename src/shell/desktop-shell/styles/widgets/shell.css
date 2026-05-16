@@ -698,6 +698,26 @@ body.desktop-widget-center-open .dock-container {
   gap: 6px;
 }
 
+.desktop-save-hint-item--state {
+  max-width: 260px;
+  padding: 7px 10px;
+  border-radius: 12px;
+  background: rgba(14, 18, 26, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 22px rgba(4, 6, 10, 0.16);
+  backdrop-filter: blur(18px) saturate(130%);
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+}
+
+.desktop-save-hint-item--state.is-saving,
+.desktop-save-hint-item--state.is-saved {
+  border-color: color-mix(in srgb, var(--theme-accent) 22%, rgba(255, 255, 255, 0.08));
+}
+
+.desktop-save-hint-item--state.is-failed {
+  border-color: color-mix(in srgb, var(--theme-danger, #ef4444) 28%, rgba(255, 255, 255, 0.08));
+}
+
 .desktop-save-hint-item kbd {
   display: inline-flex;
   align-items: center;
