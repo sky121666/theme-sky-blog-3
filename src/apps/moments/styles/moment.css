@@ -1810,6 +1810,189 @@
   animation: momentCommentsHashPulse 1.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.moment-photo-viewer {
+  position: absolute;
+  inset: 0;
+  z-index: 90;
+  color: #f5f5f7;
+  background: rgba(28, 28, 30, 0.88);
+  backdrop-filter: blur(18px) saturate(120%);
+  animation: momentPhotoViewerIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.moment-photo-viewer[hidden] {
+  display: none !important;
+}
+
+.moment-photo-viewer-backdrop {
+  position: absolute;
+  inset: 0;
+}
+
+.moment-photo-viewer-stage {
+  position: absolute;
+  inset: 58px 34px 78px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+.moment-photo-viewer.is-panning .moment-photo-viewer-stage {
+  cursor: grabbing;
+}
+
+.moment-photo-viewer-image,
+.moment-photo-viewer-live {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  max-width: min(100%, 980px);
+  max-height: 100%;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+  transform: translate(-50%, -50%) scale(1);
+  transform-origin: center center;
+  transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.16s;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.32);
+}
+
+.moments-window.is-photo-viewer-open .moments-body {
+  overflow: hidden;
+}
+
+.moment-photo-viewer-image.is-panning,
+.moment-photo-viewer-live.is-panning {
+  transition: none;
+}
+
+.moment-photo-viewer-close,
+.moment-photo-viewer-nav,
+.moment-photo-viewer-toolbar button {
+  border: 0;
+  color: rgba(255, 255, 255, 0.86);
+  background: rgba(118, 118, 128, 0.24);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(18px) saturate(120%);
+  cursor: pointer;
+  transition: background 0.16s, color 0.16s, transform 0.12s, opacity 0.16s;
+}
+
+.moment-photo-viewer-close:hover,
+.moment-photo-viewer-nav:hover,
+.moment-photo-viewer-toolbar button:hover {
+  color: #fff;
+  background: rgba(118, 118, 128, 0.36);
+}
+
+.moment-photo-viewer-close:active,
+.moment-photo-viewer-nav:active,
+.moment-photo-viewer-toolbar button:active {
+  transform: scale(0.96);
+}
+
+.moment-photo-viewer-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.moment-photo-viewer-close span,
+.moment-photo-viewer-nav span,
+.moment-photo-viewer-toolbar span[aria-hidden="true"] {
+  width: 18px;
+  height: 18px;
+}
+
+.moment-photo-viewer-nav {
+  position: absolute;
+  top: 50%;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-50%);
+}
+
+.moment-photo-viewer-nav:active {
+  transform: translateY(-50%) scale(0.96);
+}
+
+.moment-photo-viewer-nav.is-prev {
+  left: 22px;
+}
+
+.moment-photo-viewer-nav.is-next {
+  right: 22px;
+}
+
+.moment-photo-viewer-counter {
+  position: absolute;
+  top: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.moment-photo-viewer-toolbar {
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  min-height: 42px;
+  padding: 5px;
+  border-radius: 999px;
+  background: rgba(84, 84, 88, 0.56);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.24), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(24px) saturate(140%);
+  transform: translateX(-50%);
+}
+
+.moment-photo-viewer-toolbar button {
+  min-width: 34px;
+  height: 32px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 10px;
+  background: transparent;
+  box-shadow: none;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.moment-photo-viewer-toolbar button.is-active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+@keyframes momentPhotoViewerIn {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .moment-feed-card a.moment-feed-link {
   color: var(--wc-accent);
   text-decoration: none;

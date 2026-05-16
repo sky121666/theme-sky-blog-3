@@ -34,7 +34,11 @@
                      th:if="${moment.spec.content != null and !#lists.isEmpty(moment.spec.content.medium)}"
                      th:data-count="${mediaCount}">
               <th:block th:each="medium : ${moment.spec.content.medium}">
-                <figure class="moment-media-card" th:if="${medium.type.name() == 'PHOTO'}">
+                <figure class="moment-media-card"
+                        th:if="${medium.type.name() == 'PHOTO'}"
+                        data-moment-photo
+                        th:attr="data-moment-photo-url=${medium.url},
+                                 data-moment-photo-type=${medium.originType}">
                   <img th:src="${medium.url}" loading="lazy" decoding="async" alt="" />
                 </figure>
                 <figure class="moment-media-card moment-media-card--video" th:if="${medium.type.name() == 'VIDEO'}">

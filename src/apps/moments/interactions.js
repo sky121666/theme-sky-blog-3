@@ -18,6 +18,7 @@ const SUBJECT_REF = {
 const cardStates = new WeakMap();
 const autoCommentQueue = [];
 let autoCommentActive = 0;
+let photoViewer = null;
 
 function escapeHtml(value = '') {
   return String(value || '')
@@ -283,6 +284,8 @@ function syncLiked(card) {
 
 function renderComments(card) {
   const state = getState(card);
+  const hasUpvotes = getCount(card, 'upvote') > 0;
+  const shouldShowPanel = state.isDetail || state.commentsOpen || hasUpvotes;
   const panel = card.querySelector('[data-moment-comments-panel]');
   const list = card.querySelector('[data-moment-comments-list]');
   const status = card.querySelector('[data-moment-comments-status]');
@@ -294,8 +297,9 @@ function renderComments(card) {
   const submit = card.querySelector('[data-moment-comment-submit]');
   const form = card.querySelector('[data-moment-comment-form]');
 
-  if (panel) panel.hidden = state.isDetail ? false : !state.commentsOpen;
+  if (panel) panel.hidden = !shouldShowPanel;
   card.classList.toggle('is-comments-open', state.commentsOpen);
+  card.classList.toggle('has-upvotes-only', hasUpvotes && !state.commentsOpen && state.comments.length === 0);
   if (panel) {
     panel.classList.toggle('is-loading', state.commentsLoading);
     panel.classList.toggle('has-comments', state.comments.length > 0);
@@ -306,7 +310,11 @@ function renderComments(card) {
     status.hidden = !state.message;
   }
   if (list) {
-    if (state.commentsLoading && !state.commentsLoaded) {
+    const hideEmptyList = !state.commentsOpen && state.comments.length === 0;
+    list.hidden = hideEmptyList;
+    if (hideEmptyList) {
+      list.innerHTML = '';
+    } else if (state.commentsLoading && !state.commentsLoaded) {
       list.innerHTML = '<p class="moment-feed-comments-empty">正在加载评论...</p>';
     } else if (state.commentsOpen && !state.commentsLoaded && getCount(card, 'comment') > 0) {
       list.innerHTML = '<p class="moment-feed-comments-empty">评论加载中...</p>';
@@ -375,6 +383,237 @@ function insertAtCursor(input, value) {
   input.setSelectionRange(cursor, cursor);
   input.dispatchEvent(new Event('input', { bubbles: true }));
   input.focus();
+}
+
+function resolveUrl(value = '') {
+  if (!value) return '';
+  try {
+    return new URL(value, window.location.origin).toString();
+  } catch {
+    return value;
+  }
+}
+
+function collectPhotoItems(target) {
+  const group = target.closest('.moment-feed-gallery, .moment-media-grid') || target.parentElement;
+  const nodes = Array.from(group?.querySelectorAll('[data-moment-photo]') || [target])
+    .filter((node) => node?.dataset?.momentPhotoUrl || node?.querySelector?.('img'));
+  const items = nodes.map((node) => {
+    const img = node.querySelector('img');
+    return {
+      url: resolveUrl(node.dataset.momentPhotoUrl || img?.dataset?.src || img?.currentSrc || img?.src || ''),
+      type: node.dataset.momentPhotoType || img?.getAttribute('type') || '',
+      liveUrl: resolveUrl(node.dataset.momentPhotoLiveUrl || '')
+    };
+  }).filter((item) => item.url);
+  return {
+    items,
+    index: Math.max(0, nodes.indexOf(target))
+  };
+}
+
+function getPhotoViewer(root = document.body) {
+  if (photoViewer) {
+    if (root && photoViewer.overlay.parentElement !== root) {
+      photoViewer.overlay.parentElement?.classList.remove('is-photo-viewer-open');
+      root.appendChild(photoViewer.overlay);
+    }
+    return photoViewer;
+  }
+  const overlay = document.createElement('div');
+  overlay.className = 'moment-photo-viewer';
+  overlay.hidden = true;
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-label', '图片预览');
+  overlay.tabIndex = -1;
+  overlay.innerHTML = `
+    <div class="moment-photo-viewer-backdrop" data-photo-close></div>
+    <div class="moment-photo-viewer-stage" data-photo-stage>
+      <img class="moment-photo-viewer-image" data-photo-image alt="">
+      <video class="moment-photo-viewer-live" data-photo-live playsinline muted loop hidden></video>
+    </div>
+    <button type="button" class="moment-photo-viewer-close" data-photo-close aria-label="关闭">
+      <span class="icon-[lucide--x]" aria-hidden="true"></span>
+    </button>
+    <button type="button" class="moment-photo-viewer-nav is-prev" data-photo-prev aria-label="上一张">
+      <span class="icon-[lucide--chevron-left]" aria-hidden="true"></span>
+    </button>
+    <button type="button" class="moment-photo-viewer-nav is-next" data-photo-next aria-label="下一张">
+      <span class="icon-[lucide--chevron-right]" aria-hidden="true"></span>
+    </button>
+    <div class="moment-photo-viewer-counter" data-photo-counter></div>
+    <div class="moment-photo-viewer-toolbar">
+      <button type="button" data-photo-zoom-out aria-label="缩小"><span class="icon-[lucide--zoom-out]" aria-hidden="true"></span></button>
+      <button type="button" data-photo-zoom-in aria-label="放大"><span class="icon-[lucide--zoom-in]" aria-hidden="true"></span></button>
+      <button type="button" data-photo-reset aria-label="适应窗口"><span class="icon-[lucide--scan]" aria-hidden="true"></span></button>
+      <button type="button" data-photo-live-toggle hidden><span class="icon-[lucide--play-circle]" aria-hidden="true"></span><span>实况</span></button>
+    </div>
+  `;
+  root.appendChild(overlay);
+
+  const state = {
+    items: [],
+    index: 0,
+    scale: 1,
+    pointX: 0,
+    pointY: 0,
+    panning: false,
+    live: false,
+    startX: 0,
+    startY: 0,
+    oldPointX: 0,
+    oldPointY: 0
+  };
+  const stage = overlay.querySelector('[data-photo-stage]');
+  const image = overlay.querySelector('[data-photo-image]');
+  const live = overlay.querySelector('[data-photo-live]');
+  const counter = overlay.querySelector('[data-photo-counter]');
+  const liveToggle = overlay.querySelector('[data-photo-live-toggle]');
+  const closeButton = overlay.querySelector('.moment-photo-viewer-close');
+
+  function current() {
+    return state.items[state.index] || null;
+  }
+
+  function updateTransform({ immediate = false } = {}) {
+    image.classList.toggle('is-panning', state.panning || immediate);
+    live.classList.toggle('is-panning', state.panning || immediate);
+    const transform = `translate(calc(-50% + ${state.pointX}px), calc(-50% + ${state.pointY}px)) scale(${state.scale})`;
+    image.style.transform = transform;
+    live.style.transform = transform;
+    overlay.dataset.scale = String(Math.round(state.scale * 100));
+  }
+
+  function resetView() {
+    state.scale = 1;
+    state.pointX = 0;
+    state.pointY = 0;
+    state.live = false;
+    live.pause();
+    live.hidden = true;
+    image.hidden = false;
+    liveToggle?.classList.remove('is-active');
+    updateTransform();
+  }
+
+  function render() {
+    const item = current();
+    if (!item) return;
+    resetView();
+    image.src = item.url;
+    image.dataset.originType = item.type;
+    if (item.liveUrl) live.src = item.liveUrl;
+    else live.removeAttribute('src');
+    liveToggle.hidden = !item.liveUrl;
+    counter.textContent = state.items.length > 1 ? `${state.index + 1} / ${state.items.length}` : '';
+    overlay.querySelector('[data-photo-prev]').hidden = state.items.length <= 1;
+    overlay.querySelector('[data-photo-next]').hidden = state.items.length <= 1;
+  }
+
+  function close() {
+    overlay.hidden = true;
+    overlay.parentElement?.classList.remove('is-photo-viewer-open');
+    live.pause();
+    image.removeAttribute('src');
+    live.removeAttribute('src');
+  }
+
+  function show(items, index = 0) {
+    state.items = items;
+    state.index = index;
+    overlay.hidden = false;
+    overlay.parentElement?.classList.add('is-photo-viewer-open');
+    render();
+    requestAnimationFrame(() => closeButton?.focus({ preventScroll: true }));
+  }
+
+  function move(step) {
+    if (state.items.length <= 1) return;
+    state.index = (state.index + step + state.items.length) % state.items.length;
+    render();
+  }
+
+  function zoom(delta) {
+    state.scale = Math.min(4, Math.max(0.5, Number((state.scale + delta).toFixed(2))));
+    updateTransform();
+  }
+
+  overlay.addEventListener('click', (event) => {
+    if (event.target.closest('[data-photo-close]')) close();
+    else if (event.target.closest('[data-photo-prev]')) move(-1);
+    else if (event.target.closest('[data-photo-next]')) move(1);
+    else if (event.target.closest('[data-photo-zoom-out]')) zoom(-0.2);
+    else if (event.target.closest('[data-photo-zoom-in]')) zoom(0.2);
+    else if (event.target.closest('[data-photo-reset]')) resetView();
+    else if (event.target.closest('[data-photo-live-toggle]')) {
+      const item = current();
+      if (!item?.liveUrl) return;
+      state.live = !state.live;
+      image.hidden = state.live;
+      live.hidden = !state.live;
+      liveToggle.classList.toggle('is-active', state.live);
+      if (state.live) live.play().catch(() => {});
+      else live.pause();
+    }
+  });
+
+  stage.addEventListener('wheel', (event) => {
+    event.preventDefault();
+    zoom(event.deltaY > 0 ? -0.12 : 0.12);
+  }, { passive: false });
+
+  stage.addEventListener('mousedown', (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    state.panning = true;
+    state.startX = event.clientX;
+    state.startY = event.clientY;
+    state.oldPointX = state.pointX;
+    state.oldPointY = state.pointY;
+    overlay.classList.add('is-panning');
+    updateTransform({ immediate: true });
+  });
+
+  window.addEventListener('mousemove', (event) => {
+    if (!state.panning || overlay.hidden) return;
+    state.pointX = state.oldPointX + event.clientX - state.startX;
+    state.pointY = state.oldPointY + event.clientY - state.startY;
+    updateTransform({ immediate: true });
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (!state.panning) return;
+    state.panning = false;
+    overlay.classList.remove('is-panning');
+    updateTransform();
+  });
+
+  window.addEventListener('keydown', (event) => {
+    if (overlay.hidden) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      close();
+    }
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      move(-1);
+    }
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      move(1);
+    }
+  });
+
+  photoViewer = { overlay, show, close };
+  return photoViewer;
+}
+
+function openPhotoViewer(target) {
+  const { items, index } = collectPhotoItems(target);
+  if (!items.length) return;
+  const root = target.closest('.moments-window') || target.closest('[data-window-frame]') || document.body;
+  getPhotoViewer(root).show(items, index);
 }
 
 function renderCard(card) {
@@ -800,6 +1039,7 @@ export function setupMomentInteractions(root = document) {
 
   const ownerDocument = container.ownerDocument || document;
   const scrollBody = container.closest('.moments-body');
+  const eventHost = appRoot || container;
   const autoCommentObserver = !container.matches('.moment-comments--custom') && 'IntersectionObserver' in window
     ? new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
@@ -817,6 +1057,13 @@ export function setupMomentInteractions(root = document) {
 
   function onClick(event) {
     const target = event.target;
+    const mediaThumb = target.closest?.('[data-moment-photo]');
+    if (mediaThumb && eventHost.contains(mediaThumb)) {
+      event.preventDefault();
+      openPhotoViewer(mediaThumb);
+      return;
+    }
+
     const card = getCard(target);
     if (!card) {
       closeAllMenus(container);
@@ -826,14 +1073,6 @@ export function setupMomentInteractions(root = document) {
     if (target.closest?.('[data-moment-action-toggle]')) {
       event.preventDefault();
       toggleMenu(card, container);
-      return;
-    }
-    const mediaThumb = target.closest?.('.moment-feed-gallery-item-wrapper');
-    if (mediaThumb && !getState(card).isDetail) {
-      event.preventDefault();
-      const { detailUrl } = getState(card);
-      if (window.pjax?.loadUrl) window.pjax.loadUrl(detailUrl);
-      else window.location.href = detailUrl;
       return;
     }
     if (target.closest?.('[data-moment-upvote]')) {
@@ -945,7 +1184,7 @@ export function setupMomentInteractions(root = document) {
     closeAllMenus(container);
   }
 
-  container.addEventListener('click', onClick);
+  eventHost.addEventListener('click', onClick);
   container.addEventListener('input', onInput);
   container.addEventListener('keydown', onKeydown);
   container.addEventListener('submit', onSubmit);
@@ -960,7 +1199,7 @@ export function setupMomentInteractions(root = document) {
       state.abortController = null;
       state.commentsLoading = false;
     });
-    container.removeEventListener('click', onClick);
+    eventHost.removeEventListener('click', onClick);
     container.removeEventListener('input', onInput);
     container.removeEventListener('keydown', onKeydown);
     container.removeEventListener('submit', onSubmit);

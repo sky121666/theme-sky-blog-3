@@ -109,7 +109,10 @@
                    th:data-count="${#lists.size(moment.spec.content.medium)}">
                 <th:block th:each="media : ${moment.spec.content.medium}">
                   <div class="moment-feed-gallery-item-wrapper"
-                       th:if="${media.type != null and media.type.name() == 'PHOTO'}">
+                       th:if="${media.type != null and media.type.name() == 'PHOTO'}"
+                       data-moment-photo
+                       th:attr="data-moment-photo-url=${media.url},
+                                data-moment-photo-type=${media.originType}">
                     <img class="moment-feed-gallery-item"
                          th:attr="data-src=${media.url}"
                          loading="lazy"
@@ -178,7 +181,7 @@
             </div>
             <section class="moment-feed-comments-panel"
                      data-moment-comments-panel
-                     hidden
+                     th:hidden="${upvoteCount <= 0 and commentCount <= 0}"
                      th:attr="aria-label=${'评论 ' + momentName}">
               <div class="moment-detail-social moment-feed-social" data-moment-stats th:hidden="${upvoteCount <= 0}">
                 <span class="moment-detail-social-item" data-moment-upvote-stat th:hidden="${upvoteCount <= 0}" th:title="${upvoteCount + ' 个点赞'}">
