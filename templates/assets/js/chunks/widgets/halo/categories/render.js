@@ -1,4 +1,4 @@
-import{o as p}from"../../../shell-runtime/runtime/desktop/surface/edit-mode.js?v=0.9.30&r=88cce8206473";import{n as o}from"../author-card/render.js?v=0.9.30&r=88cce8206473";var g='<span class="icon-[lucide--folder]" aria-hidden="true"></span>';function m({sources:n,escapeHtml:e,mode:s}){const r=p(n.categories,4);if(!r.length)return'<div class="desktop-widget-empty">当前没有可展示的分类。</div>';const c="/categories",t=r.map(a=>{const i=a.color||"currentColor",l=a.icon||g,d=i!=="currentColor"?` style="color:${e(i)}"`:"";return o({href:e(a.permalink),app:"explorer-categories",className:"wg-cat-item",disabled:s==="preview",innerHtml:`
+import{o as p}from"../../../shell-runtime/runtime/desktop/surface/edit-mode.js?v=0.9.30&r=dd7d360c6c80";import{r as o}from"../author-card/render.js?v=0.9.30&r=dd7d360c6c80";var g='<span class="icon-[lucide--folder]" aria-hidden="true"></span>';function m({sources:n,escapeHtml:e,mode:r}){const s=p(n.categories,4);if(!s.length)return'<div class="desktop-widget-empty">当前没有可展示的分类。</div>';const c="/categories",t=s.map(a=>{const i=a.color||"currentColor",l=a.icon||g,d=i!=="currentColor"?` style="color:${e(i)}"`:"";return o({href:e(a.permalink),app:"explorer-categories",className:"wg-cat-item",disabled:r==="preview",innerHtml:`
         <span class="wg-cat-icon"${d}>${l}</span>
         <span class="wg-cat-label">${e(a.name)}</span>
       `})}).join("");return`
@@ -8,7 +8,7 @@ import{o as p}from"../../../shell-runtime/runtime/desktop/surface/edit-mode.js?v
           <span class="icon-[lucide--book-open]" aria-hidden="true"></span>
           分类
         </span>
-        ${o({href:e(c),app:"explorer-categories",className:"wg-cat-more",disabled:s==="preview",innerHtml:`
+        ${o({href:e(c),app:"explorer-categories",className:"wg-cat-more",disabled:r==="preview",innerHtml:`
             更多分类
             <span class="icon-[lucide--chevron-right]" aria-hidden="true"></span>
           `})}

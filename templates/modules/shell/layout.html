@@ -202,6 +202,8 @@
         size: 8,
         sort: {'spec.releaseTime,desc'}
       }) : null},
+      widgetsFriendsAvailable = ${widgetsEnabled and pluginFinder.available('plugin-friends')},
+      widgetsRecentFriends = ${widgetsFriendsAvailable ? friendFinder.list(1, 5) : null},
       widgetsPhotosAvailable = ${widgetsEnabled and pluginFinder.available('PluginPhotos')},
       widgetsPhotos = ${widgetsPhotosAvailable ? photoFinder.listAll() : null},
       widgetsPhotoGroups = ${widgetsPhotosAvailable ? photoFinder.groupBy() : null},
@@ -367,6 +369,8 @@
       randomTags=${widgetsAllTags},
       momentsAvailable=${widgetsMomentsAvailable},
       recentMoments=${widgetsRecentMoments != null ? widgetsRecentMoments.items : {}},
+      friendsAvailable=${widgetsFriendsAvailable},
+      recentFriends=${widgetsRecentFriends != null ? widgetsRecentFriends.items : {}},
       photosAvailable=${widgetsPhotosAvailable},
       photos=${widgetsPhotos != null ? widgetsPhotos : {}},
       photoGroups=${widgetsPhotoGroups != null ? widgetsPhotoGroups : {}},

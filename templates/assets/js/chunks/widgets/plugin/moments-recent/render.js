@@ -1,4 +1,4 @@
-import{r as v}from"../../../shell-runtime/runtime/desktop/surface/edit-mode.js?v=0.9.30&r=88cce8206473";import{n as f}from"../../halo/author-card/render.js?v=0.9.30&r=88cce8206473";function h(n,a,e,t){const s=Number.parseInt(n,10);return Number.isFinite(s)?Math.min(Math.max(s,e),t):a}function d(n,a,e){if(!e||!n.mediaCount)return"";const t=n.media[0],s=n.mediaCount>1?`<b>+${n.mediaCount-1}</b>`:"";return t?.type==="PHOTO"&&t.url?`
+import{r as v}from"../../../shell-runtime/runtime/desktop/surface/edit-mode.js?v=0.9.30&r=dd7d360c6c80";import{r as f}from"../../halo/author-card/render.js?v=0.9.30&r=dd7d360c6c80";function h(n,a,e,t){const s=Number.parseInt(n,10);return Number.isFinite(s)?Math.min(Math.max(s,e),t):a}function d(n,a,e){if(!e||!n.mediaCount)return"";const t=n.media[0],s=n.mediaCount>1?`<b>+${n.mediaCount-1}</b>`:"";return t?.type==="PHOTO"&&t.url?`
       <span class="wg-moment-social-media">
         <img src="${a(t.url)}" alt="" loading="lazy" decoding="async" fetchpriority="low">
         ${s}

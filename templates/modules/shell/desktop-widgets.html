@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="https://www.thymeleaf.org">
-  <th:block th:fragment="layer(enabled, isHome, hideOnMobile, editEnabled, columns, gap, layoutVersion, serverLayoutJson, themeName, themeJsonConfigEndpoint, weatherCityName, weatherRefreshMinutes, latestPosts, popularPosts, categoryTree, siteStats, randomTags, momentsAvailable, recentMoments, photosAvailable, photos, photoGroups, steamAvailable, steamPlaying, steamStatusText, steamPersonaName, steamAvatarFull, steamProfileUrl, steamLevel, steamStatsTotalGames, steamStatsRecentPlaytimeFormatted, steamRecentGames, siteUrl, siteTitle, siteSubtitle, siteLogo, archivesUrl, fallbackCover)">
+  <th:block th:fragment="layer(enabled, isHome, hideOnMobile, editEnabled, columns, gap, layoutVersion, serverLayoutJson, themeName, themeJsonConfigEndpoint, weatherCityName, weatherRefreshMinutes, latestPosts, popularPosts, categoryTree, siteStats, randomTags, momentsAvailable, recentMoments, friendsAvailable, recentFriends, photosAvailable, photos, photoGroups, steamAvailable, steamPlaying, steamStatusText, steamPersonaName, steamAvatarFull, steamProfileUrl, steamLevel, steamStatsTotalGames, steamStatsRecentPlaytimeFormatted, steamRecentGames, siteUrl, siteTitle, siteSubtitle, siteLogo, archivesUrl, fallbackCover)">
     <script th:inline="javascript">
       const widgetProtocol = {
         enabled: [[${enabled}]],
@@ -35,6 +35,9 @@
           randomTags: [[${randomTags}]],
           momentsAvailable: [[${momentsAvailable}]],
           recentMoments: [[${recentMoments}]],
+          friendsAvailable: [[${friendsAvailable}]],
+          recentFriends: [[${recentFriends}]],
+          friendsUrl: '/friends',
           archivesUrl: [[${archivesUrl}]],
           fallbackCover: [[${fallbackCover}]],
           photosAvailable: [[${photosAvailable}]],
