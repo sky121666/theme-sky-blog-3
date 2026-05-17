@@ -45,6 +45,8 @@ export function readDesktopWidgetsBootstrap() {
         friendsAvailable: false,
         recentFriends: [],
         friendsUrl: '/friends',
+        docsmeAvailable: false,
+        docsmeUrl: '/docs',
         photosAvailable: false,
         photos: [],
         photoGroups: [],

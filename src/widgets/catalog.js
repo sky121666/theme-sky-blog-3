@@ -27,6 +27,9 @@ export function buildWidgetCatalog(sources) {
       if (widgetId === 'plugin-friends.recent') {
         return !!sources?.friendsAvailable;
       }
+      if (widgetId === 'plugin-docsme.quick') {
+        return !!sources?.docsmeAvailable;
+      }
       return true;
     });
 

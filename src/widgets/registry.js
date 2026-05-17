@@ -7,6 +7,7 @@ import { haloRandomTagsWidgetManifest } from './halo/random-tags/manifest.js';
 import { haloSiteStatsWidgetManifest } from './halo/site-stats/manifest.js';
 import { pluginMomentsRecentWidgetManifest } from './plugin/moments-recent/manifest.js';
 import { pluginFriendsRecentWidgetManifest } from './plugin/friends-recent/manifest.js';
+import { pluginDocsmeQuickWidgetManifest } from './plugin/docsme-quick/manifest.js';
 import { pluginPhotosWidgetManifest } from './plugin/photos/manifest.js';
 import { systemCalendarWidgetManifest } from './system/calendar/manifest.js';
 import { systemClockWidgetManifest } from './system/clock/manifest.js';
@@ -25,6 +26,7 @@ export const WIDGET_MANIFESTS = [
   haloRandomTagsWidgetManifest,
   pluginMomentsRecentWidgetManifest,
   pluginFriendsRecentWidgetManifest,
+  pluginDocsmeQuickWidgetManifest,
   pluginPhotosWidgetManifest
 ];
 

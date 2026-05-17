@@ -11,6 +11,7 @@ const WIDGET_RENDERER_LOADERS = {
   'halo.random_tags': () => import('./halo/random-tags/render.js'),
   'plugin-moments.recent': () => import('./plugin/moments-recent/render.js'),
   'plugin-friends.recent': () => import('./plugin/friends-recent/render.js'),
+  'plugin-docsme.quick': () => import('./plugin/docsme-quick/render.js'),
   'plugin-photos.gallery': () => import('./plugin/photos/render.js')
 };
 
