@@ -1,6 +1,5 @@
 import { haloAuthorCardWidgetManifest } from './halo/author-card/manifest.js';
 import { haloCategoriesWidgetManifest } from './halo/categories/manifest.js';
-import { haloIdentityCardWidgetManifest } from './halo/identity-card/manifest.js';
 import { haloLatestPostsWidgetManifest } from './halo/latest-posts/manifest.js';
 import { haloPopularPostsWidgetManifest } from './halo/popular-posts/manifest.js';
 import { haloRandomTagsWidgetManifest } from './halo/random-tags/manifest.js';
@@ -21,7 +20,6 @@ export const WIDGET_MANIFESTS = [
   haloPopularPostsWidgetManifest,
   haloCategoriesWidgetManifest,
   haloAuthorCardWidgetManifest,
-  haloIdentityCardWidgetManifest,
   haloSiteStatsWidgetManifest,
   haloRandomTagsWidgetManifest,
   pluginMomentsRecentWidgetManifest,

@@ -4,7 +4,7 @@
 
 import { toPositiveInt } from '../shared/utils.js';
 import { desktopDebugWarn, DESKTOP_LAYOUT_STORAGE_SCHEMA_VERSION } from './debug-core.js';
-import { normalizeWidgetInstance } from './catalog-core.js';
+import { isKnownWidgetType, normalizeWidgetInstance } from './catalog-core.js';
 
 export function readDesktopWidgetsBootstrap() {
   const bootstrap = window.__THEME_DESKTOP_PROTOCOL__?.widgets || window.__THEME_WIDGETS__;
@@ -180,7 +180,9 @@ export function mergeDesktopWidgetLayout(defaultWidgets, savedLayout) {
   if (!savedLayout) return defaultWidgets;
 
   if (Array.isArray(savedLayout.instances)) {
-    return savedLayout.instances.map((instance, index) => normalizeWidgetInstance(instance, index));
+    return savedLayout.instances
+      .filter((instance) => isKnownWidgetType(instance?.realNode?.widget ?? instance?.widget))
+      .map((instance, index) => normalizeWidgetInstance(instance, index));
   }
 
   if (typeof savedLayout.placements === 'object' && savedLayout.placements) {

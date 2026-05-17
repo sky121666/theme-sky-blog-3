@@ -42,13 +42,13 @@
 
 Finder 调用需要判空。插件请求失败、Steam 隐私未公开或 API Key 未配置时，页面显示降级空状态。
 
-## 桌面身份状态卡边界
+## 桌面小组件边界
 
-`halo.identity_card` 会读取 Steam 插件数据，但只把明确的 `profile.playing == true` 视为“正在游戏”。
+Steam 不再混入作者或身份状态卡。后续如需桌面入口，应单独做 `plugin-steam.status` 小组件。
 
-- 可显示：`profile.statusText`、`summary.personaName`、`summary.avatarFull`、`steamLevel`、统计中的游戏数量。
+- 可显示：`profile.playing`、`profile.statusText`、`summary.personaName`、`summary.avatarFull`、`steamLevel`、统计中的游戏数量。
 - 不推断：`getRecentGames(1)` 只代表最近玩过，不代表当前正在玩。
-- 插件缺失、Finder 返回空或 `playing` 为 false 时，身份卡会继续按瞬间、文章、图库或作者默认态降级。
+- 插件缺失、Finder 返回空或 `playing` 为 false 时，Steam 小组件应按 Steam 自身规则降级，不影响作者卡片。
 
 ## 交互
 

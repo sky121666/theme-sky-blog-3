@@ -41,6 +41,10 @@ export function normalizeWidgetAppearance(appearance) {
   return DESKTOP_WIDGET_APPEARANCE_OPTIONS.includes(appearance) ? appearance : 'follow';
 }
 
+export function isKnownWidgetType(widgetType) {
+  return !!DESKTOP_WIDGET_CATALOG[String(widgetType || '')];
+}
+
 export function normalizeWidgetInstance(instance, index = 0) {
   const node = instance?.realNode && typeof instance.realNode === 'object'
     ? instance.realNode
