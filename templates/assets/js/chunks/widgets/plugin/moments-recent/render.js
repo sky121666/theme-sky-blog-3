@@ -1,47 +1,62 @@
-import{r as b}from"../../../shell-runtime/runtime/desktop/surface/edit-mode.js?v=0.9.30&r=4cac52e6adeb";import{n as u}from"../../halo/author-card/render.js?v=0.9.30&r=4cac52e6adeb";function M(s,a,i,n){const t=Number.parseInt(s,10);return Number.isFinite(t)?Math.min(Math.max(t,i),n):a}function w(s,a,i){if(!i||!s.mediaCount)return"";const n=s.media[0];return n?.type==="PHOTO"&&n.url?`
+import{r as v}from"../../../shell-runtime/runtime/desktop/surface/edit-mode.js?v=0.9.30&r=88cce8206473";import{n as f}from"../../halo/author-card/render.js?v=0.9.30&r=88cce8206473";function h(n,a,e,t){const s=Number.parseInt(n,10);return Number.isFinite(s)?Math.min(Math.max(s,e),t):a}function d(n,a,e){if(!e||!n.mediaCount)return"";const t=n.media[0],s=n.mediaCount>1?`<b>+${n.mediaCount-1}</b>`:"";return t?.type==="PHOTO"&&t.url?`
       <span class="wg-moment-social-media">
-        <img src="${a(n.url)}" alt="" loading="lazy" decoding="async" fetchpriority="low">
-        ${s.mediaCount>1?`<b>+${s.mediaCount-1}</b>`:""}
+        <img src="${a(t.url)}" alt="" loading="lazy" decoding="async" fetchpriority="low">
+        ${s}
       </span>
     `:`
     <span class="wg-moment-social-media is-placeholder">
-      <span class="icon-[lucide--image]" aria-hidden="true"></span>
-      ${s.mediaCount>1?`<b>+${s.mediaCount-1}</b>`:""}
+      <span class="${t?.type==="VIDEO"?"icon-[lucide--video]":t?.type==="AUDIO"?"icon-[lucide--music-2]":"icon-[lucide--image]"}" aria-hidden="true"></span>
+      ${s}
     </span>
-  `}function N({sources:s,escapeHtml:a,normalizeMomentRecord:i,mode:n},t){if(!s.momentsAvailable)return'<div class="desktop-widget-empty">未安装 Moments 插件。</div>';const p=t?.meta&&typeof t.meta=="object"?t.meta:{},h=M(p.limit,1,1,3),d=p.showMedia!==!1,o=s.recentMoments.slice(0,h).map(r=>i(r));if(!o.length)return'<div class="desktop-widget-empty">还没有可展示的瞬间。</div>';const m=b(s);if(o.length>1){const r=o.map((l,v)=>{const y=((s.recentMoments[v]||{}).stats||{}).upvote??0;return u({href:a(l.permalink),app:"moments",className:"wg-moment-social-item",disabled:n==="preview",innerHtml:`
-          <span class="wg-moment-social-item-copy">
-            <span class="wg-moment-social-item-title">${a(l.summary)}</span>
-            <span class="wg-moment-social-item-meta">${a(l.listTime)} · ${a(String(y))} 赞</span>
-          </span>
-          ${w(l,a,d)}
-        `})}).join("");return`
-      <div class="wg-moment-social wg-moment-social--stack">
-        <span class="wg-moment-social-header">
-          <span class="wg-moment-social-avatar">
-            <img src="${a(m.avatar||"/logo")}" alt="" loading="lazy" decoding="async" fetchpriority="low">
-          </span>
-          <span class="wg-moment-social-info">
-            <span class="wg-moment-social-name">${a(m.displayName||"作者")}</span>
-            <span class="wg-moment-social-time">最新 ${o.length} 条瞬间</span>
-          </span>
-        </span>
-        <span class="wg-moment-social-stack-list">${r}</span>
-      </div>
-    `}const e=o[0],g=e.tags.length>0?e.tags[0]:"",c=s.recentMoments[0]?.stats||{},f=c.upvote??0,$=c.approvedComment??c.totalComment??0;return u({href:a(e.permalink),app:"moments",className:"wg-moment-social",disabled:n==="preview",innerHtml:`
-      <span class="wg-moment-social-header">
-        <span class="wg-moment-social-avatar">
-          <img src="${a(m.avatar||"/logo")}" alt="" loading="lazy" decoding="async" fetchpriority="low">
-        </span>
-        <span class="wg-moment-social-info">
-          <span class="wg-moment-social-name">${a(m.displayName||"作者")}</span>
-          <span class="wg-moment-social-time">${a(e.listTime)}</span>
-        </span>
-        ${g?`<span class="wg-moment-social-tag">#${a(g)}</span>`:""}
+  `}function p(n){const a=n?.stats||{};return{upvote:Number(a.upvote??0)||0}}function w(n,a,e="wg-moment-social-stat"){return`
+    <span class="${e} is-heart" aria-label="${a(`${n} 个赞`)}">
+      <span class="icon-[lucide--heart]" aria-hidden="true"></span>
+      <b>${a(String(n))}</b>
+    </span>
+  `}function M(n){return f({href:"/moments",app:"moments",className:"desktop-widget-empty wg-moment-social-empty",disabled:n==="preview",innerHtml:`
+      <strong>还没有瞬间</strong>
+      <span>打开瞬间记录最近动态</span>
+    `})}function $(n,a,e){return`
+    <span class="wg-moment-social-header">
+      <span class="wg-moment-social-avatar">
+        <img src="${a(n.avatar||"/logo")}" alt="" loading="lazy" decoding="async" fetchpriority="low">
       </span>
-      <span class="wg-moment-social-content">${a(e.summary)}</span>
-      ${w(e,a,d)}
+      <span class="wg-moment-social-info">
+        <span class="wg-moment-social-name">${a(n.displayName||"作者")}</span>
+        <span class="wg-moment-social-time">${a(e||"最新瞬间")}</span>
+      </span>
+    </span>
+  `}function g({moment:n,app:a="moments",className:e,mode:t,escapeHtml:s,innerHtml:o}){return f({href:s(n?.permalink||"/moments"),app:a,className:e,disabled:t==="preview",innerHtml:o})}function b({moment:n,original:a,author:e,showMedia:t,escapeHtml:s,mode:o}){const{upvote:i}=p(a);return g({moment:n,escapeHtml:s,mode:o,className:"wg-moment-social wg-moment-social--small",innerHtml:`
+      ${$(e,s,n.listTime)}
+      <span class="wg-moment-social-content">${s(n.summary)}</span>
+      <span class="wg-moment-social-footer">
+        ${w(i,s)}
+        ${t&&n.mediaCount?`<span class="wg-moment-social-media-count">${s(n.rowBadge)}</span>`:""}
+      </span>
+    `})}function N({moment:n,original:a,author:e,showMedia:t,escapeHtml:s,mode:o}){const{upvote:i}=p(a),m=n.tags.length>0?n.tags[0]:"";return g({moment:n,escapeHtml:s,mode:o,className:"wg-moment-social wg-moment-social--medium",innerHtml:`
+      ${$(e,s,n.listTime)}
+      <span class="wg-moment-social-content">${s(n.summary)}</span>
+      ${d(n,s,t)}
       <span class="wg-moment-social-bar">
-        <span class="wg-moment-social-stat is-heart"><span class="icon-[lucide--heart]" aria-hidden="true"></span><b>${f}</b></span>
-        <span class="wg-moment-social-stat is-chat"><span class="icon-[lucide--message-circle]" aria-hidden="true"></span><b>${$}</b></span>
+        ${m?`<span class="wg-moment-social-tag">#${s(m)}</span>`:"<span></span>"}
+        ${w(i,s)}
       </span>
-    `})}export{N as t};
+    `})}function k({moments:n,originals:a,author:e,showMedia:t,escapeHtml:s,mode:o}){const i=n[0],{upvote:m}=p(a[0]),c=n.slice(1,3).map((r,l)=>{const u=p(a[l+1]);return g({moment:r,escapeHtml:s,mode:o,className:"wg-moment-social-item",innerHtml:`
+        ${d(r,s,t)}
+        <span class="wg-moment-social-item-copy">
+          <span class="wg-moment-social-item-title">${s(r.summary)}</span>
+          <span class="wg-moment-social-item-meta">${s(r.listTime)} · ${s(String(u.upvote))} 赞</span>
+        </span>
+      `})}).join("");return`
+    <div class="wg-moment-social wg-moment-social--large">
+      ${g({moment:i,escapeHtml:s,mode:o,className:"wg-moment-social-feature",innerHtml:`
+          ${d(i,s,t)}
+          <span class="wg-moment-social-feature-copy">
+            ${$(e,s,i.listTime)}
+            <span class="wg-moment-social-content">${s(i.summary)}</span>
+            <span class="wg-moment-social-footer">${w(m,s)}</span>
+          </span>
+        `})}
+      ${c?`<span class="wg-moment-social-stack-list">${c}</span>`:""}
+    </div>
+  `}function z({sources:n,escapeHtml:a,normalizeMomentRecord:e,mode:t},s){if(!n.momentsAvailable)return'<div class="desktop-widget-empty">未安装 Moments 插件。</div>';const o=s?.meta&&typeof s.meta=="object"?s.meta:{},i=s?.size||"medium",m=i==="large"?h(o.limit,3,1,3):1,c=o.showMedia!==!1,r=n.recentMoments.slice(0,m),l=r.map(y=>e(y));if(!l.length)return M(t);const u=v(n);return i==="small"?b({moment:l[0],original:r[0],author:u,showMedia:c,escapeHtml:a,mode:t}):i==="large"?k({moments:l,originals:r,author:u,showMedia:c,escapeHtml:a,mode:t}):N({moment:l[0],original:r[0],author:u,showMedia:c,escapeHtml:a,mode:t})}export{z as t};

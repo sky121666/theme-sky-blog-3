@@ -2,38 +2,64 @@
    瞬间小组件 (Moments Widget)
    ═══════════════════════════════════════════ */
 
-/* 中卡片自带头像行，隐藏外部组件标题 */
-.widget--plugin-moments-recent.is-medium > .desktop-widget-header {
+.widget--plugin-moments-recent > .desktop-widget-header {
   display: none;
 }
 
 .wg-moment-social {
+  --wg-moment-accent: var(--moments-widget-accent, var(--theme-accent, var(--mac-accent, #2e5fbd)));
+  --wg-moment-accent-soft: color-mix(in srgb, var(--wg-moment-accent) 13%, transparent);
+  --wg-moment-line: color-mix(in srgb, var(--widget-card-muted, rgba(255, 255, 255, 0.56)) 16%, transparent);
+  --wg-moment-media-bg: color-mix(in srgb, var(--widget-card-text, #fff) 7%, transparent);
   display: flex;
-  flex-direction: column;
   width: 100%;
   height: 100%;
-  padding: 14px 16px 12px;
-  text-decoration: none;
+  min-width: 0;
   color: inherit;
+  text-decoration: none;
+}
+
+.wg-moment-social--small,
+.wg-moment-social--medium,
+.wg-moment-social--large {
+  flex-direction: column;
+}
+
+.wg-moment-social--small {
+  gap: 8px;
+  padding: 12px;
+}
+
+.wg-moment-social--medium {
+  gap: 8px;
+  padding: 13px 14px 12px;
+}
+
+.wg-moment-social--large {
+  gap: 10px;
+  padding: 10px;
 }
 
 .wg-moment-social-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 9px;
+  min-width: 0;
   flex: none;
 }
 
 .wg-moment-social-avatar {
-  display: block;
+  display: grid;
+  place-items: center;
   width: 30px;
   height: 30px;
-  border-radius: 50%;
+  border-radius: 999px;
   overflow: hidden;
   flex: none;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--wg-moment-media-bg);
+  border: 1px solid var(--wg-moment-line);
 }
+
 .wg-moment-social-avatar img {
   width: 100%;
   height: 100%;
@@ -48,53 +74,61 @@
   flex: 1;
 }
 
-.wg-moment-social-name {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--widget-card-text);
-  white-space: nowrap;
+.wg-moment-social-name,
+.wg-moment-social-time,
+.wg-moment-social-content,
+.wg-moment-social-item-title,
+.wg-moment-social-item-meta {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.wg-moment-social-time {
-  font-size: 9px;
-  font-family: 'JetBrains Mono', 'SF Mono', monospace;
-  color: var(--widget-card-muted);
+.wg-moment-social-name {
+  color: var(--widget-card-text);
+  font-size: 12px;
+  font-weight: 690;
+  line-height: 1.15;
+  white-space: nowrap;
 }
 
-.wg-moment-social-tag {
-  flex: none;
-  font-size: 9px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+.wg-moment-social-time {
   color: var(--widget-card-muted);
+  font-size: 9.5px;
+  line-height: 1.15;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .wg-moment-social-content {
+  display: -webkit-box;
+  min-width: 0;
+  color: var(--widget-card-subtle);
+  font-size: 11.5px;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+}
+
+.wg-moment-social--small .wg-moment-social-content {
+  flex: 1;
+  -webkit-line-clamp: 3;
+}
+
+.wg-moment-social--medium .wg-moment-social-content {
   flex: 1;
   min-height: 0;
-  font-size: 11.5px;
-  line-height: 1.6;
-  color: var(--widget-card-subtle);
-  display: -webkit-box;
   -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 .wg-moment-social-media {
   position: relative;
   display: block;
   width: 100%;
-  height: 44px;
-  margin-top: 8px;
-  border-radius: 10px;
+  height: 48px;
+  margin-top: 1px;
+  border-radius: 12px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--wg-moment-media-bg);
+  border: 1px solid var(--wg-moment-line);
   flex: none;
 }
 
@@ -115,21 +149,134 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.48);
+  background: color-mix(in srgb, #000 46%, transparent);
   color: rgba(255, 255, 255, 0.94);
   font-size: 10px;
   font-weight: 700;
 }
 
 .wg-moment-social-media.is-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
   color: var(--widget-card-muted);
 }
 
-.wg-moment-social--stack {
+.wg-moment-social-media.is-placeholder > span {
+  width: 20px;
+  height: 20px;
+}
+
+.wg-moment-social-bar,
+.wg-moment-social-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.wg-moment-social-bar {
+  justify-content: space-between;
+  margin-top: auto;
+}
+
+.wg-moment-social-footer {
+  justify-content: space-between;
+  margin-top: auto;
+}
+
+.wg-moment-social-tag,
+.wg-moment-social-media-count {
+  min-width: 0;
+  color: var(--widget-card-muted);
+  font-size: 9.5px;
+  line-height: 1;
+}
+
+.wg-moment-social-tag {
+  max-width: 58%;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: var(--wg-moment-accent-soft);
+  color: color-mix(in srgb, var(--wg-moment-accent) 72%, var(--widget-card-text));
+  white-space: nowrap;
+}
+
+.wg-moment-social-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--widget-card-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.wg-moment-social-stat span[class*="icon-["] {
+  width: 13px;
+  height: 13px;
+  color: color-mix(in srgb, var(--wg-moment-accent) 70%, var(--widget-card-muted));
+}
+
+.wg-moment-social-stat b {
+  color: var(--widget-card-text);
+  font-size: 10.5px;
+  font-weight: 690;
+  line-height: 1;
+}
+
+.wg-moment-social-feature {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  color: inherit;
+  text-decoration: none;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--widget-card-text, #fff) 5%, transparent);
+  border: 1px solid var(--wg-moment-line);
+}
+
+.wg-moment-social-feature .wg-moment-social-media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: inherit;
+}
+
+.wg-moment-social-feature .wg-moment-social-media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, color-mix(in srgb, #000 6%, transparent), color-mix(in srgb, #000 58%, transparent));
+}
+
+.wg-moment-social-feature-copy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
+  width: 100%;
+  min-width: 0;
+  margin-top: auto;
+  padding: 12px;
+}
+
+.wg-moment-social-feature-copy .wg-moment-social-content {
+  color: rgba(255, 255, 255, 0.9);
+  -webkit-line-clamp: 2;
+}
+
+.wg-moment-social-feature-copy .wg-moment-social-name {
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.wg-moment-social-feature-copy .wg-moment-social-time,
+.wg-moment-social-feature-copy .wg-moment-social-stat,
+.wg-moment-social-feature-copy .wg-moment-social-stat b {
+  color: rgba(255, 255, 255, 0.76);
 }
 
 .wg-moment-social-stack-list {
@@ -137,84 +284,105 @@
   flex-direction: column;
   gap: 6px;
   min-height: 0;
-  flex: 1;
+  flex: none;
 }
 
 .wg-moment-social-item {
   display: flex;
   align-items: center;
   gap: 9px;
-  min-height: 0;
+  min-width: 0;
+  min-height: 42px;
   color: inherit;
   text-decoration: none;
+  padding: 5px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--widget-card-text, #fff) 4%, transparent);
+  border: 1px solid var(--wg-moment-line);
+}
+
+.wg-moment-social-item .wg-moment-social-media {
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  border-radius: 9px;
 }
 
 .wg-moment-social-item-copy {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
   flex: 1;
 }
 
 .wg-moment-social-item-title {
-  font-size: 11px;
-  line-height: 1.35;
   color: var(--widget-card-subtle);
+  font-size: 10.5px;
+  line-height: 1.28;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .wg-moment-social-item-meta {
+  color: var(--widget-card-muted);
   font-size: 9px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.wg-moment-social-empty {
+  text-decoration: none;
+}
+
+.wg-moment-social-empty span {
   color: var(--widget-card-muted);
-  font-variant-numeric: tabular-nums;
+  font-size: 12px;
 }
 
-.wg-moment-social-item .wg-moment-social-media {
-  width: 42px;
-  height: 42px;
-  margin-top: 0;
+.wg-moment-social--small,
+.wg-moment-social--medium,
+.wg-moment-social-feature,
+.wg-moment-social-item {
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 180ms ease, background-color 180ms ease;
 }
 
-.wg-moment-social-bar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 14px;
-  margin-top: auto;
-  padding-top: 8px;
+.wg-moment-social--small:hover,
+.wg-moment-social--medium:hover,
+.wg-moment-social-feature:hover,
+.wg-moment-social-item:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--wg-moment-accent) 24%, var(--wg-moment-line));
 }
 
-.wg-moment-social-stat {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--widget-card-muted);
-  transition: color 0.15s;
-}
-.wg-moment-social-stat svg,
-.wg-moment-social-stat span[class*="icon-["] {
-  width: 14px;
-  height: 14px;
-}
-.wg-moment-social-stat b {
-  font-size: 10px;
-  font-weight: 700;
-}
-.wg-moment-social-stat.is-heart:hover { color: #f43f5e; }
-.wg-moment-social-stat.is-chat:hover { color: #3b82f6; }
-
-/* ── 亮色适配 ── */
-:root:not(.dark) [data-widget-appearance="follow"] .wg-moment-social-avatar,
-[data-widget-appearance="light"] .wg-moment-social-avatar {
-  border-color: rgba(0, 0, 0, 0.08);
+.wg-moment-social--small:active,
+.wg-moment-social--medium:active,
+.wg-moment-social-feature:active,
+.wg-moment-social-item:active {
+  transform: scale(0.985);
 }
 
-:root:not(.dark) [data-widget-appearance="follow"] .wg-moment-social-tag,
-[data-widget-appearance="light"] .wg-moment-social-tag {
-  background: rgba(0, 0, 0, 0.04);
-  border-color: rgba(0, 0, 0, 0.06);
-  color: rgba(0, 0, 0, 0.45);
+:root:not(.dark) [data-widget-appearance="follow"] .wg-moment-social,
+[data-widget-appearance="light"] .wg-moment-social {
+  --wg-moment-line: color-mix(in srgb, var(--widget-card-muted, rgba(15, 23, 42, 0.48)) 18%, transparent);
+  --wg-moment-media-bg: color-mix(in srgb, var(--widget-card-text, #0f172a) 6%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wg-moment-social--small,
+  .wg-moment-social--medium,
+  .wg-moment-social-feature,
+  .wg-moment-social-item {
+    transition: opacity 160ms ease;
+  }
+
+  .wg-moment-social--small:hover,
+  .wg-moment-social--medium:hover,
+  .wg-moment-social-feature:hover,
+  .wg-moment-social-item:hover,
+  .wg-moment-social--small:active,
+  .wg-moment-social--medium:active,
+  .wg-moment-social-feature:active,
+  .wg-moment-social-item:active {
+    transform: none;
+  }
 }
