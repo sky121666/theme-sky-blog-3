@@ -1,4 +1,4 @@
-import{r as o}from"../../halo/author-card/render.js?v=0.9.30&r=bd9c50a6c077";function d(a){return`
+import{r as o}from"../../halo/author-card/render.js?v=0.9.30&r=969e79972671";function d(a){return`
     <div class="wg-docsme wg-docsme--empty">
       <span class="wg-docsme-icon">
         <span class="icon-[lucide--book-open]" aria-hidden="true"></span>

@@ -550,8 +550,9 @@
                       x-show="isEditing && isWidgetNode(node)"
                       @click.stop="hideWidget(node.key)"
                       style="display: none;"
-                      aria-label="移除组件">
-                <span class="icon-[lucide--minus]" aria-hidden="true"></span>
+                      aria-label="移除组件"
+                      title="删除">
+                <span class="icon-[lucide--trash-2]" aria-hidden="true"></span>
               </button>
 
               <template x-if="isIconNode(node)">
@@ -574,8 +575,9 @@
                       x-show="isEditing && isIconNode(node)"
                       @click.stop="removeIcon(node.key)"
                       style="display: none;"
-                      aria-label="移除图标">
-                <span class="icon-[lucide--minus]" aria-hidden="true"></span>
+                      aria-label="移除图标"
+                      title="删除">
+                <span class="icon-[lucide--trash-2]" aria-hidden="true"></span>
               </button>
             </div>
           </template>
