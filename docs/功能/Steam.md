@@ -5,6 +5,7 @@
 - `pageApp = steam`
 - `pageMode = browser-steam`
 - `windowVariant = steam`
+- 本地实测插件 `metadata.name = steam`，主题兼容 `steam` / `halo-plugin-steam` / `PluginSteam` / `plugin-steam` 四种可用性判断。
 
 数据优先来自插件注入的页面模型和 `steamFinder`，主题只消费插件能力，不直接调用 Steam Web API。
 
@@ -40,6 +41,14 @@
 - 插件注入的 `games`
 
 Finder 调用需要判空。插件请求失败、Steam 隐私未公开或 API Key 未配置时，页面显示降级空状态。
+
+## 桌面身份状态卡边界
+
+`halo.identity_card` 会读取 Steam 插件数据，但只把明确的 `profile.playing == true` 视为“正在游戏”。
+
+- 可显示：`profile.statusText`、`summary.personaName`、`summary.avatarFull`、`steamLevel`、统计中的游戏数量。
+- 不推断：`getRecentGames(1)` 只代表最近玩过，不代表当前正在玩。
+- 插件缺失、Finder 返回空或 `playing` 为 false 时，身份卡会继续按瞬间、文章、图库或作者默认态降级。
 
 ## 交互
 

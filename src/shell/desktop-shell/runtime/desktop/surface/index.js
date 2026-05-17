@@ -123,7 +123,26 @@ export function registerDesktopSurface(Alpine) {
       momentsAvailable: false,
       recentMoments: [],
       archivesUrl: '/archives',
-      fallbackCover: ''
+      fallbackCover: '',
+      photosAvailable: false,
+      photos: [],
+      photoGroups: [],
+      photosUrl: '/photos',
+      steamAvailable: false,
+      steamProfile: {
+        playing: false,
+        statusText: '',
+        personaName: '',
+        avatarFull: '',
+        profileUrl: '',
+        steamLevel: 0,
+        currentGameName: ''
+      },
+      steamStats: {
+        totalGames: 0,
+        recentPlaytimeFormatted: ''
+      },
+      steamRecentGames: []
     },
     iconsManaged: false,
     icons: [],
@@ -559,7 +578,22 @@ export function registerDesktopSurface(Alpine) {
         photosAvailable: !!bootstrap.sources?.photosAvailable,
         photos: Array.isArray(bootstrap.sources?.photos) ? bootstrap.sources.photos : [],
         photoGroups: Array.isArray(bootstrap.sources?.photoGroups) ? bootstrap.sources.photoGroups : [],
-        photosUrl: bootstrap.sources?.photosUrl || '/photos'
+        photosUrl: bootstrap.sources?.photosUrl || '/photos',
+        steamAvailable: !!bootstrap.sources?.steamAvailable,
+        steamProfile: {
+          playing: bootstrap.sources?.steamProfile?.playing === true,
+          statusText: bootstrap.sources?.steamProfile?.statusText || '',
+          personaName: bootstrap.sources?.steamProfile?.personaName || '',
+          avatarFull: bootstrap.sources?.steamProfile?.avatarFull || '',
+          profileUrl: bootstrap.sources?.steamProfile?.profileUrl || '',
+          steamLevel: Number(bootstrap.sources?.steamProfile?.steamLevel || 0) || 0,
+          currentGameName: bootstrap.sources?.steamProfile?.currentGameName || ''
+        },
+        steamStats: {
+          totalGames: Number(bootstrap.sources?.steamStats?.totalGames || 0) || 0,
+          recentPlaytimeFormatted: bootstrap.sources?.steamStats?.recentPlaytimeFormatted || ''
+        },
+        steamRecentGames: Array.isArray(bootstrap.sources?.steamRecentGames) ? bootstrap.sources.steamRecentGames : []
       };
       this.defaultWidgets = resolvedWidgets.map((widget) => ({ ...widget }));
       this.syncDesktopBodyState();

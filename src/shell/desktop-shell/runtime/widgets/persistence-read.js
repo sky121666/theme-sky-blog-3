@@ -45,7 +45,22 @@ export function readDesktopWidgetsBootstrap() {
         photosAvailable: false,
         photos: [],
         photoGroups: [],
-        photosUrl: '/photos'
+        photosUrl: '/photos',
+        steamAvailable: false,
+        steamProfile: {
+          playing: false,
+          statusText: '',
+          personaName: '',
+          avatarFull: '',
+          profileUrl: '',
+          steamLevel: 0,
+          currentGameName: ''
+        },
+        steamStats: {
+          totalGames: 0,
+          recentPlaytimeFormatted: ''
+        },
+        steamRecentGames: []
       }
     };
   }

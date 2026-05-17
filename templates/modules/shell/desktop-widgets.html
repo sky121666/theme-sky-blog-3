@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="https://www.thymeleaf.org">
-  <th:block th:fragment="layer(enabled, isHome, hideOnMobile, editEnabled, columns, gap, layoutVersion, serverLayoutJson, themeName, themeJsonConfigEndpoint, weatherCityName, weatherRefreshMinutes, latestPosts, popularPosts, categoryTree, siteStats, randomTags, momentsAvailable, recentMoments, photosAvailable, photos, photoGroups, siteUrl, siteTitle, siteSubtitle, siteLogo, archivesUrl, fallbackCover)">
+  <th:block th:fragment="layer(enabled, isHome, hideOnMobile, editEnabled, columns, gap, layoutVersion, serverLayoutJson, themeName, themeJsonConfigEndpoint, weatherCityName, weatherRefreshMinutes, latestPosts, popularPosts, categoryTree, siteStats, randomTags, momentsAvailable, recentMoments, photosAvailable, photos, photoGroups, steamAvailable, steamPlaying, steamStatusText, steamPersonaName, steamAvatarFull, steamProfileUrl, steamLevel, steamStatsTotalGames, steamStatsRecentPlaytimeFormatted, steamRecentGames, siteUrl, siteTitle, siteSubtitle, siteLogo, archivesUrl, fallbackCover)">
     <script th:inline="javascript">
       const widgetProtocol = {
         enabled: [[${enabled}]],
@@ -40,7 +40,22 @@
           photosAvailable: [[${photosAvailable}]],
           photos: [[${photos}]],
           photoGroups: [[${photoGroups}]],
-          photosUrl: '/photos'
+          photosUrl: '/photos',
+          steamAvailable: [[${steamAvailable}]],
+          steamProfile: {
+            playing: [[${steamPlaying}]],
+            statusText: [[${steamStatusText}]],
+            personaName: [[${steamPersonaName}]],
+            avatarFull: [[${steamAvatarFull}]],
+            profileUrl: [[${steamProfileUrl}]],
+            steamLevel: [[${steamLevel}]],
+            currentGameName: ''
+          },
+          steamStats: {
+            totalGames: [[${steamStatsTotalGames}]],
+            recentPlaytimeFormatted: [[${steamStatsRecentPlaytimeFormatted}]]
+          },
+          steamRecentGames: [[${steamRecentGames}]]
         }
       };
       window.__THEME_DESKTOP_PROTOCOL__ = Object.assign(window.__THEME_DESKTOP_PROTOCOL__ || {}, {
