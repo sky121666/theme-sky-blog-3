@@ -398,8 +398,21 @@ async function main() {
       }
     }
 
+    const sourceFilterHref = await sourceFilter.getAttribute('href');
+    if (!sourceFilterHref || !sourceFilterHref.includes('linkName=')) {
+      throw new Error(`“只看此来源”入口 href 异常: ${sourceFilterHref || ''}`);
+    }
+
     await sourceFilter.click();
-    await page.waitForTimeout(1200);
+    await page.waitForFunction(
+      (href) => {
+        const target = new URL(href, window.location.origin);
+        return window.location.pathname === target.pathname && window.location.search === target.search;
+      },
+      sourceFilterHref,
+      { timeout: 10000 }
+    );
+    await page.waitForTimeout(250);
 
     const pageMode = await page.evaluate(() => document.body?.dataset.pageMode || '');
     if (pageMode !== 'browser-friends') {
