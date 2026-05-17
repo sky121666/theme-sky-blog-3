@@ -6,11 +6,31 @@
   display: none;
 }
 
+.desktop-widget-card.widget--plugin-moments-recent {
+  padding: 0 !important;
+  gap: 0;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+    rgba(54, 43, 67, 0.72);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 18px 38px rgba(17, 10, 24, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+}
+
+.desktop-widget-card.widget--plugin-moments-recent:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
 .wg-moment-social {
-  --wg-moment-accent: var(--moments-widget-accent, var(--theme-accent, var(--mac-accent, #2e5fbd)));
-  --wg-moment-accent-soft: color-mix(in srgb, var(--wg-moment-accent) 13%, transparent);
-  --wg-moment-line: color-mix(in srgb, var(--widget-card-muted, rgba(255, 255, 255, 0.56)) 16%, transparent);
-  --wg-moment-media-bg: color-mix(in srgb, var(--widget-card-text, #fff) 7%, transparent);
+  --wg-moment-accent: #f5a524;
+  --wg-moment-accent-soft: rgba(245, 165, 36, 0.12);
+  --wg-moment-line: rgba(255, 255, 255, 0.08);
+  --wg-moment-media-bg: rgba(255, 255, 255, 0.06);
+  --wg-moment-overlay: linear-gradient(0deg, rgba(0, 0, 0, 0.92), rgba(0, 0, 0, 0.34) 56%, rgba(0, 0, 0, 0.40));
   display: flex;
   width: 100%;
   height: 100%;
@@ -26,18 +46,21 @@
 }
 
 .wg-moment-social--small {
-  gap: 8px;
-  padding: 12px;
+  position: relative;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
 }
 
 .wg-moment-social--medium {
-  gap: 8px;
-  padding: 13px 14px 12px;
+  flex-direction: row;
+  gap: 12px;
+  padding: 12px 12px 12px 24px;
 }
 
 .wg-moment-social--large {
-  gap: 10px;
-  padding: 10px;
+  gap: 0;
+  padding: 18px;
 }
 
 .wg-moment-social-header {
@@ -51,13 +74,14 @@
 .wg-moment-social-avatar {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   border-radius: 999px;
   overflow: hidden;
   flex: none;
   background: var(--wg-moment-media-bg);
   border: 1px solid var(--wg-moment-line);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
 }
 
 .wg-moment-social-avatar img {
@@ -84,7 +108,7 @@
 }
 
 .wg-moment-social-name {
-  color: var(--widget-card-text);
+  color: rgba(255, 255, 255, 0.94);
   font-size: 12px;
   font-weight: 690;
   line-height: 1.15;
@@ -92,8 +116,8 @@
 }
 
 .wg-moment-social-time {
-  color: var(--widget-card-muted);
-  font-size: 9.5px;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 9px;
   line-height: 1.15;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -102,33 +126,92 @@
 .wg-moment-social-content {
   display: -webkit-box;
   min-width: 0;
-  color: var(--widget-card-subtle);
-  font-size: 11.5px;
-  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 12.5px;
+  font-weight: 510;
+  line-height: 1.42;
   -webkit-box-orient: vertical;
 }
 
 .wg-moment-social--small .wg-moment-social-content {
-  flex: 1;
-  -webkit-line-clamp: 3;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.42);
+  -webkit-line-clamp: 2;
 }
 
 .wg-moment-social--medium .wg-moment-social-content {
   flex: 1;
   min-height: 0;
-  -webkit-line-clamp: 2;
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 13px;
+  line-height: 1.55;
+  -webkit-line-clamp: 3;
+}
+
+.wg-moment-social-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  min-width: 0;
+  flex: 1;
+  padding: 2px 0 0 1px;
+}
+
+.wg-moment-social-overlay {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  padding: 12px;
+  background: var(--wg-moment-overlay);
+}
+
+.wg-moment-social-overlay .wg-moment-social-content {
+  margin-top: auto;
+}
+
+.wg-moment-social-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.wg-moment-social-time-pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: calc(100% - 34px);
+  height: 18px;
+  padding: 0 6px;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.80);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.30);
+  backdrop-filter: blur(14px) saturate(130%);
+  -webkit-backdrop-filter: blur(14px) saturate(130%);
+  font-size: 9px;
+  font-weight: 560;
+  line-height: 1;
 }
 
 .wg-moment-social-media {
   position: relative;
   display: block;
-  width: 100%;
-  height: 48px;
-  margin-top: 1px;
-  border-radius: 12px;
+  width: 140px;
+  height: 100%;
+  margin: 0;
+  border-radius: 14px;
   overflow: hidden;
   background: var(--wg-moment-media-bg);
-  border: 1px solid var(--wg-moment-line);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   flex: none;
 }
 
@@ -136,6 +219,20 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.wg-moment-social:hover .wg-moment-social-media img {
+  transform: scale(1.045);
+}
+
+.wg-moment-social-media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: inherit;
+  pointer-events: none;
 }
 
 .wg-moment-social-media b {
@@ -156,14 +253,40 @@
 }
 
 .wg-moment-social-media.is-placeholder {
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   color: var(--widget-card-muted);
 }
 
 .wg-moment-social-media.is-placeholder > span {
   width: 20px;
   height: 20px;
+}
+
+.wg-moment-social-media.is-placeholder em {
+  font-style: normal;
+  font-size: 10px;
+}
+
+.wg-moment-social--small .wg-moment-social-media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: inherit;
+}
+
+.wg-moment-social--small:not(.has-cover) {
+  padding: 12px;
+}
+
+.wg-moment-social--small:not(.has-cover) .wg-moment-social-overlay {
+  padding: 0;
+  background: transparent;
 }
 
 .wg-moment-social-bar,
@@ -187,17 +310,17 @@
 .wg-moment-social-tag,
 .wg-moment-social-media-count {
   min-width: 0;
-  color: var(--widget-card-muted);
-  font-size: 9.5px;
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 10px;
   line-height: 1;
 }
 
 .wg-moment-social-tag {
-  max-width: 58%;
-  padding: 4px 7px;
+  max-width: 62%;
+  padding: 4px 8px 5px;
   border-radius: 999px;
   background: var(--wg-moment-accent-soft);
-  color: color-mix(in srgb, var(--wg-moment-accent) 72%, var(--widget-card-text));
+  color: var(--wg-moment-accent);
   white-space: nowrap;
 }
 
@@ -205,129 +328,108 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: var(--widget-card-muted);
+  color: rgba(255, 255, 255, 0.56);
   font-variant-numeric: tabular-nums;
+}
+
+.wg-moment-social-stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  flex: none;
 }
 
 .wg-moment-social-stat span[class*="icon-["] {
   width: 13px;
   height: 13px;
-  color: color-mix(in srgb, var(--wg-moment-accent) 70%, var(--widget-card-muted));
+  color: rgba(255, 126, 172, 0.82);
+}
+
+.wg-moment-social-stat.is-comment span[class*="icon-["] {
+  color: rgba(255, 255, 255, 0.54);
 }
 
 .wg-moment-social-stat b {
-  color: var(--widget-card-text);
-  font-size: 10.5px;
-  font-weight: 690;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 11px;
+  font-weight: 520;
   line-height: 1;
 }
 
 .wg-moment-social-feature {
   position: relative;
   display: flex;
+  flex-direction: column;
+  gap: 14px;
+  justify-content: space-between;
   min-height: 0;
   flex: 1;
   overflow: hidden;
   color: inherit;
   text-decoration: none;
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--widget-card-text, #fff) 5%, transparent);
-  border: 1px solid var(--wg-moment-line);
+  border-radius: 0;
+  background: transparent;
+  border: 0;
 }
 
 .wg-moment-social-feature .wg-moment-social-media {
-  position: absolute;
-  inset: 0;
+  position: relative;
   width: 100%;
-  height: 100%;
+  height: auto;
+  min-height: 126px;
+  flex: 1 1 132px;
   margin: 0;
-  border: 0;
-  border-radius: inherit;
+  border-radius: 16px;
 }
 
 .wg-moment-social-feature .wg-moment-social-media::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, color-mix(in srgb, #000 6%, transparent), color-mix(in srgb, #000 58%, transparent));
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .wg-moment-social-feature-copy {
-  position: relative;
-  z-index: 1;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   width: 100%;
   min-width: 0;
-  margin-top: auto;
-  padding: 12px;
+  flex: none;
+  padding: 0 2px;
 }
 
-.wg-moment-social-feature-copy .wg-moment-social-content {
-  color: rgba(255, 255, 255, 0.9);
-  -webkit-line-clamp: 2;
-}
-
-.wg-moment-social-feature-copy .wg-moment-social-name {
-  color: rgba(255, 255, 255, 0.94);
-}
-
-.wg-moment-social-feature-copy .wg-moment-social-time,
-.wg-moment-social-feature-copy .wg-moment-social-stat,
-.wg-moment-social-feature-copy .wg-moment-social-stat b {
-  color: rgba(255, 255, 255, 0.76);
-}
-
-.wg-moment-social-stack-list {
+.wg-moment-social-feature-head {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-height: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
   flex: none;
 }
 
-.wg-moment-social-item {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  min-width: 0;
-  min-height: 42px;
-  color: inherit;
-  text-decoration: none;
-  padding: 5px;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--widget-card-text, #fff) 4%, transparent);
+.wg-moment-social-more {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  color: rgba(255, 255, 255, 0.36);
   border: 1px solid var(--wg-moment-line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
 }
 
-.wg-moment-social-item .wg-moment-social-media {
-  width: 40px;
-  height: 40px;
-  margin: 0;
-  border-radius: 9px;
+.wg-moment-social-more span[class*="icon-["] {
+  width: 15px;
+  height: 15px;
 }
 
-.wg-moment-social-item-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-  flex: 1;
-}
-
-.wg-moment-social-item-title {
-  color: var(--widget-card-subtle);
-  font-size: 10.5px;
-  line-height: 1.28;
-  white-space: nowrap;
-}
-
-.wg-moment-social-item-meta {
-  color: var(--widget-card-muted);
-  font-size: 9px;
-  line-height: 1;
-  white-space: nowrap;
+.wg-moment-social-feature > .wg-moment-social-content {
+  flex: none;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 13px;
+  line-height: 1.52;
+  -webkit-line-clamp: 2;
 }
 
 .wg-moment-social-empty {
@@ -341,48 +443,52 @@
 
 .wg-moment-social--small,
 .wg-moment-social--medium,
-.wg-moment-social-feature,
-.wg-moment-social-item {
+.wg-moment-social-feature {
   transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 180ms ease, background-color 180ms ease;
 }
 
 .wg-moment-social--small:hover,
 .wg-moment-social--medium:hover,
-.wg-moment-social-feature:hover,
-.wg-moment-social-item:hover {
+.wg-moment-social-feature:hover {
   transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--wg-moment-accent) 24%, var(--wg-moment-line));
 }
 
 .wg-moment-social--small:active,
 .wg-moment-social--medium:active,
-.wg-moment-social-feature:active,
-.wg-moment-social-item:active {
+.wg-moment-social-feature:active {
   transform: scale(0.985);
 }
 
 :root:not(.dark) [data-widget-appearance="follow"] .wg-moment-social,
 [data-widget-appearance="light"] .wg-moment-social {
-  --wg-moment-line: color-mix(in srgb, var(--widget-card-muted, rgba(15, 23, 42, 0.48)) 18%, transparent);
-  --wg-moment-media-bg: color-mix(in srgb, var(--widget-card-text, #0f172a) 6%, transparent);
+  --wg-moment-line: rgba(255, 255, 255, 0.08);
+  --wg-moment-media-bg: rgba(255, 255, 255, 0.06);
+}
+
+:root:not(.dark) .desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="follow"],
+.desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="light"] {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.025)),
+    rgba(54, 43, 67, 0.72);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 18px 38px rgba(17, 10, 24, 0.20),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .wg-moment-social--small,
   .wg-moment-social--medium,
-  .wg-moment-social-feature,
-  .wg-moment-social-item {
+  .wg-moment-social-feature {
     transition: opacity 160ms ease;
   }
 
   .wg-moment-social--small:hover,
   .wg-moment-social--medium:hover,
   .wg-moment-social-feature:hover,
-  .wg-moment-social-item:hover,
   .wg-moment-social--small:active,
   .wg-moment-social--medium:active,
-  .wg-moment-social-feature:active,
-  .wg-moment-social-item:active {
+  .wg-moment-social-feature:active {
     transform: none;
   }
 }

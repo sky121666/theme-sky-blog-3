@@ -1,62 +1,77 @@
-import{r as v}from"../../../shell-runtime/runtime/desktop/surface/edit-mode.js?v=0.9.30&r=d5811a492783";import{r as f}from"../../halo/author-card/render.js?v=0.9.30&r=d5811a492783";function h(n,a,e,t){const s=Number.parseInt(n,10);return Number.isFinite(s)?Math.min(Math.max(s,e),t):a}function d(n,a,e){if(!e||!n.mediaCount)return"";const t=n.media[0],s=n.mediaCount>1?`<b>+${n.mediaCount-1}</b>`:"";return t?.type==="PHOTO"&&t.url?`
+import{r as h}from"../../../shell-runtime/runtime/desktop/surface/edit-mode.js?v=0.9.30&r=d47ffabb8f0a";import{r as g}from"../../halo/author-card/render.js?v=0.9.30&r=d47ffabb8f0a";function l(n,s){if(!n.mediaCount)return"";const e=n.media[0],a=typeof e?.type=="string"?e.type:e?.type?.name||"",o=n.mediaCount>1?`<b>+${n.mediaCount-1}</b>`:"";return a==="PHOTO"&&e.url?`
       <span class="wg-moment-social-media">
-        <img src="${a(t.url)}" alt="" loading="lazy" decoding="async" fetchpriority="low">
-        ${s}
+        <img src="${s(e.url)}" alt="" loading="lazy" decoding="async" fetchpriority="low">
+        ${o}
       </span>
     `:`
     <span class="wg-moment-social-media is-placeholder">
-      <span class="${t?.type==="VIDEO"?"icon-[lucide--video]":t?.type==="AUDIO"?"icon-[lucide--music-2]":"icon-[lucide--image]"}" aria-hidden="true"></span>
-      ${s}
+      <span class="${a==="VIDEO"?"icon-[lucide--video]":a==="AUDIO"?"icon-[lucide--music-2]":"icon-[lucide--image]"}" aria-hidden="true"></span>
+      <em>${s(a==="VIDEO"?"视频":a==="AUDIO"?"音频":"内容")}</em>
+      ${o}
     </span>
-  `}function p(n){const a=n?.stats||{};return{upvote:Number(a.upvote??0)||0}}function w(n,a,e="wg-moment-social-stat"){return`
-    <span class="${e} is-heart" aria-label="${a(`${n} 个赞`)}">
-      <span class="icon-[lucide--heart]" aria-hidden="true"></span>
-      <b>${a(String(n))}</b>
+  `}function c(n){const s=n?.stats||{},e=Number(s.totalComment??0)||0,a=Number(s.approvedComment??e)||0;return{upvote:Number(s.upvote??0)||0,comment:a}}function d({value:n,icon:s,label:e,className:a},o){return`
+    <span class="${a}" aria-label="${o(`${n} ${e}`)}">
+      <span class="${s}" aria-hidden="true"></span>
+      <b>${o(String(n))}</b>
     </span>
-  `}function M(n){return f({href:"/moments",app:"moments",className:"desktop-widget-empty wg-moment-social-empty",disabled:n==="preview",innerHtml:`
+  `}function p(n,s){return`
+    <span class="wg-moment-social-stats">
+      ${d({value:n.upvote,icon:"icon-[lucide--heart]",label:"个赞",className:"wg-moment-social-stat is-heart"},s)}
+      ${d({value:n.comment,icon:"icon-[lucide--message-circle]",label:"条评论",className:"wg-moment-social-stat is-comment"},s)}
+    </span>
+  `}function v(n,s){const e=n?.owner||{};return{displayName:e.displayName||s.displayName||"作者",avatar:e.avatar||s.avatar||"/logo"}}function y(n){return g({href:"/moments",app:"moments",className:"desktop-widget-empty wg-moment-social-empty",disabled:n==="preview",innerHtml:`
       <strong>还没有瞬间</strong>
       <span>打开瞬间记录最近动态</span>
-    `})}function $(n,a,e){return`
+    `})}function w(n,s,e){return`
     <span class="wg-moment-social-header">
       <span class="wg-moment-social-avatar">
-        <img src="${a(n.avatar||"/logo")}" alt="" loading="lazy" decoding="async" fetchpriority="low">
+        <img src="${s(n.avatar||"/logo")}" alt="" loading="lazy" decoding="async" fetchpriority="low">
       </span>
       <span class="wg-moment-social-info">
-        <span class="wg-moment-social-name">${a(n.displayName||"作者")}</span>
-        <span class="wg-moment-social-time">${a(e||"最新瞬间")}</span>
+        <span class="wg-moment-social-name">${s(n.displayName||"作者")}</span>
+        <span class="wg-moment-social-time">${s(e||"最新瞬间")}</span>
       </span>
     </span>
-  `}function g({moment:n,app:a="moments",className:e,mode:t,escapeHtml:s,innerHtml:o}){return f({href:s(n?.permalink||"/moments"),app:a,className:e,disabled:t==="preview",innerHtml:o})}function b({moment:n,original:a,author:e,showMedia:t,escapeHtml:s,mode:o}){const{upvote:i}=p(a);return g({moment:n,escapeHtml:s,mode:o,className:"wg-moment-social wg-moment-social--small",innerHtml:`
-      ${$(e,s,n.listTime)}
-      <span class="wg-moment-social-content">${s(n.summary)}</span>
-      <span class="wg-moment-social-footer">
-        ${w(i,s)}
-        ${t&&n.mediaCount?`<span class="wg-moment-social-media-count">${s(n.rowBadge)}</span>`:""}
-      </span>
-    `})}function N({moment:n,original:a,author:e,showMedia:t,escapeHtml:s,mode:o}){const{upvote:i}=p(a),m=n.tags.length>0?n.tags[0]:"";return g({moment:n,escapeHtml:s,mode:o,className:"wg-moment-social wg-moment-social--medium",innerHtml:`
-      ${$(e,s,n.listTime)}
-      <span class="wg-moment-social-content">${s(n.summary)}</span>
-      ${d(n,s,t)}
-      <span class="wg-moment-social-bar">
-        ${m?`<span class="wg-moment-social-tag">#${s(m)}</span>`:"<span></span>"}
-        ${w(i,s)}
-      </span>
-    `})}function k({moments:n,originals:a,author:e,showMedia:t,escapeHtml:s,mode:o}){const i=n[0],{upvote:m}=p(a[0]),c=n.slice(1,3).map((r,l)=>{const u=p(a[l+1]);return g({moment:r,escapeHtml:s,mode:o,className:"wg-moment-social-item",innerHtml:`
-        ${d(r,s,t)}
-        <span class="wg-moment-social-item-copy">
-          <span class="wg-moment-social-item-title">${s(r.summary)}</span>
-          <span class="wg-moment-social-item-meta">${s(r.listTime)} · ${s(String(u.upvote))} 赞</span>
+  `}function M(n,s){return`<span class="wg-moment-social-time-pill">${s(n||"最新")}</span>`}function u({moment:n,app:s="moments",className:e,mode:a,escapeHtml:o,innerHtml:t}){return g({href:o(n?.permalink||"/moments"),app:s,className:e,disabled:a==="preview",innerHtml:t})}function b({moment:n,original:s,author:e,escapeHtml:a,mode:o}){const t=c(s),i=n.mediaCount>0;return u({moment:n,escapeHtml:a,mode:o,className:`wg-moment-social wg-moment-social--small${i?" has-cover":""}`,innerHtml:`
+      ${i?l(n,a):""}
+      <span class="wg-moment-social-overlay">
+        <span class="wg-moment-social-topline">
+          <span class="wg-moment-social-avatar">
+            <img src="${a(e.avatar)}" alt="" loading="lazy" decoding="async" fetchpriority="low">
+          </span>
+          ${M(n.listTime,a)}
         </span>
-      `})}).join("");return`
+        <span class="wg-moment-social-content">${a(n.summary)}</span>
+        <span class="wg-moment-social-footer">
+          ${p(t,a)}
+          ${!i&&n.mediaCount?`<span class="wg-moment-social-media-count">${a(n.rowBadge)}</span>`:""}
+        </span>
+      </span>
+    `})}function N({moment:n,original:s,author:e,escapeHtml:a,mode:o}){const t=c(s),i=n.tags.length>0?n.tags[0]:"",r=l(n,a);return u({moment:n,escapeHtml:a,mode:o,className:`wg-moment-social wg-moment-social--medium${r?" has-media":""}`,innerHtml:`
+      <span class="wg-moment-social-copy">
+        ${w(e,a,n.listTime)}
+        <span class="wg-moment-social-content">${a(n.summary)}</span>
+        <span class="wg-moment-social-bar">
+          ${i?`<span class="wg-moment-social-tag">#${a(i)}</span>`:"<span></span>"}
+          ${p(t,a)}
+        </span>
+      </span>
+      ${r}
+    `})}function C({moments:n,originals:s,author:e,escapeHtml:a,mode:o}){const t=n[0],i=c(s[0]);return`
     <div class="wg-moment-social wg-moment-social--large">
-      ${g({moment:i,escapeHtml:s,mode:o,className:"wg-moment-social-feature",innerHtml:`
-          ${d(i,s,t)}
+      ${u({moment:t,escapeHtml:a,mode:o,className:`wg-moment-social-feature${t.mediaCount?" has-media":""}`,innerHtml:`
+          <span class="wg-moment-social-feature-head">
+            ${w(e,a,t.fullTime)}
+            <span class="wg-moment-social-more" aria-hidden="true">
+              <span class="icon-[lucide--more-horizontal]" aria-hidden="true"></span>
+            </span>
+          </span>
+          <span class="wg-moment-social-content">${a(t.summary)}</span>
+          ${l(t,a)}
           <span class="wg-moment-social-feature-copy">
-            ${$(e,s,i.listTime)}
-            <span class="wg-moment-social-content">${s(i.summary)}</span>
-            <span class="wg-moment-social-footer">${w(m,s)}</span>
+            ${t.tags.length>0?`<span class="wg-moment-social-tag">#${a(t.tags[0])}</span>`:"<span></span>"}
+            <span class="wg-moment-social-footer">${p(i,a)}</span>
           </span>
         `})}
-      ${c?`<span class="wg-moment-social-stack-list">${c}</span>`:""}
     </div>
-  `}function z({sources:n,escapeHtml:a,normalizeMomentRecord:e,mode:t},s){if(!n.momentsAvailable)return'<div class="desktop-widget-empty">未安装 Moments 插件。</div>';const o=s?.meta&&typeof s.meta=="object"?s.meta:{},i=s?.size||"medium",m=i==="large"?h(o.limit,3,1,3):1,c=o.showMedia!==!1,r=n.recentMoments.slice(0,m),l=r.map(y=>e(y));if(!l.length)return M(t);const u=v(n);return i==="small"?b({moment:l[0],original:r[0],author:u,showMedia:c,escapeHtml:a,mode:t}):i==="large"?k({moments:l,originals:r,author:u,showMedia:c,escapeHtml:a,mode:t}):N({moment:l[0],original:r[0],author:u,showMedia:c,escapeHtml:a,mode:t})}export{z as t};
+  `}function O({sources:n,escapeHtml:s,normalizeMomentRecord:e,mode:a},o){if(!n.momentsAvailable)return'<div class="desktop-widget-empty">未安装 Moments 插件。</div>';const t=o?.size||"medium",i=n.recentMoments.slice(0,1),r=i.map(f=>e(f));if(!r.length)return y(a);const $=h(n),m=v(i[0],$);return t==="small"?b({moment:r[0],original:i[0],author:m,escapeHtml:s,mode:a}):t==="large"?C({moments:r,originals:i,author:m,escapeHtml:s,mode:a}):N({moment:r[0],original:i[0],author:m,escapeHtml:s,mode:a})}export{O as t};

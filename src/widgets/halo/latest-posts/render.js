@@ -2,23 +2,10 @@ import { formatWidgetDate } from '../../shared/format.js';
 import { buildWidgetPjaxLink } from '../../shared/link.js';
 import { flattenCategoryTree, resolveWidgetCover } from '../../shared/data.js';
 
-function clampInteger(value, fallback, min, max) {
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed)) return fallback;
-  return Math.min(Math.max(parsed, min), max);
-}
-
 function defaultLimitForSize(size) {
   if (size === 'small') return 1;
   if (size === 'large') return 4;
   return 3;
-}
-
-function readPostExcerpt(post, maxLength = 34) {
-  const raw = post?.status?.excerpt || post?.spec?.excerpt?.raw || '';
-  const normalized = String(raw || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
-  if (!normalized) return '';
-  return normalized.length > maxLength ? `${normalized.slice(0, Math.max(maxLength - 1, 1)).trimEnd()}…` : normalized;
 }
 
 function resolveCategoryFilter(sources, categoryName) {
@@ -38,8 +25,7 @@ function postMatchesCategory(post, categoryName) {
 export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}) {
   const size = widget?.size || 'medium';
   const meta = widget?.meta && typeof widget.meta === 'object' ? widget.meta : {};
-  const limit = clampInteger(meta.limit, defaultLimitForSize(size), 1, 8);
-  const showSummary = meta.showSummary === true;
+  const limit = defaultLimitForSize(size);
   const category = resolveCategoryFilter(sources, meta.categoryName);
 
   const sourcePosts = Array.isArray(sources.latestPosts) ? sources.latestPosts : [];
@@ -89,7 +75,6 @@ export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}
     const listHTML = listPosts.map((p) => {
       const t = escapeHtml(p?.spec?.title || '未命名文章');
       const d = escapeHtml(formatWidgetDate(p?.spec?.publishTime) || '');
-      const secondary = showSummary ? escapeHtml(readPostExcerpt(p) || d) : d;
       return buildWidgetPjaxLink({
         href: escapeHtml(p?.status?.permalink || '#'),
         app: 'reader',
@@ -97,7 +82,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}
         disabled: mode === 'preview',
         innerHtml: `
           <span class="wg-news-md-row-title">${t}</span>
-          <span class="wg-news-md-row-date">${secondary}</span>
+          <span class="wg-news-md-row-date">${d}</span>
         `
       });
     }).join('');
@@ -139,7 +124,6 @@ export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}
     const listHTML = listPosts.map((p) => {
       const t = escapeHtml(p?.spec?.title || '未命名文章');
       const d = escapeHtml(formatWidgetDate(p?.spec?.publishTime) || '');
-      const secondary = showSummary ? escapeHtml(readPostExcerpt(p, 40) || d) : d;
       return buildWidgetPjaxLink({
         href: escapeHtml(p?.status?.permalink || '#'),
         app: 'reader',
@@ -148,7 +132,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}
         innerHtml: `
           <span class="wg-news-lg-indicator"></span>
           <span class="wg-news-lg-item-title">${t}</span>
-          <span class="wg-news-lg-item-date">${secondary}</span>
+          <span class="wg-news-lg-item-date">${d}</span>
         `
       });
     }).join('');

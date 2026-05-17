@@ -1,17 +1,12 @@
 import { resolveDesktopAuthorProfile } from './data.js';
 import { buildWidgetPjaxLink } from './link.js';
 
-function clampInteger(value, fallback, min, max) {
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed)) return fallback;
-  return Math.min(Math.max(parsed, min), max);
-}
-
-function renderMomentMediaPreview(moment, escapeHtml, showMedia) {
-  if (!showMedia || !moment.mediaCount) return '';
+function renderMomentMediaPreview(moment, escapeHtml) {
+  if (!moment.mediaCount) return '';
   const medium = moment.media[0];
+  const mediumType = typeof medium?.type === 'string' ? medium.type : (medium?.type?.name || '');
   const remaining = moment.mediaCount > 1 ? `<b>+${moment.mediaCount - 1}</b>` : '';
-  if (medium?.type === 'PHOTO' && medium.url) {
+  if (mediumType === 'PHOTO' && medium.url) {
     return `
       <span class="wg-moment-social-media">
         <img src="${escapeHtml(medium.url)}" alt="" loading="lazy" decoding="async" fetchpriority="low">
@@ -20,15 +15,21 @@ function renderMomentMediaPreview(moment, escapeHtml, showMedia) {
     `;
   }
 
-  const icon = medium?.type === 'VIDEO'
+  const label = mediumType === 'VIDEO'
+    ? '视频'
+    : mediumType === 'AUDIO'
+      ? '音频'
+      : '内容';
+  const icon = mediumType === 'VIDEO'
     ? 'icon-[lucide--video]'
-    : medium?.type === 'AUDIO'
+    : mediumType === 'AUDIO'
       ? 'icon-[lucide--music-2]'
       : 'icon-[lucide--image]';
 
   return `
     <span class="wg-moment-social-media is-placeholder">
       <span class="${icon}" aria-hidden="true"></span>
+      <em>${escapeHtml(label)}</em>
       ${remaining}
     </span>
   `;
@@ -36,18 +37,48 @@ function renderMomentMediaPreview(moment, escapeHtml, showMedia) {
 
 function resolveMomentStats(moment) {
   const stats = moment?.stats || {};
+  const totalComment = Number(stats.totalComment ?? 0) || 0;
+  const approvedComment = Number(stats.approvedComment ?? totalComment) || 0;
   return {
-    upvote: Number(stats.upvote ?? 0) || 0
+    upvote: Number(stats.upvote ?? 0) || 0,
+    comment: approvedComment
   };
 }
 
-function renderMomentLikes(upvote, escapeHtml, className = 'wg-moment-social-stat') {
+function renderMomentStat({ value, icon, label, className }, escapeHtml) {
   return `
-    <span class="${className} is-heart" aria-label="${escapeHtml(`${upvote} 个赞`)}">
-      <span class="icon-[lucide--heart]" aria-hidden="true"></span>
-      <b>${escapeHtml(String(upvote))}</b>
+    <span class="${className}" aria-label="${escapeHtml(`${value} ${label}`)}">
+      <span class="${icon}" aria-hidden="true"></span>
+      <b>${escapeHtml(String(value))}</b>
     </span>
   `;
+}
+
+function renderMomentStats(stats, escapeHtml) {
+  return `
+    <span class="wg-moment-social-stats">
+      ${renderMomentStat({
+        value: stats.upvote,
+        icon: 'icon-[lucide--heart]',
+        label: '个赞',
+        className: 'wg-moment-social-stat is-heart'
+      }, escapeHtml)}
+      ${renderMomentStat({
+        value: stats.comment,
+        icon: 'icon-[lucide--message-circle]',
+        label: '条评论',
+        className: 'wg-moment-social-stat is-comment'
+      }, escapeHtml)}
+    </span>
+  `;
+}
+
+function resolveMomentAuthor(original, fallback) {
+  const owner = original?.owner || {};
+  return {
+    displayName: owner.displayName || fallback.displayName || '作者',
+    avatar: owner.avatar || fallback.avatar || '/logo'
+  };
 }
 
 function renderMomentEmpty(mode) {
@@ -77,6 +108,10 @@ function renderMomentAuthor(author, escapeHtml, time) {
   `;
 }
 
+function renderMomentTimePill(time, escapeHtml) {
+  return `<span class="wg-moment-social-time-pill">${escapeHtml(time || '最新')}</span>`;
+}
+
 function renderMomentLink({ moment, app = 'moments', className, mode, escapeHtml, innerHtml }) {
   return buildWidgetPjaxLink({
     href: escapeHtml(moment?.permalink || '/moments'),
@@ -87,65 +122,59 @@ function renderMomentLink({ moment, app = 'moments', className, mode, escapeHtml
   });
 }
 
-function renderMomentSmall({ moment, original, author, showMedia, escapeHtml, mode }) {
-  const { upvote } = resolveMomentStats(original);
+function renderMomentSmall({ moment, original, author, escapeHtml, mode }) {
+  const stats = resolveMomentStats(original);
+  const hasCover = moment.mediaCount > 0;
   return renderMomentLink({
     moment,
     escapeHtml,
     mode,
-    className: 'wg-moment-social wg-moment-social--small',
+    className: `wg-moment-social wg-moment-social--small${hasCover ? ' has-cover' : ''}`,
     innerHtml: `
-      ${renderMomentAuthor(author, escapeHtml, moment.listTime)}
-      <span class="wg-moment-social-content">${escapeHtml(moment.summary)}</span>
-      <span class="wg-moment-social-footer">
-        ${renderMomentLikes(upvote, escapeHtml)}
-        ${showMedia && moment.mediaCount ? `<span class="wg-moment-social-media-count">${escapeHtml(moment.rowBadge)}</span>` : ''}
-      </span>
-    `
-  });
-}
-
-function renderMomentMedium({ moment, original, author, showMedia, escapeHtml, mode }) {
-  const { upvote } = resolveMomentStats(original);
-  const tag = moment.tags.length > 0 ? moment.tags[0] : '';
-  return renderMomentLink({
-    moment,
-    escapeHtml,
-    mode,
-    className: 'wg-moment-social wg-moment-social--medium',
-    innerHtml: `
-      ${renderMomentAuthor(author, escapeHtml, moment.listTime)}
-      <span class="wg-moment-social-content">${escapeHtml(moment.summary)}</span>
-      ${renderMomentMediaPreview(moment, escapeHtml, showMedia)}
-      <span class="wg-moment-social-bar">
-        ${tag ? `<span class="wg-moment-social-tag">#${escapeHtml(tag)}</span>` : '<span></span>'}
-        ${renderMomentLikes(upvote, escapeHtml)}
-      </span>
-    `
-  });
-}
-
-function renderMomentLarge({ moments, originals, author, showMedia, escapeHtml, mode }) {
-  const featured = moments[0];
-  const { upvote } = resolveMomentStats(originals[0]);
-  const secondary = moments.slice(1, 3);
-
-  const secondaryItems = secondary.map((moment, index) => {
-    const stats = resolveMomentStats(originals[index + 1]);
-    return renderMomentLink({
-      moment,
-      escapeHtml,
-      mode,
-      className: 'wg-moment-social-item',
-      innerHtml: `
-        ${renderMomentMediaPreview(moment, escapeHtml, showMedia)}
-        <span class="wg-moment-social-item-copy">
-          <span class="wg-moment-social-item-title">${escapeHtml(moment.summary)}</span>
-          <span class="wg-moment-social-item-meta">${escapeHtml(moment.listTime)} · ${escapeHtml(String(stats.upvote))} 赞</span>
+      ${hasCover ? renderMomentMediaPreview(moment, escapeHtml) : ''}
+      <span class="wg-moment-social-overlay">
+        <span class="wg-moment-social-topline">
+          <span class="wg-moment-social-avatar">
+            <img src="${escapeHtml(author.avatar)}" alt="" loading="lazy" decoding="async" fetchpriority="low">
+          </span>
+          ${renderMomentTimePill(moment.listTime, escapeHtml)}
         </span>
-      `
-    });
-  }).join('');
+        <span class="wg-moment-social-content">${escapeHtml(moment.summary)}</span>
+        <span class="wg-moment-social-footer">
+          ${renderMomentStats(stats, escapeHtml)}
+          ${!hasCover && moment.mediaCount ? `<span class="wg-moment-social-media-count">${escapeHtml(moment.rowBadge)}</span>` : ''}
+        </span>
+      </span>
+    `
+  });
+}
+
+function renderMomentMedium({ moment, original, author, escapeHtml, mode }) {
+  const stats = resolveMomentStats(original);
+  const tag = moment.tags.length > 0 ? moment.tags[0] : '';
+  const mediaHtml = renderMomentMediaPreview(moment, escapeHtml);
+  return renderMomentLink({
+    moment,
+    escapeHtml,
+    mode,
+    className: `wg-moment-social wg-moment-social--medium${mediaHtml ? ' has-media' : ''}`,
+    innerHtml: `
+      <span class="wg-moment-social-copy">
+        ${renderMomentAuthor(author, escapeHtml, moment.listTime)}
+        <span class="wg-moment-social-content">${escapeHtml(moment.summary)}</span>
+        <span class="wg-moment-social-bar">
+          ${tag ? `<span class="wg-moment-social-tag">#${escapeHtml(tag)}</span>` : '<span></span>'}
+          ${renderMomentStats(stats, escapeHtml)}
+        </span>
+      </span>
+      ${mediaHtml}
+    `
+  });
+}
+
+function renderMomentLarge({ moments, originals, author, escapeHtml, mode }) {
+  const featured = moments[0];
+  const stats = resolveMomentStats(originals[0]);
 
   return `
     <div class="wg-moment-social wg-moment-social--large">
@@ -153,17 +182,22 @@ function renderMomentLarge({ moments, originals, author, showMedia, escapeHtml, 
         moment: featured,
         escapeHtml,
         mode,
-        className: 'wg-moment-social-feature',
+        className: `wg-moment-social-feature${featured.mediaCount ? ' has-media' : ''}`,
         innerHtml: `
-          ${renderMomentMediaPreview(featured, escapeHtml, showMedia)}
+          <span class="wg-moment-social-feature-head">
+            ${renderMomentAuthor(author, escapeHtml, featured.fullTime)}
+            <span class="wg-moment-social-more" aria-hidden="true">
+              <span class="icon-[lucide--more-horizontal]" aria-hidden="true"></span>
+            </span>
+          </span>
+          <span class="wg-moment-social-content">${escapeHtml(featured.summary)}</span>
+          ${renderMomentMediaPreview(featured, escapeHtml)}
           <span class="wg-moment-social-feature-copy">
-            ${renderMomentAuthor(author, escapeHtml, featured.listTime)}
-            <span class="wg-moment-social-content">${escapeHtml(featured.summary)}</span>
-            <span class="wg-moment-social-footer">${renderMomentLikes(upvote, escapeHtml)}</span>
+            ${featured.tags.length > 0 ? `<span class="wg-moment-social-tag">#${escapeHtml(featured.tags[0])}</span>` : '<span></span>'}
+            <span class="wg-moment-social-footer">${renderMomentStats(stats, escapeHtml)}</span>
           </span>
         `
       })}
-      ${secondaryItems ? `<span class="wg-moment-social-stack-list">${secondaryItems}</span>` : ''}
     </div>
   `;
 }
@@ -173,11 +207,8 @@ export function renderRecentMomentsWidget({ sources, escapeHtml, normalizeMoment
     return '<div class="desktop-widget-empty">未安装 Moments 插件。</div>';
   }
 
-  const meta = widget?.meta && typeof widget.meta === 'object' ? widget.meta : {};
   const size = widget?.size || 'medium';
-  const limit = size === 'large' ? clampInteger(meta.limit, 3, 1, 3) : 1;
-  const showMedia = meta.showMedia !== false;
-  const originals = sources.recentMoments.slice(0, limit);
+  const originals = sources.recentMoments.slice(0, 1);
   const moments = originals.map((moment) => normalizeMomentRecord(moment));
 
   if (!moments.length) {
@@ -185,13 +216,13 @@ export function renderRecentMomentsWidget({ sources, escapeHtml, normalizeMoment
   }
 
   const author = resolveDesktopAuthorProfile(sources);
+  const featuredAuthor = resolveMomentAuthor(originals[0], author);
 
   if (size === 'small') {
     return renderMomentSmall({
       moment: moments[0],
       original: originals[0],
-      author,
-      showMedia,
+      author: featuredAuthor,
       escapeHtml,
       mode
     });
@@ -201,8 +232,7 @@ export function renderRecentMomentsWidget({ sources, escapeHtml, normalizeMoment
     return renderMomentLarge({
       moments,
       originals,
-      author,
-      showMedia,
+      author: featuredAuthor,
       escapeHtml,
       mode
     });
@@ -211,8 +241,7 @@ export function renderRecentMomentsWidget({ sources, escapeHtml, normalizeMoment
   return renderMomentMedium({
     moment: moments[0],
     original: originals[0],
-    author,
-    showMedia,
+    author: featuredAuthor,
     escapeHtml,
     mode
   });

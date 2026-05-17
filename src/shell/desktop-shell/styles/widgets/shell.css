@@ -383,13 +383,13 @@
 }
 
 .desktop-widget-card.widget--plugin-moments-recent.is-medium {
-  padding: 12px 12px 10px;
-  gap: 6px;
+  padding: 0;
+  gap: 0;
 }
 
 .desktop-widget-card.widget--plugin-moments-recent.is-large {
-  padding: 14px 14px 11px;
-  gap: 8px;
+  padding: 0;
+  gap: 0;
 }
 
 .desktop-widget-card.widget--plugin-moments-recent .desktop-widget-header {
@@ -418,8 +418,8 @@
 
 .desktop-widget-card.widget--plugin-moments-recent {
   background:
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.08), transparent 44%),
-    rgba(45, 27, 37, 0.58);
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+    rgba(54, 43, 67, 0.72);
 }
 
 :root:not(.dark) .desktop-widget-card.widget--system-calendar[data-widget-appearance="follow"],
@@ -481,9 +481,9 @@
 :root:not(.dark) .desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="follow"],
 .desktop-widget-card.widget--plugin-moments-recent[data-widget-appearance="light"] {
   background:
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.52), transparent 46%),
-    rgba(247, 242, 246, 0.76);
-  border-color: rgba(15, 23, 42, 0.06);
+    linear-gradient(135deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.025)),
+    rgba(54, 43, 67, 0.72);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .desktop-widget-card.widget--system-weather .desktop-widget-kicker,
@@ -498,10 +498,10 @@
 
 .desktop-widget-card.widget--system-weather,
 .desktop-widget-card.widget--plugin-moments-recent {
-  border-color: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.08);
   box-shadow:
-    0 4px 10px rgba(6, 8, 12, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    0 18px 38px rgba(17, 10, 24, 0.20),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .desktop-widget-card.widget--halo-latest_posts {
