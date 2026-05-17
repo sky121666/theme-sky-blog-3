@@ -1,34 +1,28 @@
-import{r as i}from"../../halo/author-card/render.js?v=0.9.30&r=9b6a6e5b17dd";function d({href:n,escapeHtml:s,mode:a,className:e="wg-docsme-open"}){return i({href:n,app:"docsme",className:e,attrs:`aria-label="${s("打开文档中心")}"`,disabled:a==="preview",innerHtml:`
-      <span>打开文档</span>
-      <span class="icon-[lucide--arrow-right]" aria-hidden="true"></span>
-    `})}function c(n){return`
+import{r as o}from"../../halo/author-card/render.js?v=0.9.30&r=a79b23b81832";function d(a){return`
     <div class="wg-docsme wg-docsme--empty">
       <span class="wg-docsme-icon">
         <span class="icon-[lucide--book-open]" aria-hidden="true"></span>
       </span>
-      <strong>${n("文档插件未启用")}</strong>
-      <span>${n("安装 Docsme 后可添加文档小组件。")}</span>
+      <strong>${a("文档插件未启用")}</strong>
+      <span>${a("安装 Docsme 后可添加文档小组件。")}</span>
     </div>
-  `}function l({sources:n,escapeHtml:s,mode:a},e){if(!n.docsmeAvailable)return c(s);const r=e?.size||"small",o=s(n.docsmeUrl||"/docs");return r==="medium"?`
-      <div class="wg-docsme wg-docsme--medium">
-        <span class="wg-docsme-topline">
+  `}function p({sources:a,escapeHtml:s,mode:n},i){if(!a.docsmeAvailable)return d(s);const c=i?.size||"small",e=s(a.docsmeUrl||"/docs");return c==="medium"?o({href:e,app:"docsme",className:"wg-docsme wg-docsme--medium",attrs:`aria-label="${s("打开文档中心")}"`,disabled:n==="preview",innerHtml:`
+        <span class="wg-docsme-head">
           <span class="wg-docsme-icon">
             <span class="icon-[lucide--library-big]" aria-hidden="true"></span>
           </span>
-          <span class="wg-docsme-badge">Docsme</span>
+          <span class="wg-docsme-kicker">Docsme</span>
         </span>
         <span class="wg-docsme-copy">
           <strong>${s("文档中心")}</strong>
-          <span>${s("打开项目大厅，继续阅读站点文档。")}</span>
+          <span>${s("项目文档与站点指南。")}</span>
         </span>
-        ${d({href:o,escapeHtml:s,mode:a})}
-      </div>
-    `:i({href:o,app:"docsme",className:"wg-docsme wg-docsme--small",attrs:`aria-label="${s("打开文档中心")}"`,disabled:a==="preview",innerHtml:`
+      `}):o({href:e,app:"docsme",className:"wg-docsme wg-docsme--small",attrs:`aria-label="${s("打开文档中心")}"`,disabled:n==="preview",innerHtml:`
       <span class="wg-docsme-icon">
         <span class="icon-[lucide--book-open]" aria-hidden="true"></span>
       </span>
       <span class="wg-docsme-copy">
-        <strong>${s("文档中心")}</strong>
+        <strong>${s("文档")}</strong>
         <span>Docsme</span>
       </span>
-    `})}export{l as t};
+    `})}export{p as t};

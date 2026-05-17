@@ -75,18 +75,31 @@ function renderFriendItem({ item, escapeHtml, mode, large = false }) {
   });
 }
 
-function renderOpenFriendsButton(escapeHtml, mode) {
+function renderOpenFriendsLink(escapeHtml, mode, label = '查看') {
   return buildWidgetPjaxLink({
     href: '/friends',
     app: 'friends',
-    className: 'wg-friends-open',
+    className: 'wg-friends-more',
     attrs: `aria-label="${escapeHtml('打开朋友圈')}"`,
     disabled: mode === 'preview',
     innerHtml: `
-      <span>打开朋友圈</span>
-      <span class="icon-[lucide--arrow-right]" aria-hidden="true"></span>
+      <span>${escapeHtml(label)}</span>
+      <span class="icon-[lucide--chevron-right]" aria-hidden="true"></span>
     `
   });
+}
+
+function renderFriendHeader({ items, escapeHtml, mode }) {
+  const count = items.length;
+  return `
+    <span class="wg-friends-head">
+      <span class="wg-friends-heading">
+        <strong>朋友圈</strong>
+        <span>${escapeHtml(count ? `${count} 条最近动态` : '最新友链动态')}</span>
+      </span>
+      ${renderOpenFriendsLink(escapeHtml, mode)}
+    </span>
+  `;
 }
 
 function renderEmpty({ escapeHtml, mode, installed }) {
@@ -97,7 +110,7 @@ function renderEmpty({ escapeHtml, mode, installed }) {
       </span>
       <strong>${installed ? '暂无友链动态' : '未安装朋友圈插件'}</strong>
       <p>${installed ? '同步 RSS 后会在这里显示最近更新。' : '安装 plugin-friends 后可添加朋友圈小组件。'}</p>
-      ${installed ? renderOpenFriendsButton(escapeHtml, mode) : ''}
+      ${installed ? renderOpenFriendsLink(escapeHtml, mode, '打开') : ''}
     </div>
   `;
 }
@@ -105,27 +118,21 @@ function renderEmpty({ escapeHtml, mode, installed }) {
 function renderMedium({ items, escapeHtml, mode }) {
   return `
     <div class="wg-friends wg-friends--medium">
-      <span class="wg-friends-head">
-        <span class="wg-friends-mark"><span class="icon-[lucide--rss]" aria-hidden="true"></span></span>
-        <span class="wg-friends-heading">
-          <strong>朋友圈</strong>
-          <span>最新友链动态</span>
-        </span>
-      </span>
+      ${renderFriendHeader({ items, escapeHtml, mode })}
       <span class="wg-friends-list">
-        ${items.slice(0, 3).map((item) => renderFriendItem({ item, escapeHtml, mode })).join('')}
+        ${items.slice(0, 2).map((item) => renderFriendItem({ item, escapeHtml, mode })).join('')}
       </span>
-      ${renderOpenFriendsButton(escapeHtml, mode)}
     </div>
   `;
 }
 
 function renderLarge({ items, escapeHtml, mode }) {
   const featured = items[0];
-  const rest = items.slice(1, 5);
+  const rest = items.slice(1, 3);
 
   return `
     <div class="wg-friends wg-friends--large">
+      ${renderFriendHeader({ items, escapeHtml, mode })}
       ${renderFriendPostLink({
         item: featured,
         escapeHtml,
@@ -143,7 +150,6 @@ function renderLarge({ items, escapeHtml, mode }) {
       <span class="wg-friends-list">
         ${rest.map((item) => renderFriendItem({ item, escapeHtml, mode, large: true })).join('')}
       </span>
-      ${renderOpenFriendsButton(escapeHtml, mode)}
     </div>
   `;
 }
@@ -154,7 +160,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget) {
   }
 
   const size = widget?.size || 'medium';
-  const limit = size === 'large' ? 5 : 3;
+  const limit = size === 'large' ? 3 : 2;
   const items = Array.isArray(sources.recentFriends)
     ? sources.recentFriends.slice(0, limit).map((item) => normalizeFriendPost(item)).filter((item) => item.title)
     : [];

@@ -6,8 +6,10 @@
 
 .wg-friends {
   --wg-friends-accent: var(--friends-widget-accent, var(--theme-accent, var(--mac-accent, #2e5fbd)));
-  --wg-friends-line: color-mix(in srgb, var(--widget-card-muted, rgba(255, 255, 255, 0.56)) 16%, transparent);
-  --wg-friends-chip: color-mix(in srgb, var(--wg-friends-accent) 12%, transparent);
+  --wg-friends-line: color-mix(in srgb, var(--widget-card-muted, rgba(255, 255, 255, 0.56)) 14%, transparent);
+  --wg-friends-surface: color-mix(in srgb, var(--widget-card-text, #fff) 4%, transparent);
+  --wg-friends-hover: color-mix(in srgb, var(--widget-card-text, #fff) 6%, transparent);
+  --wg-friends-accent-soft: color-mix(in srgb, var(--wg-friends-accent) 9%, transparent);
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -17,44 +19,32 @@
 }
 
 .wg-friends--medium {
-  gap: 9px;
-  padding: 12px;
+  gap: 8px;
+  padding: 12px 12px 11px;
 }
 
 .wg-friends--large {
-  gap: 9px;
-  padding: 10px;
+  gap: 8px;
+  padding: 12px;
 }
 
 .wg-friends-head {
   display: flex;
   align-items: center;
-  gap: 9px;
+  justify-content: space-between;
+  gap: 8px;
   min-width: 0;
   flex: none;
 }
 
-.wg-friends-mark,
 .wg-friends-avatar,
 .wg-friends-empty-icon {
   display: grid;
   place-items: center;
   flex: none;
   overflow: hidden;
-  background: var(--wg-friends-chip);
+  background: var(--wg-friends-surface);
   border: 1px solid var(--wg-friends-line);
-}
-
-.wg-friends-mark {
-  width: 32px;
-  height: 32px;
-  border-radius: 11px;
-  color: color-mix(in srgb, var(--wg-friends-accent) 70%, var(--widget-card-text));
-}
-
-.wg-friends-mark span {
-  width: 16px;
-  height: 16px;
 }
 
 .wg-friends-heading,
@@ -67,11 +57,13 @@
 
 .wg-friends-heading {
   gap: 2px;
+  flex: 1;
 }
 
 .wg-friends-heading strong {
   color: var(--widget-card-text);
   font-size: 12.5px;
+  font-weight: 720;
   line-height: 1.1;
 }
 
@@ -84,31 +76,32 @@
 .wg-friends-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   min-height: 0;
 }
 
 .wg-friends--medium .wg-friends-list {
   flex: 1;
+  justify-content: center;
 }
 
 .wg-friends-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   min-width: 0;
-  min-height: 36px;
+  min-height: 44px;
   color: inherit;
   text-decoration: none;
-  padding: 5px;
-  border-radius: 12px;
+  padding: 6px 5px;
+  border-radius: 11px;
   border: 1px solid transparent;
-  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 180ms ease, background-color 180ms ease;
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 180ms ease, background-color 180ms ease, color 180ms ease;
 }
 
 .wg-friends-item:hover {
   transform: translateY(-1px);
-  background: color-mix(in srgb, var(--widget-card-text, #fff) 4%, transparent);
+  background: var(--wg-friends-hover);
   border-color: var(--wg-friends-line);
 }
 
@@ -117,10 +110,9 @@
 }
 
 .wg-friends-avatar {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--widget-card-text, #fff) 7%, transparent);
 }
 
 .wg-friends-avatar img {
@@ -136,14 +128,15 @@
 }
 
 .wg-friends-copy {
-  gap: 3px;
+  gap: 4px;
   flex: 1;
 }
 
 .wg-friends-title {
   overflow: hidden;
-  color: var(--widget-card-subtle);
-  font-size: 10.8px;
+  color: var(--widget-card-text);
+  font-size: 11.2px;
+  font-weight: 620;
   line-height: 1.24;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -155,7 +148,7 @@
   gap: 6px;
   min-width: 0;
   color: var(--widget-card-muted);
-  font-size: 9px;
+  font-size: 9.5px;
   line-height: 1;
 }
 
@@ -169,26 +162,25 @@
 .wg-friends-feature {
   display: flex;
   gap: 10px;
-  min-height: 118px;
+  min-height: 92px;
   color: inherit;
   text-decoration: none;
-  padding: 12px;
-  border-radius: 16px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--wg-friends-accent) 12%, transparent), transparent),
-    color-mix(in srgb, var(--widget-card-text, #fff) 5%, transparent);
+  padding: 11px;
+  border-radius: 14px;
+  background: var(--wg-friends-surface);
   border: 1px solid var(--wg-friends-line);
-  transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 180ms ease;
+  transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 180ms ease, background-color 180ms ease;
 }
 
 .wg-friends-feature:hover {
   transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--wg-friends-accent) 24%, var(--wg-friends-line));
+  background: var(--wg-friends-hover);
+  border-color: color-mix(in srgb, var(--wg-friends-accent) 20%, var(--wg-friends-line));
 }
 
 .wg-friends-feature .wg-friends-avatar {
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
 }
 
 .wg-friends-feature-copy {
@@ -209,7 +201,7 @@
   display: -webkit-box;
   overflow: hidden;
   color: var(--widget-card-text);
-  font-size: 14px;
+  font-size: 13.5px;
   line-height: 1.25;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -225,25 +217,41 @@
   -webkit-line-clamp: 2;
 }
 
-.wg-friends-open {
+.wg-friends-more {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  min-height: 30px;
-  margin-top: auto;
-  color: var(--widget-card-text);
+  gap: 2px;
+  min-width: 44px;
+  min-height: 28px;
+  padding: 0 5px 0 8px;
+  color: var(--widget-card-muted);
   font-size: 10.5px;
-  font-weight: 680;
+  font-weight: 650;
   text-decoration: none;
-  border-radius: 999px;
-  background: var(--wg-friends-chip);
-  border: 1px solid color-mix(in srgb, var(--wg-friends-accent) 18%, var(--wg-friends-line));
+  border-radius: 9px;
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color 180ms ease, color 180ms ease;
 }
 
-.wg-friends-open span[class*="icon-["] {
-  width: 13px;
-  height: 13px;
+.wg-friends-more:hover {
+  color: color-mix(in srgb, var(--wg-friends-accent) 76%, var(--widget-card-text));
+  background: var(--wg-friends-accent-soft);
+}
+
+.wg-friends-more:active {
+  transform: scale(0.965);
+}
+
+.wg-friends-more:focus-visible,
+.wg-friends-item:focus-visible,
+.wg-friends-feature:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--wg-friends-accent) 64%, transparent);
+  outline-offset: 2px;
+}
+
+.wg-friends-more span[class*="icon-["] {
+  width: 12px;
+  height: 12px;
 }
 
 .wg-friends--empty {
@@ -281,13 +289,15 @@
 
 @media (prefers-reduced-motion: reduce) {
   .wg-friends-item,
-  .wg-friends-feature {
+  .wg-friends-feature,
+  .wg-friends-more {
     transition: opacity 160ms ease;
   }
 
   .wg-friends-item:hover,
   .wg-friends-item:active,
-  .wg-friends-feature:hover {
+  .wg-friends-feature:hover,
+  .wg-friends-more:active {
     transform: none;
   }
 }
