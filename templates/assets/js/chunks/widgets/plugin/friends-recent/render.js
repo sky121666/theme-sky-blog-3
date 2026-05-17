@@ -1,60 +1,96 @@
-import{n as $,r as w}from"../../halo/author-card/render.js?v=0.9.30&r=d47ffabb8f0a";function o(r,n=""){return String(r||n||"").replace(/<[^>]*>/g,"").replace(/\s+/g," ").trim()}function h(r){const n=r?new Date(r):null;if(!n||Number.isNaN(n.getTime()))return"";const i=s=>String(s).padStart(2,"0");return`${i(n.getMonth()+1)}.${i(n.getDate())}`}function k(r){const n=r?.spec||{},i=o(n.title,n.description||"新的友链动态");return{key:r?.metadata?.name||`${n.linkName||n.author||i}`,title:i,description:o(n.description,""),author:o(n.author,n.linkName||"友链"),logo:String(n.logo||"").trim(),href:String(n.postLink||"").trim(),authorUrl:String(n.authorUrl||"").trim(),linkName:String(n.linkName||"").trim(),time:h(n.pubDate)}}function g(r,n){return r.logo?`
-      <span class="wg-friends-avatar">
+import{n as c,r as u}from"../../halo/author-card/render.js?v=0.9.30&r=bd9c50a6c077";function g(r,n=""){return String(r||n||"").replace(/<[^>]*>/g,"").replace(/\s+/g," ").trim()}function $(r){const n=r?new Date(r):null;if(!n||Number.isNaN(n.getTime()))return"";const s=i=>String(i).padStart(2,"0");return`${s(n.getMonth()+1)}.${s(n.getDate())}`}function w(r){const n=r?.spec||{},s=g(n.title,n.description||"新的友链动态"),i=g(n.author,n.linkName||"友链");return{key:r?.metadata?.name||`${n.linkName||i||s}`,title:s,description:g(n.description,""),author:i,logo:String(n.logo||"").trim(),href:String(n.postLink||"").trim(),authorUrl:String(n.authorUrl||"").trim(),linkName:String(n.linkName||"").trim(),time:$(n.pubDate)}}function d(r,n,s="wg-friends-avatar"){return r.logo?`
+      <span class="${s}">
         <img src="${n(r.logo)}" alt="" loading="lazy" decoding="async" fetchpriority="low">
       </span>
     `:`
-    <span class="wg-friends-avatar is-fallback">
+    <span class="${s} is-fallback">
       <span>${n((r.author||"友").slice(0,1))}</span>
     </span>
-  `}function l({item:r,className:n,escapeHtml:i,mode:s,innerHtml:e}){return!r.href||s==="preview"?`<span class="${n}">${e}</span>`:$({href:i(r.href),className:n,attrs:`aria-label="${i(`打开 ${r.title}`)}"`,innerHtml:e})}function u({item:r,escapeHtml:n,mode:i,large:s=!1}){return l({item:r,escapeHtml:n,mode:i,className:s?"wg-friends-item is-large-row":"wg-friends-item",innerHtml:`
-      ${g(r,n)}
-      <span class="wg-friends-copy">
-        <span class="wg-friends-title">${n(r.title)}</span>
-        <span class="wg-friends-meta">
-          <span>${n(r.author)}</span>
-          ${r.time?`<time>${n(r.time)}</time>`:""}
+  `}function f(r,n,s=0){return r?.logo?`
+    <img
+      class="wg-friends-bg"
+      data-bg-index="${s}"
+      src="${n(r.logo)}"
+      alt=""
+      loading="lazy"
+      decoding="async"
+      fetchpriority="low"
+    >
+  `:`<span class="wg-friends-bg is-fallback" data-bg-index="${s}"></span>`}function l({item:r,className:n,escapeHtml:s,mode:i,innerHtml:a}){return!r.href||i==="preview"?`<span class="${n}">${a}</span>`:c({href:s(r.href),className:n,attrs:`aria-label="${s(`打开 ${r.title}`)}"`,innerHtml:a})}function m({item:r,escapeHtml:n,mode:s,index:i}){return l({item:r,escapeHtml:n,mode:s,className:"wg-friends-item",innerHtml:`
+      <span class="wg-friends-item-hit" data-bg-index="${i}">
+        ${d(r,n,"wg-friends-avatar is-square")}
+        <span class="wg-friends-copy">
+          <span class="wg-friends-title">${n(r.title)}</span>
+          <span class="wg-friends-description">${n(r.description||"打开原文继续阅读")}</span>
+        </span>
+        ${r.time?`<time>${n(r.time)}</time>`:""}
+      </span>
+    `})}function h({item:r,escapeHtml:n,mode:s}){return l({item:r,escapeHtml:n,mode:s,className:"wg-friends wg-friends--small",innerHtml:`
+      ${f(r,n)}
+      <span class="wg-friends-overlay"></span>
+      <span class="wg-friends-small-content">
+        <span class="wg-friends-small-title">${n(r.title)}</span>
+        <span class="wg-friends-small-foot">
+          ${r.time?`<time>${n(r.time)}</time>`:"<time>最新</time>"}
+          ${d(r,n)}
         </span>
       </span>
-    `})}function p(r,n,i="查看"){return w({href:"/friends",app:"friends",className:"wg-friends-more",attrs:`aria-label="${r("打开朋友圈")}"`,disabled:n==="preview",innerHtml:`
-      <span>${r(i)}</span>
-      <span class="icon-[lucide--chevron-right]" aria-hidden="true"></span>
-    `})}function c({items:r,escapeHtml:n,mode:i}){const s=r.length;return`
-    <span class="wg-friends-head">
-      <span class="wg-friends-heading">
-        <strong>朋友圈</strong>
-        <span>${n(s?`${s} 条最近动态`:"最新友链动态")}</span>
+    `})}function b({items:r,escapeHtml:n,mode:s}){const i=r[0];return l({item:i,escapeHtml:n,mode:s,className:"wg-friends wg-friends--medium",innerHtml:`
+      ${f(i,n)}
+      <span class="wg-friends-overlay"></span>
+      <span class="wg-friends-copy">
+        <span class="wg-friends-medium-main">
+          <strong>${n(i.title)}</strong>
+          <span>${n(i.description||"分享有价值的内容，连接有趣的灵魂。")}</span>
+        </span>
+        <span class="wg-friends-medium-foot">
+          <span class="wg-friends-author">
+            ${d(i,n)}
+            <span>
+              <b>${n(i.author)}</b>
+              <em>${n(i.linkName||"朋友圈动态")}</em>
+            </span>
+          </span>
+          <span class="wg-friends-date">
+            ${i.time?`<time>${n(i.time)}</time><em>发布于</em>`:"<time>最新</time>"}
+          </span>
+        </span>
       </span>
-      ${p(n,i)}
-    </span>
-  `}function f({escapeHtml:r,mode:n,installed:i}){return`
+    `})}function y(r,n,s="朋友圈"){return u({href:"/friends",app:"friends",className:"wg-friends-more",attrs:`aria-label="${r("打开朋友圈")}"`,disabled:n==="preview",innerHtml:`
+      <span>${r(s)}</span>
+      <span class="icon-[lucide--chevron-right]" aria-hidden="true"></span>
+    `})}function p({escapeHtml:r,mode:n,installed:s}){return`
     <div class="wg-friends wg-friends--empty">
       <span class="wg-friends-empty-icon">
         <span class="icon-[lucide--rss]" aria-hidden="true"></span>
       </span>
-      <strong>${i?"暂无友链动态":"未安装朋友圈插件"}</strong>
-      <p>${i?"同步 RSS 后会在这里显示最近更新。":"安装 plugin-friends 后可添加朋友圈小组件。"}</p>
-      ${i?p(r,n,"打开"):""}
+      <strong>${s?"暂无友链动态":"未安装朋友圈插件"}</strong>
+      <p>${s?"同步 RSS 后会在这里显示最近更新。":"安装 plugin-friends 后可添加朋友圈小组件。"}</p>
+      ${s?y(r,n,"打开"):""}
     </div>
-  `}function v({items:r,escapeHtml:n,mode:i}){return`
-    <div class="wg-friends wg-friends--medium">
-      ${c({items:r,escapeHtml:n,mode:i})}
-      <span class="wg-friends-list">
-        ${r.slice(0,2).map(s=>u({item:s,escapeHtml:n,mode:i})).join("")}
-      </span>
-    </div>
-  `}function m({items:r,escapeHtml:n,mode:i}){const s=r[0],e=r.slice(1,3);return`
+  `}function k({items:r,escapeHtml:n,mode:s}){const i=r[0],a=r.slice(1,4);return`
     <div class="wg-friends wg-friends--large">
-      ${c({items:r,escapeHtml:n,mode:i})}
-      ${l({item:s,escapeHtml:n,mode:i,className:"wg-friends-feature",innerHtml:`
-          ${g(s,n)}
+      ${r.slice(0,4).map((t,e)=>f(t,n,e)).join("")}
+      <span class="wg-friends-overlay"></span>
+      ${l({item:i,escapeHtml:n,mode:s,className:"wg-friends-feature",innerHtml:`
+          <span class="wg-friends-feature-main">
+            <strong>${n(i.title)}</strong>
+            <span>${n(i.description||"打开原文继续阅读")}</span>
+          </span>
           <span class="wg-friends-feature-copy">
-            <span class="wg-friends-feature-kicker">${n(s.author)}${s.time?` · ${n(s.time)}`:""}</span>
-            <strong>${n(s.title)}</strong>
-            <span>${n(s.description||"打开原文继续阅读")}</span>
+            <span class="wg-friends-author">
+              ${d(i,n)}
+              <span>
+                <b>${n(i.author)}</b>
+                <em>${n(i.linkName||"朋友圈动态")}</em>
+              </span>
+            </span>
+            ${i.time?`<time>${n(i.time)}</time>`:""}
           </span>
         `})}
-      <span class="wg-friends-list">
-        ${e.map(a=>u({item:a,escapeHtml:n,mode:i,large:!0})).join("")}
+      <span class="wg-friends-divider"></span>
+      <span class="wg-friends-list" aria-label="${n("最近朋友圈动态")}">
+        ${a.map((t,e)=>m({item:t,escapeHtml:n,mode:s,index:e+1})).join("")}
       </span>
     </div>
-  `}function b({sources:r,escapeHtml:n,mode:i},s){if(!r.friendsAvailable)return f({escapeHtml:n,mode:i,installed:!1});const e=s?.size||"medium",a=e==="large"?3:2,t=Array.isArray(r.recentFriends)?r.recentFriends.slice(0,a).map(d=>k(d)).filter(d=>d.title):[];return t.length?e==="large"?m({items:t,escapeHtml:n,mode:i}):v({items:t,escapeHtml:n,mode:i}):f({escapeHtml:n,mode:i,installed:!0})}export{b as t};
+  `}function N({sources:r,escapeHtml:n,mode:s},i){if(!r.friendsAvailable)return p({escapeHtml:n,mode:s,installed:!1});const a=i?.size||"medium",t=a==="large"?4:1,e=Array.isArray(r.recentFriends)?r.recentFriends.slice(0,t).map(o=>w(o)).filter(o=>o.title):[];return e.length?a==="large"?k({items:e,escapeHtml:n,mode:s}):a==="small"?h({item:e[0],escapeHtml:n,mode:s}):b({items:e,escapeHtml:n,mode:s}):p({escapeHtml:n,mode:s,installed:!0})}export{N as t};

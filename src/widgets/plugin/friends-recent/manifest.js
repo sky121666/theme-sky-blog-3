@@ -3,7 +3,7 @@ export const pluginFriendsRecentWidgetManifest = {
   title: '朋友圈',
   kicker: '朋友圈',
   defaultSize: 'medium',
-  supportedSizes: ['medium', 'large'],
+  supportedSizes: ['small', 'medium', 'large'],
   category: 'plugin',
   description: '最新友链动态',
   appearanceSupport: ['follow', 'light', 'dark'],

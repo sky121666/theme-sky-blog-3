@@ -14,11 +14,12 @@ function formatFriendTime(value) {
 function normalizeFriendPost(item) {
   const spec = item?.spec || {};
   const title = stripText(spec.title, spec.description || '新的友链动态');
+  const author = stripText(spec.author, spec.linkName || '友链');
   return {
-    key: item?.metadata?.name || `${spec.linkName || spec.author || title}`,
+    key: item?.metadata?.name || `${spec.linkName || author || title}`,
     title,
     description: stripText(spec.description, ''),
-    author: stripText(spec.author, spec.linkName || '友链'),
+    author,
     logo: String(spec.logo || '').trim(),
     href: String(spec.postLink || '').trim(),
     authorUrl: String(spec.authorUrl || '').trim(),
@@ -27,19 +28,37 @@ function normalizeFriendPost(item) {
   };
 }
 
-function renderAvatar(item, escapeHtml) {
+function renderAvatar(item, escapeHtml, className = 'wg-friends-avatar') {
   if (item.logo) {
     return `
-      <span class="wg-friends-avatar">
+      <span class="${className}">
         <img src="${escapeHtml(item.logo)}" alt="" loading="lazy" decoding="async" fetchpriority="low">
       </span>
     `;
   }
 
   return `
-    <span class="wg-friends-avatar is-fallback">
+    <span class="${className} is-fallback">
       <span>${escapeHtml((item.author || '友').slice(0, 1))}</span>
     </span>
+  `;
+}
+
+function renderBackground(item, escapeHtml, index = 0) {
+  if (!item?.logo) {
+    return `<span class="wg-friends-bg is-fallback" data-bg-index="${index}"></span>`;
+  }
+
+  return `
+    <img
+      class="wg-friends-bg"
+      data-bg-index="${index}"
+      src="${escapeHtml(item.logo)}"
+      alt=""
+      loading="lazy"
+      decoding="async"
+      fetchpriority="low"
+    >
   `;
 }
 
@@ -56,26 +75,78 @@ function renderFriendPostLink({ item, className, escapeHtml, mode, innerHtml }) 
   });
 }
 
-function renderFriendItem({ item, escapeHtml, mode, large = false }) {
+function renderFriendItem({ item, escapeHtml, mode, index }) {
   return renderFriendPostLink({
     item,
     escapeHtml,
     mode,
-    className: large ? 'wg-friends-item is-large-row' : 'wg-friends-item',
+    className: 'wg-friends-item',
     innerHtml: `
-      ${renderAvatar(item, escapeHtml)}
-      <span class="wg-friends-copy">
-        <span class="wg-friends-title">${escapeHtml(item.title)}</span>
-        <span class="wg-friends-meta">
-          <span>${escapeHtml(item.author)}</span>
-          ${item.time ? `<time>${escapeHtml(item.time)}</time>` : ''}
+      <span class="wg-friends-item-hit" data-bg-index="${index}">
+        ${renderAvatar(item, escapeHtml, 'wg-friends-avatar is-square')}
+        <span class="wg-friends-copy">
+          <span class="wg-friends-title">${escapeHtml(item.title)}</span>
+          <span class="wg-friends-description">${escapeHtml(item.description || '打开原文继续阅读')}</span>
+        </span>
+        ${item.time ? `<time>${escapeHtml(item.time)}</time>` : ''}
+      </span>
+    `
+  });
+}
+
+function renderSmall({ item, escapeHtml, mode }) {
+  return renderFriendPostLink({
+    item,
+    escapeHtml,
+    mode,
+    className: 'wg-friends wg-friends--small',
+    innerHtml: `
+      ${renderBackground(item, escapeHtml)}
+      <span class="wg-friends-overlay"></span>
+      <span class="wg-friends-small-content">
+        <span class="wg-friends-small-title">${escapeHtml(item.title)}</span>
+        <span class="wg-friends-small-foot">
+          ${item.time ? `<time>${escapeHtml(item.time)}</time>` : '<time>最新</time>'}
+          ${renderAvatar(item, escapeHtml)}
         </span>
       </span>
     `
   });
 }
 
-function renderOpenFriendsLink(escapeHtml, mode, label = '查看') {
+function renderMedium({ items, escapeHtml, mode }) {
+  const item = items[0];
+  return renderFriendPostLink({
+    item,
+    escapeHtml,
+    mode,
+    className: 'wg-friends wg-friends--medium',
+    innerHtml: `
+      ${renderBackground(item, escapeHtml)}
+      <span class="wg-friends-overlay"></span>
+      <span class="wg-friends-copy">
+        <span class="wg-friends-medium-main">
+          <strong>${escapeHtml(item.title)}</strong>
+          <span>${escapeHtml(item.description || '分享有价值的内容，连接有趣的灵魂。')}</span>
+        </span>
+        <span class="wg-friends-medium-foot">
+          <span class="wg-friends-author">
+            ${renderAvatar(item, escapeHtml)}
+            <span>
+              <b>${escapeHtml(item.author)}</b>
+              <em>${escapeHtml(item.linkName || '朋友圈动态')}</em>
+            </span>
+          </span>
+          <span class="wg-friends-date">
+            ${item.time ? `<time>${escapeHtml(item.time)}</time><em>发布于</em>` : '<time>最新</time>'}
+          </span>
+        </span>
+      </span>
+    `
+  });
+}
+
+function renderOpenFriendsLink(escapeHtml, mode, label = '朋友圈') {
   return buildWidgetPjaxLink({
     href: '/friends',
     app: 'friends',
@@ -87,19 +158,6 @@ function renderOpenFriendsLink(escapeHtml, mode, label = '查看') {
       <span class="icon-[lucide--chevron-right]" aria-hidden="true"></span>
     `
   });
-}
-
-function renderFriendHeader({ items, escapeHtml, mode }) {
-  const count = items.length;
-  return `
-    <span class="wg-friends-head">
-      <span class="wg-friends-heading">
-        <strong>朋友圈</strong>
-        <span>${escapeHtml(count ? `${count} 条最近动态` : '最新友链动态')}</span>
-      </span>
-      ${renderOpenFriendsLink(escapeHtml, mode)}
-    </span>
-  `;
 }
 
 function renderEmpty({ escapeHtml, mode, installed }) {
@@ -115,40 +173,39 @@ function renderEmpty({ escapeHtml, mode, installed }) {
   `;
 }
 
-function renderMedium({ items, escapeHtml, mode }) {
-  return `
-    <div class="wg-friends wg-friends--medium">
-      ${renderFriendHeader({ items, escapeHtml, mode })}
-      <span class="wg-friends-list">
-        ${items.slice(0, 2).map((item) => renderFriendItem({ item, escapeHtml, mode })).join('')}
-      </span>
-    </div>
-  `;
-}
-
 function renderLarge({ items, escapeHtml, mode }) {
   const featured = items[0];
-  const rest = items.slice(1, 3);
+  const rest = items.slice(1, 4);
 
   return `
     <div class="wg-friends wg-friends--large">
-      ${renderFriendHeader({ items, escapeHtml, mode })}
+      ${items.slice(0, 4).map((item, index) => renderBackground(item, escapeHtml, index)).join('')}
+      <span class="wg-friends-overlay"></span>
       ${renderFriendPostLink({
         item: featured,
         escapeHtml,
         mode,
         className: 'wg-friends-feature',
         innerHtml: `
-          ${renderAvatar(featured, escapeHtml)}
-          <span class="wg-friends-feature-copy">
-            <span class="wg-friends-feature-kicker">${escapeHtml(featured.author)}${featured.time ? ` · ${escapeHtml(featured.time)}` : ''}</span>
+          <span class="wg-friends-feature-main">
             <strong>${escapeHtml(featured.title)}</strong>
             <span>${escapeHtml(featured.description || '打开原文继续阅读')}</span>
           </span>
+          <span class="wg-friends-feature-copy">
+            <span class="wg-friends-author">
+              ${renderAvatar(featured, escapeHtml)}
+              <span>
+                <b>${escapeHtml(featured.author)}</b>
+                <em>${escapeHtml(featured.linkName || '朋友圈动态')}</em>
+              </span>
+            </span>
+            ${featured.time ? `<time>${escapeHtml(featured.time)}</time>` : ''}
+          </span>
         `
       })}
-      <span class="wg-friends-list">
-        ${rest.map((item) => renderFriendItem({ item, escapeHtml, mode, large: true })).join('')}
+      <span class="wg-friends-divider"></span>
+      <span class="wg-friends-list" aria-label="${escapeHtml('最近朋友圈动态')}">
+        ${rest.map((item, index) => renderFriendItem({ item, escapeHtml, mode, index: index + 1 })).join('')}
       </span>
     </div>
   `;
@@ -160,7 +217,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget) {
   }
 
   const size = widget?.size || 'medium';
-  const limit = size === 'large' ? 3 : 2;
+  const limit = size === 'large' ? 4 : 1;
   const items = Array.isArray(sources.recentFriends)
     ? sources.recentFriends.slice(0, limit).map((item) => normalizeFriendPost(item)).filter((item) => item.title)
     : [];
@@ -171,6 +228,10 @@ export function renderWidget({ sources, escapeHtml, mode }, widget) {
 
   if (size === 'large') {
     return renderLarge({ items, escapeHtml, mode });
+  }
+
+  if (size === 'small') {
+    return renderSmall({ item: items[0], escapeHtml, mode });
   }
 
   return renderMedium({ items, escapeHtml, mode });
