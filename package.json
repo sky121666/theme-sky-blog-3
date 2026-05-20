@@ -1,6 +1,6 @@
 {
   "name": "sky-blog-3",
-  "version": "0.9.31",
+  "version": "0.9.32",
   "type": "module",
   "packageManager": "pnpm@10.0.0",
   "scripts": {
