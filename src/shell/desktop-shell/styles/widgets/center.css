@@ -1006,6 +1006,30 @@
   overscroll-behavior: contain;
 }
 
+.desktop-widget-config-category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.desktop-widget-config-help {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.46);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.desktop-widget-config-category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  max-height: 210px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+}
+
 .desktop-widget-config-field {
   gap: 8px;
 }
@@ -1120,6 +1144,35 @@
 .desktop-widget-config-group-btn.is-active {
   background: color-mix(in srgb, var(--mac-accent, #2563eb) 14%, rgba(255,255,255,0.06));
   border-color: color-mix(in srgb, var(--mac-accent, #2563eb) 30%, rgba(255,255,255,0.1));
+}
+
+.desktop-widget-config-category-btn {
+  appearance: none;
+  min-width: 0;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.78);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 560;
+  line-height: 1.2;
+  text-align: left;
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease, box-shadow 0.14s ease;
+}
+
+.desktop-widget-config-category-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.desktop-widget-config-category-btn.is-active {
+  border-color: color-mix(in srgb, var(--mac-accent, #2563eb) 36%, rgba(255, 255, 255, 0.12));
+  background: color-mix(in srgb, var(--mac-accent, #2563eb) 18%, rgba(255, 255, 255, 0.06));
+  color: rgba(255, 255, 255, 0.96);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .desktop-widget-config-group-name {

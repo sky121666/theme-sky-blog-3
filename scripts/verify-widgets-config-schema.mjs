@@ -19,6 +19,22 @@ assert.deepEqual(photosCatalog.configSchema, [
 ], 'photos config schema is normalized');
 assert.deepEqual(photosCatalog.configDefaults, {}, 'photos config defaults are normalized');
 
+const categoriesCatalog = DESKTOP_WIDGET_CATALOG['halo.categories'];
+assert.ok(categoriesCatalog, 'categories widget catalog exists');
+assert.equal(categoriesCatalog.hasConfig, true, 'categories widget is configurable');
+assert.deepEqual(categoriesCatalog.configSchema, [
+  {
+    key: 'categoryNames',
+    type: 'category-list',
+    label: '显示分类',
+    optionsSource: 'categories',
+    emptyLabel: '未选择时自动展示热门分类',
+    maxItems: 4,
+    defaultValue: []
+  }
+], 'categories config schema is normalized');
+assert.deepEqual(categoriesCatalog.configDefaults, { categoryNames: [] }, 'categories config defaults are normalized');
+
 const instance = createWidgetInstance('plugin-photos.gallery', {
   key: 'photos-test',
   size: 'medium',
@@ -35,5 +51,17 @@ const normalized = normalizeWidgetInstance(serialized);
 assert.deepEqual(normalized.meta, { groupName: 'album-a' }, 'meta survives normalization');
 assert.equal(normalized.size, 'medium', 'size survives normalization');
 assert.equal(normalized.appearance, 'dark', 'appearance survives normalization');
+
+const categoriesInstance = createWidgetInstance('halo.categories', {
+  key: 'categories-test',
+  size: 'medium',
+  meta: { categoryNames: ['halo', 'theme'] }
+});
+const serializedCategories = serializeWidgetInstance(categoriesInstance);
+assert.deepEqual(
+  serializedCategories.meta,
+  { categoryNames: ['halo', 'theme'] },
+  'category selection survives serialization'
+);
 
 console.log('widget config schema contract passed');

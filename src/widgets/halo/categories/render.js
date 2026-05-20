@@ -3,8 +3,32 @@ import { buildWidgetPjaxLink } from '../../shared/link.js';
 
 const CATEGORY_FALLBACK_ICON = '<span class="icon-[lucide--folder]" aria-hidden="true"></span>';
 
-export function renderWidget({ sources, escapeHtml, mode }) {
-  const categories = selectTopCategories(sources.categories, 4);
+function normalizeCategoryNames(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || '').trim()).filter(Boolean);
+  }
+  return String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function selectConfiguredCategories(sources, names, limit) {
+  if (!names.length) return selectTopCategories(sources.categories, limit);
+
+  const selected = new Set(names);
+  const byName = new Map(selectTopCategories(sources.categories, 1000).map((category) => [category.key, category]));
+  return names
+    .filter((name) => selected.has(name))
+    .map((name) => byName.get(name))
+    .filter(Boolean)
+    .slice(0, Math.max(limit || 0, 1));
+}
+
+export function renderWidget({ sources, escapeHtml, mode }, widget) {
+  const meta = widget?.meta && typeof widget.meta === 'object' ? widget.meta : {};
+  const categoryNames = normalizeCategoryNames(meta.categoryNames);
+  const categories = selectConfiguredCategories(sources, categoryNames, 4);
   if (!categories.length) {
     return '<div class="desktop-widget-empty">当前没有可展示的分类。</div>';
   }

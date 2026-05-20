@@ -282,6 +282,26 @@
                   </select>
                 </template>
 
+                <template x-if="field.type === 'category-list'">
+                  <div class="desktop-widget-config-category-list">
+                    <p class="desktop-widget-config-help"
+                       x-text="field.emptyLabel || `最多选择 ${field.maxItems || 4} 个分类`"></p>
+                    <div class="desktop-widget-config-category-grid">
+                      <template x-for="option in widgetConfigCategoryOptions(field)" :key="option.value">
+                        <button type="button"
+                                class="desktop-widget-config-category-btn"
+                                :class="{ 'is-active': isWidgetConfigCategorySelected(field.key, option.value) }"
+                                @click="toggleWidgetConfigCategory(field, option.value)">
+                          <span x-text="option.label"></span>
+                        </button>
+                      </template>
+                    </div>
+                    <template x-if="!widgetConfigCategoryOptions(field).length">
+                      <p class="desktop-widget-config-empty">还没有可选择的分类。</p>
+                    </template>
+                  </div>
+                </template>
+
                 <template x-if="field.type === 'number'">
                   <input class="desktop-widget-config-input"
                          type="number"

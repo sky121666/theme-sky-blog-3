@@ -362,6 +362,10 @@ export const editModeMethods = {
       return options[0]?.value || '';
     }
 
+    if (field.type === 'category-list') {
+      return [];
+    }
+
     if (field.type === 'number') {
       return Number.isFinite(Number(field.min)) ? Number(field.min) : 0;
     }
@@ -430,6 +434,40 @@ export const editModeMethods = {
     return photos.filter((photo) => photo?.spec?.groupName === groupName).length;
   },
 
+  widgetConfigCategoryOptions(field = {}) {
+    const maxItems = Number.isFinite(Number(field.maxItems)) ? Number(field.maxItems) : 4;
+    return this.widgetConfigSelectOptions(field).filter((option) => option.value).map((option) => ({
+      ...option,
+      maxItems
+    }));
+  },
+
+  widgetConfigCategoryValues(key) {
+    const value = this.widgetConfigForm?.meta?.[key];
+    if (Array.isArray(value)) {
+      return value.map((item) => String(item || '').trim()).filter(Boolean);
+    }
+    return String(value || '').split(',').map((item) => item.trim()).filter(Boolean);
+  },
+
+  isWidgetConfigCategorySelected(key, value) {
+    return this.widgetConfigCategoryValues(key).includes(String(value || ''));
+  },
+
+  toggleWidgetConfigCategory(field, value) {
+    const key = field?.key || '';
+    if (!key) return;
+    const nextValue = String(value || '').trim();
+    if (!nextValue) return;
+
+    const maxItems = Number.isFinite(Number(field?.maxItems)) ? Number(field.maxItems) : 4;
+    const current = this.widgetConfigCategoryValues(key);
+    const next = current.includes(nextValue)
+      ? current.filter((item) => item !== nextValue)
+      : [...current, nextValue].slice(0, Math.max(maxItems, 1));
+    this.updateWidgetConfigMeta(key, next);
+  },
+
   updateWidgetConfigMeta(key, value) {
     this.widgetConfigForm.meta = {
       ...(this.widgetConfigForm.meta || {}),
@@ -462,6 +500,9 @@ export const editModeMethods = {
       const value = meta[field.key];
       if (field.type === 'photo-group') {
         return this.widgetConfigPhotoGroups().length > 0 && !!value;
+      }
+      if (field.type === 'category-list') {
+        return Array.isArray(value) ? value.length > 0 : String(value || '').trim().length > 0;
       }
       if (field.type === 'number') {
         return Number.isFinite(Number(value));
