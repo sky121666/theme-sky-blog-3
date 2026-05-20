@@ -2,153 +2,582 @@
   display: none;
 }
 
+/* Glassmorphism Outer Container - Premium Apple-Style Slate Match */
+.desktop-widget-card.widget--plugin-docsme-quick {
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Core Design Tokens mapped directly to standard theme variables */
 .wg-docsme {
-  --wg-docsme-accent: var(--docsme-widget-accent, var(--theme-accent, var(--mac-accent, #2e5fbd)));
-  --wg-docsme-line: color-mix(in srgb, var(--widget-card-muted, rgba(255, 255, 255, 0.58)) 14%, transparent);
-  --wg-docsme-surface: color-mix(in srgb, var(--widget-card-text, #fff) 4%, transparent);
-  --wg-docsme-hover: color-mix(in srgb, var(--widget-card-text, #fff) 6%, transparent);
+  --wg-docsme-text: var(--widget-card-text, #f4f4f5);
+  --wg-docsme-muted: var(--widget-card-muted, #a1a1aa);
+  --wg-docsme-subtle: var(--widget-card-subtle, #52525b);
+  --wg-docsme-line: var(--widget-card-outline, rgba(255, 255, 255, 0.05));
+  --wg-docsme-panel: rgba(255, 255, 255, 0.015);
+  --wg-docsme-panel-hover: rgba(255, 255, 255, 0.04);
+  --wg-docsme-icon-bg: rgba(255, 255, 255, 0.03);
+  --wg-docsme-icon-color: var(--widget-card-text, #e4e4e7);
+  --wg-docsme-accent: var(--theme-accent, #60a5fa);
+  --wg-docsme-accent-rgb: 96, 165, 250;
+  --wg-docsme-progress-bg: var(--widget-card-outline, rgba(255, 255, 255, 0.06));
+
+  position: relative;
   display: flex;
   width: 100%;
   height: 100%;
   min-width: 0;
-  color: inherit;
+  color: var(--wg-docsme-text);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  text-decoration: none;
+  box-sizing: border-box;
+  z-index: 2;
+}
+
+/* Light Mode Custom Mapping for custom overlays only */
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-docsme,
+.desktop-widget-card[data-widget-appearance="light"] .wg-docsme {
+  --wg-docsme-panel: rgba(0, 0, 0, 0.012);
+  --wg-docsme-panel-hover: rgba(0, 0, 0, 0.035);
+  --wg-docsme-icon-bg: rgba(0, 0, 0, 0.02);
 }
 
 .wg-docsme--small,
-.wg-docsme--medium {
-  text-decoration: none;
+.wg-docsme--medium,
+.wg-docsme--large {
   border-radius: inherit;
-  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color 180ms ease;
 }
 
+/* ==========================================================================
+   1. SMALL SIZE: Configurable Single Project (140x140px)
+   ========================================================================== */
 .wg-docsme--small {
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 11px;
-  text-align: center;
+  justify-content: space-between;
+  padding: 15px;
+  height: 100%;
 }
 
-.wg-docsme--small:hover,
-.wg-docsme--medium:hover {
-  transform: translateY(-1px);
-  background: var(--wg-docsme-hover);
-}
-
-.wg-docsme--small:active,
-.wg-docsme--medium:active {
-  transform: scale(0.985);
-}
-
-.wg-docsme--medium,
-.wg-docsme--empty {
-  flex-direction: column;
-  padding: 13px 14px;
-}
-
-.wg-docsme--medium {
-  gap: 10px;
-}
-
-.wg-docsme-head {
+.wg-docsme-small-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
+}
+
+.wg-docsme-capsule {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(var(--wg-docsme-accent-rgb), 0.08);
+  border: 1px solid rgba(var(--wg-docsme-accent-rgb), 0.12);
+  color: var(--wg-docsme-accent);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.wg-docsme--small:hover .wg-docsme-capsule {
+  transform: rotate(15deg) scale(1.1);
+  background: rgba(var(--wg-docsme-accent-rgb), 0.16);
+  border-color: rgba(var(--wg-docsme-accent-rgb), 0.25);
+  box-shadow: 0 4px 12px rgba(var(--wg-docsme-accent-rgb), 0.15);
+}
+
+.wg-docsme-small-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 6px;
+}
+
+.wg-docsme-small-copy strong {
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--wg-docsme-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+.wg-docsme-small-copy em {
+  font-size: 10px;
+  font-style: normal;
+  color: var(--wg-docsme-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wg-docsme-small-copy em [class*="icon-"] {
+  width: 11px;
+  height: 11px;
+  opacity: 0.8;
+}
+
+.wg-docsme-small-foot {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.wg-docsme-progress-track {
+  height: 4px;
+  width: 100%;
+  border-radius: 99px;
+  background: var(--wg-docsme-progress-bg);
+  overflow: hidden;
+}
+
+.wg-docsme-progress-bar {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--wg-docsme-accent) 0%, color-mix(in srgb, var(--wg-docsme-accent) 80%, #fff) 100%);
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ==========================================================================
+   2. LIST VIEW: Medium (300x140px) & Large (300x300px)
+   ========================================================================== */
+.wg-docsme-list-view {
+  flex-direction: column;
+  padding: 15px;
+  height: 100%;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.wg-docsme-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 22px;
+  margin-bottom: 2px;
+}
+
+.wg-docsme-header-left {
+  display: flex;
+  align-items: center;
   gap: 8px;
   min-width: 0;
 }
 
-.wg-docsme-icon {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 36px;
-  height: 36px;
-  color: color-mix(in srgb, var(--wg-docsme-accent) 72%, var(--widget-card-text));
-  border: 1px solid var(--wg-docsme-line);
-  border-radius: 13px;
-  background: var(--wg-docsme-surface);
-}
 
-.wg-docsme-icon span {
-  width: 18px;
-  height: 18px;
-}
-
-.wg-docsme-kicker {
-  overflow: hidden;
-  max-width: 88px;
-  color: var(--widget-card-muted);
-  font-size: 9.5px;
-  font-weight: 650;
-  line-height: 1;
-  text-overflow: ellipsis;
+.wg-docsme-header-left strong {
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--wg-docsme-text);
   white-space: nowrap;
 }
 
-.wg-docsme-copy {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  gap: 3px;
+.wg-docsme-header-stats-pill {
+  font-size: 8.5px;
+  font-weight: 600;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: var(--wg-docsme-line);
+  color: var(--wg-docsme-muted);
+  white-space: nowrap;
 }
 
-.wg-docsme-copy strong,
-.wg-docsme--empty strong {
+/* Header icon decoration */
+.wg-docsme-header-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: rgba(var(--wg-docsme-accent-rgb), 0.08);
+  border: 1px solid rgba(var(--wg-docsme-accent-rgb), 0.12);
+  color: var(--wg-docsme-accent);
+  flex: none;
+}
+
+.wg-docsme-header-icon [class*="icon-"] {
+  width: 11px;
+  height: 11px;
+}
+
+.wg-docsme-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: var(--wg-docsme-muted);
+  background: var(--wg-docsme-panel);
+  border: 1px solid var(--wg-docsme-line);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.wg-docsme-open:hover {
+  color: var(--wg-docsme-accent);
+  background: rgba(var(--wg-docsme-accent-rgb), 0.08);
+  border-color: rgba(var(--wg-docsme-accent-rgb), 0.12);
+  transform: scale(1.08);
+}
+
+.wg-docsme-open [class*="icon-"] {
+  width: 13px;
+  height: 13px;
+}
+
+.wg-docsme-view-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--wg-docsme-muted);
+  text-decoration: none;
+  background: var(--wg-docsme-line);
+  padding: 3px 8px;
+  border-radius: 99px;
+  border: 1px solid transparent;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  letter-spacing: -0.01em;
+}
+
+.wg-docsme-view-all:hover {
+  color: var(--wg-docsme-accent);
+  background: rgba(var(--wg-docsme-accent-rgb), 0.08);
+  border-color: rgba(var(--wg-docsme-accent-rgb), 0.12);
+}
+
+.wg-docsme-view-all-arrow {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.2s ease;
+}
+
+.wg-docsme-view-all:hover .wg-docsme-view-all-arrow {
+  transform: translateX(2px);
+}
+
+/* Stack of list rows */
+.wg-docsme-list-stack {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  justify-content: center;
+}
+
+/* Clean list row item */
+.wg-docsme-row-item {
+  height: 40px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--wg-docsme-line);
+  background: var(--wg-docsme-panel);
+  transition: background 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+  position: relative;
+}
+
+.wg-docsme-row-item:active {
+  transform: scale(0.985);
+}
+
+.wg-docsme-row-item:hover {
+  border-color: rgba(var(--wg-docsme-accent-rgb), 0.12);
+  background: var(--wg-docsme-panel-hover);
+}
+
+/* Left indicator bar — premium elastic growth inline bar */
+.wg-docsme-row-indicator {
+  width: 3px;
+  height: 12px;
+  border-radius: 99px;
+  background: var(--wg-docsme-line);
+  transition: background 0.3s cubic-bezier(0.16, 1, 0.3, 1), height 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  margin-left: -4px;
+  margin-right: 2px;
+  flex-shrink: 0;
+}
+
+.wg-docsme-row-item:hover .wg-docsme-row-indicator {
+  background: var(--wg-docsme-accent);
+  height: 18px;
+}
+
+.wg-docsme-row-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wg-docsme-row-title {
   overflow: hidden;
-  color: var(--widget-card-text);
-  font-size: 13px;
-  font-weight: 720;
+  color: var(--wg-docsme-text);
+  font-size: 12px;
+  font-weight: 600;
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.wg-docsme-copy span,
-.wg-docsme--empty > span:last-child {
+.wg-docsme-row-desc {
   overflow: hidden;
-  color: var(--widget-card-muted);
-  font-size: 10.5px;
-  line-height: 1.35;
+  color: var(--wg-docsme-muted);
+  font-size: 9.5px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.wg-docsme--medium .wg-docsme-copy {
-  flex: 1;
+.wg-docsme-row-side {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--wg-docsme-muted);
+}
+
+.wg-docsme-doc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--wg-docsme-muted);
+  background: var(--wg-docsme-line);
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.wg-docsme-doc-pill [class*="icon-"] {
+  width: 10px;
+  height: 10px;
+  opacity: 0.85;
+}
+
+.wg-docsme-row-item:hover .wg-docsme-doc-pill {
+  background: rgba(var(--wg-docsme-accent-rgb), 0.1);
+  color: var(--wg-docsme-accent);
+}
+
+.wg-docsme-row-arrow {
+  width: 12px;
+  height: 12px;
+  color: var(--wg-docsme-subtle);
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.25s ease;
+}
+
+.wg-docsme-row-item:hover .wg-docsme-row-arrow {
+  transform: translateX(3px) scale(1.05);
+  color: var(--wg-docsme-accent);
+}
+
+/* Placeholder for empty rows */
+.wg-docsme-row-item--placeholder {
+  border: 1px solid var(--wg-docsme-line);
+  background: transparent !important;
+  box-shadow: none !important;
+  cursor: default;
+  pointer-events: none;
+  color: var(--wg-docsme-subtle);
   justify-content: center;
+  opacity: 0.45;
+  gap: 6px;
 }
 
-.wg-docsme--medium .wg-docsme-copy strong {
-  font-size: 16px;
+.wg-docsme-row-item--placeholder span {
+  font-size: 10.5px;
+  font-weight: 500;
 }
 
-.wg-docsme--small:focus-visible,
-.wg-docsme--medium:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--wg-docsme-accent) 64%, transparent);
-  outline-offset: 2px;
+.wg-docsme-placeholder-plus {
+  font-size: 11px;
+  opacity: 0.6;
 }
 
+/* Footer for Large size (4x4) */
+.wg-docsme-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 16px;
+  font-size: 9px;
+  color: var(--wg-docsme-muted);
+  border-top: 1px solid var(--wg-docsme-line);
+  padding-top: 10px;
+  margin-top: 4px;
+}
+
+.wg-docsme-footer span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wg-docsme-footer [class*="icon-"] {
+  width: 11px;
+  height: 11px;
+  opacity: 0.7;
+}
+
+/* ==========================================================================
+   3. SHARED ICONS & UTILS
+   ========================================================================== */
+.wg-docsme-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  overflow: hidden;
+  color: var(--wg-docsme-icon-color);
+  border-radius: 9px;
+  border: 1px solid var(--wg-docsme-line);
+  background: var(--wg-docsme-icon-bg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.wg-docsme-icon.is-fallback {
+  background: linear-gradient(135deg, rgba(var(--wg-docsme-accent-rgb), 0.12) 0%, rgba(var(--wg-docsme-accent-rgb), 0.02) 100%);
+  border-color: rgba(var(--wg-docsme-accent-rgb), 0.16);
+  color: var(--wg-docsme-accent);
+}
+
+.wg-docsme-icon img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: inherit !important;
+}
+
+.wg-docsme-icon > span {
+  font-size: 13px;
+  font-weight: 700;
+  font-family: SF Mono, Courier New, monospace;
+}
+
+/* Hover dynamics inside rows */
+.wg-docsme-row-item:hover .wg-docsme-icon {
+  transform: scale(1.04);
+  border-color: rgba(var(--wg-docsme-accent-rgb), 0.2);
+  background: rgba(var(--wg-docsme-accent-rgb), 0.06);
+  color: var(--wg-docsme-accent);
+}
+
+/* Squircle Apple app icon mask */
+.wg-docsme-icon:has(img) {
+  background: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Size modifiers */
+.wg-docsme-icon--small {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+
+.wg-docsme-icon--small > span {
+  font-size: 14px;
+}
+
+.wg-docsme-icon--row {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+}
+
+.wg-docsme-icon--row > span {
+  font-size: 11px;
+}
+
+/* Error / Empty States */
 .wg-docsme--empty {
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  padding: 16px;
   text-align: center;
+  height: 100%;
 }
 
-.wg-docsme--empty > span:last-child {
-  max-width: 170px;
+.wg-docsme-icon--error {
+  width: 40px;
+  height: 40px;
+  border-radius: 50% !important;
+  color: var(--theme-danger, #ef4444);
+  background: rgba(239, 68, 68, 0.08) !important;
+  border-color: rgba(239, 68, 68, 0.15) !important;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .wg-docsme--small,
-  .wg-docsme--medium {
-    transition: opacity 160ms ease;
-  }
+.wg-docsme--empty strong {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--wg-docsme-text);
+}
 
-  .wg-docsme--small:hover,
-  .wg-docsme--small:active,
-  .wg-docsme--medium:hover,
-  .wg-docsme--medium:active {
-    transform: none;
-  }
+.wg-docsme--empty span:not(.wg-docsme-icon) {
+  font-size: 11px;
+  color: var(--wg-docsme-muted);
+}
+
+.wg-docsme--empty-projects {
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 15px;
+  height: 100%;
+}
+
+.wg-docsme-empty-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: auto;
+  opacity: 0.65;
+}
+
+.wg-docsme-empty-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--wg-docsme-line);
+  color: var(--wg-docsme-subtle);
+  border: 1px solid var(--wg-docsme-line);
+}
+
+.wg-docsme-empty-icon-wrap [class*="icon-"] {
+  width: 16px;
+  height: 16px;
+}
+
+.wg-docsme-empty-text {
+  font-size: 11.5px;
+  color: var(--wg-docsme-muted);
+  text-align: center;
+  margin: 0;
 }
