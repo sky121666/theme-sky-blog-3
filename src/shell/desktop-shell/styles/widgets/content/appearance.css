@@ -106,6 +106,7 @@
   text-shadow:
     0 0 10px color-mix(in srgb, var(--tag-color, #888) 18%, transparent),
     0 1px 10px rgba(255, 255, 255, 0.24);
+  opacity: 0.42;
 }
 
 :root:not(.dark) .desktop-widget-card.widget--halo-random_tags[data-widget-appearance="follow"] .wg-tag-feature,

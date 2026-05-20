@@ -471,3 +471,153 @@
     transform: none;
   }
 }
+
+/* ══════════════════════════════════════════════════════
+   LIGHT MODE OVERRIDES FOR FRIENDS WIDGET (FOLLOW/LIGHT)
+   ══════════════════════════════════════════════════════ */
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"].widget--plugin-friends-recent,
+.desktop-widget-card[data-widget-appearance="light"].widget--plugin-friends-recent {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(245, 245, 245, 0.98) 100%) !important;
+  border-color: rgba(228, 228, 231, 0.8) !important;
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.05),
+    inset 0 1px 1px rgba(255, 255, 255, 1) !important;
+}
+
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"].widget--plugin-friends-recent:hover,
+.desktop-widget-card[data-widget-appearance="light"].widget--plugin-friends-recent:hover {
+  border-color: rgba(200, 200, 204, 0.9) !important;
+  box-shadow: 
+    0 6px 16px rgba(0, 0, 0, 0.08),
+    inset 0 1px 1px rgba(255, 255, 255, 1) !important;
+}
+
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends {
+  background: transparent !important;
+  color: #18181b !important;
+}
+
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends-overlay,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends-overlay {
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.6) 45%,
+    rgba(255, 255, 255, 0.82) 75%,
+    rgba(255, 255, 255, 0.96) 100%
+  ) !important;
+}
+
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends-bg.is-fallback,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends-bg.is-fallback {
+  background:
+    radial-gradient(circle at 30% 20%, rgba(244, 244, 245, 0.8), transparent 30%),
+    linear-gradient(135deg, #f4f4f5, #e4e4e7 62%, #d4d4d8) !important;
+}
+
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends-avatar,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends-avatar,
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends-empty-icon,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends-empty-icon {
+  background: rgba(0, 0, 0, 0.04) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends-avatar.is-fallback span,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends-avatar.is-fallback span {
+  color: #18181b !important;
+}
+
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends-small-title,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends-small-title,
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends-medium-main strong,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends-medium-main strong,
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends-feature-main strong,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends-feature-main strong {
+  color: #18181b !important;
+  text-shadow: none !important;
+}
+
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends-small-foot time,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends-small-foot time,
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends-date time,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends-date time,
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends-feature-copy time,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends-feature-copy time,
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends-item time,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends-item time {
+  color: #71717a !important;
+}
+
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends-medium-main span,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends-medium-main span,
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends-feature-main span,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends-feature-main span {
+  color: #52525b !important;
+}
+
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends-author b,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends-author b {
+  color: #27272a !important;
+}
+
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends-author em,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends-author em,
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends-date em,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends-date em {
+  color: #a1a1aa !important;
+}
+
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends-divider,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends-divider {
+  background: rgba(0, 0, 0, 0.08) !important;
+}
+
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends-item-hit,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends-item-hit {
+  background: transparent;
+}
+
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends-item:hover .wg-friends-item-hit,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends-item:hover .wg-friends-item-hit {
+  background: rgba(0, 0, 0, 0.04) !important;
+}
+
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends-title,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends-title {
+  color: #18181b !important;
+}
+
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends-description,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends-description {
+  color: #71717a !important;
+}
+
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends-more,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends-more {
+  color: #71717a !important;
+}
+
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends-more:hover,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends-more:hover {
+  color: #18181b !important;
+  background: rgba(0, 0, 0, 0.04) !important;
+}
+
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends--empty strong,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends--empty strong {
+  color: #18181b !important;
+}
+
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends--empty p,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends--empty p {
+  color: #71717a !important;
+}
+
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-friends-empty-icon,
+.desktop-widget-card[data-widget-appearance="light"] .wg-friends-empty-icon {
+  color: #27272a !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  background: rgba(0, 0, 0, 0.04) !important;
+}
