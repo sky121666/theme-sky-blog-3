@@ -386,6 +386,21 @@ export const editModeMethods = {
       return options;
     }
 
+    if (field?.optionsSource === 'docsme-projects') {
+      const projects = Array.isArray(this.sources?.docsmeProjects) ? this.sources.docsmeProjects : [];
+      const options = projects.map((project) => {
+        const title = String(project.spec?.displayName || project.metadata?.name || '文档项目').trim();
+        return {
+          value: title,
+          label: title
+        };
+      });
+      if (field.emptyLabel) {
+        return [{ value: '', label: String(field.emptyLabel) }, ...options];
+      }
+      return options;
+    }
+
     const rawOptions = Array.isArray(field?.options) ? field.options : [];
     const options = rawOptions.map((option) => {
       if (option && typeof option === 'object') {
