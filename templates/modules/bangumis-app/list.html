@@ -159,7 +159,7 @@
                         th:style="${!#strings.isEmpty(bangumi.spec.cover) ? 'display:none' : ''}">
                     <span class="icon-[lucide--image-off]" aria-hidden="true"></span>
                   </span>
-                  <span class="bangumi-score" th:if="${bangumi.spec.score != null}">
+                  <span class="bangumi-score" th:if="${!#strings.isEmpty(bangumi.spec.score) and bangumi.spec.score != '0' and bangumi.spec.score != '0.0' and bangumi.spec.score != '0分'}">
                     <span class="icon-[lucide--star]" aria-hidden="true"></span>
                     <span th:text="${bangumi.spec.score}">9.9</span>
                   </span>

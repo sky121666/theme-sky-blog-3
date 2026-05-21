@@ -1,1 +1,1 @@
-import"../../../shell-runtime/runtime/desktop/surface/edit-mode.js?v=0.9.32&r=56716c520d50";import{t}from"./render.js?v=0.9.32&r=56716c520d50";export{t as renderWidget};
+import"../../../shell-runtime/runtime/desktop/surface/edit-mode.js?v=0.9.32&r=229e201c2bb3";import{t}from"./render.js?v=0.9.32&r=229e201c2bb3";export{t as renderWidget};
