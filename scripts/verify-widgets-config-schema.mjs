@@ -35,6 +35,40 @@ assert.deepEqual(categoriesCatalog.configSchema, [
 ], 'categories config schema is normalized');
 assert.deepEqual(categoriesCatalog.configDefaults, { categoryNames: [] }, 'categories config defaults are normalized');
 
+const bangumisCatalog = DESKTOP_WIDGET_CATALOG['plugin-bangumis.recent'];
+assert.ok(bangumisCatalog, 'bangumis widget catalog exists');
+assert.equal(bangumisCatalog.hasConfig, true, 'bangumis widget is configurable');
+assert.deepEqual(bangumisCatalog.configSchema, [
+  {
+    key: 'typeNum',
+    type: 'select',
+    label: '类型',
+    options: [
+      { value: '', label: '自动' },
+      { value: '1', label: '追番' },
+      { value: '2', label: '追剧' }
+    ],
+    defaultValue: ''
+  },
+  {
+    key: 'status',
+    type: 'select',
+    label: '状态',
+    options: [
+      { value: 'auto', label: '自动' },
+      { value: 'watching', label: '在看' },
+      { value: 'wish', label: '想看' },
+      { value: 'done', label: '已看' }
+    ],
+    defaultValue: 'auto'
+  }
+], 'bangumis config schema is normalized');
+assert.deepEqual(
+  bangumisCatalog.configDefaults,
+  { typeNum: '', status: 'auto' },
+  'bangumis config defaults are normalized'
+);
+
 const instance = createWidgetInstance('plugin-photos.gallery', {
   key: 'photos-test',
   size: 'medium',
@@ -62,6 +96,18 @@ assert.deepEqual(
   serializedCategories.meta,
   { categoryNames: ['halo', 'theme'] },
   'category selection survives serialization'
+);
+
+const bangumisInstance = createWidgetInstance('plugin-bangumis.recent', {
+  key: 'bangumis-test',
+  size: 'large',
+  meta: { typeNum: '2', status: 'watching' }
+});
+const serializedBangumis = serializeWidgetInstance(bangumisInstance);
+assert.deepEqual(
+  serializedBangumis.meta,
+  { typeNum: '2', status: 'watching' },
+  'bangumis meta survives serialization'
 );
 
 console.log('widget config schema contract passed');

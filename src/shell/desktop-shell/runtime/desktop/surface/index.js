@@ -122,6 +122,9 @@ export function registerDesktopSurface(Alpine) {
       randomTags: [],
       momentsAvailable: false,
       recentMoments: [],
+      bangumisAvailable: false,
+      bangumisByStatus: {},
+      bangumiStatusCounts: {},
       friendsAvailable: false,
       recentFriends: [],
       friendsUrl: '/friends',
@@ -579,6 +582,13 @@ export function registerDesktopSurface(Alpine) {
         randomTags: Array.isArray(bootstrap.sources?.randomTags) ? bootstrap.sources.randomTags : [],
         momentsAvailable: !!bootstrap.sources?.momentsAvailable,
         recentMoments: Array.isArray(bootstrap.sources?.recentMoments) ? bootstrap.sources.recentMoments : [],
+        bangumisAvailable: !!bootstrap.sources?.bangumisAvailable,
+        bangumisByStatus: bootstrap.sources?.bangumisByStatus && typeof bootstrap.sources.bangumisByStatus === 'object'
+          ? bootstrap.sources.bangumisByStatus
+          : {},
+        bangumiStatusCounts: bootstrap.sources?.bangumiStatusCounts && typeof bootstrap.sources.bangumiStatusCounts === 'object'
+          ? bootstrap.sources.bangumiStatusCounts
+          : {},
         friendsAvailable: !!bootstrap.sources?.friendsAvailable,
         recentFriends: Array.isArray(bootstrap.sources?.recentFriends) ? bootstrap.sources.recentFriends : [],
         friendsUrl: bootstrap.sources?.friendsUrl || '/friends',

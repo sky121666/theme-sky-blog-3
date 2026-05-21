@@ -5,6 +5,7 @@ import { haloPopularPostsWidgetManifest } from './halo/popular-posts/manifest.js
 import { haloRandomTagsWidgetManifest } from './halo/random-tags/manifest.js';
 import { haloSiteStatsWidgetManifest } from './halo/site-stats/manifest.js';
 import { pluginMomentsRecentWidgetManifest } from './plugin/moments-recent/manifest.js';
+import { pluginBangumisRecentWidgetManifest } from './plugin/bangumis-recent/manifest.js';
 import { pluginFriendsRecentWidgetManifest } from './plugin/friends-recent/manifest.js';
 import { pluginDocsmeQuickWidgetManifest } from './plugin/docsme-quick/manifest.js';
 import { pluginPhotosWidgetManifest } from './plugin/photos/manifest.js';
@@ -23,6 +24,7 @@ export const WIDGET_MANIFESTS = [
   haloSiteStatsWidgetManifest,
   haloRandomTagsWidgetManifest,
   pluginMomentsRecentWidgetManifest,
+  pluginBangumisRecentWidgetManifest,
   pluginFriendsRecentWidgetManifest,
   pluginDocsmeQuickWidgetManifest,
   pluginPhotosWidgetManifest

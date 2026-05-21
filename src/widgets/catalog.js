@@ -24,6 +24,9 @@ export function buildWidgetCatalog(sources) {
       if (widgetId === 'plugin-moments.recent') {
         return !!sources?.momentsAvailable;
       }
+      if (widgetId === 'plugin-bangumis.recent') {
+        return !!sources?.bangumisAvailable;
+      }
       if (widgetId === 'plugin-friends.recent') {
         return !!sources?.friendsAvailable;
       }

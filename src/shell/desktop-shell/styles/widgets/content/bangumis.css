@@ -1,0 +1,390 @@
+.desktop-widget-card.widget--plugin-bangumis-recent {
+  padding: 0;
+  gap: 0;
+  background:
+    radial-gradient(circle at 0 0, color-mix(in srgb, var(--theme-accent) 14%, transparent), transparent 42%),
+    linear-gradient(145deg, rgba(23, 25, 33, 0.82), rgba(9, 11, 17, 0.86));
+  border-color: rgba(255, 255, 255, 0.09);
+}
+
+.desktop-widget-card.widget--plugin-bangumis-recent .desktop-widget-header {
+  display: none;
+}
+
+.desktop-widget-card.widget--plugin-bangumis-recent .desktop-widget-body {
+  height: 100%;
+  padding: 0;
+}
+
+.wg-bangumis {
+  --wg-bangumis-text: rgba(255, 255, 255, 0.94);
+  --wg-bangumis-muted: rgba(255, 255, 255, 0.62);
+  --wg-bangumis-subtle: rgba(255, 255, 255, 0.42);
+  --wg-bangumis-line: rgba(255, 255, 255, 0.11);
+  --wg-bangumis-panel: rgba(255, 255, 255, 0.07);
+  --wg-bangumis-panel-strong: rgba(255, 255, 255, 0.11);
+  --wg-bangumis-watching: #86efac;
+  --wg-bangumis-wish: #93c5fd;
+  --wg-bangumis-done: #c4b5fd;
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+  color: var(--wg-bangumis-text);
+}
+
+.wg-bangumis a,
+a.wg-bangumis,
+a.wg-bangumis-feature,
+a.wg-bangumis-row,
+a.wg-bangumis-tile {
+  text-decoration: none;
+}
+
+.wg-bangumis--small {
+  align-items: flex-end;
+  padding: 14px;
+  background: #10131b;
+}
+
+.wg-bangumis-small-cover,
+.wg-bangumis-scrim {
+  position: absolute;
+  inset: 0;
+}
+
+.wg-bangumis-small-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.wg-bangumis-small-cover.is-placeholder,
+.wg-bangumis-feature-cover.is-placeholder,
+.wg-bangumis-row-cover.is-placeholder,
+.wg-bangumis-tile-cover.is-placeholder {
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 30% 18%, color-mix(in srgb, var(--theme-accent) 22%, transparent), transparent 42%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+  color: var(--wg-bangumis-muted);
+}
+
+.wg-bangumis-small-cover.is-placeholder span,
+.wg-bangumis-feature-cover.is-placeholder span,
+.wg-bangumis-row-cover.is-placeholder span,
+.wg-bangumis-tile-cover.is-placeholder span {
+  width: 24px;
+  height: 24px;
+}
+
+.wg-bangumis-scrim {
+  background:
+    linear-gradient(180deg, rgba(5, 7, 12, 0.05), rgba(5, 7, 12, 0.84)),
+    linear-gradient(90deg, rgba(5, 7, 12, 0.28), transparent);
+}
+
+.wg-bangumis-small-copy {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.wg-bangumis-small-copy strong {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 14px;
+  font-weight: 720;
+  line-height: 1.18;
+  color: var(--wg-bangumis-text);
+}
+
+.wg-bangumis-status {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 20px;
+  padding: 0 8px;
+  border: 0.5px solid color-mix(in srgb, currentColor 34%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 16%, rgba(255, 255, 255, 0.06));
+  color: var(--wg-bangumis-watching);
+  font-size: 10px;
+  font-weight: 680;
+  line-height: 1;
+}
+
+.wg-bangumis-status.is-wish {
+  color: var(--wg-bangumis-wish);
+}
+
+.wg-bangumis-status.is-done {
+  color: var(--wg-bangumis-done);
+}
+
+.wg-bangumis--medium {
+  display: grid;
+  grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.28fr);
+  grid-template-rows: 1fr auto;
+  gap: 8px;
+  padding: 12px;
+}
+
+.wg-bangumis-meter,
+.wg-bangumis-feature,
+.wg-bangumis-row {
+  min-width: 0;
+  border: 0.5px solid var(--wg-bangumis-line);
+  border-radius: 14px;
+  background: var(--wg-bangumis-panel);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.wg-bangumis-meter {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  padding: 12px;
+}
+
+.wg-bangumis-kicker,
+.wg-bangumis-meter span:last-child {
+  color: var(--wg-bangumis-subtle);
+  font-size: 10px;
+  font-weight: 620;
+}
+
+.wg-bangumis-meter strong {
+  color: var(--wg-bangumis-text);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.wg-bangumis-feature {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 10px;
+  padding: 8px;
+  color: inherit;
+}
+
+.wg-bangumis-feature-cover {
+  width: 58px;
+  height: 74px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--wg-bangumis-panel-strong);
+}
+
+.wg-bangumis-feature-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.wg-bangumis-feature-copy strong,
+.wg-bangumis-row strong,
+.wg-bangumis-tile-copy strong {
+  overflow: hidden;
+  color: var(--wg-bangumis-text);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wg-bangumis-feature-copy span:last-child,
+.wg-bangumis-row em,
+.wg-bangumis-tile-copy em {
+  overflow: hidden;
+  color: var(--wg-bangumis-muted);
+  font-size: 11px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wg-bangumis-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 7px 9px;
+  color: inherit;
+}
+
+.wg-bangumis-row-cover {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  object-fit: cover;
+}
+
+.wg-bangumis-row > span:last-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.wg-bangumis--large {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 10px;
+  padding: 14px;
+}
+
+.wg-bangumis-head,
+.wg-bangumis-segments {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.wg-bangumis-head span:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.wg-bangumis-head em,
+.wg-bangumis-segments em {
+  color: var(--wg-bangumis-subtle);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 620;
+}
+
+.wg-bangumis-head strong {
+  color: var(--wg-bangumis-text);
+  font-size: 18px;
+}
+
+.wg-bangumis-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--wg-bangumis-muted);
+  font-size: 11px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.wg-bangumis-open:hover {
+  color: var(--wg-bangumis-text);
+}
+
+.wg-bangumis-segments span {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 0.5px solid var(--wg-bangumis-line);
+  border-radius: 12px;
+  background: var(--wg-bangumis-panel);
+}
+
+.wg-bangumis-segments b {
+  color: var(--wg-bangumis-text);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.wg-bangumis-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  min-height: 0;
+}
+
+.wg-bangumis-tile {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 7px;
+  min-width: 0;
+  color: inherit;
+}
+
+.wg-bangumis-tile-cover {
+  width: 100%;
+  min-height: 0;
+  aspect-ratio: 3 / 4;
+  border-radius: 12px;
+  object-fit: cover;
+  background: var(--wg-bangumis-panel-strong);
+}
+
+.wg-bangumis-tile-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.wg-bangumis-tile-copy strong {
+  font-size: 11px;
+}
+
+.wg-bangumis--empty {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 18px;
+  text-align: center;
+}
+
+.wg-bangumis-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 15px;
+  background: var(--wg-bangumis-panel);
+  color: var(--wg-bangumis-muted);
+}
+
+.wg-bangumis-empty-icon span {
+  width: 22px;
+  height: 22px;
+}
+
+.wg-bangumis--empty strong {
+  color: var(--wg-bangumis-text);
+  font-size: 13px;
+}
+
+.wg-bangumis--empty p {
+  max-width: 190px;
+  margin: 0;
+  color: var(--wg-bangumis-muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"].widget--plugin-bangumis-recent,
+.desktop-widget-card[data-widget-appearance="light"].widget--plugin-bangumis-recent {
+  background:
+    radial-gradient(circle at 0 0, color-mix(in srgb, var(--theme-accent) 12%, transparent), transparent 42%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.86), rgba(244, 247, 251, 0.76));
+  border-color: rgba(15, 23, 42, 0.08);
+}
+
+:root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-bangumis,
+.desktop-widget-card[data-widget-appearance="light"] .wg-bangumis {
+  --wg-bangumis-text: rgba(15, 23, 42, 0.92);
+  --wg-bangumis-muted: rgba(15, 23, 42, 0.6);
+  --wg-bangumis-subtle: rgba(15, 23, 42, 0.42);
+  --wg-bangumis-line: rgba(15, 23, 42, 0.1);
+  --wg-bangumis-panel: rgba(255, 255, 255, 0.58);
+  --wg-bangumis-panel-strong: rgba(241, 245, 249, 0.86);
+}
