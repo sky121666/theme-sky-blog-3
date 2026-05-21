@@ -16,7 +16,7 @@ spec:
   issues: "https://github.com/sky121666/theme-sky-blog-3/issues"
   settingName: "theme-sky-blog-3-setting"
   configMapName: "theme-sky-blog-3-configMap"
-  version: "0.9.32"
+  version: "0.9.33"
   requires: ">=2.23.0"
   license:
     - name: "MIT"

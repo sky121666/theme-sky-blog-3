@@ -1,4 +1,4 @@
-import{r as l}from"../../halo/author-card/render.js?v=0.9.32&r=6bf22e1a379f";function h(s){const n=Number(s||0);return Number.isFinite(n)&&n>0?Math.round(n):0}function f(s={}){const n=s.spec||{},a=s.status||{},o=s.metadata||{},c=String(n.displayName||o.name||"文档项目").trim(),i=String(a.permalink||"").trim(),r=h(a.totalDocs);return{title:c,description:String(n.description||"").trim(),icon:String(n.icon||"").trim(),href:i,totalDocs:r,disabled:r<=0||!i}}function m(s,n,a=""){return n?.icon?`
+import{r as l}from"../../halo/author-card/render.js?v=0.9.33&r=4f0fa5405881";function h(s){const n=Number(s||0);return Number.isFinite(n)&&n>0?Math.round(n):0}function f(s={}){const n=s.spec||{},a=s.status||{},o=s.metadata||{},c=String(n.displayName||o.name||"文档项目").trim(),i=String(a.permalink||"").trim(),r=h(a.totalDocs);return{title:c,description:String(n.description||"").trim(),icon:String(n.icon||"").trim(),href:i,totalDocs:r,disabled:r<=0||!i}}function m(s,n,a=""){return n?.icon?`
       <span class="wg-docsme-icon ${a}">
         <img src="${s(n.icon)}" alt="${s(n.title)}" loading="lazy">
       </span>
