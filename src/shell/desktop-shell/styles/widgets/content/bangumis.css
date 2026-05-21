@@ -5,7 +5,7 @@
   background:
     radial-gradient(circle at 0 0, color-mix(in srgb, var(--theme-accent) 12%, transparent), transparent 44%),
     linear-gradient(145deg, rgba(24, 27, 36, 0.9), rgba(9, 11, 17, 0.9));
-  border-color: rgba(255, 255, 255, 0.09);
+  border-color: transparent;
 }
 
 .desktop-widget-card.widget--plugin-bangumis-recent .desktop-widget-header {
@@ -847,7 +847,7 @@ a.wg-bangumis--small:hover .wg-bangumis-small-cover {
     radial-gradient(circle at 10% 20%, rgba(255, 102, 153, 0.018), transparent 42%),
     radial-gradient(circle at 90% 80%, rgba(0, 161, 214, 0.018), transparent 42%),
     rgba(22, 22, 24, 0.9);
-  border: 0.5px solid rgba(255, 255, 255, 0.06);
+  border: 0;
   border-radius: 24px;
   box-shadow:
     0 1px 3px rgba(0, 0, 0, 0.3),
@@ -908,7 +908,7 @@ a.wg-bangumis--small:hover .wg-bangumis-small-cover {
     radial-gradient(circle at 10% 20%, rgba(255, 102, 153, 0.026), transparent 42%),
     radial-gradient(circle at 90% 80%, rgba(0, 161, 214, 0.02), transparent 42%),
     rgba(255, 255, 255, 0.88);
-  border-color: rgba(0, 0, 0, 0.05);
+  border-color: transparent;
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.04),
     0 12px 30px rgba(0, 0, 0, 0.05),
