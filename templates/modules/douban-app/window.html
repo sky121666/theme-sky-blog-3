@@ -1,0 +1,40 @@
+<th:block th:fragment="frame (titleText, subtitleText, contentFragment, windowResizable, metricsKey)">
+  <th:block th:replace="~{modules/shell/window-frame :: shell(
+      variant='douban',
+      metricsKey=${metricsKey},
+      resizable=${windowResizable != null ? windowResizable : 'true'},
+      maximizable='true',
+      widthAttr='1180',
+      extraClasses='douban-window md:min-w-[920px] md:min-h-[660px]',
+      inlineStyle='',
+      bodyFragment=~{::frameBody(contentFragment=${contentFragment}, windowResizable=${windowResizable})}
+    )}"></th:block>
+</th:block>
+
+<th:block th:fragment="frameBody (contentFragment, windowResizable)">
+  <th:block th:replace="~{modules/shell/window-frame :: resizeHandles(mode='full', enabled=${windowResizable == null or windowResizable != 'false'})}"></th:block>
+
+  <div class="douban-window-content"
+       data-window-scroll
+       data-window-content-root>
+    <th:block th:replace="~{modules/shell/window-frame :: loadingOverlay(contentFragment=~{::loadingSkeleton})}"></th:block>
+    <div id="pjax-container" data-window-content-variant="douban" class="douban-window-content-inner">
+      <th:block th:replace="${contentFragment}" />
+    </div>
+  </div>
+</th:block>
+
+<th:block th:fragment="loadingSkeleton">
+  <div class="douban-window-skeleton" aria-hidden="true">
+    <div class="douban-skeleton-toolbar skeleton-panel"></div>
+    <div class="douban-skeleton-profile skeleton-panel"></div>
+    <div class="douban-skeleton-filter skeleton-panel"></div>
+    <div class="douban-skeleton-grid">
+      <div class="douban-skeleton-card skeleton-panel" th:each="i : ${#numbers.sequence(1, 8)}">
+        <div class="douban-skeleton-poster skeleton-chip"></div>
+        <div class="douban-skeleton-line skeleton-line"></div>
+        <div class="douban-skeleton-line skeleton-line is-short"></div>
+      </div>
+    </div>
+  </div>
+</th:block>

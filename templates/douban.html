@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<th:block xmlns:th="https://www.thymeleaf.org"
+          th:with="
+            resolvedTitle=${!#strings.isEmpty(title) ? title : '豆瓣书影音记录'},
+            resolvedDocumentTitle=${resolvedTitle + ' - ' + site.title}">
+  <html th:replace="~{modules/shell/layout :: html(
+          title = ${resolvedDocumentTitle},
+          description = '个人电影、图书、音乐、游戏和舞台剧收藏记录',
+          ssrContent = ~{modules/douban-app/list :: content},
+          canonical = '/douban',
+          image = ${site.logo},
+          type = 'website',
+          seoFallback = 'meta',
+          pageMode = 'browser-douban',
+          pageApp = 'douban',
+          windowVariant = 'douban',
+          windowScene = 'collection',
+          windowTitle = ${resolvedTitle},
+          windowResizable = true,
+          windowMaximizable = true,
+          windowMetricsKey = 'douban'
+        )}"></html>
+</th:block>

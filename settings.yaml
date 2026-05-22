@@ -722,6 +722,7 @@ spec:
                   value: wechat
                 - label: 跟随主题
                   value: theme
+
         - $formkit: group
           id: moments_publish_group
           name: publish
@@ -757,6 +758,55 @@ spec:
               label: 启用音频上传
               help: 通过 Halo UC 附件接口上传音频。
               value: true
+
+    - group: douban
+      label: 豆瓣
+      formSchema:
+        - $formkit: group
+          id: douban_profile_group
+          name: profile
+          label: 页面标题
+          value:
+            icon: ""
+            display_name: ""
+            subtitle: ""
+          children:
+            - $formkit: iconify
+              id: douban_profile_icon
+              name: icon
+              label: 图标
+              help: 留空时使用默认书影音图标。
+              format: svg
+            - $formkit: text
+              id: douban_profile_display_name
+              name: display_name
+              label: 标题
+              help: 留空时使用当前页面标题。
+              value: ""
+            - $formkit: textarea
+              id: douban_profile_subtitle
+              name: subtitle
+              label: 说明
+              help: 留空时使用默认书影音说明。
+              value: ""
+        - $formkit: group
+          id: douban_style_group
+          name: style
+          label: 界面风格
+          value:
+            color_mode: douban
+          children:
+            - $formkit: radio
+              id: douban_style_color_mode
+              name: color_mode
+              label: 配色模式
+              help: 豆瓣绿保留书影音归档识别感；跟随主题会映射桌面主题强调色。
+              value: douban
+              options:
+                - label: 豆瓣绿
+                  value: douban
+                - label: 跟随主题
+                  value: theme
 
     - group: friends
       label: 朋友圈

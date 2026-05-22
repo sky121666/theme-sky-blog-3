@@ -1,8 +1,8 @@
 {
   "__meta": {
-    "version": "0.9.33",
-    "revision": "4f0fa5405881",
-    "query": "v=0.9.33&r=4f0fa5405881"
+    "version": "0.9.34",
+    "revision": "90989d1c532d",
+    "query": "v=0.9.34&r=90989d1c532d"
   },
   "explorer-archives": {
     "js": [
@@ -50,6 +50,14 @@
     ],
     "css": [
       "/themes/theme-sky-blog-3/assets/css/apps/docsme/index.css"
+    ]
+  },
+  "douban": {
+    "js": [
+      "/themes/theme-sky-blog-3/assets/js/apps/douban/index.js"
+    ],
+    "css": [
+      "/themes/theme-sky-blog-3/assets/css/apps/douban/index.css"
     ]
   },
   "equipments": {

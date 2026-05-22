@@ -1,0 +1,194 @@
+<th:block th:fragment="content"
+          th:with="
+            rawTitle=${!#strings.isEmpty(title) ? title : '豆瓣书影音记录'},
+            resolvedTitle=${!#strings.isEmpty(site.title) ? #strings.replace(rawTitle, ' - ' + site.title, '') : rawTitle},
+            configuredProfileTitle=${theme.config.douban?.profile?.display_name},
+            configuredProfileSubtitle=${theme.config.douban?.profile?.subtitle},
+            configuredProfileIcon=${theme.config.douban?.profile?.icon},
+            profileTitle=${!#strings.isEmpty(configuredProfileTitle) ? configuredProfileTitle : resolvedTitle},
+            profileSubtitle=${!#strings.isEmpty(configuredProfileSubtitle) ? configuredProfileSubtitle : '记录阅读、观影、音乐、游戏与舞台剧痕迹，保存我的个人记忆。'},
+            colorMode=${theme.config.douban?.style?.color_mode ?: 'douban'}">
+  <!-- plugin-contract: plugin-douban; contract-version: 1.2.5; tested-version: pending; status: in-progress; source: docs/插件适配契约.md -->
+  <div class="douban-app"
+       data-app-root="douban"
+       th:attr="data-douban-title=${profileTitle},data-douban-site-title=${site.title},data-douban-color-mode=${colorMode}">
+    <script type="application/json"
+            data-app-props="douban"
+            th:inline="javascript">{"version":1,"appId":"douban","data":{"scene":"collection","title":[[${resolvedTitle}]]}}</script>
+
+    <section class="douban-app-shell">
+      <header class="douban-titlebar"
+              @mousedown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
+        <div class="douban-titlebar-left">
+          <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=true)}"></th:block>
+          <div class="douban-titlebar-divider" aria-hidden="true"></div>
+          <div class="douban-view-switch" role="group" aria-label="视图切换">
+            <button class="douban-view-btn is-active"
+                    type="button"
+                    data-douban-view="grid"
+                    aria-label="海报网格视图">
+              <span class="icon-[lucide--layout-grid]" aria-hidden="true"></span>
+            </button>
+            <button class="douban-view-btn"
+                    type="button"
+                    data-douban-view="list"
+                    aria-label="列表详情视图">
+              <span class="icon-[lucide--list]" aria-hidden="true"></span>
+            </button>
+          </div>
+        </div>
+
+        <nav class="douban-type-tabs" data-douban-types aria-label="豆瓣类型"></nav>
+
+        <div class="douban-titlebar-actions">
+          <label class="douban-search-wrap">
+            <span class="icon-[lucide--search]" aria-hidden="true"></span>
+            <input class="douban-search"
+                   type="search"
+                   data-douban-search
+                   autocomplete="off"
+                   placeholder="搜索条目..." />
+          </label>
+        </div>
+      </header>
+
+      <section class="douban-mobilebar">
+        <div class="douban-mobilebar-head">
+          <div class="douban-mobile-lights" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </div>
+          <strong>书影音记录</strong>
+          <button class="douban-mobile-view" type="button" data-douban-mobile-view>▦</button>
+        </div>
+        <nav class="douban-type-tabs douban-type-tabs--mobile" data-douban-types-mobile aria-label="豆瓣类型"></nav>
+        <label class="douban-mobile-search">
+          <span class="icon-[lucide--search]" aria-hidden="true"></span>
+          <input type="search" data-douban-search-mobile autocomplete="off" placeholder="搜索条目..." />
+        </label>
+      </section>
+
+      <section class="douban-profile">
+        <div class="douban-profile-copy">
+          <div class="douban-profile-avatar" aria-hidden="true">
+            <span class="icon-[lucide--clapperboard]" data-douban-profile-fallback-icon></span>
+            <span th:if="${!#strings.isEmpty(configuredProfileIcon)}"
+                  data-douban-profile-icon
+                  th:attr="data-icon=${configuredProfileIcon}"
+                  hidden></span>
+          </div>
+          <div>
+            <h1 class="douban-profile-title" th:text="${profileTitle}">豆瓣书影音记录</h1>
+            <p class="douban-profile-subtitle" th:text="${profileSubtitle}">记录阅读、观影、音乐、游戏与舞台剧痕迹，保存我的个人记忆。</p>
+          </div>
+        </div>
+
+        <div class="douban-stats" aria-label="当前类型统计">
+          <div class="douban-stat">
+            <span>总数</span>
+            <strong data-douban-stat="total">0</strong>
+          </div>
+          <div class="douban-stat">
+            <span data-douban-stat-label="done">看过</span>
+            <strong data-douban-stat="done">0</strong>
+          </div>
+          <div class="douban-stat">
+            <span data-douban-stat-label="doing">在看</span>
+            <strong data-douban-stat="doing">0</strong>
+          </div>
+          <div class="douban-stat">
+            <span data-douban-stat-label="mark">想看</span>
+            <strong data-douban-stat="mark">0</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="douban-filterbar">
+        <div class="douban-status-pills" data-douban-statuses></div>
+        <div class="douban-genre-pills" data-douban-genres></div>
+      </section>
+
+      <main class="douban-main">
+        <section class="douban-loading" data-douban-loading hidden>
+          <div class="douban-loading-grid">
+            <div class="douban-loading-card" aria-hidden="true"></div>
+            <div class="douban-loading-card" aria-hidden="true"></div>
+            <div class="douban-loading-card" aria-hidden="true"></div>
+            <div class="douban-loading-card" aria-hidden="true"></div>
+            <div class="douban-loading-card" aria-hidden="true"></div>
+            <div class="douban-loading-card" aria-hidden="true"></div>
+          </div>
+        </section>
+
+        <section class="douban-grid" data-douban-grid></section>
+
+        <section class="douban-list-wrap" data-douban-list hidden>
+          <table class="douban-table">
+            <thead>
+              <tr>
+                <th>名称</th>
+                <th>年份</th>
+                <th>豆瓣评分</th>
+                <th>我的评星</th>
+                <th>记录时间</th>
+                <th>我的短评</th>
+              </tr>
+            </thead>
+            <tbody data-douban-list-body></tbody>
+          </table>
+        </section>
+
+        <section class="douban-empty" data-douban-empty hidden>
+          <span class="douban-empty-icon icon-[lucide--search-x]" aria-hidden="true"></span>
+          <h2>当前筛选暂无匹配记录</h2>
+          <p>没有对应分类、状态或者关键词的条目。</p>
+        </section>
+
+        <section class="douban-empty douban-empty--error" data-douban-error hidden>
+          <span class="douban-empty-icon icon-[lucide--circle-alert]" aria-hidden="true"></span>
+          <h2>豆瓣数据暂时无法加载</h2>
+          <p data-douban-error-text>请确认 plugin-douban 已安装并完成同步。</p>
+        </section>
+      </main>
+
+      <footer class="douban-pagination">
+        <button class="douban-load-more" type="button" data-douban-load-more hidden>
+          <span>载入更多项目</span>
+          <span class="icon-[lucide--chevron-down]" aria-hidden="true"></span>
+        </button>
+      </footer>
+    </section>
+
+    <div class="douban-quicklook"
+         data-douban-quicklook
+         aria-hidden="true">
+      <button class="douban-quicklook-backdrop" type="button" data-douban-close-preview aria-label="关闭预览"></button>
+      <article class="douban-quicklook-card" role="dialog" aria-modal="true" aria-labelledby="douban-preview-title">
+        <div class="douban-quicklook-poster">
+          <img data-douban-preview-poster alt="" referrerpolicy="no-referrer" />
+          <span data-douban-preview-score class="douban-quicklook-score"></span>
+        </div>
+        <div class="douban-quicklook-body">
+          <button class="douban-quicklook-close" type="button" data-douban-close-preview aria-label="关闭预览">
+            <span class="icon-[lucide--x]" aria-hidden="true"></span>
+          </button>
+          <div>
+            <h2 id="douban-preview-title" data-douban-preview-title></h2>
+            <p class="douban-quicklook-meta" data-douban-preview-meta></p>
+            <p class="douban-quicklook-subtitle" data-douban-preview-subtitle></p>
+          </div>
+          <section class="douban-quicklook-note">
+            <div>
+              <span>我的评星与短评</span>
+              <strong data-douban-preview-stars></strong>
+            </div>
+            <p data-douban-preview-remark></p>
+          </section>
+          <a class="douban-quicklook-link" data-douban-preview-link href="#" target="_blank" rel="noopener noreferrer">
+            <span>在豆瓣中打开详情</span>
+            <span class="icon-[lucide--external-link]" aria-hidden="true"></span>
+          </a>
+        </div>
+      </article>
+    </div>
+  </div>
+</th:block>

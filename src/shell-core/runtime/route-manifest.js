@@ -96,6 +96,14 @@ const ROUTE_RULES = [
     matches: (pathname) => pathname === '/bangumis' || pathname === '/bangumis/' || /^\/bangumis\/page\/[^/]+\/?$/.test(pathname)
   },
   {
+    id: 'douban',
+    appId: 'douban',
+    windowVariant: 'douban',
+    pjaxMode: 'same-app',
+    cacheKeyPolicy: 'app-path-search',
+    matches: (pathname) => pathname === '/douban' || pathname === '/douban/' || /^\/douban\/page\/[^/]+\/?$/.test(pathname)
+  },
+  {
     id: 'steam',
     appId: 'steam',
     windowVariant: 'steam',

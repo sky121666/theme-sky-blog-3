@@ -474,6 +474,16 @@
                     )}" />
         </th:block>
 
+        <th:block th:if="${windowVariant == 'douban'}">
+          <th:block th:replace="~{modules/douban-app/window :: frame(
+                      titleText=${windowTitle},
+                      subtitleText='',
+                      contentFragment=${ssrContent},
+                      windowResizable=${windowResizable != null ? windowResizable : 'y'},
+                      metricsKey=${windowMetricsKey != null ? windowMetricsKey : 'douban'}
+                    )}" />
+        </th:block>
+
         <th:block th:if="${windowVariant == 'steam'}">
           <th:block th:replace="~{modules/steam-app/window :: frame(
                       titleText=${windowTitle},
