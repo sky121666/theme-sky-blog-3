@@ -1,3 +1,5 @@
+import { buildWidgetPjaxLink } from '../../shared/link.js';
+
 const ALLOWED_TYPES = new Set(['auto', 'movie', 'book', 'music', 'game', 'drama']);
 const ALLOWED_STATUS = new Set(['auto', 'all', 'mark', 'doing', 'done']);
 
@@ -18,6 +20,32 @@ export function renderWidget({ sources, escapeHtml, mode }, widget) {
   const href = escapeHtml(sources.doubanUrl || '/douban');
   const title = escapeHtml(widget?.title || '书影音');
   const disabled = mode === 'preview' ? 'true' : 'false';
+
+  const mainContent = buildWidgetPjaxLink({
+    href,
+    app: 'douban',
+    className: 'wg-douban-main',
+    attrs: `data-douban-content aria-label="${escapeHtml('打开豆瓣归档')}"`,
+    disabled: mode === 'preview',
+    innerHtml: `
+      <div class="wg-douban-poster is-loading" data-douban-poster>
+        <span class="icon-[lucide--image]" aria-hidden="true"></span>
+      </div>
+      <div class="wg-douban-copy">
+        <div class="wg-douban-meta-row">
+          <span data-douban-status-label>收藏精选</span>
+          <span data-douban-count>-- 条</span>
+        </div>
+        <h3 data-douban-title>书影音收藏</h3>
+        <p class="wg-douban-sub" data-douban-subtitle>从豆瓣插件读取真实收藏数据。</p>
+        <div class="wg-douban-scoreline">
+          <span data-douban-score>豆瓣 --</span>
+          <span data-douban-stars>我的评分 --</span>
+        </div>
+        <p class="wg-douban-remark" data-douban-remark>组件会自动轮播当前集合，悬停下方条目可快速预览。</p>
+      </div>
+    `
+  });
 
   return `
     <section class="wg-douban"
@@ -44,24 +72,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget) {
         </a>
       </header>
 
-      <div class="wg-douban-main" data-douban-content>
-        <div class="wg-douban-poster is-loading" data-douban-poster>
-          <span class="icon-[lucide--image]" aria-hidden="true"></span>
-        </div>
-        <div class="wg-douban-copy">
-          <div class="wg-douban-meta-row">
-            <span data-douban-status-label>收藏精选</span>
-            <span data-douban-count>-- 条</span>
-          </div>
-          <h3 data-douban-title>书影音收藏</h3>
-          <p class="wg-douban-sub" data-douban-subtitle>从豆瓣插件读取真实收藏数据。</p>
-          <div class="wg-douban-scoreline">
-            <span data-douban-score>豆瓣 --</span>
-            <span data-douban-stars>我的评分 --</span>
-          </div>
-          <p class="wg-douban-remark" data-douban-remark>组件会自动轮播当前集合，悬停下方条目可快速预览。</p>
-        </div>
-      </div>
+      ${mainContent}
 
       <footer class="wg-douban-foot">
         <div class="wg-douban-rail" data-douban-rail aria-label="收藏条目"></div>

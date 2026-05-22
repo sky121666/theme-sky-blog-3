@@ -1222,6 +1222,21 @@ export function registerDesktopSurface(Alpine) {
 
       this.closeDesktopContextMenu();
       this.selectedDesktopKey = null;
+
+      if (!icon?.pjax || !icon?.href || icon.external || event.defaultPrevented) return;
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+      let url;
+      try {
+        url = new URL(icon.href, window.location.origin);
+      } catch (_error) {
+        return;
+      }
+      if (url.origin !== window.location.origin || !window.pjax) return;
+
+      event.preventDefault();
+      desktopDebug('icon pjax fallback', { key, href: url.pathname + url.search });
+      window.pjax.loadUrl(url.pathname + url.search, { triggerElement: event.currentTarget });
     },
 
     findIconByKey(key) {
@@ -1761,6 +1776,8 @@ export function registerDesktopSurface(Alpine) {
      * Coalesces rapid-fire calls — only the last scheduled run executes.
      */
     scheduleDesktopWidgetEnhancement() {
+      if (this._widgetEnhanceScheduled) return;
+      this._widgetEnhanceScheduled = true;
       if (this._widgetEnhanceRafId) {
         cancelAnimationFrame(this._widgetEnhanceRafId);
         this._widgetEnhanceRafId = 0;
@@ -1769,6 +1786,7 @@ export function registerDesktopSurface(Alpine) {
         this._widgetEnhanceRafId = requestAnimationFrame(() => {
           this._widgetEnhanceRafId = requestAnimationFrame(() => {
             this._widgetEnhanceRafId = 0;
+            this._widgetEnhanceScheduled = false;
             this.enhanceDesktopWidgetBodies();
           });
         });

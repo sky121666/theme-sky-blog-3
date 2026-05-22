@@ -1,3 +1,5 @@
+import { createLogger } from '../../../shell/desktop-shell/runtime/shared/debug.js';
+
 const TYPE_LABELS = {
   movie: '电影',
   book: '图书',
@@ -8,7 +10,13 @@ const TYPE_LABELS = {
 
 const STATUS_ORDER = ['doing', 'mark', 'done'];
 const CACHE_TTL = 5 * 60 * 1000;
+const CACHE_PREFIX = 'theme:douban-showcase:v1:';
 const DATA_CACHE = new Map();
+const { log: debugLog, warn: debugWarn } = createLogger('douban-widget');
+
+function storedCacheKey(cacheKey) {
+  return `${CACHE_PREFIX}${cacheKey}`;
+}
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -38,12 +46,57 @@ function withParams(path, params) {
   return `${url.pathname}${url.search}`;
 }
 
+function readStoredCache(cacheKey) {
+  try {
+    const raw = window.sessionStorage?.getItem(storedCacheKey(cacheKey));
+    if (!raw) {
+      debugLog('session cache miss', { cacheKey });
+      return null;
+    }
+    const payload = JSON.parse(raw);
+    if (!payload?.data || !payload.time) {
+      debugWarn('session cache invalid', { cacheKey });
+      return null;
+    }
+    const age = Date.now() - payload.time;
+    if (age >= CACHE_TTL) {
+      debugLog('session cache expired', { cacheKey, age });
+      return null;
+    }
+    debugLog('session cache hit', { cacheKey, age });
+    return payload.data;
+  } catch (_error) {
+    debugWarn('session cache read failed', { cacheKey });
+    return null;
+  }
+}
+
+function writeStoredCache(cacheKey, data) {
+  try {
+    window.sessionStorage?.setItem(storedCacheKey(cacheKey), JSON.stringify({
+      time: Date.now(),
+      data
+    }));
+    debugLog('session cache write', {
+      cacheKey,
+      items: Array.isArray(data?.items) ? data.items.length : 0,
+      type: data?.type || '',
+      status: data?.status || ''
+    });
+  } catch (_error) {
+    debugWarn('session cache write failed', { cacheKey });
+    // sessionStorage can be unavailable in private or restricted contexts.
+  }
+}
+
 async function fetchJson(path, params = {}, signal) {
+  debugLog('fetch start', { path, params });
   const response = await fetch(withParams(path, params), {
     headers: { Accept: 'application/json' },
     signal
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  debugLog('fetch success', { path, params, status: response.status });
   return response.json();
 }
 
@@ -118,6 +171,7 @@ function renderRail(items, activeIndex) {
     <button type="button"
             class="wg-douban-thumb${index === activeIndex ? ' is-active' : ''}"
             data-douban-index="${index}"
+            aria-current="${index === activeIndex ? 'true' : 'false'}"
             aria-label="${escapeHtml(item.title)}">
       ${item.poster ? `<img src="${escapeHtml(item.poster)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : '<span class="icon-[lucide--image]" aria-hidden="true"></span>'}
     </button>
@@ -156,12 +210,23 @@ async function loadShowcaseData(apiBase, configuredType, configuredStatus, signa
   const cached = DATA_CACHE.get(cacheKey);
   const now = Date.now();
   if (cached?.data && now - cached.time < CACHE_TTL) {
+    debugLog('memory cache hit', { cacheKey, age: now - cached.time });
+    if (!readStoredCache(cacheKey)) {
+      writeStoredCache(cacheKey, cached.data);
+    }
     return cached.data;
   }
+  const stored = readStoredCache(cacheKey);
+  if (stored) {
+    DATA_CACHE.set(cacheKey, { data: stored, time: now });
+    return stored;
+  }
   if (cached?.promise) {
+    debugLog('reuse pending request', { cacheKey });
     return cached.promise;
   }
 
+  debugLog('load from api', { cacheKey, configuredType, configuredStatus });
   const promise = (async () => {
     const type = await resolveType(null, apiBase, configuredType, signal);
     const result = await fetchCollection(apiBase, type, configuredStatus, signal);
@@ -177,9 +242,11 @@ async function loadShowcaseData(apiBase, configuredType, configuredStatus, signa
   try {
     const data = await promise;
     DATA_CACHE.set(cacheKey, { data, time: Date.now() });
+    writeStoredCache(cacheKey, data);
     return data;
   } catch (error) {
     DATA_CACHE.delete(cacheKey);
+    debugWarn('load failed', { cacheKey, message: error?.message || String(error || '') });
     throw error;
   }
 }
@@ -191,8 +258,36 @@ function setText(root, selector, value) {
 
 function updateRailState(root, activeIndex) {
   root.querySelectorAll('[data-douban-index]').forEach((button) => {
-    button.classList.toggle('is-active', Number(button.dataset.doubanIndex) === activeIndex);
+    const active = Number(button.dataset.doubanIndex) === activeIndex;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-current', active ? 'true' : 'false');
   });
+}
+
+function showcaseDomState(root) {
+  const poster = root.querySelector('[data-douban-poster]');
+  const rail = root.querySelector('[data-douban-rail]');
+  const title = normalizeText(root.querySelector('[data-douban-title]')?.textContent);
+  return {
+    hydrated: root.dataset.doubanHydrated === 'true',
+    title,
+    railCount: rail?.querySelectorAll('[data-douban-index]').length || 0,
+    posterLoading: !!poster?.classList.contains('is-loading'),
+    hasPosterContent: !!poster?.querySelector('img, span'),
+    empty: root.classList.contains('is-empty'),
+    error: root.classList.contains('is-error')
+  };
+}
+
+function isShowcaseDomComplete(root) {
+  const state = showcaseDomState(root);
+  if (!state.hydrated) return false;
+  if (state.empty || state.error) return !!state.title && !state.posterLoading;
+  return !!state.title
+    && state.title !== '书影音收藏'
+    && !state.posterLoading
+    && state.hasPosterContent
+    && state.railCount > 0;
 }
 
 function updateActive(root, items, activeIndex, total, type, _status, options = {}) {
@@ -217,7 +312,10 @@ function updateActive(root, items, activeIndex, total, type, _status, options = 
   if (poster) {
     poster.classList.toggle('is-loading', false);
     poster.classList.toggle('is-empty', !item.poster);
-    poster.innerHTML = renderPoster(item);
+    if (poster.dataset.posterSrc !== item.poster) {
+      poster.dataset.posterSrc = item.poster;
+      poster.innerHTML = renderPoster(item);
+    }
   }
   if (bg) {
     bg.style.backgroundImage = item.poster ? `url("${item.poster.replace(/"/g, '\\"')}")` : '';
@@ -227,18 +325,28 @@ function updateActive(root, items, activeIndex, total, type, _status, options = 
   } else {
     updateRailState(root, activeIndex);
   }
+  root.dataset.doubanHydrated = 'true';
 }
 
 function mountDoubanShowcase(root) {
-  if (!root || root.dataset.doubanShowcaseMounted === 'true') return;
+  if (!root) return;
+  if (root.dataset.doubanShowcaseMounted === 'true') {
+    if (root.dataset.doubanLoading === 'true') return;
+    if (isShowcaseDomComplete(root)) return;
+    debugWarn('remount after incomplete dom', showcaseDomState(root));
+    root.__doubanShowcaseCleanup?.();
+    root.dataset.doubanHydrated = 'false';
+  }
   root.dataset.doubanShowcaseMounted = 'true';
 
   if (root.dataset.doubanPreview === 'true') return;
+  root.dataset.doubanLoading = 'true';
 
   const apiBase = normalizeText(root.dataset.doubanApi || '/apis/api.douban.moony.la/v1alpha1/doubanmovies');
   const configuredType = normalizeText(root.dataset.doubanType || 'auto');
   const configuredStatus = normalizeText(root.dataset.doubanStatus || 'auto');
   const abortController = new AbortController();
+  const eventController = new AbortController();
   let items = [];
   let activeIndex = 0;
   let timer = 0;
@@ -273,19 +381,28 @@ function mountDoubanShowcase(root) {
     resumeTimer = window.setTimeout(start, 3000);
   };
 
-  root.addEventListener('pointerenter', stop);
-  root.addEventListener('pointerleave', pauseThenResume);
-  root.addEventListener('focusin', stop);
-  root.addEventListener('focusout', pauseThenResume);
+  root.__doubanShowcaseCleanup = () => {
+    stop();
+    if (resumeTimer) window.clearTimeout(resumeTimer);
+    resumeTimer = 0;
+    abortController.abort();
+    eventController.abort();
+  };
+
+  root.addEventListener('pointerenter', stop, { signal: eventController.signal });
+  root.addEventListener('pointerleave', pauseThenResume, { signal: eventController.signal });
+  root.addEventListener('focusin', stop, { signal: eventController.signal });
+  root.addEventListener('focusout', pauseThenResume, { signal: eventController.signal });
   root.addEventListener('pointerover', (event) => {
     if (isEditingOrDragging()) return;
     const button = event.target.closest('[data-douban-index]');
     if (!button) return;
     const next = Number(button.dataset.doubanIndex);
     if (!Number.isInteger(next) || next < 0 || next >= items.length) return;
+    if (next === activeIndex) return;
     activeIndex = next;
     updateActive(root, items, activeIndex, total, resolvedType, resolvedStatus, { renderRail: false });
-  });
+  }, { signal: eventController.signal });
 
   (async () => {
     try {
@@ -302,10 +419,17 @@ function mountDoubanShowcase(root) {
         setText(root, '[data-douban-title]', '还没有收藏记录');
         setText(root, '[data-douban-subtitle]', '同步豆瓣插件后会在这里展示。');
         setText(root, '[data-douban-remark]', '可以在组件配置里切换类型或状态。');
+        root.dataset.doubanHydrated = 'true';
         return;
       }
 
       updateActive(root, items, activeIndex, total, resolvedType, resolvedStatus);
+      debugLog('hydrated', {
+        type: resolvedType,
+        status: resolvedStatus,
+        total,
+        items: items.length
+      });
       start();
     } catch (_error) {
       if (!root.isConnected || abortController.signal.aborted) return;
@@ -314,6 +438,9 @@ function mountDoubanShowcase(root) {
       setText(root, '[data-douban-title]', '豆瓣数据暂时不可用');
       setText(root, '[data-douban-subtitle]', '请确认 plugin-douban API 可访问。');
       setText(root, '[data-douban-remark]', '组件使用插件公开 API，不读取页面 DOM。');
+      root.dataset.doubanHydrated = 'true';
+    } finally {
+      root.dataset.doubanLoading = 'false';
     }
   })();
 }

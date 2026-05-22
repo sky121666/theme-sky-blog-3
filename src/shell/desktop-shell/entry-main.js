@@ -30,6 +30,20 @@ const CURRENT_THEME_BUILD_VERSION = getCurrentThemeAssetVersion()
 let runtimeFreshnessCheckPromise = null;
 let runtimeReloading = false;
 
+function shouldPreserveHydratedDoubanWidget(el, nextHtml) {
+  if (!nextHtml.includes('data-douban-showcase')) return false;
+  const current = el.querySelector('[data-douban-showcase][data-douban-hydrated="true"]');
+  if (!current || current.dataset.doubanLoading === 'true') return false;
+
+  const template = document.createElement('template');
+  template.innerHTML = nextHtml.trim();
+  const next = template.content.querySelector('[data-douban-showcase]');
+  if (!next) return false;
+
+  return ['doubanType', 'doubanStatus', 'doubanApi', 'doubanUrl', 'doubanPreview']
+    .every((key) => current.dataset[key] === next.dataset[key]);
+}
+
 async function verifyRuntimeFreshness(force = false) {
   if (runtimeReloading) return true;
   if (!CURRENT_THEME_BUILD_VERSION) return false;
@@ -86,6 +100,8 @@ if (!window.__THEME_MAIN_LOADED__) {
           }
           return;
         }
+
+        if (shouldPreserveHydratedDoubanWidget(el, nextHtml)) return;
 
         const loadingRoot = el.firstElementChild?.classList?.contains('desktop-widget-loading') === true;
         if (loadingRoot && !nextHtml.includes('desktop-widget-loading')) {
