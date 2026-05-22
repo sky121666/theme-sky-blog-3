@@ -21,6 +21,7 @@ import { initLazyImages } from '../../shared/lazy-media.js';
 import { initLazyComments } from '../../shared/lazy-comment.js';
 import { createLogger } from '../../shared/debug.js';
 import { loadWidgetRenderer } from '../../../../../widgets/loaders.js';
+import { enhanceDoubanShowcaseWidgets } from '../../../../../widgets/plugin/douban-showcase/runtime.js';
 
 import {
   DESKTOP_WIDGET_SIZE_MAP,
@@ -137,6 +138,9 @@ export function registerDesktopSurface(Alpine) {
       photos: [],
       photoGroups: [],
       photosUrl: '/photos',
+      doubanAvailable: false,
+      doubanUrl: '/douban',
+      doubanApiBase: '/apis/api.douban.moony.la/v1alpha1/doubanmovies',
       steamAvailable: false,
       steamProfile: {
         playing: false,
@@ -601,6 +605,9 @@ export function registerDesktopSurface(Alpine) {
         photos: Array.isArray(bootstrap.sources?.photos) ? bootstrap.sources.photos : [],
         photoGroups: Array.isArray(bootstrap.sources?.photoGroups) ? bootstrap.sources.photoGroups : [],
         photosUrl: bootstrap.sources?.photosUrl || '/photos',
+        doubanAvailable: !!bootstrap.sources?.doubanAvailable,
+        doubanUrl: bootstrap.sources?.doubanUrl || '/douban',
+        doubanApiBase: bootstrap.sources?.doubanApiBase || '/apis/api.douban.moony.la/v1alpha1/doubanmovies',
         steamAvailable: !!bootstrap.sources?.steamAvailable,
         steamProfile: {
           playing: bootstrap.sources?.steamProfile?.playing === true,
@@ -1742,6 +1749,7 @@ export function registerDesktopSurface(Alpine) {
 
         initLazyImages(body);
         initLazyComments(body);
+        enhanceDoubanShowcaseWidgets(body);
       });
 
       widgetPjaxLog('enhance:', totalAnchors, 'anchors,', internalLinks, 'internal,', attachedCount, 'attached');

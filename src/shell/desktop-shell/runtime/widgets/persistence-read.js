@@ -52,6 +52,9 @@ export function readDesktopWidgetsBootstrap() {
         photos: [],
         photoGroups: [],
         photosUrl: '/photos',
+        doubanAvailable: false,
+        doubanUrl: '/douban',
+        doubanApiBase: '/apis/api.douban.moony.la/v1alpha1/doubanmovies',
         steamAvailable: false,
         steamProfile: {
           playing: false,

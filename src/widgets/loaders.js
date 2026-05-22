@@ -12,7 +12,8 @@ const WIDGET_RENDERER_LOADERS = {
   'plugin-bangumis.recent': () => import('./plugin/bangumis-recent/render.js'),
   'plugin-friends.recent': () => import('./plugin/friends-recent/render.js'),
   'plugin-docsme.quick': () => import('./plugin/docsme-quick/render.js'),
-  'plugin-photos.gallery': () => import('./plugin/photos/render.js')
+  'plugin-photos.gallery': () => import('./plugin/photos/render.js'),
+  'plugin-douban.showcase': () => import('./plugin/douban-showcase/render.js')
 };
 
 export function getWidgetRendererLoader(widgetId) {

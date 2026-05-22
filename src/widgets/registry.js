@@ -9,6 +9,7 @@ import { pluginBangumisRecentWidgetManifest } from './plugin/bangumis-recent/man
 import { pluginFriendsRecentWidgetManifest } from './plugin/friends-recent/manifest.js';
 import { pluginDocsmeQuickWidgetManifest } from './plugin/docsme-quick/manifest.js';
 import { pluginPhotosWidgetManifest } from './plugin/photos/manifest.js';
+import { pluginDoubanShowcaseWidgetManifest } from './plugin/douban-showcase/manifest.js';
 import { systemCalendarWidgetManifest } from './system/calendar/manifest.js';
 import { systemClockWidgetManifest } from './system/clock/manifest.js';
 import { systemWeatherWidgetManifest } from './system/weather/manifest.js';
@@ -27,7 +28,8 @@ export const WIDGET_MANIFESTS = [
   pluginBangumisRecentWidgetManifest,
   pluginFriendsRecentWidgetManifest,
   pluginDocsmeQuickWidgetManifest,
-  pluginPhotosWidgetManifest
+  pluginPhotosWidgetManifest,
+  pluginDoubanShowcaseWidgetManifest
 ];
 
 export const WIDGET_MANIFEST_MAP = Object.fromEntries(

@@ -1,0 +1,392 @@
+.desktop-widget-card.widget--plugin-douban-showcase {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 18% 0, rgba(0, 181, 29, 0.14), transparent 40%),
+    linear-gradient(145deg, rgba(251, 252, 249, 0.78), rgba(229, 235, 228, 0.68));
+  border-color: rgba(255, 255, 255, 0.42);
+}
+
+.dark .desktop-widget-card.widget--plugin-douban-showcase,
+.desktop-widget-card.widget--plugin-douban-showcase[data-widget-appearance="dark"] {
+  background:
+    radial-gradient(circle at 10% 0, rgba(0, 181, 29, 0.18), transparent 42%),
+    linear-gradient(145deg, rgba(15, 20, 18, 0.92), rgba(7, 10, 9, 0.9));
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.desktop-widget-card.widget--plugin-douban-showcase .desktop-widget-header {
+  display: none;
+}
+
+.desktop-widget-card.widget--plugin-douban-showcase .desktop-widget-body {
+  height: 100%;
+  padding: 0;
+}
+
+.desktop-widget-card.is-drag-ghost.widget--plugin-douban-showcase {
+  contain: strict;
+  overflow: hidden !important;
+}
+
+.desktop-widget-card.is-drag-ghost.widget--plugin-douban-showcase .desktop-widget-body {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.desktop-widget-card.is-drag-ghost.widget--plugin-douban-showcase .wg-douban {
+  contain: strict;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  pointer-events: none;
+}
+
+.desktop-widget-card.is-drag-ghost.widget--plugin-douban-showcase .wg-douban-main,
+.desktop-widget-card.is-drag-ghost.widget--plugin-douban-showcase .wg-douban-foot,
+.desktop-widget-card.is-drag-ghost.widget--plugin-douban-showcase .wg-douban-rail {
+  width: 100%;
+  max-width: 100%;
+}
+
+.desktop-widget-card.is-drag-ghost.widget--plugin-douban-showcase .wg-douban-bg {
+  inset: 0;
+  transform: none;
+}
+
+.desktop-widget-card.is-drag-ghost.widget--plugin-douban-showcase .wg-douban-glow {
+  display: none;
+}
+
+.wg-douban {
+  --wg-douban-text: rgba(18, 24, 20, 0.94);
+  --wg-douban-muted: rgba(18, 24, 20, 0.62);
+  --wg-douban-subtle: rgba(18, 24, 20, 0.42);
+  --wg-douban-line: rgba(18, 24, 20, 0.08);
+  --wg-douban-panel: rgba(255, 255, 255, 0.5);
+  --wg-douban-panel-strong: rgba(255, 255, 255, 0.72);
+  --wg-douban-accent: #00a31a;
+  position: relative;
+  display: grid;
+  grid-template-rows: 50px minmax(0, 1fr) 56px;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+  color: var(--wg-douban-text);
+}
+
+.dark .wg-douban,
+.desktop-widget-card[data-widget-appearance="dark"] .wg-douban {
+  --wg-douban-text: rgba(255, 255, 255, 0.94);
+  --wg-douban-muted: rgba(255, 255, 255, 0.66);
+  --wg-douban-subtle: rgba(255, 255, 255, 0.42);
+  --wg-douban-line: rgba(255, 255, 255, 0.1);
+  --wg-douban-panel: rgba(255, 255, 255, 0.08);
+  --wg-douban-panel-strong: rgba(255, 255, 255, 0.13);
+  --wg-douban-accent: #42d95a;
+}
+
+.wg-douban-bg {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-size: cover;
+  opacity: 0.13;
+  filter: blur(20px) saturate(1.08);
+  transform: none;
+  transition: background-image 0.35s ease, opacity 0.35s ease;
+}
+
+.wg-douban::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent 40%),
+    linear-gradient(140deg, rgba(255, 255, 255, 0.48), rgba(255, 255, 255, 0.14));
+  pointer-events: none;
+}
+
+.dark .wg-douban::before,
+.desktop-widget-card[data-widget-appearance="dark"] .wg-douban::before {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 42%),
+    linear-gradient(140deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.32));
+}
+
+.wg-douban-glow {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 86px;
+  height: 86px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--wg-douban-accent) 16%, transparent);
+  filter: blur(24px);
+  transform: none;
+}
+
+.wg-douban-head,
+.wg-douban-main,
+.wg-douban-foot {
+  position: relative;
+  z-index: 1;
+}
+
+.wg-douban-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 0;
+  padding: 12px 16px 4px;
+}
+
+.wg-douban-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.wg-douban-mark,
+.wg-douban-link {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--wg-douban-panel-strong);
+  color: var(--wg-douban-accent);
+}
+
+.wg-douban-mark span,
+.wg-douban-link span {
+  width: 15px;
+  height: 15px;
+}
+
+.wg-douban-link {
+  flex: none;
+  border: 0.5px solid var(--wg-douban-line);
+  text-decoration: none;
+  transition: background 0.18s ease;
+}
+
+.wg-douban-link:hover {
+  background: color-mix(in srgb, var(--wg-douban-accent) 16%, var(--wg-douban-panel-strong));
+}
+
+.wg-douban-brand p,
+.wg-douban-brand strong {
+  overflow: hidden;
+  max-width: 176px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wg-douban-brand p {
+  margin: 0 0 2px;
+  color: var(--wg-douban-subtle);
+  font-size: 9px;
+  font-weight: 760;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.wg-douban-brand strong {
+  display: block;
+  color: var(--wg-douban-text);
+  font-size: 12px;
+  font-weight: 780;
+  line-height: 1.1;
+}
+
+.wg-douban-main {
+  display: grid;
+  grid-template-columns: minmax(100px, 0.8fr) minmax(0, 1.2fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 0;
+  overflow: hidden;
+  padding: 1px 16px 7px;
+  text-decoration: none;
+  transition: background 0.14s ease, filter 0.14s ease;
+}
+
+.wg-douban-main:active {
+  background: color-mix(in srgb, var(--wg-douban-accent) 8%, transparent);
+  filter: brightness(1.035);
+}
+
+.wg-douban-poster {
+  align-self: center;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  max-height: 164px;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 24% 18%, color-mix(in srgb, var(--wg-douban-accent) 20%, transparent), transparent 46%),
+    var(--wg-douban-panel);
+  box-shadow: 0 12px 24px rgba(10, 18, 14, 0.16), inset 0 1px rgba(255, 255, 255, 0.28);
+}
+
+.wg-douban-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.wg-douban-poster > span {
+  width: 25px;
+  height: 25px;
+  color: var(--wg-douban-subtle);
+}
+
+.wg-douban-copy {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  max-height: 100%;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.wg-douban-meta-row,
+.wg-douban-scoreline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+}
+
+.wg-douban-meta-row span,
+.wg-douban-scoreline span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  max-width: 100%;
+  padding: 0 7px;
+  border: 0.5px solid color-mix(in srgb, var(--wg-douban-line) 70%, transparent);
+  border-radius: 7px;
+  background: var(--wg-douban-panel);
+  color: var(--wg-douban-muted);
+  font-size: 9px;
+  font-weight: 720;
+  line-height: 1;
+}
+
+.wg-douban-meta-row span:first-child,
+.wg-douban-scoreline span:first-child {
+  color: var(--wg-douban-accent);
+}
+
+.wg-douban-copy h3 {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
+  color: var(--wg-douban-text);
+  font-size: 23px;
+  font-weight: 820;
+  letter-spacing: 0;
+  line-height: 1.08;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.wg-douban-sub,
+.wg-douban-remark {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
+  color: var(--wg-douban-muted);
+  font-size: 10.5px;
+  font-weight: 560;
+  line-height: 1.42;
+  -webkit-box-orient: vertical;
+}
+
+.wg-douban-sub {
+  -webkit-line-clamp: 1;
+}
+
+.wg-douban-remark {
+  color: var(--wg-douban-muted);
+  font-size: 10.5px;
+  font-style: italic;
+  -webkit-line-clamp: 2;
+}
+
+.wg-douban-foot {
+  display: grid;
+  grid-template-rows: 42px;
+  min-height: 0;
+  padding: 0 16px 14px;
+}
+
+.wg-douban-rail {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+  min-height: 0;
+  height: 42px;
+}
+
+.wg-douban-thumb {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  height: 42px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--wg-douban-panel);
+  color: var(--wg-douban-subtle);
+  cursor: pointer;
+  padding: 0;
+  transition: border-color 0.18s ease, opacity 0.18s ease;
+  opacity: 0.78;
+}
+
+.wg-douban-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.wg-douban-thumb span {
+  width: 16px;
+  height: 16px;
+}
+
+.wg-douban-thumb:hover,
+.wg-douban-thumb:focus-visible,
+.wg-douban-thumb.is-active {
+  border-color: color-mix(in srgb, var(--wg-douban-accent) 74%, white);
+  opacity: 1;
+  outline: none;
+}
+
+.wg-douban.is-empty .wg-douban-rail,
+.wg-douban.is-error .wg-douban-rail {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wg-douban-link,
+  .wg-douban-thumb {
+    transition: none;
+  }
+}
