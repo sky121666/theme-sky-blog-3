@@ -38,7 +38,7 @@
              th:target="${menuItem.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
              class="menubar-item menubar-item--desktop"
              :class="{ 'is-open': open }"
-             th:classappend="${#lists.isEmpty(menuItem.children) ? 'pjax-link' : ''}"
+             th:classappend="${#lists.isEmpty(menuItem.children) and menuItem.spec.target?.name() != 'BLANK' ? 'pjax-link' : ''}"
              th:text="${menuItem.status.displayName}"></a>
 
           <th:block th:replace="~{modules/shell/header :: submenu(menuItem=${menuItem})}"></th:block>

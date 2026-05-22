@@ -12,7 +12,7 @@ spec:
       name: icon_type
       label: 图标类型
       value: "iconify"
-      help: 选择 Dock 图标的来源。建议优先使用 Iconify，只有在需要完全自定义时再切换到 SVG 或图片。
+      help: 选择菜单项图标来源。该图标用于 Dock 图标，也会用于 Header 二级菜单项；顶层 Header 文本菜单不显示该图标。
       options:
         - label: Iconify 图标库
           value: "iconify"
@@ -25,10 +25,10 @@ spec:
       id: dock_iconify_icon
       key: dock_iconify_icon
       name: icon
-      label: Dock 图标
+      label: 菜单项图标
       format: svg
       value-only: true
-      help: 从官方图标库选择一个 SVG 图标。
+      help: 从官方图标库选择一个 SVG 图标，推荐用于大多数 Dock 和 Header 二级菜单项。
       if: "$get(dock_icon_type).value === 'iconify'"
 
     - $formkit: code
@@ -54,16 +54,16 @@ spec:
         - "image/webp"
         - "image/gif"
         - "image/svg+xml"
-      help: 支持静态图、动态 GIF 和 SVG 文件。
+      help: 支持静态图、动态 GIF 和 SVG 文件；更适合 Dock 品牌图标，Header 二级菜单中会以小图标显示。
       if: "$get(dock_icon_type).value === 'image'"
 
     - $formkit: color
       id: dock_bg_color
       key: dock_bg_color
       name: bg_color
-      label: Dock 背景颜色
+      label: 图标背景颜色
       value: "#3B82F6"
-      help: 图片模式通常不需要背景色，SVG 模式可以用来补充底色。
+      help: 主要影响 Dock 图标底色；Header 二级菜单只使用图标本身，不使用该背景色。图片模式通常不需要背景色。
       if: "$get(dock_icon_type).value !== 'image'"
 
     - $formkit: switch

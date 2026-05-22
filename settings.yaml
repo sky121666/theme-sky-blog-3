@@ -4,21 +4,41 @@ metadata:
   name: theme-sky-blog-3-setting
 spec:
   forms:
+    - group: navigation
+      label: 菜单
+      formSchema:
+        - $formkit: group
+          id: navigation_header_group
+          name: header
+          label: Header 顶栏菜单
+          help: 用于桌面顶栏和移动端菜单，适合结构完整的主导航。
+          value:
+            menu_name: ""
+          children:
+            - $formkit: menuRadio
+              id: navigation_source_header_menu_name
+              name: menu_name
+              label: 后台菜单
+              help: 一级菜单显示在顶栏；带二级菜单的一级项会作为分组入口展示，移动端按分组展开。留空时沿用旧版 Header 菜单设置或 primary。
+              value: ""
+        - $formkit: group
+          id: navigation_dock_group
+          name: dock
+          label: Dock 快捷入口菜单
+          help: 用于底部 Dock 图标，适合扁平快捷入口菜单。
+          value:
+            menu_name: ""
+          children:
+            - $formkit: menuRadio
+              id: navigation_source_dock_menu_name
+              name: menu_name
+              label: 后台菜单
+              help: 只读取一级菜单项，二级菜单不会展开。留空时沿用旧版 Dock 菜单设置或 primary。
+              value: ""
+
     - group: header
       label: 顶栏
       formSchema:
-        - $formkit: group
-          id: header_source_group
-          name: source
-          label: 顶栏导航源
-          value:
-            menu_name: primary
-          children:
-            - $formkit: menuRadio
-              id: header_source_menu_name
-              name: menu_name
-              label: 提供顶栏菜单数据的后台导航
-              value: primary
         - $formkit: group
           id: header_logo_group
           name: logo
@@ -570,19 +590,6 @@ spec:
     - group: dock
       label: Dock
       formSchema:
-        - $formkit: group
-          id: dock_source_group
-          name: source
-          label: Dock 数据源
-          value:
-            menu_name: primary
-          children:
-            - $formkit: menuRadio
-              id: dock_source_menu_name
-              name: menu_name
-              label: Dock 菜单
-              help: 指定哪个后台菜单作为 Dock 的数据源。
-              value: primary
         - $formkit: group
           id: dock_appearance_group
           name: appearance
