@@ -44,10 +44,10 @@ Finder 调用需要判空。插件请求失败、Steam 隐私未公开或 API Ke
 
 ## 桌面小组件边界
 
-Steam 不再混入作者或身份状态卡。后续如需桌面入口，应单独做 `plugin-steam.status` 小组件。
+Steam 不再混入作者或身份状态卡。桌面入口已单独落地为 `plugin-steam.summary` 中卡片小组件。
 
 - 可显示：`profile.playing`、`profile.statusText`、`summary.personaName`、`summary.avatarFull`、`steamLevel`、统计中的游戏数量。
-- 不推断：`getRecentGames(1)` 只代表最近玩过，不代表当前正在玩。
+- 不推断：`profile.playing === true` 是唯一“正在玩”判断来源；`getRecentGames(1)` 只代表最近玩过，不代表当前正在玩。
 - 插件缺失、Finder 返回空或 `playing` 为 false 时，Steam 小组件应按 Steam 自身规则降级，不影响作者卡片。
 
 ## 交互

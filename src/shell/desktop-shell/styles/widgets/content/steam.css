@@ -1,0 +1,431 @@
+.desktop-widget-card.widget--plugin-steam-summary {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 86% 10%, rgba(102, 192, 244, 0.18), transparent 34%),
+    linear-gradient(135deg, #1b2838 0%, #171a21 58%, #0e141b 100%);
+  border-color: rgba(102, 192, 244, 0.16);
+  color: #c7d5e0;
+}
+
+.desktop-widget-card.widget--plugin-steam-summary .desktop-widget-header {
+  display: none;
+}
+
+.desktop-widget-card.widget--plugin-steam-summary .desktop-widget-body {
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+}
+
+.desktop-widget-card.widget--plugin-steam-summary:active {
+  transform: none;
+  filter: brightness(1.06);
+}
+
+.desktop-widget-card.is-drag-ghost.widget--plugin-steam-summary,
+.desktop-widget-card.is-drag-ghost.widget--plugin-steam-summary .desktop-widget-body,
+.desktop-widget-card.is-drag-ghost.widget--plugin-steam-summary .wg-steam {
+  contain: strict;
+  overflow: hidden !important;
+}
+
+.wg-steam {
+  --wg-steam-blue: #66c0f4;
+  --wg-steam-green: #90ba3c;
+  --wg-steam-offline: rgba(199, 213, 224, 0.32);
+  --wg-steam-text: #c7d5e0;
+  --wg-steam-muted: rgba(199, 213, 224, 0.56);
+  --wg-steam-soft: rgba(199, 213, 224, 0.32);
+  --wg-steam-line: rgba(102, 192, 244, 0.13);
+  position: relative;
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  color: var(--wg-steam-text);
+  isolation: isolate;
+}
+
+.wg-steam-cover {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  overflow: hidden;
+  border-radius: inherit;
+  opacity: 1;
+  background-image: var(--wg-steam-game-bg);
+  background-position: center;
+  background-size: cover;
+  filter: saturate(1.1) contrast(1.05);
+}
+
+.wg-steam-cover::after {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(8, 13, 19, 0.9) 0%, rgba(12, 18, 25, 0.76) 48%, rgba(12, 18, 25, 0.36) 100%),
+    linear-gradient(180deg, rgba(8, 13, 19, 0.18), rgba(8, 13, 19, 0.58));
+  content: "";
+}
+
+.wg-steam-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background:
+    linear-gradient(90deg, rgba(23, 26, 33, 0.98), rgba(27, 40, 56, 0.91) 54%, rgba(18, 26, 35, 0.74)),
+    radial-gradient(circle at 18% 20%, rgba(102, 192, 244, 0.13), transparent 34%);
+}
+
+.wg-steam.is-playing .wg-steam-vignette {
+  z-index: -1;
+  background:
+    radial-gradient(circle at 88% 20%, rgba(144, 186, 60, 0.18), transparent 34%),
+    linear-gradient(90deg, rgba(8, 13, 19, 0.32), transparent 70%);
+}
+
+.wg-steam-ornament {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.wg-steam.is-playing .wg-steam-ornament {
+  opacity: 0;
+}
+
+.wg-steam-ornament::before {
+  position: absolute;
+  right: -44px;
+  bottom: -52px;
+  width: 150px;
+  height: 150px;
+  border: 1px solid rgba(102, 192, 244, 0.12);
+  border-radius: 999px;
+  content: "";
+}
+
+.wg-steam-ornament::after {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  width: 78px;
+  height: 78px;
+  background:
+    linear-gradient(rgba(102, 192, 244, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(102, 192, 244, 0.06) 1px, transparent 1px);
+  background-size: 12px 12px;
+  content: "";
+  opacity: 0.8;
+  transform: rotate(12deg);
+}
+
+.wg-steam-ornament span {
+  position: absolute;
+  color: rgba(102, 192, 244, 0.12);
+}
+
+.wg-steam-ornament span:first-child {
+  right: 24px;
+  bottom: 24px;
+  width: 62px;
+  height: 62px;
+}
+
+.wg-steam-ornament span:last-child {
+  right: 86px;
+  top: 24px;
+  width: 26px;
+  height: 26px;
+  color: rgba(199, 213, 224, 0.08);
+}
+
+.wg-steam.is-online .wg-steam-ornament {
+  opacity: 0.36;
+}
+
+.wg-steam-identity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 100%;
+  padding: 18px 8px 18px 14px;
+  border-right: 1px solid rgba(102, 192, 244, 0.1);
+}
+
+.wg-steam.is-playing .wg-steam-identity {
+  border-right-color: rgba(255, 255, 255, 0.14);
+}
+
+.wg-steam-avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+}
+
+.wg-steam-avatar-ring {
+  position: absolute;
+  inset: -4px;
+  border: 1.5px solid rgba(102, 192, 244, 0.22);
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.32);
+}
+
+.wg-steam.is-playing .wg-steam-avatar-ring {
+  border-color: rgba(144, 186, 60, 0.82);
+  box-shadow: 0 0 18px rgba(144, 186, 60, 0.18);
+}
+
+.wg-steam.is-online .wg-steam-avatar-ring {
+  border-color: rgba(102, 192, 244, 0.78);
+  box-shadow: 0 0 18px rgba(102, 192, 244, 0.16);
+}
+
+.wg-steam.is-offline .wg-steam-avatar-ring {
+  border-color: rgba(199, 213, 224, 0.22);
+}
+
+.wg-steam-avatar-img,
+.wg-steam-avatar-fallback {
+  width: 58px;
+  height: 58px;
+  border-radius: 999px;
+  border: 1px solid rgba(199, 213, 224, 0.18);
+  background: #2a475e;
+}
+
+.wg-steam-avatar-img {
+  display: block;
+  object-fit: cover;
+}
+
+.wg-steam-avatar-fallback {
+  display: grid;
+  place-items: center;
+  color: rgba(199, 213, 224, 0.68);
+}
+
+.wg-steam-level {
+  margin-top: 10px;
+  padding: 3px 8px;
+  border: 1px solid rgba(102, 192, 244, 0.22);
+  border-radius: 6px;
+  background: rgba(42, 71, 94, 0.58);
+  color: #66c0f4;
+  font-size: 10px;
+  font-weight: 760;
+  line-height: 1.1;
+}
+
+.wg-steam-content {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-content: stretch;
+  row-gap: 10px;
+  min-width: 0;
+  min-height: 0;
+  padding: 18px 16px 14px 10px;
+}
+
+.wg-steam-head {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.wg-steam-titleline {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.wg-steam-titleline h3 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 780;
+  line-height: 1.16;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wg-steam-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 140px;
+  margin-top: 5px;
+  overflow: hidden;
+  color: var(--wg-steam-muted);
+  font-size: 11px;
+  font-weight: 680;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wg-steam.is-playing .wg-steam-status {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.wg-steam-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 999px;
+  background: rgba(199, 213, 224, 0.28);
+}
+
+.wg-steam.is-playing .wg-steam-dot {
+  background: var(--wg-steam-green);
+  box-shadow: 0 0 10px rgba(144, 186, 60, 0.52);
+}
+
+.wg-steam.is-online .wg-steam-dot {
+  background: var(--wg-steam-blue);
+  box-shadow: 0 0 10px rgba(102, 192, 244, 0.44);
+}
+
+.wg-steam.is-offline .wg-steam-dot {
+  background: var(--wg-steam-offline);
+}
+
+.wg-steam-head p {
+  min-height: 18px;
+  max-width: 100%;
+  margin: 8px 0 0;
+  overflow: hidden;
+  color: rgba(199, 213, 224, 0.86);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.26;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wg-steam.is-playing .wg-steam-head p {
+  color: #ffffff;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.5);
+}
+
+.wg-steam-recent-badge {
+  display: block;
+  max-width: 100%;
+  margin-top: 6px;
+  overflow: hidden;
+  color: rgba(102, 192, 244, 0.58);
+  font-size: 10px;
+  font-weight: 620;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wg-steam-stats {
+  display: grid;
+  grid-template-columns: minmax(34px, 0.58fr) minmax(76px, 1.42fr);
+  gap: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.wg-steam-stats span {
+  min-width: 0;
+}
+
+.wg-steam-stats em,
+.wg-steam-stats strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wg-steam-stats em {
+  color: var(--wg-steam-soft);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 720;
+  line-height: 1.1;
+}
+
+.wg-steam.is-playing .wg-steam-stats em {
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.wg-steam-stats strong {
+  margin-top: 3px;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+  font-weight: 760;
+  line-height: 1.1;
+}
+
+.wg-steam.is-playing .wg-steam-stats strong {
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.wg-steam-footer {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  min-height: 26px;
+}
+
+.wg-steam.is-playing .wg-steam-footer {
+  max-width: none;
+}
+
+.wg-steam-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border: 1px solid var(--wg-steam-line);
+  border-radius: 8px;
+  background: rgba(42, 71, 94, 0.52);
+  color: rgba(199, 213, 224, 0.66);
+  text-decoration: none;
+  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease, filter 0.16s ease;
+}
+
+.wg-steam.is-playing .wg-steam-open {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.wg-steam-open span[class*="icon-"] {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.wg-steam-open:hover {
+  border-color: rgba(102, 192, 244, 0.3);
+  background: rgba(102, 192, 244, 0.14);
+  color: #ffffff;
+}
+
+.wg-steam-open:active {
+  filter: brightness(1.12);
+}

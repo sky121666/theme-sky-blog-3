@@ -10,6 +10,7 @@ import { pluginFriendsRecentWidgetManifest } from './plugin/friends-recent/manif
 import { pluginDocsmeQuickWidgetManifest } from './plugin/docsme-quick/manifest.js';
 import { pluginPhotosWidgetManifest } from './plugin/photos/manifest.js';
 import { pluginDoubanShowcaseWidgetManifest } from './plugin/douban-showcase/manifest.js';
+import { pluginSteamSummaryWidgetManifest } from './plugin/steam-summary/manifest.js';
 import { systemCalendarWidgetManifest } from './system/calendar/manifest.js';
 import { systemClockWidgetManifest } from './system/clock/manifest.js';
 import { systemWeatherWidgetManifest } from './system/weather/manifest.js';
@@ -29,7 +30,8 @@ export const WIDGET_MANIFESTS = [
   pluginFriendsRecentWidgetManifest,
   pluginDocsmeQuickWidgetManifest,
   pluginPhotosWidgetManifest,
-  pluginDoubanShowcaseWidgetManifest
+  pluginDoubanShowcaseWidgetManifest,
+  pluginSteamSummaryWidgetManifest
 ];
 
 export const WIDGET_MANIFEST_MAP = Object.fromEntries(

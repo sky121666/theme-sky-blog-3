@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="https://www.thymeleaf.org">
-  <th:block th:fragment="layer(enabled, isHome, hideOnMobile, editEnabled, columns, gap, layoutVersion, serverLayoutJson, themeName, themeJsonConfigEndpoint, weatherCityName, weatherRefreshMinutes, latestPosts, popularPosts, categoryTree, siteStats, randomTags, momentsAvailable, recentMoments, bangumisAvailable, bangumisAnimeWish, bangumisAnimeWatching, bangumisAnimeDone, bangumisDramaWish, bangumisDramaWatching, bangumisDramaDone, bangumiAnimeWishCount, bangumiAnimeWatchingCount, bangumiAnimeDoneCount, bangumiDramaWishCount, bangumiDramaWatchingCount, bangumiDramaDoneCount, friendsAvailable, recentFriends, docsmeAvailable, docsmeProjects, photosAvailable, photos, photoGroups, doubanAvailable, steamAvailable, steamPlaying, steamStatusText, steamPersonaName, steamAvatarFull, steamProfileUrl, steamLevel, steamStatsTotalGames, steamStatsRecentPlaytimeFormatted, steamRecentGames, siteUrl, siteTitle, siteSubtitle, siteLogo, archivesUrl, fallbackCover)">
+  <th:block th:fragment="layer(enabled, isHome, hideOnMobile, editEnabled, columns, gap, layoutVersion, serverLayoutJson, themeName, themeJsonConfigEndpoint, weatherCityName, weatherRefreshMinutes, latestPosts, popularPosts, categoryTree, siteStats, randomTags, momentsAvailable, recentMoments, bangumisAvailable, bangumisAnimeWish, bangumisAnimeWatching, bangumisAnimeDone, bangumisDramaWish, bangumisDramaWatching, bangumisDramaDone, bangumiAnimeWishCount, bangumiAnimeWatchingCount, bangumiAnimeDoneCount, bangumiDramaWishCount, bangumiDramaWatchingCount, bangumiDramaDoneCount, friendsAvailable, recentFriends, docsmeAvailable, docsmeProjects, photosAvailable, photos, photoGroups, doubanAvailable, steamAvailable, steamPlaying, steamStatusText, steamPersonaName, steamAvatarFull, steamProfileUrl, steamLevel, steamStatsTotalGames, steamStatsRecentPlaytimeFormatted, steamRecentGames, steamOwnedGames, siteUrl, siteTitle, siteSubtitle, siteLogo, archivesUrl, fallbackCover)">
     <script th:inline="javascript">
       const widgetProtocol = {
         enabled: [[${enabled}]],
@@ -77,6 +77,7 @@
           doubanUrl: '/douban',
           doubanApiBase: '/apis/api.douban.moony.la/v1alpha1/doubanmovies',
           steamAvailable: [[${steamAvailable}]],
+          steamUrl: '/steam',
           steamProfile: {
             playing: [[${steamPlaying}]],
             statusText: [[${steamStatusText}]],
@@ -90,7 +91,8 @@
             totalGames: [[${steamStatsTotalGames}]],
             recentPlaytimeFormatted: [[${steamStatsRecentPlaytimeFormatted}]]
           },
-          steamRecentGames: [[${steamRecentGames}]]
+          steamRecentGames: [[${steamRecentGames}]],
+          steamOwnedGames: [[${steamOwnedGames}]]
         }
       };
       window.__THEME_DESKTOP_PROTOCOL__ = Object.assign(window.__THEME_DESKTOP_PROTOCOL__ || {}, {

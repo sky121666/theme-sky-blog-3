@@ -142,6 +142,7 @@ export function registerDesktopSurface(Alpine) {
       doubanUrl: '/douban',
       doubanApiBase: '/apis/api.douban.moony.la/v1alpha1/doubanmovies',
       steamAvailable: false,
+      steamUrl: '/steam',
       steamProfile: {
         playing: false,
         statusText: '',
@@ -155,7 +156,8 @@ export function registerDesktopSurface(Alpine) {
         totalGames: 0,
         recentPlaytimeFormatted: ''
       },
-      steamRecentGames: []
+      steamRecentGames: [],
+      steamOwnedGames: []
     },
     iconsManaged: false,
     icons: [],
@@ -609,6 +611,7 @@ export function registerDesktopSurface(Alpine) {
         doubanUrl: bootstrap.sources?.doubanUrl || '/douban',
         doubanApiBase: bootstrap.sources?.doubanApiBase || '/apis/api.douban.moony.la/v1alpha1/doubanmovies',
         steamAvailable: !!bootstrap.sources?.steamAvailable,
+        steamUrl: bootstrap.sources?.steamUrl || '/steam',
         steamProfile: {
           playing: bootstrap.sources?.steamProfile?.playing === true,
           statusText: bootstrap.sources?.steamProfile?.statusText || '',
@@ -622,7 +625,8 @@ export function registerDesktopSurface(Alpine) {
           totalGames: Number(bootstrap.sources?.steamStats?.totalGames || 0) || 0,
           recentPlaytimeFormatted: bootstrap.sources?.steamStats?.recentPlaytimeFormatted || ''
         },
-        steamRecentGames: Array.isArray(bootstrap.sources?.steamRecentGames) ? bootstrap.sources.steamRecentGames : []
+        steamRecentGames: Array.isArray(bootstrap.sources?.steamRecentGames) ? bootstrap.sources.steamRecentGames : [],
+        steamOwnedGames: Array.isArray(bootstrap.sources?.steamOwnedGames) ? bootstrap.sources.steamOwnedGames : []
       };
       this.defaultWidgets = resolvedWidgets.map((widget) => ({ ...widget }));
       this.syncDesktopBodyState();

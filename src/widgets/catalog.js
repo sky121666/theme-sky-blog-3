@@ -36,6 +36,9 @@ export function buildWidgetCatalog(sources) {
       if (widgetId === 'plugin-douban.showcase') {
         return !!sources?.doubanAvailable;
       }
+      if (widgetId === 'plugin-steam.summary') {
+        return !!sources?.steamAvailable;
+      }
       return true;
     });
 

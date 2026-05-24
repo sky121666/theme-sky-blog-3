@@ -56,6 +56,7 @@ export function readDesktopWidgetsBootstrap() {
         doubanUrl: '/douban',
         doubanApiBase: '/apis/api.douban.moony.la/v1alpha1/doubanmovies',
         steamAvailable: false,
+        steamUrl: '/steam',
         steamProfile: {
           playing: false,
           statusText: '',
@@ -69,7 +70,8 @@ export function readDesktopWidgetsBootstrap() {
           totalGames: 0,
           recentPlaytimeFormatted: ''
         },
-        steamRecentGames: []
+        steamRecentGames: [],
+        steamOwnedGames: []
       }
     };
   }
