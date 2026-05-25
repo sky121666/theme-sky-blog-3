@@ -1,1 +1,1 @@
-import{t as e}from"./render.js?v=0.9.35&r=1de4582c8f37";export{e as renderWidget};
+import{t as e}from"./render.js?v=0.9.36&r=b4015d3c9a14";export{e as renderWidget};
