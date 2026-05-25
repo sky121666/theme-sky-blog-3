@@ -1,7 +1,9 @@
-const LINK_DETAIL_API = '/apis/api.plugin.halo.run/v1alpha1/plugins/PluginLinks/link-detail';
 const LINK_SUBMIT_API = '/apis/anonymous.link.submit.kunkunyu.com/v1alpha1/linksubmits/-/submit';
 const LINK_SUBMIT_GROUPS_API = '/apis/anonymous.link.submit.kunkunyu.com/v1alpha1/linkgroups';
-const DEFAULT_SUBMIT_URL = 'https://www.5ee.net/';
+const LINK_DETAIL_API = '/apis/console.api.link.halo.run/v1alpha1/links/-/detail';
+const CURRENT_USER_API = '/apis/api.console.halo.run/v1alpha1/users/-';
+const HALO_ANONYMOUS_USERNAME = 'anonymousUser';
+const HALO_ADMIN_ROLE_NAMES = new Set(['super-role', 'admin', 'administrator']);
 
 function normalizeText(value) {
   return String(value || '').trim().toLowerCase();
@@ -90,6 +92,60 @@ function formatSubmitFailure(response, message) {
   }
 
   return rawMessage || '友链自助提交没有成功，请复制申请到留言板。';
+}
+
+async function fetchLinkDetail(url) {
+  const response = await fetch(`${LINK_DETAIL_API}?url=${encodeURIComponent(url)}`, {
+    credentials: 'same-origin',
+    headers: {
+      Accept: 'application/json'
+    },
+    redirect: 'manual'
+  });
+
+  if (!response.ok || response.type === 'opaqueredirect' || response.status === 0) {
+    const message = await readErrorMessage(response);
+    throw new Error(message || `${response.status || 'redirect'}`);
+  }
+
+  return response.json();
+}
+
+async function resolveCurrentUser() {
+  const response = await fetch(CURRENT_USER_API, {
+    credentials: 'same-origin',
+    headers: {
+      Accept: 'application/json'
+    }
+  });
+
+  if (!response.ok || response.redirected) return null;
+
+  const payload = await response.json();
+  const user = payload?.user || payload;
+  const name = user?.metadata?.name || '';
+  if (!name || name === HALO_ANONYMOUS_USERNAME || user?.spec?.disabled === true) {
+    return null;
+  }
+  return user;
+}
+
+function parseRoleNames(value) {
+  if (Array.isArray(value)) return value.map((item) => String(item || '').trim()).filter(Boolean);
+  const raw = String(value || '').trim();
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.map((item) => String(item || '').trim()).filter(Boolean);
+  } catch (_error) {
+    // Halo stores role names as a JSON array string; fall through for older/plain values.
+  }
+  return raw.split(',').map((item) => item.trim()).filter(Boolean);
+}
+
+function isAdminUser(user) {
+  const roleNames = parseRoleNames(user?.metadata?.annotations?.['rbac.authorization.halo.run/role-names']);
+  return roleNames.some((roleName) => HALO_ADMIN_ROLE_NAMES.has(roleName));
 }
 
 export function registerLinksExplorer(Alpine) {
@@ -271,7 +327,7 @@ export function registerLinkSubmitForm(Alpine) {
     form: {
       type: 'add',
       displayName: '',
-      url: DEFAULT_SUBMIT_URL,
+      url: '',
       logo: '',
       email: '',
       description: '',
@@ -292,6 +348,10 @@ export function registerLinkSubmitForm(Alpine) {
     markdown: '',
     previewVisible: false,
     fetchingMeta: false,
+    detailToolChecking: false,
+    detailToolAvailable: false,
+    autofillAttempted: false,
+    autofillAvailable: false,
     copied: false,
     result: {
       show: false,
@@ -304,6 +364,23 @@ export function registerLinkSubmitForm(Alpine) {
       this.submitPluginEnabled = root?.dataset?.linkSubmitEnabled === 'true';
       if (this.submitPluginEnabled) {
         this.loadSubmitGroups();
+      }
+      this.detectDetailTool();
+    },
+
+    async detectDetailTool() {
+      this.detailToolChecking = true;
+      try {
+        const user = await resolveCurrentUser();
+        if (!user) {
+          this.detailToolAvailable = false;
+          return;
+        }
+        this.detailToolAvailable = isAdminUser(user);
+      } catch (_error) {
+        this.detailToolAvailable = false;
+      } finally {
+        this.detailToolChecking = false;
       }
     },
 
@@ -367,48 +444,69 @@ export function registerLinkSubmitForm(Alpine) {
       this.fetchingMeta = true;
       this.previewVisible = true;
       this.result.show = false;
+      this.applyManualDraft(normalized);
+      this.result = {
+        show: true,
+        success: true,
+        message: this.isDirectSubmitMode() ? '已生成申请草稿，请补充信息后提交' : '已生成申请草稿，可以复制到留言板'
+      };
+      this.fetchingMeta = false;
+    },
 
-      try {
-        const response = await fetch(`${LINK_DETAIL_API}?url=${encodeURIComponent(normalized)}`, {
-          headers: {
-            Accept: 'application/json'
-          }
-        });
+    async autofillFromUrl() {
+      const normalized = normalizeUrl(this.form.url);
+      this.copied = false;
+      this.autofillAttempted = true;
 
-        if (!response.ok) {
-          throw new Error(`${response.status}`);
-        }
-
-        const detail = await response.json();
-        this.detail = {
-          displayName: detail?.title || readableHost(normalized) || '待确认站点',
-          description: detail?.description || '这个站点暂时没有提取到简介。',
-          logo: detail?.icon || detail?.image || ''
-        };
-        this.syncFormFromDetail(normalized);
-        this.markdown = this.buildMarkdown(normalized);
-
-        this.result = {
-          show: true,
-          success: true,
-          message: this.isDirectSubmitMode() ? '已提取站点信息，请确认表单后提交' : '已提取站点信息，可以复制到留言板'
-        };
-      } catch (_error) {
-        this.detail = {
-          displayName: readableHost(normalized) || '待确认站点',
-          description: '未能自动提取简介，请手动补充。',
-          logo: ''
-        };
-        this.syncFormFromDetail(normalized);
-        this.markdown = this.buildMarkdown(normalized);
+      if (!normalized) {
         this.result = {
           show: true,
           success: false,
-          message: this.isDirectSubmitMode() ? '自动提取失败，请手动补充表单后提交' : '自动提取失败，已生成可手动补充的申请格式'
+          message: '请先输入有效的网站地址'
+        };
+        return;
+      }
+
+      this.fetchingMeta = true;
+      this.previewVisible = true;
+      this.result.show = false;
+
+      try {
+        const detail = await fetchLinkDetail(normalized);
+        this.detail = {
+          displayName: detail?.title || readableHost(normalized) || '待确认站点',
+          description: detail?.description || '请手动补充一句话简介。',
+          logo: detail?.icon || detail?.image || ''
+        };
+        this.autofillAvailable = true;
+        this.syncFormFromDetail(normalized);
+        this.markdown = this.buildMarkdown(normalized);
+        this.result = {
+          show: true,
+          success: true,
+          message: '已自动补全站点信息，请确认后提交'
+        };
+      } catch (_error) {
+        this.autofillAvailable = false;
+        this.applyManualDraft(normalized);
+        this.result = {
+          show: true,
+          success: true,
+          message: this.isDirectSubmitMode() ? '当前无后台提取权限，已生成申请草稿' : '已生成申请草稿，可以复制到留言板'
         };
       } finally {
         this.fetchingMeta = false;
       }
+    },
+
+    applyManualDraft(url) {
+      this.detail = {
+        displayName: readableHost(url) || '待确认站点',
+        description: '请手动补充一句话简介。',
+        logo: ''
+      };
+      this.syncFormFromDetail(url);
+      this.markdown = this.buildMarkdown(url);
     },
 
     syncFormFromDetail(url) {

@@ -829,6 +829,16 @@
   padding: 0 16px;
 }
 
+.links-helper-btn--ghost {
+  border: 1px solid color-mix(in srgb, var(--links-accent) 24%, var(--links-border));
+  background: var(--links-card-bg);
+  color: var(--links-accent);
+}
+
+.links-helper-btn--ghost:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--links-accent) 10%, var(--links-card-bg));
+}
+
 .links-preview {
   display: grid;
   gap: 12px;

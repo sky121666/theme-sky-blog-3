@@ -3,7 +3,7 @@
             currentGroup=${param.group != null and !#lists.isEmpty(param.group) ? param.group[0] : ''},
             groupsData=${groups},
             allLinksTitle=${!#strings.isEmpty(theme.config.links?.profile?.display_name) ? theme.config.links.profile.display_name : '全部友链'}">
-  <!-- plugin-contract: PluginLinks; contract-version: 1.7.2; tested-version: 1.7.2; status: confirmed; source: docs/插件适配契约.md -->
+  <!-- plugin-contract: PluginLinks; contract-version: 2.0.0; tested-version: 2.0.0; status: confirmed; source: docs/插件适配契约.md -->
   <!-- plugin-contract: link-submit; contract-version: 1.0.6; tested-version: 1.0.6; status: confirmed; source: docs/插件适配契约.md -->
   <div class="links-app" data-app-root="links"
     th:attr="data-link-submit-enabled=${pluginFinder.available('link-submit')}">
@@ -205,21 +205,29 @@
           <span class="links-modal-light is-yellow"></span>
           <span class="links-modal-light is-green"></span>
         </div>
-        <div class="links-modal-title">添加友链提取助手</div>
+        <div class="links-modal-title">添加友链申请助手</div>
         <button type="button" class="links-modal-close" @click="$el.closest('dialog').close()">
           <span class="links-button-icon icon-[lucide--x]" aria-hidden="true"></span>
         </button>
       </div>
 
       <div class="links-modal-body">
-        <p class="links-modal-hint">输入站点地址，自动提取信息并生成留言申请格式。</p>
+        <p class="links-modal-hint"
+          x-text="detailToolAvailable ? '已检测到后台提取权限，可先自动补全后提交。' : '请手动填写友链申请信息；提交失败时会自动切换到留言板草稿。'">
+          请手动填写友链申请信息；提交失败时会自动切换到留言板草稿。
+        </p>
 
-        <form class="links-extract-form" @submit.prevent="fillFromUrl">
+        <form class="links-extract-form" x-show="detailToolAvailable" @submit.prevent="fillFromUrl">
           <div class="links-extract-row">
             <input class="links-input" type="url" x-model="form.url" required
               placeholder="https://your-site.example.com">
             <button type="submit" class="links-helper-btn" :disabled="fetchingMeta">
-              <span x-text="fetchingMeta ? '提取中...' : '提取'"></span>
+              <span x-text="fetchingMeta ? '生成中...' : '生成'"></span>
+            </button>
+            <button type="button" class="links-helper-btn links-helper-btn--ghost"
+              :disabled="fetchingMeta"
+              @click="autofillFromUrl">
+              <span x-text="fetchingMeta ? '补全中...' : '自动补全'"></span>
             </button>
           </div>
         </form>
@@ -232,73 +240,73 @@
               </template>
             </div>
             <div class="links-preview-copy">
-              <h3 x-text="detail.displayName || '等待提取站点信息'"></h3>
-              <p x-text="detail.description || '提取后会在这里展示站点简介。'"></p>
+              <h3 x-text="detail.displayName || '等待生成申请草稿'"></h3>
+              <p x-text="detail.description || '生成后可继续补充站点简介。'"></p>
             </div>
           </div>
-
-          <div class="links-submit-fields" x-show="isDirectSubmitMode() || isUpdateMode()">
-            <label class="links-field">
-              <span>提交类型</span>
-              <select class="links-input" x-model="form.type">
-                <option value="add">新增友链</option>
-                <option value="update">修改友链</option>
-              </select>
-            </label>
-
-            <label class="links-field">
-              <span>分组</span>
-              <select class="links-input" x-model="form.groupName"
-                :disabled="loadingGroups || submitGroups.length === 0">
-                <option value="" x-text="loadingGroups ? '正在加载分组...' : '请选择分组'"></option>
-                <template x-for="group in submitGroups" :key="group.groupName">
-                  <option :value="group.groupName" x-text="group.displayName"></option>
-                </template>
-              </select>
-            </label>
-
-            <label class="links-field">
-              <span>名称</span>
-              <input class="links-input" type="text" x-model="form.displayName" placeholder="网站名称">
-            </label>
-
-            <label class="links-field">
-              <span>链接</span>
-              <input class="links-input" type="url" x-model="form.url" placeholder="https://example.com">
-            </label>
-
-            <label class="links-field">
-              <span>Logo</span>
-              <input class="links-input" type="url" x-model="form.logo" placeholder="https://example.com/logo.png">
-            </label>
-
-            <label class="links-field">
-              <span>邮箱</span>
-              <input class="links-input" type="email" x-model="form.email" placeholder="name@example.com">
-              <small>邮箱通常无法自动提取，请手动填写，方便站点管理员联系你。</small>
-            </label>
-
-            <label class="links-field links-field--wide">
-              <span>描述</span>
-              <textarea class="links-textarea" x-model="form.description" placeholder="一句话介绍你的网站"></textarea>
-            </label>
-
-            <label class="links-field links-field--wide" x-show="form.type === 'update'">
-              <span>修改说明</span>
-              <textarea class="links-textarea" x-model="form.updateDescription" placeholder="说明这次要修改的内容"></textarea>
-              <small>修改不会直接覆盖现有友链，请把修改申请发到留言板，由站长手动处理。</small>
-            </label>
-
-            <label class="links-field links-field--wide">
-              <span>RSS 链接</span>
-              <input class="links-input" type="url" x-model="form.rssUrl" placeholder="https://example.com/rss.xml">
-              <small>RSS 地址通常无法自动提取，如站点提供订阅源，建议手动补充。</small>
-            </label>
-          </div>
-
-          <textarea id="markdownOutput" class="links-markdown-output" x-show="isMessageFallbackMode()" readonly
-            x-model="markdown" placeholder="提取结果会展示在这里..."></textarea>
         </div>
+
+        <div class="links-submit-fields" x-show="isDirectSubmitMode() || isUpdateMode()">
+          <label class="links-field">
+            <span>提交类型</span>
+            <select class="links-input" x-model="form.type">
+              <option value="add">新增友链</option>
+              <option value="update">修改友链</option>
+            </select>
+          </label>
+
+          <label class="links-field">
+            <span>分组</span>
+            <select class="links-input" x-model="form.groupName"
+              :disabled="loadingGroups || submitGroups.length === 0">
+              <option value="" x-text="loadingGroups ? '正在加载分组...' : '请选择分组'"></option>
+              <template x-for="group in submitGroups" :key="group.groupName">
+                <option :value="group.groupName" x-text="group.displayName"></option>
+              </template>
+            </select>
+          </label>
+
+          <label class="links-field">
+            <span>名称</span>
+            <input class="links-input" type="text" x-model="form.displayName" placeholder="网站名称">
+          </label>
+
+          <label class="links-field">
+            <span>链接</span>
+            <input class="links-input" type="url" x-model="form.url" placeholder="https://example.com">
+          </label>
+
+          <label class="links-field">
+            <span>Logo</span>
+            <input class="links-input" type="url" x-model="form.logo" placeholder="https://example.com/logo.png">
+          </label>
+
+          <label class="links-field">
+            <span>邮箱</span>
+            <input class="links-input" type="email" x-model="form.email" placeholder="name@example.com">
+            <small>邮箱通常无法自动提取，请手动填写，方便站点管理员联系你。</small>
+          </label>
+
+          <label class="links-field links-field--wide">
+            <span>描述</span>
+            <textarea class="links-textarea" x-model="form.description" placeholder="一句话介绍你的网站"></textarea>
+          </label>
+
+          <label class="links-field links-field--wide" x-show="form.type === 'update'">
+            <span>修改说明</span>
+            <textarea class="links-textarea" x-model="form.updateDescription" placeholder="说明这次要修改的内容"></textarea>
+            <small>修改不会直接覆盖现有友链，请把修改申请发到留言板，由站长手动处理。</small>
+          </label>
+
+          <label class="links-field links-field--wide">
+            <span>RSS 链接</span>
+            <input class="links-input" type="url" x-model="form.rssUrl" placeholder="https://example.com/rss.xml">
+            <small>RSS 地址通常无法自动提取，如站点提供订阅源，建议手动补充。</small>
+          </label>
+        </div>
+
+        <textarea id="markdownOutput" class="links-markdown-output" x-show="isMessageFallbackMode()" readonly
+          x-model="markdown" placeholder="申请草稿会展示在这里..."></textarea>
 
         <div class="links-submit-result" x-show="result.show" :class="result.success ? 'is-success' : 'is-error'"
           x-text="result.message"></div>
