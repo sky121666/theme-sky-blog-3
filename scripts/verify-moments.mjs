@@ -7,6 +7,22 @@ const outputDir = path.join(root, 'output', 'playwright');
 const baseUrl = (process.env.SMOKE_BASE_URL || process.env.HALO_BASE_URL || 'http://localhost:8090').replace(/\/$/, '');
 const explicitCodePath = (process.env.MOMENTS_CODE_SAMPLE_PATH || '').trim();
 const explicitCommentPath = (process.env.MOMENTS_COMMENT_SAMPLE_PATH || '').trim();
+const sampleDocPath = 'docs/测试样本数据.md';
+
+const SAMPLE_GUIDES = {
+  'code-sample': {
+    env: 'MOMENTS_CODE_SAMPLE_PATH',
+    target: '创建一条带 fenced code block 的 Moments 瞬间',
+    command: 'MOMENTS_CODE_SAMPLE_PATH=/moments/<moment-name> pnpm run verify:moments',
+    hint: `样本内容见 ${sampleDocPath} 的「Moments 代码块样本」。`
+  },
+  'comment-sample': {
+    env: 'MOMENTS_COMMENT_SAMPLE_PATH',
+    target: '选择一条已有已审核评论的 Moments 详情页',
+    command: 'MOMENTS_COMMENT_SAMPLE_PATH=/moments/<moment-name> pnpm run verify:moments',
+    hint: '如果后台已有已审核评论，通常脚本会自动发现；否则指定详情路径。'
+  }
+};
 
 function absoluteUrl(target) {
   return new URL(target, `${baseUrl}/`).toString();
@@ -83,6 +99,18 @@ function sampleMeta(moment) {
     name: moment.metadata?.name || '',
     title: moment.spec?.content?.raw?.slice(0, 80) || moment.spec?.content?.html?.replace(/<[^>]*>/g, '').slice(0, 80) || '',
     stats: moment.stats || {}
+  };
+}
+
+function codeContentStats(moment) {
+  const content = moment?.spec?.content || {};
+  const value = `${content.html || ''}\n${content.raw || ''}`;
+  return {
+    rawLength: String(content.raw || '').length,
+    htmlLength: String(content.html || '').length,
+    hasFence: /```/.test(value),
+    hasPreOrCode: /<(pre|code|shiki-code)\b/i.test(value),
+    hasLanguageMarker: /data-language=|language-/.test(value)
   };
 }
 
@@ -167,6 +195,70 @@ function assertMomentPage(result, label) {
   return failures;
 }
 
+function diagnosticsForCheck(check) {
+  if (!check) return {};
+  if (check.name === 'api-contract') {
+    return {
+      listCount: check.listCount || 0,
+      detailPath: check.detailPath || '',
+      hint: '若 API 契约失败，先检查 plugin-moments 是否启用、公开 API 是否返回 JSON、stats 字段是否存在。'
+    };
+  }
+  if (check.name === 'code-sample') {
+    return {
+      path: check.path || '',
+      usedPjax: Boolean(check.result?.usedPjax),
+      shikiCode: check.result?.shikiCode ?? 0,
+      rawPreCode: check.result?.rawPreCode ?? 0,
+      renderScripts: check.result?.renderScripts ?? 0,
+      replayScripts: check.result?.replayScripts ?? 0,
+      consoleErrors: check.result?.consoleErrors || [],
+      hint: '若代码块失败，检查 moment.spec.content.html 是否包含 pre/code，PJAX 后 Shiki replay 是否执行且未残留 replay script。'
+    };
+  }
+  if (check.name === 'comment-sample') {
+    return {
+      path: check.path || '',
+      usedPjax: Boolean(check.result?.usedPjax),
+      commentShell: Boolean(check.result?.commentShell),
+      commentWidget: check.result?.commentWidget ?? 0,
+      visibleCommentText: Boolean(check.result?.visibleCommentText),
+      expectedApprovedComment: check.expectedApprovedComment || null,
+      hint: '若评论失败，检查 moment-comments-shell、comment-widget 资源和 Moments 评论 subject。'
+    };
+  }
+  return {};
+}
+
+function skippedCheck(name, reason) {
+  const guide = SAMPLE_GUIDES[name] || {};
+  return {
+    name,
+    status: 'skipped',
+    reason,
+    nextSteps: guide
+  };
+}
+
+function printCheckHints(checks) {
+  const skipped = checks.filter((check) => check.status === 'skipped');
+  const failed = checks.filter((check) => check.status === 'failed');
+
+  failed.forEach((check) => {
+    console.error(`- failed ${check.name}:`);
+    (check.failures || []).forEach((failure) => console.error(`  - ${failure}`));
+    if (check.diagnostics?.hint) console.error(`  hint: ${check.diagnostics.hint}`);
+    if (check.diagnostics) console.error(`  diagnostics: ${JSON.stringify(check.diagnostics)}`);
+  });
+
+  skipped.forEach((check) => {
+    console.log(`- skipped ${check.name}: ${check.reason}`);
+    if (check.nextSteps?.target) console.log(`  需要：${check.nextSteps.target}`);
+    if (check.nextSteps?.command) console.log(`  指定路径：${check.nextSteps.command}`);
+    if (check.nextSteps?.hint) console.log(`  提示：${check.nextSteps.hint}`);
+  });
+}
+
 async function main() {
   const moments = await discoverMoments();
   const codeMoment = explicitCodePath
@@ -181,12 +273,29 @@ async function main() {
   const report = {
     baseUrl,
     totalMoments: moments.length,
+    discovery: {
+      codeCandidates: moments
+        .filter((moment) => isCodeLike(moment.spec?.content))
+        .slice(0, 5)
+        .map((moment) => ({
+          path: toMomentPath(moment),
+          sample: sampleMeta(moment),
+          content: codeContentStats(moment)
+        })),
+      commentCandidates: moments
+        .filter((moment) => Number(moment.stats?.approvedComment ?? 0) > 0)
+        .slice(0, 5)
+        .map((moment) => ({
+          path: toMomentPath(moment),
+          sample: sampleMeta(moment)
+        }))
+    },
     checks: []
   };
   const failures = [];
   const apiCheck = await inspectApiContract(moments);
   failures.push(...apiCheck.failures);
-  report.checks.push({ name: 'api-contract', ...apiCheck });
+  report.checks.push({ name: 'api-contract', ...apiCheck, diagnostics: diagnosticsForCheck({ name: 'api-contract', ...apiCheck }) });
 
   if (codePath) {
     const result = await inspectPage(codePath);
@@ -201,14 +310,16 @@ async function main() {
       path: codePath,
       sample: sampleMeta(codeMoment),
       result,
-      failures: checkFailures
+      failures: checkFailures,
+      diagnostics: diagnosticsForCheck({
+        name: 'code-sample',
+        path: codePath,
+        result,
+        failures: checkFailures
+      })
     });
   } else {
-    report.checks.push({
-      name: 'code-sample',
-      status: 'skipped',
-      reason: 'No Moments content with code block was found. Set MOMENTS_CODE_SAMPLE_PATH after adding one.'
-    });
+    report.checks.push(skippedCheck('code-sample', 'No Moments content with code block was found.'));
   }
 
   if (commentPath) {
@@ -225,26 +336,31 @@ async function main() {
       sample: sampleMeta(commentMoment),
       expectedApprovedComment: Number(commentMoment?.stats?.approvedComment ?? 0) || null,
       result,
-      failures: checkFailures
+      failures: checkFailures,
+      diagnostics: diagnosticsForCheck({
+        name: 'comment-sample',
+        path: commentPath,
+        expectedApprovedComment: Number(commentMoment?.stats?.approvedComment ?? 0) || null,
+        result,
+        failures: checkFailures
+      })
     });
   } else {
-    report.checks.push({
-      name: 'comment-sample',
-      status: 'skipped',
-      reason: 'No Moments item with approved comments was found. Set MOMENTS_COMMENT_SAMPLE_PATH after adding one.'
-    });
+    report.checks.push(skippedCheck('comment-sample', 'No Moments item with approved comments was found.'));
   }
 
   const reportFile = await writeReport(report);
   if (failures.length > 0) {
-    console.error(`Moments verification failed:\n- ${failures.join('\n- ')}\nReport: ${reportFile}`);
+    console.error('Moments verification failed:');
+    printCheckHints(report.checks);
+    console.error(`Report: ${reportFile}`);
     process.exit(1);
   }
 
   const skipped = report.checks.filter((check) => check.status === 'skipped');
   const passed = report.checks.filter((check) => check.status === 'passed');
   console.log(`Moments verification completed: ${passed.length} passed, ${skipped.length} skipped`);
-  skipped.forEach((check) => console.log(`- skipped ${check.name}: ${check.reason}`));
+  printCheckHints(report.checks);
   console.log(`Report: ${reportFile}`);
 }
 

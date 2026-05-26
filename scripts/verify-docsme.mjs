@@ -9,6 +9,34 @@ const explicitDocPath = (process.env.DOCSME_DOC_SAMPLE_PATH || '').trim();
 const explicitCodePath = (process.env.DOCSME_CODE_SAMPLE_PATH || '').trim();
 const explicitKatexPath = (process.env.DOCSME_KATEX_SAMPLE_PATH || '').trim();
 const explicitMermaidPath = (process.env.DOCSME_MERMAID_SAMPLE_PATH || '').trim();
+const sampleDocPath = 'docs/测试样本数据.md';
+
+const SAMPLE_GUIDES = {
+  document: {
+    env: 'DOCSME_DOC_SAMPLE_PATH',
+    target: '创建或选择一篇可公开访问的 Docsme 正文页',
+    command: 'DOCSME_DOC_SAMPLE_PATH=/docs/<project>/<doc> pnpm run verify:docsme',
+    hint: '脚本会从 /docs 自动发现文档；发现不到时再手动指定路径。'
+  },
+  'code-sample': {
+    env: 'DOCSME_CODE_SAMPLE_PATH',
+    target: '创建或选择一篇带 fenced code block 的 Docsme 文档',
+    command: 'DOCSME_CODE_SAMPLE_PATH=/docs/<project>/<doc> pnpm run verify:docsme',
+    hint: `可复用 ${sampleDocPath} 中的代码块样本。`
+  },
+  'katex-sample': {
+    env: 'DOCSME_KATEX_SAMPLE_PATH',
+    target: '创建一篇包含行内公式和块级公式的 Docsme 文档',
+    command: 'DOCSME_KATEX_SAMPLE_PATH=/docs/<project>/<doc> pnpm run verify:docsme',
+    hint: `样本内容见 ${sampleDocPath} 的「Docsme KaTeX 样本」。`
+  },
+  'mermaid-sample': {
+    env: 'DOCSME_MERMAID_SAMPLE_PATH',
+    target: '创建一篇包含 mermaid flowchart 的 Docsme 文档',
+    command: 'DOCSME_MERMAID_SAMPLE_PATH=/docs/<project>/<doc> pnpm run verify:docsme',
+    hint: `样本内容见 ${sampleDocPath} 的「Docsme Mermaid 样本」。`
+  }
+};
 
 function absoluteUrl(target) {
   return new URL(target, `${baseUrl}/`).toString();
@@ -133,6 +161,91 @@ function chooseSample(paths, inspections, predicate) {
   }) || '';
 }
 
+function diagnosticsForCheck(check) {
+  if (!check) return {};
+  const result = check.result || {};
+  if (check.name === 'projects') {
+    return {
+      scene: result.scene || '',
+      projectCards: result.projectCards ?? 0,
+      mode: result.mode || '',
+      appId: result.appId || '',
+      hint: '若项目页失败，先检查 /docs 是否由 Docsme 接管、data-app-root="docsme" 和 data-docsme-scene 是否输出。'
+    };
+  }
+  if (check.name === 'document') {
+    return {
+      path: check.path || '',
+      scene: result.scene || '',
+      templateId: result.templateId || '',
+      metaDescription: Boolean(result.metaDescription),
+      articleTextLength: result.articleTextLength ?? 0,
+      tocLinks: result.tocLinks ?? 0,
+      commentShell: Boolean(result.commentShell),
+      hint: '若正文失败，检查 Docsme _templateId、文档 meta description、.docsme-article 和官方模块输出。'
+    };
+  }
+  if (check.name === 'code-sample') {
+    return {
+      path: check.path || '',
+      shikiCode: result.shikiCode ?? 0,
+      rawPreCode: result.rawPreCode ?? 0,
+      renderScripts: result.renderScripts ?? 0,
+      replayScripts: result.replayScripts ?? 0,
+      consoleErrors: result.consoleErrors || [],
+      hint: '若代码块失败，检查 Docsme 正文是否输出 pre/code，Shiki 插件 extra-path 是否包含 Docsme，PJAX 后 replay 是否清理。'
+    };
+  }
+  if (check.name === 'katex-sample') {
+    return {
+      path: check.path || '',
+      katex: result.katex ?? 0,
+      articleTextLength: result.articleTextLength ?? 0,
+      consoleErrors: result.consoleErrors || [],
+      hint: '若 KaTeX 失败，检查公式语法、Docsme 插件输出和数学渲染插件资源是否加载。'
+    };
+  }
+  if (check.name === 'mermaid-sample') {
+    return {
+      path: check.path || '',
+      mermaid: result.mermaid ?? 0,
+      articleTextLength: result.articleTextLength ?? 0,
+      consoleErrors: result.consoleErrors || [],
+      hint: '若 Mermaid 失败，检查 fenced code 语言是否为 mermaid、图表插件 DOM 和 PJAX 后重绘。'
+    };
+  }
+  return {};
+}
+
+function skippedCheck(name, reason) {
+  const guide = SAMPLE_GUIDES[name] || {};
+  return {
+    name,
+    status: 'skipped',
+    reason,
+    nextSteps: guide
+  };
+}
+
+function printCheckHints(checks) {
+  const failed = checks.filter((check) => check.status === 'failed');
+  const skipped = checks.filter((check) => check.status === 'skipped');
+
+  failed.forEach((check) => {
+    console.error(`- failed ${check.name}:`);
+    (check.failures || []).forEach((failure) => console.error(`  - ${failure}`));
+    if (check.diagnostics?.hint) console.error(`  hint: ${check.diagnostics.hint}`);
+    if (check.diagnostics) console.error(`  diagnostics: ${JSON.stringify(check.diagnostics)}`);
+  });
+
+  skipped.forEach((check) => {
+    console.log(`- skipped ${check.name}: ${check.reason}`);
+    if (check.nextSteps?.target) console.log(`  需要：${check.nextSteps.target}`);
+    if (check.nextSteps?.command) console.log(`  指定路径：${check.nextSteps.command}`);
+    if (check.nextSteps?.hint) console.log(`  提示：${check.nextSteps.hint}`);
+  });
+}
+
 async function main() {
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
@@ -152,7 +265,12 @@ async function main() {
     status: projectFailures.length ? 'failed' : 'passed',
     path: '/docs',
     result: projects,
-    failures: projectFailures
+    failures: projectFailures,
+    diagnostics: diagnosticsForCheck({
+      name: 'projects',
+      result: projects,
+      failures: projectFailures
+    })
   });
 
   const links = await collectDocsLinks(page);
@@ -183,14 +301,16 @@ async function main() {
       status: checkFailures.length ? 'failed' : 'passed',
       path: docPath,
       result,
-      failures: checkFailures
+      failures: checkFailures,
+      diagnostics: diagnosticsForCheck({
+        name: 'document',
+        path: docPath,
+        result,
+        failures: checkFailures
+      })
     });
   } else {
-    report.checks.push({
-      name: 'document',
-      status: 'skipped',
-      reason: 'No accessible Docsme document page was discovered. Set DOCSME_DOC_SAMPLE_PATH after adding one.'
-    });
+    report.checks.push(skippedCheck('document', 'No accessible Docsme document page was discovered.'));
   }
 
   const codePath = explicitCodePath || chooseSample(candidateDocs, inspections, (result) => result.shikiCode > 0 || result.rawPreCode > 0 || result.renderScripts > 0);
@@ -206,14 +326,16 @@ async function main() {
       status: checkFailures.length ? 'failed' : 'passed',
       path: codePath,
       result,
-      failures: checkFailures
+      failures: checkFailures,
+      diagnostics: diagnosticsForCheck({
+        name: 'code-sample',
+        path: codePath,
+        result,
+        failures: checkFailures
+      })
     });
   } else {
-    report.checks.push({
-      name: 'code-sample',
-      status: 'skipped',
-      reason: 'No Docsme document with code block was found. Set DOCSME_CODE_SAMPLE_PATH after adding one.'
-    });
+    report.checks.push(skippedCheck('code-sample', 'No Docsme document with code block was found.'));
   }
 
   const katexPath = explicitKatexPath || chooseSample(candidateDocs, inspections, (result) => result.katex > 0);
@@ -227,14 +349,16 @@ async function main() {
       status: checkFailures.length ? 'failed' : 'passed',
       path: katexPath,
       result,
-      failures: checkFailures
+      failures: checkFailures,
+      diagnostics: diagnosticsForCheck({
+        name: 'katex-sample',
+        path: katexPath,
+        result,
+        failures: checkFailures
+      })
     });
   } else {
-    report.checks.push({
-      name: 'katex-sample',
-      status: 'skipped',
-      reason: 'No Docsme document with KaTeX content was found. Set DOCSME_KATEX_SAMPLE_PATH after adding one.'
-    });
+    report.checks.push(skippedCheck('katex-sample', 'No Docsme document with KaTeX content was found.'));
   }
 
   const mermaidPath = explicitMermaidPath || chooseSample(candidateDocs, inspections, (result) => result.mermaid > 0);
@@ -248,14 +372,16 @@ async function main() {
       status: checkFailures.length ? 'failed' : 'passed',
       path: mermaidPath,
       result,
-      failures: checkFailures
+      failures: checkFailures,
+      diagnostics: diagnosticsForCheck({
+        name: 'mermaid-sample',
+        path: mermaidPath,
+        result,
+        failures: checkFailures
+      })
     });
   } else {
-    report.checks.push({
-      name: 'mermaid-sample',
-      status: 'skipped',
-      reason: 'No Docsme document with Mermaid content was found. Set DOCSME_MERMAID_SAMPLE_PATH after adding one.'
-    });
+    report.checks.push(skippedCheck('mermaid-sample', 'No Docsme document with Mermaid content was found.'));
   }
 
   report.discovery = links;
@@ -263,14 +389,16 @@ async function main() {
 
   const reportFile = await writeReport(report);
   if (failures.length > 0) {
-    console.error(`Docsme verification failed:\n- ${failures.join('\n- ')}\nReport: ${reportFile}`);
+    console.error('Docsme verification failed:');
+    printCheckHints(report.checks);
+    console.error(`Report: ${reportFile}`);
     process.exit(1);
   }
 
   const skipped = report.checks.filter((check) => check.status === 'skipped');
   const passed = report.checks.filter((check) => check.status === 'passed');
   console.log(`Docsme verification completed: ${passed.length} passed, ${skipped.length} skipped`);
-  skipped.forEach((check) => console.log(`- skipped ${check.name}: ${check.reason}`));
+  printCheckHints(report.checks);
   console.log(`Report: ${reportFile}`);
 }
 
