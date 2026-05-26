@@ -12,6 +12,7 @@
  * shortest column.
  */
 import { initLazyImages } from '../../../shell/desktop-shell/runtime/shared/lazy-media.js';
+import { warnApiCall } from '../../../shell/desktop-shell/runtime/shared/debug.js';
 
 const PHOTOS_PREFS_KEY = 'theme-photos-explorer-prefs';
 const MIN_COL_COUNT = 2;
@@ -945,7 +946,12 @@ export function registerPhotosExplorer(Alpine) {
           }
         } catch (error) {
           noMore?.classList.add('hidden');
-          console.error('[photos] 无限滚动加载失败:', error);
+          warnApiCall('photos', '图库下一页加载失败', {
+            url: nextUrlEl?.href || '',
+            message: error?.message || String(error || ''),
+            action: 'stop-current-load',
+            hint: '检查 Photos 分页链接、返回 HTML 中的 .photo-card 和下一页标记 #next-page-url。'
+          });
         } finally {
           isLoading = false;
           spinner?.classList.add('hidden');

@@ -1,4 +1,5 @@
 import { registerPageAppLifecycle } from '../../shared/page-app-bridge.js';
+import { warnApiCall } from '../../shell/desktop-shell/runtime/shared/debug.js';
 import { resolveMomentsAppProtocol } from './protocol.js';
 import { setupMomentInteractions } from './interactions.js';
 import { setupMomentPublish } from './publish.js';
@@ -335,6 +336,12 @@ function setupMomentNotifications(root = document) {
         }
         return true;
       } catch (_error) {
+        warnApiCall('moments', '瞬间通知已读标记失败', {
+          notificationName,
+          message: _error?.message || String(_error || ''),
+          action: 'keep-unread-state',
+          hint: '检查通知已读接口、当前登录态和 notificationName 是否仍存在。'
+        });
         return false;
       }
     }
@@ -419,6 +426,11 @@ function setupMomentNotifications(root = document) {
         loaded = true;
       } catch (error) {
         if (error?.name !== 'AbortError') {
+          warnApiCall('moments', '瞬间通知加载失败', {
+            message: error?.message || String(error || ''),
+            action: 'show-notification-error',
+            hint: '检查 Halo 用户通知接口、登录态、响应 Content-Type 和 Moments 通知过滤规则。'
+          });
           setNotificationState(node, 'error', '加载失败，稍后重试');
           if (dot) dot.hidden = true;
         }

@@ -1,3 +1,5 @@
+import { warnApiCall } from '../../shell/desktop-shell/runtime/shared/debug.js';
+
 const LINK_SUBMIT_API = '/apis/anonymous.link.submit.kunkunyu.com/v1alpha1/linksubmits/-/submit';
 const LINK_SUBMIT_GROUPS_API = '/apis/anonymous.link.submit.kunkunyu.com/v1alpha1/linkgroups';
 const LINK_DETAIL_API = '/apis/console.api.link.halo.run/v1alpha1/links/-/detail';
@@ -379,6 +381,12 @@ export function registerLinkSubmitForm(Alpine) {
         this.detailToolAvailable = isAdminUser(user);
       } catch (_error) {
         this.detailToolAvailable = false;
+        warnApiCall('links', '友链自动补全权限检测失败，使用手动表单', {
+          endpoint: CURRENT_USER_API,
+          message: _error?.message || String(_error || ''),
+          action: 'hide-autofill',
+          hint: '检查 Halo 当前用户接口、登录态和管理员角色判断。'
+        });
       } finally {
         this.detailToolChecking = false;
       }
@@ -417,6 +425,12 @@ export function registerLinkSubmitForm(Alpine) {
           this.form.groupName = this.submitGroups[0].groupName;
         }
       } catch (_error) {
+        warnApiCall('links', '友链提交分组加载失败，切换留言兜底', {
+          endpoint: LINK_SUBMIT_GROUPS_API,
+          message: _error?.message || String(_error || ''),
+          action: 'enable-message-fallback',
+          hint: '检查 Link Submit 插件是否启用、匿名分组接口是否可访问。'
+        });
         this.enableMessageFallback();
         this.result = {
           show: true,
@@ -487,6 +501,13 @@ export function registerLinkSubmitForm(Alpine) {
           message: '已自动补全站点信息，请确认后提交'
         };
       } catch (_error) {
+        warnApiCall('links', '友链自动补全失败，已生成手动草稿', {
+          endpoint: LINK_DETAIL_API,
+          url: normalized,
+          message: _error?.message || String(_error || ''),
+          action: 'generate-manual-draft',
+          hint: '检查管理员登录态、Console detail API 权限，以及目标站点是否允许抓取基础信息。'
+        });
         this.autofillAvailable = false;
         this.applyManualDraft(normalized);
         this.result = {
@@ -605,6 +626,12 @@ export function registerLinkSubmitForm(Alpine) {
           message: '友链申请已提交，等待站点后台审核'
         };
       } catch (error) {
+        warnApiCall('links', '友链申请提交失败，切换留言兜底', {
+          endpoint: LINK_SUBMIT_API,
+          message: error?.message || String(error || ''),
+          action: 'enable-message-fallback',
+          hint: '检查 Link Submit 插件状态、匿名提交接口、分组 groupName 和提交字段契约。'
+        });
         this.enableMessageFallback();
         const errorMessage = String(error?.message || '').trim();
         this.result = {

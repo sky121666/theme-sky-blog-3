@@ -1,3 +1,5 @@
+import { warnApiCall } from '../../shell/desktop-shell/runtime/shared/debug.js';
+
 function normalize(value) {
   return String(value || '').trim().toLowerCase();
 }
@@ -159,9 +161,12 @@ export function registerBangumisExplorer(Alpine) {
         this.$nextTick(() => this.checkScrollFallback());
       } catch (error) {
         this.loadError = true;
-        if (document.body?.dataset.debug === 'true') {
-          console.error('[bangumis] load more failed:', error);
-        }
+        warnApiCall('bangumis', '追番下一页加载失败', {
+          url: this.nextUrl,
+          message: error?.message || String(error || ''),
+          action: 'show-load-error',
+          hint: '检查追番插件页面分页链接、HTML 片段中的 data-bangumi-card 和接口返回状态。'
+        });
       } finally {
         this.loading = false;
       }

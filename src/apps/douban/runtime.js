@@ -1,3 +1,5 @@
+import { warnApiCall } from '../../shell/desktop-shell/runtime/shared/debug.js';
+
 const API_BASE = '/apis/api.douban.moony.la/v1alpha1/doubanmovies';
 const PAGE_SIZE = 20;
 
@@ -119,12 +121,16 @@ function withParams(path, params) {
 }
 
 async function fetchJson(path, params = {}, signal) {
-  const response = await fetch(withParams(path, params), {
+  const requestUrl = withParams(path, params);
+  const response = await fetch(requestUrl, {
     headers: { Accept: 'application/json' },
     signal
   });
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
+    const error = new Error(`HTTP ${response.status}`);
+    error.status = response.status;
+    error.url = requestUrl;
+    throw error;
   }
   return response.json();
 }
@@ -416,9 +422,13 @@ class DoubanApp {
         this.state.visibleItems = [];
         this.renderItems();
         this.setError('请确认 plugin-douban 已安装、同步完成，并允许匿名访问公开 API。');
-        if (document.body?.dataset.debug === 'true') {
-          console.error('[douban] load failed:', error);
-        }
+        warnApiCall('douban', '豆瓣列表加载失败，请检查插件同步和匿名 API', {
+          endpoint: error?.url || API_BASE,
+          status: error?.status || '',
+          message: error?.message || String(error || ''),
+          action: 'show-plugin-error',
+          hint: '检查 plugin-douban 是否安装、数据是否同步完成、公开匿名 API 是否放行。'
+        });
       }
     } finally {
       if (!signal.aborted) this.setLoading(false);
@@ -512,9 +522,14 @@ class DoubanApp {
       this.state.hasMore = this.state.items.length < Number(list.total || this.state.total);
       this.renderItems();
     } catch (error) {
-      if (document.body?.dataset.debug === 'true') {
-        console.error('[douban] load more failed:', error);
-      }
+      warnApiCall('douban', '豆瓣下一页加载失败', {
+        endpoint: error?.url || API_BASE,
+        status: error?.status || '',
+        page: nextPage,
+        message: error?.message || String(error || ''),
+        action: 'keep-current-list',
+        hint: '检查分页参数、插件公开 API 响应和网络面板中的失败请求。'
+      });
     } finally {
       this.root.classList.remove('is-loading-more');
     }

@@ -1,3 +1,5 @@
+import { warnApiCall } from '../../shell/desktop-shell/runtime/shared/debug.js';
+
 export function registerEquipmentsExplorer(Alpine) {
   Alpine.data('equipmentsExplorer', () => ({
     nextUrl: '',
@@ -132,9 +134,12 @@ export function registerEquipmentsExplorer(Alpine) {
         this.$nextTick(() => this.checkScrollFallback());
       } catch (error) {
         this.loadError = true;
-        if (document.body?.dataset.debug === 'true') {
-          console.error('[equipments] load more failed:', error);
-        }
+        warnApiCall('equipments', '装备下一页加载失败', {
+          url: this.nextUrl,
+          message: error?.message || String(error || ''),
+          action: 'show-load-error',
+          hint: '检查装备页面分页链接、HTML 片段中的 data-equipment-card 和接口返回状态。'
+        });
       } finally {
         this.loading = false;
       }

@@ -1,3 +1,5 @@
+import { warnApiCall } from '../../shell/desktop-shell/runtime/shared/debug.js';
+
 function normalize(value) {
   return String(value || '').trim().toLowerCase();
 }
@@ -260,9 +262,11 @@ export function registerSteamExplorer(Alpine) {
           if (spec.gameName) cell.games.add(spec.gameName);
         });
       } catch (error) {
-        if (document.body?.dataset.debug === 'true') {
-          console.error('[steam] heatmap load failed:', error);
-        }
+        warnApiCall('steam', 'Steam 热力图记录加载失败', {
+          message: error?.message || String(error || ''),
+          action: 'render-empty-heatmap',
+          hint: '检查 Steam 插件游玩记录 API 是否可访问，以及返回 items 是否为数组。'
+        });
       }
 
       const maxMinutes = Math.max(0, ...cells.map((cell) => cell.minutes));
@@ -402,9 +406,12 @@ export function registerSteamExplorer(Alpine) {
         this.$nextTick(() => this.checkScrollFallback());
       } catch (error) {
         this.loadError = true;
-        if (document.body?.dataset.debug === 'true') {
-          console.error('[steam] load more failed:', error);
-        }
+        warnApiCall('steam', 'Steam 游戏库下一页加载失败', {
+          url: this.nextUrl,
+          message: error?.message || String(error || ''),
+          action: 'show-load-error',
+          hint: '检查 Steam 游戏库分页链接、HTML 片段中的 data-steam-game-card 和接口返回状态。'
+        });
       } finally {
         this.loading = false;
       }

@@ -12,7 +12,7 @@ const STATUS_ORDER = ['doing', 'mark', 'done'];
 const CACHE_TTL = 5 * 60 * 1000;
 const CACHE_PREFIX = 'theme:douban-showcase:v1:';
 const DATA_CACHE = new Map();
-const { log: debugLog, warn: debugWarn } = createLogger('douban-widget');
+const { warn: debugWarn } = createLogger('douban-widget');
 
 function storedCacheKey(cacheKey) {
   return `${CACHE_PREFIX}${cacheKey}`;
@@ -50,23 +50,29 @@ function readStoredCache(cacheKey) {
   try {
     const raw = window.sessionStorage?.getItem(storedCacheKey(cacheKey));
     if (!raw) {
-      debugLog('session cache miss', { cacheKey });
       return null;
     }
     const payload = JSON.parse(raw);
     if (!payload?.data || !payload.time) {
-      debugWarn('session cache invalid', { cacheKey });
+      debugWarn('豆瓣小组件会话缓存格式无效，忽略缓存', {
+        cacheKey,
+        action: 'ignore-session-cache',
+        hint: '检查 sessionStorage 中的豆瓣组件缓存是否被旧版本或手动脚本污染。'
+      });
       return null;
     }
     const age = Date.now() - payload.time;
     if (age >= CACHE_TTL) {
-      debugLog('session cache expired', { cacheKey, age });
       return null;
     }
-    debugLog('session cache hit', { cacheKey, age });
     return payload.data;
   } catch (_error) {
-    debugWarn('session cache read failed', { cacheKey });
+    debugWarn('豆瓣小组件会话缓存读取失败，忽略缓存', {
+      cacheKey,
+      message: _error?.message || String(_error || ''),
+      action: 'ignore-session-cache',
+      hint: '检查浏览器隐私模式、存储权限或缓存 JSON 是否损坏。'
+    });
     return null;
   }
 }
@@ -77,26 +83,23 @@ function writeStoredCache(cacheKey, data) {
       time: Date.now(),
       data
     }));
-    debugLog('session cache write', {
-      cacheKey,
-      items: Array.isArray(data?.items) ? data.items.length : 0,
-      type: data?.type || '',
-      status: data?.status || ''
-    });
   } catch (_error) {
-    debugWarn('session cache write failed', { cacheKey });
+    debugWarn('豆瓣小组件会话缓存写入失败，不影响页面渲染', {
+      cacheKey,
+      message: _error?.message || String(_error || ''),
+      action: 'continue-with-memory-cache',
+      hint: '检查浏览器存储权限、隐私模式或 sessionStorage 配额。'
+    });
     // sessionStorage can be unavailable in private or restricted contexts.
   }
 }
 
 async function fetchJson(path, params = {}, signal) {
-  debugLog('fetch start', { path, params });
   const response = await fetch(withParams(path, params), {
     headers: { Accept: 'application/json' },
     signal
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  debugLog('fetch success', { path, params, status: response.status });
   return response.json();
 }
 
@@ -210,7 +213,6 @@ async function loadShowcaseData(apiBase, configuredType, configuredStatus, signa
   const cached = DATA_CACHE.get(cacheKey);
   const now = Date.now();
   if (cached?.data && now - cached.time < CACHE_TTL) {
-    debugLog('memory cache hit', { cacheKey, age: now - cached.time });
     if (!readStoredCache(cacheKey)) {
       writeStoredCache(cacheKey, cached.data);
     }
@@ -222,11 +224,9 @@ async function loadShowcaseData(apiBase, configuredType, configuredStatus, signa
     return stored;
   }
   if (cached?.promise) {
-    debugLog('reuse pending request', { cacheKey });
     return cached.promise;
   }
 
-  debugLog('load from api', { cacheKey, configuredType, configuredStatus });
   const promise = (async () => {
     const type = await resolveType(null, apiBase, configuredType, signal);
     const result = await fetchCollection(apiBase, type, configuredStatus, signal);
@@ -246,7 +246,12 @@ async function loadShowcaseData(apiBase, configuredType, configuredStatus, signa
     return data;
   } catch (error) {
     DATA_CACHE.delete(cacheKey);
-    debugWarn('load failed', { cacheKey, message: error?.message || String(error || '') });
+    debugWarn('豆瓣小组件数据加载失败', {
+      cacheKey,
+      message: error?.message || String(error || ''),
+      action: 'render-error-state',
+      hint: '检查 plugin-douban 是否安装、公开 API 是否可访问，以及组件配置的类型/状态。'
+    });
     throw error;
   }
 }
@@ -333,7 +338,11 @@ function mountDoubanShowcase(root) {
   if (root.dataset.doubanShowcaseMounted === 'true') {
     if (root.dataset.doubanLoading === 'true') return;
     if (isShowcaseDomComplete(root)) return;
-    debugWarn('remount after incomplete dom', showcaseDomState(root));
+    debugWarn('豆瓣小组件 DOM 未完整水合，尝试重新挂载', {
+      ...showcaseDomState(root),
+      action: 'remount-widget',
+      hint: '检查 PJAX 往返、组件 HTML 结构和 data-douban-* 标记是否完整。'
+    });
     root.__doubanShowcaseCleanup?.();
     root.dataset.doubanHydrated = 'false';
   }
@@ -424,12 +433,6 @@ function mountDoubanShowcase(root) {
       }
 
       updateActive(root, items, activeIndex, total, resolvedType, resolvedStatus);
-      debugLog('hydrated', {
-        type: resolvedType,
-        status: resolvedStatus,
-        total,
-        items: items.length
-      });
       start();
     } catch (_error) {
       if (!root.isConnected || abortController.signal.aborted) return;
