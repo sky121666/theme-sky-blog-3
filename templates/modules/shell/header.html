@@ -101,7 +101,26 @@
         </span>
       </button>
 
-      <div th:if="${timeEnabled}" class="menubar-time" x-text="timeStr"></div>
+      <div th:if="${timeEnabled}"
+           th:with="
+             headerNow=${#dates.createNow()},
+             isHeaderTime24Hour=${#strings.toString(timeHourCycle) == '24'},
+             desktopTimePattern=${isHeaderTime24Hour ? 'HH:mm' : 'a h:mm'},
+             desktopTimeSecondsPattern=${isHeaderTime24Hour ? 'HH:mm:ss' : 'a h:mm:ss'},
+             desktopTimeText=${#dates.format(headerNow, desktopTimePattern)},
+             desktopTimeSecondsText=${#dates.format(headerNow, desktopTimeSecondsPattern)},
+             desktopDateText=${#dates.format(headerNow, 'M月d日')},
+             desktopWeekdayText=${#dates.format(headerNow, 'E')},
+             initialTimeText=${
+               timeDesktopPreset == 'time-seconds' ? desktopTimeSecondsText :
+               timeDesktopPreset == 'date-time' ? desktopDateText + ' ' + desktopTimeText :
+               timeDesktopPreset == 'weekday-date-time' ? desktopWeekdayText + ' ' + desktopDateText + ' ' + desktopTimeText :
+               timeDesktopPreset == 'month-day-weekday-time' ? desktopDateText + ' ' + desktopWeekdayText + ' ' + desktopTimeText :
+               desktopTimeText
+             }"
+           class="menubar-time"
+           x-text="timeStr"
+           th:text="${initialTimeText}"></div>
     </div>
 
     <th:block th:replace="~{modules/shell/header :: mobile_dropdown(
@@ -183,8 +202,13 @@
 
             <th:block th:each="child, childStat : ${menuItem.children}"
                       th:with="
+                        childIconType = ${#annotations.getOrDefault(child, 'icon_type', 'iconify')},
+                        childIconSvg = ${#annotations.getOrDefault(child, 'icon', '')},
+                        childCustomSvg = ${#annotations.getOrDefault(child, 'custom_svg', '')},
+                        childImageUrl = ${#annotations.getOrDefault(child, 'image_url', '')},
                         childSeparatorBefore = ${#annotations.getOrDefault(child, 'header_separator_before', 'false')},
-                        prevChildSeparatorBefore = ${childStat.index > 0 ? #annotations.getOrDefault(menuItem.children[childStat.index - 1], 'header_separator_before', 'false') : 'false'}">
+                        prevChildSeparatorBefore = ${childStat.index > 0 ? #annotations.getOrDefault(menuItem.children[childStat.index - 1], 'header_separator_before', 'false') : 'false'},
+                        childSvgContent = ${childIconType == 'custom_svg' ? childCustomSvg : childIconSvg}">
               <div th:if="${childStat.index > 0 and (childSeparatorBefore == 'true' or childSeparatorBefore == true) and !(prevChildSeparatorBefore == 'true' or prevChildSeparatorBefore == true)}"
                    class="menubar-mobile-dropdown-separator"></div>
 
@@ -193,7 +217,13 @@
                  class="menubar-mobile-item menubar-mobile-item--child"
                  th:classappend="${child.spec.target?.name() == 'BLANK' ? '' : 'pjax-link'}"
                  @click="closeMobileMenu()"
-                 th:text="${child.status.displayName}"></a>
+                 th:attr="aria-label=${child.status.displayName}">
+                <span class="menubar-mobile-item-icon" th:if="${childIconType == 'image' and !#strings.isEmpty(childImageUrl)}">
+                  <img th:src="${childImageUrl}" th:alt="${child.status.displayName}" loading="lazy" decoding="async" draggable="false" />
+                </span>
+                <span class="menubar-mobile-item-icon" th:if="${childIconType != 'image' and !#strings.isEmpty(childSvgContent)}" th:utext="${childSvgContent}"></span>
+                <span class="menubar-mobile-item-label" th:text="${child.status.displayName}"></span>
+              </a>
             </th:block>
           </section>
         </th:block>

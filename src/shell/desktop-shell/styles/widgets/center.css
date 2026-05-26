@@ -299,7 +299,7 @@
   margin: 0;
   font-size: clamp(14px, 1.4vw, 16px);
   line-height: 1;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
   font-weight: 560;
   color: rgba(255, 255, 255, 0.94);
 }
@@ -495,7 +495,7 @@
   margin: 0;
   font-size: 13px;
   line-height: 1;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
   font-weight: 560;
   color: rgba(255, 255, 255, 0.9);
 }
@@ -625,7 +625,7 @@
   margin: 0;
   font-size: 14px;
   font-weight: 620;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   color: rgba(255, 255, 255, 0.92);
 }
 
@@ -672,7 +672,7 @@
   font-size: 12px;
   line-height: 1.1;
   font-weight: 580;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 .desktop-widget-center-item-title-row {
@@ -860,7 +860,7 @@
   margin: 0;
   font-size: 15px;
   font-weight: 620;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
   color: rgba(255, 255, 255, 0.94);
 }
 

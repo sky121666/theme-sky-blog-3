@@ -592,7 +592,7 @@ export function registerWindowComponents(Alpine) {
           /* maximized 窗口跟随视口 */
           if (this.isDesktop && this.isMaximized) {
             this.width = window.innerWidth;
-            this.height = window.innerHeight - 28;
+            this.height = window.innerHeight - 25;
             this.windowEl.style.width = `${this.width}px`;
             this.windowEl.style.height = `${this.height}px`;
             this.syncState();
@@ -628,7 +628,7 @@ export function registerWindowComponents(Alpine) {
           } else {
             if (this.isMaximized) {
               this.width = window.innerWidth;
-              this.height = window.innerHeight - 28;
+              this.height = window.innerHeight - 25;
             } else {
               const maxW = window.innerWidth - 40;
               const maxH = window.innerHeight - 68;
@@ -680,11 +680,11 @@ export function registerWindowComponents(Alpine) {
          
          if (this.windowEl.dataset.windowHeight) {
             const h = parseInt(this.windowEl.dataset.windowHeight, 10);
-            if (!isNaN(h) && h > 0) height = Math.min(h, window.innerHeight - 28);
+            if (!isNaN(h) && h > 0) height = Math.min(h, window.innerHeight - 25);
          }
 
          const x = (window.innerWidth - width) / 2;
-         const y = Math.max(28, (window.innerHeight - height) / 2);
+         const y = Math.max(25, (window.innerHeight - height) / 2);
 
          this.setWindowRect({ x, y, width, height });
          this.applyResizeMode();
@@ -697,7 +697,7 @@ export function registerWindowComponents(Alpine) {
        const maxX = window.innerWidth - 80;
        const maxY = window.innerHeight - 40;
        const minX = -this.width + 80;
-       const minY = 28;
+       const minY = 25;
 
        if (this.x > maxX) this.x = maxX;
        if (this.x < minX) this.x = minX;
@@ -732,9 +732,9 @@ export function registerWindowComponents(Alpine) {
         this.preMaxY = this.y;
         
         this.width = window.innerWidth;
-        this.height = window.innerHeight - 28;
+        this.height = window.innerHeight - 25;
         this.x = 0;
-        this.y = 28;
+        this.y = 25;
         
         winEl.style.width = `${this.width}px`;
         winEl.style.height = `${this.height}px`;
@@ -821,15 +821,15 @@ export function registerWindowComponents(Alpine) {
           nextHeight = minHeight;
         }
 
-        const maxHeight = window.innerHeight - 44; // 28(menubar) + 16(padding)
+        const maxHeight = window.innerHeight - 41; // 25(menubar) + 16(padding)
         if (nextHeight > maxHeight) {
           if (direction.includes('n')) nextY += nextHeight - maxHeight;
           nextHeight = maxHeight;
         }
 
-        if (direction.includes('n') && nextY < 28) {
-          nextHeight += nextY - 28;
-          nextY = 28;
+        if (direction.includes('n') && nextY < 25) {
+          nextHeight += nextY - 25;
+          nextY = 25;
           if (nextHeight < minHeight) nextHeight = minHeight;
         }
 

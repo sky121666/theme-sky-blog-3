@@ -48,7 +48,7 @@
   font-size: 20px;
   line-height: 1.05;
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
   color: rgba(255, 255, 255, 0.96);
 }
 
@@ -365,7 +365,7 @@
 
 .wg-tag-focus-item.is-focus {
   font-size: 24px;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   opacity: 1;
   filter: blur(0px);
   color: #fff;

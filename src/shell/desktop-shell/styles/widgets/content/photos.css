@@ -225,7 +225,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   text-shadow: 0 2px 14px rgba(0,0,0,0.5);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 .wg-photos-md-sub {
   display: block;
@@ -334,7 +334,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   text-shadow: 0 2px 16px rgba(0,0,0,0.5);
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 .wg-photos-lg-desc {

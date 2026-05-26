@@ -96,7 +96,7 @@
 .wg-docsme-small-copy strong {
   font-size: 13.5px;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   color: var(--wg-docsme-text);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -171,7 +171,7 @@
 .wg-docsme-header-left strong {
   font-size: 13.5px;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   color: var(--wg-docsme-text);
   white-space: nowrap;
 }
@@ -243,7 +243,7 @@
   border-radius: 99px;
   border: 1px solid transparent;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .wg-docsme-view-all:hover {

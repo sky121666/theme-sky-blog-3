@@ -53,9 +53,10 @@
 .desktop-icon-label {
   text-align: center;
   font-size: 11px;
-  font-weight: 550;
+  font-weight: 570;
+  letter-spacing: -0.05px;
   color: var(--shell-text-primary);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.42);
+  text-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.48);
   line-height: 1.16;
   padding: 1px 4px 2px;
   max-width: calc(var(--desktop-icon-card-width) + 12px);

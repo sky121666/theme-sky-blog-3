@@ -83,7 +83,7 @@
   color: #ffffff;
   font-family: inherit; /* could use mono */
   line-height: 1;
-  letter-spacing: -0.05em;
+  letter-spacing: 0;
 }
 
 .glow-text-emerald {
@@ -227,7 +227,7 @@
   color: #ffffff;
   font-family: inherit;
   line-height: 1;
-  letter-spacing: -0.05em;
+  letter-spacing: 0;
 }
 
 @keyframes pulse-fast {
@@ -419,7 +419,7 @@
   font-weight: 900;
   color: #ffffff;
   line-height: 1;
-  letter-spacing: -0.05em;
+  letter-spacing: 0;
   filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
 }
 

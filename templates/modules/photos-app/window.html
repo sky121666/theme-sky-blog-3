@@ -66,15 +66,17 @@
                       <button type="button"
                               class="photos-titlebar-btn photos-titlebar-segment"
                               data-photos-mode-btn="square"
-                              title="方格"
-                              onclick="this.closest('[data-window-surface]')?.dispatchEvent(new CustomEvent('photos:set-mode', { detail: { mode: 'square' }, bubbles: true }))">
+                              data-photos-control="set-mode"
+                              data-photos-mode="square"
+                              title="方格">
                           <span class="icon-[lucide--grid-2x2] w-[15px] h-[15px]" aria-hidden="true"></span>
                       </button>
                       <button type="button"
                               class="photos-titlebar-btn photos-titlebar-segment"
                               data-photos-mode-btn="aspect"
-                              title="瀑布流"
-                              onclick="this.closest('[data-window-surface]')?.dispatchEvent(new CustomEvent('photos:set-mode', { detail: { mode: 'aspect' }, bubbles: true }))">
+                              data-photos-control="set-mode"
+                              data-photos-mode="aspect"
+                              title="瀑布流">
                           <span class="icon-[lucide--columns-2] w-[15px] h-[15px]" aria-hidden="true"></span>
                       </button>
                   </div>
@@ -82,15 +84,15 @@
                       <button type="button"
                               class="photos-titlebar-btn photos-titlebar-action"
                               data-photos-cols="decrease"
-                              title="减少数量"
-                              onclick="this.closest('[data-window-surface]')?.dispatchEvent(new CustomEvent('photos:cols-decrease', { bubbles: true }))">
+                              data-photos-control="cols-decrease"
+                              title="减少数量">
                           <span class="icon-[lucide--minus] w-[15px] h-[15px]" aria-hidden="true"></span>
                       </button>
                       <button type="button"
                               class="photos-titlebar-btn photos-titlebar-action"
                               data-photos-cols="increase"
-                              title="增加数量"
-                              onclick="this.closest('[data-window-surface]')?.dispatchEvent(new CustomEvent('photos:cols-increase', { bubbles: true }))">
+                              data-photos-control="cols-increase"
+                              title="增加数量">
                           <span class="icon-[lucide--plus] w-[15px] h-[15px]" aria-hidden="true"></span>
                       </button>
                   </div>
@@ -98,13 +100,11 @@
               <div class="photos-titlebar-detail-toolbar" data-photos-detail-toolbar th:if="${windowScene == 'detail'}">
                 <div class="photos-titlebar-group photos-titlebar-zoom photos-titlebar-group--detail-zoom"
                      title="缩放"
-                     onmousedown="event.stopPropagation()"
-                     onpointerdown="event.stopPropagation()"
-                     onclick="event.stopPropagation()">
+                     data-photos-stop-window-drag>
                   <button type="button"
                           class="photos-titlebar-zoom-btn"
-                          aria-label="缩小"
-                          onclick="this.closest('[data-window-surface]')?.dispatchEvent(new CustomEvent('photos:zoom-out', { bubbles: true }))">
+                          data-photos-control="zoom-out"
+                          aria-label="缩小">
                     <span class="icon-[lucide--minus] w-[13px] h-[13px]" aria-hidden="true"></span>
                   </button>
                   <input type="range"
@@ -113,14 +113,12 @@
                          step="0.05"
                          value="1"
                          data-photos-detail-zoom
-                         aria-label="缩放图片"
-                         onmousedown="event.stopPropagation()"
-                         onpointerdown="event.stopPropagation()"
-                         oninput="this.closest('[data-window-surface]')?.dispatchEvent(new CustomEvent('photos:zoom-set', { detail: { value: this.value }, bubbles: true }))" />
+                         data-photos-control="zoom-set"
+                         aria-label="缩放图片" />
                   <button type="button"
                           class="photos-titlebar-zoom-btn"
-                          aria-label="放大"
-                          onclick="this.closest('[data-window-surface]')?.dispatchEvent(new CustomEvent('photos:zoom-in', { bubbles: true }))">
+                          data-photos-control="zoom-in"
+                          aria-label="放大">
                     <span class="icon-[lucide--plus] w-[13px] h-[13px]" aria-hidden="true"></span>
                   </button>
                 </div>
@@ -128,15 +126,15 @@
                   <button type="button"
                           class="photos-titlebar-btn"
                           data-photos-detail-info-btn
-                          title="详情"
-                          onclick="this.closest('[data-window-surface]')?.dispatchEvent(new CustomEvent('photos:info-toggle', { bubbles: true }))">
+                          data-photos-control="info-toggle"
+                          title="详情">
                     <span class="icon-[lucide--info] w-[16px] h-[16px]" aria-hidden="true"></span>
                   </button>
                   <button type="button"
                           class="photos-titlebar-btn photos-titlebar-comment-btn"
                           data-photos-detail-comments-btn
-                          title="评论"
-                          onclick="this.closest('[data-window-surface]')?.dispatchEvent(new CustomEvent('photos:comments-toggle', { bubbles: true }))">
+                          data-photos-control="comments-toggle"
+                          title="评论">
                     <span class="icon-[lucide--message-circle] w-[16px] h-[16px]" aria-hidden="true"></span>
                   </button>
                 </div>

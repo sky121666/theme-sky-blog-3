@@ -9,18 +9,19 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  height: 28px;
+  height: 24px;
   padding: 0 12px;
   overflow: visible;
   color: var(--shell-text-primary);
-  font-size: 13.5px;
-  font-weight: 500;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.36);
+  font-size: 12.5px;
+  font-weight: 560;
+  letter-spacing: 0;
+  text-shadow: 0 0.5px 0 rgba(0, 0, 0, 0.22);
   background: var(--shell-menubar-bg) !important;
-  border-bottom: 1px solid var(--shell-menubar-border) !important;
-  backdrop-filter: blur(28px) saturate(150%) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(150%) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.045) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(128%) brightness(1.02) !important;
+  backdrop-filter: blur(18px) saturate(128%) brightness(1.02) !important;
+  box-shadow: none;
 }
 
 .menubar::before {
@@ -28,7 +29,8 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 70%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 82%);
+  opacity: 0.55;
 }
 
 .menubar::after {
@@ -39,7 +41,7 @@
   bottom: 0;
   height: 1px;
   pointer-events: none;
-  background: var(--shell-menubar-border);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.055), transparent);
 }
 
 .menubar-left,
@@ -53,12 +55,12 @@
 
 .menubar-left {
   flex: 1 1 auto;
-  gap: 2px;
+  gap: 1px;
 }
 
 .menubar-right {
   flex: 0 0 auto;
-  gap: 6px;
+  gap: 4px;
 }
 
 .menubar-nav {
@@ -94,9 +96,9 @@ button.menubar-mobile-trigger {
 .menubar-item {
   display: inline-flex;
   align-items: center;
-  height: 24px;
-  padding: 0 8px;
-  border-radius: 4px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 5px;
   transition: background-color 0.1s ease, box-shadow 0.1s ease;
 }
 
@@ -107,8 +109,8 @@ button.menubar-mobile-trigger {
 }
 
 .menubar-item.is-open {
-  background: color-mix(in srgb, var(--shell-menubar-hover-bg) 82%, rgba(255, 255, 255, 0.035));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--shell-menubar-hover-bg) 76%, rgba(255, 255, 255, 0.025));
+  box-shadow: none;
 }
 
 .menubar-icon-btn {
@@ -116,11 +118,11 @@ button.menubar-mobile-trigger {
   align-items: center;
   justify-content: center;
   flex: none;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   border: 0;
-  border-radius: 4px;
+  border-radius: 5px;
   cursor: pointer;
   background: transparent;
   transition: background-color 0.1s ease;
@@ -154,7 +156,7 @@ button.menubar-mobile-trigger {
 }
 
 .menubar-brand-icon {
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1;
 }
 
@@ -176,9 +178,10 @@ button.menubar-mobile-trigger {
   display: inline-flex;
   align-items: center;
   height: 22px;
-  padding: 0 8px;
+  padding: 0 7px;
   color: var(--shell-text-primary);
-  letter-spacing: inherit;
+  font-weight: 620;
+  letter-spacing: 0;
   white-space: nowrap;
   cursor: default;
 }
@@ -188,7 +191,7 @@ button.menubar-mobile-trigger {
   align-items: center;
   justify-content: center;
   min-width: 38px;
-  height: 24px;
+  height: 22px;
   padding: 0 10px;
   border-radius: 999px;
   font-size: 12px;
@@ -198,9 +201,9 @@ button.menubar-mobile-trigger {
 
 .menubar-auth-btn--icon {
   min-width: 0;
-  width: 24px;
+  width: 22px;
   padding: 0;
-  border-radius: 4px;
+  border-radius: 5px;
 }
 
 .menubar-auth-btn--icon svg,
@@ -220,8 +223,8 @@ button.menubar-mobile-trigger {
   align-items: center;
   justify-content: flex-end;
   min-width: 120px;
-  height: 24px;
-  padding: 0 10px 0 12px;
+  height: 22px;
+  padding: 0 8px 0 10px;
   overflow: hidden;
   color: var(--shell-text-primary);
   text-align: right;
@@ -244,36 +247,36 @@ button.menubar-mobile-trigger {
   display: flex;
   flex-direction: column;
   min-width: 184px;
-  padding: 3px;
-  border-radius: 8px;
-  background-color: var(--mac-header-dropdown-light-bg, rgba(88, 92, 100, 0.66)) !important;
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 40%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.09) !important;
-  backdrop-filter: blur(26px) saturate(138%) !important;
-  -webkit-backdrop-filter: blur(26px) saturate(138%) !important;
+  padding: 4px;
+  border-radius: 7px;
+  background-color: var(--mac-header-dropdown-light-bg, rgba(78, 82, 90, 0.62)) !important;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 58%) !important;
+  border: 0.5px solid rgba(255, 255, 255, 0.10) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(125%) !important;
+  backdrop-filter: blur(22px) saturate(125%) !important;
   box-shadow:
-    0 6px 14px rgba(0, 0, 0, 0.18),
-    0 1px 0 rgba(255, 255, 255, 0.03) inset;
+    0 8px 20px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
 @supports (background: color-mix(in srgb, white 50%, black)) {
   .menubar-dropdown {
-    background-color: color-mix(in srgb, var(--mac-header-dropdown-light-bg, rgba(88, 92, 100, 0.66)) 82%, rgba(120, 126, 136, 0.42)) !important;
+    background-color: color-mix(in srgb, var(--mac-header-dropdown-light-bg, rgba(78, 82, 90, 0.62)) 82%, rgba(120, 126, 136, 0.34)) !important;
   }
 }
 
 .dark .menubar-dropdown {
-  background-color: var(--mac-header-dropdown-dark-bg, rgba(70, 74, 82, 0.72)) !important;
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 40%) !important;
-  border-color: rgba(255, 255, 255, 0.075) !important;
+  background-color: var(--mac-header-dropdown-dark-bg, rgba(58, 62, 70, 0.72)) !important;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.026), transparent 58%) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
   box-shadow:
-    0 8px 16px rgba(0, 0, 0, 0.24),
-    0 1px 0 rgba(255, 255, 255, 0.025) inset;
+    0 9px 22px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.026);
 }
 
 @supports (background: color-mix(in srgb, white 50%, black)) {
   .dark .menubar-dropdown {
-    background-color: color-mix(in srgb, var(--mac-header-dropdown-dark-bg, rgba(70, 74, 82, 0.72)) 84%, rgba(108, 114, 124, 0.36)) !important;
+    background-color: color-mix(in srgb, var(--mac-header-dropdown-dark-bg, rgba(58, 62, 70, 0.72)) 86%, rgba(108, 114, 124, 0.24)) !important;
   }
 }
 
@@ -283,16 +286,16 @@ button.menubar-mobile-trigger {
   grid-template-columns: 16px minmax(0, 1fr) 12px;
   align-items: center;
   column-gap: 7px;
-  min-height: 22px;
+  min-height: 21px;
   padding: 2px 8px 2px 7px;
-  border-radius: 5px;
+  border-radius: 4px;
   color: rgba(255, 255, 255, 0.96);
   text-decoration: none;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
-  letter-spacing: -0.005em;
+  text-shadow: 0 0.5px 0 rgba(0, 0, 0, 0.14);
+  letter-spacing: 0;
   line-height: 1.2;
   font-size: 12.5px;
-  font-weight: 500;
+  font-weight: 540;
   transition: background-color 0.06s ease, box-shadow 0.06s ease;
 }
 
@@ -352,8 +355,8 @@ button.menubar-mobile-trigger {
 /* ── hover / focus / active ── */
 .menubar-dropdown-item:hover {
   color: #ffffff;
-  background: color-mix(in srgb, var(--theme-accent) 78%, #0f62fe);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--theme-accent) 72%, #2e7cf6);
+  box-shadow: none;
 }
 
 .menubar-dropdown-item:hover .menubar-dropdown-icon-svg {
@@ -367,8 +370,8 @@ button.menubar-mobile-trigger {
 
 .menubar-dropdown-item:focus-visible {
   color: #ffffff;
-  background: color-mix(in srgb, var(--theme-accent) 78%, #0f62fe);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--theme-accent) 72%, #2e7cf6);
+  box-shadow: none;
   outline: 1.5px solid rgba(255, 255, 255, 0.32);
   outline-offset: -1px;
 }
@@ -377,7 +380,7 @@ button.menubar-mobile-trigger {
 .menubar-dropdown-separator {
   height: 1px;
   margin: 4px 8px 4px 30px;
-  background: rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 /* ---------- 手机端 Header ---------- */
@@ -388,20 +391,20 @@ button.menubar-mobile-trigger {
   right: 10px;
   z-index: 100;
   border-radius: 14px;
-  background-color: var(--mac-header-dropdown-light-bg, rgba(88, 92, 100, 0.66)) !important;
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02) 34%, rgba(0, 0, 0, 0.05)) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  backdrop-filter: blur(26px) saturate(138%) !important;
-  -webkit-backdrop-filter: blur(26px) saturate(138%) !important;
+  background-color: var(--mac-header-dropdown-light-bg, rgba(78, 82, 90, 0.62)) !important;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 58%) !important;
+  border: 0.5px solid rgba(255, 255, 255, 0.10) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(125%) !important;
+  backdrop-filter: blur(22px) saturate(125%) !important;
   box-shadow:
-    0 12px 24px rgba(0, 0, 0, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    0 10px 22px rgba(0, 0, 0, 0.20),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
 .dark .menubar-mobile-dropdown {
-  background-color: var(--mac-header-dropdown-dark-bg, rgba(70, 74, 82, 0.72)) !important;
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015) 32%, rgba(0, 0, 0, 0.06)) !important;
-  border-color: rgba(255, 255, 255, 0.075) !important;
+  background-color: var(--mac-header-dropdown-dark-bg, rgba(58, 62, 70, 0.72)) !important;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 58%) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
 }
 
 .menubar-mobile-dropdown-inner {
@@ -430,6 +433,33 @@ button.menubar-mobile-trigger {
 .menubar-mobile-item--child {
   padding-left: 18px;
   color: rgba(255, 255, 255, 0.86);
+}
+
+.menubar-mobile-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: currentColor;
+  opacity: 0.9;
+}
+
+.menubar-mobile-item-icon > svg,
+.menubar-mobile-item-icon svg,
+.menubar-mobile-item-icon > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.menubar-mobile-item-icon > img {
+  object-fit: contain;
+}
+
+.menubar-mobile-item-label {
+  min-width: 0;
 }
 
 .menubar-mobile-section {

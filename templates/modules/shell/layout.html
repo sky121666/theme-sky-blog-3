@@ -595,6 +595,14 @@
                     </th:block>
                   </th:block>
                 </th:block>
+
+                <!-- 运行状态指示点 -->
+                <div class="dock-dot"
+                     x-show="$store.windowManager.show &amp;&amp; window.location.pathname.replace(/\/$/, '') === new URL($el.parentElement.href, window.location.origin).pathname.replace(/\/$/, '')"
+                     x-transition:enter="transition ease-out duration-150"
+                     x-transition:enter-start="opacity-0 scale-50"
+                     x-transition:enter-end="opacity-100 scale-100"
+                     style="display: none;"></div>
               </a>
             </th:block>
           </th:block>

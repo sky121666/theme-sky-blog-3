@@ -18,6 +18,7 @@
   color: var(--widget-weather-text);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
   border-radius: inherit;
+  container-type: inline-size;
 }
 
 /* ── 默认渐变（阴天/通用） ── */
@@ -111,7 +112,7 @@
 .desktop-widget-weather-temp {
   font-size: 42px;
   font-weight: 200;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
@@ -185,7 +186,7 @@
 .desktop-widget-weather-m-temp {
   font-size: 46px;
   font-weight: 200;
-  letter-spacing: -0.05em;
+  letter-spacing: 0;
   line-height: 0.85;
   font-variant-numeric: tabular-nums;
   text-shadow: 0 2px 12px rgba(0,0,0,0.1);
@@ -257,6 +258,62 @@
 .desktop-widget-weather-m-hilo .flex-between {
   display: flex;
   gap: 4px;
+}
+
+@container (max-width: 260px) {
+  .desktop-widget-weather--medium {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .desktop-widget-weather-m-main {
+    flex-basis: calc(48% - 5px);
+    padding-right: 10px;
+  }
+
+  .desktop-widget-weather-m-city {
+    font-size: 12px;
+    letter-spacing: 0;
+  }
+
+  .desktop-widget-weather-m-cond {
+    font-size: 10px;
+  }
+
+  .desktop-widget-weather-m-bottom {
+    gap: 5px;
+  }
+
+  .desktop-widget-weather-m-temp {
+    font-size: 36px;
+  }
+
+  .desktop-widget-weather-m-icon.is-float {
+    font-size: 24px;
+  }
+
+  .desktop-widget-weather-m-details-title {
+    font-size: 9px;
+    letter-spacing: 0.04em;
+  }
+
+  .desktop-widget-weather-m-stats {
+    gap: 5px;
+  }
+
+  .desktop-widget-weather-m-stat-lbl,
+  .desktop-widget-weather-m-hilo {
+    font-size: 9px;
+  }
+
+  .desktop-widget-weather-m-stat-val {
+    font-size: 11px;
+  }
+
+  .desktop-widget-weather-m-hilo {
+    margin-top: 4px;
+    padding-top: 6px;
+  }
 }
 
 /* 5-day forecast list */
@@ -337,7 +394,6 @@
 .desktop-widget-card[data-widget-appearance="light"] .desktop-widget-weather.is-snowy {
   background: linear-gradient(145deg, #f0f9ff 0%, #e0f2fe 50%, #bae6fd 100%);
 }
-
 
 
 

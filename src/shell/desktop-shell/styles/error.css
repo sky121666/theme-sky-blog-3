@@ -209,7 +209,7 @@
   font-size: 13.5px;
   line-height: 1.28;
   font-weight: 650;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .error-modal-text {

@@ -7,6 +7,8 @@
   z-index: 9998;
   display: flex;
   justify-content: center;
+  isolation: isolate;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.13));
   transition: opacity 180ms ease, transform 220ms cubic-bezier(0.22, 0.9, 0.24, 1), filter 180ms ease;
 }
 
@@ -17,33 +19,77 @@
   left: 0;
   right: 0;
   height: var(--dock-glass-height, 60px);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, var(--dock-opacity, 0.28));
-  backdrop-filter: blur(var(--dock-blur, 60px)) saturate(180%);
-  -webkit-backdrop-filter: blur(var(--dock-blur, 60px)) saturate(180%);
-  border: 0.5px solid var(--shell-dock-glass-border);
-  border-bottom-color: var(--shell-dock-glass-border-bottom);
+  overflow: hidden;
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0.08) 46%, rgba(255, 255, 255, 0.12)),
+    rgba(236, 240, 246, 0.34);
+  -webkit-backdrop-filter: blur(46px) saturate(150%) brightness(1.03) !important;
+  backdrop-filter: blur(46px) saturate(150%) brightness(1.03) !important;
+  background-clip: padding-box;
+  transform: translateZ(0);
+  will-change: backdrop-filter;
+  border: 0.5px solid rgba(255, 255, 255, 0.24);
+  border-bottom-color: rgba(0, 0, 0, 0.12);
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.12),
-    0 2px 6px rgba(0, 0, 0, 0.06),
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.25);
+    0 9px 22px rgba(0, 0, 0, 0.16),
+    0 2px 5px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.10);
   z-index: 0;
+}
+
+.dock-glass::before,
+.dock-glass::after {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  content: "";
+  pointer-events: none;
+}
+
+.dock-glass::before {
+  top: 0;
+  height: 1px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.44), transparent);
+  opacity: 0.66;
+}
+
+.dock-glass::after {
+  bottom: 1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.18), transparent);
+  opacity: 0.34;
 }
 
 /* dark glass — 更深沉的底色和阴影 */
 .dark .dock-glass {
-  background: rgba(30, 32, 38, var(--dock-opacity, 0.32));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.045) 42%, rgba(255, 255, 255, 0.065)),
+    rgba(31, 36, 45, 0.58);
+  border-color: rgba(255, 255, 255, 0.14);
+  border-bottom-color: rgba(0, 0, 0, 0.20);
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.38),
-    0 2px 6px rgba(0, 0, 0, 0.18),
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.08);
+    0 10px 24px rgba(0, 0, 0, 0.28),
+    0 2px 5px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22);
+}
+
+.dark .dock-glass::before {
+  opacity: 0.28;
+}
+
+.dark .dock-glass::after {
+  opacity: 0.30;
 }
 
 .dock-bar {
   display: flex;
   align-items: flex-end;
   gap: var(--dock-gap, 4px);
-  padding: var(--dock-padding, 6px) calc(var(--dock-padding, 6px) + 4px);
+  padding: var(--dock-padding, 6px);
   margin: 0;
   position: relative;
   height: var(--dock-bar-height, 90px);
@@ -61,6 +107,7 @@
   justify-content: center;
   cursor: pointer;
   position: relative;
+  overflow: hidden; /* clips image to rounded corners */
   appearance: none;
   -webkit-appearance: none;
   text-decoration: none;
@@ -69,9 +116,29 @@
   background: var(--shell-dock-icon-bg);
   border: 0.5px solid var(--shell-dock-icon-border);
   box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.12),
-    0 4px 12px rgba(0, 0, 0, 0.08);
+    0 1px 1px rgba(255, 255, 255, 0.18) inset,
+    0 2px 5px rgba(0, 0, 0, 0.16),
+    0 7px 14px rgba(0, 0, 0, 0.14);
   transform-origin: bottom center;
+}
+
+/* ── 图片类型 icon — 完全无边框，1:1 macOS 全占效果 ── */
+/* 图标本身自带圆角设计，父级 overflow:hidden 负责裁剪 */
+.dock-icon:has(.dock-icon-img) {
+  border: none;
+  background-color: transparent;
+  /* 只保留自然投影，无任何描边环 */
+  box-shadow:
+    0 1px 1px rgba(255, 255, 255, 0.14) inset,
+    0 2px 5px rgba(0, 0, 0, 0.16),
+    0 7px 16px rgba(0, 0, 0, 0.15);
+}
+
+.dock-icon:has(.dock-icon-img):hover {
+  box-shadow:
+    0 1px 1px rgba(255, 255, 255, 0.16) inset,
+    0 4px 9px rgba(0, 0, 0, 0.20),
+    0 12px 24px rgba(0, 0, 0, 0.18);
 }
 
 /* JS 退出作用域时的平滑回落动画 */
@@ -85,8 +152,9 @@
 
 .dock-icon:hover {
   box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.16),
-    0 8px 20px rgba(0, 0, 0, 0.12);
+    0 1px 1px rgba(255, 255, 255, 0.18) inset,
+    0 4px 9px rgba(0, 0, 0, 0.20),
+    0 11px 22px rgba(0, 0, 0, 0.16);
 }
 
 /* ── Icon 内容 ── */
@@ -111,7 +179,9 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: calc(var(--dock-icon-radius, 12px) - 1px);
+  /* border-radius handled by parent overflow:hidden */
+  display: block;
+  filter: saturate(1.06) contrast(1.03);
 }
 
 /* ── Tooltip 浮窗 ── */
@@ -127,8 +197,8 @@
   padding: 4px 10px;
   border-radius: 6px;
   font-size: 12px;
-  font-weight: 520;
-  letter-spacing: 0.01em;
+  font-weight: 560;
+  letter-spacing: 0;
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
@@ -205,8 +275,8 @@
 /* ── 响应式 ── */
 @media (max-width: 820px) {
   .dock-glass {
-    backdrop-filter: blur(calc(var(--dock-blur, 60px) * 0.55)) saturate(140%);
-    -webkit-backdrop-filter: blur(calc(var(--dock-blur, 60px) * 0.55)) saturate(140%);
+    -webkit-backdrop-filter: blur(40px) saturate(140%) !important;
+    backdrop-filter: blur(40px) saturate(140%) !important;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12), inset 0 0.5px 0 rgba(255, 255, 255, 0.18);
   }
 

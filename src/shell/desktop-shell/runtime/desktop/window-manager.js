@@ -472,10 +472,11 @@ export function registerWindowManager(Alpine) {
       /* ── 计算派生参数 ── */
       const maxSize = Math.round(baseSize * magScale);
       const range = Math.round(baseSize * 2.9);
-      const maxLift = Math.round(baseSize * 0.29);
+      const maxLift = enableMagnification ? Math.round(baseSize * 0.10) : 0;
       const maxScale = maxSize / baseSize;
       const glassHeight = baseSize + dockPadding * 2;
-      const barHeight = baseSize + dockPadding * 2 + 30;  /* +30 = maxLift headroom，放大时图标上浮预留空间 */
+      const barHeadroom = enableMagnification ? Math.max(14, maxLift + 8) : 0;
+      const barHeight = glassHeight + barHeadroom;
 
       /* ── 将参数注入 CSS 变量 ── */
       el.style.setProperty('--dock-icon-size', `${baseSize}px`);

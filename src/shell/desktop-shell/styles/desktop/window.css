@@ -3,8 +3,10 @@
 .macos-window {
   background: transparent;
   box-shadow: var(--content-window-shadow), var(--content-window-highlight);
-  backdrop-filter: blur(28px) saturate(150%);
-  -webkit-backdrop-filter: blur(28px) saturate(150%);
+  backdrop-filter: blur(40px) saturate(170%);
+  -webkit-backdrop-filter: blur(40px) saturate(170%);
+  border: 0.5px solid var(--content-chrome-border);
+  overflow: hidden;
 }
 
 /* Safari 顶栏 — 实色背景 */
@@ -12,7 +14,7 @@
   background: var(--content-chrome-bg) !important;
   border-bottom-color: var(--content-chrome-border) !important;
   color: var(--content-chrome-text);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.18);
   transition:
     background-color 0.18s ease,
     border-color 0.18s ease,
@@ -177,6 +179,8 @@
 
 .window-title-text {
   color: var(--content-chrome-text);
+  font-weight: 560;
+  letter-spacing: -0.08px;
 }
 
 /* ---------- 窗口缩放手柄 ---------- */
@@ -270,7 +274,7 @@
 
 .window-toolbar-feedback {
   color: var(--content-chrome-muted);
-  letter-spacing: 0.01em;
+  letter-spacing: -0.04px;
   white-space: nowrap;
   font-size: 11.5px;
   font-weight: 560;
@@ -528,7 +532,7 @@
   justify-content: center;
   border: none !important;
   position: relative;
-  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.15), inset 0 0.5px 0 rgba(255, 255, 255, 0.15);
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.12), inset 0 0.5px 0 rgba(255, 255, 255, 0.2);
   transition: background-color 0.15s ease;
   padding: 0;
   cursor: pointer;

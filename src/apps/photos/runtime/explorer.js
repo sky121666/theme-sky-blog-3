@@ -172,6 +172,39 @@ export function registerPhotosExplorer(Alpine) {
       const engine = this._getEngine();
       if (!surface || engine.surfaceCleanup) return;
 
+      const dispatchSurfaceControl = (name, detail = {}) => {
+        surface.dispatchEvent(new CustomEvent(`photos:${name}`, { detail, bubbles: true }));
+      };
+      const onControlClick = (event) => {
+        const stopRegion = event.target?.closest?.('[data-photos-stop-window-drag]');
+        if (stopRegion) event.stopPropagation();
+
+        const control = event.target?.closest?.('[data-photos-control]');
+        if (!control || !surface.contains(control)) return;
+
+        const action = control.dataset.photosControl;
+        if (action === 'set-mode') {
+          dispatchSurfaceControl('set-mode', { mode: control.dataset.photosMode || 'square' });
+          return;
+        }
+        if (action === 'cols-increase') dispatchSurfaceControl('cols-increase');
+        if (action === 'cols-decrease') dispatchSurfaceControl('cols-decrease');
+        if (action === 'zoom-in') dispatchSurfaceControl('zoom-in');
+        if (action === 'zoom-out') dispatchSurfaceControl('zoom-out');
+        if (action === 'info-toggle') dispatchSurfaceControl('info-toggle');
+        if (action === 'comments-toggle') dispatchSurfaceControl('comments-toggle');
+      };
+      const onControlInput = (event) => {
+        const control = event.target?.closest?.('[data-photos-control="zoom-set"]');
+        if (!control || !surface.contains(control)) return;
+        event.stopPropagation();
+        dispatchSurfaceControl('zoom-set', { value: control.value });
+      };
+      const stopWindowDrag = (event) => {
+        if (event.target?.closest?.('[data-photos-stop-window-drag]')) {
+          event.stopPropagation();
+        }
+      };
       const onSetMode = (event) => {
         if (this.isDetailView()) return;
         const mode = event.detail?.mode;
@@ -193,6 +226,10 @@ export function registerPhotosExplorer(Alpine) {
         this.syncDetailChromeControls();
       };
 
+      surface.addEventListener('click', onControlClick);
+      surface.addEventListener('input', onControlInput);
+      surface.addEventListener('mousedown', stopWindowDrag, true);
+      surface.addEventListener('pointerdown', stopWindowDrag, true);
       surface.addEventListener('photos:set-mode', onSetMode);
       surface.addEventListener('photos:cols-increase', onIncrease);
       surface.addEventListener('photos:cols-decrease', onDecrease);
@@ -204,6 +241,10 @@ export function registerPhotosExplorer(Alpine) {
       surface.addEventListener('photos:comments-close', onCommentsClose);
 
       engine.surfaceCleanup = () => {
+        surface.removeEventListener('click', onControlClick);
+        surface.removeEventListener('input', onControlInput);
+        surface.removeEventListener('mousedown', stopWindowDrag, true);
+        surface.removeEventListener('pointerdown', stopWindowDrag, true);
         surface.removeEventListener('photos:set-mode', onSetMode);
         surface.removeEventListener('photos:cols-increase', onIncrease);
         surface.removeEventListener('photos:cols-decrease', onDecrease);
