@@ -21,6 +21,7 @@ pnpm-debug.log*
 .vscode/
 .playwright-cli
 output/playwright/
+output/audit/
 output/demo-site/
 links-*.png
 

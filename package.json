@@ -10,6 +10,7 @@
     "typecheck": "node scripts/typecheck-contracts.mjs",
     "smoke": "node scripts/smoke-theme.mjs",
     "smoke:playwright": "node scripts/smoke-playwright.mjs",
+    "audit:real-pages": "node scripts/audit-real-pages.mjs",
     "verify:moments": "node scripts/verify-moments.mjs",
     "verify:reload": "node scripts/verify-theme-reload.mjs",
     "check": "node scripts/lint-architecture.mjs && node scripts/typecheck-contracts.mjs && vite build && node scripts/smoke-theme.mjs",
