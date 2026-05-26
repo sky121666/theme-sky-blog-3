@@ -33,6 +33,46 @@ function round(value) {
   return Number.isFinite(value) ? Math.round(value) : 0;
 }
 
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '-';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function sumResourceBytes(items = []) {
+  return items.reduce((sum, item) => sum + (Number(item.bytes) || 0), 0);
+}
+
+function resourceExpected(resourceKey, page) {
+  const protocol = page.protocol || {};
+  if (resourceKey === 'comment-widget') return Boolean(protocol.hasComment);
+  if (resourceKey === 'rag-ui') return Boolean(protocol.hasRagSurface);
+  if (resourceKey === 'contact-form') return Boolean(protocol.hasContactForm);
+  if (resourceKey === 'shiki') return Boolean(protocol.hasCode);
+  if (resourceKey === 'large-media') return true;
+  return true;
+}
+
+function buildResourceFindings(pages) {
+  return watchedResources.map((resource) => {
+    const hits = pages.filter((page) => (page.watchedResources?.[resource.key] || []).length > 0);
+    const unexpected = hits.filter((page) => !resourceExpected(resource.key, page));
+    const totalBytes = hits.reduce((sum, page) => sum + sumResourceBytes(page.watchedResources?.[resource.key]), 0);
+    return {
+      key: resource.key,
+      allowed: resource.allowed,
+      hitPages: hits.map((page) => page.name),
+      unexpectedPages: unexpected.map((page) => page.name),
+      totalHits: hits.reduce((sum, page) => sum + (page.watchedResources?.[resource.key] || []).length, 0),
+      totalBytes,
+      decision: unexpected.length > 0
+        ? '记录为疑似全局注入；不直接拦截，先确认插件是否支持页面级 gating'
+        : '当前命中符合页面能力边界'
+    };
+  });
+}
+
 async function writeReport(report) {
   await fs.mkdir(outputDir, { recursive: true });
   const jsonFile = path.join(outputDir, 'real-pages-report.json');
@@ -46,12 +86,16 @@ function renderMarkdown(report) {
   const rows = report.pages.map((page) => {
     const resources = Object.entries(page.watchedResources || {})
       .filter(([, items]) => items.length > 0)
-      .map(([key, items]) => `${key}:${items.length}`)
+      .map(([key, items]) => `${key}:${items.length}${sumResourceBytes(items) > 0 ? `/${formatBytes(sumResourceBytes(items))}` : ''}`)
       .join(', ') || '-';
-    return `| ${page.name} | ${page.status} | ${page.metrics.lcp} | ${page.metrics.cls} | ${page.metrics.tbt} | ${resources} | ${page.consoleErrors.length} |`;
+    const images = page.protocol?.imageCount != null
+      ? `${page.protocol.lazyImageCount}/${page.protocol.imageCount}`
+      : '-';
+    return `| ${page.name} | ${page.status} | ${page.metrics.lcp} | ${page.metrics.cls} | ${page.metrics.tbt} | ${page.metrics.resourceCount} | ${images} | ${resources} | ${page.consoleErrors.length} |`;
   }).join('\n');
 
   const resourceRows = watchedResources.map((resource) => `| ${resource.key} | ${resource.allowed} |`).join('\n');
+  const findingRows = (report.resourceFindings || []).map((finding) => `| ${finding.key} | ${finding.totalHits} | ${formatBytes(finding.totalBytes)} | ${finding.hitPages.join(', ') || '-'} | ${finding.unexpectedPages.join(', ') || '-'} | ${finding.decision} |`).join('\n');
 
   return [
     '# 真实页面审计报告',
@@ -61,8 +105,8 @@ function renderMarkdown(report) {
     '',
     '## 页面结果',
     '',
-    '| 页面 | 状态 | LCP(ms) | CLS | TBT(ms) | 命中资源 | Console Error |',
-    '| --- | --- | ---: | ---: | ---: | --- | ---: |',
+    '| 页面 | 状态 | LCP(ms) | CLS | TBT(ms) | Resource | Lazy Images | 命中资源 | Console Error |',
+    '| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: |',
     rows,
     '',
     '## 资源边界',
@@ -70,6 +114,12 @@ function renderMarkdown(report) {
     '| 资源 | 允许加载场景 |',
     '| --- | --- |',
     resourceRows,
+    '',
+    '## 资源判定',
+    '',
+    '| 资源 | 命中数 | 估算大小 | 命中页面 | 非预期页面 | 处理判断 |',
+    '| --- | ---: | ---: | --- | --- | --- |',
+    findingRows,
     ''
   ].join('\n');
 }
@@ -87,10 +137,12 @@ async function auditRoute(page, route) {
     const url = response.url();
     for (const resource of watchedResources) {
       if (resource.pattern.test(url)) {
+        const contentLength = Number(response.headers()['content-length'] || 0);
         resourceMap[resource.key].push({
           url,
           status: response.status(),
-          type: response.request().resourceType()
+          type: response.request().resourceType(),
+          bytes: Number.isFinite(contentLength) ? contentLength : 0
         });
       }
     }
@@ -128,6 +180,8 @@ async function auditRoute(page, route) {
       appId: document.body.dataset.appId || '',
       windowVariant: document.body.dataset.windowVariant || '',
       hasComment: Boolean(document.querySelector('comment-widget, .halo-comment-widget, halo\\:comment')),
+      hasContactForm: Boolean(document.querySelector('contact-form, [data-contact-form], .contact-form, form[action*="contact"]')),
+      hasRagSurface: Boolean(document.querySelector('rag-ui, [data-rag-ui], [data-rag]')),
       hasCode: Boolean(document.querySelector('shiki-code, pre code, pre, code')),
       imageCount: document.images.length,
       lazyImageCount: Array.from(document.images).filter((image) => image.loading === 'lazy').length
@@ -215,6 +269,7 @@ async function main() {
   for (const route of routes) {
     report.pages.push(await auditRoute(cdpPage, route));
   }
+  report.resourceFindings = buildResourceFindings(report.pages);
 
   await browser.close();
   const files = await writeReport(report);
