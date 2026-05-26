@@ -2,7 +2,7 @@
  * 全局窗口状态管理 Store + 菜单栏 + 主题 + Dock
  */
 
-import { resolveThemeMode, applyRootThemeState } from '../shared/theme.js';
+import { resolveThemeMode, applyRootThemeState, runThemeTransition } from '../shared/theme.js';
 import { openSearchWidget } from './search.js';
 import { runGenieAnimation } from './window.js';
 import { createLogger } from '../shared/debug.js';
@@ -100,7 +100,9 @@ export function registerWindowManager(Alpine) {
     setMode(newMode) {
       this.mode = newMode;
       localStorage.setItem('theme', newMode);
-      this.applyTheme();
+      runThemeTransition(() => {
+        this.applyTheme();
+      });
     },
 
     refresh() {

@@ -1,0 +1,129 @@
+/* Controlled light/dark switching. Active only during a user-initiated theme change. */
+:root {
+  --theme-transition-duration: 220ms;
+  --theme-transition-ease: cubic-bezier(0.22, 0.9, 0.24, 1);
+}
+
+html.theme-transitioning body,
+html.theme-transitioning .desktop-surface,
+html.theme-transitioning .menubar,
+html.theme-transitioning .menubar-dropdown,
+html.theme-transitioning .menubar-mobile-dropdown,
+html.theme-transitioning .dock-glass,
+html.theme-transitioning .content-window,
+html.theme-transitioning .macos-window,
+html.theme-transitioning .window-titlebar,
+html.theme-transitioning .desktop-widget-card,
+html.theme-transitioning .desktop-context-menu,
+html.theme-transitioning .halo-search-widget-modal,
+html.theme-transitioning [class*="search-widget-modal"],
+html.theme-transitioning .DocSearch-Modal,
+html.theme-transitioning .photos-window,
+html.theme-transitioning .links-app,
+html.theme-transitioning .links-modal,
+html.theme-transitioning .douban-app,
+html.theme-transitioning .moments-app,
+html.theme-transitioning .moments-window,
+html.theme-transitioning .moments-publish-dialog,
+html.theme-transitioning .docsme-window,
+html.theme-transitioning .steam-app,
+html.theme-transitioning .reader-app,
+html.theme-transitioning .bangumis-app,
+html.theme-transitioning .equipments-window,
+html.theme-transitioning .archive-shell,
+html.theme-transitioning .categories-shell,
+html.theme-transitioning .category-shell,
+html.theme-transitioning .tags-shell,
+html.theme-transitioning .tag-shell,
+html.theme-transitioning .author-shell {
+  transition:
+    background-color var(--theme-transition-duration) var(--theme-transition-ease),
+    color var(--theme-transition-duration) var(--theme-transition-ease),
+    border-color var(--theme-transition-duration) var(--theme-transition-ease),
+    box-shadow var(--theme-transition-duration) var(--theme-transition-ease),
+    filter var(--theme-transition-duration) var(--theme-transition-ease),
+    backdrop-filter var(--theme-transition-duration) var(--theme-transition-ease),
+    -webkit-backdrop-filter var(--theme-transition-duration) var(--theme-transition-ease),
+    opacity var(--theme-transition-duration) var(--theme-transition-ease);
+}
+
+html.theme-transitioning .dock-icon,
+html.theme-transitioning .dock-icon-img,
+html.theme-transitioning .desktop-icon,
+html.theme-transitioning .desktop-icon-img {
+  transition-property: box-shadow, border-color, background-color, filter, opacity;
+}
+
+html.theme-transitioning::view-transition-old(root),
+html.theme-transitioning::view-transition-new(root) {
+  animation-duration: var(--theme-transition-duration);
+  animation-timing-function: var(--theme-transition-ease);
+}
+
+html.theme-transitioning::view-transition-old(root) {
+  animation-name: theme-root-fade-out;
+}
+
+html.theme-transitioning::view-transition-new(root) {
+  animation-name: theme-root-fade-in;
+}
+
+@keyframes theme-root-fade-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0.9;
+  }
+}
+
+@keyframes theme-root-fade-in {
+  from {
+    opacity: 0.9;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.theme-transitioning body,
+  html.theme-transitioning .desktop-surface,
+  html.theme-transitioning .menubar,
+  html.theme-transitioning .menubar-dropdown,
+  html.theme-transitioning .menubar-mobile-dropdown,
+  html.theme-transitioning .dock-glass,
+  html.theme-transitioning .content-window,
+  html.theme-transitioning .macos-window,
+  html.theme-transitioning .window-titlebar,
+  html.theme-transitioning .desktop-widget-card,
+  html.theme-transitioning .desktop-context-menu,
+  html.theme-transitioning .halo-search-widget-modal,
+  html.theme-transitioning [class*="search-widget-modal"],
+  html.theme-transitioning .DocSearch-Modal,
+  html.theme-transitioning .photos-window,
+  html.theme-transitioning .links-app,
+  html.theme-transitioning .links-modal,
+  html.theme-transitioning .douban-app,
+  html.theme-transitioning .moments-app,
+  html.theme-transitioning .moments-window,
+  html.theme-transitioning .moments-publish-dialog,
+  html.theme-transitioning .docsme-window,
+  html.theme-transitioning .steam-app,
+  html.theme-transitioning .reader-app,
+  html.theme-transitioning .bangumis-app,
+  html.theme-transitioning .equipments-window,
+  html.theme-transitioning .archive-shell,
+  html.theme-transitioning .categories-shell,
+  html.theme-transitioning .category-shell,
+  html.theme-transitioning .tags-shell,
+  html.theme-transitioning .tag-shell,
+  html.theme-transitioning .author-shell,
+  html.theme-transitioning::view-transition-old(root),
+  html.theme-transitioning::view-transition-new(root) {
+    animation: none !important;
+    transition: none !important;
+  }
+}
