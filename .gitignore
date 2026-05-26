@@ -21,6 +21,7 @@ pnpm-debug.log*
 .vscode/
 .playwright-cli
 output/playwright/
+output/demo-site/
 links-*.png
 
 # macOS / 云同步冲突副本（不要污染主题构建产物）
