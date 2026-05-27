@@ -39,7 +39,9 @@ const SAMPLE_GUIDES = {
 };
 
 function absoluteUrl(target) {
-  return new URL(target, `${baseUrl}/`).toString();
+  const url = new URL(target, `${baseUrl}/`);
+  url.searchParams.set('_docsme_verify', String(Date.now()));
+  return url.toString();
 }
 
 function toPathname(value) {
@@ -76,7 +78,12 @@ async function collectDocsLinks(page, startPath = '/docs') {
     const snapshot = await page.evaluate(() => {
       const root = document.querySelector('[data-app-root="docsme"]');
       return {
-        path: `${window.location.pathname}${window.location.search}`,
+        path: (() => {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('_docsme_verify');
+          const query = url.searchParams.toString();
+          return `${url.pathname}${query ? `?${query}` : ''}`;
+        })(),
         scene: root?.dataset.docsmeScene || '',
         links: Array.from(document.querySelectorAll('a[href]'))
           .map((anchor) => anchor.href)
@@ -109,7 +116,7 @@ async function inspectDocsPage(page, target) {
   page.on('console', onConsole);
   try {
     const response = await page.goto(absoluteUrl(target), { waitUntil: 'domcontentloaded', timeout: 20_000 });
-    await page.waitForTimeout(900);
+    await page.waitForTimeout(1_800);
     const result = await page.evaluate(() => {
       const root = document.querySelector('[data-app-root="docsme"]');
       const article = document.querySelector('.docsme-article');
@@ -134,8 +141,9 @@ async function inspectDocsPage(page, target) {
         renderScripts: Array.from(document.querySelectorAll('script[data-pjax]'))
           .filter((script) => script.textContent.includes('renderCodeBlock')).length,
         replayScripts: document.querySelectorAll('script[data-theme-shiki-replay]').length,
-        katex: document.querySelectorAll('.katex, [math-inline], [math-display]').length,
+        katex: document.querySelectorAll('.katex, .math-inline, .math-display, [math-inline], [math-display]').length,
         mermaid: document.querySelectorAll('text-diagram[data-type="mermaid"], .mermaid').length,
+        mermaidRendered: document.querySelectorAll('text-diagram[data-type="mermaid"] svg, .mermaid svg').length,
         articleTextLength: article?.innerText?.trim?.().length || 0
       };
     });
@@ -202,16 +210,17 @@ function diagnosticsForCheck(check) {
       katex: result.katex ?? 0,
       articleTextLength: result.articleTextLength ?? 0,
       consoleErrors: result.consoleErrors || [],
-      hint: '若 KaTeX 失败，检查公式语法、Docsme 插件输出和数学渲染插件资源是否加载。'
+      hint: '若 KaTeX 失败，检查公式是否输出为 .math-inline / .math-display、Docsme 插件输出和数学渲染插件资源是否加载。'
     };
   }
   if (check.name === 'mermaid-sample') {
     return {
       path: check.path || '',
       mermaid: result.mermaid ?? 0,
+      mermaidRendered: result.mermaidRendered ?? 0,
       articleTextLength: result.articleTextLength ?? 0,
       consoleErrors: result.consoleErrors || [],
-      hint: '若 Mermaid 失败，检查 fenced code 语言是否为 mermaid、图表插件 DOM 和 PJAX 后重绘。'
+      hint: '若 Mermaid 失败，检查 text-diagram 插件脚本、html[data-theme] 和 PJAX 后重绘。'
     };
   }
   return {};
@@ -361,11 +370,12 @@ async function main() {
     report.checks.push(skippedCheck('katex-sample', 'No Docsme document with KaTeX content was found.'));
   }
 
-  const mermaidPath = explicitMermaidPath || chooseSample(candidateDocs, inspections, (result) => result.mermaid > 0);
+  const mermaidPath = explicitMermaidPath || chooseSample(candidateDocs, inspections, (result) => result.mermaidRendered > 0);
   if (mermaidPath) {
     const result = inspections.get(mermaidPath) || await inspectDocsPage(page, mermaidPath);
     const checkFailures = assertDocsProtocol(result, 'mermaid sample');
-    if (result.mermaid === 0) checkFailures.push('mermaid sample: no Mermaid DOM detected');
+    if (result.mermaid === 0) checkFailures.push('mermaid sample: no Mermaid source DOM detected');
+    if (result.mermaidRendered === 0) checkFailures.push('mermaid sample: Mermaid DOM was not rendered to SVG');
     failures.push(...checkFailures);
     report.checks.push({
       name: 'mermaid-sample',

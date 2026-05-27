@@ -1175,6 +1175,7 @@
   background: color-mix(in srgb, var(--docsme-accent) 5%, transparent);
 }
 
+.docsme-article .math-display,
 .docsme-article [math-display],
 .docsme-article .katex-display {
   max-width: 100%;

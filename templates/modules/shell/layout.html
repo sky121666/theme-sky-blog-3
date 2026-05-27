@@ -78,6 +78,7 @@
         root.classList.add(theme === 'system' ? 'color-scheme-auto' : 'color-scheme-' + theme);
         root.classList.add(theme);
         root.setAttribute('data-color-scheme', theme);
+        root.setAttribute('data-theme', isDark ? 'dark' : 'light');
         root.style.colorScheme = isDark ? 'dark' : 'light';
 
         if (isDark) {

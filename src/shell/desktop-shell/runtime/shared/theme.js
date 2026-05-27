@@ -57,6 +57,7 @@ export function applyRootThemeState(mode, mediaQuery) {
   root.classList.add(themeMode === 'system' ? 'color-scheme-auto' : `color-scheme-${themeMode}`);
   root.classList.add(themeMode);
   root.setAttribute('data-color-scheme', themeMode);
+  root.setAttribute('data-theme', isDark ? 'dark' : 'light');
   root.style.colorScheme = isDark ? 'dark' : 'light';
 
   if (isDark) {

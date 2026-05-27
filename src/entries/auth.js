@@ -21,6 +21,7 @@ function applyTheme(theme, root = document.documentElement) {
   root.classList.add(nextTheme === 'system' ? 'color-scheme-auto' : `color-scheme-${nextTheme}`);
   root.classList.add(nextTheme);
   root.setAttribute('data-color-scheme', nextTheme);
+  root.setAttribute('data-theme', dark ? 'dark' : 'light');
   root.style.colorScheme = dark ? 'dark' : 'light';
 
   document.querySelectorAll('[data-auth-theme-toggle]').forEach((button) => {

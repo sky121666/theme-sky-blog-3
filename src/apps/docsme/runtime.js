@@ -239,35 +239,74 @@ function renderToc(root) {
   }
 }
 
-function renderMathAndDiagrams(root) {
-  if (window.mermaid?.run) {
-    const mermaidNodes = Array.from(root.querySelectorAll('text-diagram[data-type="mermaid"], .mermaid')).filter((node) => {
-      if (node.dataset.docsmeMermaidRendered === 'true') return false;
-      node.dataset.docsmeMermaidRendered = 'true';
-      return true;
-    });
+function isDocsmeDebugEnabled() {
+  return document.body?.dataset?.debug === 'true';
+}
 
-    if (mermaidNodes.length > 0) {
-      window.mermaid.run({ nodes: mermaidNodes }).catch(() => {
-        mermaidNodes.forEach((node) => {
-          node.dataset.docsmeMermaidRendered = 'false';
-        });
-      });
-    }
+function warnDocsmeRender(label, payload = {}) {
+  if (!isDocsmeDebugEnabled()) return;
+  console.warn(`[docsme] ${label}`, payload);
+}
+
+function scheduleRichContentRetry(root, attempt) {
+  if (attempt >= 10) return;
+  window.setTimeout(() => renderMathAndDiagrams(root, attempt + 1), 150);
+}
+
+function renderMathAndDiagrams(root, attempt = 0) {
+  const mermaidNodes = Array.from(root.querySelectorAll('text-diagram[data-type="mermaid"], .mermaid')).filter((node) => {
+    return node.querySelector('svg') == null && node.textContent.trim().length > 0;
+  });
+  const mathNodes = Array.from(root.querySelectorAll('.math-inline, .math-display, [math-inline], [math-display]')).filter((node) => {
+    return node.dataset.docsmeKatexRendered !== 'true';
+  });
+
+  if (mermaidNodes.length > 0 && !window.mermaid?.run) {
+    warnDocsmeRender('Mermaid 运行时尚未加载，等待插件脚本后重试。', {
+      nodes: mermaidNodes.length,
+      attempt
+    });
+    scheduleRichContentRetry(root, attempt);
   }
 
-  if (window.katex?.render) {
-    root.querySelectorAll('[math-inline], [math-display]').forEach((el) => {
-      if (el.dataset.docsmeKatexRendered === 'true') return;
-      const displayMode = el.hasAttribute('math-display');
+  if (mermaidNodes.length > 0 && window.mermaid?.run) {
+    const isDark = document.documentElement.dataset.theme === 'dark';
+    window.mermaid.initialize?.({
+      startOnLoad: false,
+      theme: isDark ? 'dark' : 'default'
+    });
+
+    window.mermaid.run({ nodes: mermaidNodes }).catch((error) => {
+      warnDocsmeRender('Mermaid 渲染失败。', {
+        nodes: mermaidNodes.length,
+        message: error?.message || String(error || '')
+      });
+    });
+  }
+
+  if (mathNodes.length > 0 && !window.katex?.render) {
+    warnDocsmeRender('KaTeX 运行时尚未加载，等待插件脚本后重试。', {
+      nodes: mathNodes.length,
+      attempt
+    });
+    scheduleRichContentRetry(root, attempt);
+  }
+
+  if (mathNodes.length > 0 && window.katex?.render) {
+    mathNodes.forEach((el) => {
+      const displayMode = el.classList.contains('math-display') || el.hasAttribute('math-display');
       try {
         window.katex.render(el.innerText, el, {
           displayMode,
           throwOnError: false
         });
         el.dataset.docsmeKatexRendered = 'true';
-      } catch {
+      } catch (error) {
         el.dataset.docsmeKatexRendered = 'false';
+        warnDocsmeRender('KaTeX 渲染失败。', {
+          displayMode,
+          message: error?.message || String(error || '')
+        });
       }
     });
   }
