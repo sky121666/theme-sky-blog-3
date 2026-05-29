@@ -166,7 +166,7 @@ function renderPoster(item) {
   if (!item.poster) {
     return '<span class="icon-[lucide--image]" aria-hidden="true"></span>';
   }
-  return `<img src="${escapeHtml(item.poster)}" alt="${escapeHtml(item.title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer">`;
+  return `<img src="${escapeHtml(item.poster)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">`;
 }
 
 function renderRail(items, activeIndex) {
@@ -333,6 +333,22 @@ function updateActive(root, items, activeIndex, total, type, _status, options = 
   root.dataset.doubanHydrated = 'true';
 }
 
+function handleImageError(event) {
+  const image = event.target?.closest?.('img');
+  if (!image) return;
+  const poster = image.closest('[data-douban-poster]');
+  if (poster) {
+    poster.classList.add('is-empty');
+    poster.innerHTML = '<span class="icon-[lucide--image]" aria-hidden="true"></span>';
+    return;
+  }
+
+  const thumb = image.closest('[data-douban-index]');
+  if (thumb) {
+    thumb.innerHTML = '<span class="icon-[lucide--image]" aria-hidden="true"></span>';
+  }
+}
+
 function mountDoubanShowcase(root) {
   if (!root) return;
   if (root.dataset.doubanShowcaseMounted === 'true') {
@@ -402,6 +418,7 @@ function mountDoubanShowcase(root) {
   root.addEventListener('pointerleave', pauseThenResume, { signal: eventController.signal });
   root.addEventListener('focusin', stop, { signal: eventController.signal });
   root.addEventListener('focusout', pauseThenResume, { signal: eventController.signal });
+  root.addEventListener('error', handleImageError, { signal: eventController.signal, capture: true });
   root.addEventListener('pointerover', (event) => {
     if (isEditingOrDragging()) return;
     const button = event.target.closest('[data-douban-index]');

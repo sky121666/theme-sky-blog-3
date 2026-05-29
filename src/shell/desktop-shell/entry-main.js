@@ -13,6 +13,7 @@ import './styles/desktop/surface.css';
 import './styles/desktop/shell.css';
 import './styles/icons/index.css';
 import './styles/widgets/index.css';
+import './styles/desktop/notification-center.css';
 import './styles/error.css';
 
 /* ===== JS：Alpine.js ===== */

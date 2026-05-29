@@ -23,6 +23,19 @@ function appLoadedFlagName(appId) {
   return `__THEME_APP_${String(appId).replace(/[^a-zA-Z0-9]+/g, '_').toUpperCase()}_LOADED__`;
 }
 
+function isExternalUploadResourceError(message) {
+  if (!message || !/^Failed to load resource:/i.test(message.text())) return false;
+  const url = message.location()?.url || '';
+  if (!url) return false;
+  try {
+    const resourceUrl = new URL(url);
+    const smokeUrl = new URL(baseUrl);
+    return resourceUrl.origin !== smokeUrl.origin && resourceUrl.pathname.startsWith('/upload/');
+  } catch {
+    return false;
+  }
+}
+
 function buildOptionalRoute(name, envKey, expectedAppId, expectedPageMode, expectedWindowVariant) {
   const value = (process.env[envKey] || '').trim();
   if (!value) return null;
@@ -211,6 +224,7 @@ async function main() {
     };
     const handleConsole = (message) => {
       if (message.type() === 'error') {
+        if (isExternalUploadResourceError(message)) return;
         consoleErrors.push(message.text());
       }
     };

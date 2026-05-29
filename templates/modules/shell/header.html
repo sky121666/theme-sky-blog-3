@@ -101,8 +101,9 @@
         </span>
       </button>
 
-      <div th:if="${timeEnabled}"
-           th:with="
+      <button th:if="${timeEnabled}"
+              type="button"
+              th:with="
              headerNow=${#dates.createNow()},
              isHeaderTime24Hour=${#strings.toString(timeHourCycle) == '24'},
              desktopTimePattern=${isHeaderTime24Hour ? 'HH:mm' : 'a h:mm'},
@@ -118,9 +119,14 @@
                timeDesktopPreset == 'month-day-weekday-time' ? desktopDateText + ' ' + desktopWeekdayText + ' ' + desktopTimeText :
                desktopTimeText
              }"
-           class="menubar-time"
-           x-text="timeStr"
-           th:text="${initialTimeText}"></div>
+              class="menubar-time"
+              @click.stop="toggleNotificationCenter()"
+              :aria-expanded="(notificationCenterOpen || notificationCenterVisible).toString()"
+              aria-controls="notification-center-panel"
+              aria-label="打开通知中心"
+              title="通知中心"
+              x-text="timeStr"
+              th:text="${initialTimeText}"></button>
     </div>
 
     <th:block th:replace="~{modules/shell/header :: mobile_dropdown(
@@ -130,6 +136,250 @@
       authEnabled=${authEnabled},
       mobileMenuEnabled=${mobileMenuEnabled}
     )}"></th:block>
+
+    <aside id="notification-center-panel"
+           class="notification-center"
+           data-notification-widget-drop-target
+           x-ref="notificationCenterPanel"
+           x-show="notificationCenterVisible"
+           :class="{
+             'is-animating': notificationCenterAnimating,
+             'is-opening': notificationCenterMotionPhase === 'opening',
+             'is-closing': notificationCenterMotionPhase === 'closing'
+           }"
+           @click.outside="!isNotificationWidgetEditingActive() && closeNotificationCenter()"
+           style="display: none;"
+           role="dialog"
+           aria-label="通知中心">
+      <header class="notification-center-header">
+        <div class="notification-center-title-stack">
+          <h2>通知中心</h2>
+          <span x-show="notificationSummaryText()"
+                x-text="notificationSummaryText()"></span>
+        </div>
+        <div class="notification-center-actions">
+          <div class="notification-center-segmented"
+               :class="{ 'is-all': notificationShowRead, 'is-unread': !notificationShowRead }"
+               role="group"
+               aria-label="通知筛选">
+            <button type="button"
+                    class="notification-center-segment"
+                    :class="{ 'is-active': !notificationShowRead }"
+                    :aria-pressed="(!notificationShowRead).toString()"
+                    @click="setNotificationReadFilter(false)">
+              <span>未读</span>
+            </button>
+            <button type="button"
+                    class="notification-center-segment"
+                    :class="{ 'is-active': notificationShowRead }"
+                    :aria-pressed="notificationShowRead.toString()"
+                    @click="setNotificationReadFilter(true)">
+              <span>全部</span>
+            </button>
+          </div>
+          <button type="button"
+                  class="notification-center-refresh"
+                  @click="loadNotifications({ force: true })"
+                  aria-label="刷新通知"
+                  title="刷新通知">
+            <span class="icon-[lucide--refresh-cw]" aria-hidden="true"></span>
+          </button>
+          <button type="button"
+                  class="notification-center-close"
+                  @click="closeNotificationCenter()"
+                  aria-label="关闭通知中心">
+            <span class="icon-[lucide--x]" aria-hidden="true"></span>
+          </button>
+        </div>
+      </header>
+
+      <div class="notification-panel-scroll" x-ref="notificationCenterScroll">
+        <section class="notification-center-section notification-center-feed"
+                 :class="{ 'is-filter-switching': notificationFilterSwitching }">
+          <template x-if="notificationStatusText">
+            <div class="notification-center-status" :data-state="notificationStatus">
+              <span class="icon-[lucide--bell]" aria-hidden="true"></span>
+              <span x-text="notificationStatusText"></span>
+            </div>
+          </template>
+
+          <template x-if="notificationVisibleGroups().length > 0">
+            <div class="notification-center-groups">
+              <template x-for="group in notificationVisibleGroups()" :key="group.key">
+                <section class="notification-center-group"
+                         :data-notification-group-key="group.key"
+                         :class="{ 'is-expanded': isNotificationGroupExpanded(group) }">
+                  <div class="notification-center-group-header-wrapper"
+                       x-show="isNotificationGroupExpanded(group)">
+                    <button type="button"
+                            class="notification-center-group-head"
+                            @click="collapseNotificationGroup()"
+                            aria-expanded="true">
+                      <strong x-text="group.label"></strong>
+                    </button>
+                    <button type="button"
+                            class="notification-center-group-less"
+                            @click.stop="collapseNotificationGroup()"
+                            aria-label="折叠该类型通知">
+                      <span>更少内容</span>
+                    </button>
+                    <button type="button"
+                            class="notification-center-group-clear"
+                            @click.stop="clearNotificationGroup(group, $event)"
+                            aria-label="删除所有该类型通知"
+                            title="删除所有该类型通知">
+                      <span class="icon-[lucide--x]" aria-hidden="true"></span>
+                    </button>
+                  </div>
+
+                  <div class="notification-center-stack-preview"
+                       x-show="!isNotificationGroupExpanded(group) && notificationGroupItems(group).length > 0"
+                       @click="openNotificationGroup(group)"
+                       @keydown.enter.prevent="openNotificationGroup(group)"
+                       role="button"
+                       tabindex="0"
+                       :aria-label="`展开${group.label}通知`">
+                    <template x-if="notificationGroupItems(group).length > 0">
+                      <div class="notification-center-stack-card-wrapper">
+                        <div class="notification-center-stack-layer notification-center-stack-layer--2"
+                             x-show="notificationGroupItems(group).length > 2"
+                             aria-hidden="true"></div>
+                        <div class="notification-center-stack-layer notification-center-stack-layer--1"
+                             x-show="notificationGroupItems(group).length > 1"
+                             aria-hidden="true"></div>
+
+                        <article class="notification-center-card"
+                                 :class="{ 'is-unread': notificationGroupItems(group)[0].unread }"
+                                 :data-notification-item-key="notificationGroupItems(group)[0].key"
+                                 role="presentation">
+                          <div class="notification-center-card-header">
+                            <div class="notification-center-card-header-left">
+                              <span class="notification-center-card-icon-shell" aria-hidden="true">
+                                <span class="notification-center-card-icon-small" :class="notificationGroupItems(group)[0].icon"></span>
+                              </span>
+                              <span class="notification-center-card-app-name" x-text="notificationGroupItems(group)[0].typeLabel || group.label"></span>
+                              <span class="notification-center-card-header-sep" aria-hidden="true">•</span>
+                            </div>
+                            <time class="notification-center-card-time" x-text="notificationGroupItems(group)[0].time"></time>
+                          </div>
+
+                          <div class="notification-center-card-content">
+                            <strong class="notification-center-card-title" x-text="notificationGroupItems(group)[0].title"></strong>
+                            <div class="notification-center-card-body" x-text="notificationGroupItems(group)[0].body"></div>
+                          </div>
+                        </article>
+                      </div>
+                    </template>
+                  </div>
+
+                  <div class="notification-center-list"
+                       x-show="isNotificationGroupExpanded(group)">
+                    <template x-for="item in notificationGroupItems(group)" :key="item.key">
+                      <article class="notification-center-card"
+                               :class="{ 'is-unread': item.unread }"
+                               :data-notification-item-key="item.key"
+                               role="link"
+                               tabindex="0"
+                               @click="openNotificationItem(item, $event)"
+                               @keydown.enter.prevent="openNotificationItem(item, $event)">
+                        <!-- macOS 1:1 Top Row: Icon, App Name, Separator, and Time -->
+                        <div class="notification-center-card-header">
+                          <div class="notification-center-card-header-left">
+                            <span class="notification-center-card-icon-shell" aria-hidden="true">
+                              <span class="notification-center-card-icon-small" :class="item.icon"></span>
+                            </span>
+                            <span class="notification-center-card-app-name" x-text="item.typeLabel || group.label"></span>
+                            <span class="notification-center-card-header-sep" aria-hidden="true">•</span>
+                          </div>
+                          <time class="notification-center-card-time" x-text="item.time"></time>
+                        </div>
+
+                        <!-- macOS 1:1 Content Section: Title & Body stacked with 24px indent -->
+                        <div class="notification-center-card-content">
+                          <strong class="notification-center-card-title" x-text="item.title"></strong>
+                          <div class="notification-center-card-body" x-text="item.body"></div>
+                        </div>
+
+                        <!-- macOS 1:1 Floating Close Button -->
+                        <button type="button"
+                                class="notification-center-card-read"
+                                @click.stop="dismissNotification(item, $event)"
+                                aria-label="清除此通知"
+                                title="清除此通知">
+                          <span class="icon-[lucide--x]" aria-hidden="true"></span>
+                        </button>
+                      </article>
+                    </template>
+                  </div>
+                </section>
+              </template>
+            </div>
+          </template>
+
+          <template x-if="notificationEmptyText()">
+            <div class="notification-center-empty">
+              <span class="icon-[lucide--bell-off]" aria-hidden="true"></span>
+              <strong x-text="notificationEmptyText()"></strong>
+              <span x-show="!notificationShowRead && notificationTotalCount > 0">可以切换查看全部通知。</span>
+            </div>
+          </template>
+        </section>
+
+        <section class="notification-center-section notification-center-widgets"
+                 aria-label="小组件"
+                 x-effect="enhanceNotificationWidgets(notificationWidgetRenderTick)">
+          <template x-if="notificationWidgets.length > 0">
+            <div class="notification-center-widget-list">
+              <div class="notification-widget-insert-preview"
+                   x-show="notificationWidgetDropPreview.active"
+                   :style="notificationWidgetDropPreviewStyle()"
+                   style="display: none;"></div>
+              <template x-for="widget in notificationWidgets" :key="widget.key">
+                <article class="notification-widget-card desktop-widget-card"
+                         data-notification-widget-card
+                         :data-notification-widget-key="widget.key"
+                         :data-notification-widget-type="widget.widget"
+                         :data-widget-appearance="notificationWidgetAppearanceValue(widget)"
+                         :class="notificationWidgetCardClass(widget)"
+                         @pointerdown="beginNotificationWidgetDrag(widget, $event)"
+                         @contextmenu.prevent="openNotificationWidgetContextMenu(widget, $event)">
+                  <header class="desktop-widget-header">
+                    <div>
+                      <p class="desktop-widget-kicker" x-text="notificationWidgetKicker(widget)"></p>
+                      <h2 class="desktop-widget-title" x-text="widget.title"></h2>
+                    </div>
+                  </header>
+                  <div class="desktop-widget-body notification-widget-body"
+                       x-html="renderNotificationWidget(widget, notificationWidgetRenderTick)"></div>
+                </article>
+              </template>
+            </div>
+          </template>
+          <template x-if="notificationWidgets.length === 0">
+            <div class="notification-center-widget-dropzone">
+              <span class="icon-[lucide--panel-right]" aria-hidden="true"></span>
+              <strong>通知栏小组件</strong>
+              <span>编辑桌面时可把小组件拖到这里，或在组件中心添加。</span>
+            </div>
+          </template>
+        </section>
+      </div>
+
+      <footer class="notification-center-widget-toolbar" aria-label="小组件操作">
+        <button type="button"
+                class="notification-center-widget-edit"
+                @click="openNotificationWidgetEditor()">
+          <span>编辑小组件</span>
+        </button>
+        <button type="button"
+                class="notification-center-widget-close"
+                @click="closeNotificationCenter()"
+                aria-label="关闭通知中心"
+                title="关闭通知中心">
+          <span class="icon-[lucide--x]" aria-hidden="true"></span>
+        </button>
+      </footer>
+    </aside>
   </div>
 
   <div th:fragment="submenu (menuItem)"

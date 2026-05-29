@@ -66,6 +66,8 @@ export function normalizeWidgetInstance(instance, index = 0) {
     w: span.w,
     h: span.h,
     hidden: node?.hidden === true,
+    surface: node?.surface || 'desktop',
+    order: Number.isFinite(Number(node?.order)) ? Number(node.order) : index + 1,
     meta: (node?.meta && typeof node.meta === 'object') ? { ...node.meta } : {}
   };
 }
@@ -79,6 +81,8 @@ export function serializeWidgetInstance(widget) {
     appearance: normalizeWidgetAppearance(widget.appearance),
     x: widget.baseX ?? widget.x,
     y: widget.baseY ?? widget.y,
+    surface: widget.surface || 'desktop',
+    order: Number.isFinite(Number(widget.order)) ? Number(widget.order) : undefined,
     meta: (widget.meta && typeof widget.meta === 'object') ? { ...widget.meta } : {}
   };
 }
@@ -101,6 +105,8 @@ export function createWidgetInstance(widgetType, overrides = {}) {
     w: span.w,
     h: span.h,
     hidden: overrides.hidden === true,
+    surface: overrides.surface || 'desktop',
+    order: Number.isFinite(Number(overrides.order)) ? Number(overrides.order) : 0,
     meta: (overrides.meta && typeof overrides.meta === 'object') ? { ...overrides.meta } : {}
   };
 }

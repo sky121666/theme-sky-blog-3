@@ -214,7 +214,13 @@ export function registerDesktopSurface(Alpine) {
       snapOffsetY: 0,
       width: 0,
       height: 0,
-      hasMoved: false
+      hasMoved: false,
+      notificationDropActive: false,
+      notificationDropIndex: -1,
+      notificationDropTop: 0,
+      notificationDropLeft: 0,
+      notificationDropWidth: 0,
+      notificationDropHeight: 0
     },
     centerSheetDrag: {
       active: false,
@@ -644,6 +650,7 @@ export function registerDesktopSurface(Alpine) {
         widgets: this.widgets.length
       });
 
+      this.dispatchNotificationWidgetsChange();
       this.syncWidgetRuntimes();
 
       this.routeSyncHandler = async () => {
@@ -670,9 +677,16 @@ export function registerDesktopSurface(Alpine) {
         this.syncWidgetRuntimes();
       };
 
+      this.handleNotificationWidgetDragStart = (event) => {
+        if (event.detail?.source && event.detail.source !== 'notification-center') return;
+        const { widget, clientX, clientY, rect, markup } = event.detail;
+        this.beginWidgetDragFromNotification(widget, { clientX, clientY, rect, markup });
+      };
+
       window.addEventListener('pjax:complete', this.routeSyncHandler);
       window.addEventListener('pageshow', this.routeSyncHandler);
       window.addEventListener('resize', this.resizeHandler);
+      window.addEventListener('theme-notification-widget-drag-start', this.handleNotificationWidgetDragStart);
 
       this.$nextTick(async () => {
         if (!this.ensureDesktopShellMounted()) {
@@ -717,7 +731,7 @@ export function registerDesktopSurface(Alpine) {
         return [];
       }
       return this.widgets
-        .filter((widget) => !widget.hidden)
+        .filter((widget) => !widget.hidden && widget.surface !== 'notification-center')
         .sort((left, right) => {
           if (left.y === right.y) return left.x - right.x;
           return left.y - right.y;
@@ -990,6 +1004,12 @@ export function registerDesktopSurface(Alpine) {
         ...icon,
         baseX: icon.baseX ?? icon.x,
         baseY: icon.baseY ?? icon.y
+      }));
+    },
+
+    dispatchNotificationWidgetsChange() {
+      window.dispatchEvent(new CustomEvent('theme-notification-widgets-change', {
+        detail: { widgets: this.widgets.map((widget) => ({ ...widget })) }
       }));
     },
 
@@ -1390,15 +1410,21 @@ export function registerDesktopSurface(Alpine) {
     /* ═══ Layout integrity ═══ */
 
     ensureDesktopLayoutIntegrity() {
+      const baseColumns = Math.max(1, this.serverLayoutPayload?.columns || this.columns || this.currentColumns || 12);
       const isPlacementCorrupt = (node) => {
+        const width = Math.max(1, Number(node.w) || 1);
+        const maxX = Math.max(1, baseColumns - width + 1);
         return !Number.isFinite(node.baseX)
           || !Number.isFinite(node.baseY)
           || node.baseX < 1
-          || node.baseY < 1;
+          || node.baseY < 1
+          || node.baseX > maxX;
       };
 
       const clampCorruptNode = (node) => {
-        node.baseX = Math.max(1, Number.isFinite(node.baseX) ? node.baseX : 1);
+        const width = Math.max(1, Number(node.w) || 1);
+        const maxX = Math.max(1, baseColumns - width + 1);
+        node.baseX = Math.min(maxX, Math.max(1, Number.isFinite(node.baseX) ? node.baseX : 1));
         node.baseY = Math.max(1, Number.isFinite(node.baseY) ? node.baseY : 1);
       };
 

@@ -14,6 +14,18 @@
 import { desktopDebug } from '../../widgets/debug.js';
 import { computeDefaultDesktopIconPlacement } from '../../icons/index.js';
 
+function clampBasePlacement(node, columns) {
+  const maxColumns = Math.max(1, Number(columns) || 1);
+  const width = Math.max(1, Number(node?.w) || 1);
+  const maxX = Math.max(1, maxColumns - width + 1);
+  const baseX = Math.max(1, Number(node?.baseX ?? node?.x) || 1);
+  const baseY = Math.max(1, Number(node?.baseY ?? node?.y) || 1);
+  return {
+    x: Math.min(baseX, maxX),
+    y: baseY
+  };
+}
+
 export const gridMethods = {
   isWidgetWithinVisibleArea(widget) {
     return widget.y + widget.h - 1 <= this.maxVisibleRows;
@@ -147,8 +159,9 @@ export const gridMethods = {
 
     /* ── Phase 2: 组件平移放置 ── */
     widgets.forEach((widget) => {
-      const baseX = widget.baseX ?? widget.x;
-      const baseY = widget.baseY ?? widget.y;
+      const base = clampBasePlacement(widget, savedCols);
+      const baseX = base.x;
+      const baseY = base.y;
 
       /* 宽度钳位 */
       const w = Math.min(widget.w, widgetAvailCols);
@@ -178,8 +191,9 @@ export const gridMethods = {
     /* ── Phase 3: 无独占列时图标按左锚定网格混排 ── */
     if (iconCols === 0 && hasIcons) {
       icons.forEach((icon) => {
-        const baseX = icon.baseX ?? icon.x;
-        const baseY = icon.baseY ?? icon.y;
+        const base = clampBasePlacement(icon, savedCols);
+        const baseX = base.x;
+        const baseY = base.y;
         const targetX = Math.max(1, Math.min(baseX, curCols));
         const placement = this.findNearestAvailablePlacementInPlacements(
           icon, targetX, Math.max(1, baseY), resolved, icon.key
@@ -232,16 +246,32 @@ export const gridMethods = {
    * 宽屏还原
    */
   _restoreBaseCoordinates() {
+    const savedCols = this.serverLayoutPayload?.columns || this.columns || this.currentColumns || 12;
     const placements = [];
-    [...this.placedIcons, ...this.placedWidgets].forEach((node) => {
-      placements.push({
-        key: node.key,
-        x: node.baseX ?? node.x,
-        y: node.baseY ?? node.y,
-        w: node.w,
-        h: node.h
+    [...this.placedIcons, ...this.placedWidgets]
+      .slice()
+      .sort((left, right) => {
+        const leftBase = clampBasePlacement(left, savedCols);
+        const rightBase = clampBasePlacement(right, savedCols);
+        return leftBase.y !== rightBase.y ? leftBase.y - rightBase.y : leftBase.x - rightBase.x;
+      })
+      .forEach((node) => {
+        const base = clampBasePlacement(node, savedCols);
+        const placement = this.findNearestAvailablePlacementInPlacements(
+          node,
+          base.x,
+          base.y,
+          placements,
+          node.key
+        );
+        placements.push({
+          key: node.key,
+          x: placement.x,
+          y: placement.y,
+          w: placement.w,
+          h: placement.h
+        });
       });
-    });
     this.applyResolvedPlacements(placements);
   }
 };
