@@ -934,6 +934,27 @@
   max-height: var(--nc-widget-cell);
 }
 
+.notification-widget-card.widget--system-calendar.is-medium {
+  grid-row: span 2;
+  height: calc((var(--nc-widget-cell) * 1.45) + (var(--nc-widget-gap) * 0.45));
+  max-height: calc((var(--nc-widget-cell) * 1.45) + (var(--nc-widget-gap) * 0.45));
+}
+
+.notification-widget-card.widget--system-calendar {
+  background:
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.13), transparent 52%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.035)),
+    rgba(58, 36, 43, 0.86);
+}
+
+:root:not(.dark) .notification-widget-card.widget--system-calendar[data-widget-appearance="follow"],
+.notification-widget-card.widget--system-calendar[data-widget-appearance="light"] {
+  background:
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.78), transparent 54%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 250, 250, 0.78)),
+    rgba(255, 246, 247, 0.94);
+}
+
 .notification-widget-card.is-large,
 .notification-widget-card.is-extra-large {
   grid-column: span 2;

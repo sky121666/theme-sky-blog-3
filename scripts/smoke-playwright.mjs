@@ -486,18 +486,43 @@ async function main() {
     return baseValidation;
   }
 
-  async function discoverHref(pagePath, selectors, matcher) {
-    const response = await page.goto(toAbsoluteUrl(pagePath), {
-      waitUntil: 'networkidle',
-      timeout: 20_000
-    });
+  async function isReachablePath(target) {
+    try {
+      const response = await page.request.get(toAbsoluteUrl(target), {
+        timeout: 8_000,
+        failOnStatusCode: false
+      });
+      return response.status() < 400;
+    } catch {
+      return false;
+    }
+  }
+
+  async function discoverHref(pagePath, selectors, matcher, { validateCandidate = false } = {}) {
+    let response = null;
+    try {
+      response = await page.goto(toAbsoluteUrl(pagePath), {
+        waitUntil: 'domcontentloaded',
+        timeout: 20_000
+      });
+      await page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => {});
+    } catch {
+      return null;
+    }
     if ((response?.status() ?? 0) >= 400) return null;
 
     const hrefs = await page.$$eval(selectors.join(', '), (elements) => (
       elements.map((element) => element.getAttribute('href')).filter(Boolean)
     ));
 
-    return hrefs.find((href) => matcher(href)) || null;
+    const candidates = hrefs.filter((href) => matcher(href));
+    if (!validateCandidate) return candidates[0] || null;
+
+    for (const href of candidates) {
+      if (await isReachablePath(href)) return href;
+    }
+
+    return null;
   }
 
   const failures = [];
@@ -518,7 +543,7 @@ async function main() {
     || await discoverHref('/archives', ['a[data-pjax-app="reader"]'], (href) => {
       const normalized = toPathname(href);
       return normalized.startsWith('/archives/') && normalized !== '/archives/';
-    });
+    }, { validateCandidate: true });
 
   discovered.tagDetail = (process.env.SMOKE_TAG_DETAIL_PATH || '').trim()
     || await discoverHref('/tags', ['a[href]'], (href) => {

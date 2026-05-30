@@ -123,36 +123,23 @@
            x-transition:leave-start="opacity-100 scale-100 translate-y-0"
            x-transition:leave-end="opacity-0 scale-95 translate-y-1"
            style="display: none;">
-        <template x-if="!desktopContextMenu.isEditing && canManageDefaultDesktopLayout">
-          <div class="desktop-context-menu-group">
-            <button type="button"
-                    class="desktop-context-menu-item"
-                    @click="openWidgetEditorFromDesktopMenu()">
-              <span class="icon-[lucide--pencil]" aria-hidden="true"></span>
-              <span>编辑桌面...</span>
-            </button>
-          </div>
-        </template>
-
-        <template x-if="desktopContextMenu.isEditing && canManageDefaultDesktopLayout">
+        <template x-if="desktopContextMenu.targetKind === 'desktop' && canManageDefaultDesktopLayout">
           <div style="display: contents;">
-            <!-- 添加组 -->
             <div class="desktop-context-menu-group">
               <button type="button"
                       class="desktop-context-menu-item"
-                      @click="setEditStage('add'); closeDesktopContextMenu()">
+                      @click="openAddWidgetCenterFromContext()">
                 <span class="icon-[lucide--plus]" aria-hidden="true"></span>
-                <span>添加组件</span>
+                <span>添加小组件</span>
               </button>
               <button type="button"
                       class="desktop-context-menu-item"
-                      @click="openAddIconForm(); closeDesktopContextMenu()">
+                      @click="openAddIconFromContext()">
                 <span class="icon-[lucide--file-plus]" aria-hidden="true"></span>
                 <span>添加图标</span>
               </button>
             </div>
             
-            <!-- 整理组 -->
             <div class="desktop-context-menu-group">
               <button type="button"
                       class="desktop-context-menu-item"
@@ -162,8 +149,7 @@
               </button>
             </div>
 
-            <!-- 危险操作组 -->
-            <div class="desktop-context-menu-group">
+            <div class="desktop-context-menu-group" x-show="isEditing">
               <button type="button"
                       class="desktop-context-menu-item"
                       style="color: var(--theme-danger, #ef4444);"
@@ -180,8 +166,101 @@
               </button>
             </div>
 
-            <!-- 保存组 -->
+            <div class="desktop-context-menu-group" x-show="isEditing">
+              <button type="button"
+                      class="desktop-context-menu-item desktop-context-menu-item--primary"
+                      :disabled="serverLayoutSaving"
+                      @click="saveDesktopEditing(); closeDesktopContextMenu()">
+                <span class="icon-[lucide--check]" aria-hidden="true"></span>
+                <span x-text="desktopLayoutSaveButtonLabel()"></span>
+              </button>
+            </div>
+          </div>
+        </template>
+
+        <template x-if="desktopContextMenu.targetKind === 'widget' && canManageDefaultDesktopLayout">
+          <div style="display: contents;">
+            <div class="desktop-context-menu-group" x-show="canDesktopContextWidgetConfigure()">
+              <button type="button"
+                      class="desktop-context-menu-item"
+                      @click="editDesktopContextWidgetConfig()">
+                <span class="icon-[lucide--settings-2]" aria-hidden="true"></span>
+                <span>编辑设置</span>
+              </button>
+            </div>
+
+            <div class="desktop-context-menu-group" x-show="hasDesktopContextWidgetSizeOptions()">
+              <template x-for="option in desktopContextWidgetSizeOptions()" :key="option.key">
+                <button type="button"
+                        class="desktop-context-menu-item"
+                        :class="{ 'desktop-context-menu-item--primary': option.active }"
+                        @click="changeWidgetSizeFromContext(option)">
+                  <span class="icon-[lucide--panel-top]" aria-hidden="true"></span>
+                  <span x-text="option.active ? `${option.label}尺寸（当前）` : `切换为${option.label}尺寸`"></span>
+                </button>
+              </template>
+            </div>
+
             <div class="desktop-context-menu-group">
+              <button type="button"
+                      class="desktop-context-menu-item"
+                      x-show="canDesktopContextWidgetMoveToNotification()"
+                      @click="moveWidgetToNotificationFromContext()"
+                      style="display: none;">
+                <span class="icon-[lucide--panel-right-open]" aria-hidden="true"></span>
+                <span>移到通知中心</span>
+              </button>
+              <button type="button"
+                      class="desktop-context-menu-item"
+                      x-show="canDesktopContextWidgetMoveToDesktop()"
+                      @click="moveWidgetToDesktopFromContext()"
+                      style="display: none;">
+                <span class="icon-[lucide--monitor]" aria-hidden="true"></span>
+                <span>移到桌面</span>
+              </button>
+            </div>
+
+            <div class="desktop-context-menu-group">
+              <button type="button"
+                      class="desktop-context-menu-item"
+                      style="color: var(--theme-danger, #ef4444);"
+                      @click="removeDesktopContextTarget()">
+                <span class="icon-[lucide--trash-2]" aria-hidden="true"></span>
+                <span>移除小组件</span>
+              </button>
+            </div>
+
+            <div class="desktop-context-menu-group" x-show="isEditing">
+              <button type="button"
+                      class="desktop-context-menu-item desktop-context-menu-item--primary"
+                      :disabled="serverLayoutSaving"
+                      @click="saveDesktopEditing(); closeDesktopContextMenu()">
+                <span class="icon-[lucide--check]" aria-hidden="true"></span>
+                <span x-text="desktopLayoutSaveButtonLabel()"></span>
+              </button>
+            </div>
+          </div>
+        </template>
+
+        <template x-if="desktopContextMenu.targetKind === 'icon' && canManageDefaultDesktopLayout">
+          <div style="display: contents;">
+            <div class="desktop-context-menu-group">
+              <button type="button"
+                      class="desktop-context-menu-item"
+                      style="color: var(--theme-danger, #ef4444);"
+                      @click="removeDesktopContextTarget()">
+                <span class="icon-[lucide--trash-2]" aria-hidden="true"></span>
+                <span>移除图标</span>
+              </button>
+              <button type="button"
+                      class="desktop-context-menu-item"
+                      @click="reArrangeIcons(); closeDesktopContextMenu()">
+                <span class="icon-[lucide--list-ordered]" aria-hidden="true"></span>
+                <span>整理图标</span>
+              </button>
+            </div>
+
+            <div class="desktop-context-menu-group" x-show="isEditing">
               <button type="button"
                       class="desktop-context-menu-item desktop-context-menu-item--primary"
                       :disabled="serverLayoutSaving"
@@ -381,7 +460,7 @@
                     </div>
                   </header>
                   <div class="desktop-widget-body"
-                       :data-widget-render-mode="['halo.latest_posts', 'halo.popular_posts'].includes(widgetConfigForm.previewWidget.widget) ? 'html' : 'morph'"
+                       :data-widget-render-mode="widgetContentRenderMode(widgetConfigForm.previewWidget)"
                        x-widget-content="renderWidgetBody(widgetConfigForm.previewWidget, { preview: true })"></div>
                 </article>
               </div>
@@ -392,7 +471,8 @@
             <button type="button"
                     class="desktop-add-icon-btn desktop-add-icon-btn--primary"
                     :disabled="!isWidgetConfigFormValid()"
-                    @click="submitWidgetConfigForm()">添加到桌面</button>
+                    @click="submitWidgetConfigForm()"
+                    x-text="widgetConfigForm.mode === 'update' ? '保存设置' : '添加到桌面'">添加到桌面</button>
           </footer>
         </div>
       </div>
@@ -439,13 +519,7 @@
             <div class="desktop-widget-center-actions">
               <button type="button"
                       class="desktop-widget-center-head-action desktop-widget-center-head-action--quiet"
-                      @click="applyRecommendedWidgetLayout()">推荐布局</button>
-              <button type="button"
-                      class="desktop-widget-center-head-action desktop-widget-center-head-action--quiet"
-                      @click="resetLayout()">清空组件</button>
-              <button type="button"
-                      class="desktop-widget-center-head-action desktop-widget-center-head-action--quiet"
-                      @click="setEditStage('decorate')">装饰</button>
+                      @click="setEditStage('decorate')">完成添加</button>
               <button type="button"
                       class="desktop-widget-center-head-action desktop-widget-center-head-action--primary"
                       :disabled="serverLayoutSaving"
@@ -516,7 +590,7 @@
                             </div>
                           </header>
                           <div class="desktop-widget-body"
-                               :data-widget-render-mode="['halo.latest_posts', 'halo.popular_posts'].includes(selectedWidgetVariant(entry).widget) ? 'html' : 'morph'"
+                               :data-widget-render-mode="widgetContentRenderMode(selectedWidgetVariant(entry))"
                                x-widget-content="renderWidgetBody(selectedWidgetVariant(entry), { preview: true })"></div>
                         </article>
                       </div>
@@ -576,10 +650,11 @@
                :style="previewStyle"
                style="display: none;"></div>
 
-          <template x-for="node in visibleDesktopNodes" :key="node.key">
+          <template x-for="node in visibleDesktopNodes" :key="desktopNodeLoopKey(node)">
             <div :class="desktopNodeSlotClassName(node)"
                  :style="getDesktopNodeStyle(node)"
-                 :data-desktop-key="node.key">
+                 :data-desktop-key="node.key"
+                 @contextmenu.prevent="openDesktopNodeContextMenu(node, $event)">
               <template x-if="isWidgetNode(node)">
                 <article class="desktop-widget-card"
                          :data-widget-appearance="widgetAppearanceValue(node)"
@@ -592,14 +667,14 @@
                       </div>
                       </header>
                       <div class="desktop-widget-body"
-                           :data-widget-render-mode="['halo.latest_posts', 'halo.popular_posts'].includes(node.widget) ? 'html' : 'morph'"
+                           :data-widget-render-mode="widgetContentRenderMode(node)"
                            x-widget-content="renderWidgetBody(node)"></div>
                       </article>
                       </template>
               <!-- 悬浮删除按钮（放在 slot 层，不受 card overflow:hidden 影响） -->
               <button type="button"
                       class="desktop-widget-remove-btn"
-                      x-show="isEditing && isWidgetNode(node)"
+                      x-show="false"
                       @click.stop="hideWidget(node.key)"
                       style="display: none;"
                       aria-label="移除组件"
@@ -624,7 +699,7 @@
               <!-- 图标删除按钮（编辑态可见，放在 slot 层避免被 icon overflow 裁剪） -->
               <button type="button"
                       class="desktop-widget-remove-btn"
-                      x-show="isEditing && isIconNode(node)"
+                      x-show="false"
                       @click.stop="removeIcon(node.key)"
                       style="display: none;"
                       aria-label="移除图标"

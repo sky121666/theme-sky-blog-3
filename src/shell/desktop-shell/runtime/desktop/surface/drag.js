@@ -13,7 +13,6 @@ export const dragMethods = {
 
   beginWidgetDrag(widget, event) {
     if (!this.isEditing || !this.isHome) return;
-    if (this.editStage !== 'decorate') return;
     if (event.button !== undefined && event.button !== 0) return;
     
     // Allow clicking the remove button, but for everything else in decorate mode, prioritize dragging
@@ -70,7 +69,6 @@ export const dragMethods = {
 
   beginWidgetDragFromNotification(widget, detail) {
     if (!this.isEditing || !this.isHome) return;
-    if (this.editStage !== 'decorate') return;
 
     this.selectedDesktopKey = null;
     const rect = detail.rect;
@@ -117,7 +115,6 @@ export const dragMethods = {
 
   beginIconDrag(key, event) {
     if (!this.isEditing || !this.isHome) return;
-    if (this.editStage !== 'decorate') return;
     if (event.button !== undefined && event.button !== 0) return;
 
     const icon = this.findIconByKey(key);
@@ -254,12 +251,14 @@ export const dragMethods = {
   },
 
   resolveNotificationWidgetSpan(widget = null, card = null) {
+    const widgetType = String(widget?.widget || card?.dataset?.notificationWidgetType || '');
     const size = String(widget?.size || '')
       || (card?.classList?.contains('is-small') ? 'small' : '')
       || (card?.classList?.contains('is-large') ? 'large' : '')
       || (card?.classList?.contains('is-extra-large') ? 'extra-large' : '')
       || 'medium';
     if (size === 'small') return { w: 1, h: 1 };
+    if (widgetType === 'system.calendar' && size === 'medium') return { w: 2, h: 2 };
     if (size === 'large' || size === 'extra-large') return { w: 2, h: 2 };
     return { w: 2, h: 1 };
   },

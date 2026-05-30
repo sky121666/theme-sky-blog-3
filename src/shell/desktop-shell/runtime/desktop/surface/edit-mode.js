@@ -523,6 +523,8 @@ export const editModeMethods = {
     const resolvedCatalogKey = catalogKey || `${widgetType}:${resolvedSize}`;
     this.widgetConfigForm = {
       open: true,
+      mode: 'create',
+      targetKey: '',
       widgetId: widgetType,
       widgetType,
       size: resolvedSize,
@@ -535,9 +537,36 @@ export const editModeMethods = {
     this.refreshWidgetConfigPreview();
   },
 
+  openWidgetConfigFormForExisting(widget) {
+    if (!widget?.key) return;
+    const catalogEntry = getWidgetCatalogEntry(widget.widget) || {};
+    if (catalogEntry.hasConfig !== true) return;
+    const resolvedSize = normalizeWidgetSize(widget.size || catalogEntry.size || 'medium');
+    const resolvedCatalogKey = `${widget.widget}:${resolvedSize}`;
+    this.widgetConfigForm = {
+      open: true,
+      mode: 'update',
+      targetKey: widget.key,
+      widgetId: widget.key,
+      widgetType: widget.widget,
+      size: resolvedSize,
+      catalogKey: resolvedCatalogKey,
+      title: widget.title || catalogEntry.title || generateWidgetTitle(widget.widget),
+      configSchema: Array.isArray(catalogEntry.configSchema) ? catalogEntry.configSchema.map((field) => ({ ...field })) : [],
+      meta: {
+        ...this.createWidgetConfigDefaultMeta(catalogEntry),
+        ...((widget.meta && typeof widget.meta === 'object') ? widget.meta : {})
+      },
+      previewWidget: null
+    };
+    this.refreshWidgetConfigPreview();
+  },
+
   closeWidgetConfigForm() {
     this.widgetConfigForm = {
       open: false,
+      mode: 'create',
+      targetKey: '',
       widgetId: '',
       widgetType: '',
       size: '',
@@ -551,8 +580,20 @@ export const editModeMethods = {
 
   async submitWidgetConfigForm() {
     if (!this.isWidgetConfigFormValid()) return;
-    const { widgetType, size, catalogKey, meta } = this.widgetConfigForm;
+    const { mode, targetKey, widgetType, size, catalogKey, meta } = this.widgetConfigForm;
     this.closeWidgetConfigForm();
+    if (mode === 'update' && targetKey) {
+      const widget = this.widgets.find((entry) => entry.key === targetKey);
+      if (!widget) return;
+      widget.meta = { ...(meta || {}) };
+      this.invalidateWidgetCache();
+      this.syncResponsiveVisibility();
+      this.syncWidgetRuntimes();
+      this.dispatchNotificationWidgetsChange();
+      this.selectedDesktopKey = widget.key;
+      this.markDesktopLayoutDirty('组件设置已更新，保存后生效');
+      return;
+    }
     await this._doAddWidget(widgetType, size, catalogKey, { ...(meta || {}) });
   },
 
@@ -585,6 +626,8 @@ export const editModeMethods = {
     this.invalidateWidgetCache();
     this.syncResponsiveVisibility();
     this.syncWidgetRuntimes();
+    this.selectedDesktopKey = candidate.key;
+    this.setEditStage('decorate');
     this.markDesktopLayoutDirty('组件已添加，保存后生效');
   },
 

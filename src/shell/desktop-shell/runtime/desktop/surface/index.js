@@ -24,7 +24,8 @@ import { loadWidgetRenderer } from '../../../../../widgets/loaders.js';
 import { enhanceDoubanShowcaseWidgets } from '../../../../../widgets/plugin/douban-showcase/runtime.js';
 
 import {
-  DESKTOP_WIDGET_SIZE_MAP,
+  createWidgetInstance,
+  normalizeWidgetSize,
   normalizeWidgetAppearance,
   getWidgetCatalogEntry,
 } from '../../widgets/catalog-core.js';
@@ -171,6 +172,8 @@ export function registerDesktopSurface(Alpine) {
     },
     widgetConfigForm: {
       open: false,
+      mode: 'create',
+      targetKey: '',
       widgetId: '',
       widgetType: '',
       size: '',
@@ -190,7 +193,10 @@ export function registerDesktopSurface(Alpine) {
       open: false,
       x: 0,
       y: 0,
-      isEditing: false
+      isEditing: false,
+      targetKind: 'desktop',
+      targetKey: '',
+      sourceSurface: 'desktop'
     },
     widgetCenterCategory: 'all',
     widgetCenterSearch: '',
@@ -682,11 +688,15 @@ export function registerDesktopSurface(Alpine) {
         const { widget, clientX, clientY, rect, markup } = event.detail;
         this.beginWidgetDragFromNotification(widget, { clientX, clientY, rect, markup });
       };
+      this.handleWidgetContextMenu = (event) => {
+        void this.openWidgetContextMenuFromEvent(event.detail || {});
+      };
 
       window.addEventListener('pjax:complete', this.routeSyncHandler);
       window.addEventListener('pageshow', this.routeSyncHandler);
       window.addEventListener('resize', this.resizeHandler);
       window.addEventListener('theme-notification-widget-drag-start', this.handleNotificationWidgetDragStart);
+      window.addEventListener('theme-widget-context-menu', this.handleWidgetContextMenu);
 
       this.$nextTick(async () => {
         if (!this.ensureDesktopShellMounted()) {
@@ -873,7 +883,7 @@ export function registerDesktopSurface(Alpine) {
 
     get desktopContextMenuPositionStyle() {
       const menuWidth = 188;
-      const menuHeight = this.isEditing ? 184 : 52;
+      const menuHeight = this.desktopContextMenu.targetKind === 'desktop' ? 210 : 252;
       const x = Math.min(this.desktopContextMenu.x, Math.max(16, window.innerWidth - menuWidth - 18));
       const y = Math.min(this.desktopContextMenu.y, Math.max(44, window.innerHeight - menuHeight - 18));
       return {
@@ -922,7 +932,7 @@ export function registerDesktopSurface(Alpine) {
       /* click outside widget center frame → switch to decorate
          guard: skip if center was just opened (same event / x-if removed source from DOM) */
       if (this.showWidgetCenter
-          && !event.target.closest('.desktop-widget-center-frame, .desktop-context-menu, .dock-container')
+          && !event.target.closest('.desktop-widget-center-frame, .desktop-context-menu, .dock-container, #notification-center-panel')
           && Date.now() - (this._widgetCenterOpenedAt || 0) > 100) {
         this.setEditStage('decorate');
       }
@@ -971,12 +981,311 @@ export function registerDesktopSurface(Alpine) {
         open: true,
         x,
         y,
-        isEditing: this.isEditing
+        isEditing: this.isEditing,
+        targetKind: 'desktop',
+        targetKey: '',
+        sourceSurface: 'desktop'
+      };
+    },
+
+    async openDesktopNodeContextMenu(node, event) {
+      if (!this.editEnabled || !this.isHome || !node) return;
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+      await this.ensureEditingRuntime();
+      const canManage = this.serverLayoutAccessReady
+        ? this.canManageDefaultDesktopLayout
+        : await this.probeServerLayoutConfigAccess();
+      if (!canManage) return;
+
+      this.selectedDesktopKey = node.key;
+      this.desktopContextMenu = {
+        open: true,
+        x: event?.clientX || 96,
+        y: event?.clientY || 96,
+        isEditing: this.isEditing,
+        targetKind: this.isWidgetNode(node) ? 'widget' : 'icon',
+        targetKey: node.key,
+        sourceSurface: node.surface || 'desktop'
+      };
+    },
+
+    async openWidgetContextMenuFromEvent(detail = {}) {
+      if (!this.editEnabled || !this.isHome) return;
+      const key = detail.key || '';
+      const node = key ? this.widgets.find((widget) => widget.key === key) : null;
+      if (!node) return;
+      await this.ensureEditingRuntime();
+      const canManage = this.serverLayoutAccessReady
+        ? this.canManageDefaultDesktopLayout
+        : await this.probeServerLayoutConfigAccess();
+      if (!canManage) return;
+
+      this.selectedDesktopKey = key;
+      this.desktopContextMenu = {
+        open: true,
+        x: detail.x || window.innerWidth - 220,
+        y: detail.y || 160,
+        isEditing: this.isEditing,
+        targetKind: 'widget',
+        targetKey: key,
+        sourceSurface: detail.source || node.surface || 'desktop'
       };
     },
 
     closeDesktopContextMenu() {
       this.desktopContextMenu.open = false;
+    },
+
+    desktopContextTargetNode() {
+      const key = this.desktopContextMenu.targetKey;
+      if (!key) return null;
+      if (this.desktopContextMenu.targetKind === 'icon') {
+        return this.icons.find((icon) => icon.key === key) || null;
+      }
+      return this.widgets.find((widget) => widget.key === key) || null;
+    },
+
+    desktopContextTargetWidget() {
+      return this.desktopContextMenu.targetKind === 'widget'
+        ? this.desktopContextTargetNode()
+        : null;
+    },
+
+    desktopContextTargetIcon() {
+      return this.desktopContextMenu.targetKind === 'icon'
+        ? this.desktopContextTargetNode()
+        : null;
+    },
+
+    desktopNodeLoopKey(node) {
+      if (!node) return '';
+      if (this.isWidgetNode(node)) {
+        return `${node.key}:${node.widget}:${node.size || 'medium'}:${node.renderKey || 0}`;
+      }
+      return node.key;
+    },
+
+    widgetContentRenderMode(widget) {
+      const catalog = getWidgetCatalogEntry(widget?.widget);
+      return Array.isArray(catalog?.sizes) && catalog.sizes.length > 1 ? 'html' : 'morph';
+    },
+
+    desktopContextWidgetSizeOptions() {
+      const widget = this.desktopContextTargetWidget();
+      if (!widget?.widget) return [];
+
+      const catalogEntries = Array.isArray(this.widgetCatalog)
+        ? this.widgetCatalog
+          .filter((entry) => entry?.widget === widget.widget && entry?.size)
+          .map((entry) => ({
+            key: entry.catalogKey || `${entry.widget}:${entry.size}`,
+            size: normalizeWidgetSize(entry.size),
+            label: entry.sizeLabel || this.desktopContextWidgetSizeLabel(entry.size),
+            title: entry.title || widget.title || '小组件'
+          }))
+        : [];
+
+      const fallbackCatalog = getWidgetCatalogEntry(widget.widget);
+      const fallbackSizes = Array.isArray(fallbackCatalog?.sizes) && fallbackCatalog.sizes.length > 0
+        ? fallbackCatalog.sizes
+        : [widget.size || fallbackCatalog?.size || 'medium'];
+      const fallbackEntries = fallbackSizes.map((size) => ({
+        key: `${widget.widget}:${normalizeWidgetSize(size)}`,
+        size: normalizeWidgetSize(size),
+        label: this.desktopContextWidgetSizeLabel(size),
+        title: fallbackCatalog?.title || widget.title || '小组件'
+      }));
+
+      const seen = new Set();
+      return [...catalogEntries, ...fallbackEntries].filter((entry) => {
+        if (seen.has(entry.size)) return false;
+        seen.add(entry.size);
+        return true;
+      }).map((entry) => ({
+        ...entry,
+        active: normalizeWidgetSize(widget.size) === entry.size
+      }));
+    },
+
+    hasDesktopContextWidgetSizeOptions() {
+      return this.desktopContextWidgetSizeOptions().length > 1;
+    },
+
+    desktopContextWidgetSizeLabel(size) {
+      const labels = {
+        small: '小',
+        medium: '中',
+        large: '大',
+        'extra-large': '特大'
+      };
+      return labels[normalizeWidgetSize(size)] || '中';
+    },
+
+    isDesktopContextWidgetSizeActive(size) {
+      const widget = this.desktopContextTargetWidget();
+      return !!widget && normalizeWidgetSize(widget.size) === normalizeWidgetSize(size);
+    },
+
+    canDesktopContextWidgetMoveToNotification() {
+      const widget = this.desktopContextTargetWidget();
+      return !!widget && widget.surface !== 'notification-center';
+    },
+
+    canDesktopContextWidgetMoveToDesktop() {
+      const widget = this.desktopContextTargetWidget();
+      return !!widget && widget.surface === 'notification-center';
+    },
+
+    canDesktopContextWidgetConfigure() {
+      const widget = this.desktopContextTargetWidget();
+      return !!widget && getWidgetCatalogEntry(widget.widget)?.hasConfig === true;
+    },
+
+    async ensureDesktopEditingForAction(stage = 'decorate') {
+      await this.ensureEditingRuntime();
+      const canManage = this.serverLayoutAccessReady
+        ? this.canManageDefaultDesktopLayout
+        : await this.probeServerLayoutConfigAccess();
+      if (!canManage) return false;
+
+      if (!this.isEditing) {
+        this.enterEditMode(stage);
+      } else if (stage) {
+        this.setEditStage(stage);
+      }
+      return true;
+    },
+
+    async openAddWidgetCenterFromContext() {
+      this.closeDesktopContextMenu();
+      await this.ensureDesktopEditingForAction('add');
+    },
+
+    async openAddIconFromContext() {
+      this.closeDesktopContextMenu();
+      const ready = await this.ensureDesktopEditingForAction('decorate');
+      if (!ready) return;
+      this.openAddIconForm();
+    },
+
+    async changeWidgetSizeFromContext(optionOrSize) {
+      const widget = this.desktopContextTargetWidget();
+      if (!widget) return;
+      const option = typeof optionOrSize === 'object' && optionOrSize
+        ? optionOrSize
+        : this.desktopContextWidgetSizeOptions().find((entry) => entry.size === normalizeWidgetSize(optionOrSize));
+      const nextSize = normalizeWidgetSize(option?.size || optionOrSize);
+      if (normalizeWidgetSize(widget.size) === nextSize) {
+        this.closeDesktopContextMenu();
+        return;
+      }
+
+      const ready = await this.ensureDesktopEditingForAction('decorate');
+      if (!ready) return;
+
+      const replacement = createWidgetInstance(widget.widget, {
+        key: widget.key,
+        title: option?.title || widget.title,
+        size: nextSize,
+        appearance: widget.appearance,
+        x: widget.x,
+        y: widget.y,
+        baseX: widget.baseX,
+        baseY: widget.baseY,
+        surface: widget.surface || 'desktop',
+        order: widget.order,
+        hidden: widget.hidden === true,
+        meta: (widget.meta && typeof widget.meta === 'object') ? { ...widget.meta } : {}
+      });
+
+      if ((replacement.surface || 'desktop') === 'desktop') {
+        const placement = this.findNearestAvailablePlacement(replacement, replacement.x || 1, replacement.y || 1, replacement.key);
+        replacement.x = placement.x;
+        replacement.y = placement.y;
+        replacement.baseX = placement.x;
+        replacement.baseY = placement.y;
+      }
+
+      replacement.renderKey = (Number(widget.renderKey) || 0) + 1;
+
+      const widgetIndex = this.widgets.findIndex((entry) => entry.key === widget.key);
+      if (widgetIndex >= 0) {
+        this.widgets.splice(widgetIndex, 1, replacement);
+      } else {
+        Object.assign(widget, replacement);
+      }
+      this.selectedDesktopKey = replacement.key;
+      this.invalidateWidgetCache();
+      this.syncResponsiveVisibility();
+      this.syncWidgetRuntimes();
+      this.dispatchNotificationWidgetsChange();
+      this.markDesktopLayoutDirty('组件尺寸已调整，保存后生效');
+      this.closeDesktopContextMenu();
+    },
+
+    async moveWidgetToNotificationFromContext() {
+      const widget = this.desktopContextTargetWidget();
+      if (!widget) return;
+      const ready = await this.ensureDesktopEditingForAction('decorate');
+      if (!ready) return;
+
+      const moved = this.applyNotificationWidgetOrder(widget.key, Number.POSITIVE_INFINITY);
+      if (moved) {
+        this.previewPlacement = null;
+        this.selectedDesktopKey = widget.key;
+        this.syncResponsiveVisibility();
+        this.syncWidgetRuntimes();
+        this.dispatchNotificationWidgetsChange();
+        this.markDesktopLayoutDirty('组件已移到通知中心，保存后生效');
+      }
+      this.closeDesktopContextMenu();
+    },
+
+    async moveWidgetToDesktopFromContext() {
+      const widget = this.desktopContextTargetWidget();
+      if (!widget) return;
+      const ready = await this.ensureDesktopEditingForAction('decorate');
+      if (!ready) return;
+
+      widget.surface = 'desktop';
+      const placement = this.findNearestAvailablePlacement(widget, widget.x || 1, widget.y || 1, widget.key);
+      widget.x = placement.x;
+      widget.y = placement.y;
+      widget.baseX = placement.x;
+      widget.baseY = placement.y;
+      widget.w = placement.w;
+      widget.h = placement.h;
+      this.selectedDesktopKey = widget.key;
+      this.syncResponsiveVisibility();
+      this.syncWidgetRuntimes();
+      this.dispatchNotificationWidgetsChange();
+      this.markDesktopLayoutDirty('组件已移到桌面，保存后生效');
+      this.closeDesktopContextMenu();
+    },
+
+    async editDesktopContextWidgetConfig() {
+      const widget = this.desktopContextTargetWidget();
+      if (!widget || !this.canDesktopContextWidgetConfigure()) return;
+      const ready = await this.ensureDesktopEditingForAction('decorate');
+      if (!ready) return;
+      this.openWidgetConfigFormForExisting(widget);
+      this.closeDesktopContextMenu();
+    },
+
+    async removeDesktopContextTarget() {
+      const target = this.desktopContextTargetNode();
+      if (!target) return;
+      const ready = await this.ensureDesktopEditingForAction('decorate');
+      if (!ready) return;
+
+      if (this.desktopContextMenu.targetKind === 'icon') {
+        this.removeIcon(target.key);
+      } else {
+        await this.hideWidget(target.key);
+        this.dispatchNotificationWidgetsChange();
+      }
+      this.closeDesktopContextMenu();
     },
 
     async openWidgetEditorFromDesktopMenu() {
@@ -1237,7 +1546,7 @@ export function registerDesktopSurface(Alpine) {
       const icon = this.findIconByKey(key);
       desktopDebug('icon click', { key, href: icon?.href, pjax: icon?.pjax, editing: this.isEditing, target: event.target?.tagName });
 
-      if (this.isEditing && this.editStage === 'decorate') {
+      if (this.isEditing) {
         this.selectedDesktopKey = key;
         event.preventDefault();
         event.stopPropagation();
@@ -1504,7 +1813,7 @@ export function registerDesktopSurface(Alpine) {
           'desktop-icon',
           this.selectedDesktopKey === node.key ? 'selected' : '',
           this.dragState.active && this.dragState.key === node.key && this.dragState.hasMoved ? 'is-drag-source' : '',
-          this.isEditing && this.editStage === 'decorate' ? 'is-editing' : ''
+          this.isEditing ? 'is-editing' : ''
         ].filter(Boolean).join(' ');
       }
 
@@ -1517,7 +1826,7 @@ export function registerDesktopSurface(Alpine) {
         this.isIconNode(node) ? 'desktop-node-slot--icon' : 'desktop-node-slot--widget',
         this.selectedDesktopKey === node.key ? 'is-selected' : '',
         this.dragState.active && this.dragState.key === node.key && this.dragState.hasMoved ? 'is-drag-source' : '',
-        this.isEditing && this.editStage === 'decorate' ? 'is-editing' : ''
+        this.isEditing ? 'is-editing' : ''
       ].filter(Boolean).join(' ');
     },
 
