@@ -180,10 +180,6 @@
   transform: scale(0.96);
 }
 
-.notification-center-refresh {
-  display: none;
-}
-
 .notification-center-close {
   appearance: none;
   display: inline-flex;
@@ -217,7 +213,6 @@
 }
 
 .notification-center-mark-read:active,
-.notification-center-refresh:active,
 .notification-center-close:active {
   transform: scale(0.96);
 }
@@ -228,7 +223,6 @@
 }
 
 .notification-center-mark-read span,
-.notification-center-refresh span,
 .notification-center-close span {
   width: 13px;
   height: 13px;

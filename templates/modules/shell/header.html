@@ -1,5 +1,5 @@
 <th:block xmlns:th="https://www.thymeleaf.org">
-  <div th:fragment="bar (siteTitle, logoIcon, headerMenu, enableThemeSetting, searchWidgetAvailable, searchEnabled, authEnabled, mobileMenuEnabled, loginLabel, timeEnabled, timeDesktopPreset, timeMobilePreset, timeHourCycle, iconMobileMenu, iconSearch, iconAuth, iconThemeLight, iconThemeDark)"
+  <div th:fragment="bar (siteTitle, logoIcon, headerMenu, enableThemeSetting, searchWidgetAvailable, searchEnabled, authEnabled, mobileMenuEnabled, loginLabel, timeEnabled, timeDesktopPreset, timeMobilePreset, timeHourCycle, notificationCenterTitle, notificationCenterGuestTitle, notificationCenterDefaultOpen, notificationCenterAuthenticated, iconMobileMenu, iconSearch, iconAuth, iconThemeLight, iconThemeDark)"
        class="menubar"
        x-data="menuBar"
        th:data-site-title="${siteTitle}"
@@ -8,7 +8,11 @@
        th:data-time-enabled="${timeEnabled}"
        th:data-time-desktop-preset="${timeDesktopPreset}"
        th:data-time-mobile-preset="${timeMobilePreset}"
-       th:data-time-hour-cycle="${timeHourCycle}">
+       th:data-time-hour-cycle="${timeHourCycle}"
+       th:data-notification-center-title="${notificationCenterTitle}"
+       th:data-notification-center-guest-title="${notificationCenterGuestTitle}"
+       th:data-notification-center-default-open="${notificationCenterDefaultOpen}"
+       th:data-notification-center-authenticated="${notificationCenterAuthenticated}">
     <div class="menubar-left">
       <a href="javascript:void(0)" class="menubar-icon-btn menubar-brand-icon" title="System">
         <th:block th:if="${#strings.isEmpty(logoIcon)}">
@@ -123,8 +127,8 @@
               @click.stop="toggleNotificationCenter()"
               :aria-expanded="(notificationCenterOpen || notificationCenterVisible).toString()"
               aria-controls="notification-center-panel"
-              aria-label="打开通知中心"
-              title="通知中心"
+              :aria-label="`打开${notificationCenterTitle}`"
+              :title="notificationCenterTitle"
               x-text="timeStr"
               th:text="${initialTimeText}"></button>
     </div>
@@ -150,15 +154,17 @@
            @click.outside="!isNotificationWidgetEditingActive() && closeNotificationCenter()"
            style="display: none;"
            role="dialog"
-           aria-label="通知中心">
+           :aria-label="notificationCenterDisplayTitle()">
       <header class="notification-center-header">
         <div class="notification-center-title-stack">
-          <h2>通知中心</h2>
-          <span x-show="notificationSummaryText()"
+          <h2 x-text="notificationCenterDisplayTitle()"
+              th:text="${notificationCenterTitle}">通知中心</h2>
+          <span x-show="notificationCenterAuthenticated && notificationSummaryText()"
                 x-text="notificationSummaryText()"></span>
         </div>
         <div class="notification-center-actions">
           <div class="notification-center-segmented"
+               x-show="notificationCenterAuthenticated"
                :class="{ 'is-all': notificationShowRead, 'is-unread': !notificationShowRead }"
                role="group"
                aria-label="通知筛选">
@@ -178,13 +184,6 @@
             </button>
           </div>
           <button type="button"
-                  class="notification-center-refresh"
-                  @click="loadNotifications({ force: true })"
-                  aria-label="刷新通知"
-                  title="刷新通知">
-            <span class="icon-[lucide--refresh-cw]" aria-hidden="true"></span>
-          </button>
-          <button type="button"
                   class="notification-center-close"
                   @click="closeNotificationCenter()"
                   aria-label="关闭通知中心">
@@ -195,6 +194,7 @@
 
       <div class="notification-panel-scroll" x-ref="notificationCenterScroll">
         <section class="notification-center-section notification-center-feed"
+                 x-show="notificationCenterAuthenticated"
                  :class="{ 'is-filter-switching': notificationFilterSwitching }">
           <template x-if="notificationStatusText">
             <div class="notification-center-status" :data-state="notificationStatus">
@@ -365,7 +365,9 @@
         </section>
       </div>
 
-      <footer class="notification-center-widget-toolbar" aria-label="小组件操作">
+      <footer class="notification-center-widget-toolbar"
+              x-show="notificationCenterAuthenticated"
+              aria-label="小组件操作">
         <button type="button"
                 class="notification-center-widget-edit"
                 @click="openNotificationWidgetEditor()">

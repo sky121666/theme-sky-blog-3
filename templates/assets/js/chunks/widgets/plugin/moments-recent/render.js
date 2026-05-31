@@ -1,4 +1,4 @@
-import{r as h}from"../../../shell-runtime/runtime/desktop/surface/edit-mode.js?v=0.9.37&r=6dd7b2b64ef4";import{r as g}from"../../halo/author-card/render.js?v=0.9.37&r=6dd7b2b64ef4";function l(n,s){if(!n.mediaCount)return"";const e=n.media[0],a=typeof e?.type=="string"?e.type:e?.type?.name||"",o=n.mediaCount>1?`<b>+${n.mediaCount-1}</b>`:"";return a==="PHOTO"&&e.url?`
+import{r as h}from"../../../shell-runtime/runtime/desktop/surface/edit-mode.js?v=0.9.38&r=a82436c5c539";import{r as g}from"../../halo/author-card/render.js?v=0.9.38&r=a82436c5c539";function l(n,s){if(!n.mediaCount)return"";const e=n.media[0],a=typeof e?.type=="string"?e.type:e?.type?.name||"",o=n.mediaCount>1?`<b>+${n.mediaCount-1}</b>`:"";return a==="PHOTO"&&e.url?`
       <span class="wg-moment-social-media">
         <img src="${s(e.url)}" alt="" loading="lazy" decoding="async" fetchpriority="low">
         ${o}

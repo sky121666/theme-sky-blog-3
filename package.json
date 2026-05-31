@@ -12,6 +12,7 @@
     "smoke:playwright": "node scripts/smoke-playwright.mjs",
     "audit:real-pages": "node scripts/audit-real-pages.mjs",
     "audit:notification-motion": "node scripts/qa/notification-motion-audit.mjs",
+    "verify:notification-center": "node scripts/verify-notification-center.mjs",
     "verify:docsme": "node scripts/verify-docsme.mjs",
     "verify:moments": "node scripts/verify-moments.mjs",
     "verify:reload": "node scripts/verify-theme-reload.mjs",

@@ -58,6 +58,22 @@ function normalizeWidgetOwner(owner, siteProfile = {}) {
 }
 
 export function resolveDesktopAuthorProfile(sources) {
+  const currentUser = sources?.currentUser || {};
+  if (currentUser.authenticated === true) {
+    const displayName = currentUser.displayName || currentUser.name || sources?.siteProfile?.title || '已登录用户';
+    return {
+      displayName,
+      summary: currentUser.bio || '已登录',
+      avatar: currentUser.avatar || sources?.siteProfile?.logo || '',
+      permalink: currentUser.permalink || '/uc',
+      posts: 0,
+      comments: 0,
+      visits: 0,
+      moments: 0,
+      authenticated: true
+    };
+  }
+
   const owner = [
     ...(Array.isArray(sources?.latestPosts) ? sources.latestPosts : []),
     ...(Array.isArray(sources?.popularPosts) ? sources.popularPosts : [])

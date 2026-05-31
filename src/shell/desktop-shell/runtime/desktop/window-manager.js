@@ -346,6 +346,12 @@ export function registerWindowManager(Alpine) {
     timeDesktopPreset: 'month-day-weekday-time',
     timeMobilePreset: 'time-only',
     timeHourCycle: '12',
+    notificationCenterTitle: '通知中心',
+    notificationCenterGuestTitle: '小组件',
+    notificationCenterDefaultOpen: false,
+    notificationCenterDefaultOpenConsumed: false,
+    notificationCenterAuthenticated: false,
+    notificationCenterAuthResolved: false,
     notificationCenterOpen: false,
     notificationCenterVisible: false,
     notificationCenterAnimating: false,
@@ -401,6 +407,11 @@ export function registerWindowManager(Alpine) {
       this.timeDesktopPreset = normalizeTimePreset(dataset.timeDesktopPreset, 'month-day-weekday-time');
       this.timeMobilePreset = normalizeTimePreset(dataset.timeMobilePreset, 'time-only');
       this.timeHourCycle = normalizeHourCycle(dataset.timeHourCycle);
+      this.notificationCenterTitle = String(dataset.notificationCenterTitle || '').trim() || '通知中心';
+      this.notificationCenterGuestTitle = String(dataset.notificationCenterGuestTitle || '').trim() || '小组件';
+      this.notificationCenterDefaultOpen = parseBooleanData(dataset.notificationCenterDefaultOpen, false);
+      this.notificationCenterAuthenticated = parseBooleanData(dataset.notificationCenterAuthenticated, false);
+      this.notificationCenterAuthResolved = true;
       this.notificationMotion = createNotificationCenterMotion();
 
       this.tick();
@@ -468,6 +479,12 @@ export function registerWindowManager(Alpine) {
       window.addEventListener('theme-notification-widget-drag-end', this.handleNotificationWidgetDragEnd);
       window.addEventListener('theme-widget-drag-state', this.handleWidgetDragState);
       window.addEventListener('keydown', this.handleEscape);
+
+      this.$nextTick(() => {
+        if (!this.notificationCenterDefaultOpen || this.notificationCenterDefaultOpenConsumed) return;
+        this.notificationCenterDefaultOpenConsumed = true;
+        void this.openNotificationCenter({ defaultOpen: true });
+      });
     },
     destroy() {
       window.removeEventListener('resize', this.handleResize);
@@ -509,11 +526,13 @@ export function registerWindowManager(Alpine) {
       }
       void this.openNotificationCenter();
     },
-    async openNotificationCenter() {
+    async openNotificationCenter(_options = {}) {
       this.closeMobileMenu();
       this.syncNotificationWidgets();
       if (this.notificationCenterOpen && this.notificationCenterVisible) {
-        void this.loadNotifications();
+        if (this.notificationCenterAuthenticated) {
+          void this.loadNotifications();
+        }
         return;
       }
       const token = ++this.notificationMotionToken;
@@ -528,7 +547,17 @@ export function registerWindowManager(Alpine) {
       } else if (this.$refs.notificationCenterPanel) {
         this.$refs.notificationCenterPanel.scrollTop = 0;
       }
-      void this.loadNotifications();
+      if (this.notificationCenterAuthenticated || !this.notificationCenterAuthResolved) {
+        void this.loadNotifications();
+      } else {
+        this.notificationGroups = [];
+        this.notificationExpandedGroupKey = '';
+        this.notificationUnreadCount = 0;
+        this.notificationTotalCount = 0;
+        this.notificationLoaded = true;
+        this.notificationUsername = '';
+        this.setNotificationState('guest', '');
+      }
       await this.notificationMotion?.open(this.$refs.notificationCenterPanel);
       if (token !== this.notificationMotionToken) return;
       this.notificationCenterAnimating = false;
@@ -555,6 +584,12 @@ export function registerWindowManager(Alpine) {
     setNotificationState(status, text = '') {
       this.notificationStatus = status;
       this.notificationStatusText = text;
+    },
+    notificationCenterDisplayTitle() {
+      if (!this.notificationCenterAuthResolved || this.notificationCenterAuthenticated) {
+        return this.notificationCenterTitle;
+      }
+      return this.notificationCenterGuestTitle;
     },
     notificationVisibleGroups() {
       if (this.notificationExpandedGroupKey) {
@@ -630,6 +665,19 @@ export function registerWindowManager(Alpine) {
       void this.openNotificationGroup(group);
     },
     async loadNotifications({ force = false, animate = false } = {}) {
+      if (!this.notificationCenterAuthenticated && this.notificationCenterAuthResolved) {
+        this.notificationController?.abort();
+        this.notificationLoading = false;
+        this.notificationGroups = [];
+        this.notificationExpandedGroupKey = '';
+        this.notificationUnreadCount = 0;
+        this.notificationTotalCount = 0;
+        this.notificationLoaded = true;
+        this.notificationUsername = '';
+        this.setNotificationState('guest', '');
+        return;
+      }
+
       if (this.notificationLoading || (this.notificationLoaded && !force)) return;
 
       this.notificationLoading = true;
@@ -650,6 +698,11 @@ export function registerWindowManager(Alpine) {
       try {
         const user = await resolveCurrentUsername(this.notificationController.signal);
         if (user.status === 'unauthenticated') {
+          this.notificationCenterAuthenticated = false;
+          this.notificationCenterAuthResolved = true;
+          if (this.$el?.dataset) {
+            this.$el.dataset.notificationCenterAuthenticated = 'false';
+          }
           this.notificationGroups = [];
           this.notificationExpandedGroupKey = '';
           this.notificationUnreadCount = 0;
@@ -659,6 +712,11 @@ export function registerWindowManager(Alpine) {
           return;
         }
         if (user.status === 'unsupported') {
+          this.notificationCenterAuthenticated = false;
+          this.notificationCenterAuthResolved = true;
+          if (this.$el?.dataset) {
+            this.$el.dataset.notificationCenterAuthenticated = 'false';
+          }
           this.notificationGroups = [];
           this.notificationExpandedGroupKey = '';
           this.notificationUnreadCount = 0;
@@ -671,6 +729,11 @@ export function registerWindowManager(Alpine) {
           throw new Error('Unable to resolve current user');
         }
 
+        this.notificationCenterAuthenticated = true;
+        this.notificationCenterAuthResolved = true;
+        if (this.$el?.dataset) {
+          this.$el.dataset.notificationCenterAuthenticated = 'true';
+        }
         this.notificationUsername = user.username;
         const response = await fetch(buildUserNotificationUrl(user.username, { unreadOnly: false }), {
           credentials: 'same-origin',
@@ -679,6 +742,11 @@ export function registerWindowManager(Alpine) {
         });
 
         if (response.status === 401 || response.status === 403 || response.redirected) {
+          this.notificationCenterAuthenticated = false;
+          this.notificationCenterAuthResolved = true;
+          if (this.$el?.dataset) {
+            this.$el.dataset.notificationCenterAuthenticated = 'false';
+          }
           this.notificationGroups = [];
           this.notificationExpandedGroupKey = '';
           this.notificationUnreadCount = 0;
@@ -688,6 +756,11 @@ export function registerWindowManager(Alpine) {
           return;
         }
         if (response.status === 404) {
+          this.notificationCenterAuthenticated = false;
+          this.notificationCenterAuthResolved = true;
+          if (this.$el?.dataset) {
+            this.$el.dataset.notificationCenterAuthenticated = 'false';
+          }
           this.notificationGroups = [];
           this.notificationExpandedGroupKey = '';
           this.notificationUnreadCount = 0;

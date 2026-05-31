@@ -1,1 +1,1 @@
-import{t as i}from"./editing-runtime.js?v=0.9.37&r=6dd7b2b64ef4";import"./edit-mode.js?v=0.9.37&r=6dd7b2b64ef4";export{i as applyEditingRuntime};
+import{t as i}from"./editing-runtime.js?v=0.9.38&r=a82436c5c539";import"./edit-mode.js?v=0.9.38&r=a82436c5c539";export{i as applyEditingRuntime};

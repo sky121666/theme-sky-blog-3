@@ -99,7 +99,40 @@
 	            th:if="${!#strings.isEmpty(pageAppValue)}"
 	            th:attr="data-app-script=${pageAppValue}"
 	            th:src="@{'/assets/js/apps/' + ${(pageAppValue == 'explorer-tags' ? 'tags' : (pageAppValue == 'explorer-categories' ? 'categories' : (pageAppValue == 'explorer-author' ? 'author' : (pageAppValue == 'explorer-archives' ? 'archives' : pageAppValue))))} + '/index.js?v=' + ${themeAssetVersion} + '&r=' + ${themeAssetRevision}}"></script>
-	    <script type="module" th:src="@{/assets/js/shell-core/index.js(v=${themeAssetVersion},r=${themeAssetRevision})}"></script>
+	    <script type="module" th:inline="javascript">
+	      (() => {
+	        const manifestUrl = /*[[@{/assets/asset-manifest.json(v=${themeAssetVersion},r=${themeAssetRevision})}]]*/ '/assets/asset-manifest.json';
+	        const fallbackScriptUrl = /*[[@{/assets/js/shell-core/index.js(v=${themeAssetVersion},r=${themeAssetRevision})}]]*/ '/assets/js/shell-core/index.js';
+	        const fallbackStyleUrl = /*[[@{/assets/css/shell-core/index.css(v=${themeAssetVersion},r=${themeAssetRevision})}]]*/ '/assets/css/shell-core/index.css';
+	        const shellStyle = document.querySelector('link[href*="/assets/css/shell-core/index.css"]');
+
+	        const withQuery = (url, query) => {
+	          if (!query) return url;
+	          const parsed = new URL(url, window.location.origin);
+	          const params = new URLSearchParams(query);
+	          params.forEach((value, key) => parsed.searchParams.set(key, value));
+	          return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+	        };
+
+	        const importShell = (scriptUrl, styleUrl) => {
+	          if (shellStyle && styleUrl && shellStyle.href !== new URL(styleUrl, window.location.origin).href) {
+	            shellStyle.href = styleUrl;
+	          }
+	          return import(scriptUrl);
+	        };
+
+	        fetch(manifestUrl, {
+	          credentials: 'same-origin',
+	          cache: 'no-store'
+	        })
+	          .then((response) => response.ok ? response.json() : Promise.reject(new Error(`asset-manifest ${response.status}`)))
+	          .then((manifest) => {
+	            const query = String(manifest?.__meta?.query || '').replace(/^\?/, '');
+	            return importShell(withQuery(fallbackScriptUrl, query), withQuery(fallbackStyleUrl, query));
+	          })
+	          .catch(() => importShell(fallbackScriptUrl, fallbackStyleUrl));
+	      })();
+	    </script>
   </head>
 
   <!-- 读取后台配置 -->
@@ -123,6 +156,16 @@
       headerTimeDesktopPreset = ${headerTime?.desktop_preset ?: 'month-day-weekday-time'},
       headerTimeMobilePreset = ${headerTime?.mobile_preset ?: 'time-only'},
       headerTimeHourCycle = ${headerTime?.hour_cycle ?: '12'},
+      sidebarNotificationCenter = ${theme.config.sidebar?.notification_center},
+      notificationCenterTitle = ${!#strings.isEmpty(sidebarNotificationCenter?.title) ? sidebarNotificationCenter.title : '通知中心'},
+      notificationCenterGuestTitle = ${!#strings.isEmpty(sidebarNotificationCenter?.guest_title) ? sidebarNotificationCenter.guest_title : '小组件'},
+      notificationCenterDefaultOpen = ${sidebarNotificationCenter?.default_open != null ? sidebarNotificationCenter.default_open : false},
+      notificationCenterAuthenticated = ${#authorization.expression('isAuthenticated()')},
+      currentContributor = ${notificationCenterAuthenticated ? contributorFinder.getContributor(#authentication.name) : null},
+      widgetsCurrentUserName = ${currentContributor != null ? currentContributor.name : ''},
+      widgetsCurrentUserDisplayName = ${currentContributor != null ? currentContributor.displayName : ''},
+      widgetsCurrentUserAvatar = ${currentContributor != null ? currentContributor.avatar : ''},
+      widgetsCurrentUserBio = ${currentContributor != null ? currentContributor.bio : ''},
       headerLoginLabel = ${!#strings.isEmpty(headerAuth?.login_label) ? headerAuth.login_label : '登录'},
       headerIconMobileMenu = ${theme.config.header?.icons?.mobile_menu?.value ?: ''},
       headerIconSearch = ${theme.config.header?.icons?.search?.value ?: ''},
@@ -270,6 +313,10 @@
       timeDesktopPreset=${headerTimeDesktopPreset},
       timeMobilePreset=${headerTimeMobilePreset},
       timeHourCycle=${headerTimeHourCycle},
+      notificationCenterTitle=${notificationCenterTitle},
+      notificationCenterGuestTitle=${notificationCenterGuestTitle},
+      notificationCenterDefaultOpen=${notificationCenterDefaultOpen},
+      notificationCenterAuthenticated=${notificationCenterAuthenticated},
       iconMobileMenu=${headerIconMobileMenu},
       iconSearch=${headerIconSearch},
       iconAuth=${headerIconAuth},
@@ -428,6 +475,11 @@
       siteTitle=${widgetsSiteTitle},
       siteSubtitle=${widgetsSiteSubtitle},
       siteLogo=${widgetsSiteLogo},
+      authenticated=${notificationCenterAuthenticated},
+      currentUserName=${widgetsCurrentUserName},
+      currentUserDisplayName=${widgetsCurrentUserDisplayName},
+      currentUserAvatar=${widgetsCurrentUserAvatar},
+      currentUserBio=${widgetsCurrentUserBio},
       archivesUrl=${site.routes != null and site.routes.archivesUri != null ? site.routes.archivesUri : '/archives'},
       fallbackCover=${widgetsFallbackCover}
     )}"></th:block>

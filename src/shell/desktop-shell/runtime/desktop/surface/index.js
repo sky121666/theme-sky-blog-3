@@ -593,6 +593,14 @@ export function registerDesktopSurface(Alpine) {
           logo: bootstrap.sources?.siteProfile?.logo || '',
           url: bootstrap.sources?.siteProfile?.url || this.siteUrl || ''
         },
+        currentUser: {
+          authenticated: bootstrap.sources?.currentUser?.authenticated === true,
+          name: bootstrap.sources?.currentUser?.name || '',
+          displayName: bootstrap.sources?.currentUser?.displayName || '',
+          avatar: bootstrap.sources?.currentUser?.avatar || '',
+          bio: bootstrap.sources?.currentUser?.bio || '',
+          permalink: bootstrap.sources?.currentUser?.permalink || '/uc'
+        },
         latestPosts: Array.isArray(bootstrap.sources?.latestPosts) ? bootstrap.sources.latestPosts : [],
         popularPosts: Array.isArray(bootstrap.sources?.popularPosts) ? bootstrap.sources.popularPosts : [],
         categories: Array.isArray(bootstrap.sources?.categories) ? bootstrap.sources.categories : [],

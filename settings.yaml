@@ -559,6 +559,7 @@ spec:
                 - "image/png"
                 - "image/jpeg"
                 - "image/webp"
+
         - $formkit: group
           id: widgets_modules_group
           name: modules
@@ -586,6 +587,37 @@ spec:
                   value: 30
                   min: 10
                   max: 180
+
+    - group: sidebar
+      label: 侧边栏
+      formSchema:
+        - $formkit: group
+          id: sidebar_notification_center_group
+          name: notification_center
+          label: 通知中心
+          value:
+            title: 通知中心
+            guest_title: 小组件
+            default_open: false
+          children:
+            - $formkit: text
+              id: sidebar_notification_center_title
+              name: title
+              label: 名称
+              help: 显示在右侧侧边栏顶部。未登录时侧边栏只展示小组件区域。
+              value: 通知中心
+            - $formkit: text
+              id: sidebar_notification_center_guest_title
+              name: guest_title
+              label: 未登录名称
+              help: 未登录访客打开右侧侧边栏时显示的标题。
+              value: 小组件
+            - $formkit: switch
+              id: sidebar_notification_center_default_open
+              name: default_open
+              label: 默认展开
+              help: 开启后，进入桌面壳层页面时自动展开一次右侧侧边栏；PJAX 页面切换不会反复展开。
+              value: false
 
     - group: dock
       label: Dock

@@ -35,6 +35,14 @@ export function readDesktopWidgetsBootstrap() {
           logo: '',
           url: ''
         },
+        currentUser: {
+          authenticated: false,
+          name: '',
+          displayName: '',
+          avatar: '',
+          bio: '',
+          permalink: '/uc'
+        },
         latestPosts: [],
         popularPosts: [],
         categories: [],
