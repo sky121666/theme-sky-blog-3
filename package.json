@@ -1,6 +1,6 @@
 {
   "name": "sky-blog-3",
-  "version": "0.9.39",
+  "version": "0.9.40",
   "type": "module",
   "scripts": {
     "preinstall": "node -e \"if (!/pnpm/.test(process.env.npm_config_user_agent || '')) { console.error('This project uses pnpm only. Do not use npm.'); process.exit(1); }\"",
