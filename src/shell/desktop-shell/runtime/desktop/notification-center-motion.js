@@ -25,6 +25,11 @@ function queryContentItems(panel) {
   return Array.from(panel.querySelectorAll(CONTENT_SELECTOR));
 }
 
+function queryBackdrop(panel) {
+  if (!panel?.ownerDocument) return null;
+  return panel.ownerDocument.querySelector('.notification-center-backdrop');
+}
+
 function animationPromise(animation, onFinish = null) {
   return new Promise((resolve) => {
     let settled = false;
@@ -71,6 +76,7 @@ export function createNotificationCenterMotion() {
       clearAnimations(activePanelAnimations);
       clearAnimations(activeContentAnimations);
 
+      const backdrop = queryBackdrop(panel);
       const items = queryContentItems(panel);
       const reduced = prefersReducedMotion();
 
@@ -78,6 +84,10 @@ export function createNotificationCenterMotion() {
         panel.style.opacity = '1';
         panel.style.transform = 'none';
         panel.style.filter = 'none';
+        if (backdrop) {
+          backdrop.style.opacity = '1';
+          backdrop.style.transform = 'none';
+        }
         items.forEach((item) => {
           item.style.opacity = '1';
           item.style.transform = 'none';
@@ -91,6 +101,10 @@ export function createNotificationCenterMotion() {
       panel.style.transform = 'translateX(28px) translateY(-2px) scale(0.99)';
       panel.style.filter = 'none';
       panel.style.clipPath = 'none';
+      if (backdrop) {
+        backdrop.style.opacity = '0';
+        backdrop.style.transform = 'none';
+      }
 
       items.forEach((item) => {
         item.style.opacity = '1';
@@ -110,30 +124,47 @@ export function createNotificationCenterMotion() {
       ];
 
       const panelTiming = {
-        duration: 220,
+        duration: 360,
         easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
         fill: 'forwards'
       };
 
       const panelAnim = panel.animate(panelKeyframes, panelTiming);
       activePanelAnimations.push(panelAnim);
+      let backdropAnim = null;
+      if (backdrop) {
+        backdropAnim = backdrop.animate([
+          { opacity: 0 },
+          { opacity: 1 }
+        ], {
+          duration: 280,
+          easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+          fill: 'forwards'
+        });
+        activePanelAnimations.push(backdropAnim);
+      }
 
       // Apply the final styles upon panel animation end to keep it static
-      const panelPromise = new Promise((resolve) => {
-        panelAnim.onfinish = () => {
+      const panelPromise = animationPromise(panelAnim, () => {
           panel.style.opacity = '1';
           panel.style.transform = 'none';
           panel.style.filter = 'none';
           panel.style.clipPath = 'none';
-          try {
-            panelAnim.cancel();
-          } catch (_e) {}
-          resolve();
-        };
-        panelAnim.oncancel = () => resolve();
       });
+      const backdropPromise = backdropAnim
+        ? animationPromise(backdropAnim, () => {
+          backdrop.style.opacity = '1';
+          backdrop.style.transform = 'none';
+        })
+        : Promise.resolve();
 
-      return panelPromise;
+      return Promise.all([panelPromise, backdropPromise]).then(() => {
+        [panelAnim, backdropAnim].filter(Boolean).forEach((anim) => {
+          try {
+            anim.cancel();
+          } catch (_e) {}
+        });
+      });
     },
 
     close(panel) {
@@ -142,11 +173,16 @@ export function createNotificationCenterMotion() {
       clearAnimations(activePanelAnimations);
       clearAnimations(activeContentAnimations);
 
+      const backdrop = queryBackdrop(panel);
       const reduced = prefersReducedMotion();
 
       if (reduced) {
         panel.style.opacity = '0';
         panel.style.transform = 'translateX(24px) scale(0.97)';
+        if (backdrop) {
+          backdrop.style.opacity = '0';
+          backdrop.style.transform = 'none';
+        }
         return Promise.resolve();
       }
 
@@ -163,24 +199,40 @@ export function createNotificationCenterMotion() {
       ];
 
       const panelTiming = {
-        duration: 160,
-        easing: 'cubic-bezier(0.3, 0, 0.8, 0.15)',
+        duration: 240,
+        easing: 'cubic-bezier(0.7, 0, 0.84, 0)',
         fill: 'forwards'
       };
 
       const panelAnim = panel.animate(panelKeyframes, panelTiming);
       activePanelAnimations.push(panelAnim);
+      let backdropAnim = null;
+      if (backdrop) {
+        backdropAnim = backdrop.animate([
+          { opacity: 1 },
+          { opacity: 0 }
+        ], {
+          duration: 180,
+          easing: 'cubic-bezier(0.7, 0, 0.84, 0)',
+          fill: 'forwards'
+        });
+        activePanelAnimations.push(backdropAnim);
+      }
 
-      return new Promise((resolve) => {
-        panelAnim.onfinish = () => {
+      const panelPromise = animationPromise(panelAnim, () => {
           panel.style.opacity = '0';
           panel.style.transform = 'translateX(24px) translateY(-2px) scale(0.99)';
           panel.style.filter = 'none';
           panel.style.clipPath = 'none';
-          resolve();
-        };
-        panelAnim.oncancel = () => resolve();
       });
+      const backdropPromise = backdropAnim
+        ? animationPromise(backdropAnim, () => {
+          backdrop.style.opacity = '0';
+          backdrop.style.transform = 'none';
+        })
+        : Promise.resolve();
+
+      return Promise.all([panelPromise, backdropPromise]);
     },
 
     refreshContent(panel) {

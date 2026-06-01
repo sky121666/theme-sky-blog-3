@@ -4,12 +4,26 @@
    its visual shell; widget renderers only provide inner content. */
 
 :root {
+  --nc-content-width: 344px;
+  --nc-content-gutter: 26px;
+  --nc-panel-content-width: calc(var(--nc-content-width) + (var(--nc-content-gutter) * 2));
+  --nc-scrim-width: 120px;
+  --nc-width: calc(var(--nc-panel-content-width) + var(--nc-scrim-width));
+  --nc-panel-air-blur: 34px;
+  --nc-panel-air-bg:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.040) 0%,
+      rgba(255, 255, 255, 0.024) 48%,
+      rgba(255, 255, 255, 0.010) 100%
+    ),
+    rgba(0, 0, 0, 0.15);
   --nc-glass-bg: rgba(22, 22, 24, 0.32);
   --nc-glass-bg-hover: rgba(30, 30, 32, 0.42);
-  --nc-card-glass-bg: rgba(28, 28, 30, 0.52);
-  --nc-card-glass-bg-hover: rgba(36, 36, 38, 0.60);
-  --nc-glass-border-light: rgba(255, 255, 255, 0.18);
-  --nc-glass-border-dark: rgba(0, 0, 0, 0.30);
+  --nc-card-glass-bg: rgba(34, 35, 38, 0.42);
+  --nc-card-glass-bg-hover: rgba(42, 43, 46, 0.50);
+  --nc-glass-border-light: rgba(255, 255, 255, 0.10);
+  --nc-glass-border-dark: rgba(0, 0, 0, 0.10);
   --nc-control-bg: rgba(255, 255, 255, 0.08);
   --nc-control-bg-hover: rgba(255, 255, 255, 0.16);
   --nc-text: rgba(255, 255, 255, 0.94);
@@ -21,28 +35,90 @@
 /* ─── Panel root (Drawer Panel) ─── */
 .notification-center {
   position: fixed;
-  top: 40px;
-  right: 12px;
-  bottom: 96px;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(var(--nc-width), calc(100vw - 8px));
+  height: 100dvh;
+  max-height: 100dvh;
+  border: 0;
+  border-radius: 0;
   z-index: 9998;
   isolation: isolate;
   display: flex;
   flex-direction: column;
-  width: min(392px, calc(100vw - 24px));
-  height: calc(100dvh - 136px);
-  max-height: calc(100dvh - 136px);
   padding: 0;
-  overflow: visible;
+  overflow: hidden;
   color: var(--nc-text);
   text-shadow: none;
-  border: 0;
-  border-radius: 0;
   background: transparent;
   box-shadow: none;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   transform-origin: top right;
   will-change: transform, opacity;
+}
+
+.notification-center::before {
+  content: "";
+  position: absolute;
+  top: -30px;
+  right: -30px;
+  bottom: -30px;
+  left: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 0;
+  background: var(--nc-panel-air-bg);
+  box-shadow: none;
+  -webkit-backdrop-filter: blur(var(--nc-panel-air-blur)) contrast(106%) saturate(120%);
+  backdrop-filter: blur(var(--nc-panel-air-blur)) contrast(106%) saturate(120%);
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    rgba(0, 0, 0, 0.15) 48px,
+    rgba(0, 0, 0, 0.50) 78px,
+    rgba(0, 0, 0, 0.85) 102px,
+    #000 var(--nc-scrim-width)
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    rgba(0, 0, 0, 0.15) 48px,
+    rgba(0, 0, 0, 0.50) 78px,
+    rgba(0, 0, 0, 0.85) 102px,
+    #000 var(--nc-scrim-width)
+  );
+}
+
+.notification-center > * {
+  position: relative;
+  z-index: 1;
+}
+
+.notification-center-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9997;
+  width: auto;
+  height: 100dvh;
+  max-height: 100dvh;
+  pointer-events: none;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  -webkit-mask-image: none;
+  mask-image: none;
+  opacity: 1;
+  transform-origin: top right;
+  will-change: opacity;
 }
 
 .notification-center.is-animating {
@@ -54,6 +130,10 @@
   transform: translateX(28px) translateY(-2px) scale(0.99);
 }
 
+.notification-center-backdrop.is-opening {
+  opacity: 0;
+}
+
 /* ─── Panel Header ─── */
 .notification-center-header {
   position: relative;
@@ -63,10 +143,11 @@
   justify-content: space-between;
   gap: 12px;
   box-sizing: border-box;
+  width: var(--nc-panel-content-width);
   min-height: 0;
-  height: 52px;
-  margin: 0;
-  padding: 20px 24px 12px;
+  height: 78px;
+  margin: 0 0 0 var(--nc-scrim-width);
+  padding: 42px var(--nc-content-gutter) 10px;
   background: transparent;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
@@ -231,8 +312,12 @@
 /* ─── Scrollable content ─── */
 .notification-panel-scroll {
   flex: 1 1 auto;
+  align-self: flex-start;
+  box-sizing: border-box;
+  width: var(--nc-panel-content-width);
   min-height: 0;
-  padding: 0 24px 24px;
+  margin-left: var(--nc-scrim-width);
+  padding: 0 var(--nc-content-gutter) 20px;
   overflow: hidden auto;
   scrollbar-width: none;
 }
@@ -289,10 +374,11 @@
   --nc-widget-cell: 164px;
   position: relative;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, var(--nc-widget-cell));
   grid-auto-rows: var(--nc-widget-cell);
   gap: var(--nc-widget-gap);
   align-items: start;
+  justify-content: center;
 }
 
 .notification-center-group.is-expanded {
@@ -439,7 +525,7 @@
 .notification-center-stack-card-wrapper {
   position: relative;
   isolation: isolate;
-  height: 82px;
+  height: 78px;
   padding-bottom: 0;
   transform-origin: center 34px;
   transform-style: preserve-3d;
@@ -458,7 +544,7 @@
   position: absolute;
   top: 0;
   box-sizing: border-box;
-  height: 72px;
+  height: 70px;
   border-radius: 22px;
   display: block;
   padding: 0;
@@ -546,10 +632,10 @@
   row-gap: 1px;
   width: 100%;
   min-width: 0;
-  height: 72px;
-  min-height: 72px;
-  max-height: 72px;
-  padding: 10px 14px;
+  height: 70px;
+  min-height: 70px;
+  max-height: 70px;
+  padding: 9px 13px;
   text-align: left;
   text-decoration: none;
   overflow: hidden;
@@ -558,23 +644,20 @@
 
   /* Velvet Glass Styling */
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.035) 52%, rgba(0, 0, 0, 0.08)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.034) 52%, rgba(0, 0, 0, 0.045)),
     var(--nc-card-glass-bg);
-  -webkit-backdrop-filter: blur(34px) saturate(180%) brightness(1.04);
-  backdrop-filter: blur(34px) saturate(180%) brightness(1.04);
+  -webkit-backdrop-filter: blur(42px) saturate(150%) brightness(1.025);
+  backdrop-filter: blur(42px) saturate(150%) brightness(1.025);
 
   /* Nested Concentric Radii Rule */
   border-radius: 22px;
 
-  /* 3D Light Accents (top/left lights, bottom/right shadows) */
-  border-top: 0.5px solid var(--nc-glass-border-light);
-  border-left: 0.5px solid var(--nc-glass-border-light);
-  border-bottom: 0.5px solid var(--nc-glass-border-dark);
-  border-right: 0.5px solid var(--nc-glass-border-dark);
+  border: 0.5px solid rgba(255, 255, 255, 0.075);
   box-shadow:
-    0 12px 24px rgba(0, 0, 0, 0.28),
-    0 4px 10px rgba(0, 0, 0, 0.16),
-    inset 0 1px 1px rgba(255, 255, 255, 0.13);
+    0 16px 30px rgba(0, 0, 0, 0.18),
+    0 4px 10px rgba(0, 0, 0, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.105),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.075);
 
   transition:
     transform 0.22s cubic-bezier(0.25, 1, 0.5, 1),
@@ -585,13 +668,14 @@
 
 .notification-center-card:hover {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.145), rgba(255, 255, 255, 0.045) 52%, rgba(0, 0, 0, 0.06)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.045) 52%, rgba(0, 0, 0, 0.035)),
     var(--nc-card-glass-bg-hover);
   transform: translateY(-1px);
   box-shadow:
-    0 16px 30px rgba(0, 0, 0, 0.34),
-    0 7px 14px rgba(0, 0, 0, 0.20),
-    inset 0 1px 1px rgba(255, 255, 255, 0.16);
+    0 20px 36px rgba(0, 0, 0, 0.22),
+    0 8px 16px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.06);
 }
 
 .notification-center-card:active {
@@ -601,8 +685,8 @@
 /* Unread Indicator Glow & Gradient */
 .notification-center-card.is-unread {
   background:
-    linear-gradient(115deg, rgba(79, 141, 247, 0.10) 0%, transparent 58%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.035) 52%, rgba(0, 0, 0, 0.08)),
+    linear-gradient(115deg, rgba(79, 141, 247, 0.065) 0%, transparent 58%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.034) 52%, rgba(0, 0, 0, 0.045)),
     var(--nc-card-glass-bg);
 }
 
@@ -909,6 +993,10 @@
     transform 0.18s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
+.notification-widget-card.desktop-widget-card {
+  border-radius: 24px;
+}
+
 .notification-widget-card.is-drag-source {
   opacity: 0.36;
   transform: scale(0.985);
@@ -930,8 +1018,8 @@
 
 .notification-widget-card.widget--system-calendar.is-medium {
   grid-row: span 2;
-  height: calc((var(--nc-widget-cell) * 1.45) + (var(--nc-widget-gap) * 0.45));
-  max-height: calc((var(--nc-widget-cell) * 1.45) + (var(--nc-widget-gap) * 0.45));
+  height: calc((var(--nc-widget-cell) * 2) + var(--nc-widget-gap));
+  max-height: calc((var(--nc-widget-cell) * 2) + var(--nc-widget-gap));
 }
 
 .notification-widget-card.widget--system-calendar {
@@ -994,9 +1082,11 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  align-self: center;
+  align-self: flex-start;
+  box-sizing: border-box;
+  width: var(--nc-panel-content-width);
   flex: none;
-  margin: 0;
+  margin: 0 0 0 var(--nc-scrim-width);
   padding: 8px 24px 0;
   border-radius: 999px;
 }
@@ -1013,15 +1103,16 @@
   font-weight: 650;
   color: var(--nc-text);
   cursor: pointer;
-  border-top: 0.5px solid rgba(255, 255, 255, 0.14);
-  border-left: 0.5px solid rgba(255, 255, 255, 0.14);
-  border-right: 0.5px solid rgba(0, 0, 0, 0.18);
-  border-bottom: 0.5px solid rgba(0, 0, 0, 0.18);
+  border: 0.5px solid rgba(255, 255, 255, 0.09);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.08);
-  -webkit-backdrop-filter: blur(20px);
-  backdrop-filter: blur(20px);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.038)),
+    rgba(32, 32, 34, 0.20);
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.11);
+  -webkit-backdrop-filter: blur(30px) saturate(135%);
+  backdrop-filter: blur(30px) saturate(135%);
   transition:
     color 0.15s ease,
     background-color 0.15s ease,
@@ -1038,13 +1129,16 @@
   padding: 0;
   color: var(--nc-text);
   cursor: pointer;
-  border-top: 0.5px solid rgba(255, 255, 255, 0.14);
-  border-left: 0.5px solid rgba(255, 255, 255, 0.14);
-  border-right: 0.5px solid rgba(0, 0, 0, 0.18);
-  border-bottom: 0.5px solid rgba(0, 0, 0, 0.18);
+  border: 0.5px solid rgba(255, 255, 255, 0.09);
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.038)),
+    rgba(32, 32, 34, 0.20);
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.11);
+  -webkit-backdrop-filter: blur(30px) saturate(135%);
+  backdrop-filter: blur(30px) saturate(135%);
   transition:
     color 0.15s ease,
     background-color 0.15s ease,
@@ -1053,7 +1147,9 @@
 
 .notification-center-widget-edit:hover,
 .notification-center-widget-close:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.052)),
+    rgba(32, 32, 34, 0.25);
 }
 
 .notification-center-widget-edit:active,
@@ -1074,26 +1170,64 @@ body.notification-widget-drop-active .notification-center-widget-dropzone {
 
 /* ─── Responsive (mobile) ─── */
 @media (width <= 640px) {
+  .notification-center,
+  .notification-center-backdrop {
+    --nc-scrim-width: clamp(72px, 20vw, 96px);
+    --nc-content-gutter: 20px;
+    --nc-content-width: min(344px, calc(100vw - var(--nc-scrim-width) - (var(--nc-content-gutter) * 2) - 8px));
+    top: 0;
+    right: 0;
+    bottom: 0;
+    height: 100dvh;
+    max-height: 100dvh;
+  }
+
   .notification-center {
-    top: 34px;
-    right: 8px;
-    bottom: 86px;
-    width: min(392px, calc(100vw - 16px));
-    height: calc(100dvh - 120px);
-    max-height: calc(100dvh - 120px);
+    width: min(var(--nc-width), 100vw);
+    border-radius: 0;
+  }
+
+  .notification-center::before {
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      rgba(0, 0, 0, 0.15) 18px,
+      rgba(0, 0, 0, 0.50) 38px,
+      rgba(0, 0, 0, 0.85) 60px,
+      #000 var(--nc-scrim-width)
+    );
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      rgba(0, 0, 0, 0.15) 18px,
+      rgba(0, 0, 0, 0.50) 38px,
+      rgba(0, 0, 0, 0.85) 60px,
+      #000 var(--nc-scrim-width)
+    );
+  }
+
+  .notification-center-backdrop {
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: 100dvh;
+    max-height: 100dvh;
   }
 
   .notification-center-header {
-    padding: 16px 18px 10px;
+    height: 80px;
+    padding: 48px var(--nc-content-gutter) 10px;
   }
 
   .notification-panel-scroll {
-    padding: 0 18px 18px;
+    padding: 0 var(--nc-content-gutter) 18px;
   }
 
   .notification-center-widget-list {
     --nc-widget-gap: 14px;
-    --nc-widget-cell: min(164px, calc((100vw - 66px) / 2));
+    --nc-widget-cell: min(164px, calc((var(--nc-content-width) - var(--nc-widget-gap)) / 2));
   }
 
   .notification-center-widget-toolbar {

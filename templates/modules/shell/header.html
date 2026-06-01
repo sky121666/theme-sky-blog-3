@@ -141,6 +141,16 @@
       mobileMenuEnabled=${mobileMenuEnabled}
     )}"></th:block>
 
+    <div class="notification-center-backdrop"
+         aria-hidden="true"
+         x-show="notificationCenterVisible"
+         :class="{
+           'is-animating': notificationCenterAnimating,
+           'is-opening': notificationCenterMotionPhase === 'opening',
+           'is-closing': notificationCenterMotionPhase === 'closing'
+         }"
+         style="display: none;"></div>
+
     <aside id="notification-center-panel"
            class="notification-center"
            data-notification-widget-drop-target

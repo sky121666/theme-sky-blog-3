@@ -334,6 +334,7 @@ export const dragMethods = {
       col: targetSpan.w >= NOTIFICATION_GRID_COLUMNS || relativeX < listRect.width / 2 ? 1 : 2,
       span: targetSpan
     };
+    const desiredPreview = this.notificationGridPlacementToPreview(desired, metrics);
 
     const cards = Array.from(list.querySelectorAll('[data-notification-widget-card]'))
       .filter((card) => card.dataset.notificationWidgetKey !== this.dragState.key)
@@ -365,15 +366,19 @@ export const dragMethods = {
       score: Number.POSITIVE_INFINITY,
       placement: null
     };
+    const previousIndex = Number.isFinite(this.dragState.notificationDropIndex)
+      ? this.dragState.notificationDropIndex
+      : -1;
 
     for (let index = 0; index <= cards.length; index += 1) {
       const sequence = cards.slice();
       sequence.splice(index, 0, targetItem);
       const placement = this.simulateNotificationGrid(sequence).find((item) => item.key === this.dragState.key);
       if (!placement) continue;
-      const rowDistance = Math.abs(placement.row - desired.row);
-      const colDistance = Math.abs(placement.col - desired.col);
-      const score = rowDistance * 10 + colDistance;
+      const preview = this.notificationGridPlacementToPreview(placement, metrics);
+      const distance = Math.abs(preview.top - desiredPreview.top) + Math.abs(preview.left - desiredPreview.left);
+      const hysteresis = previousIndex >= 0 && index !== previousIndex ? 14 : 0;
+      const score = distance + hysteresis;
       if (score < best.score) {
         best = { index, score, placement };
       }
