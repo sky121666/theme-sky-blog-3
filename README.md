@@ -3,7 +3,7 @@
 Sky Blog 3 是一个面向 Halo 2.x 的 macOS 桌面风格博客主题。主题以桌面、Dock、顶栏、窗口系统和桌面小组件为核心交互模型，将文章、归档、图库、瞬间、友链、追番、豆瓣、Steam、装备和 Docsme 等内容组织为独立 App。
 
 - 仓库：[sky121666/theme-sky-blog-3](https://github.com/sky121666/theme-sky-blog-3)
-- 当前版本：`v0.9.38`
+- 当前版本：`v0.9.39`
 - Halo 要求：`>= 2.23.0`
 - 包管理器：`pnpm`
 
