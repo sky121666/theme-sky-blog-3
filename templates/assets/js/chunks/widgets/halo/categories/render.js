@@ -1,6 +1,6 @@
-import{o as c}from"../../../shell-runtime/runtime/desktop/surface/edit-mode.js?v=0.9.40&r=0c2cb8283bf4";import{r as l}from"../author-card/render.js?v=0.9.40&r=0c2cb8283bf4";var m='<span class="icon-[lucide--folder]" aria-hidden="true"></span>';function f(r){return Array.isArray(r)?r.map(e=>String(e||"").trim()).filter(Boolean):String(r||"").split(",").map(e=>e.trim()).filter(Boolean)}function u(r,e,t){if(!e.length)return c(r.categories,t);const i=new Set(e),n=new Map(c(r.categories,1e3).map(a=>[a.key,a]));return e.filter(a=>i.has(a)).map(a=>n.get(a)).filter(Boolean).slice(0,Math.max(t||0,1))}function w({sources:r,escapeHtml:e,mode:t},i){const n=u(r,f((i?.meta&&typeof i.meta=="object"?i.meta:{}).categoryNames),4);if(!n.length)return'<div class="desktop-widget-empty">当前没有可展示的分类。</div>';const a="/categories",p=n.map(o=>{const s=o.color||"currentColor",d=o.icon||m,g=s!=="currentColor"?` style="color:${e(s)}"`:"";return l({href:e(o.permalink),app:"explorer-categories",className:"wg-cat-item",disabled:t==="preview",innerHtml:`
+import{n as m}from"../../../rolldown-runtime.js?v=0.9.41&r=437dcc5bcb14";import{o as c}from"../../../shell-runtime/runtime/desktop/surface/edit-mode.js?v=0.9.41&r=437dcc5bcb14";import{r as l}from"../author-card/render.js?v=0.9.41&r=437dcc5bcb14";var b=m({renderWidget:()=>v}),f='<span class="icon-[lucide--folder]" aria-hidden="true"></span>';function u(r){return Array.isArray(r)?r.map(e=>String(e||"").trim()).filter(Boolean):String(r||"").split(",").map(e=>e.trim()).filter(Boolean)}function h(r,e,t){if(!e.length)return c(r.categories,t);const i=new Set(e),o=new Map(c(r.categories,1e3).map(a=>[a.key,a]));return e.filter(a=>i.has(a)).map(a=>o.get(a)).filter(Boolean).slice(0,Math.max(t||0,1))}function v({sources:r,escapeHtml:e,mode:t},i){const o=h(r,u((i?.meta&&typeof i.meta=="object"?i.meta:{}).categoryNames),4);if(!o.length)return'<div class="desktop-widget-empty">当前没有可展示的分类。</div>';const a="/categories",p=o.map(n=>{const s=n.color||"currentColor",d=n.icon||f,g=s!=="currentColor"?` style="color:${e(s)}"`:"";return l({href:e(n.permalink),app:"explorer-categories",className:"wg-cat-item",disabled:t==="preview",innerHtml:`
         <span class="wg-cat-icon"${g}>${d}</span>
-        <span class="wg-cat-label">${e(o.name)}</span>
+        <span class="wg-cat-label">${e(n.name)}</span>
       `})}).join("");return`
     <div class="wg-cat-obsidian">
       <div class="wg-cat-header">
@@ -14,4 +14,4 @@ import{o as c}from"../../../shell-runtime/runtime/desktop/surface/edit-mode.js?v
           `})}
       </div>
       <div class="wg-cat-grid">${p}</div>
-    </div>`}export{w as t};
+    </div>`}export{b as t};

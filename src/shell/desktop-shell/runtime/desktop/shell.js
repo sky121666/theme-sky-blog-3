@@ -6,7 +6,7 @@
 
 import { initPjax } from './pjax/index.js';
 import { initPrefetch } from './pjax/prefetch.js';
-import { observeSearchWidget, openSearchWidget } from './search.js';
+import { openSearchWidget } from './search.js';
 import { registerWindowManager } from './window-manager.js';
 import { registerWindowComponents } from './window.js';
 
@@ -139,7 +139,7 @@ function ensureOverlayScrollbar(scrollContainer) {
   syncOverlayScrollbar(scrollContainer);
 }
 
-function initFloatingScrollbars() {
+export function initFloatingScrollbars() {
   if (window.__THEME_FLOATING_SCROLLBARS__) return;
   window.__THEME_FLOATING_SCROLLBARS__ = true;
 
@@ -150,8 +150,44 @@ function initFloatingScrollbars() {
   const initializedContainers = new Set();
   let dragState = null;
 
+  function stopDrag() {
+    if (!dragState) return;
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
+    dragState = null;
+  }
+
+  const clearActiveTimer = (scrollContainer) => {
+    const timer = activeTimers.get(scrollContainer);
+    if (timer !== undefined) {
+      window.clearTimeout(timer);
+      activeTimers.delete(scrollContainer);
+    }
+    delete scrollContainer.dataset.scrollbarActive;
+  };
+
+  const releaseContainer = (scrollContainer) => {
+    clearActiveTimer(scrollContainer);
+    initializedContainers.delete(scrollContainer);
+    if (dragState?.container === scrollContainer) {
+      stopDrag();
+    }
+  };
+
+  const pruneDisconnectedContainers = () => {
+    initializedContainers.forEach((scrollContainer) => {
+      if (!scrollContainer.isConnected) {
+        releaseContainer(scrollContainer);
+      }
+    });
+
+    if (dragState?.container && !dragState.container.isConnected) {
+      stopDrag();
+    }
+  };
+
   const markScrollActive = (scrollContainer) => {
-    if (!(scrollContainer instanceof HTMLElement)) return;
+    if (!(scrollContainer instanceof HTMLElement) || !scrollContainer.isConnected) return;
 
     scrollContainer.dataset.scrollbarActive = 'true';
 
@@ -172,7 +208,7 @@ function initFloatingScrollbars() {
     const scrollContainer = target instanceof HTMLElement && target.matches(FLOATING_SCROLLBAR_SELECTOR)
       ? target
       : resolveScrollContainer(target);
-    if (!scrollContainer) return null;
+    if (!scrollContainer || !scrollContainer.isConnected) return null;
 
     scrollContainer.classList.add('floating-scrollbar-host');
     scrollContainer.dataset.scrollbarAxis = scrollContainer.matches('#article-content pre') ? 'x' : 'y';
@@ -190,6 +226,23 @@ function initFloatingScrollbars() {
     document.querySelectorAll(FLOATING_SCROLLBAR_SELECTOR).forEach((scrollContainer) => {
       registerContainer(scrollContainer);
     });
+  };
+
+  const refreshFloatingScrollbars = () => {
+    pruneDisconnectedContainers();
+    registerAllContainers();
+  };
+
+  window.__THEME_FLOATING_SCROLLBAR_DEBUG__ = {
+    snapshot() {
+      const containers = Array.from(initializedContainers);
+      const connected = containers.filter((scrollContainer) => scrollContainer.isConnected).length;
+      return {
+        initialized: containers.length,
+        connected,
+        disconnected: containers.length - connected
+      };
+    }
   };
 
   registerAllContainers();
@@ -212,9 +265,8 @@ function initFloatingScrollbars() {
     registerContainer(resolveScrollContainer(event.target));
   }, { capture: true, passive: true });
 
-  document.addEventListener('pjax:complete', () => {
-    registerAllContainers();
-  });
+  document.addEventListener('theme:content-swapped', refreshFloatingScrollbars);
+  document.addEventListener('pjax:complete', refreshFloatingScrollbars);
 
   document.addEventListener('pointerdown', (event) => {
     const thumb = event.target instanceof Element
@@ -244,15 +296,12 @@ function initFloatingScrollbars() {
     event.preventDefault();
   }, { capture: true });
 
-  const stopDrag = () => {
-    if (!dragState) return;
-    document.body.style.userSelect = '';
-    document.body.style.cursor = '';
-    dragState = null;
-  };
-
   window.addEventListener('pointermove', (event) => {
     if (!dragState || event.pointerId !== dragState.pointerId) return;
+    if (!dragState.container.isConnected) {
+      stopDrag();
+      return;
+    }
 
     const delta = (dragState.axis === 'x' ? event.clientX : event.clientY) - dragState.startClient;
     const nextScrollOffset = dragState.maxThumbTravel > 0
@@ -274,12 +323,8 @@ function initFloatingScrollbars() {
   window.addEventListener('pointercancel', stopDrag, { capture: true });
 
   window.addEventListener('resize', () => {
+    pruneDisconnectedContainers();
     initializedContainers.forEach((scrollContainer) => {
-      if (!scrollContainer.isConnected) {
-        initializedContainers.delete(scrollContainer);
-        return;
-      }
-
       syncOverlayScrollbar(scrollContainer);
     });
   }, { passive: true });
@@ -297,10 +342,7 @@ export function registerShellComponents(Alpine) {
   // 3. Pjax 引擎（依赖 $store.windowManager）
   initPjax(Alpine);
 
-  // 4. 搜索组件 Shadow DOM 样式
-  observeSearchWidget();
-
-  // 5. 全局快捷键
+  // 4. 全局快捷键（首次打开搜索时才启动短生命周期样式观察）
   window.addEventListener('keydown', (event) => {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
       if (!isHeaderSearchEnabled()) return;
@@ -310,7 +352,7 @@ export function registerShellComponents(Alpine) {
     }
   });
 
-  // 6. 轻量预取（不阻塞首屏，空闲时初始化）
+  // 5. 轻量预取（不阻塞首屏，空闲时初始化）
   (typeof requestIdleCallback === 'function' ? requestIdleCallback : (fn) => setTimeout(fn, 1500))(() => {
     initPrefetch();
   });

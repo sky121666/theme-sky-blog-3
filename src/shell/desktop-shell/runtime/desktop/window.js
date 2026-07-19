@@ -409,6 +409,13 @@ export function registerWindowComponents(Alpine) {
       try {
         await this.copyLink();
       } catch (_error) {}
+    },
+
+    destroy() {
+      if (this.shareFeedbackTimer) {
+        window.clearTimeout(this.shareFeedbackTimer);
+        this.shareFeedbackTimer = null;
+      }
     }
   }));
 
@@ -437,6 +444,14 @@ export function registerWindowComponents(Alpine) {
     isDesktop: window.innerWidth > 768,
     windowEl: null,
     metricsKey: 'none',
+    _resizeObserver: null,
+    _resizeSyncTimer: 0,
+    _viewportResizeTimer: 0,
+    _viewportResizeHandler: null,
+    _viewportModeQuery: null,
+    _viewportModeHandler: null,
+    _viewportResizing: false,
+    _lifecycleInstalled: false,
 
     applyResizeMode() {
       if (!this.windowEl) return;
@@ -518,6 +533,10 @@ export function registerWindowComponents(Alpine) {
     },
 
     init() {
+      if (this._lifecycleInstalled) {
+        this.destroy();
+      }
+
       this.windowEl = this.$el;
       this.metricsKey = this.windowEl.dataset.windowMetricsKey || 'none';
       
@@ -565,8 +584,7 @@ export function registerWindowComponents(Alpine) {
       this.applyResizeMode();
 
       if (this.isDesktop && window.ResizeObserver) {
-        let resizeTimeout;
-        const ro = new ResizeObserver(() => {
+        this._resizeObserver = new window.ResizeObserver(() => {
           /* 视口 resize 期间跳过，防止 clipped offsetWidth 污染 this.width */
           if (this._viewportResizing || !this.isDesktop || this.isMaximized || this.isResizing) return;
           const newW = this.windowEl.offsetWidth;
@@ -574,20 +592,23 @@ export function registerWindowComponents(Alpine) {
           if (newW && newH && (this.width !== newW || this.height !== newH)) {
              this.width = newW;
              this.height = newH;
-             clearTimeout(resizeTimeout);
-             resizeTimeout = setTimeout(() => this.syncState(), 400);
+             window.clearTimeout(this._resizeSyncTimer);
+             this._resizeSyncTimer = window.setTimeout(() => {
+               this._resizeSyncTimer = 0;
+               this.syncState();
+             }, 400);
           }
         });
-        ro.observe(this.windowEl);
+        this._resizeObserver.observe(this.windowEl);
       }
 
       /* ── viewport resize: 暂停 ResizeObserver + 处理 maximized ── */
       this._viewportResizing = false;
-      let vpTimer;
-      window.addEventListener('resize', () => {
+      this._viewportResizeHandler = () => {
         this._viewportResizing = true;
-        clearTimeout(vpTimer);
-        vpTimer = setTimeout(() => {
+        window.clearTimeout(this._viewportResizeTimer);
+        this._viewportResizeTimer = window.setTimeout(() => {
+          this._viewportResizeTimer = 0;
           this._viewportResizing = false;
           /* maximized 窗口跟随视口 */
           if (this.isDesktop && this.isMaximized) {
@@ -603,11 +624,12 @@ export function registerWindowComponents(Alpine) {
           }
           this.applyResizeMode();
         }, 150);
-      });
+      };
+      window.addEventListener('resize', this._viewportResizeHandler);
 
       /* ── matchMedia: 精确检测 mobile ↔ desktop 阈值跨越 ── */
-      const mql = window.matchMedia('(min-width: 769px)');
-      const onModeChange = (e) => {
+      this._viewportModeQuery = window.matchMedia('(min-width: 769px)');
+      this._viewportModeHandler = (e) => {
         this.isDesktop = e.matches;
         this.syncNarrowState();
         if (!this.isDesktop) {
@@ -651,7 +673,8 @@ export function registerWindowComponents(Alpine) {
         }
         this.applyResizeMode();
       };
-      mql.addEventListener('change', onModeChange);
+      this._viewportModeQuery.addEventListener('change', this._viewportModeHandler);
+      this._lifecycleInstalled = true;
 
       const isHome = window.location.pathname === '/';
 
@@ -665,6 +688,38 @@ export function registerWindowComponents(Alpine) {
         this.windowEl.style.visibility = 'hidden';
         this.windowEl.style.pointerEvents = 'none';
         this.windowEl.style.transform = 'none';
+      }
+    },
+
+    destroy() {
+      if (this._viewportResizeHandler) {
+        window.removeEventListener('resize', this._viewportResizeHandler);
+      }
+      if (this._viewportModeQuery && this._viewportModeHandler) {
+        this._viewportModeQuery.removeEventListener('change', this._viewportModeHandler);
+      }
+      if (this._resizeObserver) {
+        this._resizeObserver.disconnect();
+      }
+
+      window.clearTimeout(this._resizeSyncTimer);
+      window.clearTimeout(this._viewportResizeTimer);
+
+      this._resizeObserver = null;
+      this._resizeSyncTimer = 0;
+      this._viewportResizeTimer = 0;
+      this._viewportResizeHandler = null;
+      this._viewportModeQuery = null;
+      this._viewportModeHandler = null;
+      this._viewportResizing = false;
+      this._lifecycleInstalled = false;
+      this.isDragging = false;
+      this.isResizing = false;
+      this.resizeDirection = '';
+
+      if (document.body) {
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
       }
     },
 

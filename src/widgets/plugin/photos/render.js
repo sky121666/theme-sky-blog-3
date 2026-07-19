@@ -22,11 +22,23 @@ export function renderWidget({ sources, escapeHtml, mode }, widget) {
   const groups = Array.isArray(sources.photoGroups) ? sources.photoGroups : [];
 
   const groupName = widget?.meta?.groupName || '';
+  const activeGroup = groupName
+    ? (groups.find((group) => group?.metadata?.name === groupName) || null)
+    : null;
 
-  // groupName 为空时回退展示全部照片（兼容旧实例）
+  // groupBy() 的每个 PhotoGroupVo 自带 photos。选定相册时必须从该分组取样，
+  // 不能在“全局首页样本”里再过滤，否则非首页相册会被误判为空。
+  const groupPhotos = Array.isArray(activeGroup?.photos) ? activeGroup.photos : [];
+  const legacyGroupPhotos = groupName
+    ? allPhotos.filter((photo) => photo?.spec?.groupName === groupName)
+    : [];
   const photos = groupName
-    ? allPhotos.filter((p) => p?.spec?.groupName === groupName)
+    ? (groupPhotos.length ? groupPhotos : legacyGroupPhotos)
     : allPhotos;
+  const declaredGroupCount = Number(activeGroup?.status?.photoCount);
+  const photoCount = groupName && Number.isFinite(declaredGroupCount) && declaredGroupCount >= 0
+    ? Math.max(declaredGroupCount, photos.length)
+    : photos.length;
 
   if (!photos.length) {
     return '<div class="desktop-widget-empty">该相册暂无照片。</div>';
@@ -35,11 +47,6 @@ export function renderWidget({ sources, escapeHtml, mode }, widget) {
   const photosUrl = escapeHtml(sources.photosUrl || '/photos');
 
   // ─── 分组数据 ─────────────────────────────────────────
-  // 提前解析当前 active group，避免每次 getLabel/getDesc/getIcon 重复 find()
-  const activeGroup = groupName
-    ? (groups.find((g) => g?.metadata?.name === groupName) || null)
-    : null;
-
   const resolveGroup = (photo) => {
     if (activeGroup) return activeGroup;
     const gName = photo?.spec?.groupName;
@@ -95,7 +102,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget) {
     const photo = photos[0];
     const desc = getDesc(photo);
     const label = getLabel(photo);
-    const count = photos.length;
+    const count = photoCount;
 
     return buildWidgetPjaxLink({
       href: photosUrl,
@@ -123,7 +130,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget) {
     const hero = photos[0];
     const label = getLabel(hero);
     const desc = getDesc(hero);
-    const count = photos.length;
+    const count = photoCount;
 
     return buildWidgetPjaxLink({
       href: photosUrl,
@@ -148,9 +155,9 @@ export function renderWidget({ sources, escapeHtml, mode }, widget) {
   const hero = photos[0];
   const label = getLabel(hero);
   const desc = getDesc(hero);
-  const count = photos.length;
+  const count = photoCount;
   const thumbPhotos = photos.slice(1, 4);
-  const extraCount = Math.max(0, photos.length - 4);
+  const extraCount = Math.max(0, photoCount - 4);
 
   const thumbsHtml = thumbPhotos.map((p) => `
     <div class="wg-photos-lg-thumb">${renderImg(p, 'wg-photos-lg-thumb-img')}</div>

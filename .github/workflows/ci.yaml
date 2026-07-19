@@ -5,42 +5,201 @@ on:
   push:
     branches:
       - main
-      - master
-      - "codex/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:
-    runs-on: ubuntu-latest
-    env:
-      SMOKE_BASE_URL: ${{ vars.SMOKE_BASE_URL }}
-      SMOKE_READER_PATH: ${{ vars.SMOKE_READER_PATH }}
-      SMOKE_AUTHOR_PATH: ${{ vars.SMOKE_AUTHOR_PATH }}
-      SMOKE_MOMENT_DETAIL_PATH: ${{ vars.SMOKE_MOMENT_DETAIL_PATH }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      package-name: ${{ steps.package.outputs.name }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 10
+          version: "11.15.0"
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 24
+          node-version: "24.18.0"
           cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
-      - name: Install
+      - name: Assert toolchain versions
+        shell: bash
+        run: |
+          test "$(node --version)" = "v24.18.0"
+          test "$(pnpm --version)" = "11.15.0"
+
+      - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Check
         run: pnpm run check
 
-      - name: Install Playwright Browser
-        if: env.SMOKE_BASE_URL != ''
+      - name: Audit dependency licenses
+        run: pnpm run audit:licenses
+
+      - name: Require explicit npm audit consent
+        shell: bash
+        env:
+          NPM_AUDIT_ALLOWED: ${{ vars.NPM_AUDIT_ALLOWED }}
+        run: |
+          if [[ "$NPM_AUDIT_ALLOWED" != "true" ]]; then
+            echo "Repository variable NPM_AUDIT_ALLOWED=true is required before sending the resolved dependency tree to npm's vulnerability API."
+            exit 1
+          fi
+
+      - name: Audit dependency vulnerabilities
+        run: pnpm run audit:security
+
+      - name: Verify license and notices
+        run: pnpm run notices:check
+
+      - name: Verify generated assets are committed
+        shell: bash
+        run: |
+          changes="$(git status --porcelain --untracked-files=all -- templates/assets)"
+          if [[ -n "$changes" ]]; then
+            echo "Generated templates/assets differ from the committed files:"
+            printf '%s\n' "$changes"
+            exit 1
+          fi
+
+      - name: Package and verify release archive
+        id: package
+        shell: bash
+        run: |
+          pnpm run package
+          mapfile -t packages < <(find dist -maxdepth 1 -type f -name '*.zip' -print)
+          if [[ ${#packages[@]} -ne 1 ]]; then
+            echo "Expected exactly one release ZIP, found ${#packages[@]}"
+            printf '%s\n' "${packages[@]}"
+            exit 1
+          fi
+          package_path="${packages[0]}"
+          node scripts/verify-release-package.mjs "$package_path"
+          printf 'path=%s\n' "$package_path" >> "$GITHUB_OUTPUT"
+          printf 'name=%s\n' "$(basename "$package_path")" >> "$GITHUB_OUTPUT"
+
+      - name: Upload verified theme package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: theme-package-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.package.outputs.path }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  halo-compat:
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - halo-version: 2.25.0
+            image: halohub/halo@sha256:f3a663ebd8f4e4eab45be1b7247c18a56e3e3297396d00dff7c33dddccee4011
+          - halo-version: 2.25.4
+            image: halohub/halo@sha256:1299a0e7a849329a9f6a1a8498ec65a63dd6b70d9c74b829a2bbb5ba1ce547e6
+    env:
+      HALO_BASE_URL: http://127.0.0.1:8090
+      HALO_EXPECTED_VERSION: ${{ matrix.halo-version }}
+      THEME_PACKAGE_PATH: dist/${{ needs.check.outputs.package-name }}
+      SMOKE_BASE_URL: http://127.0.0.1:8090
+      PERF_BASE_URL: http://127.0.0.1:8090
+      PERF_ROUTES: /,/categories,/moments,/photos,/equipments,/docs
+      PERF_OPTIONAL_ROUTES: /moments,/photos,/equipments,/docs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: "11.15.0"
+
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24.18.0"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download verified theme package
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: theme-package-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dist
+
+      - name: Verify downloaded theme package
+        run: node scripts/verify-release-package.mjs "$THEME_PACKAGE_PATH"
+
+      - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Playwright Smoke
-        if: env.SMOKE_BASE_URL != ''
+      - name: Generate ephemeral Halo credentials
+        shell: bash
+        run: |
+          admin_username="theme-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          admin_password="Halo$(openssl rand -hex 16)Aa1!"
+          echo "::add-mask::$admin_password"
+          printf 'HALO_ADMIN_USERNAME=%s\n' "$admin_username" >> "$GITHUB_ENV"
+          printf 'HALO_ADMIN_PASSWORD=%s\n' "$admin_password" >> "$GITHUB_ENV"
+
+      - name: Start pinned Halo ${{ matrix.halo-version }}
+        run: >-
+          docker run -d --name theme-halo-compat -p 127.0.0.1:8090:8090
+          "${{ matrix.image }}" --halo.external-url=http://127.0.0.1:8090
+
+      - name: Wait for Halo setup endpoint
+        run: >-
+          curl --silent --show-error --fail --location --retry 60 --retry-delay 2
+          --retry-all-errors --output /dev/null http://127.0.0.1:8090/system/setup
+
+      - name: Install, activate and reload theme
+        run: pnpm run verify:halo-compat:prepare
+
+      - name: Playwright smoke
         run: pnpm run smoke:playwright
+
+      - name: HTML performance budget
+        run: pnpm run verify:performance
+
+      - name: PJAX lifecycle budget
+        run: pnpm run verify:pjax-lifecycle
+
+      - name: Upload compatibility report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: halo-${{ matrix.halo-version }}-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: output/playwright
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Print Halo logs on failure
+        if: failure()
+        run: docker logs --tail 300 theme-halo-compat
+
+      - name: Remove temporary Halo container
+        if: always()
+        run: docker rm -f theme-halo-compat

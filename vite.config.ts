@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import crypto from "node:crypto";
 import path from "node:path";
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
 const outDir = path.resolve(__dirname, "templates/assets");
@@ -431,7 +432,7 @@ export default defineConfig({
     __THEME_BUILD_VERSION__: JSON.stringify(buildVersion),
     __THEME_BUILD_REVISION__: JSON.stringify(buildRevision),
   },
-  plugins: [maintainBuildOutputHygiene()],
+  plugins: [tailwindcss(), maintainBuildOutputHygiene()],
   build: {
     outDir,
     emptyOutDir: false,

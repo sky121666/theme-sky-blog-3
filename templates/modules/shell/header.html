@@ -406,6 +406,9 @@
                 childIconSvg = ${#annotations.getOrDefault(child, 'icon', '')},
                 childCustomSvg = ${#annotations.getOrDefault(child, 'custom_svg', '')},
                 childImageUrl = ${#annotations.getOrDefault(child, 'image_url', '')},
+                childImageUrlNormalized = ${#strings.trim(childImageUrl)},
+                childImageUrlLower = ${#strings.toLowerCase(childImageUrlNormalized)},
+                childImageAllowed = ${!#strings.isEmpty(childImageUrlNormalized) and (#strings.startsWith(childImageUrlNormalized, '/') or #strings.startsWith(childImageUrlLower, 'https://') or #strings.startsWith(childImageUrlLower, 'http://'))},
                 childSeparatorBefore = ${#annotations.getOrDefault(child, 'header_separator_before', 'false')},
                 prevChildSeparatorBefore = ${childStat.index > 0 ? #annotations.getOrDefault(menuItem.children[childStat.index - 1], 'header_separator_before', 'false') : 'false'},
                 childSvgContent = ${childIconType == 'custom_svg' ? childCustomSvg : childIconSvg}">
@@ -418,13 +421,17 @@
          th:classappend="${child.spec.target?.name() == 'BLANK' ? '' : 'pjax-link'}"
          @click="open = false; $dispatch('theme-menubar-close')">
         <span class="menubar-dropdown-leading">
-          <img th:if="${childIconType == 'image' and !#strings.isEmpty(childImageUrl)}"
+          <img th:if="${childIconType == 'image' and childImageAllowed}"
                class="menubar-dropdown-icon-image"
-               th:src="${childImageUrl}"
+               th:src="${childImageUrlNormalized}"
                th:alt="${child.status.displayName}"
                loading="lazy"
                decoding="async"
                draggable="false" />
+          <span th:if="${childIconType == 'image' and !childImageAllowed}"
+                class="menubar-dropdown-icon-svg">
+            <span class="icon-[lucide--image]" aria-hidden="true"></span>
+          </span>
           <span th:if="${childIconType != 'image' and !#strings.isEmpty(childSvgContent)}"
                 class="menubar-dropdown-icon-svg"
                 th:utext="${childSvgContent}"></span>
@@ -468,6 +475,9 @@
                         childIconSvg = ${#annotations.getOrDefault(child, 'icon', '')},
                         childCustomSvg = ${#annotations.getOrDefault(child, 'custom_svg', '')},
                         childImageUrl = ${#annotations.getOrDefault(child, 'image_url', '')},
+                        childImageUrlNormalized = ${#strings.trim(childImageUrl)},
+                        childImageUrlLower = ${#strings.toLowerCase(childImageUrlNormalized)},
+                        childImageAllowed = ${!#strings.isEmpty(childImageUrlNormalized) and (#strings.startsWith(childImageUrlNormalized, '/') or #strings.startsWith(childImageUrlLower, 'https://') or #strings.startsWith(childImageUrlLower, 'http://'))},
                         childSeparatorBefore = ${#annotations.getOrDefault(child, 'header_separator_before', 'false')},
                         prevChildSeparatorBefore = ${childStat.index > 0 ? #annotations.getOrDefault(menuItem.children[childStat.index - 1], 'header_separator_before', 'false') : 'false'},
                         childSvgContent = ${childIconType == 'custom_svg' ? childCustomSvg : childIconSvg}">
@@ -480,8 +490,11 @@
                  th:classappend="${child.spec.target?.name() == 'BLANK' ? '' : 'pjax-link'}"
                  @click="closeMobileMenu()"
                  th:attr="aria-label=${child.status.displayName}">
-                <span class="menubar-mobile-item-icon" th:if="${childIconType == 'image' and !#strings.isEmpty(childImageUrl)}">
-                  <img th:src="${childImageUrl}" th:alt="${child.status.displayName}" loading="lazy" decoding="async" draggable="false" />
+                <span class="menubar-mobile-item-icon" th:if="${childIconType == 'image' and childImageAllowed}">
+                  <img th:src="${childImageUrlNormalized}" th:alt="${child.status.displayName}" loading="lazy" decoding="async" draggable="false" />
+                </span>
+                <span class="menubar-mobile-item-icon" th:if="${childIconType == 'image' and !childImageAllowed}">
+                  <span class="icon-[lucide--image]" aria-hidden="true"></span>
                 </span>
                 <span class="menubar-mobile-item-icon" th:if="${childIconType != 'image' and !#strings.isEmpty(childSvgContent)}" th:utext="${childSvgContent}"></span>
                 <span class="menubar-mobile-item-label" th:text="${child.status.displayName}"></span>

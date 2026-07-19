@@ -430,6 +430,13 @@ export const editModeMethods = {
 
   widgetConfigPhotoGroupCount(group) {
     const groupName = group?.metadata?.name || '';
+    const declaredCount = Number(group?.status?.photoCount);
+    if (Number.isFinite(declaredCount) && declaredCount >= 0) {
+      return declaredCount;
+    }
+    if (Array.isArray(group?.photos)) {
+      return group.photos.length;
+    }
     const photos = Array.isArray(this.sources?.photos) ? this.sources.photos : [];
     return photos.filter((photo) => photo?.spec?.groupName === groupName).length;
   },

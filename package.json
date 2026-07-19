@@ -1,6 +1,13 @@
 {
   "name": "sky-blog-3",
-  "version": "0.9.40",
+  "version": "0.9.41",
+  "private": true,
+  "license": "MIT",
+  "packageManager": "pnpm@11.15.0",
+  "engines": {
+    "node": ">=24.18.0 <25",
+    "pnpm": "11.15.0"
+  },
   "type": "module",
   "scripts": {
     "preinstall": "node -e \"if (!/pnpm/.test(process.env.npm_config_user_agent || '')) { console.error('This project uses pnpm only. Do not use npm.'); process.exit(1); }\"",
@@ -15,31 +22,38 @@
     "verify:docsme": "node scripts/verify-docsme.mjs",
     "verify:moments": "node scripts/verify-moments.mjs",
     "verify:reload": "node scripts/verify-theme-reload.mjs",
-    "check": "node scripts/lint-architecture.mjs && node scripts/typecheck-contracts.mjs && vite build && node scripts/smoke-theme.mjs",
+    "audit:licenses": "node scripts/audit-dependency-policy.mjs",
+    "audit:security": "node scripts/audit-dependencies.mjs",
+    "audit:dependencies": "pnpm run audit:licenses && pnpm run audit:security",
+    "audit:plugins": "node scripts/audit-plugin-inventory.mjs",
+    "notices:generate": "node scripts/generate-third-party-notices.mjs",
+    "notices:check": "node scripts/generate-third-party-notices.mjs --check && node scripts/check-third-party-notices.mjs",
+    "verify:contracts": "node scripts/verify-weather-runtime.mjs && node scripts/verify-shell-bootstrap-contract.mjs && node scripts/verify-window-lifecycle.mjs && node scripts/verify-media-performance-contract.mjs && node scripts/verify-lazy-comment-lifecycle.mjs && node scripts/verify-shell-resource-lifecycle.mjs && node scripts/verify-release-workflow-contract.mjs && node scripts/verify-halo-version-contract.mjs && node scripts/verify-pnpm-supply-chain-policy.mjs && node scripts/verify-widgets-config-schema.mjs && node scripts/verify-widget-bangumis.mjs && node scripts/verify-widget-photos.mjs && node scripts/verify-widget-steam.mjs",
+    "verify:performance": "node scripts/verify-html-performance.mjs",
+    "verify:pjax-lifecycle": "node scripts/verify-pjax-lifecycle.mjs",
+    "verify:release-package": "node scripts/verify-release-package.mjs",
+    "verify:halo-compat:prepare": "node scripts/prepare-halo-compat.mjs",
+    "check": "node scripts/lint-architecture.mjs && node scripts/typecheck-contracts.mjs && pnpm run verify:contracts && pnpm run notices:check && vite build && node scripts/smoke-theme.mjs",
     "build-only": "vite build",
-    "build": "vite build && theme-package",
-    "package": "theme-package"
+    "build": "vite build && pnpm run package",
+    "package": "theme-package && node scripts/finalize-theme-package.mjs"
   },
   "devDependencies": {
-    "@alpinejs/intersect": "^3.15.11",
-    "@alpinejs/morph": "^3.15.11",
-    "@halo-dev/theme-package-cli": "^1.0.1",
-    "@iconify-json/lucide": "^1.2.102",
-    "@iconify/tailwind4": "^1.2.3",
-    "@tailwindcss/cli": "^4.2.2",
-    "@tailwindcss/postcss": "^4.2.2",
-    "@tailwindcss/typography": "^0.5.19",
-    "@types/nprogress": "^0.2.3",
-    "alpinejs": "^3.15.0",
-    "autoprefixer": "^10.4.27",
-    "esbuild": "^0.27.4",
-    "playwright": "^1.59.1",
-    "tailwindcss": "^4.2.2",
-    "vite": "^8.0.1"
+    "@alpinejs/intersect": "3.15.12",
+    "@alpinejs/morph": "3.15.12",
+    "@halo-dev/theme-package-cli": "1.1.1",
+    "@iconify-json/lucide": "1.2.118",
+    "@iconify/tailwind4": "1.2.3",
+    "@tailwindcss/vite": "4.3.3",
+    "alpinejs": "3.15.12",
+    "esbuild": "0.28.1",
+    "playwright": "1.61.1",
+    "tailwindcss": "4.3.3",
+    "vite": "8.1.5"
   },
   "dependencies": {
-    "nprogress": "^0.2.0",
-    "pjax": "^0.2.8",
-    "qrcode": "^1.5.4"
+    "nprogress": "0.2.0",
+    "pjax": "0.2.8",
+    "qrcode": "1.5.4"
   }
 }

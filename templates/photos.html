@@ -4,6 +4,7 @@
             baseTitle=${title ?: '图库'},
             isAlbumsView=${param.view != null and !#lists.isEmpty(param.view) and param.view[0] == 'albums'},
             isGroupView=${param.group != null and !#lists.isEmpty(param.group)},
+            isFirstPhotoPage=${param.page == null or #lists.isEmpty(param.page) or param.page[0] == '1'},
             activeGroup=${isGroupView ? param.group[0] : ''},
             photosViewValue=${isAlbumsView ? 'albums' : (isGroupView ? 'group' : 'library')},
             groupNameIndex=${groups != null ? groups.![metadata.name].indexOf(activeGroup) : -1},
@@ -95,7 +96,7 @@
               <div class="photos-album-grid"
                    :style="{ '--albums-col-count': effectiveColCountValue }">
                 <a class="photos-album-card pjax-link"
-                   th:each="groupItem : ${groups}"
+                   th:each="groupItem, groupIter : ${groups}"
                    th:with="
                      groupLeadPhoto=${groupItem.photos != null and !#lists.isEmpty(groupItem.photos) ? groupItem.photos[0] : null},
                      groupCoverPrimary=${groupLeadPhoto != null ? (!#strings.isEmpty(groupLeadPhoto.spec.cover) ? groupLeadPhoto.spec.cover : groupLeadPhoto.spec.url) : ''},
@@ -106,11 +107,14 @@
                     <div class="photos-album-cover photos-album-cover--front">
                       <img th:if="${!#strings.isEmpty(groupCoverPrimary)}"
                            class="photos-album-cover-image"
-                           th:src="${groupCoverPrimary}"
+                           th:src="${thumbnail.gen(groupCoverPrimary, 'm')}"
+                           th:srcset="|${thumbnail.gen(groupCoverPrimary, 's')} 400w,
+                                        ${thumbnail.gen(groupCoverPrimary, 'm')} 800w,
+                                        ${thumbnail.gen(groupCoverPrimary, 'l')} 1200w|"
+                           sizes="(max-width: 600px) calc(50vw - 24px), 280px"
                            th:alt="${groupItem.spec.displayName}"
-                           loading="lazy"
                            decoding="async"
-                           fetchpriority="low" />
+                           th:attr="loading=${groupIter.first ? 'eager' : 'lazy'}, fetchpriority=${groupIter.first ? 'high' : 'low'}" />
                       <div th:unless="${!#strings.isEmpty(groupCoverPrimary)}" class="photos-album-cover-placeholder">
                         <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" width="36" height="36">
                           <rect x="6" y="12" width="36" height="28" rx="4" stroke="currentColor" stroke-width="2" stroke-opacity="0.4"/>
@@ -140,16 +144,37 @@
           <div class="photos-grid-scroll">
             <div class="photos-grid" :class="{ 'photos-grid--square': layoutMode === 'square', 'photos-grid--masonry': layoutMode === 'aspect' }" :style="{ '--col-count': effectiveColCountValue }">
               <a class="photo-card pjax-link"
-                 th:each="photo : ${photos.items}"
+                 th:each="photo, photoIter : ${photos.items}"
+                 th:with="photoListImage=${!#strings.isEmpty(photo.spec.cover) ? photo.spec.cover : photo.spec.url}"
                  th:href="${photoUrl != null ? photoUrl.detail(photo) : ('/photos/' + photo.metadata.name)}"
                  data-pjax-app="photos"
                  th:attr="data-photo-name=${photo.metadata.name}">
                 <div class="photo-card-inner"
                      th:style="${'view-transition-name: photo-' + photo.metadata.name}">
-                  <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
-                       th:attr="data-src=${!#strings.isEmpty(photo.spec.cover) ? photo.spec.cover : photo.spec.url}"
+                  <img th:if="${isFirstPhotoPage and photoIter.first and !#strings.isEmpty(photoListImage)}"
+                       th:src="${thumbnail.gen(photoListImage, 'm')}"
+                       th:srcset="|${thumbnail.gen(photoListImage, 's')} 400w,
+                                    ${thumbnail.gen(photoListImage, 'm')} 800w,
+                                    ${thumbnail.gen(photoListImage, 'l')} 1200w|"
+                       sizes="(max-width: 600px) calc(100vw - 32px), (max-width: 1200px) 50vw, 400px"
                        class="photo-card-img lazyload"
-                       th:alt="${photo.spec.displayName}" />
+                       th:alt="${photo.spec.displayName}"
+                       loading="eager"
+                       decoding="async"
+                       fetchpriority="high" />
+                  <img th:unless="${isFirstPhotoPage and photoIter.first and !#strings.isEmpty(photoListImage)}"
+                       th:src="${#theme.assets('/images/transparent.svg')}"
+                       th:data-src="${!#strings.isEmpty(photoListImage) ? thumbnail.gen(photoListImage, 'm') : null}"
+                       th:data-srcset="${!#strings.isEmpty(photoListImage) ?
+                         thumbnail.gen(photoListImage, 's') + ' 400w, ' +
+                         thumbnail.gen(photoListImage, 'm') + ' 800w, ' +
+                         thumbnail.gen(photoListImage, 'l') + ' 1200w' : null}"
+                       data-sizes="(max-width: 600px) calc(100vw - 32px), (max-width: 1200px) 50vw, 400px"
+                       class="photo-card-img lazyload"
+                       th:alt="${photo.spec.displayName}"
+                       loading="lazy"
+                       decoding="async"
+                       fetchpriority="low" />
                   <!-- Hover info overlay -->
                   <div class="photo-card-overlay">
                     <span class="photo-card-overlay-text" th:text="${photo.spec.displayName}"></span>

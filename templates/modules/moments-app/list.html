@@ -12,9 +12,15 @@
         <div class="moments-cover">
           <img class="moments-cover-img"
                th:if="${coverImage != null and !#strings.isEmpty(coverImage)}"
-               th:src="${coverImage}"
-               loading="lazy"
+               th:src="${thumbnail.gen(coverImage, 'l')}"
+               th:srcset="|${thumbnail.gen(coverImage, 's')} 400w,
+                            ${thumbnail.gen(coverImage, 'm')} 800w,
+                            ${thumbnail.gen(coverImage, 'l')} 1200w,
+                            ${thumbnail.gen(coverImage, 'xl')} 1600w|"
+               sizes="(max-width: 768px) 100vw, 960px"
+               loading="eager"
                decoding="async"
+               fetchpriority="high"
                alt="" />
         </div>
         <div class="moments-cover-user">
@@ -27,9 +33,10 @@
           </div>
           <img class="moments-cover-avatar"
                th:if="${site.logo != null and !#strings.isEmpty(site.logo)}"
-               th:src="${site.logo}"
+               th:src="${thumbnail.gen(site.logo, 's')}"
                loading="lazy"
                decoding="async"
+               fetchpriority="low"
                alt="" />
           <div class="moments-cover-avatar moments-cover-avatar--placeholder"
                th:if="${site.logo == null or #strings.isEmpty(site.logo)}"
@@ -71,20 +78,22 @@
           <div class="moment-feed-avatar-col">
             <a class="moment-feed-avatar-link pjax-link"
                data-pjax-app="explorer-author"
-               th:if="${!#strings.isEmpty(ownerUrl) and moment.owner != null and moment.owner.avatar != null}"
+               th:if="${!#strings.isEmpty(ownerUrl) and moment.owner != null and !#strings.isEmpty(moment.owner.avatar)}"
                th:href="${ownerUrl}"
                th:title="${moment.owner.displayName != null ? moment.owner.displayName : ownerName}">
               <img class="moment-feed-avatar"
-                   th:src="${moment.owner.avatar}"
+                   th:src="${thumbnail.gen(moment.owner.avatar, 's')}"
                    loading="lazy"
                    decoding="async"
+                   fetchpriority="low"
                    alt="" />
             </a>
             <img class="moment-feed-avatar"
-                 th:if="${#strings.isEmpty(ownerUrl) and moment.owner != null and moment.owner.avatar != null}"
-                 th:src="${moment.owner.avatar}"
+                 th:if="${#strings.isEmpty(ownerUrl) and moment.owner != null and !#strings.isEmpty(moment.owner.avatar)}"
+                 th:src="${thumbnail.gen(moment.owner.avatar, 's')}"
                  loading="lazy"
                  decoding="async"
+                 fetchpriority="low"
                  alt="" />
           </div>
 
@@ -117,9 +126,13 @@
                        th:attr="data-moment-photo-url=${media.url},
                                 data-moment-photo-type=${media.originType}">
                     <img class="moment-feed-gallery-item"
-                         th:attr="data-src=${media.url}"
+                         th:data-src="${thumbnail.gen(media.url, 's')}"
+                         th:data-srcset="|${thumbnail.gen(media.url, 's')} 400w,
+                                          ${thumbnail.gen(media.url, 'm')} 800w|"
+                         data-sizes="(max-width: 768px) calc(100vw - 72px), 320px"
                          loading="lazy"
                          decoding="async"
+                         fetchpriority="low"
                          alt="" />
                   </div>
                   <!-- 视频占位卡 -->

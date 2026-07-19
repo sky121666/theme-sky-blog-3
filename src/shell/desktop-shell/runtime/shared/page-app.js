@@ -1,5 +1,5 @@
-import { initLazyImages } from './lazy-media.js';
-import { initLazyComments } from './lazy-comment.js';
+import { disposeLazyImages, initLazyImages } from './lazy-media.js';
+import { disposeLazyComments, initLazyComments } from './lazy-comment.js';
 
 const PAGE_APP_REGISTRY_KEY = '__THEME_PAGE_APP_REGISTRY__';
 
@@ -143,6 +143,8 @@ export function deactivateCurrentPageApp() {
       activeApp.lifecycle.dispose(activeApp.root, activeApp.context);
     }
   } finally {
+    disposeLazyImages(activeApp.root || document);
+    disposeLazyComments(activeApp.root || document);
     registry.activeApp = null;
   }
 }

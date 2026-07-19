@@ -3,6 +3,7 @@
  */
 
 const DESKTOP_WIDGET_WEATHER_CACHE_PREFIX = 'theme-macOS-desktop-weather';
+const weatherRequestMap = new Map();
 
 const DESKTOP_WIDGET_WEATHER_CODE_MAP = {
   clear: { label: '晴朗', tone: 'sunny', icon: '☀' },
@@ -60,8 +61,22 @@ export function saveDesktopWidgetWeather(cityName, data) {
 }
 
 export async function fetchDesktopWidgetWeather(cityName) {
-  if (!cityName) return null;
+  const normalizedCityName = String(cityName || '').trim();
+  if (!normalizedCityName) return null;
 
+  const requestKey = normalizedCityName.toLowerCase();
+  if (weatherRequestMap.has(requestKey)) {
+    return weatherRequestMap.get(requestKey);
+  }
+
+  const request = fetchDesktopWidgetWeatherUncached(normalizedCityName).finally(() => {
+    weatherRequestMap.delete(requestKey);
+  });
+  weatherRequestMap.set(requestKey, request);
+  return request;
+}
+
+async function fetchDesktopWidgetWeatherUncached(cityName) {
   const geocodingUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1&language=zh&format=json`;
   const geocodingResponse = await fetch(geocodingUrl);
   if (!geocodingResponse.ok) {

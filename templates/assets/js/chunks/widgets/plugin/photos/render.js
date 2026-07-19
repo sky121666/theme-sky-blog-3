@@ -1,41 +1,41 @@
-import{r as k}from"../../halo/author-card/render.js?v=0.9.40&r=0c2cb8283bf4";var C='<span class="icon-[lucide--image]" aria-hidden="true"></span>';function U({sources:n,escapeHtml:i,mode:m},h){const u=h?.size||"small";if(!n.photosAvailable)return'<div class="desktop-widget-empty">未安装图库插件。</div>';const v=Array.isArray(n.photos)?n.photos:[],w=Array.isArray(n.photoGroups)?n.photoGroups:[],e=h?.meta?.groupName||"",t=e?v.filter(s=>s?.spec?.groupName===e):v;if(!t.length)return'<div class="desktop-widget-empty">该相册暂无照片。</div>';const b=i(n.photosUrl||"/photos"),$=e&&w.find(s=>s?.metadata?.name===e)||null,d=s=>{if($)return $;const o=s?.spec?.groupName;return o&&w.find(a=>a?.metadata?.name===o)||null},l=s=>{const o=d(s);return i(o?.spec?.displayName||o?.metadata?.name||e||"图库")},r=s=>i((d(s)?.metadata?.annotations?.description||"").trim()),f=s=>(d(s)?.metadata?.annotations?.icon||"").trim()||C,x=s=>i(s?.spec?.url||""),G=s=>i(s?.spec?.displayName||""),c=(s,o)=>{const a=x(s);return a?`<img class="${o}" src="${a}" alt="${G(s)}" loading="lazy" decoding="async" fetchpriority="low">`:`<div class="${o} is-placeholder"></div>`},y=(s,o)=>`
+import{n as I}from"../../../rolldown-runtime.js?v=0.9.41&r=437dcc5bcb14";import{r as C}from"../../halo/author-card/render.js?v=0.9.41&r=437dcc5bcb14";var S=I({renderWidget:()=>U}),M='<span class="icon-[lucide--image]" aria-hidden="true"></span>';function U({sources:e,escapeHtml:i,mode:v},w){const b=w?.size||"small";if(!e.photosAvailable)return'<div class="desktop-widget-empty">未安装图库插件。</div>';const $=Array.isArray(e.photos)?e.photos:[],f=Array.isArray(e.photoGroups)?e.photoGroups:[],a=w?.meta?.groupName||"",r=a&&f.find(s=>s?.metadata?.name===a)||null,y=Array.isArray(r?.photos)?r.photos:[],P=a?$.filter(s=>s?.spec?.groupName===a):[],n=a?y.length?y:P:$,g=Number(r?.status?.photoCount),l=a&&Number.isFinite(g)&&g>=0?Math.max(g,n.length):n.length;if(!n.length)return'<div class="desktop-widget-empty">该相册暂无照片。</div>';const N=i(e.photosUrl||"/photos"),m=s=>{if(r)return r;const o=s?.spec?.groupName;return o&&f.find(t=>t?.metadata?.name===o)||null},p=s=>{const o=m(s);return i(o?.spec?.displayName||o?.metadata?.name||a||"图库")},h=s=>i((m(s)?.metadata?.annotations?.description||"").trim()),A=s=>(m(s)?.metadata?.annotations?.icon||"").trim()||M,L=s=>i(s?.spec?.url||""),_=s=>i(s?.spec?.displayName||""),c=(s,o)=>{const t=L(s);return t?`<img class="${o}" src="${t}" alt="${_(s)}" loading="lazy" decoding="async" fetchpriority="low">`:`<div class="${o} is-placeholder"></div>`},x=(s,o)=>`
       <div class="${o}">
-        <span class="wg-photos-badge-icon">${f(s)}</span>
-        <span class="wg-photos-badge-label">${l(s)}</span>
-      </div>`;if(u==="small"){const s=t[0],o=r(s),a=l(s),g=t.length;return k({href:b,app:"",className:"wg-photos-sm",disabled:m==="preview",innerHtml:`
+        <span class="wg-photos-badge-icon">${A(s)}</span>
+        <span class="wg-photos-badge-label">${p(s)}</span>
+      </div>`;if(b==="small"){const s=n[0],o=h(s),t=p(s),u=l;return C({href:N,app:"",className:"wg-photos-sm",disabled:v==="preview",innerHtml:`
         ${c(s,"wg-photos-sm-img")}
         <div class="wg-photos-sm-scrim"></div>
         <div class="wg-photos-sm-top">
-          ${y(s,"wg-photos-sm-badge")}
+          ${x(s,"wg-photos-sm-badge")}
         </div>
         <div class="wg-photos-sm-bottom">
-          <strong>${o||a}</strong>
-          <span>${g} 张照片</span>
+          <strong>${o||t}</strong>
+          <span>${u} 张照片</span>
         </div>
-      `})}if(u==="medium"){const s=t[0],o=l(s),a=r(s),g=t.length;return k({href:b,app:"",className:"wg-photos-md",disabled:m==="preview",innerHtml:`
+      `})}if(b==="medium"){const s=n[0],o=p(s),t=h(s),u=l;return C({href:N,app:"",className:"wg-photos-md",disabled:v==="preview",innerHtml:`
         ${c(s,"wg-photos-md-img")}
         <div class="wg-photos-md-scrim"></div>
-        ${y(s,"wg-photos-md-badge")}
+        ${x(s,"wg-photos-md-badge")}
         <div class="wg-photos-md-bottom">
-          <strong class="wg-photos-md-title">${a||o}</strong>
-          <span class="wg-photos-md-sub">${g} 张照片</span>
+          <strong class="wg-photos-md-title">${t||o}</strong>
+          <span class="wg-photos-md-sub">${u} 张照片</span>
         </div>
-      `})}const p=t[0],N=l(p),L=r(p),z=t.length,P=t.slice(1,4),A=Math.max(0,t.length-4),j=P.map(s=>`
+      `})}const d=n[0],G=p(d),z=h(d),W=l,j=n.slice(1,4),k=Math.max(0,l-4),B=j.map(s=>`
     <div class="wg-photos-lg-thumb">${c(s,"wg-photos-lg-thumb-img")}</div>
-  `).join(""),B=A>0?`<div class="wg-photos-lg-thumb is-more"><span>+${A}</span></div>`:"";return`
+  `).join(""),F=k>0?`<div class="wg-photos-lg-thumb is-more"><span>+${k}</span></div>`:"";return`
     <div class="wg-photos-lg">
-      ${c(p,"wg-photos-lg-bg")}
+      ${c(d,"wg-photos-lg-bg")}
       <div class="wg-photos-lg-scrim"></div>
       <div class="wg-photos-lg-top">
-        <div class="wg-photos-lg-icon-box">${f(p)}</div>
-        <span class="wg-photos-lg-kicker">${N}</span>
+        <div class="wg-photos-lg-icon-box">${A(d)}</div>
+        <span class="wg-photos-lg-kicker">${G}</span>
       </div>
       <div class="wg-photos-lg-bottom">
-        <h3 class="wg-photos-lg-title">${L||N}</h3>
-        <p class="wg-photos-lg-desc">${z} 张照片</p>
+        <h3 class="wg-photos-lg-title">${z||G}</h3>
+        <p class="wg-photos-lg-desc">${W} 张照片</p>
         <div class="wg-photos-lg-thumbs">
-          ${j}${B}
+          ${B}${F}
         </div>
       </div>
     </div>
-  `}export{U as t};
+  `}export{S as t};

@@ -1,11 +1,11 @@
-import{n as a}from"../latest-posts/render.js?v=0.9.40&r=0c2cb8283bf4";function m({sources:d,escapeHtml:t},e){const s=d.siteStats;if(!s)return'<div class="desktop-widget-empty">站点统计当前不可用。</div>';const v='<span class="icon-[lucide--trending-up]" aria-hidden="true"></span>',o='<span class="icon-[lucide--users]" aria-hidden="true"></span>',g='<span class="icon-[lucide--file-text]" aria-hidden="true"></span>',p='<span class="icon-[lucide--message-circle]" aria-hidden="true"></span>',w='<span class="icon-[lucide--chart-column]" aria-hidden="true"></span>';if(e.size==="medium")return`
+import{n as m}from"../../../rolldown-runtime.js?v=0.9.41&r=437dcc5bcb14";import{n as a}from"../latest-posts/render.js?v=0.9.41&r=437dcc5bcb14";var b=m({renderWidget:()=>h});function h({sources:d,escapeHtml:t},e){const s=d.siteStats;if(!s)return'<div class="desktop-widget-empty">站点统计当前不可用。</div>';const v='<span class="icon-[lucide--trending-up]" aria-hidden="true"></span>',o='<span class="icon-[lucide--users]" aria-hidden="true"></span>',g='<span class="icon-[lucide--file-text]" aria-hidden="true"></span>',p='<span class="icon-[lucide--message-circle]" aria-hidden="true"></span>',w='<span class="icon-[lucide--chart-column]" aria-hidden="true"></span>';if(e.size==="medium")return`
       <div class="wg-stat-micro">
         <div class="wg-stat-micro-label">
           <div class="wg-stat-pulse-dot"></div> 总访问量
         </div>
         <div class="wg-stat-micro-value glow-text-emerald">${t(a(s.visit??0))}</div>
       </div>
-    `;if(e.size==="large"){const l=s.post??0,r=s.comment??0,n=l+r||1,c=l/n,u=r/n,i=251.3;return`
+    `;if(e.size==="large"){const r=s.post??0,l=s.comment??0,n=r+l||1,c=r/n,u=l/n,i=251.3;return`
       <div class="wg-stat-ring">
         <div class="wg-stat-ring-title">内容分布</div>
         <div class="wg-stat-ring-chart-wrap">
@@ -56,4 +56,4 @@ import{n as a}from"../latest-posts/render.js?v=0.9.40&r=0c2cb8283bf4";function m
         </div>
       </div>
     </div>
-  `}export{m as t};
+  `}export{b as t};

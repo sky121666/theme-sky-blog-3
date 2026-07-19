@@ -52,9 +52,8 @@ spec:
         - "image/png"
         - "image/jpeg"
         - "image/webp"
-        - "image/gif"
         - "image/svg+xml"
-      help: 支持静态图、动态 GIF 和 SVG 文件；更适合 Dock 品牌图标，Header 二级菜单中会以小图标显示。
+      help: 请上传约 144×144、单张不超过 20 KB 的 WebP/优化 PNG/SVG；不支持 Base64 Data URI。图片用于 Dock 品牌图标，Header 二级菜单中会以小图标显示。
       if: "$get(dock_icon_type).value === 'image'"
 
     - $formkit: color

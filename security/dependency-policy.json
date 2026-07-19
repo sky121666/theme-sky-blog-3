@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "allowedLicenses": [
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BlueOak-1.0.0",
+    "CC0-1.0",
+    "ISC",
+    "MIT",
+    "Python-2.0"
+  ],
+  "reviewedLicenses": {
+    "MPL-2.0": {
+      "packages": ["lightningcss", "lightningcss-*"],
+      "reason": "仅作为 Tailwind/Vite 构建工具及平台二进制使用，不修改或分发其源文件。"
+    }
+  },
+  "minimumReleaseAgeExceptions": [
+    {
+      "packages": ["@iconify-json/lucide"],
+      "version": "1.2.118",
+      "reason": "v0.9.41 按目标升级到当前稳定版；该版本锁定且完成许可证、构建和回归审查，但发布未满默认 7 天等待期。",
+      "owner": "theme-sky-blog-3 maintainers",
+      "expires": "2026-07-27T00:00:00Z"
+    },
+    {
+      "packages": [
+        "@tailwindcss/node",
+        "@tailwindcss/oxide",
+        "@tailwindcss/oxide-android-arm64",
+        "@tailwindcss/oxide-darwin-arm64",
+        "@tailwindcss/oxide-darwin-x64",
+        "@tailwindcss/oxide-freebsd-x64",
+        "@tailwindcss/oxide-linux-arm-gnueabihf",
+        "@tailwindcss/oxide-linux-arm64-gnu",
+        "@tailwindcss/oxide-linux-arm64-musl",
+        "@tailwindcss/oxide-linux-x64-gnu",
+        "@tailwindcss/oxide-linux-x64-musl",
+        "@tailwindcss/oxide-wasm32-wasi",
+        "@tailwindcss/oxide-win32-arm64-msvc",
+        "@tailwindcss/oxide-win32-x64-msvc",
+        "@tailwindcss/vite",
+        "tailwindcss"
+      ],
+      "version": "4.3.3",
+      "reason": "v0.9.41 统一升级 Tailwind 官方 4.3.3 工具链；精确版本和平台包已锁定并完成双构建可复现验证，但发布未满默认 7 天等待期。",
+      "owner": "theme-sky-blog-3 maintainers",
+      "expires": "2026-07-27T00:00:00Z"
+    },
+    {
+      "packages": ["vite"],
+      "version": "8.1.5",
+      "reason": "v0.9.41 按目标升级到当前稳定版；精确版本已锁定并完成静态检查、构建与双 Halo 回归，但发布未满默认 7 天等待期。",
+      "owner": "theme-sky-blog-3 maintainers",
+      "expires": "2026-07-27T00:00:00Z"
+    }
+  ],
+  "deniedLicenses": [
+    "AGPL-3.0-only",
+    "AGPL-3.0-or-later",
+    "BUSL-1.1",
+    "Commons-Clause",
+    "Elastic-2.0",
+    "GPL-2.0-only",
+    "GPL-2.0-or-later",
+    "GPL-3.0-only",
+    "GPL-3.0-or-later",
+    "SSPL-1.0",
+    "UNLICENSED",
+    "UNKNOWN",
+    "NONE"
+  ]
+}

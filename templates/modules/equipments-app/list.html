@@ -3,6 +3,7 @@
             currentGroup=${param.group != null and !#lists.isEmpty(param.group) ? param.group[0] : ''},
             totalCount=${equipments != null and equipments.total != null ? equipments.total : 0},
             allCount=${equipmentFinder != null ? equipmentFinder.list(1, 1).total : totalCount},
+            isFirstEquipmentPage=${param.page == null or #lists.isEmpty(param.page) or param.page[0] == '1'},
             rawEquipmentTitle=${!#strings.isEmpty(title) ? title : '装备'},
             baseEquipmentTitle=${!#strings.isEmpty(site.title) ? #strings.replace(rawEquipmentTitle, ' - ' + site.title, '') : rawEquipmentTitle},
             configuredEquipmentTitle=${theme.config.equipments?.profile?.display_name},
@@ -96,19 +97,30 @@
                    th:attr="data-equipment-name=${equipment.metadata.name},data-equipment-group=${equipment.spec.groupName},data-equipment-priority=${equipment.spec.priority},data-equipment-url=${equipment.spec.url}">
             <div class="equipment-hero-backdrop">
               <img th:if="${!#strings.isEmpty(equipment.spec.cover)}"
-                   th:src="${equipment.spec.cover}"
+                   th:src="${thumbnail.gen(equipment.spec.cover, 'l')}"
+                   th:srcset="|${thumbnail.gen(equipment.spec.cover, 's')} 400w,
+                                ${thumbnail.gen(equipment.spec.cover, 'm')} 800w,
+                                ${thumbnail.gen(equipment.spec.cover, 'l')} 1200w,
+                                ${thumbnail.gen(equipment.spec.cover, 'xl')} 1600w|"
+                   sizes="(max-width: 768px) 100vw, 960px"
                    th:alt="${equipment.spec.displayName}"
                    loading="lazy"
                    decoding="async"
+                   fetchpriority="low"
                    referrerpolicy="no-referrer">
             </div>
 
             <div class="equipment-hero-visual">
               <img th:if="${!#strings.isEmpty(equipment.spec.cover)}"
-                   th:src="${equipment.spec.cover}"
+                   th:src="${thumbnail.gen(equipment.spec.cover, 'l')}"
+                   th:srcset="|${thumbnail.gen(equipment.spec.cover, 's')} 400w,
+                                ${thumbnail.gen(equipment.spec.cover, 'm')} 800w,
+                                ${thumbnail.gen(equipment.spec.cover, 'l')} 1200w,
+                                ${thumbnail.gen(equipment.spec.cover, 'xl')} 1600w|"
+                   sizes="(max-width: 768px) 100vw, 960px"
                    th:alt="${equipment.spec.displayName}"
-                   loading="lazy"
                    decoding="async"
+                   th:attr="loading=${isFirstEquipmentPage and iter.first ? 'eager' : 'lazy'}, fetchpriority=${isFirstEquipmentPage and iter.first ? 'high' : 'low'}"
                    referrerpolicy="no-referrer"
                    onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
               <span class="equipment-hero-fallback"

@@ -1,18 +1,364 @@
 name: CD
 
 on:
-  release:
-    types:
-      - published
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-${{ github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
-  cd:
-    uses: halo-sigs/reusable-workflows/.github/workflows/theme-cd.yaml@v4
-    secrets:
-      halo-pat: ${{ secrets.HALO_PAT }}
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      package-name: ${{ steps.package.outputs.name }}
+      package-sha256: ${{ steps.package.outputs.sha256 }}
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Assert release commit belongs to main
+        shell: bash
+        run: |
+          git rev-parse --verify origin/main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "Release tag $GITHUB_REF_NAME does not point to a commit reachable from main."
+            exit 1
+          fi
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: "11.15.0"
+
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24.18.0"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Assert toolchain versions
+        shell: bash
+        run: |
+          test "$(node --version)" = "v24.18.0"
+          test "$(pnpm --version)" = "11.15.0"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check
+        run: pnpm run check
+
+      - name: Audit dependency licenses
+        run: pnpm run audit:licenses
+
+      - name: Require explicit npm audit consent
+        shell: bash
+        env:
+          NPM_AUDIT_ALLOWED: ${{ vars.NPM_AUDIT_ALLOWED }}
+        run: |
+          if [[ "$NPM_AUDIT_ALLOWED" != "true" ]]; then
+            echo "Repository variable NPM_AUDIT_ALLOWED=true is required before sending the resolved dependency tree to npm's vulnerability API."
+            exit 1
+          fi
+
+      - name: Audit dependency vulnerabilities
+        run: pnpm run audit:security
+
+      - name: Verify license and notices
+        run: pnpm run notices:check
+
+      - name: Verify generated assets are committed
+        shell: bash
+        run: |
+          changes="$(git status --porcelain --untracked-files=all -- templates/assets)"
+          if [[ -n "$changes" ]]; then
+            echo "Generated templates/assets differ from the committed files:"
+            printf '%s\n' "$changes"
+            exit 1
+          fi
+
+      - name: Package and verify release archive
+        id: package
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          pnpm run package
+          mapfile -t packages < <(find dist -maxdepth 1 -type f -name '*.zip' -print)
+          if [[ ${#packages[@]} -ne 1 ]]; then
+            echo "Expected exactly one release ZIP, found ${#packages[@]}"
+            printf '%s\n' "${packages[@]}"
+            exit 1
+          fi
+          package_path="${packages[0]}"
+          node scripts/verify-release-package.mjs "$package_path"
+          package_sha256="$(sha256sum "$package_path" | awk '{print $1}')"
+          printf 'path=%s\n' "$package_path" >> "$GITHUB_OUTPUT"
+          printf 'name=%s\n' "$(basename "$package_path")" >> "$GITHUB_OUTPUT"
+          printf 'sha256=%s\n' "$package_sha256" >> "$GITHUB_OUTPUT"
+
+      - name: Upload verified release artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-package-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.package.outputs.path }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  halo-compat:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - halo-version: 2.25.0
+            image: halohub/halo@sha256:f3a663ebd8f4e4eab45be1b7247c18a56e3e3297396d00dff7c33dddccee4011
+          - halo-version: 2.25.4
+            image: halohub/halo@sha256:1299a0e7a849329a9f6a1a8498ec65a63dd6b70d9c74b829a2bbb5ba1ce547e6
+    env:
+      HALO_BASE_URL: http://127.0.0.1:8090
+      HALO_EXPECTED_VERSION: ${{ matrix.halo-version }}
+      THEME_PACKAGE_PATH: dist/${{ needs.build.outputs.package-name }}
+      SMOKE_BASE_URL: http://127.0.0.1:8090
+      PERF_BASE_URL: http://127.0.0.1:8090
+      PERF_ROUTES: /,/categories,/moments,/photos,/equipments,/docs
+      PERF_OPTIONAL_ROUTES: /moments,/photos,/equipments,/docs
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: "11.15.0"
+
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24.18.0"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download verified release artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-package-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dist
+
+      - name: Verify downloaded release archive
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node scripts/verify-release-package.mjs "$THEME_PACKAGE_PATH"
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Generate ephemeral Halo credentials
+        shell: bash
+        run: |
+          admin_username="theme-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          admin_password="Halo$(openssl rand -hex 16)Aa1!"
+          echo "::add-mask::$admin_password"
+          printf 'HALO_ADMIN_USERNAME=%s\n' "$admin_username" >> "$GITHUB_ENV"
+          printf 'HALO_ADMIN_PASSWORD=%s\n' "$admin_password" >> "$GITHUB_ENV"
+
+      - name: Start pinned Halo ${{ matrix.halo-version }}
+        run: >-
+          docker run -d --name theme-halo-compat -p 127.0.0.1:8090:8090
+          "${{ matrix.image }}" --halo.external-url=http://127.0.0.1:8090
+
+      - name: Wait for Halo setup endpoint
+        run: >-
+          curl --silent --show-error --fail --location --retry 60 --retry-delay 2
+          --retry-all-errors --output /dev/null http://127.0.0.1:8090/system/setup
+
+      - name: Install, activate and reload theme
+        run: pnpm run verify:halo-compat:prepare
+
+      - name: Playwright smoke
+        run: pnpm run smoke:playwright
+
+      - name: HTML performance budget
+        run: pnpm run verify:performance
+
+      - name: PJAX lifecycle budget
+        run: pnpm run verify:pjax-lifecycle
+
+      - name: Upload compatibility report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-halo-${{ matrix.halo-version }}-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: output/playwright
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Print Halo logs on failure
+        if: failure()
+        run: docker logs --tail 300 theme-halo-compat
+
+      - name: Remove temporary Halo container
+        if: always()
+        run: docker rm -f theme-halo-compat
+
+  release:
+    needs:
+      - build
+      - halo-compat
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
+      actions: read
       contents: write
-    with:
-      app-id: app-gqnoxtpt
-      skip-appstore-release: false
-      node-version: 24
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24.18.0"
+
+      - name: Download verified release artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-package-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dist
+
+      - name: Verify downloaded release archive
+        id: package
+        shell: bash
+        env:
+          EXPECTED_SHA256: ${{ needs.build.outputs.package-sha256 }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          package_path="dist/${{ needs.build.outputs.package-name }}"
+          actual_sha256="$(sha256sum "$package_path" | awk '{print $1}')"
+          test "$actual_sha256" = "$EXPECTED_SHA256"
+          node scripts/verify-release-package.mjs "$package_path"
+          printf 'path=%s\n' "$package_path" >> "$GITHUB_OUTPUT"
+
+      - name: Verify rollback baseline
+        id: rollback-baseline
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          previous_tag="$(git tag --sort=-version:refname --list 'v*' | awk -v current="$RELEASE_TAG" '$0 != current { print; exit }')"
+          if [[ -z "$previous_tag" ]]; then
+            echo "No previous version tag is available as a rollback baseline."
+            exit 1
+          fi
+
+          previous_is_draft="$(gh release view "$previous_tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
+          previous_url="$(gh release view "$previous_tag" --repo "$GITHUB_REPOSITORY" --json url --jq .url)"
+          previous_zip_count="$(gh release view "$previous_tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '[.assets[].name | select(endswith(".zip"))] | length')"
+          if [[ "$previous_is_draft" != "false" || "$previous_zip_count" -lt 1 ]]; then
+            echo "Rollback baseline $previous_tag must be public and contain at least one ZIP asset."
+            exit 1
+          fi
+
+          printf 'tag=%s\n' "$previous_tag" >> "$GITHUB_OUTPUT"
+          printf 'url=%s\n' "$previous_url" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Rollback baseline"
+            echo "- Previous stable release: [$previous_tag]($previous_url)"
+            echo "- ZIP assets: $previous_zip_count"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Prepare draft release and upload package
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          PACKAGE_PATH: ${{ steps.package.outputs.path }}
+          RELEASE_NOTES_PATH: ${{ runner.temp }}/release-notes.md
+        run: |
+          release_heading="## $RELEASE_TAG"
+          awk -v heading="$release_heading" 'BEGIN { keep=0 } $0 == heading { keep=1; next } /^## v/ { if (keep) exit } keep { print }' docs/发布说明.md > "$RELEASE_NOTES_PATH"
+          test -s "$RELEASE_NOTES_PATH"
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists. Do not rerun blindly: if the Halo App Store sync already succeeded, publish the existing GitHub draft directly; otherwise clean any failed Halo draft before deleting the GitHub draft and rerunning."
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --title "Sky Blog 3 $RELEASE_TAG" --notes-file "$RELEASE_NOTES_PATH" --draft
+          gh release upload "$RELEASE_TAG" "$PACKAGE_PATH" --repo "$GITHUB_REPOSITORY" --clobber
+          release_id="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq .id)"
+          printf 'id=%s\n' "$release_id" >> "$GITHUB_OUTPUT"
+
+      - name: Sync release to Halo App Store
+        id: app-store
+        uses: halo-sigs/app-store-release-action@0b0b351312114a42a544471c1ee0b78d3f635e51 # v4
+        with:
+          github-token: ${{ github.token }}
+          app-id: app-gqnoxtpt
+          release-id: ${{ steps.release.outputs.id }}
+          assets-dir: dist
+          halo-pat: ${{ secrets.HALO_PAT }}
+
+      - name: Explain App Store draft cleanup on failure
+        if: failure() && steps.app-store.outcome == 'failure'
+        shell: bash
+        run: |
+          echo "::error::Halo App Store sync failed and may have left a draft. Delete that draft in the Halo developer console, then delete the GitHub draft for this tag before rerunning CD."
+
+      - name: Publish GitHub Release
+        id: publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          max_attempts=5
+          for attempt in $(seq 1 "$max_attempts"); do
+            if gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false \
+              && [[ "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" == "false" ]]; then
+              echo "GitHub Release $RELEASE_TAG published on attempt $attempt/$max_attempts."
+              exit 0
+            fi
+
+            if [[ "$attempt" -lt "$max_attempts" ]]; then
+              retry_delay=$((attempt * 5))
+              echo "::warning::GitHub Release publish attempt $attempt/$max_attempts failed; retrying in ${retry_delay}s."
+              sleep "$retry_delay"
+            fi
+          done
+
+          echo "::error::GitHub Release publish failed after $max_attempts bounded attempts."
+          exit 1
+
+      - name: Explain GitHub Release publish recovery
+        if: failure() && steps.app-store.outcome == 'success' && steps.publish.outcome == 'failure'
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          echo "::error::Halo App Store sync already succeeded, but GitHub Release $RELEASE_TAG is still a draft. Publish the existing GitHub draft directly; do not delete it and do not rerun CD."

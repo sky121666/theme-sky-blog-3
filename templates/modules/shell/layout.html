@@ -90,7 +90,9 @@
     </script>
 
 	    <!-- 本地打包产物：使用主题版本号 + Halo 主题资源版本作为缓存边界 -->
-	    <link rel="stylesheet" th:href="@{/assets/css/shell-core/index.css(v=${themeAssetVersion},r=${themeAssetRevision})}" />
+	    <link id="shell-core-style"
+	          rel="stylesheet"
+	          th:href="@{/assets/css/shell-core/index.css(v=${themeAssetVersion},r=${themeAssetRevision})}" />
 	    <link rel="stylesheet"
 	          th:if="${!#strings.isEmpty(pageAppValue)}"
 	          th:attr="data-app-css=${pageAppValue}"
@@ -115,8 +117,13 @@
 	        };
 
 	        const importShell = (scriptUrl, styleUrl) => {
-	          if (shellStyle && styleUrl && shellStyle.href !== new URL(styleUrl, window.location.origin).href) {
-	            shellStyle.href = styleUrl;
+	          if (shellStyle && styleUrl) {
+	            const currentStyleUrl = new URL(shellStyle.href, window.location.origin);
+	            const nextStyleUrl = new URL(styleUrl, window.location.origin);
+	            // 服务端首屏 link 已带 Halo 版本；同路径仅 revision 不同不重复下载整份 Shell CSS。
+	            if (currentStyleUrl.pathname !== nextStyleUrl.pathname) {
+	              shellStyle.href = styleUrl;
+	            }
 	          }
 	          return import(scriptUrl);
 	        };
@@ -269,7 +276,7 @@
       widgetsDocsmeAvailable = ${widgetsEnabled and pluginFinder.available('plugin-docsme', '>=1.4.0')},
       widgetsDocsmeProjects = ${widgetsDocsmeAvailable ? docsmeProjectsFinder.list(1, 5) : null},
       widgetsPhotosAvailable = ${widgetsEnabled and pluginFinder.available('PluginPhotos')},
-      widgetsPhotos = ${widgetsPhotosAvailable ? photoFinder.listAll() : null},
+      widgetsPhotos = ${widgetsPhotosAvailable ? photoFinder.list(1, 12) : null},
       widgetsPhotoGroups = ${widgetsPhotosAvailable ? photoFinder.groupBy() : null},
       widgetsDoubanAvailable = ${widgetsEnabled and pluginFinder.available('plugin-douban')},
       widgetsSteamAvailable = ${widgetsEnabled and (pluginFinder.available('steam') or pluginFinder.available('halo-plugin-steam') or pluginFinder.available('PluginSteam') or pluginFinder.available('plugin-steam'))},
@@ -277,7 +284,7 @@
       widgetsSteamProfileSummary = ${widgetsSteamProfile != null ? widgetsSteamProfile.summary : null},
       widgetsSteamStats = ${widgetsSteamAvailable ? steamFinder.getStats() : null},
       widgetsSteamRecentGames = ${widgetsSteamAvailable ? steamFinder.getRecentGames(1) : null},
-      widgetsSteamWidgetGames = ${widgetsSteamAvailable ? steamFinder.getOwnedGames(1, 80) : null},
+      widgetsSteamWidgetGames = ${widgetsSteamAvailable ? steamFinder.getOwnedGames(1, 12) : null},
       widgetsSteamPlaying = ${widgetsSteamProfile != null and widgetsSteamProfile.playing == true},
       widgetsSteamStatusText = ${widgetsSteamProfile != null and !#strings.isEmpty(widgetsSteamProfile.statusText) ? widgetsSteamProfile.statusText : ''},
       widgetsSteamPersonaName = ${widgetsSteamProfileSummary != null and !#strings.isEmpty(widgetsSteamProfileSummary.personaName) ? widgetsSteamProfileSummary.personaName : ''},
@@ -457,7 +464,7 @@
       docsmeAvailable=${widgetsDocsmeAvailable},
       docsmeProjects=${widgetsDocsmeProjects != null ? widgetsDocsmeProjects.items : {}},
       photosAvailable=${widgetsPhotosAvailable},
-      photos=${widgetsPhotos != null ? widgetsPhotos : {}},
+      photos=${widgetsPhotos != null ? widgetsPhotos.items : {}},
       photoGroups=${widgetsPhotoGroups != null ? widgetsPhotoGroups : {}},
       doubanAvailable=${widgetsDoubanAvailable},
       steamAvailable=${widgetsSteamAvailable},
@@ -622,6 +629,9 @@
                 iconSvg = ${#annotations.getOrDefault(menuItem, 'icon', '')},
                 customSvg = ${#annotations.getOrDefault(menuItem, 'custom_svg', '')},
                 imageUrl = ${#annotations.getOrDefault(menuItem, 'image_url', '')},
+                dockImageUrl = ${#strings.trim(imageUrl)},
+                dockImageUrlLower = ${#strings.toLowerCase(dockImageUrl)},
+                dockImageAllowed = ${!#strings.isEmpty(dockImageUrl) and (#strings.startsWith(dockImageUrl, '/') or #strings.startsWith(dockImageUrlLower, 'https://') or #strings.startsWith(dockImageUrlLower, 'http://'))},
                 bgColor = ${#annotations.getOrDefault(menuItem, 'bg_color', '')}">
               
               <!-- 改为 PJAX <a> 链接 -->
@@ -636,8 +646,15 @@
                 <div class="dock-tooltip" x-show="$el.closest('.dock-container').dataset.showLabels === 'true'" th:text="${menuItem.status.displayName}">Name</div>
 
                 <!-- 图片类型 -->
-                <th:block th:if="${iconType == 'image' and !#strings.isEmpty(imageUrl)}">
-                  <img class="dock-icon-img" th:src="${imageUrl}" th:alt="${menuItem.status.displayName}" loading="lazy" decoding="async" draggable="false" />
+                <th:block th:if="${iconType == 'image' and dockImageAllowed}">
+                  <img class="dock-icon-img" th:src="${dockImageUrl}" th:alt="${menuItem.status.displayName}" loading="lazy" decoding="async" draggable="false" />
+                </th:block>
+
+                <!-- 禁止 data/blob/javascript 等内联或可执行协议，避免大图复制进 HTML。 -->
+                <th:block th:if="${iconType == 'image' and !dockImageAllowed}">
+                  <div class="dock-icon-svg dock-icon-svg--fallback" aria-hidden="true">
+                    <span class="icon-[lucide--app-window]"></span>
+                  </div>
                 </th:block>
 
                 <!-- SVG 类型 -->

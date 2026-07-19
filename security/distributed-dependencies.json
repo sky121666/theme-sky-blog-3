@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "roots": {
+    "@alpinejs/intersect": "浏览器交互运行时",
+    "@alpinejs/morph": "浏览器交互运行时",
+    "@iconify-json/lucide": "随主题 CSS 分发的 Lucide 图标数据",
+    "alpinejs": "浏览器交互运行时",
+    "nprogress": "PJAX 进度条运行时",
+    "pjax": "站内导航运行时",
+    "qrcode": "二维码生成运行时"
+  },
+  "licenseOverrides": {
+    "@alpinejs/intersect": {
+      "file": "security/licenses/alpinejs-3.15.12-LICENSE.md",
+      "source": "https://raw.githubusercontent.com/alpinejs/alpine/v3.15.12/LICENSE.md",
+      "version": "3.15.12",
+      "sha256": "08b7502da6e7aa1d0bbdc97d220fbf669b9366c61bd0f072238283c89bc4773a"
+    },
+    "@alpinejs/morph": {
+      "file": "security/licenses/alpinejs-3.15.12-LICENSE.md",
+      "source": "https://raw.githubusercontent.com/alpinejs/alpine/v3.15.12/LICENSE.md",
+      "version": "3.15.12",
+      "sha256": "08b7502da6e7aa1d0bbdc97d220fbf669b9366c61bd0f072238283c89bc4773a"
+    },
+    "@iconify-json/lucide": {
+      "file": "security/licenses/lucide-LICENSE",
+      "source": "https://raw.githubusercontent.com/lucide-icons/lucide/main/LICENSE",
+      "version": "1.2.118",
+      "sha256": "b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57"
+    },
+    "alpinejs": {
+      "file": "security/licenses/alpinejs-3.15.12-LICENSE.md",
+      "source": "https://raw.githubusercontent.com/alpinejs/alpine/v3.15.12/LICENSE.md",
+      "version": "3.15.12",
+      "sha256": "08b7502da6e7aa1d0bbdc97d220fbf669b9366c61bd0f072238283c89bc4773a"
+    }
+  }
+}

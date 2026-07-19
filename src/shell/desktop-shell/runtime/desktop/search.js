@@ -2,9 +2,15 @@
  * 搜索组件 Shadow DOM 样式注入
  */
 
+const SEARCH_STYLE_OBSERVER_TIMEOUT_MS = 2000;
+
+let searchStyleObserver = null;
+let searchStyleObserverTimer = null;
+
 function injectSearchModalStyles(modalEl) {
   const root = modalEl?.shadowRoot;
-  if (!root || root.getElementById('mac-search-style')) return;
+  if (!root) return false;
+  if (root.getElementById('mac-search-style')) return true;
 
   const style = document.createElement('style');
   style.id = 'mac-search-style';
@@ -151,14 +157,42 @@ function injectSearchModalStyles(modalEl) {
   `;
 
   root.appendChild(style);
+  return true;
+}
+
+function stopSearchWidgetObserver() {
+  searchStyleObserver?.disconnect();
+  searchStyleObserver = null;
+
+  if (searchStyleObserverTimer !== null) {
+    window.clearTimeout(searchStyleObserverTimer);
+    searchStyleObserverTimer = null;
+  }
+}
+
+function scanSearchWidgetStyles() {
+  const modals = Array.from(document.querySelectorAll('search-modal'));
+  if (!modals.length) return false;
+
+  let allStyled = true;
+  modals.forEach((modal) => {
+    if (!injectSearchModalStyles(modal)) {
+      allStyled = false;
+    }
+  });
+  if (allStyled) {
+    stopSearchWidgetObserver();
+  }
+  return allStyled;
 }
 
 export function openSearchWidget() {
   if (typeof window.SearchWidget?.open === 'function') {
+    observeSearchWidget();
     window.SearchWidget.open();
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        document.querySelectorAll('search-modal').forEach(injectSearchModalStyles);
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        scanSearchWidgetStyles();
       }, 0);
     });
     return true;
@@ -167,18 +201,19 @@ export function openSearchWidget() {
 }
 
 export function observeSearchWidget() {
-  const scan = () => {
-    document.querySelectorAll('search-modal').forEach(injectSearchModalStyles);
-  };
+  if (scanSearchWidgetStyles()) return;
+  if (searchStyleObserver) return;
 
-  scan();
-
-  const observer = new MutationObserver(() => {
-    scan();
+  searchStyleObserver = new MutationObserver(() => {
+    scanSearchWidgetStyles();
   });
 
-  observer.observe(document.documentElement, {
+  searchStyleObserver.observe(document.documentElement, {
     childList: true,
     subtree: true
   });
+
+  searchStyleObserverTimer = window.setTimeout(() => {
+    stopSearchWidgetObserver();
+  }, SEARCH_STYLE_OBSERVER_TIMEOUT_MS);
 }

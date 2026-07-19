@@ -176,6 +176,17 @@ async function main() {
       appPropsSelector: 'script[data-app-props="bangumis"]'
     },
     {
+      name: 'douban',
+      target: '/douban',
+      optional: true,
+      requireShellLoaded: true,
+      expectedAppId: 'douban',
+      expectedPageMode: 'browser-douban',
+      expectedWindowVariant: 'douban',
+      appRootSelector: '[data-app-root="douban"]',
+      appPropsSelector: 'script[data-app-props="douban"]'
+    },
+    {
       name: 'steam',
       target: '/steam',
       optional: true,
@@ -185,6 +196,17 @@ async function main() {
       expectedWindowVariant: 'steam',
       appRootSelector: '[data-app-root="steam"]',
       appPropsSelector: 'script[data-app-props="steam"]'
+    },
+    {
+      name: 'equipments',
+      target: '/equipments',
+      optional: true,
+      requireShellLoaded: true,
+      expectedAppId: 'equipments',
+      expectedPageMode: 'browser-equipments',
+      expectedWindowVariant: 'equipments',
+      appRootSelector: '[data-app-root="equipments"]',
+      appPropsSelector: 'script[data-app-props="equipments"]'
     },
     {
       name: 'photos',

@@ -544,6 +544,9 @@ export function initPjax(Alpine) {
             // Fallback: use full content root innerHTML
             contentContainer.innerHTML = parsed.contentHtml;
           }
+          document.dispatchEvent(new CustomEvent('theme:content-swapped', {
+            detail: { root: contentContainer, reason: 'same-variant' }
+          }));
         };
         const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
         const canUseViewTransition = typeof document.startViewTransition === 'function'
@@ -630,6 +633,14 @@ export function initPjax(Alpine) {
           stopTopProgress();
         }
         await hideOverlay(contentRoot, loadingController);
+
+        document.dispatchEvent(new CustomEvent('pjax:same-variant-complete', {
+          detail: {
+            targetUrl,
+            appId: nextApp,
+            root: contentContainer
+          }
+        }));
 
         pjaxLog('same-variant navigation complete:', targetUrl);
 
