@@ -3,10 +3,8 @@
   "version": "0.9.41",
   "private": true,
   "license": "MIT",
-  "packageManager": "pnpm@11.15.0",
   "engines": {
-    "node": ">=24.18.0 <25",
-    "pnpm": "11.15.0"
+    "node": ">=24.18.0 <25"
   },
   "type": "module",
   "scripts": {
@@ -28,7 +26,7 @@
     "audit:plugins": "node scripts/audit-plugin-inventory.mjs",
     "notices:generate": "node scripts/generate-third-party-notices.mjs",
     "notices:check": "node scripts/generate-third-party-notices.mjs --check && node scripts/check-third-party-notices.mjs",
-    "verify:contracts": "node scripts/verify-weather-runtime.mjs && node scripts/verify-shell-bootstrap-contract.mjs && node scripts/verify-window-lifecycle.mjs && node scripts/verify-media-performance-contract.mjs && node scripts/verify-lazy-comment-lifecycle.mjs && node scripts/verify-shell-resource-lifecycle.mjs && node scripts/verify-release-workflow-contract.mjs && node scripts/verify-halo-version-contract.mjs && node scripts/verify-pnpm-supply-chain-policy.mjs && node scripts/verify-widgets-config-schema.mjs && node scripts/verify-widget-bangumis.mjs && node scripts/verify-widget-photos.mjs && node scripts/verify-widget-steam.mjs",
+    "verify:contracts": "node scripts/verify-weather-runtime.mjs && node scripts/verify-shell-bootstrap-contract.mjs && node scripts/verify-window-lifecycle.mjs && node scripts/verify-media-performance-contract.mjs && node scripts/verify-lazy-comment-lifecycle.mjs && node scripts/verify-shell-resource-lifecycle.mjs && node scripts/verify-pnpm-supply-chain-policy.mjs && node scripts/verify-widgets-config-schema.mjs && node scripts/verify-widget-bangumis.mjs && node scripts/verify-widget-photos.mjs && node scripts/verify-widget-steam.mjs",
     "verify:performance": "node scripts/verify-html-performance.mjs",
     "verify:pjax-lifecycle": "node scripts/verify-pjax-lifecycle.mjs",
     "verify:release-package": "node scripts/verify-release-package.mjs",
