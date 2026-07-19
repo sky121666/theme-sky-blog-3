@@ -156,6 +156,8 @@ SMOKE_BASE_URL="http://localhost:8090" pnpm run verify:pjax-lifecycle
 
 若 Halo 应用市场同步已成功、但 GitHub Release 在 5 次有界尝试后仍未公开，禁止删除该草稿或重跑 CD；维护者应直接公开既有 GitHub Release 草稿，避免重复创建或碰撞 Halo 应用市场版本。
 
+若 CD 在应用市场步骤之前失败，但同一标签的 GitHub 草稿和 ZIP 已完整创建，可在确认应用市场从未同步后，手动运行 `Release Recovery`。恢复工作流会校验失败 CD、标签提交、Actions 制品与草稿 ZIP 的 SHA-256，只继续该既有草稿，不删除或改写标签。
+
 漏洞审计会把解析后的依赖树提交到 npm 官方漏洞接口，因此 CI/CD 还要求仓库变量 `NPM_AUDIT_ALLOWED=true`，该变量只能在维护者明确授权后设置。
 
 ## 当前限制

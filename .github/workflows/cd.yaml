@@ -305,13 +305,35 @@ jobs:
           release_heading="## $RELEASE_TAG"
           awk -v heading="$release_heading" 'BEGIN { keep=0 } $0 == heading { keep=1; next } /^## v/ { if (keep) exit } keep { print }' docs/发布说明.md > "$RELEASE_NOTES_PATH"
           test -s "$RELEASE_NOTES_PATH"
-          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          mapfile -t existing_release_ids < <(
+            gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate \
+              --jq '.[] | select(.tag_name == env.RELEASE_TAG) | .id'
+          )
+          if [[ ${#existing_release_ids[@]} -gt 0 ]]; then
             echo "Release $RELEASE_TAG already exists. Do not rerun blindly: if the Halo App Store sync already succeeded, publish the existing GitHub draft directly; otherwise clean any failed Halo draft before deleting the GitHub draft and rerunning."
             exit 1
           fi
           gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --title "Sky Blog 3 $RELEASE_TAG" --notes-file "$RELEASE_NOTES_PATH" --draft
           gh release upload "$RELEASE_TAG" "$PACKAGE_PATH" --repo "$GITHUB_REPOSITORY" --clobber
-          release_id="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq .id)"
+
+          mapfile -t created_release_ids < <(
+            gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate \
+              --jq '.[] | select(.tag_name == env.RELEASE_TAG) | .id'
+          )
+          if [[ ${#created_release_ids[@]} -ne 1 ]]; then
+            echo "Expected exactly one draft Release for $RELEASE_TAG, found ${#created_release_ids[@]}."
+            exit 1
+          fi
+
+          release_id="${created_release_ids[0]}"
+          package_name="$(basename "$PACKAGE_PATH")"
+          export PACKAGE_NAME="$package_name"
+          release_is_draft="$(gh api "repos/$GITHUB_REPOSITORY/releases/$release_id" --jq .draft)"
+          release_asset_count="$(gh api "repos/$GITHUB_REPOSITORY/releases/$release_id" --jq '[.assets[] | select(.name == env.PACKAGE_NAME)] | length')"
+          if [[ "$release_is_draft" != "true" || "$release_asset_count" -ne 1 ]]; then
+            echo "Draft Release $release_id must remain a draft and contain exactly one $package_name asset."
+            exit 1
+          fi
           printf 'id=%s\n' "$release_id" >> "$GITHUB_OUTPUT"
 
       - name: Sync release to Halo App Store
@@ -336,11 +358,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_ID: ${{ steps.release.outputs.id }}
         run: |
           max_attempts=5
           for attempt in $(seq 1 "$max_attempts"); do
-            if gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false \
-              && [[ "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" == "false" ]]; then
+            if gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -F draft=false >/dev/null \
+              && [[ "$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" --jq .draft)" == "false" ]] \
+              && [[ "$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" --jq .tag_name)" == "$RELEASE_TAG" ]]; then
               echo "GitHub Release $RELEASE_TAG published on attempt $attempt/$max_attempts."
               exit 0
             fi

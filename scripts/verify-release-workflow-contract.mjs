@@ -18,6 +18,7 @@ function indexOfRequired(source, marker, message) {
 
 const cd = read('.github/workflows/cd.yaml');
 const ci = read('.github/workflows/ci.yaml');
+const recovery = read('.github/workflows/release-recovery.yaml');
 const readme = read('README.md');
 const rollbackGuide = read('docs/发布与回滚.md');
 const releaseNotes = read('docs/发布说明.md');
@@ -68,7 +69,10 @@ assert.match(releaseJob, /GITHUB_STEP_SUMMARY/, '回滚基线必须写入 Action
 
 assert.match(releaseJob, /id: app-store[\s\S]*?halo-sigs\/app-store-release-action@[0-9a-f]{40}/, '应用市场 Action 必须固定提交 SHA');
 assert.match(releaseJob, /max_attempts=5/, 'GitHub Release 公开必须有 5 次有界尝试');
-assert.match(releaseJob, /--draft=false[\s\S]*?--json isDraft[\s\S]*?== "false"/, '公开后必须复核 GitHub Release 已退出草稿态');
+assert.match(releaseJob, /releases\?per_page=100[\s\S]*?select\(\.tag_name == env\.RELEASE_TAG\)/, '草稿 Release 必须通过分页列表按精确标签定位');
+assert.doesNotMatch(releaseJob, /releases\/tags\/\$RELEASE_TAG/, '草稿 Release 不得通过不支持草稿态的 by-tag REST 端点定位');
+assert.match(releaseJob, /created_release_ids\[@\][\s\S]*?-ne 1/, '新建草稿后必须确认精确匹配唯一 Release');
+assert.match(releaseJob, /releases\/\$RELEASE_ID[\s\S]*?-F draft=false[\s\S]*?\.draft[\s\S]*?\.tag_name/, '公开必须按 Release ID 执行，并复核草稿态与标签');
 assert.match(
   releaseJob,
   /if: failure\(\) && steps\.app-store\.outcome == 'success' && steps\.publish\.outcome == 'failure'/,
@@ -79,6 +83,23 @@ assert.doesNotMatch(
   releaseJob,
   /gh release delete|git push[^\n]*--delete|gh api[^\n]*(?:-X|--method)\s+DELETE/i,
   'CD 不得自动删除公开 Release、标签或应用市场版本'
+);
+
+assert.match(recovery, /workflow_dispatch:/, '必须由维护者手动触发 Release Recovery');
+assert.match(recovery, /app_store_not_synced:[\s\S]*?type: boolean/, '恢复必须要求人工确认应用市场从未同步');
+assert.match(recovery, /ref: refs\/tags\/\$\{\{ inputs\.release_tag \}\}/, '恢复必须检出精确标签引用');
+assert.match(recovery, /git show-ref --verify --quiet "refs\/tags\/\$RELEASE_TAG"/, '恢复必须证明输入是实际标签');
+assert.match(recovery, /source_name[\s\S]*?source_event[\s\S]*?source_branch[\s\S]*?source_sha[\s\S]*?source_conclusion/, '恢复必须读取来源 CD 的名称、事件、标签、提交和结论');
+assert.match(recovery, /Sync release to Halo App Store[\s\S]*?app_store_step_conclusions\[0\][\s\S]*?skipped/, '恢复必须由 Actions 记录证明应用市场步骤未执行');
+assert.match(recovery, /release_ids\[@\][\s\S]*?-ne 1[\s\S]*?release_is_draft[\s\S]*?!= "true"/, '恢复必须定位唯一且仍为草稿的 Release');
+assert.match(recovery, /gh run download "\$SOURCE_RUN_ID"[\s\S]*?node scripts\/verify-release-package\.mjs/, '恢复必须下载并校验来源 CD 制品');
+assert.match(recovery, /artifact_sha256[\s\S]*?release_sha256[\s\S]*?!=/, '恢复必须比较 Actions 制品和草稿附件的 SHA-256');
+assert.match(recovery, /halo-sigs\/app-store-release-action@[0-9a-f]{40}/, '恢复中的应用市场 Action 必须固定提交 SHA');
+assert.match(recovery, /max_attempts=5[\s\S]*?releases\/\$RELEASE_ID[\s\S]*?-F draft=false[\s\S]*?\.draft[\s\S]*?\.tag_name/, '恢复公开必须按 Release ID 有界重试并复核状态');
+assert.doesNotMatch(
+  recovery,
+  /gh release delete|git push[^\n]*--delete|gh api[^\n]*(?:-X|--method)\s+DELETE/i,
+  'Release Recovery 不得自动删除 Release、标签或应用市场版本'
 );
 
 for (const [name, workflow] of [['CI', ci], ['CD', cd]]) {
