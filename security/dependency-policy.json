@@ -20,7 +20,7 @@
     {
       "packages": ["@iconify-json/lucide"],
       "version": "1.2.118",
-      "reason": "v0.9.41 按目标升级到当前稳定版；该版本锁定且完成许可证、构建和回归审查，但发布未满默认 7 天等待期。",
+      "reason": "v0.9.42 按目标升级到当前稳定版；该版本锁定且完成许可证、构建和回归审查，但发布未满默认 7 天等待期。",
       "owner": "theme-sky-blog-3 maintainers",
       "expires": "2026-07-27T00:00:00Z"
     },
@@ -44,14 +44,14 @@
         "tailwindcss"
       ],
       "version": "4.3.3",
-      "reason": "v0.9.41 统一升级 Tailwind 官方 4.3.3 工具链；精确版本和平台包已锁定并完成双构建可复现验证，但发布未满默认 7 天等待期。",
+      "reason": "v0.9.42 统一升级 Tailwind 官方 4.3.3 工具链；精确版本和平台包已锁定并完成双构建可复现验证，但发布未满默认 7 天等待期。",
       "owner": "theme-sky-blog-3 maintainers",
       "expires": "2026-07-27T00:00:00Z"
     },
     {
       "packages": ["vite"],
       "version": "8.1.5",
-      "reason": "v0.9.41 按目标升级到当前稳定版；精确版本已锁定并完成静态检查、构建与双 Halo 回归，但发布未满默认 7 天等待期。",
+      "reason": "v0.9.42 按目标升级到当前稳定版；精确版本已锁定并完成静态检查、构建与最新稳定版 Halo 2.25.4 回归，但发布未满默认 7 天等待期。",
       "owner": "theme-sky-blog-3 maintainers",
       "expires": "2026-07-27T00:00:00Z"
     }

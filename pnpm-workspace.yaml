@@ -5,8 +5,8 @@ savePrefix: ''
 verifyDepsBeforeRun: error
 enableGlobalVirtualStore: false
 strictDepBuilds: true
-allowBuilds:
-  esbuild@0.28.1: true
+onlyBuiltDependencies:
+  - 'esbuild'
 
 minimumReleaseAge: 10080
 minimumReleaseAgeStrict: true

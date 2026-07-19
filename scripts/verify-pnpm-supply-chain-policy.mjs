@@ -32,6 +32,7 @@ function splitPackageVersion(value) {
 }
 
 const excluded = readYamlList('minimumReleaseAgeExclude').map(splitPackageVersion);
+const builtDependencies = readYamlList('onlyBuiltDependencies');
 const exceptions = policy.minimumReleaseAgeExceptions || [];
 const approved = new Map();
 const now = Date.now();
@@ -66,5 +67,9 @@ assert(/minimumReleaseAge:\s*10080(?:\s|$)/.test(workspace), 'pnpm minimumReleas
 assert(/minimumReleaseAgeStrict:\s*true(?:\s|$)/.test(workspace), 'pnpm minimumReleaseAgeStrict 必须开启');
 assert(/trustPolicy:\s*no-downgrade(?:\s|$)/.test(workspace), 'pnpm trustPolicy 必须为 no-downgrade');
 assert(/blockExoticSubdeps:\s*true(?:\s|$)/.test(workspace), 'pnpm blockExoticSubdeps 必须开启');
+assert(
+  builtDependencies.length === 1 && builtDependencies[0] === 'esbuild',
+  `pnpm 构建脚本白名单必须且只能包含 esbuild，实际为 ${builtDependencies.join(', ') || '(空)'}`
+);
 
 console.log(`pnpm 供应链策略通过（${excludedKeys.size} 个有期限精确版本例外）`);
