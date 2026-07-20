@@ -6,6 +6,7 @@ import {
   resolveSteamGameImage
 } from '../src/apps/steam/model.js';
 import { steamAppManifest } from '../src/apps/steam/manifest.js';
+import { stripSteamSiteTitleSuffix } from '../src/apps/steam/title.js';
 import {
   heatmapThemeColors,
   parseSteamRecent,
@@ -13,6 +14,7 @@ import {
 } from '../src/apps/steam/runtime.js';
 
 const template = fs.readFileSync(new URL('../templates/modules/steam-app/list.html', import.meta.url), 'utf8');
+const pageTemplate = fs.readFileSync(new URL('../templates/steam.html', import.meta.url), 'utf8');
 const hydrateSource = fs.readFileSync(new URL('../src/apps/steam/hydrate.js', import.meta.url), 'utf8');
 const runtimeSource = fs.readFileSync(new URL('../src/apps/steam/runtime.js', import.meta.url), 'utf8');
 
@@ -43,6 +45,74 @@ assert.equal(
   new Date(2026, 6, 20).getTime(),
   'formatted last-played date should remain sortable'
 );
+assert.equal(
+  stripSteamSiteTitleSuffix('Steam 游戏库 - Sky Blog', 'Sky Blog'),
+  'Steam 游戏库',
+  'Steam title helper should strip one exact trailing site suffix'
+);
+assert.equal(
+  stripSteamSiteTitleSuffix('Sky Blog 的 Steam 游戏库', 'Sky Blog'),
+  'Sky Blog 的 Steam 游戏库',
+  'a site title in the middle must not be mistaken for a trailing suffix'
+);
+assert.equal(
+  stripSteamSiteTitleSuffix('Steam 游戏库 - Sky Blog Archive', 'Sky Blog'),
+  'Steam 游戏库 - Sky Blog Archive',
+  'a longer non-matching suffix must remain intact'
+);
+assert.equal(
+  stripSteamSiteTitleSuffix('Steam 游戏库 - Sky Blog - Sky Blog', 'Sky Blog'),
+  'Steam 游戏库',
+  'duplicate exact site suffixes should be removed completely'
+);
+assert.equal(
+  stripSteamSiteTitleSuffix('Steam 游戏库 - Sky Blog', ''),
+  'Steam 游戏库 - Sky Blog',
+  'an empty site title must not remove any suffix'
+);
+
+const previousWindowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
+const previousDocumentDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'document');
+try {
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: {} });
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: { title: 'fallback title' } });
+  const hydrateUrl = new URL('../src/apps/steam/hydrate.js', import.meta.url);
+  hydrateUrl.searchParams.set('title-contract', String(Date.now()));
+  await import(hydrateUrl.href);
+
+  const lifecycle = window.__THEME_PAGE_APP_REGISTRY__?.appLifecycles?.steam;
+  assert.equal(typeof lifecycle?.getDocumentState, 'function', 'Steam hydrate should register its document-state lifecycle');
+  const stateFor = (chromeTitle, siteTitle) => lifecycle.getDocumentState({
+    querySelector() {
+      return {
+        dataset: {
+          steamChromeTitle: chromeTitle,
+          steamChromeSubtitle: '共 10 款游戏',
+          steamSiteTitle: siteTitle
+        }
+      };
+    }
+  }, { documentTitle: 'fallback title' });
+
+  assert.deepEqual(
+    stateFor('Sky Blog 的 Steam 游戏库', 'Sky Blog'),
+    {
+      title: 'Sky Blog 的 Steam 游戏库 - Sky Blog',
+      windowTitle: 'Sky Blog 的 Steam 游戏库',
+      windowSubtitle: '共 10 款游戏',
+      windowVariant: 'steam'
+    },
+    'hydrate must append the site suffix when the site name only appears in the title body'
+  );
+  assert.equal(stateFor('Steam 游戏库 - Sky Blog - Sky Blog', 'Sky Blog').title, 'Steam 游戏库 - Sky Blog');
+  assert.equal(stateFor('Steam 游戏库 - Sky Blog - Sky Blog', 'Sky Blog').windowTitle, 'Steam 游戏库');
+  assert.equal(stateFor('Steam 游戏库 - Sky Blog', '').title, 'Steam 游戏库 - Sky Blog');
+} finally {
+  if (previousWindowDescriptor) Object.defineProperty(globalThis, 'window', previousWindowDescriptor);
+  else delete globalThis.window;
+  if (previousDocumentDescriptor) Object.defineProperty(globalThis, 'document', previousDocumentDescriptor);
+  else delete globalThis.document;
+}
 
 assert.match(template, /realHeaderImage/, 'Steam template should support the 1.0.0 realHeaderImage field');
 assert.match(template, /game\.delisted == true/, 'Steam template should expose the 1.0.0 delisted state');
@@ -60,6 +130,9 @@ assert.match(
 assert.match(template, /game\.playtimeForever < 60/, 'template should render sub-hour playtime as minutes only');
 assert.match(template, /game\.delisted == true \? null/, 'delisted cards should remove their href');
 assert.match(template, /tabindex=\$\{game\.delisted == true \? '-1' : null\}/, 'delisted cards should leave keyboard navigation');
+assert.match(pageTemplate, /#strings\.endsWith\(rawWindowTitle, windowTitleSuffix\)/, 'server title should only detect a trailing site suffix');
+assert.match(pageTemplate, /#strings\.substring\(rawWindowTitle, 0, #strings\.length\(rawWindowTitle\) - #strings\.length\(windowTitleSuffix\)\)/, 'server title should remove only the detected trailing suffix');
+assert.match(hydrateSource, /stripSteamSiteTitleSuffix\(chromeTitle, siteTitle\)/, 'PJAX title hydration should use the exact-suffix helper');
 
 assert.equal(steamAppManifest.supportsSameAppPjax, true, 'Steam should retain same-app PJAX support');
 assert.match(hydrateSource, /invokeAlpineDestroyHooks/, 'Steam PJAX disposal should invoke Alpine destroy hooks');

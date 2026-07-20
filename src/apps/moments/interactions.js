@@ -19,6 +19,7 @@ const cardStates = new WeakMap();
 const autoCommentQueue = [];
 let autoCommentActive = 0;
 let photoViewer = null;
+let photoViewerRefCount = 0;
 
 function escapeHtml(value = '') {
   return String(value || '')
@@ -181,6 +182,7 @@ function createState(card) {
     tone: '',
     upvoting: false,
     abortController: null,
+    commentsRequestGeneration: 0,
     detailFallback: false,
     hashFocusHandled: false,
     replyLoading: new Set()
@@ -803,7 +805,7 @@ function getPhotoViewer(root = document.body) {
   stage.addEventListener('pointerup', endPointer);
   stage.addEventListener('pointercancel', endPointer);
 
-  window.addEventListener('keydown', (event) => {
+  function onViewerKeydown(event) {
     if (overlay.hidden) return;
     if (event.key === 'Escape') {
       event.preventDefault();
@@ -817,10 +819,29 @@ function getPhotoViewer(root = document.body) {
       event.preventDefault();
       move(1);
     }
-  });
+  }
 
-  photoViewer = { overlay, show, close };
+  function destroy() {
+    close();
+    window.removeEventListener('keydown', onViewerKeydown);
+    overlay.remove();
+  }
+
+  window.addEventListener('keydown', onViewerKeydown);
+  photoViewer = { overlay, show, close, destroy };
   return photoViewer;
+}
+
+function retainPhotoViewerLifecycle() {
+  photoViewerRefCount += 1;
+}
+
+function releasePhotoViewerLifecycle() {
+  photoViewerRefCount = Math.max(0, photoViewerRefCount - 1);
+  if (photoViewerRefCount !== 0 || !photoViewer) return;
+  const viewer = photoViewer;
+  photoViewer = null;
+  viewer.destroy();
 }
 
 function openPhotoViewer(target) {
@@ -953,7 +974,7 @@ async function upvoteMoment(card) {
   }
 }
 
-async function requestComments(state, page, { preview = false } = {}) {
+async function requestComments(state, page, { preview = false, signal } = {}) {
   const url = new URL(COMMENT_ENDPOINT, window.location.origin);
   url.searchParams.set('page', String(page));
   url.searchParams.set('size', String(preview ? COMMENT_PREVIEW_PAGE_SIZE : COMMENT_PAGE_SIZE));
@@ -966,7 +987,7 @@ async function requestComments(state, page, { preview = false } = {}) {
   const response = await fetch(url, {
     credentials: 'same-origin',
     headers: { Accept: 'application/json' },
-    signal: state.abortController?.signal
+    signal
   });
   if (response.status === 404) throw new Error('评论暂不可用');
   if (!response.ok) {
@@ -982,15 +1003,29 @@ async function loadComments(card, { page = 1, append = false, force = false, pre
 
   const previewMode = append ? state.commentsPreview : preview;
   state.abortController?.abort();
-  state.abortController = new AbortController();
+  const controller = new AbortController();
+  const requestGeneration = state.commentsRequestGeneration + 1;
+  state.commentsRequestGeneration = requestGeneration;
+  state.abortController = controller;
   state.commentsLoading = true;
   state.commentsPreview = previewMode;
   state.detailFallback = false;
   setMessage(state, append ? '正在加载更多评论...' : '正在加载评论...');
   renderComments(card);
 
+  const isCurrentRequest = () => (
+    state.commentsRequestGeneration === requestGeneration
+    && state.abortController === controller
+    && !controller.signal.aborted
+    && card.isConnected
+  );
+
   try {
-    const result = await requestComments(state, page, { preview: previewMode });
+    const result = await requestComments(state, page, {
+      preview: previewMode,
+      signal: controller.signal
+    });
+    if (!isCurrentRequest()) return;
     state.comments = append ? [...state.comments, ...result.comments] : result.comments;
     state.commentsPage = result.page;
     state.commentsHasMore = result.hasMore;
@@ -1001,15 +1036,19 @@ async function loadComments(card, { page = 1, append = false, force = false, pre
     }
     setMessage(state, '');
   } catch (error) {
-    if (error?.name === 'AbortError') return;
+    if (error?.name === 'AbortError' || !isCurrentRequest()) return;
     state.detailFallback = true;
     if (state.isDetail) showOfficialCommentsFallback(card);
     setMessage(state, error.message || '评论加载失败', 'error');
   } finally {
-    state.commentsLoading = false;
-    state.abortController = null;
-    renderComments(card);
-    focusCommentsFromHash(card, { force: true });
+    if (state.commentsRequestGeneration === requestGeneration && state.abortController === controller) {
+      state.commentsLoading = false;
+      state.abortController = null;
+      if (card.isConnected) {
+        renderComments(card);
+        focusCommentsFromHash(card, { force: true });
+      }
+    }
   }
 }
 
@@ -1268,6 +1307,7 @@ export function setupMomentInteractions(root = document) {
     })
     : null;
   initCards(container, { autoCommentObserver });
+  retainPhotoViewerLifecycle();
 
   function onClick(event) {
     const target = event.target;
@@ -1413,9 +1453,14 @@ export function setupMomentInteractions(root = document) {
   window.addEventListener('moments:feed-updated', onFeedUpdated);
   scrollBody?.addEventListener('scroll', onScroll, { passive: true });
 
+  let cleaned = false;
   const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    photoViewer?.close();
     getCards(container).forEach((card) => {
       const state = getState(card);
+      state.commentsRequestGeneration += 1;
       state.abortController?.abort();
       state.abortController = null;
       state.commentsLoading = false;
@@ -1428,7 +1473,10 @@ export function setupMomentInteractions(root = document) {
     window.removeEventListener('moments:feed-updated', onFeedUpdated);
     scrollBody?.removeEventListener('scroll', onScroll);
     autoCommentObserver?.disconnect();
-    container._momentsInteractionsCleanup = null;
+    if (container._momentsInteractionsCleanup === cleanup) {
+      container._momentsInteractionsCleanup = null;
+    }
+    releasePhotoViewerLifecycle();
   };
   container._momentsInteractionsCleanup = cleanup;
   return cleanup;

@@ -5,6 +5,7 @@ import {
 } from '../../shared/page-app-bridge.js';
 import { resolveSteamAppProtocol } from './protocol.js';
 import { registerSteamExplorer } from './runtime.js';
+import { stripSteamSiteTitleSuffix } from './title.js';
 
 queuePageAppRegistrar((Alpine) => {
   registerSteamExplorer(Alpine);
@@ -23,13 +24,14 @@ registerPageAppLifecycle('steam', {
     const chromeTitle = shell?.dataset.steamChromeTitle || '';
     const chromeSubtitle = shell?.dataset.steamChromeSubtitle || '';
     const siteTitle = shell?.dataset.steamSiteTitle || '';
-    const resolvedTitle = chromeTitle
-      ? (siteTitle ? `${chromeTitle} - ${siteTitle}` : chromeTitle)
+    const windowTitle = stripSteamSiteTitleSuffix(chromeTitle, siteTitle);
+    const resolvedTitle = windowTitle
+      ? (siteTitle ? `${windowTitle} - ${siteTitle}` : windowTitle)
       : (context.documentTitle || document.title);
 
     return {
       title: resolvedTitle,
-      windowTitle: chromeTitle || resolvedTitle,
+      windowTitle: windowTitle || resolvedTitle,
       windowSubtitle: chromeSubtitle,
       windowVariant: 'steam'
     };

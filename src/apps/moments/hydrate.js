@@ -105,22 +105,40 @@ function firstLinkFromHtml(value = '') {
   return template.content.querySelector('a[href]')?.getAttribute('href') || '';
 }
 
-function normalizeMomentHref(value = '') {
+function resolveMomentBaseOrigin(baseOrigin = '') {
+  try {
+    return new URL(baseOrigin || window.location.origin).origin;
+  } catch (_error) {
+    return window.location.origin;
+  }
+}
+
+function normalizeMomentHref(value = '', baseOrigin = '') {
   const raw = String(value || '').trim();
-  if (!raw) return '';
+  if (!raw || /[\u0000-\u001f\u007f]/.test(raw)) return '';
 
   try {
-    const url = new URL(raw, window.location.origin);
-    if (/^\/moments(?:\/|\?|#|$)/i.test(url.pathname)) {
-      return `${url.pathname}${url.search}${url.hash}`;
-    }
-    if (url.origin === window.location.origin) {
-      return `${url.pathname}${url.search}${url.hash}`;
-    }
-    return raw;
+    const origin = resolveMomentBaseOrigin(baseOrigin);
+    const url = new URL(raw, `${origin}/`);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
+    return url.origin === origin
+      ? `${url.pathname}${url.search}${url.hash}`
+      : url.href;
   } catch (_error) {
-    return raw;
+    return '';
   }
+}
+
+function resolveMomentNavigation(value = '', baseOrigin = '') {
+  const origin = resolveMomentBaseOrigin(baseOrigin);
+  const href = normalizeMomentHref(value, origin);
+  if (!href) return null;
+  const url = new URL(href, `${origin}/`);
+  return {
+    href: url.origin === origin ? `${url.pathname}${url.search}${url.hash}` : url.href,
+    sameOrigin: url.origin === origin,
+    url
+  };
 }
 
 function textFromSelector(value = '', selector = '') {
@@ -244,14 +262,19 @@ function renderNotificationItems(list, items) {
   if (!list) return;
   list.innerHTML = items.map((item) => {
     const initial = escapeHtml((item.author || '访').slice(0, 1).toUpperCase());
-    const href = item.url ? escapeHtml(item.url) : '#';
+    const navigation = resolveMomentNavigation(item.url);
+    const href = navigation ? escapeHtml(navigation.href) : '#';
+    const navigationHref = navigation ? escapeHtml(navigation.href) : '';
+    const pjaxClass = navigation?.sameOrigin ? ' pjax-link' : '';
+    const pjaxAttribute = navigation?.sameOrigin ? ' data-pjax-app="moments"' : '';
     const thumb = item.thumbnail
       ? `<img class="moments-notification-thumb" src="${escapeHtml(item.thumbnail)}" alt="" loading="lazy" decoding="async">`
       : '<span class="moments-notification-thumb is-empty"><span class="icon-[lucide--message-circle]" aria-hidden="true"></span></span>';
     return `
-      <a class="moments-notification-item pjax-link${item.unread ? ' is-unread' : ''}"
+      <a class="moments-notification-item${pjaxClass}${item.unread ? ' is-unread' : ''}"
          href="${href}"
-         data-pjax-app="moments"
+         data-notification-href="${navigationHref}"
+         ${pjaxAttribute}
          data-notification-id="${escapeHtml(item.id)}">
         <span class="moments-notification-avatar">${initial}</span>
         <span class="moments-notification-copy">
@@ -301,6 +324,9 @@ function setupMomentNotifications(root = document) {
     let loading = false;
     let controller = null;
     let currentUsername = '';
+    let notificationOperationGeneration = 0;
+    let markReadController = null;
+    let cleaned = false;
 
     function syncUnreadDot() {
       if (!dot) return;
@@ -321,7 +347,7 @@ function setupMomentNotifications(root = document) {
       }
     }
 
-    async function markNotificationAsRead(notificationName) {
+    async function markNotificationAsRead(notificationName, signal) {
       if (!currentUsername || !notificationName || !markReadEndpoint) return false;
       try {
         const response = await fetch(buildMarkNotificationReadUrl(markReadEndpoint, currentUsername, notificationName), {
@@ -329,13 +355,15 @@ function setupMomentNotifications(root = document) {
           credentials: 'same-origin',
           headers: {
             Accept: 'application/json'
-          }
+          },
+          signal
         });
         if (!response.ok && response.status !== 404) {
           throw new Error(`HTTP ${response.status}`);
         }
         return true;
       } catch (_error) {
+        if (_error?.name === 'AbortError' || signal?.aborted) return false;
         warnApiCall('moments', '瞬间通知已读标记失败', {
           notificationName,
           message: _error?.message || String(_error || ''),
@@ -472,26 +500,38 @@ function setupMomentNotifications(root = document) {
         ? event.target.closest('.moments-notification-item[data-notification-id]')
         : null;
       if (!anchor) return;
-      if (anchor.dataset.notificationReadPending === 'true') return;
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation?.();
+      if (anchor.dataset.notificationReadPending === 'true') return;
       const notificationName = anchor.dataset.notificationId || '';
-      const href = anchor.getAttribute('href') || anchor.href || '';
+      const navigation = resolveMomentNavigation(anchor.dataset.notificationHref || '');
+      markReadController?.abort();
+      const operationController = new AbortController();
+      const operationGeneration = notificationOperationGeneration + 1;
+      notificationOperationGeneration = operationGeneration;
+      markReadController = operationController;
       anchor.dataset.notificationReadPending = 'true';
       markItemReadLocally(anchor);
-      const marked = await markNotificationAsRead(notificationName);
+      const marked = await markNotificationAsRead(notificationName, operationController.signal);
+      const isCurrentOperation = !cleaned
+        && node.isConnected
+        && !operationController.signal.aborted
+        && notificationOperationGeneration === operationGeneration
+        && markReadController === operationController;
+      if (!isCurrentOperation) return;
+      markReadController = null;
+      delete anchor.dataset.notificationReadPending;
       if (marked) {
         removeItemLocally(anchor);
       }
       close();
-      if (window.pjax?.loadUrl && href) {
-        window.pjax.loadUrl(href);
+      if (!navigation) return;
+      if (navigation.sameOrigin && window.pjax?.loadUrl) {
+        window.pjax.loadUrl(navigation.href);
         return;
       }
-      if (href) {
-        window.location.href = href;
-      }
+      window.location.assign(navigation.url.href);
     }
 
     button?.addEventListener('click', toggle);
@@ -501,12 +541,19 @@ function setupMomentNotifications(root = document) {
     setNotificationState(node, 'idle', '打开后加载消息');
 
     const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
+      notificationOperationGeneration += 1;
+      markReadController?.abort();
+      markReadController = null;
       controller?.abort();
       button?.removeEventListener('click', toggle);
       list?.removeEventListener('click', onNotificationClick, true);
       document.removeEventListener('click', onDocumentClick);
       document.removeEventListener('keydown', onKeydown);
-      node._momentsNotificationCleanup = null;
+      if (node._momentsNotificationCleanup === cleanup) {
+        node._momentsNotificationCleanup = null;
+      }
     };
     node._momentsNotificationCleanup = cleanup;
     cleanups.push(cleanup);
@@ -526,23 +573,11 @@ registerPageAppLifecycle('moments', {
     const cleanupNotifications = setupMomentNotifications(document);
     const cleanupPublish = setupMomentPublish(document);
     const cleanupInteractions = setupMomentInteractions(root);
-    let cleanupDeferredNotifications = null;
-    let cleanupDeferredPublish = null;
-    let cleanupDeferredInteractions = null;
-    const notificationFrame = requestAnimationFrame(() => {
-      cleanupDeferredNotifications = setupMomentNotifications(document);
-      cleanupDeferredPublish = setupMomentPublish(document);
-      cleanupDeferredInteractions = setupMomentInteractions(document);
-    });
     return () => {
-      cancelAnimationFrame(notificationFrame);
       cleanupScroll?.();
       cleanupNotifications?.();
-      cleanupDeferredNotifications?.();
       cleanupPublish?.();
-      cleanupDeferredPublish?.();
       cleanupInteractions?.();
-      cleanupDeferredInteractions?.();
     };
   },
   getDocumentState(_root, context) {

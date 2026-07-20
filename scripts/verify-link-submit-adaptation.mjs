@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   formatSubmitFailure,
+  normalizeUrl,
   registerLinkSubmitForm
 } from '../src/apps/links/runtime.js';
 
@@ -46,6 +47,17 @@ assert.equal(
   formatSubmitFailure({ status: 500 }, '插件维护中'),
   '友链自助提交服务暂时异常，请复制申请到留言板。'
 );
+
+assert.equal(normalizeUrl('https://example.test/path'), 'https://example.test/path');
+assert.equal(normalizeUrl('http://example.test/path'), 'http://example.test/path');
+for (const unsafeUrl of [
+  'javascript:alert(1)',
+  'data:text/html,<script>alert(1)</script>',
+  'file:///etc/passwd',
+  'ftp://example.test/file'
+]) {
+  assert.equal(normalizeUrl(unsafeUrl), '', `${unsafeUrl} must not be accepted as a submitted website URL`);
+}
 
 let factory = null;
 registerLinkSubmitForm({

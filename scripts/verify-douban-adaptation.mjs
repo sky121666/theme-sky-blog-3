@@ -28,6 +28,8 @@ function createRoot() {
   return {
     isConnected: true,
     classList: createClassList(),
+    contains: () => false,
+    closest: () => null,
     querySelector: () => null,
     querySelectorAll: () => [],
     addEventListener() {},
@@ -37,6 +39,8 @@ function createRoot() {
 
 const previousDocument = globalThis.document;
 globalThis.document = {
+  body: { dataset: { pageApp: 'other' } },
+  documentElement: {},
   removeEventListener() {}
 };
 
@@ -139,6 +143,54 @@ try {
   assert.equal(listController.signal.aborted, true, 'destroy should abort the active list request');
   assert.equal(paginationController.signal.aborted, true, 'destroy should abort the active pagination request');
   assert.equal(app.requestGeneration, generationBeforeDestroy + 1, 'destroy should invalidate unresolved responses');
+
+  const keyboardRoot = createRoot();
+  const keyboardApp = new DoubanApp(keyboardRoot);
+  keyboardApp.state.focusedId = 'keyboard-item';
+  keyboardApp.state.visibleItems = [{ metadata: { name: 'keyboard-item' } }];
+  let previewOpenCount = 0;
+  keyboardApp.openPreview = () => { previewOpenCount += 1; };
+
+  let preventedCount = 0;
+  const inputTarget = {
+    tagName: 'INPUT',
+    closest: () => null,
+  };
+  keyboardApp.onKeydown({
+    key: ' ',
+    target: inputTarget,
+    preventDefault() { preventedCount += 1; },
+  });
+  assert.equal(previewOpenCount, 0, 'Douban shortcuts must not run while an input is active');
+  assert.equal(preventedCount, 0, 'Douban shortcuts must not consume input keystrokes');
+
+  const editableTarget = {
+    tagName: 'DIV',
+    isContentEditable: true,
+    closest: () => null,
+  };
+  keyboardApp.onKeydown({ key: 'ArrowRight', target: editableTarget, preventDefault() { preventedCount += 1; } });
+  assert.equal(preventedCount, 0, 'Douban shortcuts must not consume contenteditable navigation keys');
+
+  const outsideTarget = {
+    tagName: 'BUTTON',
+    closest: () => null,
+  };
+  keyboardApp.onKeydown({
+    key: ' ',
+    target: outsideTarget,
+    preventDefault() { preventedCount += 1; },
+  });
+  assert.equal(previewOpenCount, 0, 'a background Douban root must not own document-level shortcuts');
+
+  globalThis.document.body.dataset.pageApp = 'douban';
+  keyboardApp.onKeydown({
+    key: ' ',
+    target: globalThis.document.body,
+    preventDefault() { preventedCount += 1; },
+  });
+  assert.equal(previewOpenCount, 1, 'the active Douban page should retain its document-level quick-look shortcut');
+  assert.equal(preventedCount, 1, 'the active Douban quick-look shortcut should consume the space key');
 } finally {
   if (previousDocument === undefined) delete globalThis.document;
   else globalThis.document = previousDocument;

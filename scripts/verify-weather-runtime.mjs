@@ -94,6 +94,17 @@ try {
   assert.equal(cityCalls.filter((url) => url.includes('geocoding-api')).length, 2, '不同城市不能被错误合并');
   assert.equal(cityCalls.filter((url) => url.includes('/v1/forecast')).length, 2, '不同城市各自请求天气');
 
+  globalThis.fetch = (_url, options = {}) => new Promise((_resolve, reject) => {
+    options.signal?.addEventListener('abort', () => {
+      reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+    }, { once: true });
+  });
+  await assert.rejects(
+    fetchDesktopWidgetWeather('超时城市', { timeoutMs: 20 }),
+    /Weather request timed out after 20ms/,
+    '无响应的天气请求必须在预算内中止'
+  );
+
   globalThis.fetch = async () => {
     throw new Error('空城市不应触发 fetch');
   };

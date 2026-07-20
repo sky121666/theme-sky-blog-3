@@ -23,6 +23,11 @@ export function registerAuthorPostsExplorer(Alpine) {
     momentPaginationEl: null,
     momentEmptyEl: null,
     momentFetchController: null,
+    _momentPageGeneration: 0,
+    _momentListRenderGeneration: 0,
+    _momentPreviewRenderGeneration: 0,
+    _momentListRenderJob: null,
+    _momentPreviewRenderJob: null,
     previewVisible: true,
 
     checkPreviewVisible() {
@@ -34,11 +39,24 @@ export function registerAuthorPostsExplorer(Alpine) {
       if (!wasVisible && this.previewVisible) {
         this.syncSourceSelection({ preserveCurrent: true, updateUrl: false });
         if (this.activeSource === 'moments' && this.renderedMomentPage > 0) {
-          this.fetchMomentPage(this.momentPage).then((items) => {
-            if (items && this.momentPreviewEl) {
+          this._cancelMomentFetch();
+          const targetPage = this.momentPage;
+          const generation = ++this._momentPageGeneration;
+          this.fetchMomentPage(targetPage, generation).then((items) => {
+            if (items
+              && generation === this._momentPageGeneration
+              && targetPage === this.momentPage
+              && this.activeSource === 'moments'
+              && this.momentPreviewEl) {
               const previewHtml = items.map((m) => renderMomentPreview(m, this.authorDisplayName));
-              renderBatch(this.momentPreviewEl, previewHtml, {
+              this._momentPreviewRenderJob?.cancel();
+              const renderGeneration = ++this._momentPreviewRenderGeneration;
+              let renderJob = null;
+              renderJob = renderBatch(this.momentPreviewEl, previewHtml, {
+                isCurrent: () => renderGeneration === this._momentPreviewRenderGeneration,
                 onComplete: () => {
+                  if (renderGeneration !== this._momentPreviewRenderGeneration) return;
+                  if (this._momentPreviewRenderJob === renderJob) this._momentPreviewRenderJob = null;
                   this.syncMomentPanelVisibility();
                   if (window.pjax) {
                     this.momentPreviewEl.querySelectorAll('a.pjax-link:not([data-pjax-attached])').forEach((link) => {
@@ -48,6 +66,7 @@ export function registerAuthorPostsExplorer(Alpine) {
                   }
                 }
               });
+              this._momentPreviewRenderJob = renderJob.completed ? null : renderJob;
             }
           });
         }
@@ -158,14 +177,30 @@ export function registerAuthorPostsExplorer(Alpine) {
           url.searchParams.delete('source');
           url.searchParams.delete('momentPage');
         }
-        window.history.replaceState(null, '', url.toString());
+        const currentState = window.history.state;
+        const nextState = currentState && typeof currentState === 'object'
+          ? { ...currentState, url: url.toString() }
+          : { url: url.toString() };
+        window.history.replaceState(nextState, '', url.toString());
       } catch (_error) {}
     },
 
     async switchSource(source) {
       if (source === this.activeSource) return;
+
+      if (source === 'moments') {
+        this.activeSource = source;
+        await this.goToMomentPage(1, { preserveSelection: false, updateUrl: false });
+        this.writeUrlState();
+        return;
+      }
+
+      if (this.activeSource === 'moments') {
+        this._cancelMomentFetch();
+        this._momentPageGeneration += 1;
+      }
       this.activeSource = source;
-      this.momentPage = 1;
+      this.momentPage = this.renderedMomentPage;
       await this.syncSourceSelection({ preserveCurrent: false, updateUrl: true });
     },
 
@@ -243,16 +278,37 @@ export function registerAuthorPostsExplorer(Alpine) {
 
     async goToMomentPage(page, { preserveSelection = false, updateUrl = true } = {}) {
       const nextPage = Math.max(1, Math.min(page, this.momentTotalPages || 1));
+      this._cancelMomentFetch();
+      const generation = ++this._momentPageGeneration;
       this.momentPage = nextPage;
 
       if (nextPage === this.renderedMomentPage) {
+        if (!preserveSelection) {
+          const firstMoment = this.$root?.querySelector('[data-author-moment-option]');
+          if (firstMoment) {
+            this.selectMoment(firstMoment.dataset.momentKey, firstMoment.dataset.momentTitle);
+          } else {
+            this.activeMomentKey = '';
+            this.activeMomentTitle = '';
+          }
+        }
         this.renderMomentPagination();
         if (updateUrl) this.writeUrlState();
         return;
       }
 
-      const momentItems = await this.fetchMomentPage(nextPage);
-      if (!momentItems) return;
+      const momentItems = await this.fetchMomentPage(nextPage, generation);
+      const requestIsCurrent = generation === this._momentPageGeneration
+        && nextPage === this.momentPage
+        && this.activeSource === 'moments';
+      if (!momentItems || !requestIsCurrent) {
+        if (!momentItems && requestIsCurrent) {
+          this.momentPage = this.renderedMomentPage;
+          this.renderMomentPagination();
+          if (updateUrl) this.writeUrlState();
+        }
+        return;
+      }
 
       this.renderMomentPage(momentItems);
       this.renderMomentPagination();
@@ -274,10 +330,22 @@ export function registerAuthorPostsExplorer(Alpine) {
       if (updateUrl) this.writeUrlState();
     },
 
-    async fetchMomentPage(page) {
-      if (this.momentFetchController) {
-        this.momentFetchController.abort();
-      }
+    _cancelMomentFetch() {
+      this.momentFetchController?.abort();
+      this.momentFetchController = null;
+    },
+
+    _cancelMomentRenderJobs() {
+      this._momentListRenderGeneration += 1;
+      this._momentPreviewRenderGeneration += 1;
+      this._momentListRenderJob?.cancel();
+      this._momentPreviewRenderJob?.cancel();
+      this._momentListRenderJob = null;
+      this._momentPreviewRenderJob = null;
+    },
+
+    async fetchMomentPage(page, generation = ++this._momentPageGeneration) {
+      this._cancelMomentFetch();
 
       const controller = new AbortController();
       this.momentFetchController = controller;
@@ -288,7 +356,11 @@ export function registerAuthorPostsExplorer(Alpine) {
         if (cached) {
           const entry = JSON.parse(cached);
           if (entry?.data && Date.now() - entry.timestamp < 5 * 60 * 1000) {
-            return entry.data;
+            const cachedData = generation === this._momentPageGeneration && !controller.signal.aborted
+              ? entry.data
+              : null;
+            if (this.momentFetchController === controller) this.momentFetchController = null;
+            return cachedData;
           }
         }
       } catch (_error) {}
@@ -300,6 +372,8 @@ export function registerAuthorPostsExplorer(Alpine) {
 
         const json = await response.json();
         const items = Array.isArray(json?.items) ? json.items : [];
+
+        if (generation !== this._momentPageGeneration || controller.signal.aborted) return null;
 
         if (json?.total != null) {
           this.momentTotal = json.total;
@@ -319,16 +393,25 @@ export function registerAuthorPostsExplorer(Alpine) {
       } catch (error) {
         if (error?.name === 'AbortError') return null;
         return null;
+      } finally {
+        if (this.momentFetchController === controller) this.momentFetchController = null;
       }
     },
 
     renderMomentPage(momentItems) {
+      this._cancelMomentRenderJobs();
+      const listRenderGeneration = this._momentListRenderGeneration;
+      const previewRenderGeneration = this._momentPreviewRenderGeneration;
       const listHtmlItems = momentItems.map((moment) => renderMomentRow(moment));
       const previewHtmlItems = momentItems.map((moment) => renderMomentPreview(moment, this.authorDisplayName));
 
       if (this.momentListEl) {
-        renderBatch(this.momentListEl, listHtmlItems, {
+        let renderJob = null;
+        renderJob = renderBatch(this.momentListEl, listHtmlItems, {
+          isCurrent: () => listRenderGeneration === this._momentListRenderGeneration,
           onComplete: () => {
+            if (listRenderGeneration !== this._momentListRenderGeneration) return;
+            if (this._momentListRenderJob === renderJob) this._momentListRenderJob = null;
             this.syncMomentPanelVisibility();
             if (window.pjax) {
               this.momentListEl.querySelectorAll('a.pjax-link:not([data-pjax-attached])').forEach((link) => {
@@ -338,11 +421,16 @@ export function registerAuthorPostsExplorer(Alpine) {
             }
           }
         });
+        this._momentListRenderJob = renderJob.completed ? null : renderJob;
       }
 
       if (this.previewVisible && this.momentPreviewEl) {
-        renderBatch(this.momentPreviewEl, previewHtmlItems, {
+        let renderJob = null;
+        renderJob = renderBatch(this.momentPreviewEl, previewHtmlItems, {
+          isCurrent: () => previewRenderGeneration === this._momentPreviewRenderGeneration,
           onComplete: () => {
+            if (previewRenderGeneration !== this._momentPreviewRenderGeneration) return;
+            if (this._momentPreviewRenderJob === renderJob) this._momentPreviewRenderJob = null;
             if (window.pjax) {
               this.momentPreviewEl.querySelectorAll('a.pjax-link:not([data-pjax-attached])').forEach((link) => {
                 link.setAttribute('data-pjax-managed', 'true');
@@ -351,6 +439,7 @@ export function registerAuthorPostsExplorer(Alpine) {
             }
           }
         });
+        this._momentPreviewRenderJob = renderJob.completed ? null : renderJob;
       }
 
       if (this.momentEmptyEl) {
@@ -402,10 +491,9 @@ export function registerAuthorPostsExplorer(Alpine) {
     },
 
     destroy() {
-      if (this.momentFetchController) {
-        this.momentFetchController.abort();
-        this.momentFetchController = null;
-      }
+      this._momentPageGeneration += 1;
+      this._cancelMomentFetch();
+      this._cancelMomentRenderJobs();
       if (this._pvResizeHandler) {
         window.removeEventListener('resize', this._pvResizeHandler);
         this._pvResizeHandler = null;

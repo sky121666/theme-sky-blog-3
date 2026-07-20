@@ -158,10 +158,17 @@
                 });
 
                 if (!response.ok) {
-                    const json = await response.json();
-                    if (json.errors && json.errors.length) {
-                        throw new Error(json.errors[0]);
+                    const responseText = await response.text().catch(() => "");
+                    let payload = {};
+                    try {
+                        payload = responseText ? JSON.parse(responseText) : {};
+                    } catch (_error) {
+                        payload = {};
                     }
+                    const errorMessage = Array.isArray(payload.errors) && payload.errors.length
+                        ? payload.errors[0]
+                        : (payload.message || payload.detail || responseText.trim());
+                    throw new Error(errorMessage || `验证码发送失败（HTTP ${response.status}）`);
                 }
                 return response;
             }

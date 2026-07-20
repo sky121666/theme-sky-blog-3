@@ -4,6 +4,7 @@ import { chromium } from 'playwright';
 
 const root = process.cwd();
 const outputDir = path.join(root, 'output', 'playwright');
+const localAssetManifestFile = path.join(root, 'templates', 'assets', 'asset-manifest.json');
 const baseUrl = (process.env.SMOKE_BASE_URL || '').trim();
 const requirePluginRoutes = /^(?:1|true)$/i.test(String(process.env.SMOKE_REQUIRE_PLUGIN_ROUTES || '').trim());
 const knownStaleContentUrls = new Set([
@@ -17,12 +18,66 @@ function toAbsoluteUrl(target) {
   return new URL(target, baseUrl).toString();
 }
 
+function realChromeUserAgent(browser) {
+  const version = String(browser.version() || '').trim() || '142.0.0.0';
+  return `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${version} Safari/537.36`;
+}
+
 function toPathname(value) {
   try {
     return new URL(value, baseUrl).pathname + new URL(value, baseUrl).search;
   } catch {
     return '';
   }
+}
+
+function assetManifestPath(manifest) {
+  const shellAsset = String(manifest?.['shell-core']?.js?.[0] || '');
+  const marker = '/assets/';
+  const markerIndex = shellAsset.indexOf(marker);
+  if (markerIndex < 0) {
+    throw new Error('本地 asset-manifest 缺少可解析的 shell-core 资源路径');
+  }
+  return `${shellAsset.slice(0, markerIndex + marker.length)}asset-manifest.json`;
+}
+
+function readAssetMeta(manifest, source) {
+  const version = String(manifest?.__meta?.version || '').trim();
+  const revision = String(manifest?.__meta?.revision || '').trim();
+  const query = String(manifest?.__meta?.query || '').trim().replace(/^\?/, '');
+  if (!version || !revision || !query) {
+    throw new Error(`${source} asset-manifest 缺少 __meta.version/revision/query`);
+  }
+  const queryParams = new URLSearchParams(query);
+  if (queryParams.get('v') !== version || queryParams.get('r') !== revision) {
+    throw new Error(`${source} asset-manifest 的 query 与 version/revision 不一致`);
+  }
+  return { version, revision, query };
+}
+
+async function verifyServedAssetRevision() {
+  const localManifest = JSON.parse(await fs.readFile(localAssetManifestFile, 'utf8'));
+  const localMeta = readAssetMeta(localManifest, '本地');
+  const manifestPath = assetManifestPath(localManifest);
+  const response = await fetch(toAbsoluteUrl(manifestPath), {
+    headers: {
+      Accept: 'application/json',
+      'Cache-Control': 'no-cache'
+    },
+    cache: 'no-store',
+    signal: AbortSignal.timeout(10_000)
+  });
+  if (!response.ok) {
+    throw new Error(`服务端 asset-manifest 请求失败: HTTP ${response.status} (${manifestPath})`);
+  }
+  const remoteMeta = readAssetMeta(await response.json(), '服务端');
+  if (remoteMeta.version !== localMeta.version || remoteMeta.revision !== localMeta.revision) {
+    throw new Error(
+      `服务端 assets 与本地构建不一致: server=${remoteMeta.version}/${remoteMeta.revision}, `
+      + `local=${localMeta.version}/${localMeta.revision}`
+    );
+  }
+  return { manifestPath, ...localMeta };
 }
 
 function appLoadedFlagName(appId) {
@@ -39,6 +94,27 @@ function isExternalUploadResourceError(message) {
   } catch {
     return false;
   }
+}
+
+function isIgnoredRequestFailure(request) {
+  const errorText = String(request.failure()?.errorText || '');
+  if (/net::ERR_ABORTED/i.test(errorText)) return true;
+  try {
+    return knownStaleContentUrls.has(new URL(request.url()).href);
+  } catch {
+    return false;
+  }
+}
+
+function optionalSkipReason(route, status) {
+  if (!route.optional) return '';
+  if (route.optionalFailure === 'plugin-unavailable' && status === 404) {
+    return 'plugin unavailable (HTTP 404)';
+  }
+  if (route.optionalFailure === 'sample-missing' && (status === 404 || status === 410)) {
+    return `sample missing (HTTP ${status})`;
+  }
+  return '';
 }
 
 function buildOptionalRoute(name, envKey, expectedAppId, expectedPageMode, expectedWindowVariant) {
@@ -83,6 +159,9 @@ async function main() {
     console.log('跳过 Playwright smoke：未设置 SMOKE_BASE_URL');
     process.exit(0);
   }
+
+  const assetRevision = await verifyServedAssetRevision();
+  console.log(`Assets revision 已对齐: ${assetRevision.version}/${assetRevision.revision}`);
 
   const routes = [
     {
@@ -144,6 +223,7 @@ async function main() {
       name: 'moments',
       target: '/moments',
       optional: !requirePluginRoutes,
+      optionalFailure: 'plugin-unavailable',
       requireShellLoaded: true,
       expectedAppId: 'moments',
       expectedPageMode: 'browser-moments',
@@ -155,6 +235,7 @@ async function main() {
       name: 'friends',
       target: '/friends',
       optional: !requirePluginRoutes,
+      optionalFailure: 'plugin-unavailable',
       requireShellLoaded: true,
       expectedAppId: 'friends',
       expectedPageMode: 'browser-friends',
@@ -166,6 +247,7 @@ async function main() {
       name: 'links',
       target: '/links',
       optional: !requirePluginRoutes,
+      optionalFailure: 'plugin-unavailable',
       requireShellLoaded: true,
       expectedAppId: 'links',
       expectedPageMode: 'browser-links',
@@ -177,6 +259,7 @@ async function main() {
       name: 'bangumis',
       target: '/bangumis',
       optional: !requirePluginRoutes,
+      optionalFailure: 'plugin-unavailable',
       requireShellLoaded: true,
       expectedAppId: 'bangumis',
       expectedPageMode: 'browser-bangumis',
@@ -188,6 +271,7 @@ async function main() {
       name: 'douban',
       target: '/douban',
       optional: !requirePluginRoutes,
+      optionalFailure: 'plugin-unavailable',
       requireShellLoaded: true,
       expectedAppId: 'douban',
       expectedPageMode: 'browser-douban',
@@ -196,9 +280,22 @@ async function main() {
       appPropsSelector: 'script[data-app-props="douban"]'
     },
     {
+      name: 'docsme',
+      target: '/docs',
+      optional: !requirePluginRoutes,
+      optionalFailure: 'plugin-unavailable',
+      requireShellLoaded: true,
+      expectedAppId: 'docsme',
+      expectedPageMode: 'browser-docsme',
+      expectedWindowVariant: 'docsme',
+      appRootSelector: '[data-app-root="docsme"]',
+      appPropsSelector: 'script[data-app-props="docsme"]'
+    },
+    {
       name: 'steam',
       target: '/steam',
       optional: !requirePluginRoutes,
+      optionalFailure: 'plugin-unavailable',
       requireShellLoaded: true,
       expectedAppId: 'steam',
       expectedPageMode: 'browser-steam',
@@ -210,6 +307,7 @@ async function main() {
       name: 'equipments',
       target: '/equipments',
       optional: !requirePluginRoutes,
+      optionalFailure: 'plugin-unavailable',
       requireShellLoaded: true,
       expectedAppId: 'equipments',
       expectedPageMode: 'browser-equipments',
@@ -221,6 +319,7 @@ async function main() {
       name: 'photos',
       target: '/photos',
       optional: !requirePluginRoutes,
+      optionalFailure: 'plugin-unavailable',
       requireShellLoaded: true,
       expectedAppId: 'photos',
       expectedPageMode: 'browser-list',
@@ -240,28 +339,70 @@ async function main() {
 
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
-    viewport: { width: 1440, height: 960 }
+    viewport: { width: 1440, height: 960 },
+    // The Douban image proxy blocks HeadlessChrome while serving a valid JPEG
+    // to ordinary Chrome. Keep the engine headless but use a real-user UA.
+    userAgent: realChromeUserAgent(browser)
   });
   const page = await context.newPage();
   const cdp = await context.newCDPSession(page);
   await cdp.send('Network.enable');
   await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
 
-  async function navigate(route) {
+  function createRuntimeErrorCollector() {
     const pageErrors = [];
     const consoleErrors = [];
+    const requestFailures = [];
     const handlePageError = (error) => {
       pageErrors.push(String(error?.message || error));
     };
     const handleConsole = (message) => {
-      if (message.type() === 'error') {
-        if (isExternalUploadResourceError(message)) return;
-        consoleErrors.push(message.text());
-      }
+      if (message.type() !== 'error' || isExternalUploadResourceError(message)) return;
+      consoleErrors.push(message.text());
+    };
+    const handleRequestFailed = (request) => {
+      if (isIgnoredRequestFailure(request)) return;
+      requestFailures.push({
+        method: request.method(),
+        resourceType: request.resourceType(),
+        url: request.url(),
+        errorText: String(request.failure()?.errorText || 'unknown request failure')
+      });
     };
 
     page.on('pageerror', handlePageError);
     page.on('console', handleConsole);
+    page.on('requestfailed', handleRequestFailed);
+
+    return {
+      snapshot() {
+        return {
+          pageErrors: [...pageErrors],
+          consoleErrors: [...consoleErrors],
+          requestFailures: requestFailures.map((failure) => ({ ...failure }))
+        };
+      },
+      assertEmpty(scope) {
+        if (!pageErrors.length && !consoleErrors.length && !requestFailures.length) return;
+        const detail = [
+          ...pageErrors.map((message) => `pageerror: ${message}`),
+          ...consoleErrors.map((message) => `console.error: ${message}`),
+          ...requestFailures.map((failure) => (
+            `requestfailed: ${failure.method} ${failure.resourceType} ${failure.url} (${failure.errorText})`
+          ))
+        ].join(' | ');
+        throw new Error(`${scope}存在运行时错误: ${detail}`);
+      },
+      stop() {
+        page.off('pageerror', handlePageError);
+        page.off('console', handleConsole);
+        page.off('requestfailed', handleRequestFailed);
+      }
+    };
+  }
+
+  async function navigate(route) {
+    const runtimeErrors = createRuntimeErrorCollector();
 
     try {
       let response = null;
@@ -304,20 +445,20 @@ async function main() {
         mainLoaded: Boolean(window.__THEME_SHELL_CORE_LOADED__ || window.__THEME_MAIN_LOADED__)
       }));
 
-      return { status, shellState, pageErrors, consoleErrors, waitUntil, usedFallback };
+      return { status, shellState, ...runtimeErrors.snapshot(), waitUntil, usedFallback };
     } finally {
-      page.off('pageerror', handlePageError);
-      page.off('console', handleConsole);
+      runtimeErrors.stop();
     }
   }
 
   async function validateRoute(route) {
     const nav = await navigate(route);
-    const { status, shellState, pageErrors, consoleErrors, waitUntil, usedFallback } = nav;
+    const { status, shellState, pageErrors, consoleErrors, requestFailures, waitUntil, usedFallback } = nav;
 
     if (status >= 400) {
-      if (route.optional) {
-        skipped.push(`${route.name}: ${status}`);
+      const skipReason = optionalSkipReason(route, status);
+      if (skipReason) {
+        skipped.push(`${route.name}: ${skipReason}`);
         return false;
       }
       throw new Error(`HTTP ${status}`);
@@ -371,10 +512,13 @@ async function main() {
       }
     }
 
-    if (pageErrors.length || consoleErrors.length) {
+    if (pageErrors.length || consoleErrors.length || requestFailures.length) {
       const detail = [
         ...pageErrors.map((message) => `pageerror: ${message}`),
-        ...consoleErrors.map((message) => `console.error: ${message}`)
+        ...consoleErrors.map((message) => `console.error: ${message}`),
+        ...requestFailures.map((failure) => (
+          `requestfailed: ${failure.method} ${failure.resourceType} ${failure.url} (${failure.errorText})`
+        ))
       ].join(' | ');
       throw new Error(`页面存在运行时错误: ${detail}`);
     }
@@ -387,7 +531,8 @@ async function main() {
       waitUntil,
       usedFallback,
       pageErrors,
-      consoleErrors
+      consoleErrors,
+      requestFailures
     };
   }
 
@@ -396,6 +541,7 @@ async function main() {
       name: 'friends-interactions',
       target: '/friends',
       optional: !requirePluginRoutes,
+      optionalFailure: 'plugin-unavailable',
       expectedAppId: 'friends',
       expectedPageMode: 'browser-friends',
       expectedWindowVariant: 'friends',
@@ -403,73 +549,73 @@ async function main() {
       appPropsSelector: 'script[data-app-props="friends"]'
     };
 
-    const nav = await navigate(route);
-    if (nav.status >= 400) {
-      if (route.optional) {
-        skipped.push(`${route.name}: ${nav.status}`);
-        return null;
+    const runtimeErrors = createRuntimeErrorCollector();
+    try {
+      const baseValidation = await validateRoute(route);
+      if (!baseValidation) return null;
+
+      const firstCard = page.locator('.friends-feed-list > article').first();
+      if (await firstCard.count() < 1) {
+        runtimeErrors.assertEmpty('朋友圈交互');
+        return { ...baseValidation, ...runtimeErrors.snapshot() };
       }
-      throw new Error(`HTTP ${nav.status}`);
-    }
 
-    const baseValidation = await validateRoute(route);
-    const firstCard = page.locator('.friends-feed-list > article').first();
-    if (await firstCard.count() < 1) {
-      return baseValidation;
-    }
+      const menuToggle = firstCard.locator('.friend-feed-action-toggle').first();
+      await menuToggle.click();
+      await page.waitForTimeout(150);
 
-    const menuToggle = firstCard.locator('.friend-feed-action-toggle').first();
-    await menuToggle.click();
-    await page.waitForTimeout(150);
-
-    const sourceFilter = firstCard.locator('.friend-feed-actions-menu a.pjax-link').first();
-    if (await sourceFilter.count() < 1) {
-      throw new Error('首条朋友圈缺少“只看此来源”入口');
-    }
-
-    const titleLink = firstCard.locator('.friend-feed-title-link').first();
-    if (await titleLink.count() > 0) {
-      const href = await titleLink.getAttribute('href');
-      if (!href) {
-        throw new Error('标题链接缺少 href');
+      const sourceFilter = firstCard.locator('.friend-feed-actions-menu a.pjax-link').first();
+      if (await sourceFilter.count() < 1) {
+        throw new Error('首条朋友圈缺少“只看此来源”入口');
       }
-    }
 
-    const authorLink = firstCard.locator('.friend-feed-author-link, .friend-feed-avatar-link').first();
-    if (await authorLink.count() > 0) {
-      const href = await authorLink.getAttribute('href');
-      if (!href) {
-        throw new Error('来源主页链接缺少 href');
+      const titleLink = firstCard.locator('.friend-feed-title-link').first();
+      if (await titleLink.count() > 0) {
+        const href = await titleLink.getAttribute('href');
+        if (!href) {
+          throw new Error('标题链接缺少 href');
+        }
       }
+
+      const authorLink = firstCard.locator('.friend-feed-author-link, .friend-feed-avatar-link').first();
+      if (await authorLink.count() > 0) {
+        const href = await authorLink.getAttribute('href');
+        if (!href) {
+          throw new Error('来源主页链接缺少 href');
+        }
+      }
+
+      const sourceFilterHref = await sourceFilter.getAttribute('href');
+      if (!sourceFilterHref || !sourceFilterHref.includes('linkName=')) {
+        throw new Error(`“只看此来源”入口 href 异常: ${sourceFilterHref || ''}`);
+      }
+
+      await sourceFilter.click();
+      await page.waitForFunction(
+        (href) => {
+          const target = new URL(href, window.location.origin);
+          return window.location.pathname === target.pathname && window.location.search === target.search;
+        },
+        sourceFilterHref,
+        { timeout: 10000 }
+      );
+      await page.waitForTimeout(250);
+
+      const pageMode = await page.evaluate(() => document.body?.dataset.pageMode || '');
+      if (pageMode !== 'browser-friends') {
+        throw new Error(`筛选后 pageMode 异常: ${pageMode}`);
+      }
+
+      const search = await page.evaluate(() => window.location.search || '');
+      if (!search.includes('linkName=')) {
+        throw new Error(`筛选后缺少 linkName 参数: ${search}`);
+      }
+
+      runtimeErrors.assertEmpty('朋友圈交互');
+      return { ...baseValidation, ...runtimeErrors.snapshot() };
+    } finally {
+      runtimeErrors.stop();
     }
-
-    const sourceFilterHref = await sourceFilter.getAttribute('href');
-    if (!sourceFilterHref || !sourceFilterHref.includes('linkName=')) {
-      throw new Error(`“只看此来源”入口 href 异常: ${sourceFilterHref || ''}`);
-    }
-
-    await sourceFilter.click();
-    await page.waitForFunction(
-      (href) => {
-        const target = new URL(href, window.location.origin);
-        return window.location.pathname === target.pathname && window.location.search === target.search;
-      },
-      sourceFilterHref,
-      { timeout: 10000 }
-    );
-    await page.waitForTimeout(250);
-
-    const pageMode = await page.evaluate(() => document.body?.dataset.pageMode || '');
-    if (pageMode !== 'browser-friends') {
-      throw new Error(`筛选后 pageMode 异常: ${pageMode}`);
-    }
-
-    const search = await page.evaluate(() => window.location.search || '');
-    if (!search.includes('linkName=')) {
-      throw new Error(`筛选后缺少 linkName 参数: ${search}`);
-    }
-
-    return baseValidation;
   }
 
   async function validateLinksInteractions() {
@@ -477,6 +623,7 @@ async function main() {
       name: 'links-interactions',
       target: '/links',
       optional: !requirePluginRoutes,
+      optionalFailure: 'plugin-unavailable',
       expectedAppId: 'links',
       expectedPageMode: 'browser-links',
       expectedWindowVariant: 'links',
@@ -484,37 +631,37 @@ async function main() {
       appPropsSelector: 'script[data-app-props="links"]'
     };
 
-    const nav = await navigate(route);
-    if (nav.status >= 400) {
-      if (route.optional) {
-        skipped.push(`${route.name}: ${nav.status}`);
-        return null;
+    const runtimeErrors = createRuntimeErrorCollector();
+    try {
+      const baseValidation = await validateRoute(route);
+      if (!baseValidation) return null;
+
+      const firstCard = page.locator('.link-card').first();
+      if (await firstCard.count() < 1) {
+        runtimeErrors.assertEmpty('友链交互');
+        return { ...baseValidation, ...runtimeErrors.snapshot() };
       }
-      throw new Error(`HTTP ${nav.status}`);
-    }
 
-    const baseValidation = await validateRoute(route);
-    const firstCard = page.locator('.link-card').first();
-    if (await firstCard.count() < 1) {
-      return baseValidation;
-    }
+      await page.locator('.links-toolbar-search').fill('http');
+      await page.waitForTimeout(250);
+      const visibleCards = await page.locator('.link-card:visible').count();
+      if (visibleCards < 1) {
+        throw new Error('搜索后未保留任何友链卡片');
+      }
 
-    await page.locator('.links-toolbar-search').fill('http');
-    await page.waitForTimeout(250);
-    const visibleCards = await page.locator('.link-card:visible').count();
-    if (visibleCards < 1) {
-      throw new Error('搜索后未保留任何友链卡片');
-    }
+      const submitButton = page.locator('.links-toolbar-apply').first();
+      if (await submitButton.count() > 0) {
+        await submitButton.click();
+        await page.waitForSelector('#link-submit-modal[open]');
+        await page.locator('.links-modal-close').click();
+        await page.waitForTimeout(150);
+      }
 
-    const submitButton = page.locator('.links-toolbar-apply').first();
-    if (await submitButton.count() > 0) {
-      await submitButton.click();
-      await page.waitForSelector('#link-submit-modal[open]');
-      await page.locator('.links-modal-close').click();
-      await page.waitForTimeout(150);
+      runtimeErrors.assertEmpty('友链交互');
+      return { ...baseValidation, ...runtimeErrors.snapshot() };
+    } finally {
+      runtimeErrors.stop();
     }
-
-    return baseValidation;
   }
 
   async function validateBangumiInvalidPage() {
@@ -545,48 +692,29 @@ async function main() {
   }
 
   async function validateSearchInteraction() {
-    const nav = await navigate({
-      name: 'search-interaction',
-      target: '/',
-      optional: false,
-      requireShellLoaded: false
-    });
-    const button = page.locator('.menubar-search-btn').first();
-    if (await button.count() < 1) {
-      if (requirePluginRoutes) {
-        throw new Error('PluginSearchWidget 已进入严格插件清单，但首页缺少搜索入口');
-      }
-      skipped.push('search-interaction: PluginSearchWidget unavailable or disabled');
-      return null;
-    }
+    const runtimeErrors = createRuntimeErrorCollector();
+    try {
+      const nav = await navigate({
+        name: 'search-interaction',
+        target: '/',
+        optional: false,
+        requireShellLoaded: false
+      });
+      if (nav.status >= 400) throw new Error(`HTTP ${nav.status}`);
 
-    await button.click();
-    await page.waitForSelector('search-modal', { state: 'attached', timeout: 5_000 });
-    await page.waitForFunction(() => {
-      const findInput = (root) => {
-        if (!root?.querySelectorAll) return null;
-        for (const element of root.querySelectorAll('*')) {
-          if (element.matches?.('input')) return element;
-          const nested = findInput(element.shadowRoot);
-          if (nested) return nested;
+      const button = page.locator('.menubar-search-btn').first();
+      if (await button.count() < 1) {
+        runtimeErrors.assertEmpty('搜索交互');
+        if (requirePluginRoutes) {
+          throw new Error('PluginSearchWidget 已进入严格插件清单，但首页缺少搜索入口');
         }
+        skipped.push('search-interaction: PluginSearchWidget unavailable or disabled');
         return null;
-      };
-      const input = findInput(document.querySelector('search-modal')?.shadowRoot);
-      if (!input) return false;
-      const rect = input.getBoundingClientRect();
-      const style = getComputedStyle(input);
-      return rect.width > 0 && rect.height > 0
-        && style.display !== 'none'
-        && style.visibility !== 'hidden';
-    }, null, { timeout: 5_000 });
-    await page.waitForTimeout(200);
+      }
 
-    const firstState = await page.evaluate(() => ({
-      modalCount: document.querySelectorAll('search-modal').length,
-      styleInjected: Array.from(document.querySelectorAll('search-modal'))
-        .some((modal) => Boolean(modal.shadowRoot?.getElementById('mac-search-style'))),
-      inputVisible: Array.from(document.querySelectorAll('search-modal')).some((modal) => {
+      await button.click();
+      await page.waitForSelector('search-modal', { state: 'attached', timeout: 5_000 });
+      await page.waitForFunction(() => {
         const findInput = (root) => {
           if (!root?.querySelectorAll) return null;
           for (const element of root.querySelectorAll('*')) {
@@ -596,31 +724,61 @@ async function main() {
           }
           return null;
         };
-        const input = findInput(modal.shadowRoot);
+        const input = findInput(document.querySelector('search-modal')?.shadowRoot);
         if (!input) return false;
         const rect = input.getBoundingClientRect();
         const style = getComputedStyle(input);
         return rect.width > 0 && rect.height > 0
           && style.display !== 'none'
           && style.visibility !== 'hidden';
-      })
-    }));
-    assertSearchState(firstState);
+      }, null, { timeout: 5_000 });
+      await page.waitForTimeout(200);
 
-    await button.click();
-    await page.waitForTimeout(100);
-    const modalCount = await page.locator('search-modal').count();
-    if (modalCount !== 1) {
-      throw new Error(`重复打开搜索不得产生多个 search-modal，实际 ${modalCount}`);
+      const firstState = await page.evaluate(() => ({
+        modalCount: document.querySelectorAll('search-modal').length,
+        styleInjected: Array.from(document.querySelectorAll('search-modal'))
+          .some((modal) => Boolean(modal.shadowRoot?.getElementById('mac-search-style'))),
+        inputVisible: Array.from(document.querySelectorAll('search-modal')).some((modal) => {
+          const findInput = (root) => {
+            if (!root?.querySelectorAll) return null;
+            for (const element of root.querySelectorAll('*')) {
+              if (element.matches?.('input')) return element;
+              const nested = findInput(element.shadowRoot);
+              if (nested) return nested;
+            }
+            return null;
+          };
+          const input = findInput(modal.shadowRoot);
+          if (!input) return false;
+          const rect = input.getBoundingClientRect();
+          const style = getComputedStyle(input);
+          return rect.width > 0 && rect.height > 0
+            && style.display !== 'none'
+            && style.visibility !== 'hidden';
+        })
+      }));
+      assertSearchState(firstState);
+
+      await button.click();
+      await page.waitForTimeout(100);
+      const modalCount = await page.locator('search-modal').count();
+      if (modalCount !== 1) {
+        throw new Error(`重复打开搜索不得产生多个 search-modal，实际 ${modalCount}`);
+      }
+      await page.keyboard.press('Escape').catch(() => {});
+      await page.waitForTimeout(100);
+
+      runtimeErrors.assertEmpty('搜索交互');
+      return {
+        status: nav.status,
+        modalCount,
+        styleInjected: firstState.styleInjected,
+        inputVisible: firstState.inputVisible,
+        ...runtimeErrors.snapshot()
+      };
+    } finally {
+      runtimeErrors.stop();
     }
-    await page.keyboard.press('Escape').catch(() => {});
-
-    return {
-      status: nav.status,
-      modalCount,
-      styleInjected: firstState.styleInjected,
-      inputVisible: firstState.inputVisible
-    };
   }
 
   function assertSearchState(state) {
@@ -635,19 +793,7 @@ async function main() {
     }
   }
 
-  async function isReachablePath(target) {
-    try {
-      const response = await page.request.get(toAbsoluteUrl(target), {
-        timeout: 8_000,
-        failOnStatusCode: false
-      });
-      return response.status() < 400;
-    } catch {
-      return false;
-    }
-  }
-
-  async function discoverHref(pagePath, selectors, matcher, { validateCandidate = false } = {}) {
+  async function discoverHref(pagePath, selectors, matcher) {
     let response = null;
     try {
       response = await page.goto(toAbsoluteUrl(pagePath), {
@@ -664,14 +810,7 @@ async function main() {
       elements.map((element) => element.getAttribute('href')).filter(Boolean)
     ));
 
-    const candidates = hrefs.filter((href) => matcher(href));
-    if (!validateCandidate) return candidates[0] || null;
-
-    for (const href of candidates) {
-      if (await isReachablePath(href)) return href;
-    }
-
-    return null;
+    return hrefs.find((href) => matcher(href)) || null;
   }
 
   const failures = [];
@@ -692,7 +831,7 @@ async function main() {
     || await discoverHref('/archives', ['a[data-pjax-app="reader"]'], (href) => {
       const normalized = toPathname(href);
       return normalized.startsWith('/archives/') && normalized !== '/archives/';
-    }, { validateCandidate: true });
+    });
 
   discovered.tagDetail = (process.env.SMOKE_TAG_DETAIL_PATH || '').trim()
     || await discoverHref('/tags', ['a[href]'], (href) => {
@@ -726,14 +865,27 @@ async function main() {
     || await discoverHref('/photos', ['a[data-photo-name][href]'], (href) => {
       const normalized = toPathname(href);
       return normalized.startsWith('/photos/') && normalized !== '/photos/';
-    }, { validateCandidate: true });
+    });
+
+  for (const [name, target] of Object.entries({
+    'reader-detail': discovered.reader,
+    'tag-detail': discovered.tagDetail,
+    'category-detail': discovered.categoryDetail,
+    'author-detail': discovered.authorDetail,
+    'moment-detail': discovered.momentDetail,
+    'photos-albums': discovered.photosAlbums,
+    'photos-group': discovered.photosGroup,
+    'photo-detail': discovered.photoDetail
+  })) {
+    if (!target) skipped.push(`${name}: sample missing (no matching href)`);
+  }
 
   const discoveredRoutes = [
     discovered.reader
       ? {
           name: 'reader-detail',
           target: discovered.reader,
-          optional: true,
+          optional: false,
           expectedAppId: 'reader',
           expectedPageMode: 'browser-reader',
           expectedWindowVariant: 'browser',
@@ -745,7 +897,7 @@ async function main() {
       ? {
           name: 'tag-detail',
           target: discovered.tagDetail,
-          optional: true,
+          optional: false,
           expectedAppId: 'explorer-tags',
           expectedPageMode: 'browser-list',
           expectedWindowVariant: 'browser',
@@ -757,7 +909,7 @@ async function main() {
       ? {
           name: 'category-detail',
           target: discovered.categoryDetail,
-          optional: true,
+          optional: false,
           expectedAppId: 'explorer-categories',
           expectedPageMode: 'browser-list',
           expectedWindowVariant: 'browser',
@@ -769,7 +921,7 @@ async function main() {
       ? {
           name: 'author-detail',
           target: discovered.authorDetail,
-          optional: true,
+          optional: false,
           expectedAppId: 'explorer-author',
           expectedPageMode: 'browser-list',
           expectedWindowVariant: 'browser',
@@ -781,7 +933,7 @@ async function main() {
       ? {
           name: 'moment-detail',
           target: discovered.momentDetail,
-          optional: true,
+          optional: false,
           expectedAppId: 'moments',
           expectedPageMode: 'browser-moments',
           expectedWindowVariant: 'moments',
@@ -793,7 +945,7 @@ async function main() {
       ? {
           name: 'photos-albums',
           target: discovered.photosAlbums,
-          optional: true,
+          optional: false,
           expectedAppId: 'photos',
           expectedPageMode: 'browser-list',
           expectedWindowVariant: 'photos',
@@ -805,7 +957,7 @@ async function main() {
       ? {
           name: 'photos-group',
           target: discovered.photosGroup,
-          optional: true,
+          optional: false,
           expectedAppId: 'photos',
           expectedPageMode: 'browser-list',
           expectedWindowVariant: 'photos',
@@ -817,7 +969,7 @@ async function main() {
       ? {
           name: 'photo-detail',
           target: discovered.photoDetail,
-          optional: true,
+          optional: false,
           expectedAppId: 'photos',
           expectedPageMode: 'browser-list',
           expectedWindowVariant: 'photos',
@@ -881,7 +1033,15 @@ async function main() {
     failures.push(`search-interaction: ${error.message} [${screenshot}]`);
   }
 
-  const reportFile = await writeReport({ baseUrl, cacheDisabled: true, skipped, discovered, routes: routeResults, failures });
+  const reportFile = await writeReport({
+    baseUrl,
+    cacheDisabled: true,
+    assetRevision,
+    skipped,
+    discovered,
+    routes: routeResults,
+    failures
+  });
 
   await Promise.allSettled([
     cdp.detach().catch(() => {}),

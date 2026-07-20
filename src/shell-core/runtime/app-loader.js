@@ -4,6 +4,13 @@ const loadedAppsCss = new Set(['']);
 const loadedAppsJs = new Set(['']);
 const pendingAppsCss = new Map();
 const pendingAppsJs = new Map();
+const APP_ASSET_LOAD_TIMEOUT_MS = 15_000;
+
+const ASSET_STATE = Object.freeze({
+  loading: 'loading',
+  ready: 'ready',
+  error: 'error'
+});
 
 function normalizeAppId(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -34,73 +41,144 @@ function getFallbackJsPath(appId) {
   return withThemeAssetVersion(`${getThemeAssetBase()}js/apps/${segment}/index.js`);
 }
 
-function normalizeAssetPath(urlLike) {
+function normalizeAssetUrl(urlLike) {
   const raw = String(urlLike || '');
   if (!raw) return '';
 
   try {
-    return new URL(raw, window.location.origin).pathname;
+    const parsed = new URL(raw, window.location.origin);
+    parsed.hash = '';
+    return parsed.href;
   } catch (_error) {
-    return raw.split('?')[0];
+    return raw.split('#')[0];
   }
+}
+
+function normalizeAssetPath(urlLike) {
+  const normalized = normalizeAssetUrl(urlLike);
+  if (!normalized) return '';
+
+  try {
+    return new URL(normalized, window.location.origin).pathname;
+  } catch (_error) {
+    return normalized.split('?')[0];
+  }
+}
+
+function getAssetState(element, kind) {
+  return element?.dataset?.[kind === 'css' ? 'appCssState' : 'appScriptState'] || '';
+}
+
+function setAssetState(element, kind, state) {
+  if (!element?.dataset) return;
+  element.dataset[kind === 'css' ? 'appCssState' : 'appScriptState'] = state;
+  if (kind === 'css') {
+    element.dataset.appCssReady = state === ASSET_STATE.ready ? 'true' : 'false';
+  }
+}
+
+function removeFailedAsset(element, kind) {
+  if (!element || getAssetState(element, kind) !== ASSET_STATE.error) return false;
+  element.remove?.();
+  return true;
+}
+
+function matchesAssetUrl(elementUrl, expectedUrl, fallbackPath) {
+  const actual = normalizeAssetUrl(elementUrl);
+  const expected = normalizeAssetUrl(expectedUrl);
+  if (actual && expected && actual === expected) return true;
+
+  const actualPath = normalizeAssetPath(actual);
+  const expectedPath = normalizeAssetPath(expected);
+  return actualPath === fallbackPath && expectedPath === fallbackPath;
 }
 
 function findExistingCssLink(appId, href, segment) {
   const normalizedAppId = normalizeAppId(appId);
-  const expectedPath = normalizeAssetPath(href);
   const fallbackPath = `${getThemeAssetBase()}css/apps/${segment}/index.css`.replace(window.location.origin, '');
 
   return Array.from(document.querySelectorAll('link[rel="stylesheet"]')).find((link) => {
-    if (link.dataset.appCss === normalizedAppId) return true;
-    const linkPath = normalizeAssetPath(link.href || link.getAttribute('href') || '');
-    return linkPath === expectedPath || linkPath === fallbackPath;
+    if (removeFailedAsset(link, 'css')) return false;
+    const linkUrl = link.href || link.getAttribute('href') || '';
+    if (!matchesAssetUrl(linkUrl, href, fallbackPath)) return false;
+    if (!link.dataset.appCss) link.dataset.appCss = normalizedAppId;
+    return true;
   }) || null;
 }
 
 function findExistingScript(appId, src, segment) {
   const normalizedAppId = normalizeAppId(appId);
-  const expectedPath = normalizeAssetPath(src);
   const fallbackPath = `${getThemeAssetBase()}js/apps/${segment}/index.js`.replace(window.location.origin, '');
 
   return Array.from(document.querySelectorAll('script[type="module"], script[data-app-script]')).find((script) => {
-    if (script.dataset.appScript === normalizedAppId) return true;
-    const scriptPath = normalizeAssetPath(script.src || script.getAttribute('src') || '');
-    return scriptPath === expectedPath || scriptPath === fallbackPath;
+    if (removeFailedAsset(script, 'js')) return false;
+    const scriptUrl = script.src || script.getAttribute('src') || '';
+    if (!matchesAssetUrl(scriptUrl, src, fallbackPath)) return false;
+    if (!script.dataset.appScript) script.dataset.appScript = normalizedAppId;
+    return true;
   }) || null;
 }
 
-function waitForStylesheetLink(link, href) {
-  if (!link) return Promise.resolve(null);
-  if (link.dataset.appCssReady === 'true' || link.sheet) {
-    link.dataset.appCssReady = 'true';
-    return Promise.resolve(link);
+function waitForAssetElement(element, assetUrl, kind) {
+  if (!element) return Promise.resolve(null);
+
+  const currentState = getAssetState(element, kind);
+  const isReady = currentState === ASSET_STATE.ready
+    || (kind === 'css' && Boolean(element.sheet));
+  if (isReady) {
+    setAssetState(element, kind, ASSET_STATE.ready);
+    return Promise.resolve(element);
+  }
+
+  if (currentState === ASSET_STATE.error) {
+    element.remove?.();
+    return Promise.reject(new Error(`load app ${kind} failed: ${assetUrl}`));
   }
 
   return new Promise((resolve, reject) => {
+    const setTimer = window.setTimeout?.bind(window) || setTimeout;
+    const clearTimer = window.clearTimeout?.bind(window) || clearTimeout;
+    let timeoutId = 0;
+
     const cleanup = () => {
-      link.removeEventListener('load', onLoad);
-      link.removeEventListener('error', onError);
+      element.removeEventListener('load', onLoad);
+      element.removeEventListener('error', onError);
+      if (timeoutId) clearTimer(timeoutId);
     };
 
     const onLoad = () => {
-      link.dataset.appCssReady = 'true';
+      setAssetState(element, kind, ASSET_STATE.ready);
       cleanup();
-      resolve(link);
+      resolve(element);
     };
 
     const onError = () => {
+      setAssetState(element, kind, ASSET_STATE.error);
       cleanup();
-      reject(new Error(`load app css failed: ${href}`));
+      element.remove?.();
+      reject(new Error(`load app ${kind} failed: ${assetUrl}`));
     };
 
-    link.addEventListener('load', onLoad, { once: true });
-    link.addEventListener('error', onError, { once: true });
+    element.addEventListener('load', onLoad, { once: true });
+    element.addEventListener('error', onError, { once: true });
+    timeoutId = setTimer(() => {
+      setAssetState(element, kind, ASSET_STATE.error);
+      cleanup();
+      element.remove?.();
+      reject(new Error(`load app ${kind} timed out after ${APP_ASSET_LOAD_TIMEOUT_MS}ms: ${assetUrl}`));
+    }, APP_ASSET_LOAD_TIMEOUT_MS);
   });
 }
 
 export function markAppAssetsLoaded(appId) {
   const normalized = normalizeAppId(appId);
   if (!normalized) return;
+  document.querySelectorAll?.(`link[data-app-css="${normalized}"]`)?.forEach((link) => {
+    setAssetState(link, 'css', ASSET_STATE.ready);
+  });
+  document.querySelectorAll?.(`script[data-app-script="${normalized}"]`)?.forEach((script) => {
+    setAssetState(script, 'js', ASSET_STATE.ready);
+  });
   loadedAppsCss.add(normalized);
   loadedAppsJs.add(normalized);
   pendingAppsCss.delete(normalized);
@@ -128,14 +206,13 @@ export async function ensureAppCssLoaded(appId) {
       if (!link) {
         link = document.createElement('link');
         link.rel = 'stylesheet';
-        link.href = normalizedHref.startsWith('/') ? normalizedHref : getFallbackCssPath(normalized);
+        link.href = normalizedHref || getFallbackCssPath(normalized);
         link.dataset.appCss = normalized;
+        setAssetState(link, 'css', ASSET_STATE.loading);
         document.head.appendChild(link);
-      } else if (!link.dataset.appCss) {
-        link.dataset.appCss = normalized;
       }
 
-      return waitForStylesheetLink(link, normalizedHref);
+      return waitForAssetElement(link, normalizedHref, 'css');
     }));
 
     loadedAppsCss.add(normalized);
@@ -159,27 +236,24 @@ export async function ensureAppJsLoaded(appId) {
     const assets = await getAssetsForApp(normalized);
     const jsFiles = assets.js.length ? assets.js : [getFallbackJsPath(normalized)];
 
-    await Promise.all(jsFiles.map((src) => new Promise((resolve, reject) => {
+    await Promise.all(jsFiles.map((src) => {
       const normalizedSrc = withThemeAssetVersion(String(src || ''));
       if (!normalizedSrc) {
-        resolve(null);
-        return;
+        return Promise.resolve(null);
       }
 
-      const existing = findExistingScript(normalized, normalizedSrc, segment);
-      if (existing) {
-        resolve(existing);
-        return;
+      let script = findExistingScript(normalized, normalizedSrc, segment);
+      if (!script) {
+        script = document.createElement('script');
+        script.type = 'module';
+        script.src = normalizedSrc || getFallbackJsPath(normalized);
+        script.dataset.appScript = normalized;
+        setAssetState(script, 'js', ASSET_STATE.loading);
+        document.head.appendChild(script);
       }
 
-      const script = document.createElement('script');
-      script.type = 'module';
-      script.src = normalizedSrc.startsWith('/') ? normalizedSrc : getFallbackJsPath(normalized);
-      script.dataset.appScript = normalized;
-      script.onload = () => resolve(script);
-      script.onerror = () => reject(new Error(`load app script failed: ${normalizedSrc}`));
-      document.head.appendChild(script);
-    })));
+      return waitForAssetElement(script, normalizedSrc, 'js');
+    }));
 
     loadedAppsJs.add(normalized);
   })().finally(() => {

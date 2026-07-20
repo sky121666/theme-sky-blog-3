@@ -8,12 +8,13 @@
 import {
   computeDefaultDesktopIconPlacement,
   mergeDesktopIconLayout,
+  normalizeDesktopIconHref,
   normalizeDesktopIconInstance,
   readDesktopIconsBootstrap,
   renderDesktopIconGraphic,
   serializeDeletedIconTombstone,
 } from '../../icons/index.js';
-import { escapeHtml, toPositiveInt } from '../../shared/utils.js';
+import { cloneJsonValue, escapeHtml, toPositiveInt } from '../../shared/utils.js';
 import { normalizeMomentRecord } from '../../shared/moments.js';
 import { markPjaxLinks, attachDynamicLinks } from '../pjax/link-attach.js';
 import { inferPageAppFromUrl } from '../../../../../shell-core/runtime/route-manifest.js';
@@ -40,6 +41,14 @@ import {
   parseDesktopLayoutPayload,
   mergeDesktopWidgetLayout
 } from '../../widgets/persistence-read.js';
+import {
+  DESKTOP_WIDGET_PROTOCOL_EVENT,
+  normalizeDesktopWidgetProtocol
+} from '../../widgets/protocol.js';
+import {
+  desktopLayoutNeedsDataReload,
+  serverLoadedWidgetTypes
+} from './data-reload.js';
 
 /* ── Mixin modules ── */
 import { gridMethods } from './grid.js';
@@ -90,6 +99,7 @@ export function registerDesktopSurface(Alpine) {
     /* ═══ State ═══ */
     enabled: false,
     isHome: false,
+    homeDataHydrated: false,
     hideOnMobile: false,
     editEnabled: false,
     viewportWidth: 0,
@@ -112,6 +122,10 @@ export function registerDesktopSurface(Alpine) {
     serverLayoutSaving: false,
     serverLayoutSaveState: 'idle',
     serverLayoutSaveMessage: '',
+    serverLayoutMutationVersion: 0,
+    serverLayoutSavedMutationVersion: 0,
+    serverLoadedWidgetTypes: [],
+    serverLayoutReloadRequired: false,
     modules: {
       weather: {
         cityName: '北京',
@@ -125,6 +139,7 @@ export function registerDesktopSurface(Alpine) {
       momentsAvailable: false,
       recentMoments: [],
       bangumisAvailable: false,
+      bangumisUrl: '/bangumis',
       bangumisByStatus: {},
       bangumiStatusCounts: {},
       friendsAvailable: false,
@@ -169,7 +184,8 @@ export function registerDesktopSurface(Alpine) {
       open: false,
       title: '',
       href: '',
-      subtype: 'folder'
+      subtype: 'folder',
+      error: ''
     },
     widgetConfigForm: {
       open: false,
@@ -184,6 +200,10 @@ export function registerDesktopSurface(Alpine) {
       meta: {},
       previewWidget: null
     },
+    widgetConfigOptionsError: '',
+    widgetConfigOptionsPromise: null,
+    widgetConfigOptionsRequestId: 0,
+    widgetConfigOptionsAbortController: null,
     widgets: [],
     defaultWidgets: [],
     widgetCatalog: [],
@@ -207,6 +227,7 @@ export function registerDesktopSurface(Alpine) {
       active: false,
       kind: '',
       key: '',
+      pointerId: null,
       node: null,
       widget: null,
       widgetMarkup: '',
@@ -248,10 +269,12 @@ export function registerDesktopSurface(Alpine) {
     now: new Date(),
     tickTimer: null,
     routeSyncHandler: null,
+    protocolHydrationHandler: null,
     resizeHandler: null,
     resizeVisibilityTimer: null,
     dragMoveHandler: null,
     dragEndHandler: null,
+    dragCancelHandler: null,
     centerSheetMoveHandler: null,
     centerSheetEndHandler: null,
     lastVisibleNodeSignature: '',
@@ -547,6 +570,33 @@ export function registerDesktopSurface(Alpine) {
       });
     },
 
+    applyHomeWidgetProtocol(rawProtocol) {
+      const bootstrap = normalizeDesktopWidgetProtocol(rawProtocol);
+      if (!bootstrap.isHome) return false;
+
+      // The persistent desktop layout is already initialized on a non-home
+      // direct load. Returning home should hydrate Finder/plugin data only;
+      // replacing layout state here would discard unsaved widget/icon edits.
+      this.modules = bootstrap.modules;
+      this.sources = bootstrap.sources;
+
+      // Catalog entries and rendered HTML depend on Finder/plugin sources.
+      // Rebuild synchronously when the lazy catalog runtime is already ready;
+      // otherwise its pending import will read the newly installed sources.
+      this.widgetCatalog = this.widgetCatalogBuilder
+        ? this.widgetCatalogBuilder(this.sources)
+        : [];
+      this.invalidateWidgetCache();
+      this.syncWidgetRuntimes();
+      this.dispatchNotificationWidgetsChange();
+      this.homeDataHydrated = true;
+      desktopDebug('desktop home protocol hydrated', {
+        preservedWidgets: this.widgets.length,
+        sourceKeys: Object.keys(this.sources)
+      });
+      return true;
+    },
+
     /* ═══ Init ═══ */
 
     async init() {
@@ -570,6 +620,7 @@ export function registerDesktopSurface(Alpine) {
       this.syncViewportState();
       this.enabled = !!bootstrap.enabled;
       this.isHome = window.location.pathname === '/';
+      this.homeDataHydrated = this.isHome && bootstrap.isHome === true;
       this.hideOnMobile = !!bootstrap.hideOnMobile;
       this.editEnabled = !!bootstrap.editEnabled;
       this.columns = toPositiveInt(bootstrap.columns, 12);
@@ -580,6 +631,8 @@ export function registerDesktopSurface(Alpine) {
       this.themeJsonConfigEndpoint = bootstrap.themeJsonConfigEndpoint || '';
       this.serverLayoutJson = bootstrap.serverLayoutJson || '';
       this.serverLayoutPayload = serverLayout;
+      this.serverLoadedWidgetTypes = serverLoadedWidgetTypes(serverLayout);
+      this.serverLayoutReloadRequired = false;
       setDesktopDebugAccess(false);
       this.modules = {
         weather: {
@@ -587,69 +640,7 @@ export function registerDesktopSurface(Alpine) {
           refreshMinutes: toPositiveInt(bootstrap.modules?.weather?.refreshMinutes, 30)
         }
       };
-      this.sources = {
-        siteProfile: {
-          title: bootstrap.sources?.siteProfile?.title || '',
-          subtitle: bootstrap.sources?.siteProfile?.subtitle || '',
-          logo: bootstrap.sources?.siteProfile?.logo || '',
-          url: bootstrap.sources?.siteProfile?.url || this.siteUrl || ''
-        },
-        currentUser: {
-          authenticated: bootstrap.sources?.currentUser?.authenticated === true,
-          name: bootstrap.sources?.currentUser?.name || '',
-          displayName: bootstrap.sources?.currentUser?.displayName || '',
-          avatar: bootstrap.sources?.currentUser?.avatar || '',
-          bio: bootstrap.sources?.currentUser?.bio || '',
-          permalink: bootstrap.sources?.currentUser?.permalink || '/uc'
-        },
-        latestPosts: Array.isArray(bootstrap.sources?.latestPosts) ? bootstrap.sources.latestPosts : [],
-        popularPosts: Array.isArray(bootstrap.sources?.popularPosts) ? bootstrap.sources.popularPosts : [],
-        categories: Array.isArray(bootstrap.sources?.categories) ? bootstrap.sources.categories : [],
-        siteStats: bootstrap.sources?.siteStats || null,
-        randomTags: Array.isArray(bootstrap.sources?.randomTags) ? bootstrap.sources.randomTags : [],
-        momentsAvailable: !!bootstrap.sources?.momentsAvailable,
-        recentMoments: Array.isArray(bootstrap.sources?.recentMoments) ? bootstrap.sources.recentMoments : [],
-        bangumisAvailable: !!bootstrap.sources?.bangumisAvailable,
-        bangumisByStatus: bootstrap.sources?.bangumisByStatus && typeof bootstrap.sources.bangumisByStatus === 'object'
-          ? bootstrap.sources.bangumisByStatus
-          : {},
-        bangumiStatusCounts: bootstrap.sources?.bangumiStatusCounts && typeof bootstrap.sources.bangumiStatusCounts === 'object'
-          ? bootstrap.sources.bangumiStatusCounts
-          : {},
-        friendsAvailable: !!bootstrap.sources?.friendsAvailable,
-        recentFriends: Array.isArray(bootstrap.sources?.recentFriends) ? bootstrap.sources.recentFriends : [],
-        friendsUrl: bootstrap.sources?.friendsUrl || '/friends',
-        docsmeAvailable: !!bootstrap.sources?.docsmeAvailable,
-        docsmeUrl: bootstrap.sources?.docsmeUrl || '/docs',
-        docsmeProjects: Array.isArray(bootstrap.sources?.docsmeProjects) ? bootstrap.sources.docsmeProjects : [],
-        archivesUrl: bootstrap.sources?.archivesUrl || '/archives',
-        fallbackCover: bootstrap.sources?.fallbackCover || '',
-        photosAvailable: !!bootstrap.sources?.photosAvailable,
-        photos: Array.isArray(bootstrap.sources?.photos) ? bootstrap.sources.photos : [],
-        photoGroups: Array.isArray(bootstrap.sources?.photoGroups) ? bootstrap.sources.photoGroups : [],
-        photosUrl: bootstrap.sources?.photosUrl || '/photos',
-        doubanAvailable: !!bootstrap.sources?.doubanAvailable,
-        doubanUrl: bootstrap.sources?.doubanUrl || '/douban',
-        doubanApiBase: bootstrap.sources?.doubanApiBase || '/apis/api.douban.moony.la/v1alpha1/doubanmovies',
-        steamAvailable: !!bootstrap.sources?.steamAvailable,
-        steamUrl: bootstrap.sources?.steamUrl || '/steam',
-        steamProfile: {
-          playing: bootstrap.sources?.steamProfile?.playing === true,
-          statusText: bootstrap.sources?.steamProfile?.statusText || '',
-          personaName: bootstrap.sources?.steamProfile?.personaName || '',
-          avatarFull: bootstrap.sources?.steamProfile?.avatarFull || '',
-          profileUrl: bootstrap.sources?.steamProfile?.profileUrl || '',
-          steamLevel: Number(bootstrap.sources?.steamProfile?.steamLevel || 0) || 0,
-          currentGameName: bootstrap.sources?.steamProfile?.currentGameName || ''
-        },
-        steamStats: {
-          totalGames: Number(bootstrap.sources?.steamStats?.totalGames || 0) || 0,
-          recentPlaytimeFormatted: bootstrap.sources?.steamStats?.recentPlaytimeFormatted || '',
-          recentPlaytimeMinutes: Number(bootstrap.sources?.steamStats?.recentPlaytimeMinutes || 0) || 0
-        },
-        steamRecentGames: Array.isArray(bootstrap.sources?.steamRecentGames) ? bootstrap.sources.steamRecentGames : [],
-        steamOwnedGames: Array.isArray(bootstrap.sources?.steamOwnedGames) ? bootstrap.sources.steamOwnedGames : []
-      };
+      this.sources = bootstrap.sources;
       this.defaultWidgets = resolvedWidgets.map((widget) => ({ ...widget }));
       this.syncDesktopBodyState();
       desktopDebug('desktop bootstrap', {
@@ -669,12 +660,22 @@ export function registerDesktopSurface(Alpine) {
       this.dispatchNotificationWidgetsChange();
       this.syncWidgetRuntimes();
 
+      this.protocolHydrationHandler = (event) => {
+        this.applyHomeWidgetProtocol(event.detail?.protocol);
+      };
       this.routeSyncHandler = async () => {
         this.syncViewportState();
         this.isHome = window.location.pathname === '/';
+        if (this.enabled && this.isHome && !this.homeDataHydrated) {
+          desktopDebugWarn('desktop home protocol was not hydrated before PJAX completion');
+        }
         this.closeDesktopContextMenu();
         this.invalidateWidgetCache();
         if (!this.isHome) {
+          this.widgetConfigOptionsRequestId += 1;
+          this.widgetConfigOptionsAbortController?.abort();
+          this.widgetConfigOptionsAbortController = null;
+          this.widgetConfigOptionsPromise = null;
           if (this.isEditing && typeof this.exitEditMode === 'function') {
             await this.exitEditMode();
           }
@@ -695,13 +696,14 @@ export function registerDesktopSurface(Alpine) {
 
       this.handleNotificationWidgetDragStart = (event) => {
         if (event.detail?.source && event.detail.source !== 'notification-center') return;
-        const { widget, clientX, clientY, rect, markup } = event.detail;
-        this.beginWidgetDragFromNotification(widget, { clientX, clientY, rect, markup });
+        const { widget, clientX, clientY, pointerId, rect, markup } = event.detail;
+        this.beginWidgetDragFromNotification(widget, { clientX, clientY, pointerId, rect, markup });
       };
       this.handleWidgetContextMenu = (event) => {
         void this.openWidgetContextMenuFromEvent(event.detail || {});
       };
 
+      window.addEventListener(DESKTOP_WIDGET_PROTOCOL_EVENT, this.protocolHydrationHandler);
       window.addEventListener('pjax:complete', this.routeSyncHandler);
       window.addEventListener('pageshow', this.routeSyncHandler);
       window.addEventListener('resize', this.resizeHandler);
@@ -1313,13 +1315,13 @@ export function registerDesktopSurface(Alpine) {
       document.body.classList.toggle('desktop-editing', this.isEditing);
     },
 
-    syncCurrentLayoutAsDefaults() {
-      this.defaultWidgets = this.widgets.map((widget) => ({
+    syncLayoutSnapshotAsDefaults(widgets = this.widgets, icons = this.icons) {
+      this.defaultWidgets = (cloneJsonValue(widgets) || []).map((widget) => ({
         ...widget,
         baseX: widget.baseX ?? widget.x,
         baseY: widget.baseY ?? widget.y
       }));
-      this.defaultIcons = this.icons.map((icon) => ({
+      this.defaultIcons = (cloneJsonValue(icons) || []).map((icon) => ({
         ...icon,
         baseX: icon.baseX ?? icon.x,
         baseY: icon.baseY ?? icon.y
@@ -1333,9 +1335,11 @@ export function registerDesktopSurface(Alpine) {
     },
 
     markDesktopLayoutDirty(message = '有未保存更改') {
-      if (this.serverLayoutSaving) return;
+      this.serverLayoutMutationVersion += 1;
       this.serverLayoutSaveState = 'dirty';
-      this.serverLayoutSaveMessage = message;
+      this.serverLayoutSaveMessage = this.serverLayoutSaving
+        ? '保存中；新的修改仍需再次保存'
+        : message;
     },
 
     desktopLayoutSaveButtonLabel() {
@@ -1384,7 +1388,7 @@ export function registerDesktopSurface(Alpine) {
       return this.canManageDefaultDesktopLayout;
     },
 
-    async saveLayoutJsonToServer(layoutJson) {
+    async saveLayoutJsonToServer(layoutJson, snapshot = null) {
       if (!this.themeJsonConfigEndpoint || !this.canManageDefaultDesktopLayout) {
         this.serverLayoutSaveState = 'failed';
         this.serverLayoutSaveMessage = '保存失败，请检查登录状态或后台权限';
@@ -1395,6 +1399,19 @@ export function registerDesktopSurface(Alpine) {
         });
         return false;
       }
+
+      if (this.serverLayoutSaving) {
+        this.serverLayoutSaveState = 'dirty';
+        this.serverLayoutSaveMessage = '已有保存任务进行中，请稍后再次保存';
+        return false;
+      }
+
+      const savedSnapshot = snapshot || {
+        mutationVersion: this.serverLayoutMutationVersion,
+        widgets: cloneJsonValue(this.widgets) || [],
+        icons: cloneJsonValue(this.icons) || [],
+        requiresDataReload: desktopLayoutNeedsDataReload(this.widgets, this.serverLoadedWidgetTypes)
+      };
 
       this.serverLayoutSaving = true;
       this.serverLayoutSaveState = 'saving';
@@ -1447,15 +1464,20 @@ export function registerDesktopSurface(Alpine) {
 
         this.serverLayoutJson = layoutJson;
         this.serverLayoutPayload = parseDesktopLayoutPayload(layoutJson, this.layoutVersion, 'saved-server');
-        this.syncCurrentLayoutAsDefaults();
-        this.serverLayoutSaveState = 'saved';
-        this.serverLayoutSaveMessage = '已保存';
+        this.serverLayoutSavedMutationVersion = savedSnapshot.mutationVersion;
+        this.syncLayoutSnapshotAsDefaults(savedSnapshot.widgets, savedSnapshot.icons);
+        const hasNewerChanges = this.serverLayoutMutationVersion !== savedSnapshot.mutationVersion;
+        this.serverLayoutReloadRequired = !hasNewerChanges && savedSnapshot.requiresDataReload === true;
+        this.serverLayoutSaveState = hasNewerChanges ? 'dirty' : 'saved';
+        this.serverLayoutSaveMessage = hasNewerChanges
+          ? '本次快照已保存；保存期间的新修改仍未保存'
+          : '已保存';
         desktopDebug('desktop default layout saved to server', {
           endpoint: this.themeJsonConfigEndpoint,
           themeName: this.themeName,
           payloadSize: layoutJson.length
         });
-        return true;
+        return !hasNewerChanges;
       } catch (error) {
         this.serverLayoutSaveState = 'failed';
         this.serverLayoutSaveMessage = '保存失败，请检查登录状态或后台权限';
@@ -1471,36 +1493,55 @@ export function registerDesktopSurface(Alpine) {
     },
 
     async saveDefaultLayoutToServer() {
+      if (this.serverLayoutSaving) {
+        this.serverLayoutSaveState = 'dirty';
+        this.serverLayoutSaveMessage = '已有保存任务进行中，请稍后再次保存';
+        return false;
+      }
+
       const { buildDesktopLayoutJsonString } = await this.ensurePersistenceWriteRuntime();
+      const snapshot = {
+        mutationVersion: this.serverLayoutMutationVersion,
+        widgets: cloneJsonValue(this.widgets) || [],
+        icons: cloneJsonValue(this.icons) || [],
+        tombstones: cloneJsonValue(this.iconTombstones) || [],
+        requiresDataReload: desktopLayoutNeedsDataReload(this.widgets, this.serverLoadedWidgetTypes)
+      };
       // 将 tombstone 合并到 icons 数组末尾，写入 JSON 防止被删图标复活
-      const iconsWithTombstones = [...this.icons, ...this.iconTombstones];
-      const layoutJson = buildDesktopLayoutJsonString(this.layoutVersion, this.widgets, iconsWithTombstones, this.currentColumns);
-      return this.saveLayoutJsonToServer(layoutJson);
+      const iconsWithTombstones = [...snapshot.icons, ...snapshot.tombstones];
+      const layoutJson = buildDesktopLayoutJsonString(this.layoutVersion, snapshot.widgets, iconsWithTombstones, this.currentColumns);
+      return this.saveLayoutJsonToServer(layoutJson, snapshot);
     },
 
     /* ═══ Desktop icons ═══ */
 
     openAddIconForm() {
-      this.addIconForm = { open: true, title: '', href: '', subtype: 'folder' };
+      this.addIconForm = { open: true, title: '', href: '', subtype: 'folder', error: '' };
     },
 
     closeAddIconForm() {
-      this.addIconForm = { open: false, title: '', href: '', subtype: 'folder' };
+      this.addIconForm = { open: false, title: '', href: '', subtype: 'folder', error: '' };
     },
 
     submitAddIconForm() {
       const href = this.addIconForm.href.trim();
       if (!href) return;
-      // 自动推断内外链接
-      let isExternal = /^https?:\/\//i.test(href);
+      const link = normalizeDesktopIconHref(href, window.location.origin);
+      if (!link.valid) {
+        this.addIconForm.error = '仅支持站内路径或 http/https 链接';
+        return;
+      }
+      this.addIconForm.error = '';
       const title = this.addIconForm.title.trim() || (() => {
-        try { return new URL(href, window.location.origin).hostname || href; } catch { return href; }
+        try { return new URL(link.href, window.location.origin).hostname || link.href; } catch { return link.href; }
       })();
-      this.addCustomIcon(title, href, this.addIconForm.subtype, isExternal);
+      this.addCustomIcon(title, link.href, this.addIconForm.subtype);
       this.closeAddIconForm();
     },
 
-    addCustomIcon(title, href, subtype = 'folder', external = false) {
+    addCustomIcon(title, href, subtype = 'folder') {
+      const link = normalizeDesktopIconHref(href, window.location.origin);
+      if (!link.valid) return false;
       let basename = title.replace(/\s+/g, '-');
       let targetKey = `icon-custom-${basename}`;
       let suffixId = 0;
@@ -1514,11 +1555,11 @@ export function registerDesktopSurface(Alpine) {
         key,
         kind: 'icon',
         title,
-        href,
+        href: link.href,
         subtype,
-        pjax: !external,
+        pjax: link.pjax,
         pjaxApp: '',
-        external,
+        external: link.external,
         dataId: key,
         x: pos.x,
         y: pos.y,
@@ -1531,7 +1572,8 @@ export function registerDesktopSurface(Alpine) {
       this.normalizeVisibleLayout();
       this.syncResponsiveVisibility();
       this.markDesktopLayoutDirty('图标已添加，保存后生效');
-      desktopDebug('icon added', { key, title, href, pos });
+      desktopDebug('icon added', { key, title, href: link.href, pos });
+      return true;
     },
 
     findFreeIconSlot() {
@@ -1566,12 +1608,19 @@ export function registerDesktopSurface(Alpine) {
       this.closeDesktopContextMenu();
       this.selectedDesktopKey = null;
 
-      if (!icon?.pjax || !icon?.href || icon.external || event.defaultPrevented) return;
+      const link = normalizeDesktopIconHref(icon?.href || '', window.location.origin);
+      if (!link.valid) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
+      if (!icon?.pjax || link.external || event.defaultPrevented) return;
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
 
       let url;
       try {
-        url = new URL(icon.href, window.location.origin);
+        url = new URL(link.href, window.location.origin);
       } catch (_error) {
         return;
       }
@@ -1629,13 +1678,14 @@ export function registerDesktopSurface(Alpine) {
 
       const serverDefaultIcons = mergeDesktopIconLayout(defaultIcons, serverLayout, this.widgets, this.maxVisibleRows || 8).map((icon) => {
         const sourceIcon = defaultIcons.find((item) => item.key === icon.key);
+        const link = normalizeDesktopIconHref(icon.href || sourceIcon?.href || '#', window.location.origin);
         return {
           ...icon,
-          href: sourceIcon?.href || '#',
-          pjax: sourceIcon?.pjax !== false,
-          pjaxApp: resolveDesktopIconApp(sourceIcon?.href || '#', sourceIcon?.pjaxApp || ''),
-          external: sourceIcon?.external === true,
-          subtype: sourceIcon?.subtype || 'folder',
+          href: link.href,
+          pjax: link.pjax && (icon.pjax ?? sourceIcon?.pjax) !== false,
+          pjaxApp: resolveDesktopIconApp(link.href, icon.pjaxApp || sourceIcon?.pjaxApp || ''),
+          external: link.external,
+          subtype: icon.subtype || sourceIcon?.subtype || 'folder',
           dataId: sourceIcon?.dataId || icon.title
         };
       });
@@ -2115,6 +2165,12 @@ export function registerDesktopSurface(Alpine) {
         initLazyComments(body);
         enhanceDoubanShowcaseWidgets(body);
       });
+
+      if (grid.querySelector('[data-tag-focus]')) {
+        void import('../../../../../widgets/halo/random-tags/render.js')
+          .then((runtime) => runtime.ensureTagFocusRotation?.(grid))
+          .catch(() => {});
+      }
 
       widgetPjaxLog('enhance:', totalAnchors, 'anchors,', internalLinks, 'internal,', attachedCount, 'attached');
     },

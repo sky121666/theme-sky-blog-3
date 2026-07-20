@@ -170,8 +170,10 @@ try {
   );
   const {
     disposeLightGallery,
+    discardStagedOnlineMonitorHistoryState,
     initPluginCompatibility,
     mountLightGallery,
+    preparePluginCompatibilityFromResponse,
     syncOnlineMonitorMetaFromHistoryState,
     syncOnlineMonitorMetaFromResponse
   } = await import(`${moduleUrl.href}?contract=plugin-runtime-compat`);
@@ -212,6 +214,33 @@ try {
   assert.equal(fixture.windowListeners.get('popstate')?.length, 1, '应注册 Online history 恢复监听');
   assert.equal(fixture.windowListenerOptions.get('popstate')?.[0]?.capture, true, 'history 恢复必须在捕获阶段执行');
   assert.equal(fixture.window.history.state.__themeOnlinePrivatePage, false, '初始 history state 应记录公开页');
+
+  await preparePluginCompatibilityFromResponse(`
+    <script>window.__ONLINE_MONITOR_META__ = Object.assign({}, window.__ONLINE_MONITOR_META__, {
+      privatePage: true
+    });</script>
+  `, {
+    stageOnlineHistory: true,
+    targetUrl: '/private'
+  });
+  assert.equal(fixture.window.__ONLINE_MONITOR_META__.privatePage, false, '响应到达时不得提前污染旧 history entry 的页面语义');
+  fixture.window.history.replaceState({ marker: 'old-public' }, '', '/archives');
+  assert.deepEqual(fixture.window.history.state, {
+    marker: 'old-public',
+    __themeOnlinePrivatePage: false
+  }, 'PJAX 保存旧 entry 时必须继续使用旧页面语义');
+  fixture.window.history.pushState({ marker: 'new-private' }, '', '/private#reading');
+  assert.deepEqual(fixture.window.history.state, {
+    marker: 'new-private',
+    __themeOnlinePrivatePage: true
+  }, 'PJAX 新 entry 必须写入目标页面语义');
+  assert.equal(fixture.window.__ONLINE_MONITOR_META__.privatePage, true, '目标 entry 写入后才切换 Online 运行态');
+  discardStagedOnlineMonitorHistoryState();
+  syncOnlineMonitorMetaFromResponse(`
+    <script>window.__ONLINE_MONITOR_META__ = Object.assign({}, window.__ONLINE_MONITOR_META__, {
+      privatePage: false
+    });</script>
+  `);
 
   fixture.documentListeners.get('pjax:send')[0]();
   await fixture.animationFrames.shift()?.();

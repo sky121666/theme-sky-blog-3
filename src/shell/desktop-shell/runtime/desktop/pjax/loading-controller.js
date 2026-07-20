@@ -33,6 +33,10 @@ export function createWindowLoadingController(scope, options = {}) {
   let shownAt = 0;
   let visible = false;
   let finished = false;
+  let finishTimer = null;
+  let fadeTimer = null;
+  let finishPromise = null;
+  let resolveFinish = null;
 
   const clearShowTimer = () => {
     if (!showTimer) return;
@@ -47,6 +51,30 @@ export function createWindowLoadingController(scope, options = {}) {
     overlay.removeAttribute('data-fading');
     overlay.setAttribute('aria-hidden', 'false');
     overlay.style.display = '';
+  };
+
+  const clearFinishTimers = () => {
+    if (finishTimer) clearTimeout(finishTimer);
+    if (fadeTimer) clearTimeout(fadeTimer);
+    finishTimer = null;
+    fadeTimer = null;
+  };
+
+  const settleFinish = () => {
+    resolveFinish?.();
+    resolveFinish = null;
+    finishPromise = null;
+  };
+
+  const concealImmediately = () => {
+    clearFinishTimers();
+    if (overlay) {
+      overlay.setAttribute('aria-hidden', 'true');
+      overlay.style.display = 'none';
+      overlay.removeAttribute('data-fading');
+    }
+    setBusyState(contentRoot, false);
+    settleFinish();
   };
 
   return {
@@ -67,15 +95,14 @@ export function createWindowLoadingController(scope, options = {}) {
       finished = true;
       clearShowTimer();
 
-      if (!overlay || !visible || !overlay.isConnected) {
-        setBusyState(contentRoot, false);
+      if (options.immediate) {
+        concealImmediately();
         return Promise.resolve();
       }
 
-      if (options.immediate) {
-        overlay.setAttribute('aria-hidden', 'true');
-        overlay.style.display = 'none';
-        overlay.removeAttribute('data-fading');
+      if (finishPromise) return finishPromise;
+
+      if (!overlay || !visible || !overlay.isConnected) {
         setBusyState(contentRoot, false);
         return Promise.resolve();
       }
@@ -83,18 +110,22 @@ export function createWindowLoadingController(scope, options = {}) {
       const elapsed = Date.now() - shownAt;
       const remaining = Math.max(0, minVisible - elapsed);
 
-      return new Promise((resolve) => {
-        setTimeout(() => {
+      finishPromise = new Promise((resolve) => {
+        resolveFinish = resolve;
+        finishTimer = setTimeout(() => {
+          finishTimer = null;
           overlay.setAttribute('aria-hidden', 'true');
           overlay.setAttribute('data-fading', '');
-          setTimeout(() => {
+          fadeTimer = setTimeout(() => {
+            fadeTimer = null;
             overlay.style.display = 'none';
             overlay.removeAttribute('data-fading');
             setBusyState(contentRoot, false);
-            resolve();
+            settleFinish();
           }, fadeDuration);
         }, remaining);
       });
+      return finishPromise;
     }
   };
 }

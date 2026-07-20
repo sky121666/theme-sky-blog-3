@@ -21,7 +21,7 @@ const assetManifestFile = path.join(root, 'templates/assets/asset-manifest.json'
 assert(fs.existsSync(assetManifestFile), '缺少 templates/assets/asset-manifest.json');
 
 const manifest = readJson(assetManifestFile);
-const requiredAssets = ['shell-core', 'auth', 'reader', 'moments', 'friends', 'links', 'bangumis', 'steam', 'equipments', 'photos', 'explorer-tags', 'explorer-categories', 'explorer-author', 'explorer-archives'];
+const requiredAssets = ['shell-core', 'auth', 'reader', 'moments', 'friends', 'links', 'bangumis', 'douban', 'docsme', 'steam', 'equipments', 'photos', 'explorer-tags', 'explorer-categories', 'explorer-author', 'explorer-archives'];
 
 for (const key of requiredAssets) {
   assert(manifest[key], `asset-manifest 缺少入口: ${key}`);
@@ -32,6 +32,18 @@ for (const key of requiredAssets) {
   for (const cssFile of manifest[key].css || []) {
     const local = path.join(root, 'templates/assets', cssFile.replace(/^\/themes\/theme-sky-blog-3\/assets\//, ''));
     assert(fs.existsSync(local), `缺少 CSS 产物: ${cssFile}`);
+  }
+}
+
+const requiredAppSourceChecks = [
+  ['src/apps/douban/entry.js', ["import './hydrate.js';", '__THEME_APP_DOUBAN_LOADED__']],
+  ['src/apps/docsme/entry.js', ["import './hydrate.js';", '__THEME_APP_DOCSME_LOADED__']]
+];
+
+for (const [rel, patterns] of requiredAppSourceChecks) {
+  const content = read(path.join(root, rel));
+  for (const pattern of patterns) {
+    assert(content.includes(pattern), `${rel} 缺少应用源码入口: ${pattern}`);
   }
 }
 
@@ -55,6 +67,12 @@ const protocolChecks = [
   ['templates/modules/friends-app/list.html', ['data-app-root="friends"', 'data-app-props="friends"']],
   ['templates/modules/links-app/list.html', ['data-app-root="links"', 'data-app-props="links"']],
   ['templates/modules/bangumis-app/list.html', ['data-app-root="bangumis"', 'data-app-props="bangumis"']],
+  ['templates/modules/douban-app/list.html', ['data-app-root="douban"', 'data-app-props="douban"']],
+  ['templates/modules/docsme-app/content.html', ['data-app-root="docsme"', 'data-app-props="docsme"']],
+  ['templates/douban.html', ["pageApp = 'douban'", 'ssrContent = ~{modules/douban-app/list :: content}']],
+  ['templates/docs.html', ["pageApp = 'docsme'", 'ssrContent = ~{modules/docsme-app/content :: projects}']],
+  ['templates/doc.html', ["pageApp = 'docsme'", 'ssrContent = ~{modules/docsme-app/content :: document}']],
+  ['templates/doc-catalog.html', ["pageApp = 'docsme'", 'ssrContent = ~{modules/docsme-app/content :: catalog}']],
   ['templates/modules/steam-app/list.html', ['data-app-root="steam"', 'data-app-props="steam"']],
   ['templates/modules/equipments-app/list.html', ['data-app-root="equipments"', 'data-app-props="equipments"']],
   ['templates/photos.html', ['data-app-root="photos"', 'data-app-props="photos"']],

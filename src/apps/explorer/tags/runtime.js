@@ -25,11 +25,19 @@ export function registerTagsExplorer(Alpine) {
     dynamicPosts: [],
     postTotal: 0,
     fetchController: null,
+    _selectionGeneration: 0,
+    _renderJob: null,
     _ssrTagKey: '',
+    _ssrPostNodes: [],
+    _ssrOverflowEl: null,
+    _showingSsr: true,
 
     init() {
       const firstTag = this.$root.querySelector('[data-tags-folder]');
       if (!firstTag) return;
+      const ssrList = this.$root.querySelector('[data-tag-posts-list]');
+      this._ssrPostNodes = ssrList ? Array.from(ssrList.childNodes) : [];
+      this._ssrOverflowEl = ssrList?.parentElement?.querySelector('.tags-post-overflow') || null;
       this._ssrTagKey = firstTag.dataset.tagKey || '';
       this.selectTag(
         firstTag.dataset.tagKey,
@@ -42,6 +50,12 @@ export function registerTagsExplorer(Alpine) {
     },
 
     async selectTag(key, name, href, count, color, cover) {
+      this.fetchController?.abort();
+      this.fetchController = null;
+      this._renderJob?.cancel();
+      this._renderJob = null;
+      const generation = ++this._selectionGeneration;
+
       this.activeTagKey = key || '';
       this.activeTagName = name || '';
       this.activeTagHref = href || '';
@@ -57,12 +71,21 @@ export function registerTagsExplorer(Alpine) {
         this.selectFirstSsrPost();
       } else {
         this.showSsrPanel(false);
-        await this.fetchTagPosts(key, name);
+        await this.fetchTagPosts(key, name, generation);
       }
     },
 
     showSsrPanel(visible) {
       const ssrList = this.$root.querySelector('[data-tag-posts-list]');
+      if (visible && !this._showingSsr && ssrList && this._ssrPostNodes.length) {
+        ssrList.replaceChildren(...this._ssrPostNodes);
+        const currentOverflow = ssrList.parentElement?.querySelector('.tags-post-overflow');
+        if (currentOverflow && currentOverflow !== this._ssrOverflowEl) currentOverflow.remove();
+        if (this._ssrOverflowEl && !this._ssrOverflowEl.isConnected) {
+          ssrList.parentElement?.insertBefore(this._ssrOverflowEl, ssrList.nextSibling);
+        }
+      }
+      this._showingSsr = visible;
       if (ssrList) ssrList.style.display = visible ? '' : 'none';
       const ssrOverflow = ssrList?.parentElement?.querySelector('.tags-post-overflow');
       if (ssrOverflow) ssrOverflow.style.display = visible ? '' : 'none';
@@ -76,22 +99,29 @@ export function registerTagsExplorer(Alpine) {
       }
     },
 
-    async fetchTagPosts(tagName, displayName) {
+    async fetchTagPosts(tagName, displayName, generation = this._selectionGeneration) {
+      if (generation !== this._selectionGeneration) return;
       if (this.fetchController) this.fetchController.abort();
       const controller = new AbortController();
       this.fetchController = controller;
 
       const cacheKey = `tag-posts-${tagName}`;
+      let cachedEntry = null;
       try {
         const cached = window.sessionStorage.getItem(cacheKey);
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (parsed?.data && Date.now() - parsed.timestamp < TAG_CACHE_TTL) {
-            this.renderDynamicPosts(parsed.data, parsed.total, displayName);
-            return;
-          }
-        }
+        if (cached) cachedEntry = JSON.parse(cached);
       } catch { /* ignore */ }
+
+      if (cachedEntry?.data && Date.now() - cachedEntry.timestamp < TAG_CACHE_TTL) {
+        try {
+          if (generation === this._selectionGeneration && !controller.signal.aborted) {
+            this.renderDynamicPosts(cachedEntry.data, cachedEntry.total, displayName, generation);
+          }
+        } finally {
+          if (this.fetchController === controller) this.fetchController = null;
+        }
+        return;
+      }
 
       this.loading = true;
       this.dynamicLoaded = false;
@@ -112,17 +142,22 @@ export function registerTagsExplorer(Alpine) {
           }));
         } catch { /* ignore */ }
 
-        if (controller.signal.aborted) return;
-        this.renderDynamicPosts(items, total, displayName);
+        if (controller.signal.aborted || generation !== this._selectionGeneration) return;
+        this.renderDynamicPosts(items, total, displayName, generation);
       } catch (err) {
         if (err?.name === 'AbortError') return;
+        if (generation !== this._selectionGeneration) return;
         this.loading = false;
         this.dynamicLoaded = true;
         this.dynamicPosts = [];
+      } finally {
+        if (this.fetchController === controller) this.fetchController = null;
       }
     },
 
-    renderDynamicPosts(items, total, parentName) {
+    renderDynamicPosts(items, total, parentName, generation = this._selectionGeneration) {
+      if (generation !== this._selectionGeneration) return;
+      this._showingSsr = false;
       this.loading = false;
       this.dynamicLoaded = true;
       this.postTotal = total;
@@ -170,8 +205,13 @@ export function registerTagsExplorer(Alpine) {
 
       const activeTagHref = this.activeTagHref;
 
-      renderBatch(listEl, htmlItems, {
+      this._renderJob?.cancel();
+      let renderJob = null;
+      renderJob = renderBatch(listEl, htmlItems, {
+        isCurrent: () => generation === this._selectionGeneration,
         onComplete: () => {
+          if (generation !== this._selectionGeneration) return;
+          if (this._renderJob === renderJob) this._renderJob = null;
           listEl.style.display = '';
 
           const existingOverflow = listEl.parentElement?.querySelector('.tags-post-overflow');
@@ -203,6 +243,7 @@ export function registerTagsExplorer(Alpine) {
           if (previewScroll) previewScroll.scrollTop = 0;
         }
       });
+      this._renderJob = renderJob.completed ? null : renderJob;
     },
 
     selectPost(el) {
@@ -229,6 +270,9 @@ export function registerTagsExplorer(Alpine) {
     },
 
     destroy() {
+      this._selectionGeneration += 1;
+      this._renderJob?.cancel();
+      this._renderJob = null;
       if (this.fetchController) {
         this.fetchController.abort();
         this.fetchController = null;

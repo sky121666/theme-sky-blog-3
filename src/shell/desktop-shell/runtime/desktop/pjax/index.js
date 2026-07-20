@@ -53,9 +53,24 @@ import {
   closeTransientNavigationUi,
   clearTransientNavigationUi
 } from './navigation-ui.js';
-import { preparePluginCompatibilityFromResponse } from '../../shared/plugin-compat.js';
+import {
+  discardStagedOnlineMonitorHistoryState,
+  preparePluginCompatibilityFromResponse
+} from '../../shared/plugin-compat.js';
+import { syncHomeDesktopWidgetProtocolFromResponse } from '../../widgets/protocol.js';
+import {
+  createBrowserNavigationOwnership,
+  createNavigationCoordinator,
+  isFullNavigationCompletionCurrent,
+  isCurrentNavigationIntent,
+  isNavigationAbort,
+  isPlainPrimaryNavigationEvent,
+  resolveNavigationHref,
+  runNonFatalNavigationHook
+} from './navigation-guard.js';
 
 const { log: pjaxLog, warn: pjaxWarn } = createLogger('pjax');
+const NAVIGATION_INTENT_OPTION = '__themeNavigationIntent';
 
 function parsePageModeFromResponse(html) {
   if (!html) return '';
@@ -181,26 +196,24 @@ function pushBrowserNavState(index, title, url, chromeOverrides = {}) {
     scrollPos: [0, 0]
   });
   window.history.pushState(nextState, nextState.title, nextState.url);
-  if (window.pjax) {
-    window.pjax.lastUid = uid;
-    window.pjax.maxUid = uid;
+  try {
+    if (window.pjax) {
+      window.pjax.lastUid = uid;
+      window.pjax.maxUid = uid;
+    }
+  } catch (_error) {
+    // The browser entry is already committed. Optional Pjax cursor metadata
+    // must never turn that success into a fallback and a duplicate entry.
   }
 }
 
-function resolveNavigationHref(request, href) {
-  if (typeof href === 'string' && href) return href;
-  if (request?.responseURL) return request.responseURL;
-
+function hardNavigate(url) {
+  const target = String(url || window.location.href);
   try {
-    const pjaxUrl = request?.getResponseHeader?.('X-PJAX-URL');
-    if (pjaxUrl) return pjaxUrl;
-    const redirectedTo = request?.getResponseHeader?.('X-XHR-Redirected-To');
-    if (redirectedTo) return redirectedTo;
-  } catch (_e) {
-    // Ignore header access failures and fall through to current location.
+    window.location.assign(target);
+  } catch (_error) {
+    window.location.href = target;
   }
-
-  return window.location.href;
 }
 
 function syncBrowserNavDepth(index) {
@@ -497,6 +510,10 @@ export function initPjax(Alpine) {
     // Non-200 responses: full-page redirect to show dedicated error page.
     const _origHandleResponse = pjax.handleResponse.bind(pjax);
     pjax.handleResponse = function(responseText, request, href, options) {
+      if (!isCurrentNavigationIntent(options?.[NAVIGATION_INTENT_OPTION], navigationIntentGeneration)) {
+        pjaxLog('handleResponse: ignored stale navigation response');
+        return;
+      }
       const fallbackHref = resolveNavigationHref(request, href);
       if (responseText === null && request && request.status >= 400) {
         pjaxWarn('handleResponse: status', request.status, '→ full redirect', fallbackHref);
@@ -510,7 +527,14 @@ export function initPjax(Alpine) {
         window.location = fallbackHref;
         return;
       }
-      preparePluginCompatibilityFromResponse(responseText);
+      // The desktop surface is persistent and lives outside Pjax's selector.
+      // Install the inert home response protocol before Pjax starts switching
+      // DOM so every pjax:complete listener observes fully hydrated data.
+      syncHomeDesktopWidgetProtocolFromResponse(responseText);
+      preparePluginCompatibilityFromResponse(responseText, {
+        stageOnlineHistory: options?.history !== false,
+        targetUrl: fallbackHref
+      });
       _origHandleResponse(responseText, request, href, options);
     };
 
@@ -527,20 +551,66 @@ export function initPjax(Alpine) {
     window.pjax = pjax;
     pjaxLog('init: Pjax created, #window-frame-root exists:', !!document.getElementById('window-frame-root'));
 
+    const sameVariantCoordinator = createNavigationCoordinator();
+    const browserNavigationOwnership = createBrowserNavigationOwnership();
+    let _sameVariantLoadingController = null;
+    let _pjaxLoadingController = null;
+    let _fullPjaxGeneration = 0;
+    let navigationIntentGeneration = 0;
+
     const _origLoadUrl = pjax.loadUrl.bind(pjax);
     pjax.loadUrl = function(url, options = {}) {
+      const intentGeneration = ++navigationIntentGeneration;
+      const isPopstateIntent = options?.history === false;
+      browserNavigationOwnership.begin(intentGeneration, { popstate: isPopstateIntent });
+      window._browserPopstatePending = isPopstateIntent;
+      window._browserForwardNavPending = false;
+      _fullPjaxGeneration += 1;
+      sameVariantCoordinator.cancel();
+      _sameVariantLoadingController?.finish({ immediate: true });
+      _sameVariantLoadingController = null;
+      _pjaxLoadingController?.finish({ immediate: true });
+      _pjaxLoadingController = null;
+      const staleFullContainer = document.getElementById('window-frame-root');
+      staleFullContainer?.classList.remove('pjax-loading');
+      clearBusyState(staleFullContainer);
       closeTransientNavigationUi();
+      // A newer navigation must cancel both an in-flight XHR and an older
+      // app-asset gate. Otherwise a slow app bundle can start a stale request
+      // after the user has already chosen another destination.
+      pjax.abortRequest(pjax.request);
       const targetApp = inferPageAppForNavigation(url, options?.triggerElement || null);
+      startTopProgress();
       return ensureAppAssetsLoaded(targetApp)
-        .catch(() => {})
-        .then(() => _origLoadUrl(url, options));
+        .then(() => {
+          if (intentGeneration !== navigationIntentGeneration) return false;
+          return _origLoadUrl(url, {
+            ...options,
+            requestOptions: {
+              ...(options?.requestOptions || {}),
+              requestUrl: options?.requestOptions?.requestUrl || String(url)
+            },
+            [NAVIGATION_INTENT_OPTION]: intentGeneration
+          });
+        })
+        .catch((error) => {
+          if (intentGeneration !== navigationIntentGeneration) return false;
+          browserNavigationOwnership.release(intentGeneration);
+          window._browserPopstatePending = false;
+          window._browserForwardNavPending = false;
+          pjaxWarn('app assets failed before navigation:', targetApp || '-', error?.message || error, '→ hard navigation');
+          stopTopProgress();
+          hardNavigate(url);
+          return false;
+        });
     };
 
     initializeBrowserNavDepth();
     installBrowserNavHelpers();
 
     window.addEventListener('popstate', (event) => {
-      window._browserPopstatePending = true;
+      window._browserPopstatePending = browserNavigationOwnership.isPopstate(navigationIntentGeneration);
+      window._browserForwardNavPending = false;
       const stateIndex = readBrowserNavIndexFromState(event.state);
       syncBrowserNavDepth(stateIndex ?? 0);
       applyBrowserNavChromeState(event.state);
@@ -561,13 +631,9 @@ export function initPjax(Alpine) {
         for (const mutation of mutations) {
           for (const node of mutation.addedNodes) {
             if (node.nodeType !== Node.ELEMENT_NODE) continue;
-            if (node.querySelectorAll) {
-              const unattached = node.querySelectorAll(`a.pjax-link[href]:not([${ATTACHED}])`);
-              if (!unattached.length) continue;
-              attachDynamicLinks(node);
-            } else if (node.tagName === 'A' && !node.hasAttribute(ATTACHED)) {
-              attachDynamicLinks(node.parentElement);
-            }
+            const isUnattachedLink = node.matches?.(`a.pjax-link[href]:not([${ATTACHED}])`);
+            const hasUnattachedLinks = node.querySelector?.(`a.pjax-link[href]:not([${ATTACHED}])`);
+            if (isUnattachedLink || hasUnattachedLinks) attachDynamicLinks(node);
           }
         }
       });
@@ -577,60 +643,83 @@ export function initPjax(Alpine) {
 
     // ── Same-variant content-level navigation ──
 
-    let _sameVariantPending = false;
-    let _pjaxLoadingController = null;
-
     /**
      * Navigate within the same window variant — replace only the content root,
      * keep the window frame (titlebar, traffic lights, toolbar) intact.
      */
     async function navigateWithinVariant(targetUrl) {
-      if (_sameVariantPending) return false;
-      _sameVariantPending = true;
+      const intentGeneration = ++navigationIntentGeneration;
+      browserNavigationOwnership.begin(intentGeneration);
+      _fullPjaxGeneration += 1;
+      pjax.abortRequest(pjax.request);
+      _pjaxLoadingController?.finish({ immediate: true });
+      _pjaxLoadingController = null;
+      const staleFullContainer = document.getElementById('window-frame-root');
+      staleFullContainer?.classList.remove('pjax-loading');
+      clearBusyState(staleFullContainer);
+      window._browserForwardNavPending = false;
+      window._browserPopstatePending = false;
+
+      const previousLoadingController = _sameVariantLoadingController;
+      previousLoadingController?.finish({ immediate: true });
+
+      const navigation = sameVariantCoordinator.begin();
+      const isCurrentNavigation = () => intentGeneration === navigationIntentGeneration
+        && sameVariantCoordinator.isCurrent(navigation);
+      window._sameVariantJustCompleted = false;
 
       perfMark('navStart');
 
       const contentRoot = document.querySelector('[data-window-content-root]');
       if (!contentRoot) {
-        _sameVariantPending = false;
+        sameVariantCoordinator.finish(navigation);
+        stopTopProgress();
+        clearTransientNavigationUi();
         return false;
       }
 
       const loadingController = showOverlay(contentRoot);
+      _sameVariantLoadingController = loadingController;
       const useTopProgress = !hasLoadingOverlay(loadingController);
+      let navigationSucceeded = false;
+      let shouldFallback = false;
+      let finalizedCurrentNavigation = false;
+      let completionDetail = null;
       perfMark('overlayVisible');
       if (useTopProgress) {
         startTopProgress();
+      } else {
+        stopTopProgress();
       }
 
       document.dispatchEvent(new CustomEvent('pjax:same-variant-send', { detail: { targetUrl: targetUrl } }));
 
       try {
-        // Start loading the target app assets as early as possible.
         const targetApp = inferPageAppForNavigation(targetUrl);
-        await ensureAppAssetsLoaded(targetApp);
+        const [resp] = await Promise.all([
+          fetch(targetUrl, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            signal: navigation.signal
+          }),
+          ensureAppAssetsLoaded(targetApp)
+        ]);
 
-        const resp = await fetch(targetUrl, {
-          headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        });
+        if (!isCurrentNavigation()) {
+          throw new DOMException('Navigation superseded', 'AbortError');
+        }
 
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
         const html = await resp.text();
-        preparePluginCompatibilityFromResponse(html);
+        if (!isCurrentNavigation()) {
+          throw new DOMException('Navigation superseded', 'AbortError');
+        }
 
         // Verify same variant — if variant changed, fall back to full PJAX
         const targetVariant = parseWindowVariantFromResponse(html);
         const currentVariant = document.body.dataset.windowVariant || '';
         if (targetVariant && targetVariant !== currentVariant) {
-          pjaxLog('variant mismatch:', currentVariant, '->', targetVariant, '→ fallback');
-          await hideOverlay(contentRoot, loadingController, { immediate: true });
-          if (useTopProgress) {
-            stopTopProgress();
-          }
-          _sameVariantPending = false;
-          window.pjax.loadUrl(targetUrl);
-          return true;
+          throw new Error(`variant mismatch: ${currentVariant} -> ${targetVariant}`);
         }
 
         // Verify pageApp + pageMode compatibility via whitelist
@@ -641,14 +730,7 @@ export function initPjax(Alpine) {
 
         if (!isContentSwitchAllowed(currentApp, currentMode) ||
             !isContentSwitchAllowed(responseApp, responseMode)) {
-          pjaxLog('content switch not allowed:', currentApp, currentMode, '→', responseApp, responseMode, '→ fallback');
-          await hideOverlay(contentRoot, loadingController, { immediate: true });
-          if (useTopProgress) {
-            stopTopProgress();
-          }
-          _sameVariantPending = false;
-          window.pjax.loadUrl(targetUrl);
-          return true;
+          throw new Error(`content switch not allowed: ${currentApp}/${currentMode} -> ${responseApp}/${responseMode}`);
         }
 
         // Parse content from response
@@ -670,9 +752,19 @@ export function initPjax(Alpine) {
         const targetContentRoot = targetDoc.querySelector('[data-window-content-root]');
         const targetContainer = targetContentRoot?.querySelector('[data-window-content-variant]')
           || targetContentRoot?.querySelector('#pjax-container');
+
+        const nextApp = parsePageAppFromResponse(html) || targetApp;
+        await ensureAppAssetsLoaded(nextApp);
+        if (!isCurrentNavigation()) {
+          throw new DOMException('Navigation superseded', 'AbortError');
+        }
+
+        preparePluginCompatibilityFromResponse(html);
         const syncedTitlebar = syncWindowTitlebarFromDocument(targetDoc);
 
+        let contentSwapped = false;
         const performContentSwap = () => {
+          if (!isCurrentNavigation()) return;
           deactivateCurrentPageApp();
           if (targetContainer) {
             contentContainer.innerHTML = targetContainer.innerHTML;
@@ -683,6 +775,7 @@ export function initPjax(Alpine) {
           document.dispatchEvent(new CustomEvent('theme:content-swapped', {
             detail: { root: contentContainer, reason: 'same-variant' }
           }));
+          contentSwapped = true;
         };
         const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
         const canUseViewTransition = typeof document.startViewTransition === 'function'
@@ -695,14 +788,17 @@ export function initPjax(Alpine) {
           performContentSwap();
         }
 
+        if (!isCurrentNavigation()) {
+          throw new DOMException('Navigation superseded', 'AbortError');
+        }
+        if (!contentSwapped) {
+          throw new Error('Same-variant content swap did not complete');
+        }
+
         perfMark('contentSwap');
 
         // Sync state
         const nextNavIndex = getBrowserNavDepth() + 1;
-        syncBrowserNavDepth(nextNavIndex);
-
-        const nextApp = parsePageAppFromResponse(html) || targetApp;
-        await ensureAppAssetsLoaded(nextApp);
 
         syncSeoHeadFromResponse(html);
         syncBodyDatasetFromResponse(html);
@@ -741,9 +837,6 @@ export function initPjax(Alpine) {
           windowTitle: documentState.windowTitle || (isDetail ? '详情' : resolvedTitle),
           windowSubtitle: documentState.windowSubtitle || ''
         };
-        pushBrowserNavState(nextNavIndex, resolvedTitle, targetUrl, historyChrome);
-        syncBrowserNavDepth(nextNavIndex);
-
         // Sync back button fallback for scene change
         const backBtn = document.querySelector('.moments-titlebar-back');
         if (backBtn) {
@@ -755,7 +848,9 @@ export function initPjax(Alpine) {
 
         // Reinstall moments scroll listener for feed/detail scene change
         if (typeof window.__momentsScrollSetup === 'function') {
-          window.__momentsScrollSetup();
+          runNonFatalNavigationHook(window.__momentsScrollSetup, (error) => {
+            pjaxWarn('same-variant moments scroll setup failed:', error?.message || error);
+          });
         }
 
         // Performance logging
@@ -765,51 +860,87 @@ export function initPjax(Alpine) {
         perfMeasure('AlpineInitDone→pageReady', 'AlpineInitDone', 'pageReady');
         perfMeasure('total', 'navStart', 'pageReady');
 
-        if (useTopProgress) {
-          stopTopProgress();
-        }
-        await hideOverlay(contentRoot, loadingController);
+        completionDetail = {
+          targetUrl,
+          appId: nextApp,
+          root: contentContainer
+        };
 
-        document.dispatchEvent(new CustomEvent('pjax:same-variant-complete', {
-          detail: {
-            targetUrl,
-            appId: nextApp,
-            root: contentContainer
+        // Commit history last. Every hook that may throw has either completed
+        // above or is explicitly isolated as non-fatal, so a committed entry
+        // can never be followed by a full-PJAX fallback for the same intent.
+        pushBrowserNavState(nextNavIndex, resolvedTitle, targetUrl, historyChrome);
+        syncBrowserNavDepth(nextNavIndex);
+        navigationSucceeded = true;
+      } catch (err) {
+        if (isNavigationAbort(err, navigation, sameVariantCoordinator)) {
+          pjaxLog('same-variant navigation superseded:', targetUrl);
+        } else {
+          pjaxWarn('same-variant navigation failed:', err.message, '→ fallback');
+          shouldFallback = true;
+        }
+      } finally {
+        if (isCurrentNavigation()) {
+          await hideOverlay(contentRoot, loadingController, {
+            immediate: !navigationSucceeded
+          });
+
+          if (isCurrentNavigation()) {
+            if (useTopProgress) stopTopProgress();
+            finalizedCurrentNavigation = sameVariantCoordinator.finish(navigation);
+            if (_sameVariantLoadingController === loadingController) {
+              _sameVariantLoadingController = null;
+            }
+            clearTransientNavigationUi();
           }
+        }
+      }
+
+      if (navigationSucceeded && finalizedCurrentNavigation && completionDetail) {
+        document.dispatchEvent(new CustomEvent('pjax:same-variant-complete', {
+          detail: completionDetail
         }));
 
         pjaxLog('same-variant navigation complete:', targetUrl);
 
-        // Deferred re-scan: desktop widgets
         const surface = document.querySelector('.desktop-surface');
         if (surface) {
           setTimeout(() => attachDynamicLinks(surface), 200);
         }
-
-        _sameVariantPending = false;
         return true;
-      } catch (err) {
-        pjaxWarn('same-variant navigation failed:', err.message, '→ fallback');
-        await hideOverlay(contentRoot, loadingController, { immediate: true });
-        if (useTopProgress) {
-          stopTopProgress();
-        }
-        _sameVariantPending = false;
-        // Fallback to full PJAX
+      }
+
+      if (shouldFallback && finalizedCurrentNavigation) {
+        window._sameVariantJustCompleted = true;
         try {
           window._browserForwardNavPending = true;
           window.pjax.loadUrl(targetUrl);
         } catch (_e) {
-          window.location = targetUrl;
+          hardNavigate(targetUrl);
         }
         return true;
       }
+
+      return navigationSucceeded;
     }
 
     // ── Pjax events ──
 
     document.addEventListener("pjax:send", (event) => {
+      if (!isCurrentNavigationIntent(event?.[NAVIGATION_INTENT_OPTION], navigationIntentGeneration)) {
+        pjaxLog('event:send ignored for stale navigation');
+        return;
+      }
       pjaxLog('event:send', event.triggerElement?.href || '');
+      const eventIntent = Number(event?.[NAVIGATION_INTENT_OPTION]) > 0
+        ? Number(event[NAVIGATION_INTENT_OPTION])
+        : navigationIntentGeneration;
+      _fullPjaxGeneration += 1;
+      sameVariantCoordinator.cancel();
+      _sameVariantLoadingController?.finish({ immediate: true });
+      _sameVariantLoadingController = null;
+      _pjaxLoadingController?.finish({ immediate: true });
+      _pjaxLoadingController = null;
       closeTransientNavigationUi();
       deactivateCurrentPageApp();
       startTopProgress();
@@ -848,7 +979,7 @@ export function initPjax(Alpine) {
             targetUrl.search === window.location.search;
 
           if (isSameOrigin && !isSameDocumentRoute && !window._browserPopstatePending) {
-            window._browserForwardNavPending = true;
+            window._browserForwardNavPending = browserNavigationOwnership.markForward(eventIntent);
           }
         } catch (_e) {
           // Ignore malformed URLs from non-standard links.
@@ -857,76 +988,141 @@ export function initPjax(Alpine) {
     });
     
     document.addEventListener("pjax:complete", async (event) => {
-      stopTopProgress();
-
-      if (window._browserForwardNavPending && !window._browserPopstatePending) {
-        const nextNavIndex = getBrowserNavDepth() + 1;
-        syncBrowserNavDepth(nextNavIndex);
-        replaceBrowserNavState(nextNavIndex);
+      if (!isCurrentNavigationIntent(event?.[NAVIGATION_INTENT_OPTION], navigationIntentGeneration)) {
+        pjaxLog('event:complete ignored for stale navigation');
+        return;
       }
-      window._browserForwardNavPending = false;
-      window._browserPopstatePending = false;
-
-      const nextApp = parsePageAppFromResponse(event?.request?.responseText);
-      await ensureAppAssetsLoaded(nextApp);
-      syncSeoHeadFromResponse(event?.request?.responseText);
-      syncBodyDatasetFromResponse(event?.request?.responseText);
-      setCurrentPageApp(nextApp);
-      syncAppCss(nextApp);
-
+      const completionGeneration = _fullPjaxGeneration;
+      const completionIntentValue = event?.[NAVIGATION_INTENT_OPTION];
+      const completionIntent = Number(completionIntentValue) > 0
+        ? Number(completionIntentValue)
+        : navigationIntentGeneration;
+      const isCurrentCompletion = () => isFullNavigationCompletionCurrent({
+        completionGeneration,
+        currentGeneration: _fullPjaxGeneration,
+        completionIntent: completionIntentValue,
+        currentIntent: navigationIntentGeneration
+      });
+      const loadingController = _pjaxLoadingController;
       const container = document.getElementById('window-frame-root');
-      if (container) {
-        replayPjaxScripts(container);
-        runShikiExtraPathRenderer(event?.request?.responseText, container);
+      const responseText = event?.request?.responseText;
+      const fallbackHref = resolveNavigationHref(
+        event?.request,
+        event?.requestOptions?.requestUrl
+      );
+      let completionFailed = false;
 
-        if (window.Alpine?.initTree) {
-          window.Alpine.initTree(container);
+      try {
+        const nextApp = parsePageAppFromResponse(responseText);
+        await ensureAppAssetsLoaded(nextApp);
+        if (!isCurrentCompletion()) return;
+
+        syncSeoHeadFromResponse(responseText);
+        syncBodyDatasetFromResponse(responseText);
+        setCurrentPageApp(nextApp);
+        syncAppCss(nextApp);
+
+        if (container) {
+          replayPjaxScripts(container);
+          runShikiExtraPathRenderer(responseText, container);
+
+          if (window.Alpine?.initTree) {
+            window.Alpine.initTree(container);
+          }
+
+          attachDynamicLinks(container);
+
+          activatePageApp(nextApp, container, {
+            reason: 'pjax-complete',
+            documentTitle: document.title
+          });
+
+          // Deferred re-scan: desktop widgets re-render after pjax swap,
+          // stripping data-pjax-attached. Catch them once after settle.
+          const surface = document.querySelector('.desktop-surface');
+          if (surface) {
+            setTimeout(() => attachDynamicLinks(surface), 200);
+          }
         }
 
-        attachDynamicLinks(container);
-
-        activatePageApp(nextApp, container, {
-          reason: 'pjax-complete',
-          documentTitle: document.title
-        });
-
-        await _pjaxLoadingController?.finish();
-        _pjaxLoadingController = null;
-        container.classList.remove('pjax-loading');
-        clearBusyState(container);
-
-        // Deferred re-scan: desktop widgets re-render after pjax swap,
-        // stripping data-pjax-attached. Catch them once after settle.
-        const surface = document.querySelector('.desktop-surface');
-        if (surface) {
-          setTimeout(() => attachDynamicLinks(surface), 200);
-        }
-      }
-      
-      const windowManager = Alpine.store('windowManager');
-      const isHome = window.location.pathname === '/';
-
-      if (isHome) {
-        window.preventAutoOpen = false;
-        windowManager.showDesktop();
-      } else if (windowManager.minimized) {
-        window.preventAutoOpen = false;
-        windowManager.revealAfterNavigation(document.title);
-      } else if (window.preventAutoOpen) {
-        window.preventAutoOpen = false;
-      } else if (window._sameVariantJustCompleted) {
+        const windowManager = Alpine.store('windowManager');
+        const isHome = window.location.pathname === '/';
+        const suppressAutoOpen = window._sameVariantJustCompleted === true;
         window._sameVariantJustCompleted = false;
-      } else {
-        window.dispatchEvent(new CustomEvent('open-window'));
+
+        if (isHome) {
+          window.preventAutoOpen = false;
+          windowManager.showDesktop();
+        } else if (windowManager.minimized) {
+          window.preventAutoOpen = false;
+          windowManager.revealAfterNavigation(document.title);
+        } else if (window.preventAutoOpen) {
+          window.preventAutoOpen = false;
+        } else if (!suppressAutoOpen) {
+          window.dispatchEvent(new CustomEvent('open-window'));
+        }
+
+        if (!isCurrentCompletion()) return;
+        if (browserNavigationOwnership.shouldCommitForward(completionIntent)) {
+          const nextNavIndex = getBrowserNavDepth() + 1;
+          replaceBrowserNavState(nextNavIndex);
+          syncBrowserNavDepth(nextNavIndex);
+        }
+      } catch (error) {
+        if (isCurrentCompletion()) {
+          completionFailed = true;
+          pjaxWarn('event:complete failed:', error?.message || error, '→ hard navigation');
+        }
+      } finally {
+        if (isCurrentCompletion()) {
+          try {
+            await loadingController?.finish({ immediate: completionFailed });
+          } catch (_error) {
+            // Loading cleanup must not prevent the navigation fallback.
+          }
+
+          // A new intent can start while the overlay finish promise settles.
+          // Only the still-current owner may clear shared DOM/transient state.
+          if (isCurrentCompletion()) {
+            browserNavigationOwnership.release(completionIntent);
+            window._browserForwardNavPending = false;
+            window._browserPopstatePending = false;
+            window._sameVariantJustCompleted = false;
+            stopTopProgress();
+            if (_pjaxLoadingController === loadingController) {
+              _pjaxLoadingController = null;
+            }
+            container?.classList.remove('pjax-loading');
+            clearBusyState(container);
+            clearTransientNavigationUi();
+          }
+        }
       }
 
-      clearTransientNavigationUi();
+      if (completionFailed && isCurrentCompletion()) {
+        hardNavigate(fallbackHref);
+      }
     });
 
     document.addEventListener("pjax:error", (event) => {
+      if (!isCurrentNavigationIntent(event?.[NAVIGATION_INTENT_OPTION], navigationIntentGeneration)) {
+        pjaxLog('event:error ignored for stale navigation');
+        return;
+      }
       pjaxWarn('event:error', event.detail?.request?.status, event.detail?.error?.message);
+      const errorIntentValue = event?.[NAVIGATION_INTENT_OPTION];
+      const errorIntent = Number(errorIntentValue) > 0
+        ? Number(errorIntentValue)
+        : navigationIntentGeneration;
+      _fullPjaxGeneration += 1;
+      sameVariantCoordinator.cancel();
+      discardStagedOnlineMonitorHistoryState();
+      _sameVariantLoadingController?.finish({ immediate: true });
+      _sameVariantLoadingController = null;
+      browserNavigationOwnership.release(errorIntent);
       window._browserForwardNavPending = false;
       window._browserPopstatePending = false;
+      window._sameVariantJustCompleted = false;
       stopTopProgress();
       const container = document.getElementById('window-frame-root');
       if (container) {
@@ -941,6 +1137,7 @@ export function initPjax(Alpine) {
 
     // ── Same-variant capture handler (runs BEFORE Pjax click handler) ──
     document.addEventListener('click', (e) => {
+      if (!isPlainPrimaryNavigationEvent(e)) return;
       const link = e.target.closest('a[href]');
       if (!link || link.target || link.hasAttribute('download') || link.href.startsWith('javascript:')) return;
       if (!link.classList?.contains('pjax-link')) return;
@@ -968,7 +1165,6 @@ export function initPjax(Alpine) {
         e.preventDefault();
         e.stopImmediatePropagation();
         pjaxLog('same-variant intercept:', currentVariant, currentApp, currentMode, '→', targetApp, targetUrl.href);
-        window._sameVariantJustCompleted = true;
         navigateWithinVariant(targetUrl.href);
       }
     }, true); // capture phase
@@ -976,6 +1172,7 @@ export function initPjax(Alpine) {
     // ── Body click router (window manager integration) ──
 
     document.body.addEventListener('click', (e) => {
+      if (!isPlainPrimaryNavigationEvent(e)) return;
       const link = e.target.closest('a[href]');
       if (link && !link.target && !link.hasAttribute('download') && !link.href.startsWith('javascript:')) {
         const targetUrl = new URL(link.href, window.location.origin);

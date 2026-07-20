@@ -102,14 +102,16 @@ function firstLinkFromHtml(value = '') {
   return template.content.querySelector('a[href]')?.getAttribute('href') || '';
 }
 
-function normalizeInternalHref(value = '') {
+export function normalizeNotificationHref(value = '', baseOrigin = '') {
   const raw = String(value || '').trim();
   if (!raw) return '';
   try {
-    const url = new URL(raw, window.location.origin);
-    return url.origin === window.location.origin ? `${url.pathname}${url.search}${url.hash}` : raw;
+    const origin = new URL(baseOrigin || window.location.origin).origin;
+    const url = new URL(raw, `${origin}/`);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
+    return url.origin === origin ? `${url.pathname}${url.search}${url.hash}` : url.href;
   } catch (_error) {
-    return raw;
+    return '';
   }
 }
 
@@ -226,7 +228,7 @@ function normalizeNotification(item = {}) {
     icon: type.icon,
     title,
     body: compactNotificationBody(text, title),
-    href: normalizeInternalHref(firstLinkFromHtml(html)),
+    href: normalizeNotificationHref(firstLinkFromHtml(html)),
     unread: spec.unread === true,
     dismissed: false,
     createdAtMs,
@@ -373,6 +375,7 @@ export function registerWindowManager(Alpine) {
     notificationFilterSwitching: false,
     notificationFilterMotionToken: 0,
     notificationMarkingAllRead: false,
+    notificationOpenGeneration: 0,
     notificationWidgets: [],
     draggingWidgetKey: null,
     notificationWidgetDraftWidgets: null,
@@ -434,6 +437,11 @@ export function registerWindowManager(Alpine) {
       };
       this.handleNotificationWidgetsChange = (event) => {
         const beforeRects = this.captureNotificationWidgetRects();
+        // Widget HTML also depends on the persistent desktop protocol sources.
+        // A home-response hydration can keep the same widget instances while
+        // replacing all Finder/plugin data, so the old markup is not reusable.
+        this.notificationWidgetHtmlCache.clear();
+        this.notificationWidgetRenderTick += 1;
         this.syncNotificationWidgets(event.detail?.widgets, { beforeRects });
       };
       this.handleNotificationCenterOpen = () => {
@@ -487,6 +495,7 @@ export function registerWindowManager(Alpine) {
       });
     },
     destroy() {
+      this.notificationOpenGeneration += 1;
       window.removeEventListener('resize', this.handleResize);
       document.removeEventListener('pjax:complete', this.handlePjaxComplete);
       window.removeEventListener('theme-menubar-close', this.handleMenubarClose);
@@ -953,6 +962,8 @@ export function registerWindowManager(Alpine) {
       }
     },
     async openNotificationItem(item, event) {
+      const generation = ++this.notificationOpenGeneration;
+      const href = normalizeNotificationHref(item?.href, window.location.origin);
       if (!this.notificationShowRead && item.unread) {
         const card = event?.currentTarget?.closest('.notification-center-card');
         if (card) {
@@ -960,13 +971,15 @@ export function registerWindowManager(Alpine) {
         }
       }
       await this.markNotificationAsRead(item);
+      if (generation !== this.notificationOpenGeneration) return;
       this.closeNotificationCenter();
-      if (item.href) {
-        if (window.pjax?.loadUrl) {
-          window.pjax.loadUrl(item.href);
+      if (href) {
+        const url = new URL(href, window.location.origin);
+        if (url.origin === window.location.origin && window.pjax?.loadUrl) {
+          window.pjax.loadUrl(`${url.pathname}${url.search}${url.hash}`);
           return;
         }
-        window.location.href = item.href;
+        window.location.assign(url.href);
       }
     },
     captureNotificationWidgetRects() {
@@ -1213,6 +1226,11 @@ export function registerWindowManager(Alpine) {
             const root = this.$refs.notificationCenterPanel;
             if (!root) return;
             enhanceDoubanShowcaseWidgets(root);
+            if (root.querySelector('[data-tag-focus]')) {
+              void import('../../../../widgets/halo/random-tags/render.js')
+                .then((runtime) => runtime.ensureTagFocusRotation?.(root))
+                .catch(() => {});
+            }
           });
         });
       });
@@ -1305,12 +1323,19 @@ export function registerWindowManager(Alpine) {
       const rect = event.currentTarget.getBoundingClientRect();
       const markup = event.currentTarget.innerHTML;
 
+      try {
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+      } catch (_error) {
+        // The desktop drag engine also listens on window as a fallback.
+      }
+
       window.dispatchEvent(new CustomEvent('theme-notification-widget-drag-start', {
         detail: {
           source: 'notification-center',
           widget: { ...widget },
           clientX: event.clientX,
           clientY: event.clientY,
+          pointerId: event.pointerId ?? null,
           rect,
           markup
         }

@@ -6,9 +6,13 @@ const MAX_RAW_BYTES = 512 * KIB;
 const MAX_GZIP_BYTES = 100 * KIB;
 const REQUEST_TIMEOUT_MS = 20_000;
 const PLUGIN_BUDGET_ENV = 'PERF_MAX_PLUGIN_RESOURCES';
+const PLUGIN_REFERENCE_BUDGET_ENV = 'PERF_MAX_PLUGIN_RESOURCE_REFS';
+const IMAGE_BUDGET_ENV = 'PERF_MAX_IMAGES';
 const ROUTES_ENV = 'PERF_ROUTES';
 const OPTIONAL_ROUTES_ENV = 'PERF_OPTIONAL_ROUTES';
 const DEFAULT_PLUGIN_RESOURCE_BUDGET = 30;
+const DEFAULT_PLUGIN_REFERENCE_BUDGET = 60;
+const DEFAULT_IMAGE_BUDGET = 120;
 const DEFAULT_ROUTES = ['/', '/categories', '/moments'];
 
 function parseBaseUrl(value) {
@@ -19,11 +23,11 @@ function parseBaseUrl(value) {
   return url;
 }
 
-function parseOptionalBudget(value) {
+function parseBudget(value, envName, defaultValue) {
   const input = String(value || '').trim();
-  if (!input) return DEFAULT_PLUGIN_RESOURCE_BUDGET;
+  if (!input) return defaultValue;
   if (!/^\d+$/.test(input)) {
-    throw new Error(`${PLUGIN_BUDGET_ENV} 必须是非负整数，当前为 ${JSON.stringify(input)}`);
+    throw new Error(`${envName} 必须是非负整数，当前为 ${JSON.stringify(input)}`);
   }
   return Number.parseInt(input, 10);
 }
@@ -210,24 +214,56 @@ async function inspectRoute(baseUrl, route) {
   };
 }
 
-function collectFailures(result, pluginBudget) {
+function createFailure(route, metric, message) {
+  return { route, metric, message };
+}
+
+function collectFailures(result, budgets) {
   const failures = [];
   if (result.status !== 200) {
-    failures.push(`${result.route} HTTP 状态应为 200，实际为 ${result.status}`);
+    failures.push(createFailure(result.route, 'http-status', `${result.route} HTTP 状态应为 200，实际为 ${result.status}`));
   }
   if (result.rawBytes > MAX_RAW_BYTES) {
-    failures.push(`${result.route} 原始 HTML ${formatBytes(result.rawBytes)} 超过 ${formatBytes(MAX_RAW_BYTES)}`);
+    failures.push(createFailure(
+      result.route,
+      'raw-html',
+      `${result.route} 原始 HTML ${formatBytes(result.rawBytes)} 超过 ${formatBytes(MAX_RAW_BYTES)}`
+    ));
   }
   if (result.gzipBytes > MAX_GZIP_BYTES) {
-    failures.push(`${result.route} gzip HTML ${formatBytes(result.gzipBytes)} 超过 ${formatBytes(MAX_GZIP_BYTES)}`);
+    failures.push(createFailure(
+      result.route,
+      'gzip-html',
+      `${result.route} gzip HTML ${formatBytes(result.gzipBytes)} 超过 ${formatBytes(MAX_GZIP_BYTES)}`
+    ));
+  }
+  if (result.imageCount > budgets.imageCount) {
+    failures.push(createFailure(
+      result.route,
+      'images',
+      `${result.route} HTML 图片 ${result.imageCount} 张，超过 ${IMAGE_BUDGET_ENV}=${budgets.imageCount}`
+    ));
   }
   for (const image of result.unsafeImages) {
-    failures.push(`${result.route} 包含不允许的 img src: ${JSON.stringify(image.src)}`);
+    failures.push(createFailure(
+      result.route,
+      'unsafe-image',
+      `${result.route} 包含不允许的 img src: ${JSON.stringify(image.src)}`
+    ));
   }
-  if (pluginBudget !== null && result.pluginResources.unique.length > pluginBudget) {
-    failures.push(
-      `${result.route} 唯一插件资源 ${result.pluginResources.unique.length} 个，超过 ${PLUGIN_BUDGET_ENV}=${pluginBudget}`
-    );
+  if (result.pluginResources.unique.length > budgets.pluginUnique) {
+    failures.push(createFailure(
+      result.route,
+      'plugin-unique',
+      `${result.route} 唯一插件资源 ${result.pluginResources.unique.length} 个，超过 ${PLUGIN_BUDGET_ENV}=${budgets.pluginUnique}`
+    ));
+  }
+  if (result.pluginResources.references.length > budgets.pluginReferences) {
+    failures.push(createFailure(
+      result.route,
+      'plugin-references',
+      `${result.route} 插件资源引用 ${result.pluginResources.references.length} 次，超过 ${PLUGIN_REFERENCE_BUDGET_ENV}=${budgets.pluginReferences}`
+    ));
   }
   return failures;
 }
@@ -262,14 +298,34 @@ function printResult(result) {
 
 async function main() {
   const baseUrl = parseBaseUrl(process.env.PERF_BASE_URL);
-  const pluginBudget = parseOptionalBudget(process.env[PLUGIN_BUDGET_ENV]);
+  const budgets = {
+    pluginUnique: parseBudget(
+      process.env[PLUGIN_BUDGET_ENV],
+      PLUGIN_BUDGET_ENV,
+      DEFAULT_PLUGIN_RESOURCE_BUDGET
+    ),
+    pluginReferences: parseBudget(
+      process.env[PLUGIN_REFERENCE_BUDGET_ENV],
+      PLUGIN_REFERENCE_BUDGET_ENV,
+      DEFAULT_PLUGIN_REFERENCE_BUDGET
+    ),
+    imageCount: parseBudget(
+      process.env[IMAGE_BUDGET_ENV],
+      IMAGE_BUDGET_ENV,
+      DEFAULT_IMAGE_BUDGET
+    )
+  };
   const routes = parseRoutes(process.env[ROUTES_ENV]);
   const optionalRoutes = new Set(parseOptionalRoutes(process.env[OPTIONAL_ROUTES_ENV], routes));
   const failures = [];
 
   console.log(`HTML performance base URL: ${baseUrl}`);
   console.log(`Limits: raw <= ${formatBytes(MAX_RAW_BYTES)}, gzip <= ${formatBytes(MAX_GZIP_BYTES)}`);
-  console.log(`Plugin budget: <= ${pluginBudget} unique resources per route`);
+  console.log(`Image budget: <= ${budgets.imageCount} images per route`);
+  console.log(
+    `Plugin budget: <= ${budgets.pluginUnique} unique resources / `
+      + `<= ${budgets.pluginReferences} references per route`
+  );
   console.log(`Routes: ${routes.join(', ')}`);
   if (optionalRoutes.size) {
     console.log(`Optional routes (404 = skipped): ${[...optionalRoutes].join(', ')}`);
@@ -283,17 +339,26 @@ async function main() {
         console.log('  optional route not installed: skipped');
         continue;
       }
-      failures.push(...collectFailures(result, pluginBudget));
+      failures.push(...collectFailures(result, budgets));
     } catch (error) {
-      failures.push(`${route} 请求失败: ${error.message}`);
+      failures.push(createFailure(route, 'request', `${route} 请求失败: ${error.message}`));
       console.error(`\n[html-performance] ${route}\n  request failed: ${error.message}`);
     }
   }
 
   if (failures.length) {
     console.error('\nHTML performance verification failed:');
+    const failedRoutes = new Set(failures.map((failure) => failure.route));
+    const metricCounts = failures.reduce((counts, failure) => {
+      counts.set(failure.metric, (counts.get(failure.metric) || 0) + 1);
+      return counts;
+    }, new Map());
+    console.error(
+      `失败摘要: ${failures.length} 项，影响 ${failedRoutes.size}/${routes.length} 个路由；`
+      + [...metricCounts.entries()].map(([metric, count]) => `${metric}=${count}`).join(', ')
+    );
     for (const failure of failures) {
-      console.error(`- ${failure}`);
+      console.error(`- ${failure.message}`);
     }
     process.exitCode = 1;
     return;

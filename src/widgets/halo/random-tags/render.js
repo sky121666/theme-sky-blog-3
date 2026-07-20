@@ -17,6 +17,58 @@ const BG_POSITIONS = [
   { top: '82%', left: '40%' },
 ];
 
+let tagFocusTimer = null;
+const TAG_FOCUS_ROTATION_MS = 4_000;
+
+function rotateFocusedTags() {
+  const stages = Array.from(document.querySelectorAll('[data-tag-focus]'));
+  if (!stages.length) {
+    tagFocusTimer = null;
+    return;
+  }
+
+  let hasRotatableStage = false;
+  stages.forEach((stage) => {
+    const items = stage.querySelectorAll('.wg-tag-focus-item');
+    if (items.length < 2) return;
+    hasRotatableStage = true;
+
+    let focusIdx = -1;
+    items.forEach((el, index) => {
+      if (el.classList.contains('is-focus')) focusIdx = index;
+    });
+
+    const nextIdx = (focusIdx + 1) % items.length;
+    items.forEach((el, index) => {
+      el.classList.toggle('is-focus', index === nextIdx);
+    });
+  });
+
+  if (!hasRotatableStage) {
+    tagFocusTimer = null;
+    return;
+  }
+
+  tagFocusTimer = window.setTimeout(rotateFocusedTags, TAG_FOCUS_ROTATION_MS);
+}
+
+function scheduleTagFocusRotation() {
+  if (typeof document === 'undefined' || typeof window === 'undefined' || tagFocusTimer !== null) return;
+  tagFocusTimer = window.setTimeout(rotateFocusedTags, TAG_FOCUS_ROTATION_MS);
+}
+
+export function ensureTagFocusRotation(root = null) {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return false;
+  const scope = root || document;
+  const stage = scope.matches?.('[data-tag-focus]')
+    ? scope
+    : scope.querySelector?.('[data-tag-focus]');
+  if (!stage || tagFocusTimer !== null) return false;
+
+  scheduleTagFocusRotation();
+  return tagFocusTimer !== null;
+}
+
 export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}) {
   const isCompact = options.compact === true;
   const size = widget?.size || 'medium';
@@ -26,6 +78,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}
     if (!tags.length) {
       return '<div class="desktop-widget-empty">无标签</div>';
     }
+    scheduleTagFocusRotation();
 
     const itemsHTML = tags.map((tag, i) => {
       const pos = BG_POSITIONS[i % BG_POSITIONS.length];
@@ -100,23 +153,4 @@ export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}
   }
 
   return content;
-}
-
-if (typeof document !== 'undefined') {
-  setInterval(() => {
-    document.querySelectorAll('[data-tag-focus]').forEach((stage) => {
-      const items = stage.querySelectorAll('.wg-tag-focus-item');
-      if (items.length < 2) return;
-
-      let focusIdx = -1;
-      items.forEach((el, i) => {
-        if (el.classList.contains('is-focus')) focusIdx = i;
-      });
-
-      const nextIdx = (focusIdx + 1) % items.length;
-      items.forEach((el, i) => {
-        el.classList.toggle('is-focus', i === nextIdx);
-      });
-    });
-  }, 4000);
 }

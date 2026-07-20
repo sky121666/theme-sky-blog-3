@@ -52,10 +52,57 @@ async function readJson(response) {
   return response.json();
 }
 
-async function resolveCurrentUser(endpoint) {
+function throwIfAborted(signal) {
+  if (!signal?.aborted) return;
+  throw signal.reason instanceof Error
+    ? signal.reason
+    : new DOMException('操作已取消', 'AbortError');
+}
+
+function abortableDelay(duration, signal) {
+  throwIfAborted(signal);
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, duration);
+    function onAbort() {
+      window.clearTimeout(timer);
+      reject(signal.reason instanceof Error
+        ? signal.reason
+        : new DOMException('操作已取消', 'AbortError'));
+    }
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+function createTimedSignal(parentSignal, timeout = 30000) {
+  const controller = new AbortController();
+  const abortFromParent = () => {
+    controller.abort(parentSignal?.reason instanceof Error
+      ? parentSignal.reason
+      : new DOMException('操作已取消', 'AbortError'));
+  };
+  if (parentSignal?.aborted) abortFromParent();
+  else parentSignal?.addEventListener('abort', abortFromParent, { once: true });
+  const timer = window.setTimeout(() => {
+    controller.abort(new DOMException('请求超时', 'TimeoutError'));
+  }, timeout);
+  return {
+    signal: controller.signal,
+    cleanup() {
+      window.clearTimeout(timer);
+      parentSignal?.removeEventListener('abort', abortFromParent);
+    }
+  };
+}
+
+async function resolveCurrentUser(endpoint, signal) {
+  throwIfAborted(signal);
   const response = await fetch(new URL(endpoint, window.location.origin), {
     credentials: 'same-origin',
-    headers: { Accept: 'application/json' }
+    headers: { Accept: 'application/json' },
+    signal
   });
 
   if (response.status === 401 || response.status === 403 || response.redirected) {
@@ -113,14 +160,16 @@ function validateFile(file, enabled) {
   return { valid: true, category };
 }
 
-async function uploadFile(file, category, endpoint) {
+async function uploadFile(file, category, endpoint, signal) {
+  throwIfAborted(signal);
   const form = new FormData();
   form.append('file', file);
 
   const response = await fetch(new URL(endpoint, window.location.origin), {
     method: 'POST',
     credentials: 'same-origin',
-    body: form
+    body: form,
+    signal
   });
 
   if (!response.ok) {
@@ -134,10 +183,11 @@ async function uploadFile(file, category, endpoint) {
 
   if (!url && attachment?.metadata?.name) {
     for (let index = 0; index < 5; index += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 450));
+      await abortableDelay(450, signal);
       const check = await fetch(`/api/v1alpha1/attachments/${encodeURIComponent(attachment.metadata.name)}`, {
         credentials: 'same-origin',
-        headers: { Accept: 'application/json' }
+        headers: { Accept: 'application/json' },
+        signal
       });
       if (check.ok) {
         const updated = await readJson(check);
@@ -185,7 +235,7 @@ function renderTags(container, tags) {
   )).join('');
 }
 
-async function publishMoment({ endpoint, owner, content, tags, media }) {
+async function publishMoment({ endpoint, owner, content, tags, media, signal }) {
   const raw = content.trim();
   const safeTags = tags.map(sanitizeTag).filter(Boolean).slice(0, 10);
   const safeMedia = media.filter((item) => item && isSafeUrl(item.url) && ['PHOTO', 'VIDEO', 'AUDIO'].includes(item.type));
@@ -219,13 +269,19 @@ async function publishMoment({ endpoint, owner, content, tags, media }) {
     }));
   }
 
-  const response = await fetch(new URL(endpoint, window.location.origin), {
-    method: 'POST',
-    credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout?.(30000)
-  });
+  const timed = createTimedSignal(signal, 30000);
+  let response;
+  try {
+    response = await fetch(new URL(endpoint, window.location.origin), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(payload),
+      signal: timed.signal
+    });
+  } finally {
+    timed.cleanup();
+  }
 
   if (!response.ok) {
     if (response.status === 401 || response.status === 403) throw new Error('无权限发布');
@@ -252,7 +308,7 @@ export function setupMomentPublish(root = document) {
       portalHost.appendChild(dialog);
     }
 
-    const openButtons = Array.from(document.querySelectorAll('[data-moments-publish-open]'));
+    const openButtons = Array.from((portalHost || document).querySelectorAll('[data-moments-publish-open]'));
     const form = dialog.querySelector('[data-moments-publish-form]');
     const closeButton = dialog.querySelector('[data-moments-publish-close]');
     const textarea = dialog.querySelector('[data-moments-publish-content]');
@@ -287,6 +343,40 @@ export function setupMomentPublish(root = document) {
     let uploadCategory = 'image';
     let isBusy = false;
     let disposed = false;
+    let operationGeneration = 0;
+    let activeOperation = null;
+    let redirectTimer = null;
+    let closingAfterSuccess = false;
+    const lifecycleController = new AbortController();
+
+    function abortActiveOperation() {
+      operationGeneration += 1;
+      activeOperation?.controller.abort(new DOMException('操作已取消', 'AbortError'));
+      activeOperation = null;
+    }
+
+    function beginOperation(type) {
+      abortActiveOperation();
+      const operation = {
+        type,
+        generation: operationGeneration,
+        controller: new AbortController()
+      };
+      activeOperation = operation;
+      return operation;
+    }
+
+    function isCurrentOperation(operation) {
+      return !disposed
+        && dialog.isConnected
+        && activeOperation === operation
+        && operation.generation === operationGeneration
+        && !operation.controller.signal.aborted;
+    }
+
+    function finishOperation(operation) {
+      if (activeOperation === operation) activeOperation = null;
+    }
 
     function setStatus(message = '', tone = '') {
       if (!status) return;
@@ -322,6 +412,7 @@ export function setupMomentPublish(root = document) {
       media = [];
       tags = [];
       if (textarea) textarea.value = '';
+      if (fileInput) fileInput.value = '';
       if (tagInput) tagInput.value = '';
       if (tagRow) tagRow.hidden = true;
       if (emojiPanel) emojiPanel.hidden = true;
@@ -332,9 +423,12 @@ export function setupMomentPublish(root = document) {
       updateSubmitState();
     }
 
-    async function ensureUser() {
+    async function ensureUser(signal = lifecycleController.signal) {
+      throwIfAborted(signal);
       if (currentUser) return currentUser;
-      const user = await resolveCurrentUser(endpoints.user);
+      const user = await resolveCurrentUser(endpoints.user, signal);
+      throwIfAborted(signal);
+      if (disposed) throw new DOMException('组件已销毁', 'AbortError');
       currentUser = user;
       if (account) account.textContent = `发布为 ${user.displayName || user.name}`;
       return user;
@@ -345,7 +439,7 @@ export function setupMomentPublish(root = document) {
         button.hidden = true;
       });
       try {
-        await ensureUser();
+        await ensureUser(lifecycleController.signal);
         if (disposed) return;
         openButtons.forEach((button) => {
           button.hidden = false;
@@ -362,21 +456,41 @@ export function setupMomentPublish(root = document) {
       event?.preventDefault();
       try {
         setStatus('正在检查登录状态...');
-        await ensureUser();
+        await ensureUser(lifecycleController.signal);
+        if (disposed) return;
         setStatus('');
         if (typeof dialog.show === 'function') dialog.show();
         else dialog.setAttribute('open', '');
         requestAnimationFrame(() => textarea?.focus());
       } catch (error) {
+        if (disposed || error?.name === 'AbortError') return;
         setStatus(error.message || '无法打开发布窗口', 'error');
         if (typeof dialog.show === 'function') dialog.show();
         else dialog.setAttribute('open', '');
       }
     }
 
-    function closeDialog() {
-      dialog.close?.();
-      dialog.removeAttribute('open');
+    function closeDialog({ afterSuccess = false } = {}) {
+      closingAfterSuccess = afterSuccess;
+      if (dialog.open && typeof dialog.close === 'function') {
+        dialog.close();
+      } else {
+        dialog.removeAttribute('open');
+        onDialogClose();
+      }
+    }
+
+    function onCloseButton(event) {
+      event?.preventDefault();
+      closeDialog();
+    }
+
+    function onDialogClose() {
+      const completedSuccessfully = closingAfterSuccess;
+      closingAfterSuccess = false;
+      if (!completedSuccessfully) abortActiveOperation();
+      setBusy(false);
+      reset();
     }
 
     function chooseMedia(event) {
@@ -390,6 +504,7 @@ export function setupMomentPublish(root = document) {
     async function onFileChange(event) {
       const files = Array.from(event.target.files || []);
       if (!files.length) return;
+      const operation = beginOperation('upload');
       setBusy(true, '上传中...');
       setStatus('正在上传媒体...');
       const errors = [];
@@ -400,11 +515,21 @@ export function setupMomentPublish(root = document) {
           continue;
         }
         try {
-          media.push(await uploadFile(file, validation.category || uploadCategory, endpoints.upload));
+          const uploaded = await uploadFile(
+            file,
+            validation.category || uploadCategory,
+            endpoints.upload,
+            operation.controller.signal
+          );
+          if (!isCurrentOperation(operation)) return;
+          media.push(uploaded);
         } catch (error) {
+          if (error?.name === 'AbortError' || !isCurrentOperation(operation)) return;
           errors.push(`${file.name}: ${error.message}`);
         }
       }
+      if (!isCurrentOperation(operation)) return;
+      finishOperation(operation);
       renderMedia(preview, media);
       updateSubmitState();
       setStatus(errors.length ? `部分文件上传失败：${errors.join('；')}` : '', errors.length ? 'error' : '');
@@ -484,21 +609,28 @@ export function setupMomentPublish(root = document) {
         return;
       }
 
+      const operation = beginOperation('publish');
       try {
         setBusy(true, '发布中...');
         setStatus('正在发布...');
-        const user = await ensureUser();
+        const user = await ensureUser(operation.controller.signal);
+        if (!isCurrentOperation(operation)) return;
         await publishMoment({
           endpoint: endpoints.moment,
           owner: user.name,
           content,
-          tags,
-          media
+          tags: [...tags],
+          media: [...media],
+          signal: operation.controller.signal
         });
+        if (!isCurrentOperation(operation)) return;
+        finishOperation(operation);
         setStatus('发布成功，正在刷新列表...');
         reset();
-        closeDialog();
-        setTimeout(() => {
+        closeDialog({ afterSuccess: true });
+        redirectTimer = window.setTimeout(() => {
+          redirectTimer = null;
+          if (disposed || lifecycleController.signal.aborted) return;
           if (window.pjax?.loadUrl) {
             window.pjax.loadUrl('/moments');
           } else {
@@ -506,14 +638,18 @@ export function setupMomentPublish(root = document) {
           }
         }, 250);
       } catch (error) {
+        if (error?.name === 'AbortError' || !isCurrentOperation(operation)) return;
         setStatus(error.message || '发布失败', 'error');
       } finally {
-        setBusy(false);
+        if (isCurrentOperation(operation)) {
+          finishOperation(operation);
+          setBusy(false);
+        }
       }
     }
 
     openButtons.forEach((button) => button.addEventListener('click', openDialog));
-    closeButton?.addEventListener('click', closeDialog);
+    closeButton?.addEventListener('click', onCloseButton);
     textarea?.addEventListener('input', updateCounter);
     fileInput?.addEventListener('change', onFileChange);
     form?.addEventListener('submit', onSubmit);
@@ -523,7 +659,7 @@ export function setupMomentPublish(root = document) {
     tagAdd?.addEventListener('click', addTag);
     tagInput?.addEventListener('keydown', onTagInputKeydown);
     dialog.addEventListener('click', onDialogClick);
-    dialog.addEventListener('close', reset);
+    dialog.addEventListener('close', onDialogClose);
     if (emojiPanel) {
       emojiPanel.innerHTML = EMOJI_PRESETS.map((emoji) => (
         `<button type="button" class="moments-publish-emoji" data-moments-publish-emoji="${emoji}" aria-label="插入 ${emoji}">${emoji}</button>`
@@ -532,10 +668,21 @@ export function setupMomentPublish(root = document) {
     updateCounter();
     syncPublishVisibility();
 
+    let cleaned = false;
     const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
       disposed = true;
+      lifecycleController.abort(new DOMException('组件已销毁', 'AbortError'));
+      abortActiveOperation();
+      if (redirectTimer !== null) {
+        window.clearTimeout(redirectTimer);
+        redirectTimer = null;
+      }
+      closingAfterSuccess = false;
+      if (dialog.open) closeDialog();
       openButtons.forEach((button) => button.removeEventListener('click', openDialog));
-      closeButton?.removeEventListener('click', closeDialog);
+      closeButton?.removeEventListener('click', onCloseButton);
       textarea?.removeEventListener('input', updateCounter);
       fileInput?.removeEventListener('change', onFileChange);
       form?.removeEventListener('submit', onSubmit);
@@ -545,8 +692,10 @@ export function setupMomentPublish(root = document) {
       tagAdd?.removeEventListener('click', addTag);
       tagInput?.removeEventListener('keydown', onTagInputKeydown);
       dialog.removeEventListener('click', onDialogClick);
-      dialog.removeEventListener('close', reset);
-      dialog._momentsPublishCleanup = null;
+      dialog.removeEventListener('close', onDialogClose);
+      if (dialog._momentsPublishCleanup === cleanup) {
+        dialog._momentsPublishCleanup = null;
+      }
     };
 
     dialog._momentsPublishCleanup = cleanup;

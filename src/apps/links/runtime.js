@@ -11,9 +11,11 @@ function normalizeText(value) {
   return String(value || '').trim().toLowerCase();
 }
 
-function normalizeUrl(value) {
+export function normalizeUrl(value) {
   try {
-    return new URL(String(value || '').trim()).toString();
+    const url = new URL(String(value || '').trim());
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
+    return url.toString();
   } catch {
     return '';
   }

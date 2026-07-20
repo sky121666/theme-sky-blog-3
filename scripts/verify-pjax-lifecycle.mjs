@@ -353,13 +353,17 @@ async function main() {
     const baseline = await countWindowResizeListeners(cdp, 'baseline');
     const baselineFloatingScrollbars = await assertFloatingScrollbarState(page, '基线');
     const shellCssRequests = [];
+    const mainDocumentRequests = [];
     onRequest = (request) => {
-      if (!isShellCoreStyleRequest(request.url())) return;
-      shellCssRequests.push({
+      const requestRecord = {
         url: request.url(),
         method: request.method(),
         resourceType: request.resourceType()
-      });
+      };
+      if (isShellCoreStyleRequest(request.url())) shellCssRequests.push(requestRecord);
+      if (request.resourceType() === 'document' && request.frame() === page.mainFrame()) {
+        mainDocumentRequests.push(requestRecord);
+      }
     };
     page.on('request', onRequest);
 
@@ -371,6 +375,8 @@ async function main() {
 
     for (const target of ['/', '/categories']) {
       const stage = `full-pjax:${target}`;
+      const requestStartIndex = shellCssRequests.length;
+      const documentRequestStartIndex = mainDocumentRequests.length;
       await navigateWithPjax(page, target);
       await assertUniqueShellStyle(page, stage, shellStyleHref);
       await assertFloatingScrollbarState(
@@ -378,11 +384,22 @@ async function main() {
         stage,
         target === '/categories' ? baselineFloatingScrollbars.snapshot.initialized : null
       );
+      const stageRequests = shellCssRequests.slice(requestStartIndex);
+      assert(
+        stageRequests.length === 0,
+        `${stage}: PJAX 期间产生 shell-core CSS 请求：${JSON.stringify(stageRequests)}`
+      );
+      const stageDocumentRequests = mainDocumentRequests.slice(documentRequestStartIndex);
+      assert(
+        stageDocumentRequests.length === 0,
+        `${stage}: PJAX 期间发生主文档请求（疑似 hard reload）：${JSON.stringify(stageDocumentRequests)}`
+      );
     }
 
     for (let cycle = 1; cycle <= cycleCount; cycle += 1) {
       for (const target of ['/tags', '/categories']) {
         const stage = `cycle ${cycle}/${cycleCount}:${target}`;
+        const requestStartIndex = shellCssRequests.length;
         await navigateSameVariantByClick(page, target);
         await assertUniqueShellStyle(page, stage, shellStyleHref);
         const floatingScrollbars = await assertFloatingScrollbarState(
@@ -401,9 +418,10 @@ async function main() {
           sample.count <= baseline.count,
           `${stage}: window resize listener 从基线 ${baseline.count} 增长到 ${sample.count}；来源=${JSON.stringify(sample.sources)}`
         );
+        const stageRequests = shellCssRequests.slice(requestStartIndex);
         assert(
-          shellCssRequests.length === 0,
-          `${stage}: PJAX 期间产生 shell-core CSS 请求：${JSON.stringify(shellCssRequests)}`
+          stageRequests.length === 0,
+          `${stage}: PJAX 期间产生 shell-core CSS 请求：${JSON.stringify(stageRequests)}`
         );
       }
     }
@@ -414,6 +432,7 @@ async function main() {
       `最终 /categories 的 window resize listener 应回到基线 ${baseline.count}，实际 ${finalSample.count}`
     );
     assert(shellCssRequests.length === 0, `PJAX 期间产生 shell-core CSS 请求：${JSON.stringify(shellCssRequests)}`);
+    assert(mainDocumentRequests.length === 0, `PJAX 期间发生主文档请求：${JSON.stringify(mainDocumentRequests)}`);
     const finalFloatingScrollbars = await assertFloatingScrollbarState(
       page,
       '最终 /categories',
@@ -429,6 +448,7 @@ async function main() {
       `resizeListeners=${baseline.count}`,
       `floatingScrollbars=${finalFloatingScrollbars.snapshot.initialized}/${finalFloatingScrollbars.snapshot.connected}`,
       'shellCoreCssRequests=0',
+      'mainDocumentRequests=0',
       `samples=${samples.length}`
     ].join(' | '));
   } finally {

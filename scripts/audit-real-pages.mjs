@@ -5,6 +5,7 @@ import { chromium } from 'playwright';
 const root = process.cwd();
 const baseUrl = (process.env.AUDIT_BASE_URL || process.env.SMOKE_BASE_URL || process.env.HALO_BASE_URL || 'http://localhost:8090').replace(/\/$/, '');
 const outputDir = path.join(root, 'output', 'audit');
+const localAssetManifestFile = path.join(root, 'templates', 'assets', 'asset-manifest.json');
 const requirePluginRoutes = /^(?:1|true)$/i.test(String(process.env.AUDIT_REQUIRE_PLUGIN_ROUTES || '').trim());
 const knownStaleContentUrls = new Set([
   'http://192.168.1.23:8090/upload/5BB751C4-JdQx.JPEG',
@@ -50,6 +51,69 @@ const watchedResources = [
 
 function absoluteUrl(target) {
   return new URL(target, `${baseUrl}/`).toString();
+}
+
+function realChromeUserAgent(browser) {
+  const version = String(browser.version() || '').trim() || '142.0.0.0';
+  return `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${version} Safari/537.36`;
+}
+
+function assetManifestPath(manifest) {
+  const shellAsset = String(manifest?.['shell-core']?.js?.[0] || '');
+  const marker = '/assets/';
+  const markerIndex = shellAsset.indexOf(marker);
+  if (markerIndex < 0) {
+    throw new Error('本地 asset-manifest 缺少可解析的 shell-core 资源路径');
+  }
+  return `${shellAsset.slice(0, markerIndex + marker.length)}asset-manifest.json`;
+}
+
+function readAssetMeta(manifest, source) {
+  const version = String(manifest?.__meta?.version || '').trim();
+  const revision = String(manifest?.__meta?.revision || '').trim();
+  const query = String(manifest?.__meta?.query || '').trim().replace(/^\?/, '');
+  if (!version || !revision || !query) {
+    throw new Error(`${source} asset-manifest 缺少 __meta.version/revision/query`);
+  }
+  const queryParams = new URLSearchParams(query);
+  if (queryParams.get('v') !== version || queryParams.get('r') !== revision) {
+    throw new Error(`${source} asset-manifest 的 query 与 version/revision 不一致`);
+  }
+  return { version, revision, query };
+}
+
+async function verifyServedAssetRevision() {
+  const localManifest = JSON.parse(await fs.readFile(localAssetManifestFile, 'utf8'));
+  const localMeta = readAssetMeta(localManifest, '本地');
+  const manifestPath = assetManifestPath(localManifest);
+  const response = await fetch(absoluteUrl(manifestPath), {
+    headers: {
+      Accept: 'application/json',
+      'Cache-Control': 'no-cache'
+    },
+    cache: 'no-store',
+    signal: AbortSignal.timeout(10_000)
+  });
+  if (!response.ok) {
+    throw new Error(`服务端 asset-manifest 请求失败: HTTP ${response.status} (${manifestPath})`);
+  }
+  const remoteMeta = readAssetMeta(await response.json(), '服务端');
+  if (remoteMeta.version !== localMeta.version || remoteMeta.revision !== localMeta.revision) {
+    throw new Error(
+      `服务端 assets 与本地构建不一致: server=${remoteMeta.version}/${remoteMeta.revision}, `
+      + `local=${localMeta.version}/${localMeta.revision}`
+    );
+  }
+  return { manifestPath, ...localMeta };
+}
+
+function isIgnoredRequestFailure(entry) {
+  if (/net::ERR_ABORTED/i.test(String(entry?.errorText || ''))) return true;
+  try {
+    return knownStaleContentUrls.has(new URL(entry?.url || '').href);
+  } catch {
+    return false;
+  }
 }
 
 function round(value) {
@@ -115,7 +179,11 @@ function renderMarkdown(report) {
     const images = page.protocol?.imageCount != null
       ? `${page.protocol.lazyImageCount}/${page.protocol.imageCount}`
       : '-';
-    return `| ${page.name} | ${page.status} | ${page.metrics.lcp} | ${page.metrics.cls} | ${page.metrics.tbt} | ${page.metrics.resourceCount} | ${images} | ${resources} | ${page.consoleErrors.length + (page.pageErrors?.length || 0)} |`;
+    const ignoredContentWarningCount = page.consoleErrors.filter(isKnownStaleContentResourceError).length;
+    const runtimeErrorCount = page.consoleErrors.filter((entry) => !isKnownStaleContentResourceError(entry)).length
+      + (page.pageErrors?.length || 0)
+      + (page.requestFailures?.length || 0);
+    return `| ${page.name} | ${page.status} | ${page.metrics.lcp} | ${page.metrics.cls} | ${page.metrics.tbt} | ${page.metrics.resourceCount} | ${images} | ${resources} | ${runtimeErrorCount} | ${ignoredContentWarningCount} |`;
   }).join('\n');
 
   const resourceRows = watchedResources.map((resource) => `| ${resource.key} | ${resource.allowed} |`).join('\n');
@@ -125,12 +193,13 @@ function renderMarkdown(report) {
     '# 真实页面审计报告',
     '',
     `- Base URL: ${report.baseUrl}`,
+    `- Assets revision: ${report.assetRevision?.version || '-'} / ${report.assetRevision?.revision || '-'}`,
     `- Generated at: ${report.generatedAt}`,
     '',
     '## 页面结果',
     '',
-    '| 页面 | 状态 | LCP(ms) | CLS | TBT(ms) | Resource | Lazy Images | 命中资源 | Console Error |',
-    '| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: |',
+    '| 页面 | 状态 | LCP(ms) | CLS | TBT(ms) | Resource | Lazy Images | 命中资源 | Runtime Error | Content Warning |',
+    '| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |',
     rows,
     '',
     '## 资源边界',
@@ -151,6 +220,7 @@ function renderMarkdown(report) {
 async function auditRoute(page, route) {
   const consoleErrors = [];
   const pageErrors = [];
+  const requestFailures = [];
   const resourceMap = Object.fromEntries(watchedResources.map((resource) => [resource.key, []]));
 
   const onConsole = (message) => {
@@ -178,10 +248,20 @@ async function auditRoute(page, route) {
   const onPageError = (error) => {
     pageErrors.push(error?.message || String(error));
   };
+  const onRequestFailed = (request) => {
+    const entry = {
+      method: request.method(),
+      resourceType: request.resourceType(),
+      url: request.url(),
+      errorText: String(request.failure()?.errorText || 'unknown request failure')
+    };
+    if (!isIgnoredRequestFailure(entry)) requestFailures.push(entry);
+  };
 
   page.on('console', onConsole);
   page.on('response', onResponse);
   page.on('pageerror', onPageError);
+  page.on('requestfailed', onRequestFailed);
 
   try {
     const response = await page.goto(absoluteUrl(route.target), {
@@ -244,32 +324,40 @@ async function auditRoute(page, route) {
       protocol,
       watchedResources: resourceMap,
       consoleErrors,
-      pageErrors
+      pageErrors,
+      requestFailures
     };
   } catch (error) {
     return {
       name: route.name,
       target: route.target,
       focus: route.focus,
-      status: route.required ? 'failed' : 'skipped-error',
+      status: 'failed',
       url: '',
       metrics: { domContentLoaded: 0, load: 0, firstPaint: 0, lcp: 0, cls: 0, tbt: 0, resourceCount: 0 },
       protocol: {},
       watchedResources: resourceMap,
       consoleErrors,
       pageErrors,
+      requestFailures,
       error: String(error?.message || error)
     };
   } finally {
     page.off('console', onConsole);
     page.off('response', onResponse);
     page.off('pageerror', onPageError);
+    page.off('requestfailed', onRequestFailed);
   }
 }
 
 async function main() {
+  const assetRevision = await verifyServedAssetRevision();
+  console.log(`Assets revision 已对齐: ${assetRevision.version}/${assetRevision.revision}`);
   const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({ viewport: { width: 1440, height: 960 } });
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 960 },
+    userAgent: realChromeUserAgent(browser)
+  });
   await context.addInitScript(() => {
     window.__themeAuditMetrics = { lcp: 0, cls: 0, tbt: 0 };
     try {
@@ -302,6 +390,7 @@ async function main() {
   const report = {
     baseUrl,
     generatedAt: new Date().toISOString(),
+    assetRevision,
     pages: []
   };
 
@@ -313,10 +402,10 @@ async function main() {
   await browser.close();
   const files = await writeReport(report);
 
-  const requiredRouteNames = new Set(routes.filter((route) => route.required).map((route) => route.name));
-  const failedRequired = report.pages.filter((page) => requiredRouteNames.has(page.name) && page.status !== 'ok');
+  const failedRoutes = report.pages.filter((page) => page.status !== 'ok' && page.status !== 'skipped-404');
   const runtimeErrors = report.pages.filter((page) => page.status === 'ok' && (
     page.pageErrors.length > 0
+    || page.requestFailures.length > 0
     || page.consoleErrors.some((entry) => !isKnownStaleContentResourceError(entry))
   ));
   const pluginResourceErrors = report.pages.flatMap((page) => Object.entries(page.watchedResources || {})
@@ -325,12 +414,12 @@ async function main() {
       .filter((item) => item.status >= 400)
       .map((item) => ({ page: page.name, key, status: item.status, url: item.url }))));
   console.log(`真实页面审计完成: ${files.mdFile}`);
-  if (failedRequired.length > 0) {
-    console.error(`必要页面审计失败: ${failedRequired.map((page) => page.name).join(', ')}`);
+  if (failedRoutes.length > 0) {
+    console.error(`页面审计失败: ${failedRoutes.map((page) => `${page.name}(${page.status})`).join(', ')}`);
     process.exit(1);
   }
   if (runtimeErrors.length > 0 || pluginResourceErrors.length > 0) {
-    console.error(`插件运行时审计失败: console=${runtimeErrors.map((page) => page.name).join(', ') || '-'}, resource=${pluginResourceErrors.length}`);
+    console.error(`插件运行时审计失败: runtime=${runtimeErrors.map((page) => page.name).join(', ') || '-'}, resource=${pluginResourceErrors.length}`);
     process.exit(1);
   }
 }

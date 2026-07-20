@@ -333,7 +333,7 @@ assert.equal(friendsCatch.includes('this.hasMore = false'), false, 'Friends erro
   'bridge?.configure?.(config, descriptorKey)',
   'queueShikiBridgeRender(descriptor, root)',
   'runShikiExtraPathRenderer(html, contentContainer)',
-  'runShikiExtraPathRenderer(event?.request?.responseText, container)'
+  'runShikiExtraPathRenderer(responseText, container)'
 ].forEach((contract) => {
   assert.ok(pjaxSource.includes(contract), `Shiki bridge missing contract: ${contract}`);
 });

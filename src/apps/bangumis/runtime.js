@@ -13,13 +13,26 @@ export function registerBangumisExplorer(Alpine) {
     loadError: false,
     _observer: null,
     _fallbackScrollHandler: null,
+    _paginationController: null,
+    _paginationGeneration: 0,
+    _destroyed: false,
 
     init() {
+      this._destroyed = false;
       this.readPaginationState();
-      this.$nextTick(() => this.installInfiniteLoader());
+      const generation = this._paginationGeneration;
+      this.$nextTick(() => {
+        if (this._destroyed || generation !== this._paginationGeneration) return;
+        this.installInfiniteLoader();
+      });
     },
 
     destroy() {
+      this._destroyed = true;
+      this._paginationGeneration += 1;
+      this._paginationController?.abort();
+      this._paginationController = null;
+      this.loading = false;
       this._observer?.disconnect();
       this._observer = null;
       this.removeScrollFallback();
@@ -51,6 +64,7 @@ export function registerBangumisExplorer(Alpine) {
     },
 
     installInfiniteLoader() {
+      if (this._destroyed) return;
       const sentinel = this.$root.querySelector('[data-bangumis-scroll-sentinel]');
       const scroller = this.$root.querySelector('.bangumis-main-scroll');
       if (!sentinel) return;
@@ -62,7 +76,7 @@ export function registerBangumisExplorer(Alpine) {
 
       this._observer?.disconnect();
       this._observer = new IntersectionObserver((entries) => {
-        if (entries[0]?.isIntersecting) {
+        if (!this._destroyed && entries[0]?.isIntersecting) {
           this.loadNext();
         }
       }, {
@@ -75,6 +89,7 @@ export function registerBangumisExplorer(Alpine) {
     },
 
     installScrollFallback(scroller) {
+      if (this._destroyed) return;
       this.removeScrollFallback();
       if (!scroller) return;
 
@@ -85,6 +100,7 @@ export function registerBangumisExplorer(Alpine) {
     },
 
     checkScrollFallback() {
+      if (this._destroyed) return;
       const scroller = this.$root.querySelector('.bangumis-main-scroll');
       if (!scroller) return;
 
@@ -131,20 +147,33 @@ export function registerBangumisExplorer(Alpine) {
     },
 
     async loadNext() {
-      if (this.loading || !this.hasMore || !this.nextUrl) return;
+      if (this._destroyed || this.loading || !this.hasMore || !this.nextUrl) return;
 
       this.loading = true;
       this.loadError = false;
+      const requestUrl = this.nextUrl;
+      const requestRoot = this.$root;
+      const generation = ++this._paginationGeneration;
+      const controller = new AbortController();
+      this._paginationController = controller;
+
+      const isCurrentRequest = () => !this._destroyed
+        && generation === this._paginationGeneration
+        && this._paginationController === controller
+        && this.$root === requestRoot
+        && this.nextUrl === requestUrl;
 
       try {
-        const response = await fetch(this.nextUrl, {
-          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        const response = await fetch(requestUrl, {
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          signal: controller.signal
         });
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
 
         const html = await response.text();
+        if (!isCurrentRequest()) return;
         const doc = new DOMParser().parseFromString(html, 'text/html');
         const cards = Array.from(doc.querySelectorAll('.bangumis-list > [data-bangumi-card]'));
 
@@ -158,17 +187,24 @@ export function registerBangumisExplorer(Alpine) {
 
         this.appendCards(cards);
         this.updatePaginationFrom(doc);
-        this.$nextTick(() => this.checkScrollFallback());
+        this.$nextTick(() => {
+          if (this._destroyed || generation !== this._paginationGeneration) return;
+          this.checkScrollFallback();
+        });
       } catch (error) {
+        if (error?.name === 'AbortError' || !isCurrentRequest()) return;
         this.loadError = true;
         warnApiCall('bangumis', '追番下一页加载失败', {
-          url: this.nextUrl,
+          url: requestUrl,
           message: error?.message || String(error || ''),
           action: 'show-load-error',
           hint: '检查追番插件页面分页链接、HTML 片段中的 data-bangumi-card 和接口返回状态。'
         });
       } finally {
-        this.loading = false;
+        if (this._paginationController === controller) {
+          this._paginationController = null;
+          this.loading = false;
+        }
       }
     }
   }));

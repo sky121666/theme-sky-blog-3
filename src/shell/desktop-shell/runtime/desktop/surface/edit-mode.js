@@ -14,16 +14,29 @@ import {
 } from '../../widgets/catalog-core.js';
 import { flattenCategoryTree } from '../../../../../widgets/shared/data.js';
 
+const PHOTO_GROUPS_API = '/apis/api.photo.halo.run/v1alpha1/photogroups';
+
 export const editModeMethods = {
   /* ── 编辑态进出 ── */
 
   async saveDesktopEditing() {
+    if (this.serverLayoutSaving) {
+      this.serverLayoutSaveState = 'dirty';
+      this.serverLayoutSaveMessage = '已有保存任务进行中，请稍后再次保存';
+      return false;
+    }
+
     if (this.canManageDefaultDesktopLayout) {
       const saved = await this.saveDefaultLayoutToServer();
-      if (!saved) return;
+      if (!saved) return false;
     }
 
     await this.exitEditMode();
+    if (this.serverLayoutReloadRequired) {
+      this.serverLayoutReloadRequired = false;
+      window.location.reload();
+    }
+    return true;
   },
 
   enterEditMode(stage = 'add') {
@@ -34,8 +47,9 @@ export const editModeMethods = {
     this._widgetCenterOpenedAt = Date.now();
     this.widgetCenterCategory = 'all';
     this.widgetCenterSearch = '';
-    this.serverLayoutSaveState = 'idle';
-    this.serverLayoutSaveMessage = '';
+    const hasUnsavedChanges = this.serverLayoutMutationVersion !== this.serverLayoutSavedMutationVersion;
+    this.serverLayoutSaveState = hasUnsavedChanges ? 'dirty' : 'idle';
+    this.serverLayoutSaveMessage = hasUnsavedChanges ? '有未保存更改' : '';
     this.ensureWidgetCenterSelections();
     this.syncDesktopBodyState();
   },
@@ -278,6 +292,10 @@ export const editModeMethods = {
   },
 
   async applyRecommendedWidgetLayout() {
+    if (this.sources?.photosAvailable && this.widgetConfigPhotoGroups().length === 0) {
+      await this.ensureWidgetConfigOptions('plugin-photos.gallery');
+      if (!this.isHome) return;
+    }
     const firstPhotoGroupName = Array.isArray(this.sources?.photoGroups)
       ? this.sources.photoGroups[0]?.metadata?.name || ''
       : '';
@@ -328,11 +346,63 @@ export const editModeMethods = {
 
     // 有配置需求的组件先弹配置弹窗
     if (catalogEntry?.hasConfig) {
+      this.widgetConfigOptionsError = '';
+      await this.ensureWidgetConfigOptions(widgetType);
+      if (!this.isHome) return;
       this.openWidgetConfigForm(widgetType, size, catalogKey);
       return;
     }
 
     await this._doAddWidget(widgetType, size, catalogKey, {});
+  },
+
+  async ensureWidgetConfigOptions(widgetType) {
+    if (widgetType !== 'plugin-photos.gallery') return true;
+    if (this.widgetConfigPhotoGroups().length > 0) return true;
+    if (this.widgetConfigOptionsPromise) return this.widgetConfigOptionsPromise;
+
+    const requestId = (this.widgetConfigOptionsRequestId || 0) + 1;
+    const controller = new AbortController();
+    this.widgetConfigOptionsRequestId = requestId;
+    this.widgetConfigOptionsAbortController = controller;
+    this.widgetConfigOptionsPromise = (async () => {
+      try {
+        const response = await fetch(PHOTO_GROUPS_API, {
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' },
+          signal: controller.signal
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const payload = await response.json();
+        if (requestId !== this.widgetConfigOptionsRequestId || controller.signal.aborted || !this.isHome) {
+          return false;
+        }
+        const groups = Array.isArray(payload) ? payload : (Array.isArray(payload?.items) ? payload.items : []);
+        this.sources = {
+          ...this.sources,
+          photoGroups: groups
+        };
+        this.widgetConfigOptionsError = groups.length
+          ? ''
+          : '图库中还没有可用分组，请先在后台创建相册。';
+        return groups.length > 0;
+      } catch (error) {
+        if (error?.name === 'AbortError' || controller.signal.aborted || requestId !== this.widgetConfigOptionsRequestId) {
+          return false;
+        }
+        this.widgetConfigOptionsError = '图库分组加载失败，请稍后重试。';
+        return false;
+      } finally {
+        if (requestId === this.widgetConfigOptionsRequestId) {
+          this.widgetConfigOptionsPromise = null;
+          this.widgetConfigOptionsAbortController = null;
+        }
+      }
+    })();
+
+    return this.widgetConfigOptionsPromise;
   },
 
   createWidgetConfigDefaultMeta(catalogEntry) {
@@ -548,6 +618,7 @@ export const editModeMethods = {
     if (!widget?.key) return;
     const catalogEntry = getWidgetCatalogEntry(widget.widget) || {};
     if (catalogEntry.hasConfig !== true) return;
+    this.widgetConfigOptionsError = '';
     const resolvedSize = normalizeWidgetSize(widget.size || catalogEntry.size || 'medium');
     const resolvedCatalogKey = `${widget.widget}:${resolvedSize}`;
     this.widgetConfigForm = {
@@ -570,6 +641,7 @@ export const editModeMethods = {
   },
 
   closeWidgetConfigForm() {
+    this.widgetConfigOptionsError = '';
     this.widgetConfigForm = {
       open: false,
       mode: 'create',

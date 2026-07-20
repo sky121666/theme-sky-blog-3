@@ -3,6 +3,7 @@ export {
   computeDefaultDesktopIconPlacement,
   mergeDesktopIconLayout,
   normalizeDesktopIconBootstrap,
+  normalizeDesktopIconHref,
   normalizeDesktopIconInstance,
   normalizeDesktopIconType,
   readDesktopIconsBootstrap,

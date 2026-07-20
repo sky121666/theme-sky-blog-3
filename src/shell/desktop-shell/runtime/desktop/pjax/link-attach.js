@@ -50,13 +50,23 @@ function markPjaxLink(link) {
   link.removeAttribute('data-pjax-state');
 }
 
+function collectMatchingLinks(root, selector) {
+  const links = [];
+  if (root?.matches?.(selector)) {
+    links.push(root);
+  }
+  root?.querySelectorAll?.(selector)?.forEach((link) => {
+    if (!links.includes(link)) links.push(link);
+  });
+  return links;
+}
+
 /**
  * Scan a root element and mark all `.pjax-link` anchors.
  * @param {HTMLElement|Document} root
  */
 export function markPjaxLinks(root) {
-  if (!root?.querySelectorAll) return;
-  root.querySelectorAll('a.pjax-link[href]').forEach((link) => {
+  collectMatchingLinks(root, 'a.pjax-link[href]').forEach((link) => {
     markPjaxLink(link);
   });
 }
@@ -70,7 +80,7 @@ export function attachDynamicLinks(root) {
   if (!root || !window.pjax) return 0;
   markPjaxLinks(root);
   const selector = `a.pjax-link[${PJAX_MANAGED_ATTR}="true"]:not([${PJAX_ATTACHED_ATTR}])`;
-  const links = root.querySelectorAll(selector);
+  const links = collectMatchingLinks(root, selector);
   if (!links.length) return 0;
   linkLog('attach:', links.length, 'links in', root.className?.split(' ')[0] || root.tagName);
   let count = 0;

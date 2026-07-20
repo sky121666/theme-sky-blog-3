@@ -55,6 +55,12 @@ for (const appId of knownIds) {
   assert(getAppManifest(appId)?.appId === appId, `getAppManifest(${appId}) 未返回正确 manifest`);
 }
 
+const doubanManifest = getAppManifest('douban');
+assert(doubanManifest?.windowVariant === 'douban', 'Douban manifest.windowVariant 必须为 douban');
+assert(doubanManifest?.supportsSameAppPjax === true, 'Douban 必须支持 same-app PJAX');
+assert(doubanManifest?.sameVariantPageModes?.includes('browser-douban'), 'Douban 必须声明 browser-douban 页面模式');
+assert(doubanManifest?.cachePolicy === 'app-path-search', 'Douban cachePolicy 必须覆盖路径和查询参数');
+
 const routableIds = getRoutableAppIds();
 for (const appId of routableIds) {
   assert(seenIds.has(appId), `getRoutableAppIds 包含未知 appId: ${appId}`);
@@ -69,6 +75,8 @@ const routeSamples = [
   ['https://example.com/links', 'links', 'links'],
   ['https://example.com/bangumis', 'bangumis', 'bangumis'],
   ['https://example.com/bangumis/page/2', 'bangumis', 'bangumis'],
+  ['https://example.com/douban', 'douban', 'douban'],
+  ['https://example.com/douban/page/2', 'douban', 'douban'],
   ['https://example.com/steam', 'steam', 'steam'],
   ['https://example.com/steam/page/2', 'steam', 'steam'],
   ['https://example.com/equipments', 'equipments', 'equipments'],

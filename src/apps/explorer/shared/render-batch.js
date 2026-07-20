@@ -1,10 +1,50 @@
 const BATCH_SIZE = 8;
 
 export function renderBatch(container, htmlItems, options = {}) {
-  const { onComplete, batchSize = BATCH_SIZE } = options;
-  if (!container || !htmlItems.length) {
+  const {
+    onComplete,
+    batchSize = BATCH_SIZE,
+    isCurrent = null,
+    signal = null,
+  } = options;
+  let cancelled = false;
+  let completed = false;
+  let frameId = 0;
+
+  const control = {
+    cancel() {
+      if (cancelled || completed) return;
+      cancelled = true;
+      if (frameId) cancelAnimationFrame(frameId);
+      frameId = 0;
+    },
+    get cancelled() {
+      return cancelled;
+    },
+    get completed() {
+      return completed;
+    },
+  };
+
+  const canRender = () => !cancelled
+    && signal?.aborted !== true
+    && (typeof isCurrent !== 'function' || isCurrent());
+  const complete = () => {
+    if (completed || !canRender()) return;
+    completed = true;
+    frameId = 0;
     onComplete?.();
-    return;
+  };
+
+  if (!container) {
+    complete();
+    return control;
+  }
+
+  if (!htmlItems.length) {
+    if (canRender()) container.innerHTML = '';
+    complete();
+    return control;
   }
 
   let offset = 0;
@@ -17,9 +57,12 @@ export function renderBatch(container, htmlItems, options = {}) {
   }
 
   function appendNextBatch() {
+    frameId = 0;
+    if (!canRender()) return;
+
     const slice = htmlItems.slice(offset, offset + batchSize);
     if (!slice.length) {
-      onComplete?.();
+      complete();
       return;
     }
 
@@ -36,11 +79,12 @@ export function renderBatch(container, htmlItems, options = {}) {
     offset += batchSize;
 
     if (offset < htmlItems.length) {
-      requestAnimationFrame(appendNextBatch);
+      frameId = requestAnimationFrame(appendNextBatch);
     } else {
-      onComplete?.();
+      complete();
     }
   }
 
-  requestAnimationFrame(appendNextBatch);
+  frameId = requestAnimationFrame(appendNextBatch);
+  return control;
 }

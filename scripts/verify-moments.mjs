@@ -92,6 +92,17 @@ function toMomentPath(moment) {
   return name ? `/moments/${encodeURIComponent(name)}` : '';
 }
 
+function findMomentByPath(moments, pathname) {
+  if (!pathname) return null;
+  let normalized = '';
+  try {
+    normalized = new URL(pathname, `${baseUrl}/`).pathname.replace(/\/$/, '');
+  } catch {
+    return null;
+  }
+  return moments.find((moment) => toMomentPath(moment).replace(/\/$/, '') === normalized) || null;
+}
+
 function sampleMeta(moment) {
   if (!moment) return null;
   return {
@@ -155,7 +166,13 @@ async function inspectPage(pathname) {
   if (!usedPjax) {
     await page.goto(absoluteUrl(pathname), { waitUntil: 'domcontentloaded' });
   }
-  await page.waitForTimeout(1200);
+  await page.waitForTimeout(600);
+  await page.waitForFunction(() => {
+    const card = document.querySelector('[data-moment-card][data-moment-detail-comments]');
+    if (!card || Number(card.dataset.commentCount || 0) <= 0) return true;
+    const panel = card.querySelector('[data-moment-comments-panel]');
+    return !panel?.classList.contains('is-loading');
+  }, null, { timeout: 5000 }).catch(() => {});
 
   const result = await page.evaluate(() => ({
     url: window.location.href,
@@ -171,7 +188,10 @@ async function inspectPage(pathname) {
     replayScripts: document.querySelectorAll('script[data-theme-shiki-replay]').length,
     commentWidget: document.querySelectorAll('comment-widget, .halo-comment-widget').length,
     commentShell: Boolean(document.querySelector('.moment-comments-shell')),
-    visibleCommentText: document.body.innerText.includes('评论')
+    visibleCommentText: document.body.innerText.includes('评论'),
+    renderedCommentCount: document.querySelectorAll('[data-moment-comment]').length,
+    commentsLoading: Boolean(document.querySelector('[data-moment-comments-panel].is-loading')),
+    commentStatus: document.querySelector('[data-moment-comments-status]')?.textContent?.trim() || ''
   }));
 
   await browser.close();
@@ -223,6 +243,9 @@ function diagnosticsForCheck(check) {
       commentShell: Boolean(check.result?.commentShell),
       commentWidget: check.result?.commentWidget ?? 0,
       visibleCommentText: Boolean(check.result?.visibleCommentText),
+      renderedCommentCount: check.result?.renderedCommentCount ?? 0,
+      commentsLoading: Boolean(check.result?.commentsLoading),
+      commentStatus: check.result?.commentStatus || '',
       expectedApprovedComment: check.expectedApprovedComment || null,
       hint: '若评论失败，检查 moment-comments-shell、comment-widget 资源和 Moments 评论 subject。'
     };
@@ -262,10 +285,10 @@ function printCheckHints(checks) {
 async function main() {
   const moments = await discoverMoments();
   const codeMoment = explicitCodePath
-    ? null
+    ? findMomentByPath(moments, explicitCodePath)
     : moments.find((moment) => isCodeLike(moment.spec?.content));
   const commentMoment = explicitCommentPath
-    ? null
+    ? findMomentByPath(moments, explicitCommentPath)
     : moments.find((moment) => Number(moment.stats?.approvedComment ?? 0) > 0);
 
   const codePath = explicitCodePath || toMomentPath(codeMoment);
@@ -325,8 +348,17 @@ async function main() {
   if (commentPath) {
     const result = await inspectPage(commentPath);
     const checkFailures = assertMomentPage(result, 'comment sample');
+    const expectedApprovedComment = Number(commentMoment?.stats?.approvedComment ?? 0) || null;
     if (!result.commentShell) {
       checkFailures.push('comment sample: missing comment shell');
+    }
+    if (result.commentsLoading) {
+      checkFailures.push('comment sample: comments remained in loading state');
+    }
+    if (expectedApprovedComment && result.renderedCommentCount === 0) {
+      checkFailures.push(`comment sample: expected ${expectedApprovedComment} approved comments but rendered none`);
+    } else if (expectedApprovedComment && result.renderedCommentCount < Math.min(expectedApprovedComment, 10)) {
+      checkFailures.push(`comment sample: rendered ${result.renderedCommentCount}, expected at least ${Math.min(expectedApprovedComment, 10)}`);
     }
     failures.push(...checkFailures);
     report.checks.push({
@@ -334,13 +366,13 @@ async function main() {
       status: checkFailures.length ? 'failed' : 'passed',
       path: commentPath,
       sample: sampleMeta(commentMoment),
-      expectedApprovedComment: Number(commentMoment?.stats?.approvedComment ?? 0) || null,
+      expectedApprovedComment,
       result,
       failures: checkFailures,
       diagnostics: diagnosticsForCheck({
         name: 'comment-sample',
         path: commentPath,
-        expectedApprovedComment: Number(commentMoment?.stats?.approvedComment ?? 0) || null,
+        expectedApprovedComment,
         result,
         failures: checkFailures
       })

@@ -293,11 +293,10 @@ export function registerPhotosExplorer(Alpine) {
     },
 
     resetPhotoPan() {
+      this._releasePhotoPanSession();
       this.panX = 0;
       this.panY = 0;
       this.photoCanPan = false;
-      this.photoPanning = false;
-      this._panSession = null;
     },
 
     resetPhotoZoom() {
@@ -307,7 +306,21 @@ export function registerPhotosExplorer(Alpine) {
     },
 
     clampPhotoPan() {
-      this.updatePhotoPanAvailability();
+      const maxX = this._maxPhotoPanX();
+      const maxY = this._maxPhotoPanY();
+      this.panX = maxX > 0
+        ? Math.max(-maxX, Math.min(maxX, Number(this.panX) || 0))
+        : 0;
+      this.panY = maxY > 0
+        ? Math.max(-maxY, Math.min(maxY, Number(this.panY) || 0))
+        : 0;
+      this.photoCanPan = this.isDetailView() && (maxX > 0.5 || maxY > 0.5);
+
+      if (!this.photoCanPan) {
+        this._releasePhotoPanSession();
+      }
+
+      return this.photoCanPan;
     },
 
     _maxPhotoPanX() {
@@ -325,15 +338,11 @@ export function registerPhotosExplorer(Alpine) {
     },
 
     canPanPhoto() {
-      return this.isDetailView();
+      return this.clampPhotoPan();
     },
 
     updatePhotoPanAvailability() {
-      this.photoCanPan = this.isDetailView();
-      if (!this.photoCanPan) {
-        this.photoPanning = false;
-        this._removePhotoPanListeners();
-      }
+      return this.clampPhotoPan();
     },
 
     _photoStageOrigin(event) {
@@ -363,18 +372,21 @@ export function registerPhotosExplorer(Alpine) {
       event.stopPropagation();
       this._removePhotoPanListeners();
       this.photoPanning = true;
-      document.body.style.userSelect = 'none';
       const eventKind = event.type?.startsWith('mouse') ? 'mouse' : 'pointer';
+      const captureTarget = eventKind === 'pointer' ? event.currentTarget || null : null;
       this._panSession = {
         pointerId: event.pointerId ?? 'mouse',
         eventKind,
+        captureTarget,
+        bodyUserSelect: document.body?.style.userSelect ?? '',
         startX: event.clientX,
         startY: event.clientY,
         panX: this.panX,
         panY: this.panY,
       };
+      if (document.body) document.body.style.userSelect = 'none';
       try {
-        event.currentTarget?.setPointerCapture?.(event.pointerId);
+        captureTarget?.setPointerCapture?.(event.pointerId);
       } catch (_error) {
         // Synthetic pointer events and older browsers may not support capture for this pointer.
       }
@@ -401,6 +413,7 @@ export function registerPhotosExplorer(Alpine) {
       event.stopPropagation();
       this.panX = session.panX + (event.clientX - session.startX);
       this.panY = session.panY + (event.clientY - session.startY);
+      this.clampPhotoPan();
     },
 
     endPhotoPan(event) {
@@ -408,11 +421,33 @@ export function registerPhotosExplorer(Alpine) {
       const pointerId = event.pointerId ?? 'mouse';
       if (session && session.eventKind !== 'mouse' && pointerId != null && session.pointerId !== pointerId) return;
 
+      this._releasePhotoPanSession();
+      this.clampPhotoPan();
+    },
+
+    _releasePhotoPanSession() {
+      const session = this._panSession;
+      const wasPanning = this.photoPanning;
+      if (session?.eventKind === 'pointer'
+        && session.captureTarget
+        && session.pointerId !== 'mouse') {
+        try {
+          const hasCapture = typeof session.captureTarget.hasPointerCapture !== 'function'
+            || session.captureTarget.hasPointerCapture(session.pointerId);
+          if (hasCapture) {
+            session.captureTarget.releasePointerCapture?.(session.pointerId);
+          }
+        } catch (_error) {
+          // The browser may release pointer capture before pointerup or during teardown.
+        }
+      }
+
       this.photoPanning = false;
       this._panSession = null;
       this._removePhotoPanListeners();
-      document.body.style.userSelect = '';
-      this.updatePhotoPanAvailability();
+      if (document.body && (session || wasPanning)) {
+        document.body.style.userSelect = session?.bodyUserSelect ?? '';
+      }
     },
 
     _removePhotoPanListeners() {
@@ -1064,6 +1099,11 @@ export function registerPhotosExplorer(Alpine) {
       engine.resizeHandler = () => {
         clearTimeout(engine.resizeTimer);
         engine.resizeTimer = setTimeout(() => {
+          if (this.isDetailView()) {
+            this.updatePhotoPanAvailability();
+            return;
+          }
+
           const nextEffectiveCount = this._resolveEffectiveColCount();
           if (nextEffectiveCount !== this.effectiveColCountValue) {
             this.renderLayout();
@@ -1169,7 +1209,7 @@ export function registerPhotosExplorer(Alpine) {
       this._paginationLoadMore = null;
       this._paginationRetryCleanup?.();
       this._paginationRetryCleanup = null;
-      this._removePhotoPanListeners();
+      this._releasePhotoPanSession();
       if (engine.surfaceCleanup) {
         engine.surfaceCleanup();
         engine.surfaceCleanup = null;

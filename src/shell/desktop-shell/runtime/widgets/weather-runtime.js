@@ -3,6 +3,7 @@
  */
 
 const DESKTOP_WIDGET_WEATHER_CACHE_PREFIX = 'theme-macOS-desktop-weather';
+const DESKTOP_WIDGET_WEATHER_TIMEOUT_MS = 8_000;
 const weatherRequestMap = new Map();
 
 const DESKTOP_WIDGET_WEATHER_CODE_MAP = {
@@ -60,7 +61,7 @@ export function saveDesktopWidgetWeather(cityName, data) {
   }
 }
 
-export async function fetchDesktopWidgetWeather(cityName) {
+export async function fetchDesktopWidgetWeather(cityName, options = {}) {
   const normalizedCityName = String(cityName || '').trim();
   if (!normalizedCityName) return null;
 
@@ -69,63 +70,78 @@ export async function fetchDesktopWidgetWeather(cityName) {
     return weatherRequestMap.get(requestKey);
   }
 
-  const request = fetchDesktopWidgetWeatherUncached(normalizedCityName).finally(() => {
+  const timeoutMs = Number.isFinite(Number(options.timeoutMs))
+    ? Math.max(1, Number(options.timeoutMs))
+    : DESKTOP_WIDGET_WEATHER_TIMEOUT_MS;
+  const request = fetchDesktopWidgetWeatherUncached(normalizedCityName, timeoutMs).finally(() => {
     weatherRequestMap.delete(requestKey);
   });
   weatherRequestMap.set(requestKey, request);
   return request;
 }
 
-async function fetchDesktopWidgetWeatherUncached(cityName) {
-  const geocodingUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1&language=zh&format=json`;
-  const geocodingResponse = await fetch(geocodingUrl);
-  if (!geocodingResponse.ok) {
-    throw new Error(`Weather geocoding failed: ${geocodingResponse.status}`);
-  }
+async function fetchDesktopWidgetWeatherUncached(cityName, timeoutMs) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  const geocoding = await geocodingResponse.json();
-  const location = Array.isArray(geocoding?.results) ? geocoding.results[0] : null;
-  if (!location) {
-    throw new Error('Weather geocoding returned empty result');
-  }
+  try {
+    const geocodingUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1&language=zh&format=json`;
+    const geocodingResponse = await fetch(geocodingUrl, { signal: controller.signal });
+    if (!geocodingResponse.ok) {
+      throw new Error(`Weather geocoding failed: ${geocodingResponse.status}`);
+    }
 
-  const forecastUrl = `https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}&longitude=${location.longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=7`;
-  const forecastResponse = await fetch(forecastUrl);
-  if (!forecastResponse.ok) {
-    throw new Error(`Weather forecast failed: ${forecastResponse.status}`);
-  }
+    const geocoding = await geocodingResponse.json();
+    const location = Array.isArray(geocoding?.results) ? geocoding.results[0] : null;
+    if (!location) {
+      throw new Error('Weather geocoding returned empty result');
+    }
 
-  const forecast = await forecastResponse.json();
-  const current = forecast?.current || {};
-  const daily = forecast?.daily || {};
-  const descriptor = resolveWeatherDescriptor(Number(current.weather_code));
+    const forecastUrl = `https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}&longitude=${location.longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=7`;
+    const forecastResponse = await fetch(forecastUrl, { signal: controller.signal });
+    if (!forecastResponse.ok) {
+      throw new Error(`Weather forecast failed: ${forecastResponse.status}`);
+    }
 
-  const days = ['日', '一', '二', '三', '四', '五', '六'];
-  const forecastList = Array.isArray(daily.time) ? daily.time.map((dateStr, i) => {
-    const d = new Date(dateStr);
-    const desc = resolveWeatherDescriptor(Number(Array.isArray(daily.weather_code) ? daily.weather_code[i] : 0));
+    const forecast = await forecastResponse.json();
+    const current = forecast?.current || {};
+    const daily = forecast?.daily || {};
+    const descriptor = resolveWeatherDescriptor(Number(current.weather_code));
+
+    const days = ['日', '一', '二', '三', '四', '五', '六'];
+    const forecastList = Array.isArray(daily.time) ? daily.time.map((dateStr, i) => {
+      const d = new Date(dateStr);
+      const desc = resolveWeatherDescriptor(Number(Array.isArray(daily.weather_code) ? daily.weather_code[i] : 0));
+      return {
+        label: i === 0 ? '今天' : `周${days[d.getDay()]}`,
+        icon: desc.icon,
+        condition: desc.label,
+        high: Math.round(Number(Array.isArray(daily.temperature_2m_max) ? daily.temperature_2m_max[i] || 0 : 0)),
+        low: Math.round(Number(Array.isArray(daily.temperature_2m_min) ? daily.temperature_2m_min[i] || 0 : 0))
+      };
+    }) : [];
+
     return {
-      label: i === 0 ? '今天' : `周${days[d.getDay()]}`,
-      icon: desc.icon,
-      condition: desc.label,
-      high: Math.round(Number(Array.isArray(daily.temperature_2m_max) ? daily.temperature_2m_max[i] || 0 : 0)),
-      low: Math.round(Number(Array.isArray(daily.temperature_2m_min) ? daily.temperature_2m_min[i] || 0 : 0))
+      city: location.name || cityName,
+      country: location.country || '',
+      condition: descriptor.label,
+      tone: descriptor.tone,
+      icon: descriptor.icon,
+      temperature: Math.round(Number(current.temperature_2m || 0)),
+      apparent: Math.round(Number(current.apparent_temperature || current.temperature_2m || 0)),
+      humidity: Math.round(Number(current.relative_humidity_2m || 0)),
+      windSpeed: Math.round(Number(current.wind_speed_10m || 0)),
+      high: Math.round(Number(Array.isArray(daily.temperature_2m_max) ? daily.temperature_2m_max[0] || 0 : 0)),
+      low: Math.round(Number(Array.isArray(daily.temperature_2m_min) ? daily.temperature_2m_min[0] || 0 : 0)),
+      forecast: forecastList,
+      updatedAt: Date.now()
     };
-  }) : [];
-
-  return {
-    city: location.name || cityName,
-    country: location.country || '',
-    condition: descriptor.label,
-    tone: descriptor.tone,
-    icon: descriptor.icon,
-    temperature: Math.round(Number(current.temperature_2m || 0)),
-    apparent: Math.round(Number(current.apparent_temperature || current.temperature_2m || 0)),
-    humidity: Math.round(Number(current.relative_humidity_2m || 0)),
-    windSpeed: Math.round(Number(current.wind_speed_10m || 0)),
-    high: Math.round(Number(Array.isArray(daily.temperature_2m_max) ? daily.temperature_2m_max[0] || 0 : 0)),
-    low: Math.round(Number(Array.isArray(daily.temperature_2m_min) ? daily.temperature_2m_min[0] || 0 : 0)),
-    forecast: forecastList,
-    updatedAt: Date.now()
-  };
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(`Weather request timed out after ${timeoutMs}ms`, { cause: error });
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }

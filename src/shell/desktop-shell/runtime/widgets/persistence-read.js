@@ -5,87 +5,11 @@
 import { toPositiveInt } from '../shared/utils.js';
 import { desktopDebugWarn, DESKTOP_LAYOUT_STORAGE_SCHEMA_VERSION } from './debug-core.js';
 import { isKnownWidgetType, normalizeWidgetInstance } from './catalog-core.js';
+import { normalizeDesktopWidgetProtocol } from './protocol.js';
 
 export function readDesktopWidgetsBootstrap() {
   const bootstrap = window.__THEME_DESKTOP_PROTOCOL__?.widgets || window.__THEME_WIDGETS__;
-  if (!bootstrap || typeof bootstrap !== 'object') {
-    return {
-      enabled: false,
-      isHome: false,
-      hideOnMobile: false,
-      editEnabled: false,
-      columns: 12,
-      gap: 18,
-      layoutVersion: 'v1',
-      serverLayoutJson: '',
-      themeName: 'theme-sky-blog-3',
-      themeJsonConfigEndpoint: '',
-      siteUrl: '',
-      modules: {
-        weather: {
-          cityName: '北京',
-          refreshMinutes: 30
-        }
-      },
-      instances: [],
-      sources: {
-        siteProfile: {
-          title: '',
-          subtitle: '',
-          logo: '',
-          url: ''
-        },
-        currentUser: {
-          authenticated: false,
-          name: '',
-          displayName: '',
-          avatar: '',
-          bio: '',
-          permalink: '/uc'
-        },
-        latestPosts: [],
-        popularPosts: [],
-        categories: [],
-        siteStats: null,
-        randomTags: [],
-        momentsAvailable: false,
-        recentMoments: [],
-        friendsAvailable: false,
-        recentFriends: [],
-        friendsUrl: '/friends',
-        docsmeAvailable: false,
-        docsmeUrl: '/docs',
-        docsmeProjects: [],
-        photosAvailable: false,
-        photos: [],
-        photoGroups: [],
-        photosUrl: '/photos',
-        doubanAvailable: false,
-        doubanUrl: '/douban',
-        doubanApiBase: '/apis/api.douban.moony.la/v1alpha1/doubanmovies',
-        steamAvailable: false,
-        steamUrl: '/steam',
-        steamProfile: {
-          playing: false,
-          statusText: '',
-          personaName: '',
-          avatarFull: '',
-          profileUrl: '',
-          steamLevel: 0,
-          currentGameName: ''
-        },
-        steamStats: {
-          totalGames: 0,
-          recentPlaytimeFormatted: '',
-          recentPlaytimeMinutes: 0
-        },
-        steamRecentGames: [],
-        steamOwnedGames: []
-      }
-    };
-  }
-
-  return bootstrap;
+  return normalizeDesktopWidgetProtocol(bootstrap);
 }
 
 function normalizeDesktopLayoutPayload(layoutVersion, rawPayload) {

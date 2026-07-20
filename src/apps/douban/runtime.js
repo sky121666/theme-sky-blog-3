@@ -106,6 +106,14 @@ function scoreStars(score) {
   return `${'★'.repeat(count)}${'☆'.repeat(5 - count)}`;
 }
 
+function isEditableKeyTarget(target) {
+  if (!target || target === document || target === globalThis.window) return false;
+  const tagName = String(target.tagName || '').toLowerCase();
+  if (['input', 'textarea', 'select'].includes(tagName)) return true;
+  if (target.isContentEditable === true) return true;
+  return Boolean(target.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"])'));
+}
+
 function withParams(path, params) {
   const url = new URL(path, window.location.origin);
   Object.entries(params).forEach(([key, value]) => {
@@ -295,6 +303,16 @@ export class DoubanApp {
 
   onKeydown(event) {
     if (!this.root?.isConnected) return;
+    if (isEditableKeyTarget(event.target)) return;
+
+    const hiddenRoot = this.root.closest?.('[hidden], [aria-hidden="true"]');
+    if (hiddenRoot) return;
+    const targetInsideRoot = this.root.contains?.(event.target) === true;
+    const neutralDocumentTarget = event.target === document.body
+      || event.target === document.documentElement
+      || event.target === document;
+    if (document.body?.dataset?.pageApp !== 'douban') return;
+    if (!targetInsideRoot && !neutralDocumentTarget) return;
 
     if (event.key === 'Escape') {
       this.closePreview();

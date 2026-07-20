@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { buildWidgetCatalog } from '../src/widgets/catalog.js';
 import { renderWidget } from '../src/widgets/plugin/steam-summary/render.js';
+import { normalizeDesktopWidgetSources } from '../src/shell/desktop-shell/runtime/widgets/protocol.js';
 
 const layoutSource = fs.readFileSync(new URL('../templates/modules/shell/layout.html', import.meta.url), 'utf8');
 const widgetProtocolSource = fs.readFileSync(new URL('../templates/modules/shell/desktop-widgets.html', import.meta.url), 'utf8');
-const desktopSurfaceSource = fs.readFileSync(new URL('../src/shell/desktop-shell/runtime/desktop/surface/index.js', import.meta.url), 'utf8');
 
 const escapeHtml = (value) => String(value ?? '')
   .replace(/&/g, '&amp;')
@@ -99,8 +99,12 @@ const realHeaderHtml = render({
 assert.equal(realHeaderHtml.includes('half-life-real.jpg'), true, 'Steam 1.0.0 realHeaderImage should backfill an empty headerImageUrl');
 assert.equal(realHeaderHtml.includes('2h 5m'), true, 'raw recent playtime should backfill a missing formatted value');
 assert.match(layoutSource, /widgetsSteamStats\.recentPlaytimeMinutes/, 'SSR should read Steam 1.0.0 raw recent playtime minutes');
-assert.match(widgetProtocolSource, /recentPlaytimeMinutes:\s*\[\[\$\{steamStatsRecentPlaytimeMinutes\}\]\]/, 'widget protocol should serialize raw recent playtime minutes');
-assert.match(desktopSurfaceSource, /recentPlaytimeMinutes:\s*Number\(bootstrap\.sources\?\.steamStats\?\.recentPlaytimeMinutes/, 'desktop bootstrap should retain raw recent playtime minutes');
+assert.match(widgetProtocolSource, /"recentPlaytimeMinutes":\s*\[\[\$\{steamStatsRecentPlaytimeMinutes\}\]\]/, 'widget protocol should serialize raw recent playtime minutes');
+assert.equal(
+  normalizeDesktopWidgetSources({ steamStats: { recentPlaytimeMinutes: '125' } }).steamStats.recentPlaytimeMinutes,
+  125,
+  'desktop protocol should retain raw recent playtime minutes'
+);
 
 const delistedHtml = render({
   steamAvailable: true,

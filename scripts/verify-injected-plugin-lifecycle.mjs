@@ -53,39 +53,24 @@ function isKnownStaleContentResourceError(entry) {
 }
 
 async function navigateWithPjax(page, target) {
-  await page.evaluate((targetUrl) => new Promise((resolve, reject) => {
-    let timer = 0;
-    const cleanup = () => {
-      window.clearTimeout(timer);
-      document.removeEventListener('pjax:complete', onComplete);
-      document.removeEventListener('pjax:same-variant-complete', onComplete);
-      document.removeEventListener('pjax:error', onError);
-    };
-    const onComplete = () => {
-      cleanup();
-      resolve();
-    };
-    const onError = () => {
-      cleanup();
-      reject(new Error(`PJAX navigation failed: ${targetUrl}`));
-    };
+  const targetUrl = absoluteUrl(target);
+  const expectedUrl = new URL(targetUrl);
+  const expectedPath = `${expectedUrl.pathname}${expectedUrl.search}`;
+  const pjaxAvailable = await page.evaluate(() => typeof window.pjax?.loadUrl === 'function');
+  assert.equal(pjaxAvailable, true, 'window.pjax.loadUrl is unavailable');
 
-    document.addEventListener('pjax:complete', onComplete);
-    document.addEventListener('pjax:same-variant-complete', onComplete);
-    document.addEventListener('pjax:error', onError);
-    timer = window.setTimeout(() => {
-      cleanup();
-      reject(new Error(`PJAX navigation timeout: ${targetUrl}`));
-    }, 15_000);
-
-    const result = window.pjax?.loadUrl?.(targetUrl);
-    if (!window.pjax?.loadUrl) {
-      cleanup();
-      reject(new Error('window.pjax.loadUrl is unavailable'));
-      return;
-    }
-    Promise.resolve(result).catch(onError);
-  }), absoluteUrl(target));
+  // Do not return the loadUrl promise into Playwright. A legitimate hard
+  // fallback or runtime self-heal can replace the execution context while the
+  // navigation is settling; wait on the observable URL in the new context and
+  // let the lifecycle assertions below decide whether state was preserved.
+  await page.evaluate((url) => {
+    window.pjax.loadUrl(url);
+  }, targetUrl);
+  await page.waitForFunction(
+    (path) => `${window.location.pathname}${window.location.search}` === path,
+    expectedPath,
+    { timeout: 15_000 }
+  );
 
   await page.waitForTimeout(900);
 }

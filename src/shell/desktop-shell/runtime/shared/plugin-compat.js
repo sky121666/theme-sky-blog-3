@@ -10,6 +10,7 @@ let cancelRefreshFrame = null;
 let refreshGeneration = 0;
 let lightGalleryAssetsReady = Promise.resolve();
 const loadedPluginScripts = new Map();
+let stagedOnlineHistoryState = null;
 
 function collectElements(root, selector) {
   const elements = [];
@@ -141,8 +142,8 @@ function prepareLightGalleryAssets(responseText) {
   );
 }
 
-export function syncOnlineMonitorMetaFromResponse(responseText) {
-  if (!responseText || !responseText.includes('__ONLINE_MONITOR_META__')) return false;
+function readOnlineMonitorPrivatePageFromResponse(responseText) {
+  if (!responseText || !responseText.includes('__ONLINE_MONITOR_META__')) return null;
 
   let source = '';
   if (typeof DOMParser === 'function') {
@@ -157,20 +158,63 @@ export function syncOnlineMonitorMetaFromResponse(responseText) {
   }
 
   const privatePageMatch = source.match(/privatePage\s*:\s*(true|false)/i);
-  if (!privatePageMatch) return false;
+  if (!privatePageMatch) return null;
+
+  return privatePageMatch[1].toLowerCase() === 'true';
+}
+
+export function syncOnlineMonitorMetaFromResponse(responseText) {
+  const privatePage = readOnlineMonitorPrivatePageFromResponse(responseText);
+  if (typeof privatePage !== 'boolean') return false;
 
   window.__ONLINE_MONITOR_META__ = Object.assign({}, window.__ONLINE_MONITOR_META__, {
-    privatePage: privatePageMatch[1].toLowerCase() === 'true'
+    privatePage
   });
   return true;
 }
 
-function withOnlineMonitorHistoryState(state) {
+export function stageOnlineMonitorHistoryState(responseText, targetUrl) {
+  const privatePage = readOnlineMonitorPrivatePageFromResponse(responseText);
+  if (typeof privatePage !== 'boolean') {
+    stagedOnlineHistoryState = null;
+    return false;
+  }
+
+  stagedOnlineHistoryState = {
+    privatePage,
+    targetUrl: normalizeHistoryUrl(targetUrl || window.location.href)
+  };
+  return true;
+}
+
+export function discardStagedOnlineMonitorHistoryState() {
+  stagedOnlineHistoryState = null;
+}
+
+function withOnlineMonitorHistoryState(state, privatePage = window.__ONLINE_MONITOR_META__?.privatePage) {
   const baseState = state && typeof state === 'object' ? state : {};
   return {
     ...baseState,
-    [ONLINE_PRIVATE_STATE_KEY]: Boolean(window.__ONLINE_MONITOR_META__?.privatePage)
+    [ONLINE_PRIVATE_STATE_KEY]: Boolean(privatePage)
   };
+}
+
+function normalizeHistoryUrl(value) {
+  try {
+    const normalized = new URL(value || window.location.href, window.location.href);
+    normalized.hash = '';
+    return normalized.href;
+  } catch (_error) {
+    return '';
+  }
+}
+
+function isStagedOnlineHistoryTarget(url) {
+  if (!stagedOnlineHistoryState) return false;
+  const normalizedTarget = normalizeHistoryUrl(url || window.location.href);
+  return !stagedOnlineHistoryState.targetUrl
+    || !normalizedTarget
+    || normalizedTarget === stagedOnlineHistoryState.targetUrl;
 }
 
 export function syncOnlineMonitorMetaFromHistoryState(state) {
@@ -190,7 +234,19 @@ function installOnlineMonitorHistoryBridge() {
   const rawPushState = window.history.pushState.bind(window.history);
   const rawReplaceState = window.history.replaceState.bind(window.history);
   window.history.pushState = function pushOnlineAwareState(state, title, url) {
-    return rawPushState(withOnlineMonitorHistoryState(state), title, url);
+    const staged = isStagedOnlineHistoryTarget(url) ? stagedOnlineHistoryState : null;
+    const result = rawPushState(
+      withOnlineMonitorHistoryState(state, staged?.privatePage),
+      title,
+      url
+    );
+    if (staged) {
+      window.__ONLINE_MONITOR_META__ = Object.assign({}, window.__ONLINE_MONITOR_META__, {
+        privatePage: staged.privatePage
+      });
+      stagedOnlineHistoryState = null;
+    }
+    return result;
   };
   window.history.replaceState = function replaceOnlineAwareState(state, title, url) {
     return rawReplaceState(withOnlineMonitorHistoryState(state), title, url);
@@ -207,8 +263,12 @@ function installOnlineMonitorHistoryBridge() {
   );
 }
 
-export function preparePluginCompatibilityFromResponse(responseText) {
-  syncOnlineMonitorMetaFromResponse(responseText);
+export function preparePluginCompatibilityFromResponse(responseText, options = {}) {
+  if (options.stageOnlineHistory) {
+    stageOnlineMonitorHistoryState(responseText, options.targetUrl);
+  } else {
+    syncOnlineMonitorMetaFromResponse(responseText);
+  }
   lightGalleryAssetsReady = lightGalleryAssetsReady
     .catch(() => {})
     .then(() => prepareLightGalleryAssets(responseText));

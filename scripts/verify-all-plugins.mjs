@@ -58,12 +58,14 @@ const steps = [
   'verify:reload',
   'verify:docsme',
   'verify:moments',
+  'verify:moments-lifecycle',
   'verify:seo-contract',
   'verify:shiki-adaptation',
   'verify:plugins:live',
   'smoke:playwright',
   'audit:real-pages',
   'verify:performance',
+  'verify:pjax-cold-assets',
   'verify:pjax-lifecycle'
 ];
 

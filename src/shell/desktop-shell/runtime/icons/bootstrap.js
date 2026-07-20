@@ -3,6 +3,55 @@ export const DESKTOP_ICON_NODE_SPAN = {
   h: 1
 };
 
+const SAFE_DESKTOP_ICON_PROTOCOLS = new Set(['http:', 'https:']);
+
+function resolveDesktopIconBaseOrigin(baseOrigin = '') {
+  const fallback = typeof window !== 'undefined' && window.location?.origin
+    ? window.location.origin
+    : 'https://theme.local';
+
+  try {
+    return new URL(baseOrigin || fallback).origin;
+  } catch (_error) {
+    return fallback;
+  }
+}
+
+/**
+ * Desktop icons are persisted and rendered as anchors, so only web URLs are
+ * accepted. Same-origin values are reduced to a path to avoid pinning a saved
+ * layout to the current domain.
+ */
+export function normalizeDesktopIconHref(value, baseOrigin = '') {
+  const raw = String(value || '').trim();
+  const origin = resolveDesktopIconBaseOrigin(baseOrigin);
+
+  if (!raw || /[\u0000-\u001f\u007f]/.test(raw)) {
+    return { valid: false, href: '#', external: false, pjax: false };
+  }
+
+  if (raw === '#') {
+    return { valid: true, href: '#', external: false, pjax: false };
+  }
+
+  try {
+    const url = new URL(raw, `${origin}/`);
+    if (!SAFE_DESKTOP_ICON_PROTOCOLS.has(url.protocol)) {
+      return { valid: false, href: '#', external: false, pjax: false };
+    }
+
+    const external = url.origin !== origin;
+    return {
+      valid: true,
+      href: external ? url.href : `${url.pathname}${url.search}${url.hash}`,
+      external,
+      pjax: !external
+    };
+  } catch (_error) {
+    return { valid: false, href: '#', external: false, pjax: false };
+  }
+}
+
 function toPositiveInt(value, fallback = 1) {
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -23,13 +72,14 @@ export function normalizeDesktopIconInstance(instance, fallback = {}) {
 }
 
 export function serializeDesktopIconInstance(icon) {
+  const link = normalizeDesktopIconHref(icon.href);
   return {
     key: icon.key,
     title: icon.title,
-    href: icon.href || '#',
-    pjax: icon.pjax !== false,
+    href: link.href,
+    pjax: link.pjax && icon.pjax !== false,
     pjaxApp: icon.pjaxApp || '',
-    external: icon.external === true,
+    external: link.external,
     subtype: icon.subtype || 'folder',
     dataId: icon.dataId || icon.key,
     x: icon.baseX ?? icon.x,
@@ -75,15 +125,18 @@ export function computeDefaultDesktopIconPlacement(index, columns, maxVisibleRow
 export function readDesktopIconsBootstrap() {
   const bootstrap = window.__THEME_DESKTOP_PROTOCOL__?.icons || window.__THEME_DESKTOP_ICONS__;
   if (!Array.isArray(bootstrap)) return [];
-  return bootstrap.map((icon, index) => ({
-    ...normalizeDesktopIconBootstrap(icon, index),
-    href: icon?.href || '#',
-    pjax: icon?.pjax !== false,
-    pjaxApp: typeof icon?.pjaxApp === 'string' ? icon.pjaxApp : '',
-    external: icon?.external === true,
-    subtype: normalizeDesktopIconType(icon?.subtype || icon?.type),
-    dataId: icon?.dataId || icon?.title || icon?.name || `icon-${index + 1}`
-  }));
+  return bootstrap.map((icon, index) => {
+    const link = normalizeDesktopIconHref(icon?.href || '#');
+    return {
+      ...normalizeDesktopIconBootstrap(icon, index),
+      href: link.href,
+      pjax: link.pjax && icon?.pjax !== false,
+      pjaxApp: typeof icon?.pjaxApp === 'string' ? icon.pjaxApp : '',
+      external: link.external,
+      subtype: normalizeDesktopIconType(icon?.subtype || icon?.type),
+      dataId: icon?.dataId || icon?.title || icon?.name || `icon-${index + 1}`
+    };
+  });
 }
 
 /**
@@ -112,14 +165,15 @@ export function mergeDesktopIconLayout(defaultIcons, savedLayout, resolvedWidget
     const validIcons = savedLayout.icons.filter((icon) => icon && icon.key && !icon.deleted);
     return validIcons.map((icon, index) => {
       const fallback = computeDefaultDesktopIconPlacement(index, 12, Math.max(4, maxVisibleRows));
+      const link = normalizeDesktopIconHref(icon.href || '#');
       return {
         key: icon.key,
         kind: 'icon',
         title: icon.title || '',
-        href: icon.href || '#',
-        pjax: icon.pjax !== false,
+        href: link.href,
+        pjax: link.pjax && icon.pjax !== false,
         pjaxApp: typeof icon.pjaxApp === 'string' ? icon.pjaxApp : '',
-        external: icon.external === true,
+        external: link.external,
         subtype: normalizeDesktopIconType(icon.subtype || 'folder'),
         dataId: icon.dataId || icon.key,
         x: toPositiveInt(icon.x ?? icon.baseX, fallback.x),

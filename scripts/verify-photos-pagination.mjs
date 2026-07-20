@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { registerPhotosExplorer } from '../src/apps/photos/runtime/explorer.js';
 
 function deferred() {
@@ -72,15 +73,23 @@ const previousDomParser = globalThis.DOMParser;
 const previousIntersectionObserver = globalThis.IntersectionObserver;
 
 const observers = [];
+const windowListeners = new Map();
 globalThis.window = {
   location: {
     origin: 'http://theme.test',
     href: 'http://theme.test/photos',
     pathname: '/photos',
     search: ''
-  }
+  },
+  addEventListener(type, listener) {
+    if (!windowListeners.has(type)) windowListeners.set(type, new Set());
+    windowListeners.get(type).add(listener);
+  },
+  removeEventListener(type, listener) {
+    windowListeners.get(type)?.delete(listener);
+  },
 };
-globalThis.document = { body: { dataset: {} } };
+globalThis.document = { body: { dataset: {}, style: {} } };
 globalThis.IntersectionObserver = class {
   constructor(callback) {
     this.callback = callback;
@@ -210,6 +219,97 @@ try {
   assert.equal(activeController.signal.aborted, true, 'destroy should abort the active Photos page request');
   assert.equal(staleAppend, 0, 'a response completed after destroy must not append cards');
   assert.equal(staleExplorer._paginationLoadMore, null, 'destroy should release the pagination callback');
+
+  const detailStage = {
+    clientWidth: 400,
+    clientHeight: 300,
+  };
+  const detailImage = {
+    offsetWidth: 700,
+    offsetHeight: 200,
+  };
+  const detailRoot = {
+    dataset: { photosView: 'detail' },
+    querySelector(selector) {
+      if (selector === '.photos-detail-stage') return detailStage;
+      if (selector === '.photos-detail-image') return detailImage;
+      return null;
+    },
+  };
+  const detailExplorer = explorerFactory();
+  detailExplorer.$el = detailRoot;
+  detailExplorer.panX = 999;
+  detailExplorer.panY = -999;
+  detailExplorer.updatePhotoPanAvailability();
+  assert.equal(detailExplorer.photoCanPan, true, 'an overflowing detail image should enable panning');
+  assert.equal(detailExplorer.panX, 150, 'horizontal pan should clamp to the rendered overflow');
+  assert.equal(detailExplorer.panY, 0, 'a non-overflowing axis should remain centered');
+
+  detailImage.offsetWidth = 300;
+  detailImage.offsetHeight = 200;
+  detailExplorer.panX = 42;
+  detailExplorer.panY = -42;
+  detailExplorer.updatePhotoPanAvailability();
+  assert.equal(detailExplorer.photoCanPan, false, 'a contained detail image should not be draggable');
+  assert.equal(detailExplorer.panX, 0, 'contained images should reset horizontal pan');
+  assert.equal(detailExplorer.panY, 0, 'contained images should reset vertical pan');
+
+  let preventedPanStart = 0;
+  detailExplorer.beginPhotoPan({
+    type: 'pointerdown',
+    button: 0,
+    pointerId: 1,
+    clientX: 10,
+    clientY: 10,
+    preventDefault() { preventedPanStart += 1; },
+    stopPropagation() {},
+  });
+  assert.equal(preventedPanStart, 0, 'a contained image should not consume pointer input for dragging');
+  assert.equal(detailExplorer.photoPanning, false, 'a contained image should not enter panning state');
+
+  detailImage.offsetWidth = 700;
+  detailImage.offsetHeight = 400;
+  const capturedPointers = new Set();
+  const releasedPointers = [];
+  const captureTarget = {
+    setPointerCapture(pointerId) { capturedPointers.add(pointerId); },
+    hasPointerCapture(pointerId) { return capturedPointers.has(pointerId); },
+    releasePointerCapture(pointerId) {
+      releasedPointers.push(pointerId);
+      capturedPointers.delete(pointerId);
+    },
+  };
+  document.body.style.userSelect = 'text';
+  detailExplorer.beginPhotoPan({
+    type: 'pointerdown',
+    button: 0,
+    pointerId: 7,
+    clientX: 20,
+    clientY: 20,
+    currentTarget: captureTarget,
+    preventDefault() {},
+    stopPropagation() {},
+  });
+  assert.equal(detailExplorer.photoPanning, true, 'an overflowing detail image should enter panning state');
+  assert.ok(detailExplorer._panSession, 'active panning should retain its session until completion');
+  assert.equal(document.body.style.userSelect, 'none', 'active panning should suppress body text selection');
+  assert.equal(windowListeners.get('pointermove')?.size, 1, 'active panning should install one pointer move listener');
+  assert.deepEqual([...capturedPointers], [7], 'active panning should capture its pointer');
+
+  detailExplorer.destroy();
+  assert.equal(detailExplorer.photoPanning, false, 'destroy should exit active panning state');
+  assert.equal(detailExplorer._panSession, null, 'destroy should clear the active pan session');
+  assert.equal(document.body.style.userSelect, 'text', 'destroy should restore the previous body text-selection style');
+  assert.deepEqual(releasedPointers, [7], 'destroy should release the captured pointer');
+  assert.equal(windowListeners.get('pointermove')?.size, 0, 'destroy should remove the pointer move listener');
+  assert.equal(windowListeners.get('pointerup')?.size, 0, 'destroy should remove the pointer end listener');
+  assert.equal(windowListeners.get('pointercancel')?.size, 0, 'destroy should remove the pointer cancel listener');
+
+  const photoTemplate = fs.readFileSync(new URL('../templates/photo.html', import.meta.url), 'utf8');
+  assert.doesNotMatch(photoTemplate, /@wheel\.stop\.prevent="handlePhotoWheel/, 'detail wheel handling should have only one runtime owner');
+  assert.doesNotMatch(photoTemplate, /@pointerdown="beginPhotoPan/, 'detail pointer handling should have only one runtime owner');
+  assert.doesNotMatch(photoTemplate, /@mousedown="beginPhotoPan/, 'detail mouse fallback should have only one runtime owner');
+  assert.doesNotMatch(photoTemplate, /@dblclick="resetPhotoZoom/, 'detail reset handling should have only one runtime owner');
 } finally {
   if (previousWindow === undefined) delete globalThis.window;
   else globalThis.window = previousWindow;

@@ -1,113 +1,130 @@
 <!DOCTYPE html>
 <html xmlns:th="https://www.thymeleaf.org">
   <th:block th:fragment="layer(enabled, isHome, hideOnMobile, editEnabled, columns, gap, layoutVersion, serverLayoutJson, themeName, themeJsonConfigEndpoint, weatherCityName, weatherRefreshMinutes, latestPosts, popularPosts, categoryTree, siteStats, randomTags, momentsAvailable, recentMoments, bangumisAvailable, bangumisAnimeWish, bangumisAnimeWatching, bangumisAnimeDone, bangumisDramaWish, bangumisDramaWatching, bangumisDramaDone, bangumiAnimeWishCount, bangumiAnimeWatchingCount, bangumiAnimeDoneCount, bangumiDramaWishCount, bangumiDramaWatchingCount, bangumiDramaDoneCount, friendsAvailable, recentFriends, docsmeAvailable, docsmeProjects, photosAvailable, photos, photoGroups, doubanAvailable, steamAvailable, steamPlaying, steamStatusText, steamPersonaName, steamAvatarFull, steamProfileUrl, steamLevel, steamStatsTotalGames, steamStatsRecentPlaytimeFormatted, steamStatsRecentPlaytimeMinutes, steamRecentGames, steamOwnedGames, siteUrl, siteTitle, siteSubtitle, siteLogo, authenticated, currentUserName, currentUserDisplayName, currentUserAvatar, currentUserBio, archivesUrl, fallbackCover)">
-    <script th:inline="javascript">
-      const widgetProtocol = {
-        enabled: [[${enabled}]],
-        isHome: [[${isHome}]],
-        hideOnMobile: [[${hideOnMobile}]],
-        editEnabled: [[${editEnabled}]],
-        columns: [[${columns}]],
-        gap: [[${gap}]],
-        layoutVersion: [[${layoutVersion}]],
-        serverLayoutJson: [[${serverLayoutJson}]],
-        themeName: [[${themeName}]],
-        themeJsonConfigEndpoint: [[${themeJsonConfigEndpoint}]],
-        siteUrl: [[${siteUrl}]],
-        modules: {
-          weather: {
-            cityName: [[${weatherCityName}]],
-            refreshMinutes: [[${weatherRefreshMinutes}]]
+    <!-- Inert, JSON-only response contract. Thymeleaf's JavaScript serializer
+         escapes embedded strings before they enter this raw-text element. -->
+    <script id="theme-desktop-widget-protocol"
+            type="application/json"
+            data-theme-desktop-widget-protocol
+            th:inline="javascript">
+      {
+        "enabled": [[${enabled}]],
+        "isHome": [[${isHome}]],
+        "hideOnMobile": [[${hideOnMobile}]],
+        "editEnabled": [[${editEnabled}]],
+        "columns": [[${columns}]],
+        "gap": [[${gap}]],
+        "layoutVersion": [[${layoutVersion}]],
+        "serverLayoutJson": [[${serverLayoutJson}]],
+        "themeName": [[${themeName}]],
+        "themeJsonConfigEndpoint": [[${themeJsonConfigEndpoint}]],
+        "siteUrl": [[${siteUrl}]],
+        "modules": {
+          "weather": {
+            "cityName": [[${weatherCityName}]],
+            "refreshMinutes": [[${weatherRefreshMinutes}]]
           }
         },
 
-        sources: {
-          siteProfile: {
-            title: [[${siteTitle}]],
-            subtitle: [[${siteSubtitle}]],
-            logo: [[${siteLogo}]],
-            url: [[${siteUrl}]]
+        "sources": {
+          "siteProfile": {
+            "title": [[${siteTitle}]],
+            "subtitle": [[${siteSubtitle}]],
+            "logo": [[${siteLogo}]],
+            "url": [[${siteUrl}]]
           },
-          currentUser: {
-            authenticated: [[${authenticated}]],
-            name: [[${currentUserName}]],
-            displayName: [[${currentUserDisplayName}]],
-            avatar: [[${currentUserAvatar}]],
-            bio: [[${currentUserBio}]],
-            permalink: '/uc'
+          "currentUser": {
+            "authenticated": [[${authenticated}]],
+            "name": [[${currentUserName}]],
+            "displayName": [[${currentUserDisplayName}]],
+            "avatar": [[${currentUserAvatar}]],
+            "bio": [[${currentUserBio}]],
+            "permalink": "/uc"
           },
-          latestPosts: [[${latestPosts}]],
-          popularPosts: [[${popularPosts}]],
-          categories: [[${categoryTree}]],
-          siteStats: [[${siteStats}]],
-          randomTags: [[${randomTags}]],
-          momentsAvailable: [[${momentsAvailable}]],
-          recentMoments: [[${recentMoments}]],
-          bangumisAvailable: [[${bangumisAvailable}]],
-          bangumisUrl: '/bangumis',
-          bangumisByStatus: {
-            anime: {
-              wish: [[${bangumisAnimeWish}]],
-              watching: [[${bangumisAnimeWatching}]],
-              done: [[${bangumisAnimeDone}]]
+          "latestPosts": [[${latestPosts}]],
+          "popularPosts": [[${popularPosts}]],
+          "categories": [[${categoryTree}]],
+          "siteStats": [[${siteStats}]],
+          "randomTags": [[${randomTags}]],
+          "momentsAvailable": [[${momentsAvailable}]],
+          "recentMoments": [[${recentMoments}]],
+          "bangumisAvailable": [[${bangumisAvailable}]],
+          "bangumisUrl": "/bangumis",
+          "bangumisByStatus": {
+            "anime": {
+              "wish": [[${bangumisAnimeWish}]],
+              "watching": [[${bangumisAnimeWatching}]],
+              "done": [[${bangumisAnimeDone}]]
             },
-            drama: {
-              wish: [[${bangumisDramaWish}]],
-              watching: [[${bangumisDramaWatching}]],
-              done: [[${bangumisDramaDone}]]
+            "drama": {
+              "wish": [[${bangumisDramaWish}]],
+              "watching": [[${bangumisDramaWatching}]],
+              "done": [[${bangumisDramaDone}]]
             }
           },
-          bangumiStatusCounts: {
-            anime: {
-              wish: [[${bangumiAnimeWishCount}]],
-              watching: [[${bangumiAnimeWatchingCount}]],
-              done: [[${bangumiAnimeDoneCount}]]
+          "bangumiStatusCounts": {
+            "anime": {
+              "wish": [[${bangumiAnimeWishCount}]],
+              "watching": [[${bangumiAnimeWatchingCount}]],
+              "done": [[${bangumiAnimeDoneCount}]]
             },
-            drama: {
-              wish: [[${bangumiDramaWishCount}]],
-              watching: [[${bangumiDramaWatchingCount}]],
-              done: [[${bangumiDramaDoneCount}]]
+            "drama": {
+              "wish": [[${bangumiDramaWishCount}]],
+              "watching": [[${bangumiDramaWatchingCount}]],
+              "done": [[${bangumiDramaDoneCount}]]
             }
           },
-          friendsAvailable: [[${friendsAvailable}]],
-          recentFriends: [[${recentFriends}]],
-          friendsUrl: '/friends',
-          docsmeAvailable: [[${docsmeAvailable}]],
-          docsmeUrl: '/docs',
-          docsmeProjects: [[${docsmeProjects}]],
-          archivesUrl: [[${archivesUrl}]],
-          fallbackCover: [[${fallbackCover}]],
-          photosAvailable: [[${photosAvailable}]],
-          photos: [[${photos}]],
-          photoGroups: [[${photoGroups}]],
-          photosUrl: '/photos',
-          doubanAvailable: [[${doubanAvailable}]],
-          doubanUrl: '/douban',
-          doubanApiBase: '/apis/api.douban.moony.la/v1alpha1/doubanmovies',
-          steamAvailable: [[${steamAvailable}]],
-          steamUrl: '/steam',
-          steamProfile: {
-            playing: [[${steamPlaying}]],
-            statusText: [[${steamStatusText}]],
-            personaName: [[${steamPersonaName}]],
-            avatarFull: [[${steamAvatarFull}]],
-            profileUrl: [[${steamProfileUrl}]],
-            steamLevel: [[${steamLevel}]],
-            currentGameName: ''
+          "friendsAvailable": [[${friendsAvailable}]],
+          "recentFriends": [[${recentFriends}]],
+          "friendsUrl": "/friends",
+          "docsmeAvailable": [[${docsmeAvailable}]],
+          "docsmeUrl": "/docs",
+          "docsmeProjects": [[${docsmeProjects}]],
+          "archivesUrl": [[${archivesUrl}]],
+          "fallbackCover": [[${fallbackCover}]],
+          "photosAvailable": [[${photosAvailable}]],
+          "photos": [[${photos}]],
+          "photoGroups": [[${photoGroups}]],
+          "photosUrl": "/photos",
+          "doubanAvailable": [[${doubanAvailable}]],
+          "doubanUrl": "/douban",
+          "doubanApiBase": "/apis/api.douban.moony.la/v1alpha1/doubanmovies",
+          "steamAvailable": [[${steamAvailable}]],
+          "steamUrl": "/steam",
+          "steamProfile": {
+            "playing": [[${steamPlaying}]],
+            "statusText": [[${steamStatusText}]],
+            "personaName": [[${steamPersonaName}]],
+            "avatarFull": [[${steamAvatarFull}]],
+            "profileUrl": [[${steamProfileUrl}]],
+            "steamLevel": [[${steamLevel}]],
+            "currentGameName": ""
           },
-          steamStats: {
-            totalGames: [[${steamStatsTotalGames}]],
-            recentPlaytimeFormatted: [[${steamStatsRecentPlaytimeFormatted}]],
-            recentPlaytimeMinutes: [[${steamStatsRecentPlaytimeMinutes}]]
+          "steamStats": {
+            "totalGames": [[${steamStatsTotalGames}]],
+            "recentPlaytimeFormatted": [[${steamStatsRecentPlaytimeFormatted}]],
+            "recentPlaytimeMinutes": [[${steamStatsRecentPlaytimeMinutes}]]
           },
-          steamRecentGames: [[${steamRecentGames}]],
-          steamOwnedGames: [[${steamOwnedGames}]]
+          "steamRecentGames": [[${steamRecentGames}]],
+          "steamOwnedGames": [[${steamOwnedGames}]]
         }
-      };
-      window.__THEME_DESKTOP_PROTOCOL__ = Object.assign(window.__THEME_DESKTOP_PROTOCOL__ || {}, {
-        widgets: widgetProtocol
-      });
-      window.__THEME_WIDGETS__ = window.__THEME_DESKTOP_PROTOCOL__.widgets;
+      }
+    </script>
+    <script>
+      (() => {
+        const payloadNode = document.getElementById('theme-desktop-widget-protocol');
+        if (!payloadNode) return;
+        try {
+          const widgetProtocol = JSON.parse(payloadNode.textContent || '{}');
+          if (!widgetProtocol || typeof widgetProtocol !== 'object' || Array.isArray(widgetProtocol)) return;
+          window.__THEME_DESKTOP_PROTOCOL__ = Object.assign(window.__THEME_DESKTOP_PROTOCOL__ || {}, {
+            widgets: widgetProtocol
+          });
+          window.__THEME_WIDGETS__ = widgetProtocol;
+        } catch (_error) {
+          // Keep the shell usable when a malformed optional payload is served.
+        }
+      })();
     </script>
 
     <section class="desktop-widgets-layer"
@@ -312,10 +329,12 @@
               <input type="url"
                      placeholder="https://example.com 或 /path"
                      x-model="addIconForm.href"
+                     @input="addIconForm.error = ''"
                      @keydown.enter="submitAddIconForm()"
                      autocomplete="off"
                      autofocus>
             </label>
+            <p class="desktop-add-icon-error" x-show="addIconForm.error" x-text="addIconForm.error" role="alert"></p>
             <label class="desktop-add-icon-field">
               <span>显示名称</span>
               <input type="text"
@@ -369,6 +388,10 @@
             </button>
           </header>
           <div class="desktop-add-icon-form">
+            <p class="desktop-add-icon-error"
+               x-show="widgetConfigOptionsError"
+               x-text="widgetConfigOptionsError"
+               role="alert"></p>
             <template x-for="field in widgetConfigForm.configSchema" :key="field.key">
               <div class="desktop-add-icon-field desktop-widget-config-field">
                 <span x-text="field.label || field.key"></span>
@@ -696,6 +719,7 @@
                    :class="desktopNodeContentClassName(node)"
                    :href="node.href"
                    :target="node.external ? '_blank' : null"
+                   :rel="node.external ? 'noopener noreferrer' : null"
                    :data-pjax-app="node.pjaxApp || null"
                    :data-id="node.dataId"
                    :data-desktop-key="node.key"

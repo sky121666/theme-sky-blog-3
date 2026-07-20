@@ -109,12 +109,7 @@
 
         <main class="photos-main photos-detail-main">
           <section class="photos-detail-stage"
-                   :class="{ 'is-pannable': photoCanPan, 'is-panning': photoPanning }"
-                   @wheel.stop.prevent="handlePhotoWheel($event)"
-                   @pointerdown="beginPhotoPan($event)"
-                   @mousedown="beginPhotoPan($event)"
-                   @auxclick.prevent
-                   @dblclick="resetPhotoZoom()">
+                   :class="{ 'is-pannable': photoCanPan, 'is-panning': photoPanning }">
             <figure class="photos-detail-figure"
                     th:style="${'view-transition-name: photo-' + photo.metadata.name}">
               <img class="photos-detail-image"
@@ -123,7 +118,6 @@
                    loading="eager"
                    decoding="async"
                    draggable="false"
-                   @load="clampPhotoPan(); updatePhotoPanAvailability()"
                    :style="'transform: translate(calc(-50% + ' + panX + 'px), calc(-50% + ' + panY + 'px)) scale(' + zoomLevel + ')'" />
               <figcaption th:if="${!#strings.isEmpty(photoDescription)}" th:text="${photoDescription}">图片描述</figcaption>
             </figure>

@@ -25,6 +25,7 @@ export const dragMethods = {
       active: true,
       kind: 'widget',
       key: widget.key,
+      pointerId: event.pointerId ?? null,
       node: { ...widget },
       widget: { ...widget },
       widgetMarkup: event.currentTarget.innerHTML.replace(STRIP_ALPINE_RE, ''),
@@ -59,10 +60,18 @@ export const dragMethods = {
       h: widget.h
     };
     this.dragMoveHandler = (moveEvent) => this.onDragMove(moveEvent);
-    this.dragEndHandler = () => this.onDragEnd();
+    this.dragEndHandler = (endEvent) => this.onDragEnd(endEvent);
+    this.dragCancelHandler = (cancelEvent) => this.onDragCancel(cancelEvent);
 
     window.addEventListener('pointermove', this.dragMoveHandler);
     window.addEventListener('pointerup', this.dragEndHandler);
+    window.addEventListener('pointercancel', this.dragCancelHandler);
+    window.addEventListener('blur', this.dragCancelHandler);
+    try {
+      event.currentTarget?.setPointerCapture?.(event.pointerId);
+    } catch (_error) {
+      // Window listeners remain the fallback when pointer capture is unavailable.
+    }
     document.body.style.userSelect = 'none';
     event.preventDefault();
   },
@@ -77,6 +86,7 @@ export const dragMethods = {
       active: true,
       kind: 'widget',
       key: widget.key,
+      pointerId: detail.pointerId ?? null,
       node: { ...widget },
       widget: { ...widget },
       widgetMarkup: detail.markup.replace(STRIP_ALPINE_RE, ''),
@@ -91,7 +101,7 @@ export const dragMethods = {
       snapOffsetY: rect.height / 2,
       width: rect.width,
       height: rect.height,
-      hasMoved: true,
+      hasMoved: false,
       notificationDropActive: false,
       notificationDropIndex: -1,
       notificationDropTop: 0,
@@ -106,10 +116,13 @@ export const dragMethods = {
 
     this.previewPlacement = null;
     this.dragMoveHandler = (moveEvent) => this.onDragMove(moveEvent);
-    this.dragEndHandler = () => this.onDragEnd();
+    this.dragEndHandler = (endEvent) => this.onDragEnd(endEvent);
+    this.dragCancelHandler = (cancelEvent) => this.onDragCancel(cancelEvent);
 
     window.addEventListener('pointermove', this.dragMoveHandler);
     window.addEventListener('pointerup', this.dragEndHandler);
+    window.addEventListener('pointercancel', this.dragCancelHandler);
+    window.addEventListener('blur', this.dragCancelHandler);
     document.body.style.userSelect = 'none';
   },
 
@@ -127,6 +140,7 @@ export const dragMethods = {
       active: true,
       kind: 'icon',
       key,
+      pointerId: event.pointerId ?? null,
       node: { ...icon },
       widget: null,
       widgetMarkup: '',
@@ -157,16 +171,27 @@ export const dragMethods = {
       h: icon.h
     };
     this.dragMoveHandler = (moveEvent) => this.onDragMove(moveEvent);
-    this.dragEndHandler = () => this.onDragEnd();
+    this.dragEndHandler = (endEvent) => this.onDragEnd(endEvent);
+    this.dragCancelHandler = (cancelEvent) => this.onDragCancel(cancelEvent);
 
     window.addEventListener('pointermove', this.dragMoveHandler);
     window.addEventListener('pointerup', this.dragEndHandler);
+    window.addEventListener('pointercancel', this.dragCancelHandler);
+    window.addEventListener('blur', this.dragCancelHandler);
+    try {
+      event.currentTarget?.setPointerCapture?.(event.pointerId);
+    } catch (_error) {
+      // Window listeners remain the fallback when pointer capture is unavailable.
+    }
     document.body.style.userSelect = 'none';
     event.preventDefault();
   },
 
   onDragMove(event) {
     if (!this.dragState.active || !this.dragState.node) return;
+    if (this.dragState.pointerId !== null
+      && event.pointerId !== undefined
+      && event.pointerId !== this.dragState.pointerId) return;
 
     this.dragState.pointerX = event.clientX;
     this.dragState.pointerY = event.clientY;
@@ -406,8 +431,17 @@ export const dragMethods = {
     return true;
   },
 
-  onDragEnd() {
+  onDragEnd(event) {
     if (!this.dragState.active) return;
+    if (this.dragState.pointerId !== null
+      && event?.pointerId !== undefined
+      && event.pointerId !== this.dragState.pointerId) return;
+
+    if (!this.dragState.hasMoved) {
+      window.dispatchEvent(new CustomEvent('theme-notification-widget-drop-state', { detail: { active: false } }));
+      this.endDrag();
+      return;
+    }
 
     const clientX = this.dragState.pointerX;
     const panel = document.getElementById('notification-center-panel');
@@ -448,6 +482,15 @@ export const dragMethods = {
     this.endDrag();
   },
 
+  onDragCancel(event) {
+    if (!this.dragState.active) return;
+    if (this.dragState.pointerId !== null
+      && event?.pointerId !== undefined
+      && event.pointerId !== this.dragState.pointerId) return;
+    window.dispatchEvent(new CustomEvent('theme-notification-widget-drop-state', { detail: { active: false } }));
+    this.endDrag();
+  },
+
   endDrag() {
     window.dispatchEvent(new CustomEvent('theme-notification-widget-drag-end'));
     window.dispatchEvent(new CustomEvent('theme-widget-drag-state', {
@@ -458,6 +501,7 @@ export const dragMethods = {
       active: false,
       kind: '',
       key: '',
+      pointerId: null,
       node: null,
       widget: null,
       widgetMarkup: '',
@@ -489,6 +533,12 @@ export const dragMethods = {
     if (this.dragEndHandler) {
       window.removeEventListener('pointerup', this.dragEndHandler);
       this.dragEndHandler = null;
+    }
+
+    if (this.dragCancelHandler) {
+      window.removeEventListener('pointercancel', this.dragCancelHandler);
+      window.removeEventListener('blur', this.dragCancelHandler);
+      this.dragCancelHandler = null;
     }
 
     document.body.style.userSelect = '';
