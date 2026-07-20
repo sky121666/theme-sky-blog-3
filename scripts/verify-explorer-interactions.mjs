@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { renderBatch } from '../src/apps/explorer/shared/render-batch.js';
-import { registerCategoriesExplorer } from '../src/apps/explorer/categories/runtime.js';
+import { registerCategoryPostsExplorer } from '../src/apps/explorer/categories/runtime.js';
 import { registerTagsExplorer } from '../src/apps/explorer/tags/runtime.js';
 import { registerAuthorPostsExplorer } from '../src/apps/explorer/author/runtime.js';
 
@@ -152,15 +152,44 @@ try {
   assert.equal(batchContainer.innerHTML, '<b>new-only</b>', 'a cancelled batch must not append stale frames');
   assert.equal(staleBatch.cancelled, true, 'renderBatch should expose cancellation state');
 
-  const explorerCases = [
-    {
-      factory: captureFactory(registerCategoriesExplorer, 'categoriesExplorer'),
-      listSelector: '[data-category-posts-list]',
-      activeHrefKey: 'activeCategoryHref',
-      parentName: '分类',
-      fetchMethod: 'fetchCategoryPosts',
-      cacheKey: 'cat-posts-cached-scope',
+  const categoryFactory = captureFactory(registerCategoryPostsExplorer, 'categoryPostsExplorer');
+  const categoryOptions = ['first', 'second'].map((key) => {
+    const attributes = new Map();
+    return {
+      dataset: {
+        postKey: key,
+        postTitle: `${key}-title`,
+        postDate: '2026.07.20',
+        postComments: key === 'first' ? '1' : '2',
+        postExcerpt: `${key}-excerpt`,
+        postParentName: '分类',
+        postAuthor: '作者',
+      },
+      href: `http://theme.test/archives/${key}`,
+      setAttribute(name, value) {
+        attributes.set(name, String(value));
+      },
+      getAttribute(name) {
+        return attributes.get(name) ?? null;
+      },
+    };
+  });
+  const categoryPreview = categoryFactory();
+  categoryPreview.$root = {
+    querySelector(selector) {
+      return selector === '[data-category-post-option]' ? categoryOptions[0] : null;
     },
+    querySelectorAll(selector) {
+      return selector === '[data-category-post-option]' ? categoryOptions : [];
+    },
+  };
+  categoryPreview.init();
+  assert.equal(categoryPreview.activePostKey, 'first', '分类详情初始化应预览第一篇文章');
+  categoryPreview.selectPost(categoryOptions[1]);
+  assert.equal(categoryPreview.activePostKey, 'second', '分类详情应同步最新预览文章');
+  assert.equal(categoryPreview.activePostHref, 'http://theme.test/archives/second', '分类详情应同步文章真实地址');
+
+  const explorerCases = [
     {
       factory: captureFactory(registerTagsExplorer, 'tagsExplorer'),
       listSelector: '[data-tag-posts-list]',

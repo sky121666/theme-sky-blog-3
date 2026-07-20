@@ -21,6 +21,7 @@ async function importModule(relPath) {
 
 const appManifestsMod = await importModule('src/shell-core/runtime/app-manifests.js');
 const routeManifestMod = await importModule('src/shell-core/runtime/route-manifest.js');
+const categoriesWidgetMod = await importModule('src/widgets/halo/categories/render.js');
 
 const { APP_MANIFESTS, getAppManifest, getKnownAppIds } = appManifestsMod;
 const {
@@ -29,6 +30,7 @@ const {
   inferWindowVariantFromUrl,
   getRoutableAppIds
 } = routeManifestMod;
+const { renderWidget: renderCategoriesWidget } = categoriesWidgetMod;
 
 assert(Array.isArray(APP_MANIFESTS) && APP_MANIFESTS.length > 0, 'APP_MANIFESTS 不能为空');
 
@@ -89,7 +91,9 @@ const routeSamples = [
   ['https://example.com/tags', 'explorer-tags', 'browser'],
   ['https://example.com/tags/demo', 'explorer-tags', 'browser'],
   ['https://example.com/categories', 'explorer-categories', 'browser'],
+  ['https://example.com/categories/', 'explorer-categories', 'browser'],
   ['https://example.com/categories/demo', 'explorer-categories', 'browser'],
+  ['https://example.com/categories/demo/page/2', 'explorer-categories', 'browser'],
   ['https://example.com/authors/demo', 'explorer-author', 'browser'],
   ['https://example.com/archives', 'explorer-archives', 'browser'],
   ['https://example.com/archives/2024', 'explorer-archives', 'browser'],
@@ -114,7 +118,14 @@ const unknownRouteSamples = [
   'https://example.com/archives/2024/page/2',
   'https://example.com/archives/2024/13',
   'https://example.com/archives/2024/12/page/0',
-  'https://example.com/archives/2024/12/page/not-a-number'
+  'https://example.com/archives/2024/12/page/not-a-number',
+  'https://example.com/categories/page/2',
+  'https://example.com/categories/demo/extra',
+  'https://example.com/categories/demo/page/0',
+  'https://example.com/categories/demo/page/01',
+  'https://example.com/categories/demo/page/not-a-number',
+  'https://example.com/categories/demo/page/2/extra',
+  'https://example.com/category/demo'
 ];
 
 for (const url of unknownRouteSamples) {
@@ -131,7 +142,9 @@ window.__SKY_THEME_ROUTES__ = Object.freeze({
 
 const customRouteSamples = [
   ['https://example.com/topics', 'explorer-categories', 'browser'],
+  ['https://example.com/topics/', 'explorer-categories', 'browser'],
   ['https://example.com/topics/demo', 'explorer-categories', 'browser'],
+  ['https://example.com/topics/demo/page/3', 'explorer-categories', 'browser'],
   ['https://example.com/labels', 'explorer-tags', 'browser'],
   ['https://example.com/labels/demo', 'explorer-tags', 'browser'],
   ['https://example.com/timeline', 'explorer-archives', 'browser'],
@@ -148,5 +161,47 @@ for (const [url, expectedApp, expectedVariant] of customRouteSamples) {
 
 const customUnknownRoute = 'https://example.com/timeline/not-an-archive';
 assert(inferPageAppFromUrl(customUnknownRoute) === null, `自定义归档非年月路径应依赖显式 data-pjax-app: ${customUnknownRoute}`);
+
+const customCategoryUnknownRoutes = [
+  'https://example.com/topics/page/2',
+  'https://example.com/topics/demo/extra',
+  'https://example.com/topics/demo/page/0',
+  'https://example.com/topics/demo/page/not-a-number',
+  'https://example.com/categories/demo',
+  'https://example.com/category/demo'
+];
+
+for (const url of customCategoryUnknownRoutes) {
+  assert(inferPageAppFromUrl(url) === null, `自定义分类路由不应匹配非法或旧前缀: ${url}`);
+  assert(resolveRoute(url) === null, `自定义分类 resolveRoute(${url}) 应返回 null`);
+}
+
+const escapeHtml = (value) => String(value ?? '')
+  .replaceAll('&', '&amp;')
+  .replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;')
+  .replaceAll('"', '&quot;')
+  .replaceAll("'", '&#39;');
+const categoryWidgetHtml = renderCategoriesWidget({
+  sources: {
+    categories: [{
+      metadata: { name: 'demo' },
+      spec: { displayName: 'Demo' },
+      status: { permalink: '/topics/demo', visiblePostCount: 1 },
+      children: []
+    }]
+  },
+  escapeHtml,
+  mode: 'live'
+}, {
+  widget: 'halo.categories',
+  meta: {}
+});
+
+assert(
+  categoryWidgetHtml.includes('class="wg-cat-more pjax-link" data-pjax-app="explorer-categories" href="/topics"'),
+  '分类 Widget 的“更多分类”必须复用主题 categoriesUri 契约'
+);
+assert(!categoryWidgetHtml.includes('href="/categories"'), '自定义 categoriesUri 下不得回退到硬编码 /categories');
 
 console.log('协议 typecheck 通过');

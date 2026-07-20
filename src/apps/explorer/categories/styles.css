@@ -17,29 +17,24 @@
   --categories-surface: rgba(255, 255, 255, 0.74);
   --categories-surface-strong: rgba(250, 251, 252, 0.88);
   --categories-toolbar: rgba(236, 238, 241, 0.84);
-  --categories-sidebar: rgba(238, 241, 245, 0.86);
   --categories-sidebar-surface: color-mix(in srgb, var(--theme-accent, var(--mac-accent, #2e5fbd)) 4%, rgba(240, 243, 247, 0.94));
-  --categories-sidebar-edge-glow: color-mix(in srgb, var(--theme-accent, var(--mac-accent, #2e5fbd)) 12%, transparent);
-  --categories-sidebar-bottom-glow: color-mix(in srgb, var(--theme-accent, var(--mac-accent, #2e5fbd)) 8%, transparent);
   --categories-column-bg: rgba(247, 248, 250, 0.28);
-  --categories-column-bg-soft: rgba(250, 251, 252, 0.14);
   --categories-border: rgba(15, 23, 42, 0.075);
   --categories-border-soft: rgba(15, 23, 42, 0.05);
   --categories-divider: rgba(15, 23, 42, 0.11);
   --categories-divider-shadow: rgba(255, 255, 255, 0.18);
   --categories-highlight: rgba(255, 255, 255, 0.52);
-  --categories-text: #111827;
-  --categories-text-soft: rgba(17, 24, 39, 0.72);
-  --categories-text-muted: rgba(17, 24, 39, 0.48);
+  --categories-text: #16191d;
+  --categories-text-soft: rgba(22, 25, 29, 0.7);
+  --categories-text-muted: rgba(22, 25, 29, 0.5);
   --categories-row-hover: rgba(15, 23, 42, 0.032);
   --categories-accent: var(--theme-accent, var(--mac-accent, #2e5fbd));
-  --categories-selection: var(--theme-selection, var(--mac-selection, #244d9b));
   --categories-selection-fill: color-mix(in srgb, var(--categories-accent) 18%, var(--categories-surface-strong));
   --categories-selection-border: color-mix(in srgb, var(--categories-accent) 18%, rgba(0, 0, 0, 0.08));
-  --categories-sidebar-active-bg: linear-gradient(180deg, color-mix(in srgb, var(--categories-accent) 10%, rgba(255, 255, 255, 0.18)), color-mix(in srgb, var(--categories-accent) 7%, rgba(255, 255, 255, 0.08)));
+  --categories-sidebar-active-bg: color-mix(in srgb, var(--categories-accent) 9%, var(--categories-surface-strong));
   --categories-sidebar-active-border: color-mix(in srgb, var(--categories-accent) 14%, rgba(15, 23, 42, 0.08));
-  --categories-sidebar-active-shadow: 0 6px 16px color-mix(in srgb, var(--categories-accent) 6%, transparent);
-  --categories-list-active-bg: linear-gradient(180deg, color-mix(in srgb, var(--categories-accent) 10%, rgba(255, 255, 255, 0.14)), color-mix(in srgb, var(--categories-accent) 7%, rgba(255, 255, 255, 0.06)));
+  --categories-sidebar-active-shadow: 0 1px 2px rgba(15, 23, 42, 0.035);
+  --categories-list-active-bg: color-mix(in srgb, var(--categories-accent) 8%, var(--categories-surface-strong));
   --categories-list-active-border: color-mix(in srgb, var(--categories-accent) 12%, rgba(15, 23, 42, 0.08));
   --categories-list-active-rim: color-mix(in srgb, var(--categories-accent) 26%, transparent);
   --categories-folder-icon: var(--theme-folder1, var(--mac-folder1, #4a90e2));
@@ -62,12 +57,8 @@
   --categories-surface: rgba(26, 31, 30, 0.78);
   --categories-surface-strong: rgba(30, 37, 36, 0.86);
   --categories-toolbar: rgba(43, 50, 48, 0.82);
-  --categories-sidebar: rgba(28, 31, 35, 0.92);
   --categories-sidebar-surface: color-mix(in srgb, var(--theme-accent, var(--mac-accent, #2e5fbd)) 6%, rgba(28, 32, 36, 0.96));
-  --categories-sidebar-edge-glow: color-mix(in srgb, var(--theme-accent, var(--mac-accent, #2e5fbd)) 18%, transparent);
-  --categories-sidebar-bottom-glow: color-mix(in srgb, var(--theme-accent, var(--mac-accent, #2e5fbd)) 12%, transparent);
   --categories-column-bg: rgba(255, 255, 255, 0.016);
-  --categories-column-bg-soft: rgba(255, 255, 255, 0.01);
   --categories-border: rgba(255, 255, 255, 0.075);
   --categories-border-soft: rgba(255, 255, 255, 0.045);
   --categories-divider: rgba(255, 255, 255, 0.075);
@@ -79,10 +70,10 @@
   --categories-row-hover: rgba(255, 255, 255, 0.042);
   --categories-selection-fill: color-mix(in srgb, var(--categories-accent) 24%, rgba(255, 255, 255, 0.02));
   --categories-selection-border: color-mix(in srgb, var(--categories-accent) 24%, rgba(255, 255, 255, 0.12));
-  --categories-sidebar-active-bg: linear-gradient(180deg, color-mix(in srgb, var(--categories-accent) 16%, rgba(255, 255, 255, 0.03)), color-mix(in srgb, var(--categories-accent) 11%, rgba(255, 255, 255, 0.015)));
+  --categories-sidebar-active-bg: color-mix(in srgb, var(--categories-accent) 16%, var(--categories-surface-strong));
   --categories-sidebar-active-border: color-mix(in srgb, var(--categories-accent) 18%, rgba(255, 255, 255, 0.1));
-  --categories-sidebar-active-shadow: 0 8px 18px color-mix(in srgb, var(--categories-accent) 9%, transparent);
-  --categories-list-active-bg: linear-gradient(180deg, color-mix(in srgb, var(--categories-accent) 14%, rgba(255, 255, 255, 0.025)), color-mix(in srgb, var(--categories-accent) 10%, rgba(255, 255, 255, 0.015)));
+  --categories-sidebar-active-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  --categories-list-active-bg: color-mix(in srgb, var(--categories-accent) 13%, var(--categories-surface-strong));
   --categories-list-active-border: color-mix(in srgb, var(--categories-accent) 18%, rgba(255, 255, 255, 0.09));
   --categories-list-active-rim: color-mix(in srgb, var(--categories-accent) 30%, transparent);
   --categories-scrollbar-thumb: rgba(203, 213, 225, 0.26);
@@ -94,7 +85,7 @@
 
 .categories-workspace {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: 224px minmax(0, 1fr);
   flex: 1;
   height: 100%;
   min-height: 0;
@@ -105,19 +96,18 @@
 .category-folder-pane {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   min-height: 0;
   position: relative;
   padding: 14px 12px 14px 14px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--categories-sidebar-surface) 98%, transparent), color-mix(in srgb, var(--categories-sidebar) 96%, transparent));
+  background: var(--categories-sidebar-surface);
   border-right: 1px solid var(--categories-divider);
-  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.035);
   isolation: isolate;
 }
 
 .categories-sidebar::before,
-.categories-sidebar::after,
-.category-folder-pane::before,
-.category-folder-pane::after {
+.category-folder-pane::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -127,18 +117,8 @@
 
 .categories-sidebar::before,
 .category-folder-pane::before {
-  background:
-    radial-gradient(140% 90% at 0% 0%, var(--categories-sidebar-edge-glow), transparent 52%),
-    linear-gradient(90deg, color-mix(in srgb, var(--categories-accent) 4%, transparent), transparent 24%);
-  opacity: 0.9;
-}
-
-.categories-sidebar::after,
-.category-folder-pane::after {
-  background:
-    radial-gradient(110% 62% at 12% 100%, var(--categories-sidebar-bottom-glow), transparent 54%),
-    linear-gradient(180deg, transparent 0%, rgba(255, 255, 255, 0.015) 100%);
-  opacity: 0.85;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--categories-accent) 3%, transparent), transparent 30%);
+  opacity: 0.72;
 }
 
 .categories-sidebar > *,
@@ -153,9 +133,8 @@
   padding: 0 10px;
   color: var(--categories-text-muted);
   font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-weight: 650;
+  letter-spacing: 0.06em;
 }
 
 .categories-sidebar-nav {
@@ -168,7 +147,7 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding-right: 4px;
+  padding: 2px 4px 2px 2px;
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
@@ -182,19 +161,25 @@
   align-items: center;
   gap: 10px;
   width: 100%;
-  min-height: 30px;
-  padding: 0 9px 0 calc(9px + (var(--category-depth) * 14px));
+  min-height: 36px;
+  padding: 0 10px 0 calc(10px + (var(--category-depth) * 14px));
   border: 1px solid transparent;
   border-radius: 8px;
   color: var(--categories-text-soft);
   background: transparent;
   text-align: left;
-  cursor: pointer;
   transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
-.categories-sidebar-item:hover,
-.category-folder-card:hover {
+.categories-sidebar-item {
+  cursor: pointer;
+}
+
+.category-folder-card {
+  cursor: default;
+}
+
+.categories-sidebar-item:hover {
   color: var(--categories-text);
   background: color-mix(in srgb, var(--categories-accent) 4%, var(--categories-row-hover));
   border-color: color-mix(in srgb, var(--categories-accent) 6%, var(--categories-border-soft));
@@ -206,8 +191,6 @@
   background: var(--categories-sidebar-active-bg);
   border-color: var(--categories-sidebar-active-border);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 0 0 1px color-mix(in srgb, var(--categories-accent) 5%, transparent),
     inset 2px 0 0 var(--categories-list-active-rim),
     var(--categories-sidebar-active-shadow);
 }
@@ -219,7 +202,7 @@
   margin: 0;
   min-width: 0;
   color: var(--categories-text);
-  font-size: 12.8px;
+  font-size: 13px;
   font-weight: 590;
   line-height: 1.35;
   letter-spacing: -0.01em;
@@ -258,15 +241,15 @@
 .categories-content,
 .category-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.92fr);
+  grid-template-columns: minmax(420px, 1fr) minmax(320px, 340px);
   min-width: 0;
   min-height: 0;
   height: 100%;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--categories-column-bg) 78%, transparent), color-mix(in srgb, var(--categories-column-bg-soft) 52%, transparent));
+  background: var(--categories-column-bg);
 }
 
 .category-workspace {
-  grid-template-columns: 240px minmax(380px, 1.12fr) minmax(320px, 0.98fr);
+  grid-template-columns: 224px minmax(420px, 1fr) minmax(320px, 340px);
   flex: 1;
   height: 100%;
   min-height: 0;
@@ -295,18 +278,17 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  min-height: 38px;
+  min-height: 40px;
   padding: 0 12px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--categories-toolbar) 92%, transparent), color-mix(in srgb, var(--categories-toolbar) 82%, transparent));
+  background: var(--categories-toolbar);
   border-bottom: 1px solid var(--categories-divider);
 }
 
 .categories-pane-title {
   color: var(--categories-text);
   font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-weight: 650;
+  letter-spacing: 0.02em;
 }
 
 .categories-pane-path,
@@ -331,11 +313,25 @@
 }
 
 .categories-folder-card {
+  display: flex;
   min-height: 108px;
   align-items: flex-start;
   gap: 12px;
   padding: 14px 14px 12px;
   flex-direction: column;
+  border: 1px solid var(--categories-border-soft);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--categories-surface-strong) 62%, transparent);
+  color: var(--categories-text);
+  text-decoration: none;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--categories-highlight) 42%, transparent);
+  transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.categories-folder-card:hover {
+  background: color-mix(in srgb, var(--categories-accent) 5%, var(--categories-surface-strong));
+  border-color: color-mix(in srgb, var(--categories-accent) 12%, var(--categories-border));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--categories-highlight) 58%, transparent);
 }
 
 .categories-folder-copy,
@@ -343,12 +339,25 @@
   min-width: 0;
 }
 
+.categories-folder-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.categories-folder-meta {
+  display: block;
+}
+
 .categories-folder-meta,
 .category-folder-meta {
-  margin: 4px 0 0;
+  margin: 0;
   color: var(--categories-text-muted);
   font-size: 11.5px;
   line-height: 1.5;
+}
+
+.category-folder-meta {
+  margin-top: 4px;
 }
 
 .categories-preview-scroll,
@@ -485,9 +494,8 @@
 .category-preview-meta dt {
   color: var(--categories-text-muted);
   font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-weight: 650;
+  letter-spacing: 0.04em;
 }
 
 .categories-preview-meta dd,
@@ -520,7 +528,7 @@
   justify-content: center;
   width: fit-content;
   justify-self: start;
-  min-height: 30px;
+  min-height: 36px;
   margin-top: 2px;
   padding: 0 11px;
   border-radius: 999px;
@@ -593,14 +601,18 @@
   padding: 5px 6px 6px;
 }
 
+.browser-explorer-posts-skeleton {
+  min-height: 44px;
+}
+
 .category-post-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   width: 100%;
-  min-height: 33px;
-  padding: 0 9px;
+  min-height: 44px;
+  padding: 0 10px;
   border: 1px solid transparent;
   border-radius: 7px;
   color: inherit;
@@ -619,9 +631,7 @@
   color: var(--categories-text);
   background: var(--categories-list-active-bg);
   border-color: var(--categories-list-active-border);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    inset 2px 0 0 var(--categories-list-active-rim);
+  box-shadow: inset 2px 0 0 var(--categories-list-active-rim);
 }
 
 .category-post-row-main {
@@ -678,14 +688,23 @@
 .tags-post-overflow {
   display: flex;
   justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
   padding: 12px 0 16px;
+}
+
+.categories-post-empty > div {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: min(100%, 420px);
 }
 
 .categories-post-viewmore,
 .tags-post-viewmore {
   display: inline-flex;
   align-items: center;
-  min-height: 30px;
+  min-height: 36px;
   padding: 0 14px;
   border-radius: 999px;
   border: 1px solid var(--categories-border);
@@ -718,7 +737,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 34px;
+  min-height: 36px;
   padding: 0 12px;
   border-radius: 999px;
   border: 1px solid var(--categories-border);
@@ -744,6 +763,38 @@
 .category-page-btn.is-disabled {
   pointer-events: none;
   opacity: 0.42;
+}
+
+:is(
+  .categories-sidebar-item,
+  .categories-folder-card,
+  .category-folder-back,
+  .category-post-row,
+  .categories-preview-action,
+  .category-preview-action,
+  .categories-post-viewmore,
+  .category-page-btn
+):focus-visible {
+  position: relative;
+  z-index: 2;
+  outline: 2px solid color-mix(in srgb, var(--categories-accent) 72%, white 12%);
+  outline-offset: 2px;
+}
+
+@container (max-width: 1179px) {
+  .categories-workspace,
+  .category-workspace {
+    grid-template-columns: clamp(196px, 26cqw, 224px) minmax(0, 1fr);
+  }
+
+  .categories-content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .categories-pane--preview,
+  .category-preview-pane {
+    display: none !important;
+  }
 }
 
 @container (max-width: 640px) {
@@ -785,6 +836,14 @@
     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   }
 
+  .category-folder-pane .categories-sidebar-nav {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .categories-sidebar-item {
+    min-height: 44px;
+  }
+
   .categories-pane,
   .category-posts-pane {
     min-height: auto;
@@ -821,6 +880,22 @@
 
   .categories-pane--preview {
     display: none;
+  }
+
+  .category-folder-back,
+  .categories-preview-action,
+  .category-preview-action,
+  .categories-post-viewmore,
+  .category-page-btn,
+  .category-page-indicator {
+    min-height: 44px;
+  }
+}
+
+@media (min-width: 769px) and (max-height: 780px) {
+  body[data-page-app="explorer-categories"]:is(:has(#pjax-container > .categories-shell), :has(#pjax-container > .category-shell)) .category-pagination {
+    margin-top: 12px;
+    padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -876,7 +951,7 @@
   }
 
   .categories-pane-header {
-    min-height: 34px;
+    min-height: 44px;
     padding: 0 10px;
   }
 
@@ -887,6 +962,13 @@
   .categories-pane-path,
   .category-folder-back {
     font-size: 10px;
+  }
+
+  .category-folder-back {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 4px;
   }
 
   .categories-folder-grid {
@@ -911,8 +993,8 @@
     flex-wrap: wrap;
     align-items: flex-start;
     gap: 6px 10px;
-    min-height: auto;
-    padding: 8px 9px;
+    min-height: 56px;
+    padding: 9px 10px;
   }
 
   .category-post-row-main {
@@ -933,14 +1015,63 @@
   }
 
   body[data-page-app="explorer-categories"]:is(:has(#pjax-container > .categories-shell), :has(#pjax-container > .category-shell)) .category-pagination {
+    gap: 8px;
     margin: 14px 0 0;
-    padding-bottom: 24px;
+    padding: 0 10px calc(24px + env(safe-area-inset-bottom, 0px));
+    flex-wrap: wrap;
   }
 
   .categories-post-viewmore,
   .tags-post-viewmore {
-    min-height: 32px;
+    min-height: 44px;
     padding: 0 12px;
     font-size: 11.5px;
+  }
+
+  .category-page-btn,
+  .category-page-indicator {
+    min-height: 44px;
+    padding: 0 12px;
+  }
+}
+
+@container (max-width: 640px) {
+  .category-folder-pane .category-folder-card {
+    min-height: 68px;
+    margin-bottom: 10px;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .category-folder-pane .categories-sidebar-title {
+    margin-bottom: 6px;
+  }
+
+  .category-folder-pane .categories-sidebar-nav {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 2px 2px 8px;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+  }
+
+  .category-folder-pane .categories-sidebar-item {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: max-content;
+    padding-inline: 14px;
+    scroll-snap-align: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .categories-shell *,
+  .category-shell * {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

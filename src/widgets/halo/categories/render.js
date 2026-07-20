@@ -2,6 +2,14 @@ import { selectTopCategories } from '../../shared/data.js';
 import { buildWidgetPjaxLink } from '../../shared/link.js';
 
 const CATEGORY_FALLBACK_ICON = '<span class="icon-[lucide--folder]" aria-hidden="true"></span>';
+const DEFAULT_CATEGORIES_URL = '/categories';
+
+function resolveCategoriesUrl() {
+  const configured = globalThis.window?.__SKY_THEME_ROUTES__?.categoriesUri;
+  return typeof configured === 'string' && configured.trim()
+    ? configured.trim()
+    : DEFAULT_CATEGORIES_URL;
+}
 
 function normalizeCategoryNames(value) {
   if (Array.isArray(value)) {
@@ -33,7 +41,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget) {
     return '<div class="desktop-widget-empty">当前没有可展示的分类。</div>';
   }
 
-  const categoriesUrl = '/categories';
+  const categoriesUrl = resolveCategoriesUrl();
 
   const items = categories.map((cat) => {
     const color = cat.color || 'currentColor';

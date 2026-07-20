@@ -49,6 +49,18 @@ function matchesArchiveRoute(pathname) {
   return /^\/\d{4}(?:\/(?:0?[1-9]|1[0-2])(?:\/page\/[1-9]\d*)?)?\/?$/.test(archivePath);
 }
 
+function matchesCategoryRoute(pathname) {
+  const routePrefix = getThemeRoutes().categoriesUri;
+  if (pathname === routePrefix || pathname === `${routePrefix}/`) return true;
+
+  const categoryPath = pathname.startsWith(`${routePrefix}/`)
+    ? pathname.slice(routePrefix.length)
+    : '';
+  if (!categoryPath) return false;
+
+  return /^\/[^/]+(?:\/page\/[1-9]\d*)?\/?$/.test(categoryPath);
+}
+
 function matchesDefaultReaderRoute(pathname) {
   if (!/^\/archives\/[^/]+\/?$/.test(pathname)) return false;
   return !matchesArchiveRoute(pathname);
@@ -165,7 +177,7 @@ const ROUTE_RULES = [
     windowVariant: BROWSER_VARIANT,
     pjaxMode: 'same-app',
     cacheKeyPolicy: 'app-path-search',
-    matches: (pathname) => matchesConfiguredOrLegacyRoute(pathname, 'categoriesUri', ['/categories', '/category'])
+    matches: (pathname) => matchesCategoryRoute(pathname)
   },
   {
     id: 'explorer-author',

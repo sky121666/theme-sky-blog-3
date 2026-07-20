@@ -18,16 +18,44 @@
         windowMaximizable = true,
         windowMetricsKey = 'browser'
       )}">
-  <th:block th:fragment="content">
+  <th:block th:fragment="categorySidebar(categories, depth, currentCategoryName)">
+    <th:block th:with="currentDepth=${depth != null ? depth : 0}">
+      <th:block th:each="item : ${categories}">
+        <a class="categories-sidebar-item pjax-link"
+           data-pjax-app="explorer-categories"
+           data-category-link
+           th:href="${item.status.permalink}"
+           th:style="'--category-depth:' + ${currentDepth}"
+           th:classappend="${item.metadata.name == currentCategoryName ? ' is-active' : ''}"
+           th:attr="aria-current=${item.metadata.name == currentCategoryName ? 'page' : null},
+                    aria-label=${item.spec.displayName + '，' + item.postCount + ' 篇文章'}">
+          <span class="categories-folder-icon categories-folder-icon--sidebar icon-[lucide--folder]" aria-hidden="true"></span>
+          <span class="categories-sidebar-label" th:text="${item.spec.displayName}">分类</span>
+        </a>
+
+        <th:block th:if="${not #lists.isEmpty(item.children)}"
+                  th:replace="~{::categorySidebar(categories=${item.children}, depth=${currentDepth + 1}, currentCategoryName=${currentCategoryName})}"></th:block>
+      </th:block>
+    </th:block>
+  </th:block>
+
+  <th:block th:fragment="content"
+            th:with="categoriesRootUri=${!#strings.isEmpty(site.routes?.categoriesUri) ? site.routes.categoriesUri : '/categories'},
+                     categoryTree=${categoryFinder.listAsTree()}">
     <div class="category-shell" data-app-root="explorer-categories">
       <script type="application/json" data-app-props="explorer-categories">{"version":1,"appId":"explorer-categories","data":{"view":"detail"}}</script>
+
       <div class="category-workspace"
-           th:if="${posts != null and !#lists.isEmpty(posts.items)}"
-           x-data="categoryPostsExplorer">
+           x-data="categoryPostsExplorer"
+           th:attr="data-category-name=${category.metadata.name},
+                    data-category-current-page=${posts != null ? posts.page : 1},
+                    data-category-total-pages=${posts != null ? posts.totalPages : 0}">
         <aside class="category-folder-pane">
           <header class="category-folder-header">
             <span class="category-folder-kicker">分类文件夹</span>
-            <a class="category-folder-back pjax-link" href="/categories">返回全部分类</a>
+            <a class="category-folder-back pjax-link"
+               data-pjax-app="explorer-categories"
+               th:href="${categoriesRootUri}">返回全部分类</a>
           </header>
 
           <div class="category-folder-card is-active">
@@ -36,78 +64,120 @@
             </div>
             <div class="category-folder-copy">
               <h1 class="category-folder-title" th:text="${category.spec.displayName}">分类</h1>
-              <p class="category-folder-meta" th:text="${posts.total} + ' 篇文章'">0 篇文章</p>
+              <p class="category-folder-meta" th:text="${(posts != null ? posts.total : 0)} + ' 篇文章'">0 篇文章</p>
             </div>
           </div>
 
-          <dl class="category-folder-meta-list">
-            <div>
-              <dt>别名</dt>
-              <dd th:text="${category.spec.slug}">slug</dd>
-            </div>
-            <div>
-              <dt>文章数量</dt>
-              <dd th:text="${posts.total} + ' 篇'">0 篇</dd>
-            </div>
-            <div>
-              <dt>下级分类</dt>
-              <dd th:text="${category.spec.children != null ? #lists.size(category.spec.children) + ' 个' : '0 个'}">0 个</dd>
-            </div>
-            <div th:if="${!#strings.isEmpty(category.spec.description)}">
-              <dt>描述</dt>
-              <dd th:text="${category.spec.description}">分类描述</dd>
-            </div>
-          </dl>
+          <p class="categories-sidebar-title">全部分类</p>
+          <nav class="categories-sidebar-nav"
+               aria-label="分类导航"
+               th:if="${categoryTree != null and !#lists.isEmpty(categoryTree)}">
+            <th:block th:replace="~{::categorySidebar(categories=${categoryTree}, depth=${0}, currentCategoryName=${category.metadata.name})}"></th:block>
+          </nav>
         </aside>
 
         <section class="category-posts-pane">
           <header class="categories-pane-header">
             <span class="categories-pane-title">文章</span>
-            <span class="categories-pane-path" th:text="${category.spec.displayName}">分类</span>
+            <span class="categories-pane-path"
+                  th:text="${category.spec.displayName + ' · ' + (posts != null ? posts.total : 0) + ' 篇'}">分类 · 0 篇</span>
           </header>
 
           <div class="category-posts-scroll">
-            <a class="category-post-row pjax-link"
-               data-pjax-app="reader"
-               th:each="post : ${posts.items}"
-               th:href="${post.status.permalink}"
-               data-category-post-option
-               th:attr="data-post-key=${post.metadata.name},data-post-title=${post.spec.title},data-post-date=${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')},data-post-comments=${post.stats.comment},data-post-excerpt=${post.status.excerpt},data-post-parent-name=${category.spec.displayName},data-post-author=${post.owner != null ? post.owner.displayName : site.title}"
-               @mouseenter="selectPost($el)"
-               @focus="selectPost($el)"
-               @click="selectPost($el)"
-               :class="{ 'is-active': activePostKey === $el.dataset.postKey }">
-              <div class="category-post-row-main">
-                <span class="category-post-file-icon icon-[lucide--file-text]" aria-hidden="true"></span>
-                <span class="category-post-row-title" th:text="${post.spec.title}">文章标题</span>
+            <nav th:if="${posts != null and !#lists.isEmpty(posts.items)}"
+                 th:attr="aria-label=${category.spec.displayName + '文章列表'}">
+              <a class="category-post-row pjax-link"
+                 data-pjax-app="reader"
+                 th:each="post : ${posts.items}"
+                 th:href="${post.status.permalink}"
+                 data-category-post-option
+                 th:attr="data-post-key=${post.metadata.name},
+                          data-post-title=${post.spec.title},
+                          data-post-date=${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')},
+                          data-post-comments=${post.stats.comment},
+                          data-post-excerpt=${post.status.excerpt},
+                          data-post-parent-name=${category.spec.displayName},
+                          data-post-author=${post.owner != null ? post.owner.displayName : site.title}"
+                 @mouseenter="selectPost($el)"
+                 @focus="selectPost($el)"
+                 @click="selectPost($el)"
+                 :class="{ 'is-active': activePostKey === $el.dataset.postKey }">
+                <div class="category-post-row-main">
+                  <span class="category-post-file-icon icon-[lucide--file-text]" aria-hidden="true"></span>
+                  <span class="category-post-row-title" th:text="${post.spec.title}">文章标题</span>
+                </div>
+                <span class="category-post-row-meta">
+                  <time th:attr="datetime=${#dates.format(post.spec.publishTime, 'yyyy-MM-dd')}"
+                        th:text="${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')}">2026.03.26</time>
+                  <span th:text="${post.stats.comment} + ' 评论'">0 评论</span>
+                </span>
+              </a>
+            </nav>
+
+            <section class="categories-post-empty"
+                     data-category-empty
+                     aria-live="polite"
+                     th:if="${posts == null or #lists.isEmpty(posts.items)}">
+              <div>
+                <h2 class="categories-empty-title"
+                    th:if="${posts != null and posts.page > 1}"
+                    th:text="'第 ' + ${posts.page} + ' 页不存在'">当前页不存在</h2>
+                <h2 class="categories-empty-title"
+                    th:if="${posts == null or posts.page <= 1}">当前分类暂无文章</h2>
+
+                <p class="categories-empty-text"
+                   th:if="${posts != null and posts.page > 1}"
+                   th:text="${posts.totalPages > 0 ? '该分类共 ' + posts.totalPages + ' 页，请返回有效页码。' : '当前分类没有可浏览的分页内容。'}">请返回有效页码。</p>
+                <p class="categories-empty-text"
+                   th:if="${posts == null or posts.page <= 1}">内容发布后会显示在这里，你也可以先浏览其他分类。</p>
+
+                <nav class="categories-post-overflow" aria-label="分类文章恢复导航">
+                  <a class="categories-post-viewmore pjax-link"
+                     data-pjax-app="explorer-categories"
+                     data-category-return-root
+                     th:href="${categoriesRootUri}">返回全部分类</a>
+                  <a class="categories-post-viewmore pjax-link"
+                     data-pjax-app="explorer-categories"
+                     data-category-return-first
+                     th:if="${posts != null and posts.page > 1}"
+                     th:href="${category.status.permalink}">返回第一页</a>
+                  <a class="categories-post-viewmore pjax-link"
+                     data-pjax-app="explorer-categories"
+                     data-category-return-last
+                     th:if="${posts != null and posts.page > 1 and posts.totalPages > 1}"
+                     th:href="${category.status.permalink + '/page/' + posts.totalPages}">返回最后一页</a>
+                </nav>
               </div>
-              <span class="category-post-row-meta">
-                <time th:text="${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')}">2026.03.26</time>
-                <span th:text="${post.stats.comment} + ' 评论'">0 评论</span>
-              </span>
-            </a>
+            </section>
           </div>
 
-          <nav class="category-pagination" th:if="${posts.hasPrevious() or posts.hasNext()}">
+          <nav class="category-pagination"
+               data-category-pagination
+               th:if="${posts != null and !#lists.isEmpty(posts.items) and (posts.hasPrevious() or posts.hasNext())}"
+               th:attr="aria-label=${category.spec.displayName + '文章分页'}">
             <a class="category-page-btn pjax-link"
+               data-pjax-app="explorer-categories"
+               data-category-prev
+               rel="prev"
                th:if="${posts.hasPrevious()}"
-               th:href="@{${posts.prevUrl}}">
-              上一页
-            </a>
-            <span class="category-page-btn is-disabled" th:unless="${posts.hasPrevious()}">上一页</span>
+               th:href="@{${posts.prevUrl}}">上一页</a>
+            <span class="category-page-btn is-disabled" aria-disabled="true" th:unless="${posts.hasPrevious()}">上一页</span>
 
-            <span class="category-page-indicator" th:text="${posts.page} + ' / ' + ${posts.totalPages}">1 / 1</span>
+            <span class="category-page-indicator"
+                  aria-current="page"
+                  th:text="${posts.page} + ' / ' + ${posts.totalPages}">1 / 1</span>
 
             <a class="category-page-btn pjax-link"
+               data-pjax-app="explorer-categories"
+               data-category-next
+               rel="next"
                th:if="${posts.hasNext()}"
-               th:href="@{${posts.nextUrl}}">
-              下一页
-            </a>
-            <span class="category-page-btn is-disabled" th:unless="${posts.hasNext()}">下一页</span>
+               th:href="@{${posts.nextUrl}}">下一页</a>
+            <span class="category-page-btn is-disabled" aria-disabled="true" th:unless="${posts.hasNext()}">下一页</span>
           </nav>
         </section>
 
-        <aside class="category-preview-pane">
+        <aside class="category-preview-pane" aria-label="文章预览">
           <header class="categories-pane-header">
             <span class="categories-pane-title">预览</span>
             <span class="categories-pane-path" x-text="activePostTitle || '未选择文章'"></span>
@@ -150,18 +220,6 @@
             </section>
           </div>
         </aside>
-      </div>
-
-      <div class="category-empty" th:if="${posts == null or #lists.isEmpty(posts.items)}">
-        <div class="category-folder-card is-active">
-          <div class="category-folder-icon-wrap">
-            <span class="categories-folder-icon categories-folder-icon--detail icon-[lucide--folder]" aria-hidden="true"></span>
-          </div>
-          <div class="category-folder-copy">
-            <h1 class="category-folder-title" th:text="${category.spec.displayName}">分类</h1>
-            <p class="category-folder-meta">当前分类下没有文章</p>
-          </div>
-        </div>
       </div>
     </div>
   </th:block>
