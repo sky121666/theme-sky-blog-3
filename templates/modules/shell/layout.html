@@ -93,7 +93,12 @@
             th:data-image="${absoluteImage}"
             th:data-page-type="${pageType}"
             th:data-site-name="${site.title}"></script>
-    <link rel="alternate" type="application/rss+xml" title="RSS" th:href="@{/rss.xml}" />
+    <!-- plugin-contract: PluginFeed; contract-version: 1.5.0; tested-version: 1.5.0; status: confirmed; source: docs/插件适配契约.md -->
+    <link rel="alternate"
+          type="application/rss+xml"
+          title="RSS"
+          th:if="${pluginFinder.available('PluginFeed')}"
+          th:href="@{/rss.xml}" />
 
     <link rel="icon" type="image/svg+xml" th:if="${#strings.isEmpty(faviconHref)}" th:href="${themeFallbackIcon}" />
     <link rel="shortcut icon" th:if="${#strings.isEmpty(faviconHref)}" th:href="${themeFallbackIcon}" />

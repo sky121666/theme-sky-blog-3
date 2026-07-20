@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { normalizePluginInventory } from './audit-plugin-inventory.mjs';
 
 const root = process.cwd();
 
@@ -78,6 +79,23 @@ function hasCanonical(text) {
   return /<link\b(?=[^>]*\brel=["']canonical["'])[^>]*>/i.test(head);
 }
 
+function verifyRssAlternate(text, expected, routePath) {
+  const head = text.match(/<head[^>]*>([\s\S]*?)<\/head>/i)?.[1] || '';
+  const tags = [...head.matchAll(/<link\b(?=[^>]*\brel=["']alternate["'])(?=[^>]*\btype=["']application\/rss\+xml["'])[^>]*>/gi)]
+    .map((match) => match[0]);
+  const expectedCount = expected ? 1 : 0;
+  if (tags.length !== expectedCount) {
+    throw new Error(`${routePath} RSS alternate 数量为 ${tags.length}，期望 ${expectedCount}`);
+  }
+  if (!expected) return;
+
+  const href = tags[0].match(/\bhref=["']([^"']+)["']/i)?.[1] || '';
+  const pathname = new URL(href, 'http://theme.local/').pathname;
+  if (pathname !== '/rss.xml') {
+    throw new Error(`${routePath} RSS alternate 地址错误: ${href || 'missing'}`);
+  }
+}
+
 async function verifyRoute(baseUrl, route) {
   const url = new URL(route.path, `${baseUrl}/`).toString();
   const verifyUrl = new URL(url);
@@ -111,10 +129,16 @@ async function verifyRoute(baseUrl, route) {
   if (route.requireCanonical && !hasCanonical(text)) {
     throw new Error(`${route.path} 缺少字段: canonical`);
   }
+  if (typeof route.expectRssAvailable === 'boolean') {
+    verifyRssAlternate(text, route.expectRssAvailable, route.path);
+  }
 
   let detail = '';
   if (seoWarnings.length) {
     detail += ` + seo-warning(${seoWarnings.length})`;
+  }
+  if (typeof route.expectRssAvailable === 'boolean') {
+    detail += ` + rss(${route.expectRssAvailable ? 'available' : 'absent'})`;
   }
   if (route.verifyFirstGroup) {
     const groupHref = text.match(/href="([^"]*\/equipments\?group=[^"]+)"/)?.[1];
@@ -170,6 +194,38 @@ async function waitForHome(baseUrl, timeoutMs = 30_000) {
   throw new Error(`重载后首页未恢复: ${lastError?.message || 'unknown error'}`);
 }
 
+async function readAvailablePlugins(baseUrl, token) {
+  const response = await fetch(`${baseUrl}/apis/plugin.halo.run/v1alpha1/plugins`, {
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`
+    }
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    throw new Error(`读取插件状态失败: ${response.status} ${detail.slice(0, 200)}`.trim());
+  }
+  const payload = await response.json();
+  return new Set(normalizePluginInventory(payload.items)
+    .filter((row) => row.enabled && row.phase === 'STARTED')
+    .map((row) => row.canonicalName));
+}
+
+async function verifyPluginFeedEndpoint(baseUrl, available) {
+  if (!available) return;
+  const response = await fetch(new URL('/rss.xml', `${baseUrl}/`), {
+    headers: { Accept: 'application/rss+xml,application/xml,text/xml' }
+  });
+  if (!response.ok) {
+    throw new Error(`/rss.xml 返回 ${response.status}`);
+  }
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.toLowerCase().includes('xml')) {
+    throw new Error(`/rss.xml Content-Type 非 XML: ${contentType || 'missing'}`);
+  }
+  console.log(`PluginFeed endpoint: ${response.status} ${contentType}`);
+}
+
 async function main() {
   const envFileVars = readEnvFile(path.join(root, '.env.local'));
   const token = process.env.FIVEEE_PAT || envFileVars.FIVEEE_PAT || '';
@@ -180,9 +236,12 @@ async function main() {
   const baseUrl = normalizeBaseUrl(process.env.HALO_BASE_URL || envFileVars.HALO_BASE_URL || 'http://localhost:8090');
   const themeName = readThemeName();
   const reloadUrl = `${baseUrl}/apis/api.console.halo.run/v1alpha1/themes/${themeName}/reload`;
+  const availablePlugins = await readAvailablePlugins(baseUrl, token);
+  const pluginFeedAvailable = availablePlugins.has('PluginFeed');
 
   console.log(`Reloading theme: ${themeName}`);
   console.log(`Base URL: ${baseUrl}`);
+  console.log(`PluginFeed RSS: ${pluginFeedAvailable ? 'available' : 'absent'}`);
 
   const reloadResponse = await fetch(reloadUrl, {
     method: 'PUT',
@@ -198,21 +257,26 @@ async function main() {
   }
 
   await waitForHome(baseUrl);
+  await verifyPluginFeedEndpoint(baseUrl, pluginFeedAvailable);
 
+  const pluginRoute = (pluginId, route) => ({
+    ...route,
+    optional: !availablePlugins.has(pluginId)
+  });
   const routes = [
-    { name: 'home', path: '/', pageMode: 'browser-home', windowVariant: 'none', appId: '', requireH1: true, requireCanonical: true },
+    { name: 'home', path: '/', pageMode: 'browser-home', windowVariant: 'none', appId: '', requireH1: true, requireCanonical: true, expectRssAvailable: pluginFeedAvailable },
     { name: 'archives', path: '/archives', pageMode: 'browser-list', windowVariant: 'browser', appId: 'explorer-archives', requireH1: true, requireCanonical: true },
     { name: 'categories', path: '/categories', pageMode: 'browser-list', windowVariant: 'browser', appId: 'explorer-categories', requireH1: true, requireCanonical: true },
     { name: 'tags', path: '/tags', pageMode: 'browser-list', windowVariant: 'browser', appId: 'explorer-tags', requireH1: true, requireCanonical: true },
-    { name: 'moments', path: '/moments', pageMode: 'browser-moments', windowVariant: 'moments', appId: 'moments', optional: true, requireH1: true, requireCanonical: true },
-    { name: 'friends', path: '/friends', pageMode: 'browser-friends', windowVariant: 'friends', appId: 'friends', optional: true },
-    { name: 'links', path: '/links', pageMode: 'browser-links', windowVariant: 'links', appId: 'links', optional: true },
-    { name: 'bangumis', path: '/bangumis', pageMode: 'browser-bangumis', windowVariant: 'bangumis', appId: 'bangumis', optional: true },
-    { name: 'douban', path: '/douban', pageMode: 'browser-douban', windowVariant: 'douban', appId: 'douban', optional: true },
-    { name: 'steam', path: '/steam', pageMode: 'browser-steam', windowVariant: 'steam', appId: 'steam', optional: true },
-    { name: 'equipments', path: '/equipments', pageMode: 'browser-equipments', windowVariant: 'equipments', appId: 'equipments', optional: true, verifyFirstGroup: true },
-    { name: 'docsme', path: '/docs', pageMode: 'browser-docsme', windowVariant: 'docsme', appId: 'docsme', optional: true },
-    { name: 'photos', path: '/photos', pageMode: 'browser-list', windowVariant: 'photos', appId: 'photos', optional: true, requireH1: true, requireCanonical: true }
+    pluginRoute('PluginMoments', { name: 'moments', path: '/moments', pageMode: 'browser-moments', windowVariant: 'moments', appId: 'moments', requireH1: true, requireCanonical: true }),
+    pluginRoute('plugin-friends', { name: 'friends', path: '/friends', pageMode: 'browser-friends', windowVariant: 'friends', appId: 'friends' }),
+    pluginRoute('PluginLinks', { name: 'links', path: '/links', pageMode: 'browser-links', windowVariant: 'links', appId: 'links' }),
+    pluginRoute('plugin-bilibili-bangumi', { name: 'bangumis', path: '/bangumis', pageMode: 'browser-bangumis', windowVariant: 'bangumis', appId: 'bangumis' }),
+    pluginRoute('plugin-douban', { name: 'douban', path: '/douban', pageMode: 'browser-douban', windowVariant: 'douban', appId: 'douban' }),
+    pluginRoute('halo-plugin-steam', { name: 'steam', path: '/steam', pageMode: 'browser-steam', windowVariant: 'steam', appId: 'steam' }),
+    pluginRoute('plugin-equipment', { name: 'equipments', path: '/equipments', pageMode: 'browser-equipments', windowVariant: 'equipments', appId: 'equipments', verifyFirstGroup: true }),
+    pluginRoute('plugin-docsme', { name: 'docsme', path: '/docs', pageMode: 'browser-docsme', windowVariant: 'docsme', appId: 'docsme' }),
+    pluginRoute('PluginPhotos', { name: 'photos', path: '/photos', pageMode: 'browser-list', windowVariant: 'photos', appId: 'photos', requireH1: true, requireCanonical: true })
   ];
 
   const results = [];

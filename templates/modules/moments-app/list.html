@@ -250,7 +250,29 @@
                nextUrl: $el.dataset.nextUrl,
                loading: false,
                hasMore: true,
+               loadError: '',
                cacheKey: 'moments_waterfall_cache',
+               routeKey: '',
+               generation: 0,
+               requestController: null,
+               destroyed: false,
+               resumeAfterNavigationError: false,
+               currentPath() {
+                   return location.pathname + location.search;
+               },
+               appRoot() {
+                   const root = this.$el.closest('[data-app-root]');
+                   return root && root.dataset.appRoot === 'moments' ? root : null;
+               },
+               feedList() {
+                   return this.appRoot()?.querySelector('.moments-feed-list') || null;
+               },
+               cancelPending() {
+                   this.generation += 1;
+                   this.requestController?.abort();
+                   this.requestController = null;
+                   this.loading = false;
+               },
                debugLog(msg, data = null) {
                    if (document.body.dataset.debug !== 'true') return;
                    if (data) {
@@ -260,38 +282,45 @@
                    }
                },
                init() {
+                   this.destroyed = false;
+                   this.routeKey = this.currentPath();
                    // 1. 尝试从单次返回缓存中恢复
                    const rawCache = sessionStorage.getItem(this.cacheKey);
                    if (rawCache) {
                        try {
                            const cache = JSON.parse(rawCache);
                            // 校验是否针对当前路由
-                           if (cache.path === location.pathname + location.search) {
+                           if (cache.path === this.routeKey) {
                                if (cache.extraHtml) {
-                                   const targetList = document.querySelector('.moments-feed-list');
+                                   const targetList = this.feedList();
                                    if (targetList) {
                                        targetList.insertAdjacentHTML('beforeend', cache.extraHtml);
                                        this.debugLog(`restored extra html from cache, bytes: ${cache.extraHtml.length}`);
-                                       
-                                   if (typeof window.__initLazyImages === 'function') {
+
+                                       if (typeof window.__initLazyImages === 'function') {
                                            window.__initLazyImages(targetList);
                                        }
-                                       window.dispatchEvent(new CustomEvent('moments:feed-updated', { detail: { source: 'cache' } }));
+                                       window.dispatchEvent(new CustomEvent('moments:feed-updated', {
+                                           detail: { source: 'cache', root: targetList }
+                                       }));
                                        const pjaxLinks = Array.from(targetList.querySelectorAll('.waterfall-injected a.pjax-link'));
                                        if (window.pjax && typeof window.pjax.attachLinks === 'function' && pjaxLinks.length > 0) {
                                            window.pjax.attachLinks(pjaxLinks);
                                        }
                                    }
                                }
-                               this.nextUrl = cache.nextUrl;
-                               this.hasMore = cache.hasMore;
+                               this.nextUrl = typeof cache.nextUrl === 'string' ? cache.nextUrl : this.nextUrl;
+                               this.hasMore = cache.hasMore !== false;
                                
                                if (cache.scrollY) {
+                                   const restoreGeneration = this.generation;
                                    setTimeout(() => {
-                                       const scroller = this.$el.closest('.moments-body') || document.querySelector('.moments-body');
+                                       if (this.destroyed || restoreGeneration !== this.generation || this.currentPath() !== this.routeKey || !this.$el.isConnected) return;
+                                       const scroller = this.$el.closest('.moments-body');
                                        if (!scroller) return;
                                        let attempts = 0;
                                        const tryRestore = () => {
+                                           if (this.destroyed || restoreGeneration !== this.generation || this.currentPath() !== this.routeKey || !this.$el.isConnected) return;
                                            scroller.scrollTop = cache.scrollY;
                                            attempts++;
                                            if (Math.abs(scroller.scrollTop - cache.scrollY) > 5 && attempts < 15) {
@@ -311,14 +340,17 @@
                    
                    // 2. 监听下一次离开（仅在 PJAX 跳转时保存状态）
                    this._onPjaxSend = () => {
-                       const scroller = this.$el.closest('.moments-body') || document.querySelector('.moments-body');
-                       const injected = document.querySelectorAll('.moments-feed-list > article.waterfall-injected');
+                       const targetList = this.feedList();
+                       const scroller = this.$el.closest('.moments-body');
+                       const injected = targetList
+                           ? Array.from(targetList.children).filter((node) => node.matches('article.waterfall-injected'))
+                           : [];
                        const currentScroll = scroller ? scroller.scrollTop : 0;
                        
                        // 只有产生了下滚或有追加内容才值得缓存
                        if (injected.length > 0 || currentScroll > 50) {
                            sessionStorage.setItem(this.cacheKey, JSON.stringify({
-                               path: location.pathname + location.search,
+                               path: this.routeKey,
                                extraHtml: Array.from(injected).map(el => el.outerHTML).join(''),
                                nextUrl: this.nextUrl,
                                hasMore: this.hasMore,
@@ -326,27 +358,75 @@
                            }));
                            this.debugLog('saved state before leaving', { scrollY: currentScroll, extraCards: injected.length });
                        }
+                       this.resumeAfterNavigationError = this.hasMore && Boolean(this.nextUrl);
+                       this.cancelPending();
+                   };
+                   this._onPjaxError = () => {
+                       if (!this.resumeAfterNavigationError) return;
+                       this.resumeAfterNavigationError = false;
+                       if (this.destroyed || this.currentPath() !== this.routeKey || !this.$el.isConnected) return;
+                       if (this.hasMore && this.nextUrl && !this.loading) {
+                           this.loadError = '加载失败，点击重试';
+                       }
+                   };
+                   this._onPjaxComplete = () => {
+                       this.resumeAfterNavigationError = false;
                    };
                    document.addEventListener('pjax:send', this._onPjaxSend);
                    document.addEventListener('pjax:same-variant-send', this._onPjaxSend);
+                   document.addEventListener('pjax:error', this._onPjaxError);
+                   document.addEventListener('pjax:complete', this._onPjaxComplete);
+                   document.addEventListener('pjax:same-variant-complete', this._onPjaxComplete);
                },
                destroy() {
+                   this.destroyed = true;
+                   this.resumeAfterNavigationError = false;
+                   this.cancelPending();
                    document.removeEventListener('pjax:send', this._onPjaxSend);
                    document.removeEventListener('pjax:same-variant-send', this._onPjaxSend);
+                   document.removeEventListener('pjax:error', this._onPjaxError);
+                   document.removeEventListener('pjax:complete', this._onPjaxComplete);
+                   document.removeEventListener('pjax:same-variant-complete', this._onPjaxComplete);
                },
                async loadNext() {
                    if (!this.hasMore || this.loading || !this.nextUrl) return;
+                   const appRoot = this.appRoot();
+                   const targetList = this.feedList();
+                   const requestUrl = this.nextUrl;
+                   const requestPath = this.routeKey;
+                   if (!appRoot || !targetList || !this.$el.isConnected || requestPath !== this.currentPath()) return;
+
+                   const generation = this.generation + 1;
+                   const controller = new AbortController();
+                   this.generation = generation;
+                   this.requestController?.abort();
+                   this.requestController = controller;
                    this.loading = true;
-                   this.debugLog('loading next page', { url: this.nextUrl });
+                   this.resumeAfterNavigationError = false;
+                   this.loadError = '';
+                   this.debugLog('loading next page', { url: requestUrl });
                    try {
-                       const res = await fetch(this.nextUrl);
+                       const res = await fetch(requestUrl, {
+                           signal: controller.signal,
+                           headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                       });
+                       if (!res.ok) throw new Error(`HTTP ${res.status}`);
                        const html = await res.text();
                        const doc = new DOMParser().parseFromString(html, 'text/html');
-                       
-                       const newCards = doc.querySelectorAll('.moments-feed-list > article');
-                       const targetList = document.querySelector('.moments-feed-list');
-                       
-                       if (newCards.length > 0 && targetList) {
+                       const responseRoot = Array.from(doc.querySelectorAll('[data-app-root]'))
+                           .find((node) => node.dataset.appRoot === 'moments');
+                       if (!responseRoot) throw new Error('Moments response root missing');
+
+                       if (controller.signal.aborted
+                           || generation !== this.generation
+                           || requestPath !== this.currentPath()
+                           || requestUrl !== this.nextUrl
+                           || this.appRoot() !== appRoot
+                           || this.feedList() !== targetList
+                           || !this.$el.isConnected) return;
+
+                       const newCards = Array.from(responseRoot.querySelectorAll('.moments-feed-list > article'));
+                       if (newCards.length > 0) {
                            newCards.forEach(card => {
                                card.classList.add('waterfall-injected');
                                targetList.appendChild(card);
@@ -365,11 +445,13 @@
                                window.pjax.attachLinks(pjaxLinks);
                                this.debugLog(`attached pjax to ${pjaxLinks.length} new links`);
                            }
-                           window.dispatchEvent(new CustomEvent('moments:feed-updated', { detail: { source: 'waterfall' } }));
+                           window.dispatchEvent(new CustomEvent('moments:feed-updated', {
+                               detail: { source: 'waterfall', root: targetList }
+                           }));
                        }
                        
                        // 解析下一页游标
-                       const nextTrigger = doc.querySelector('.moments-feed-pagination');
+                       const nextTrigger = responseRoot.querySelector('.moments-feed-pagination');
                        if (nextTrigger && nextTrigger.dataset.nextUrl) {
                            this.nextUrl = nextTrigger.dataset.nextUrl;
                            this.debugLog('has next page', { url: this.nextUrl });
@@ -378,11 +460,16 @@
                            this.debugLog('reached end of list');
                        }
                    } catch(e) {
+                       if (e?.name === 'AbortError' || controller.signal.aborted || generation !== this.generation) return;
+                       this.loadError = '加载失败，点击重试';
                        if (document.body.dataset.debug === 'true') {
                            console.error('[waterfall] load error:', e);
                        }
                    } finally {
-                       this.loading = false;
+                       if (generation === this.generation) {
+                           this.loading = false;
+                           if (this.requestController === controller) this.requestController = null;
+                       }
                    }
                }
            }"
@@ -398,6 +485,9 @@
             </template>
             <template x-if="!hasMore">
                 <span class="opacity-80">已经到底啦</span>
+            </template>
+            <template x-if="hasMore && !loading && loadError">
+                <button type="button" class="opacity-80 hover:opacity-100" @click="loadNext()" x-text="loadError"></button>
             </template>
         </div>
       </div>

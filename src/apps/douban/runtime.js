@@ -135,10 +135,13 @@ async function fetchJson(path, params = {}, signal) {
   return response.json();
 }
 
-class DoubanApp {
+export class DoubanApp {
   constructor(root) {
     this.root = root;
     this.abortController = null;
+    this.paginationController = null;
+    this.requestGeneration = 0;
+    this.reloadPending = false;
     this.searchTimer = null;
     this.state = {
       viewMode: 'grid',
@@ -181,6 +184,9 @@ class DoubanApp {
 
   destroy() {
     this.abortController?.abort();
+    this.paginationController?.abort();
+    this.requestGeneration += 1;
+    this.reloadPending = false;
     clearTimeout(this.searchTimer);
     this.root?.removeEventListener('click', this.onClick);
     this.root?.removeEventListener('input', this.onInput);
@@ -188,6 +194,22 @@ class DoubanApp {
     if (this.root?.__doubanAppDispose) {
       delete this.root.__doubanAppDispose;
     }
+  }
+
+  requestKey() {
+    return JSON.stringify({
+      type: this.state.type,
+      status: this.state.status,
+      genre: this.state.genre,
+      keyword: this.state.keyword.trim()
+    });
+  }
+
+  isRequestCurrent(generation, requestKey, signal) {
+    return !signal?.aborted
+      && generation === this.requestGeneration
+      && requestKey === this.requestKey()
+      && this.root?.isConnected !== false;
   }
 
   query(selector) {
@@ -394,9 +416,15 @@ class DoubanApp {
 
   async reload() {
     this.abortController?.abort();
+    this.paginationController?.abort();
+    this.paginationController = null;
+    this.root?.classList?.remove('is-loading-more');
     this.abortController = new AbortController();
     const signal = this.abortController.signal;
+    const generation = ++this.requestGeneration;
+    const requestKey = this.requestKey();
 
+    this.reloadPending = true;
     this.setLoading(true);
     this.clearError();
 
@@ -405,19 +433,20 @@ class DoubanApp {
         this.fetchGenres(signal),
         this.fetchList(1, signal)
       ]);
-      if (signal.aborted) return;
+      if (!this.isRequestCurrent(generation, requestKey, signal)) return;
 
+      const listTotal = Number(list.total || 0) || 0;
+      await this.updateStats(signal, listTotal);
+      if (!this.isRequestCurrent(generation, requestKey, signal)) return;
       this.genres = genres;
       this.state.items = list.items;
-      this.state.total = Number(list.total || 0) || 0;
+      this.state.total = listTotal;
       this.state.page = 1;
       this.state.hasMore = this.state.items.length < this.state.total;
-
-      await this.updateStats(signal);
       this.renderGenres(genres);
       this.renderItems();
     } catch (error) {
-      if (!signal.aborted) {
+      if (this.isRequestCurrent(generation, requestKey, signal)) {
         this.state.items = [];
         this.state.visibleItems = [];
         this.renderItems();
@@ -431,7 +460,10 @@ class DoubanApp {
         });
       }
     } finally {
-      if (!signal.aborted) this.setLoading(false);
+      if (this.isRequestCurrent(generation, requestKey, signal)) {
+        this.reloadPending = false;
+        this.setLoading(false);
+      }
     }
   }
 
@@ -466,7 +498,7 @@ class DoubanApp {
     };
   }
 
-  async updateStats(signal) {
+  async updateStats(signal, fallbackTotal = this.state.total) {
     const labels = typeLabels(this.state.type);
     const labelMap = {
       done: labels.done,
@@ -492,7 +524,8 @@ class DoubanApp {
       this.setStat('doing', doing);
       this.setStat('mark', mark);
     } catch {
-      this.setStat('total', this.state.total);
+      if (signal.aborted) return;
+      this.setStat('total', fallbackTotal);
       this.setStat('done', 0);
       this.setStat('doing', 0);
       this.setStat('mark', 0);
@@ -510,18 +543,25 @@ class DoubanApp {
   }
 
   async loadMore() {
-    if (!this.state.hasMore || this.root.classList.contains('is-loading-more')) return;
+    if (this.reloadPending || !this.state.hasMore || this.root.classList.contains('is-loading-more')) return;
     this.root.classList.add('is-loading-more');
     const nextPage = this.state.page + 1;
+    const generation = this.requestGeneration;
+    const requestKey = this.requestKey();
+    this.paginationController?.abort();
     const controller = new AbortController();
+    this.paginationController = controller;
 
     try {
       const list = await this.fetchList(nextPage, controller.signal);
+      if (!this.isRequestCurrent(generation, requestKey, controller.signal)) return;
       this.state.page = nextPage;
       this.state.items = this.state.items.concat(list.items);
+      this.state.total = Number(list.total || this.state.total) || 0;
       this.state.hasMore = this.state.items.length < Number(list.total || this.state.total);
       this.renderItems();
     } catch (error) {
+      if (!this.isRequestCurrent(generation, requestKey, controller.signal)) return;
       warnApiCall('douban', '豆瓣下一页加载失败', {
         endpoint: error?.url || API_BASE,
         status: error?.status || '',
@@ -531,7 +571,10 @@ class DoubanApp {
         hint: '检查分页参数、插件公开 API 响应和网络面板中的失败请求。'
       });
     } finally {
-      this.root.classList.remove('is-loading-more');
+      if (this.paginationController === controller) {
+        this.paginationController = null;
+        this.root.classList.remove('is-loading-more');
+      }
     }
   }
 

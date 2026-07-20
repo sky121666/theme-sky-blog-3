@@ -246,7 +246,7 @@
           </div>
         </div>
 
-        <div class="links-submit-fields" x-show="isDirectSubmitMode() || isUpdateMode()">
+        <div class="links-submit-fields" x-show="isDirectSubmitMode() || isMessageFallbackMode()">
           <label class="links-field">
             <span>提交类型</span>
             <select class="links-input" x-model="form.type">
@@ -257,13 +257,15 @@
 
           <label class="links-field">
             <span>分组</span>
-            <select class="links-input" x-model="form.groupName"
+            <select class="links-input" x-show="loadingGroups || submitGroups.length > 0" x-model="form.groupName"
               :disabled="loadingGroups || submitGroups.length === 0">
               <option value="" x-text="loadingGroups ? '正在加载分组...' : '请选择分组'"></option>
               <template x-for="group in submitGroups" :key="group.groupName">
                 <option :value="group.groupName" x-text="group.displayName"></option>
               </template>
             </select>
+            <input class="links-input" type="text" x-show="!loadingGroups && submitGroups.length === 0"
+              x-model="form.groupName" placeholder="可选：填写希望加入的分组">
           </label>
 
           <label class="links-field">
@@ -306,7 +308,7 @@
         </div>
 
         <textarea id="markdownOutput" class="links-markdown-output" x-show="isMessageFallbackMode()" readonly
-          x-model="markdown" placeholder="申请草稿会展示在这里..."></textarea>
+          :value="buildMarkdown(form.url)" placeholder="申请草稿会展示在这里..."></textarea>
 
         <div class="links-submit-result" x-show="result.show" :class="result.success ? 'is-success' : 'is-error'"
           x-text="result.message"></div>
@@ -314,7 +316,7 @@
         <div class="links-modal-actions">
           <span class="links-modal-note" x-text="primaryActionNote()"></span>
           <button id="copyBtn" type="button" class="links-submit-primary"
-            :disabled="isDirectSubmitMode() ? !canSubmitDirect() : !buildMarkdown(form.url)"
+            :disabled="isDirectSubmitMode() ? !canSubmitDirect() : !canCopyDraft()"
             @click="isDirectSubmitMode() ? submitLink() : copyAndGotoBoard()">
             <span x-text="primaryActionLabel()"></span>
           </button>

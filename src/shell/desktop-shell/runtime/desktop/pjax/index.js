@@ -291,15 +291,64 @@ function replayPjaxScripts(root) {
   });
 }
 
-function runShikiExtraPathRenderer(responseText) {
-  if (!responseText) return;
+let shikiRenderDescriptor = null;
+let shikiReplaySequence = 0;
+let shikiMomentsListenerInstalled = false;
 
-  const targetDoc = new DOMParser().parseFromString(responseText, 'text/html');
-  const shikiScript = Array.from(targetDoc.head?.querySelectorAll?.('script[data-pjax]') || [])
+function createShikiIncrementalBridge() {
+  return {
+    version: 1,
+    descriptorKey: '',
+    config: null,
+    configure(config, descriptorKey) {
+      this.config = config && typeof config === 'object' ? config : null;
+      this.descriptorKey = String(descriptorKey || '');
+    },
+    render(root = document) {
+      if (!this.config || !root || typeof root.querySelectorAll !== 'function') return 0;
+      if (root !== document && !root.isConnected) return 0;
+
+      const excluded = Array.isArray(this.config.excludedLanguages)
+        ? this.config.excludedLanguages.map((language) => String(language).toLowerCase())
+        : [];
+      const candidates = Array.from(root.querySelectorAll('pre > code'));
+      let rendered = 0;
+
+      candidates.forEach((codeElement) => {
+        if (codeElement.closest('shiki-code')) return;
+
+        const languageClass = Array.from(codeElement.classList)
+          .find((className) => className.startsWith('language-') || className.startsWith('lang-'));
+        const language = languageClass
+          ? languageClass.replace(/^(?:language-|lang-)/, '').toLowerCase()
+          : '';
+        if (language && excluded.includes(language)) return;
+
+        const preElement = codeElement.parentElement;
+        const parent = preElement?.parentElement;
+        if (!preElement || preElement.tagName !== 'PRE' || !parent) return;
+
+        const shikiElement = document.createElement('shiki-code');
+        shikiElement.setAttribute('light-theme', String(this.config.lightTheme || ''));
+        shikiElement.setAttribute('dark-theme', String(this.config.darkTheme || ''));
+        shikiElement.setAttribute('variant', String(this.config.variant || ''));
+        shikiElement.setAttribute('font-size', String(this.config.fontSize || ''));
+        parent.insertBefore(shikiElement, preElement);
+        shikiElement.appendChild(preElement);
+        rendered += 1;
+      });
+
+      return rendered;
+    }
+  };
+}
+
+function readShikiRenderDescriptor(targetDoc) {
+  const shikiScript = Array.from(targetDoc?.head?.querySelectorAll?.('script[data-pjax]') || [])
     .find((script) => script.textContent?.includes('renderCodeBlock')
       && script.textContent.includes('/plugins/shiki/assets/static/shiki-code.js'));
 
-  if (!shikiScript) return;
+  if (!shikiScript) return null;
 
   const source = shikiScript.textContent || '';
   const importMatch = source.match(/import\s+\{\s*renderCodeBlock\s*\}\s+from\s+['"]([^'"]+)['"]/);
@@ -307,21 +356,98 @@ function runShikiExtraPathRenderer(responseText) {
   const importPath = importMatch?.[1];
   const renderConfig = configMatch?.[1];
 
-  if (!importPath || !renderConfig) return;
+  if (!importPath || !renderConfig) return null;
+
+  return {
+    importPath,
+    renderConfig,
+    key: `${importPath}\n${renderConfig}`
+  };
+}
+
+function queueShikiBridgeRender(descriptor, root) {
+  if (!descriptor || !root || typeof root.querySelectorAll !== 'function') return;
+  if (root !== document && !root.isConnected) return;
+
+  const activeBridge = window.__themeShikiBridge;
+  if (activeBridge?.descriptorKey === descriptor.key && typeof activeBridge.render === 'function') {
+    activeBridge.render(root);
+    return;
+  }
 
   const script = document.createElement('script');
-  const replayId = `shiki-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const replayId = `shiki-${Date.now()}-${++shikiReplaySequence}`;
+  const pendingRoots = window.__themeShikiPendingRoots instanceof Map
+    ? window.__themeShikiPendingRoots
+    : new Map();
+  window.__themeShikiPendingRoots = pendingRoots;
+  pendingRoots.set(replayId, root);
+
   script.type = 'module';
   script.dataset.pjax = 'true';
   script.dataset.themeShikiReplay = 'true';
   script.dataset.themeShikiReplayId = replayId;
   script.textContent = [
-    `import { renderCodeBlock } from ${JSON.stringify(importPath)};`,
-    `renderCodeBlock(${renderConfig});`,
+    `import ${JSON.stringify(descriptor.importPath)};`,
+    `const pendingRoots = window.__themeShikiPendingRoots;`,
+    `const renderRoot = pendingRoots?.get(${JSON.stringify(replayId)});`,
+    `pendingRoots?.delete(${JSON.stringify(replayId)});`,
+    `const config = ${descriptor.renderConfig};`,
+    `const descriptorKey = ${JSON.stringify(descriptor.key)};`,
+    `const bridge = window.__themeShikiBridge;`,
+    `bridge?.configure?.(config, descriptorKey);`,
+    `bridge?.render?.(renderRoot);`,
     `document.querySelector('script[data-theme-shiki-replay-id="${replayId}"]')?.remove?.();`
   ].join('\n');
-  script.addEventListener('error', () => script.remove(), { once: true });
+  script.addEventListener('error', () => {
+    pendingRoots.delete(replayId);
+    script.remove();
+  }, { once: true });
   document.head.appendChild(script);
+}
+
+function runShikiExtraPathRenderer(responseText, root) {
+  if (!responseText) {
+    shikiRenderDescriptor = null;
+    return;
+  }
+
+  const targetDoc = new DOMParser().parseFromString(responseText, 'text/html');
+  shikiRenderDescriptor = readShikiRenderDescriptor(targetDoc);
+  if (!shikiRenderDescriptor) return;
+  queueShikiBridgeRender(shikiRenderDescriptor, root);
+}
+
+function installMomentsShikiBridge() {
+  if (shikiMomentsListenerInstalled) return;
+  shikiMomentsListenerInstalled = true;
+  if (window.__themeShikiBridge?.version !== 1) {
+    window.__themeShikiBridge = createShikiIncrementalBridge();
+  }
+
+  window.addEventListener('moments:feed-updated', (event) => {
+    const root = event?.detail?.root;
+    if (!root || typeof root.querySelectorAll !== 'function' || !root.isConnected) return;
+
+    const currentMomentsRoot = document.querySelector('[data-app-root="moments"]');
+    if (!currentMomentsRoot || (root !== currentMomentsRoot && !currentMomentsRoot.contains(root))) return;
+    if (!shikiRenderDescriptor) return;
+
+    const descriptor = shikiRenderDescriptor;
+    const renderIncrement = () => {
+      const liveMomentsRoot = document.querySelector('[data-app-root="moments"]');
+      if (!root.isConnected || !liveMomentsRoot || !liveMomentsRoot.contains(root)) return;
+      if (shikiRenderDescriptor?.key !== descriptor.key) return;
+      queueShikiBridgeRender(descriptor, root);
+    };
+    if (document.readyState === 'loading') {
+      // plugin-shiki's own DOMContentLoaded renderer owns the initial pass. Run
+      // afterwards so restored waterfall cards cannot be wrapped twice.
+      document.addEventListener('DOMContentLoaded', () => setTimeout(renderIncrement, 0), { once: true });
+      return;
+    }
+    renderIncrement();
+  });
 }
 
 function startTopProgress() {
@@ -335,6 +461,8 @@ function stopTopProgress() {
 // ── Pjax init ──
 
 export function initPjax(Alpine) {
+  shikiRenderDescriptor = readShikiRenderDescriptor(document);
+  installMomentsShikiBridge();
   reconcileSeoHead(document);
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => reconcileSeoHead(document), { once: true });
@@ -583,7 +711,7 @@ export function initPjax(Alpine) {
 
         // Alpine + scripts
         replayPjaxScripts(contentContainer);
-        runShikiExtraPathRenderer(html);
+        runShikiExtraPathRenderer(html, contentContainer);
         if (window.Alpine?.initTree) {
           window.Alpine.initTree(contentContainer);
         }
@@ -749,7 +877,7 @@ export function initPjax(Alpine) {
       const container = document.getElementById('window-frame-root');
       if (container) {
         replayPjaxScripts(container);
-        runShikiExtraPathRenderer(event?.request?.responseText);
+        runShikiExtraPathRenderer(event?.request?.responseText, container);
 
         if (window.Alpine?.initTree) {
           window.Alpine.initTree(container);

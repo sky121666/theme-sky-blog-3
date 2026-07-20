@@ -107,12 +107,13 @@ export function formatSubmitFailure(response, message) {
   return rawMessage || '友链自助提交没有成功，请复制申请到留言板。';
 }
 
-async function fetchLinkDetail(url) {
+async function fetchLinkDetail(url, signal) {
   const response = await fetch(`${LINK_DETAIL_API}?url=${encodeURIComponent(url)}`, {
     credentials: 'same-origin',
     headers: {
       Accept: 'application/json'
     },
+    signal,
     redirect: 'manual'
   });
 
@@ -366,6 +367,9 @@ export function registerLinkSubmitForm(Alpine) {
     detailToolAvailable: false,
     autofillAttempted: false,
     autofillAvailable: false,
+    autofillController: null,
+    autofillGeneration: 0,
+    destroyed: false,
     copied: false,
     result: {
       show: false,
@@ -374,12 +378,25 @@ export function registerLinkSubmitForm(Alpine) {
     },
 
     init() {
+      this.destroyed = false;
       const root = document.querySelector('[data-app-root="links"]');
       this.submitPluginEnabled = root?.dataset?.linkSubmitEnabled === 'true';
       if (this.submitPluginEnabled) {
         this.loadSubmitGroups();
       }
       this.detectDetailTool();
+    },
+
+    destroy() {
+      this.destroyed = true;
+      this.cancelAutofill();
+    },
+
+    cancelAutofill() {
+      this.autofillGeneration += 1;
+      this.autofillController?.abort();
+      this.autofillController = null;
+      this.fetchingMeta = false;
     },
 
     async detectDetailTool() {
@@ -459,6 +476,7 @@ export function registerLinkSubmitForm(Alpine) {
     },
 
     async fillFromUrl() {
+      this.cancelAutofill();
       const normalized = normalizeUrl(this.form.url);
       this.copied = false;
       this.submitted = false;
@@ -485,6 +503,7 @@ export function registerLinkSubmitForm(Alpine) {
     },
 
     async autofillFromUrl() {
+      this.cancelAutofill();
       const normalized = normalizeUrl(this.form.url);
       this.copied = false;
       this.submitted = false;
@@ -502,9 +521,17 @@ export function registerLinkSubmitForm(Alpine) {
       this.fetchingMeta = true;
       this.previewVisible = true;
       this.result.show = false;
+      const controller = new AbortController();
+      const generation = ++this.autofillGeneration;
+      this.autofillController = controller;
+      const isCurrent = () => !controller.signal.aborted
+        && !this.destroyed
+        && generation === this.autofillGeneration
+        && normalizeUrl(this.form.url) === normalized;
 
       try {
-        const detail = await fetchLinkDetail(normalized);
+        const detail = await fetchLinkDetail(normalized, controller.signal);
+        if (!isCurrent()) return;
         this.detail = {
           displayName: detail?.title || readableHost(normalized) || '待确认站点',
           description: detail?.description || '请手动补充一句话简介。',
@@ -519,6 +546,7 @@ export function registerLinkSubmitForm(Alpine) {
           message: '已自动补全站点信息，请确认后提交'
         };
       } catch (_error) {
+        if (_error?.name === 'AbortError' || !isCurrent()) return;
         warnApiCall('links', '友链自动补全失败，已生成手动草稿', {
           endpoint: LINK_DETAIL_API,
           url: normalized,
@@ -534,7 +562,10 @@ export function registerLinkSubmitForm(Alpine) {
           message: this.isDirectSubmitMode() ? '当前无后台提取权限，已生成申请草稿' : '已生成申请草稿，可以复制到留言板'
         };
       } finally {
-        this.fetchingMeta = false;
+        if (this.autofillController === controller) {
+          this.autofillController = null;
+          this.fetchingMeta = false;
+        }
       }
     },
 
@@ -583,6 +614,16 @@ export function registerLinkSubmitForm(Alpine) {
       if (!String(this.form.description || '').trim()) return false;
       if (!this.form.groupName) return false;
       if (this.form.type === 'update' && !String(this.form.updateDescription || '').trim()) return false;
+      return true;
+    },
+
+    canCopyDraft() {
+      if (this.fetchingMeta) return false;
+      if (!this.isMessageFallbackMode()) return false;
+      if (!normalizeUrl(this.form.url)) return false;
+      if (!String(this.form.displayName || '').trim()) return false;
+      if (!String(this.form.description || '').trim()) return false;
+      if (this.isUpdateMode() && !String(this.form.updateDescription || '').trim()) return false;
       return true;
     },
 
@@ -696,10 +737,13 @@ export function registerLinkSubmitForm(Alpine) {
     },
 
     async copyAndGotoBoard() {
-      if (!this.markdown) return;
+      if (!this.canCopyDraft()) return;
+
+      const markdown = this.buildMarkdown(this.form.url);
+      this.markdown = markdown;
 
       try {
-        const copied = await copyText(this.markdown);
+        const copied = await copyText(markdown);
         this.copied = copied;
         this.result = {
           show: true,

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 const baseUrl = String(
@@ -7,6 +8,27 @@ const baseUrl = String(
 const fixturePath = '/__theme_shiki_1_4_1_fixture__';
 const modulePath = '/plugins/shiki/assets/static/shiki-code.js?version=1.4.1';
 const moduleUrl = new URL(modulePath, `${baseUrl}/`).toString();
+const pjaxRuntimeSource = readFileSync(
+  new URL('../src/shell/desktop-shell/runtime/desktop/pjax/index.js', import.meta.url),
+  'utf8'
+);
+
+function extractFunction(source, name) {
+  const start = source.indexOf(`function ${name}(`);
+  assert.ok(start >= 0, `missing ${name} in PJAX runtime`);
+  const open = source.indexOf('{', start);
+  let depth = 0;
+  for (let index = open; index < source.length; index += 1) {
+    if (source[index] === '{') depth += 1;
+    if (source[index] === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(start, index + 1);
+    }
+  }
+  throw new Error(`unterminated ${name} in PJAX runtime`);
+}
+
+const incrementalBridgeSource = extractFunction(pjaxRuntimeSource, 'createShikiIncrementalBridge');
 
 const ordinaryCode = [
   'function greet(name) {',
@@ -370,6 +392,60 @@ try {
       `${initial.id}: light theme foreground was not restored`
     );
   }
+
+  await page.addScriptTag({
+    content: `${incrementalBridgeSource}\nwindow.__SHIKI_INCREMENTAL_BRIDGE_FIXTURE__ = createShikiIncrementalBridge();`
+  });
+  const incrementalSetup = await page.evaluate((config) => {
+    const root = document.createElement('section');
+    root.id = 'shiki-incremental-bridge';
+    root.innerHTML = `
+      <div data-incremental-js><pre><code class="language-js">const incrementalBridge = true;</code></pre></div>
+      <div data-incremental-excluded><pre><code class="language-text">leave this block untouched</code></pre></div>
+    `;
+    document.querySelector('#shiki-fixtures')?.append(root);
+    const bridge = window.__SHIKI_INCREMENTAL_BRIDGE_FIXTURE__;
+    bridge.configure(config, 'plugin-shiki-1.4.1-browser-fixture');
+    return {
+      firstRenderCount: bridge.render(root),
+      secondRenderCount: bridge.render(root)
+    };
+  }, {
+    lightTheme: 'github-light',
+    darkTheme: 'github-dark',
+    variant: 'simple',
+    fontSize: '0.875em',
+    excludedLanguages: ['text']
+  });
+  assert.deepEqual(incrementalSetup, {
+    firstRenderCount: 1,
+    secondRenderCount: 0
+  }, 'the theme bridge should wrap only one new non-excluded block and stay idempotent');
+
+  await page.waitForFunction(() => {
+    const host = document.querySelector('#shiki-incremental-bridge [data-incremental-js] shiki-code');
+    const variant = host?.shadowRoot?.querySelector('shiki-code-simple-variant');
+    return host?.loading === false && Boolean(variant?.shadowRoot?.querySelector('.shiki'));
+  }, null, { timeout: 20_000 });
+  const incrementalResult = await page.evaluate(() => {
+    const root = document.querySelector('#shiki-incremental-bridge');
+    const host = root?.querySelector('[data-incremental-js] shiki-code');
+    const variant = host?.shadowRoot?.querySelector('shiki-code-simple-variant');
+    return {
+      hostCount: root?.querySelectorAll('[data-incremental-js] shiki-code').length || 0,
+      renderedText: variant?.shadowRoot?.textContent || '',
+      lightTheme: host?.getAttribute('light-theme') || '',
+      darkTheme: host?.getAttribute('dark-theme') || '',
+      excludedStillRaw: Boolean(root?.querySelector('[data-incremental-excluded] > pre > code.language-text')),
+      excludedHostCount: root?.querySelectorAll('[data-incremental-excluded] shiki-code').length || 0
+    };
+  });
+  assert.equal(incrementalResult.hostCount, 1, 'the incremental bridge must not nest or duplicate shiki-code hosts');
+  assert.ok(incrementalResult.renderedText.includes('incrementalBridge'), 'the actual 1.4.1 custom element did not render the incrementally wrapped code');
+  assert.equal(incrementalResult.lightTheme, 'github-light');
+  assert.equal(incrementalResult.darkTheme, 'github-dark');
+  assert.equal(incrementalResult.excludedStillRaw, true, 'excluded code should preserve its original pre > code structure');
+  assert.equal(incrementalResult.excludedHostCount, 0, 'excluded code must not be wrapped by the theme bridge');
 
   const mainModuleResponse = pluginResponses.find((entry) => entry.url === moduleUrl);
   assert.ok(mainModuleResponse, `Shiki module was not requested: ${moduleUrl}`);

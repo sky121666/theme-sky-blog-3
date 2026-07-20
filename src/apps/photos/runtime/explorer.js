@@ -103,6 +103,11 @@ export function registerPhotosExplorer(Alpine) {
     _panMoveHandler: null,
     _panEndHandler: null,
     _observer: null,
+    _paginationController: null,
+    _paginationGeneration: 0,
+    _paginationLoadMore: null,
+    _paginationRetryCleanup: null,
+    _destroyed: false,
     _engine: null,
 
     _getEngine() {
@@ -906,37 +911,101 @@ export function registerPhotosExplorer(Alpine) {
     },
 
     _initInfiniteScroll() {
+      this._observer?.disconnect();
+      this._observer = null;
+      this._paginationRetryCleanup?.();
+      this._paginationRetryCleanup = null;
+      this._paginationLoadMore = null;
+      this._paginationController?.abort();
+      this._paginationController = null;
+      this._paginationGeneration += 1;
+      const generation = this._paginationGeneration;
+      const componentRoot = this.$el;
       let nextUrlEl = this.$el?.querySelector('#next-page-url');
       const spinner = this.$el?.querySelector('#photos-loading-spinner');
       const noMore = this.$el?.querySelector('#photos-no-more');
+      const loadError = this.$el?.querySelector('#photos-load-error');
+      const loadErrorText = this.$el?.querySelector('[data-photos-load-error-text]');
+      const retryButton = this.$el?.querySelector('[data-photos-retry]');
       const sentinel = this.$el?.querySelector('.photos-scroll-sentinel');
+      const loadedPageUrls = new Set();
+      spinner?.classList.add('hidden');
+      this._clearLoadingSkeletons();
+
+      const normalizePageUrl = (value) => {
+        if (!value) return '';
+        const url = new URL(value, window.location.href);
+        if (url.origin !== window.location.origin || !/^\/photos(?:\/|$)/.test(url.pathname)) {
+          throw new Error(`非法的图库分页链接：${url.href}`);
+        }
+        return url.href;
+      };
+
+      const hideError = () => {
+        loadError?.classList.add('hidden');
+      };
+
+      const showError = (message) => {
+        if (loadErrorText) loadErrorText.textContent = message;
+        loadError?.classList.remove('hidden');
+      };
 
       if (!nextUrlEl || !sentinel) {
         noMore?.classList.remove('hidden');
+        hideError();
         return;
       }
 
       let isLoading = false;
       const loadMore = async () => {
-        if (isLoading || !nextUrlEl) return;
+        if (isLoading || !nextUrlEl || this._destroyed) return;
         isLoading = true;
+        hideError();
         spinner?.classList.remove('hidden');
         this._showLoadingSkeletons();
+        const controller = new AbortController();
+        this._paginationController?.abort();
+        this._paginationController = controller;
+        const requestLocation = `${window.location.pathname}${window.location.search}`;
+        let requestUrl = '';
+        const isCurrent = () => !controller.signal.aborted
+          && !this._destroyed
+          && this._paginationGeneration === generation
+          && componentRoot?.isConnected !== false
+          && this.$el === componentRoot
+          && `${window.location.pathname}${window.location.search}` === requestLocation;
 
         try {
-          const response = await fetch(nextUrlEl.href);
+          requestUrl = normalizePageUrl(nextUrlEl.href);
+          const response = await fetch(requestUrl, {
+            credentials: 'same-origin',
+            headers: { Accept: 'text/html' },
+            signal: controller.signal
+          });
           if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
           }
           const html = await response.text();
+          if (!isCurrent()) return;
           const doc = new DOMParser().parseFromString(html, 'text/html');
-          const cards = Array.from(doc.querySelectorAll('.photo-card'));
+          const responseRoot = doc.querySelector('[data-app-root="photos"]') || doc;
+          const cards = Array.from(responseRoot.querySelectorAll('.photo-card'));
+          if (cards.length === 0) {
+            throw new Error('分页响应中没有可追加的 .photo-card');
+          }
+
+          const newNext = responseRoot.querySelector('#next-page-url');
+          const newNextUrl = newNext?.href ? normalizePageUrl(newNext.href) : '';
+          if (newNextUrl && (newNextUrl === requestUrl || loadedPageUrls.has(newNextUrl))) {
+            throw new Error('分页响应返回了重复的下一页链接');
+          }
+          if (!isCurrent()) return;
 
           this._appendNewCards(cards);
+          loadedPageUrls.add(requestUrl);
 
-          const newNext = doc.querySelector('#next-page-url');
-          if (newNext?.href) {
-            nextUrlEl.href = newNext.href;
+          if (newNextUrl) {
+            nextUrlEl.href = newNextUrl;
             noMore?.classList.add('hidden');
           } else {
             nextUrlEl.remove();
@@ -945,19 +1014,36 @@ export function registerPhotosExplorer(Alpine) {
             noMore?.classList.remove('hidden');
           }
         } catch (error) {
+          if (!isCurrent()) return;
           noMore?.classList.add('hidden');
+          showError('下一页加载失败，请重试。');
+          this._observer?.unobserve?.(sentinel);
           warnApiCall('photos', '图库下一页加载失败', {
-            url: nextUrlEl?.href || '',
+            url: requestUrl || nextUrlEl?.href || '',
             message: error?.message || String(error || ''),
-            action: 'stop-current-load',
+            action: 'show-retry',
             hint: '检查 Photos 分页链接、返回 HTML 中的 .photo-card 和下一页标记 #next-page-url。'
           });
         } finally {
-          isLoading = false;
-          spinner?.classList.add('hidden');
-          this._clearLoadingSkeletons();
+          if (this._paginationController === controller) {
+            this._paginationController = null;
+            isLoading = false;
+            spinner?.classList.add('hidden');
+            this._clearLoadingSkeletons();
+          }
         }
       };
+      this._paginationLoadMore = loadMore;
+
+      if (retryButton) {
+        const retry = () => {
+          hideError();
+          void loadMore();
+          this._observer?.observe?.(sentinel);
+        };
+        retryButton.addEventListener('click', retry);
+        this._paginationRetryCleanup = () => retryButton.removeEventListener('click', retry);
+      }
 
       this._observer = new IntersectionObserver(
         (entries) => {
@@ -1045,6 +1131,7 @@ export function registerPhotosExplorer(Alpine) {
     },
 
     init() {
+      this._destroyed = false;
       const hasPreferences = hasSavedPreferences();
       this.restorePreferences();
       if (!hasPreferences && this._isCompactSurface()) {
@@ -1056,6 +1143,7 @@ export function registerPhotosExplorer(Alpine) {
       this._getEngine();
 
       this.$nextTick(() => {
+        if (this._destroyed || !this.$el?.isConnected) return;
         this._installSurfaceControls();
         if (this.isDetailView()) {
           this._installDetailViewerControls();
@@ -1074,6 +1162,13 @@ export function registerPhotosExplorer(Alpine) {
 
     destroy() {
       const engine = this._getEngine();
+      this._destroyed = true;
+      this._paginationGeneration += 1;
+      this._paginationController?.abort();
+      this._paginationController = null;
+      this._paginationLoadMore = null;
+      this._paginationRetryCleanup?.();
+      this._paginationRetryCleanup = null;
       this._removePhotoPanListeners();
       if (engine.surfaceCleanup) {
         engine.surfaceCleanup();

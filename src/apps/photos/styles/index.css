@@ -1604,6 +1604,27 @@
   color: var(--photos-text-muted);
 }
 
+.photos-load-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--photos-text-muted);
+  font-size: 12px;
+}
+
+.photos-load-error button {
+  border: 1px solid var(--photos-border);
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: var(--photos-text);
+  background: var(--photos-control-bg);
+  cursor: pointer;
+}
+
+.photos-load-error button:hover {
+  background: var(--photos-control-bg-hover);
+}
+
 .hidden {
   display: none !important;
 }

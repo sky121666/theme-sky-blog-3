@@ -317,6 +317,8 @@ async function inspectRichContentRuntime(browser) {
         <head><title>Docsme rich content fixture</title></head>
         <body>
           <main class="docsme-app">
+            <aside data-docsme-toc><nav data-docsme-toc-list></nav></aside>
+            <article data-toc-content><h2>History contract</h2></article>
             <span id="pre-rendered" class="katex-inline" title="作者标题"><span class="katex"><math></math></span></span>
             <span id="raw-inline" math-inline>x + y</span>
             <div id="raw-block" math-display>x^2 + y^2</div>
@@ -326,13 +328,20 @@ async function inspectRichContentRuntime(browser) {
       </html>`);
     await page.addScriptTag({
       type: 'module',
-      content: `${runtimeSource}\nwindow.__DOCSME_RUNTIME_FIXTURE__ = { renderDocsmeRichContent, resolveDocsmeRichContentTheme };`
+      content: `${runtimeSource}\nwindow.__DOCSME_RUNTIME_FIXTURE__ = { renderDocsmeRichContent, resolveDocsmeRichContentTheme, renderToc };`
     });
     await page.waitForFunction(() => Boolean(window.__DOCSME_RUNTIME_FIXTURE__));
 
     const fixtureResult = await page.evaluate(async () => {
-      const { renderDocsmeRichContent, resolveDocsmeRichContentTheme } = window.__DOCSME_RUNTIME_FIXTURE__;
+      const { renderDocsmeRichContent, resolveDocsmeRichContentTheme, renderToc } = window.__DOCSME_RUNTIME_FIXTURE__;
       const app = document.querySelector('.docsme-app');
+      history.replaceState({ uid: 'pjax-state', scrollPos: [12, 34] }, '', window.location.href);
+      renderToc(app);
+      document.querySelector('[data-docsme-toc-list] a')?.click();
+      const tocHistory = {
+        state: history.state,
+        hash: window.location.hash
+      };
       const preRendered = document.querySelector('#pre-rendered');
       const preRenderedHtml = preRendered.innerHTML;
       const katexCalls = [];
@@ -537,6 +546,7 @@ async function inspectRichContentRuntime(browser) {
         second,
         darkResult,
         unavailable,
+        tocHistory,
         preRenderedUntouched: preRendered.innerHTML === preRenderedHtml,
         authorTitlePreserved: preRendered.getAttribute('title') === '作者标题',
         katexCalls,
@@ -735,6 +745,11 @@ async function main() {
     const checkFailures = [];
     if (!result.preRenderedUntouched) checkFailures.push('runtime fixture: pre-rendered KaTeX DOM was modified');
     if (!result.authorTitlePreserved) checkFailures.push('runtime fixture: author title attribute was removed');
+    if (result.tocHistory?.state?.uid !== 'pjax-state'
+      || result.tocHistory?.state?.scrollPos?.join(',') !== '12,34'
+      || result.tocHistory?.hash !== '#history-contract') {
+      checkFailures.push('runtime fixture: TOC hash navigation destroyed the existing PJAX history state');
+    }
     if (result.katexCalls.length !== 2) checkFailures.push(`runtime fixture: KaTeX rendered ${result.katexCalls.length} times instead of 2`);
     if (!result.katexCalls.some((call) => call.displayMode === false)) checkFailures.push('runtime fixture: inline KaTeX mode was not exercised');
     if (!result.katexCalls.some((call) => call.displayMode === true)) checkFailures.push('runtime fixture: display KaTeX mode was not exercised');

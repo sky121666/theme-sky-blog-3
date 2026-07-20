@@ -5,22 +5,45 @@ import { chromium } from 'playwright';
 const root = process.cwd();
 const baseUrl = (process.env.AUDIT_BASE_URL || process.env.SMOKE_BASE_URL || process.env.HALO_BASE_URL || 'http://localhost:8090').replace(/\/$/, '');
 const outputDir = path.join(root, 'output', 'audit');
+const requirePluginRoutes = /^(?:1|true)$/i.test(String(process.env.AUDIT_REQUIRE_PLUGIN_ROUTES || '').trim());
+const knownStaleContentUrls = new Set([
+  'http://192.168.1.23:8090/upload/5BB751C4-JdQx.JPEG',
+  'http://192.168.1.23:8090/upload/2E3462BD-FtZg.jpeg',
+  'http://192.168.1.23:8090/upload/1D1AF973-QjDN.jpg',
+  'http://192.168.1.23:8090/upload/1D3408F2-pylZ.JPEG'
+]);
 
 const routes = [
   { name: 'home', target: '/', required: true, focus: 'Dock / Header / widgets / theme' },
-  { name: 'links', target: '/links', required: false, focus: 'LCP / CLS / TBT / comment and link assistant resources' },
-  { name: 'douban', target: '/douban', required: false, focus: 'LCP / CLS / TBT / image and public API resources' },
-  { name: 'steam', target: '/steam', required: false, focus: 'LCP / CLS / TBT / heatmap and API resources' },
-  { name: 'docs', target: '/docs', required: false, focus: 'LCP / CLS / TBT / Shiki and comment resources' },
-  { name: 'equipments', target: '/equipments', required: false, focus: 'LCP / CLS / TBT / image loading' },
-  { name: 'moments', target: '/moments', required: false, focus: 'media / comments / notifications / Shiki resources' },
-  { name: 'photos', target: '/photos', required: false, focus: 'image viewer / layout / lazy images' }
+  { name: 'links', target: '/links', required: requirePluginRoutes, focus: 'LCP / CLS / TBT / comment and link assistant resources' },
+  { name: 'douban', target: '/douban', required: requirePluginRoutes, focus: 'LCP / CLS / TBT / image and public API resources' },
+  { name: 'steam', target: '/steam', required: requirePluginRoutes, focus: 'LCP / CLS / TBT / heatmap and API resources' },
+  { name: 'docs', target: '/docs', required: requirePluginRoutes, focus: 'LCP / CLS / TBT / Shiki and comment resources' },
+  { name: 'equipments', target: '/equipments', required: requirePluginRoutes, focus: 'LCP / CLS / TBT / image loading' },
+  { name: 'moments', target: '/moments', required: requirePluginRoutes, focus: 'media / comments / notifications / Shiki resources' },
+  { name: 'photos', target: '/photos', required: requirePluginRoutes, focus: 'image viewer / layout / lazy images' },
+  { name: 'editor-plugins', target: '/archives/editor-feature-demo', required: requirePluginRoutes, focus: 'Vote / Hyperlink Card / LightGallery / Shiki runtime' },
+  { name: 'lottery-plugin', target: '/archives/ijhJxHtw', required: requirePluginRoutes, focus: 'Lottery custom element runtime' }
 ];
+
+function isKnownStaleContentResourceError(entry) {
+  if (!entry || !/^Failed to load resource: net::ERR_CONNECTION_REFUSED/i.test(entry.text || '')) return false;
+  try {
+    return knownStaleContentUrls.has(new URL(entry.url || '').href);
+  } catch {
+    return false;
+  }
+}
 
 const watchedResources = [
   { key: 'comment-widget', pattern: /comment-widget/i, allowed: '有 <halo:comment> 或评论入口的页面' },
   { key: 'rag-ui', pattern: /rag-ui/i, allowed: '真实启用 RAG 的页面' },
   { key: 'contact-form', pattern: /contact-form/i, allowed: '有联系表单的页面' },
+  { key: 'hyperlink-card', pattern: /\/plugins\/editor-hyperlink-card\//i, allowed: '插件当前全局注入；文章组件页必须可升级，PJAX 不得重复加载' },
+  { key: 'lottery', pattern: /\/plugins\/lottery\//i, allowed: '插件当前全局注入；抽奖组件页必须可升级，PJAX 不得重复加载' },
+  { key: 'restricted-reading', pattern: /\/plugins\/restricted-reading\//i, allowed: '插件当前全局注入；受限内容样本缺失时仅验证资源与无报错' },
+  { key: 'vote', pattern: /\/plugins\/vote\//i, allowed: '插件当前全局注入；投票组件页必须可升级，不执行投票写操作' },
+  { key: 'ai-assistant', pattern: /\/plugins\/ai-assistant\//i, allowed: '插件当前全局注入；只验证资源与生命周期，不发起 AI 请求' },
   { key: 'shiki', pattern: /shiki/i, allowed: '文章、Docsme、Moments 等存在代码块的页面' },
   { key: 'large-media', pattern: /\.(?:avif|webp|png|jpe?g|gif|mp4|webm)(?:[?#]|$)/i, allowed: '内容真实需要，且首屏不应同步加载非必要大资源' }
 ];
@@ -49,6 +72,7 @@ function resourceExpected(resourceKey, page) {
   if (resourceKey === 'comment-widget') return Boolean(protocol.hasComment);
   if (resourceKey === 'rag-ui') return Boolean(protocol.hasRagSurface);
   if (resourceKey === 'contact-form') return Boolean(protocol.hasContactForm);
+  if (['hyperlink-card', 'lottery', 'restricted-reading', 'vote', 'ai-assistant'].includes(resourceKey)) return true;
   if (resourceKey === 'shiki') return Boolean(protocol.hasCode);
   if (resourceKey === 'large-media') return true;
   return true;
@@ -91,7 +115,7 @@ function renderMarkdown(report) {
     const images = page.protocol?.imageCount != null
       ? `${page.protocol.lazyImageCount}/${page.protocol.imageCount}`
       : '-';
-    return `| ${page.name} | ${page.status} | ${page.metrics.lcp} | ${page.metrics.cls} | ${page.metrics.tbt} | ${page.metrics.resourceCount} | ${images} | ${resources} | ${page.consoleErrors.length} |`;
+    return `| ${page.name} | ${page.status} | ${page.metrics.lcp} | ${page.metrics.cls} | ${page.metrics.tbt} | ${page.metrics.resourceCount} | ${images} | ${resources} | ${page.consoleErrors.length + (page.pageErrors?.length || 0)} |`;
   }).join('\n');
 
   const resourceRows = watchedResources.map((resource) => `| ${resource.key} | ${resource.allowed} |`).join('\n');
@@ -126,11 +150,15 @@ function renderMarkdown(report) {
 
 async function auditRoute(page, route) {
   const consoleErrors = [];
+  const pageErrors = [];
   const resourceMap = Object.fromEntries(watchedResources.map((resource) => [resource.key, []]));
 
   const onConsole = (message) => {
     if (message.type() === 'error') {
-      consoleErrors.push(message.text());
+      consoleErrors.push({
+        text: message.text(),
+        url: message.location()?.url || ''
+      });
     }
   };
   const onResponse = (response) => {
@@ -147,9 +175,13 @@ async function auditRoute(page, route) {
       }
     }
   };
+  const onPageError = (error) => {
+    pageErrors.push(error?.message || String(error));
+  };
 
   page.on('console', onConsole);
   page.on('response', onResponse);
+  page.on('pageerror', onPageError);
 
   try {
     const response = await page.goto(absoluteUrl(route.target), {
@@ -182,6 +214,10 @@ async function auditRoute(page, route) {
       hasComment: Boolean(document.querySelector('comment-widget, .halo-comment-widget, halo\\:comment')),
       hasContactForm: Boolean(document.querySelector('contact-form, [data-contact-form], .contact-form, form[action*="contact"]')),
       hasRagSurface: Boolean(document.querySelector('rag-ui, [data-rag-ui], [data-rag]')),
+      hyperlinkCardCount: document.querySelectorAll('hyperlink-card, hyperlink-inline-card').length,
+      lotteryCardCount: document.querySelectorAll('lottery-card').length,
+      restrictedReadingCount: document.querySelectorAll('content-restrict-widget').length,
+      voteBlockCount: document.querySelectorAll('vote-block').length,
       hasCode: Boolean(document.querySelector('shiki-code, pre code, pre, code')),
       imageCount: document.images.length,
       lazyImageCount: Array.from(document.images).filter((image) => image.loading === 'lazy').length
@@ -207,7 +243,8 @@ async function auditRoute(page, route) {
       },
       protocol,
       watchedResources: resourceMap,
-      consoleErrors
+      consoleErrors,
+      pageErrors
     };
   } catch (error) {
     return {
@@ -220,11 +257,13 @@ async function auditRoute(page, route) {
       protocol: {},
       watchedResources: resourceMap,
       consoleErrors,
+      pageErrors,
       error: String(error?.message || error)
     };
   } finally {
     page.off('console', onConsole);
     page.off('response', onResponse);
+    page.off('pageerror', onPageError);
   }
 }
 
@@ -274,10 +313,24 @@ async function main() {
   await browser.close();
   const files = await writeReport(report);
 
-  const failedRequired = report.pages.filter((page) => page.status === 'failed' || (page.name === 'home' && !page.status.startsWith('ok')));
+  const requiredRouteNames = new Set(routes.filter((route) => route.required).map((route) => route.name));
+  const failedRequired = report.pages.filter((page) => requiredRouteNames.has(page.name) && page.status !== 'ok');
+  const runtimeErrors = report.pages.filter((page) => page.status === 'ok' && (
+    page.pageErrors.length > 0
+    || page.consoleErrors.some((entry) => !isKnownStaleContentResourceError(entry))
+  ));
+  const pluginResourceErrors = report.pages.flatMap((page) => Object.entries(page.watchedResources || {})
+    .filter(([key]) => key !== 'large-media')
+    .flatMap(([key, items]) => items
+      .filter((item) => item.status >= 400)
+      .map((item) => ({ page: page.name, key, status: item.status, url: item.url }))));
   console.log(`真实页面审计完成: ${files.mdFile}`);
   if (failedRequired.length > 0) {
     console.error(`必要页面审计失败: ${failedRequired.map((page) => page.name).join(', ')}`);
+    process.exit(1);
+  }
+  if (runtimeErrors.length > 0 || pluginResourceErrors.length > 0) {
+    console.error(`插件运行时审计失败: console=${runtimeErrors.map((page) => page.name).join(', ') || '-'}, resource=${pluginResourceErrors.length}`);
     process.exit(1);
   }
 }

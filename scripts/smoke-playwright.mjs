@@ -5,6 +5,13 @@ import { chromium } from 'playwright';
 const root = process.cwd();
 const outputDir = path.join(root, 'output', 'playwright');
 const baseUrl = (process.env.SMOKE_BASE_URL || '').trim();
+const requirePluginRoutes = /^(?:1|true)$/i.test(String(process.env.SMOKE_REQUIRE_PLUGIN_ROUTES || '').trim());
+const knownStaleContentUrls = new Set([
+  'http://192.168.1.23:8090/upload/5BB751C4-JdQx.JPEG',
+  'http://192.168.1.23:8090/upload/2E3462BD-FtZg.jpeg',
+  'http://192.168.1.23:8090/upload/1D1AF973-QjDN.jpg',
+  'http://192.168.1.23:8090/upload/1D3408F2-pylZ.JPEG'
+]);
 
 function toAbsoluteUrl(target) {
   return new URL(target, baseUrl).toString();
@@ -28,9 +35,7 @@ function isExternalUploadResourceError(message) {
   const url = message.location()?.url || '';
   if (!url) return false;
   try {
-    const resourceUrl = new URL(url);
-    const smokeUrl = new URL(baseUrl);
-    return resourceUrl.origin !== smokeUrl.origin && resourceUrl.pathname.startsWith('/upload/');
+    return knownStaleContentUrls.has(new URL(url).href);
   } catch {
     return false;
   }
@@ -72,6 +77,9 @@ async function writeReport(report) {
 
 async function main() {
   if (!baseUrl) {
+    if (requirePluginRoutes) {
+      throw new Error('严格插件 smoke 缺少 SMOKE_BASE_URL');
+    }
     console.log('跳过 Playwright smoke：未设置 SMOKE_BASE_URL');
     process.exit(0);
   }
@@ -135,7 +143,7 @@ async function main() {
     {
       name: 'moments',
       target: '/moments',
-      optional: true,
+      optional: !requirePluginRoutes,
       requireShellLoaded: true,
       expectedAppId: 'moments',
       expectedPageMode: 'browser-moments',
@@ -146,7 +154,7 @@ async function main() {
     {
       name: 'friends',
       target: '/friends',
-      optional: true,
+      optional: !requirePluginRoutes,
       requireShellLoaded: true,
       expectedAppId: 'friends',
       expectedPageMode: 'browser-friends',
@@ -157,7 +165,7 @@ async function main() {
     {
       name: 'links',
       target: '/links',
-      optional: true,
+      optional: !requirePluginRoutes,
       requireShellLoaded: true,
       expectedAppId: 'links',
       expectedPageMode: 'browser-links',
@@ -168,7 +176,7 @@ async function main() {
     {
       name: 'bangumis',
       target: '/bangumis',
-      optional: true,
+      optional: !requirePluginRoutes,
       requireShellLoaded: true,
       expectedAppId: 'bangumis',
       expectedPageMode: 'browser-bangumis',
@@ -179,7 +187,7 @@ async function main() {
     {
       name: 'douban',
       target: '/douban',
-      optional: true,
+      optional: !requirePluginRoutes,
       requireShellLoaded: true,
       expectedAppId: 'douban',
       expectedPageMode: 'browser-douban',
@@ -190,7 +198,7 @@ async function main() {
     {
       name: 'steam',
       target: '/steam',
-      optional: true,
+      optional: !requirePluginRoutes,
       requireShellLoaded: true,
       expectedAppId: 'steam',
       expectedPageMode: 'browser-steam',
@@ -201,7 +209,7 @@ async function main() {
     {
       name: 'equipments',
       target: '/equipments',
-      optional: true,
+      optional: !requirePluginRoutes,
       requireShellLoaded: true,
       expectedAppId: 'equipments',
       expectedPageMode: 'browser-equipments',
@@ -212,7 +220,7 @@ async function main() {
     {
       name: 'photos',
       target: '/photos',
-      optional: true,
+      optional: !requirePluginRoutes,
       requireShellLoaded: true,
       expectedAppId: 'photos',
       expectedPageMode: 'browser-list',
@@ -387,7 +395,7 @@ async function main() {
     const route = {
       name: 'friends-interactions',
       target: '/friends',
-      optional: true,
+      optional: !requirePluginRoutes,
       expectedAppId: 'friends',
       expectedPageMode: 'browser-friends',
       expectedWindowVariant: 'friends',
@@ -468,7 +476,7 @@ async function main() {
     const route = {
       name: 'links-interactions',
       target: '/links',
-      optional: true,
+      optional: !requirePluginRoutes,
       expectedAppId: 'links',
       expectedPageMode: 'browser-links',
       expectedWindowVariant: 'links',
@@ -514,6 +522,9 @@ async function main() {
       failOnStatusCode: false
     });
     if (baseResponse.status() === 404) {
+      if (requirePluginRoutes) {
+        throw new Error('Bangumi 已进入严格插件清单，但 /bangumis 返回 404');
+      }
       skipped.push('bangumis-invalid-page: plugin unavailable');
       return null;
     }
@@ -542,6 +553,9 @@ async function main() {
     });
     const button = page.locator('.menubar-search-btn').first();
     if (await button.count() < 1) {
+      if (requirePluginRoutes) {
+        throw new Error('PluginSearchWidget 已进入严格插件清单，但首页缺少搜索入口');
+      }
       skipped.push('search-interaction: PluginSearchWidget unavailable or disabled');
       return null;
     }

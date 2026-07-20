@@ -207,7 +207,7 @@ function renderToc(root) {
       list.querySelectorAll('.is-active').forEach((item) => item.classList.remove('is-active'));
       link.classList.add('is-active');
       heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      history.replaceState(null, '', `#${heading.id}`);
+      history.replaceState(history.state, '', `#${heading.id}`);
     });
     tocLinks.set(heading.id, link);
     list.append(link);
