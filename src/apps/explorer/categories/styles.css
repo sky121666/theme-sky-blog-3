@@ -92,6 +92,11 @@
   overflow: hidden;
 }
 
+.categories-workspace.categories-workspace--overview,
+.categories-content.categories-content--overview {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .categories-sidebar,
 .category-folder-pane {
   display: flex;

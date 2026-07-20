@@ -18,25 +18,6 @@
         windowMaximizable = true,
         windowMetricsKey = 'browser'
       )}">
-  <th:block th:fragment="categorySidebar(categories, depth)">
-    <th:block th:with="currentDepth=${depth != null ? depth : 0}">
-      <th:block th:each="item : ${categories}">
-        <a class="categories-sidebar-item pjax-link"
-           data-pjax-app="explorer-categories"
-           data-category-link
-           th:href="${item.status.permalink}"
-           th:style="'--category-depth:' + ${currentDepth}"
-           th:attr="aria-label=${item.spec.displayName + '，' + item.postCount + ' 篇文章'}">
-          <span class="categories-folder-icon categories-folder-icon--sidebar icon-[lucide--folder]" aria-hidden="true"></span>
-          <span class="categories-sidebar-label" th:text="${item.spec.displayName}">分类</span>
-        </a>
-
-        <th:block th:if="${not #lists.isEmpty(item.children)}"
-                  th:replace="~{::categorySidebar(categories=${item.children}, depth=${currentDepth + 1})}"></th:block>
-      </th:block>
-    </th:block>
-  </th:block>
-
   <th:block th:fragment="categoryOverview(categories, depth)">
     <th:block th:with="currentDepth=${depth != null ? depth : 0}">
       <th:block th:each="item : ${categories}">
@@ -64,20 +45,13 @@
       <h1 class="sr-only">所有分类</h1>
       <script type="application/json" data-app-props="explorer-categories">{"version":1,"appId":"explorer-categories","data":{"view":"collection"}}</script>
 
-      <div class="categories-workspace"
+      <div class="categories-workspace categories-workspace--overview"
            data-category-root
            th:if="${categories != null and !#lists.isEmpty(categories)}">
-        <aside class="categories-sidebar">
-          <p class="categories-sidebar-title">分类</p>
-          <nav class="categories-sidebar-nav" aria-label="分类导航">
-            <th:block th:replace="~{::categorySidebar(categories=${categories}, depth=${0})}"></th:block>
-          </nav>
-        </aside>
-
-        <section class="categories-content">
+        <section class="categories-content categories-content--overview">
           <section class="categories-pane categories-pane--posts">
             <header class="categories-pane-header">
-              <span class="categories-pane-title">分类概览</span>
+              <span class="categories-pane-title">全部分类</span>
               <span class="categories-pane-path" th:text="${#lists.size(categories)} + ' 个顶级分类'">0 个顶级分类</span>
             </header>
 
@@ -87,19 +61,6 @@
               </nav>
             </div>
           </section>
-
-          <aside class="categories-pane categories-pane--preview">
-            <header class="categories-pane-header">
-              <span class="categories-pane-title">浏览说明</span>
-              <span class="categories-pane-path">按分类查看文章</span>
-            </header>
-
-            <div class="categories-preview-scroll">
-              <section class="categories-preview-empty">
-                <p>选择一个分类文件夹，进入该分类的文章列表；列表分页只影响当前分类。</p>
-              </section>
-            </div>
-          </aside>
         </section>
       </div>
 

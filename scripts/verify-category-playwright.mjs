@@ -67,10 +67,20 @@ async function rootState(page) {
       };
     });
 
+    const workspace = document.querySelector('[data-category-root]');
+    const content = workspace?.querySelector('.categories-content--overview');
+    const overviewCards = Array.from(workspace?.querySelectorAll('[data-category-overview-link]') || []);
+    const workspaceRect = workspace?.getBoundingClientRect();
+    const contentRect = content?.getBoundingClientRect();
+
     return {
       appId: document.body?.dataset.pageApp || '',
-      sidebarLinks: describeLinks('[data-category-root] [data-category-link]'),
-      overviewLinks: describeLinks('[data-category-root] [data-category-overview-link]')
+      duplicateNavigationLinks: describeLinks('[data-category-root] [data-category-link]'),
+      overviewLinks: describeLinks('[data-category-root] [data-category-overview-link]'),
+      workspaceColumnCount: workspace ? getComputedStyle(workspace).gridTemplateColumns.split(/\s+/).filter(Boolean).length : 0,
+      contentFillsWorkspace: Boolean(workspaceRect && contentRect && Math.abs(workspaceRect.width - contentRect.width) <= 1),
+      cardHeights: overviewCards.map((node) => node.getBoundingClientRect().height),
+      overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
     };
   });
 }
@@ -160,10 +170,12 @@ try {
 
   const initialRootState = await rootState(page);
   assert.equal(initialRootState.appId, 'explorer-categories', '分类根页必须激活 explorer-categories');
-  assert.ok(initialRootState.sidebarLinks.length > 0, '分类根页必须展示完整分类树链接');
+  assert.equal(initialRootState.duplicateNavigationLinks.length, 0, '分类根页不得重复展示第二套分类导航');
   assert.ok(initialRootState.overviewLinks.length > 0, '分类根页必须展示可进入的真实分类链接');
+  assert.equal(initialRootState.workspaceColumnCount, 1, '分类根页必须只有一个内容列');
+  assert.equal(initialRootState.contentFillsWorkspace, true, '分类根页概览必须填满工作区，不得留下幽灵空列');
 
-  for (const link of [...initialRootState.sidebarLinks, ...initialRootState.overviewLinks]) {
+  for (const link of initialRootState.overviewLinks) {
     assert.equal(link.tagName, 'A', '分类入口必须使用真实 a[href]');
     assert.ok(link.href && link.href !== '#', '分类入口不得使用空地址或占位地址');
     assert.equal(link.sameOrigin, true, `分类入口必须为站内地址：${link.href}`);
@@ -174,11 +186,23 @@ try {
     );
   }
 
-  const rootTreePaths = unique(initialRootState.sidebarLinks.map((link) => withoutTrailingSlash(link.pathname)));
   const rootOverviewPaths = unique(initialRootState.overviewLinks.map((link) => withoutTrailingSlash(link.pathname)));
-  assert.equal(rootTreePaths.length, initialRootState.sidebarLinks.length, '分类根页树链接不得重复');
   assert.equal(rootOverviewPaths.length, initialRootState.overviewLinks.length, '分类根页概览链接不得重复');
-  assert.deepEqual(rootOverviewPaths, rootTreePaths, '分类概览必须覆盖完整分类树');
+
+  for (const viewport of [{ width: 700, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto(absoluteUrl(categoriesBasePath), { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    await waitForCategoryRoot(page);
+    const responsiveRootState = await rootState(page);
+    assert.equal(responsiveRootState.duplicateNavigationLinks.length, 0, `${viewport.width}px 分类根页不得恢复重复导航`);
+    assert.equal(responsiveRootState.workspaceColumnCount, 1, `${viewport.width}px 分类根页必须保持单列工作区`);
+    assert.equal(responsiveRootState.contentFillsWorkspace, true, `${viewport.width}px 分类概览必须填满工作区`);
+    assert.equal(responsiveRootState.overflow, false, `${viewport.width}px 分类根页不得横向溢出`);
+    assert.equal(responsiveRootState.overviewLinks.length, initialRootState.overviewLinks.length, `${viewport.width}px 分类根页不得丢失分类入口`);
+    assert.ok(Math.min(...responsiveRootState.cardHeights) >= 44, `${viewport.width}px 分类卡片触控高度不得低于 44px`);
+  }
+
+  await page.setViewportSize({ width: 1440, height: 900 });
 
   const candidates = [...initialRootState.overviewLinks]
     .sort((left, right) => right.count - left.count);
@@ -223,7 +247,7 @@ try {
   assert.equal(firstPageState.appId, 'explorer-categories', '分类详情必须继续由 explorer-categories 接管');
   assert.deepEqual(
     unique(firstPageState.treePaths.map(withoutTrailingSlash)),
-    rootTreePaths,
+    rootOverviewPaths,
     '分类详情必须保留根页完整分类树'
   );
   assert.equal(

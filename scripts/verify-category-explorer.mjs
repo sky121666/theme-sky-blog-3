@@ -17,7 +17,10 @@ assert.ok(root, '项目根目录不能为空');
 
 assert.match(collectionTemplate, /data-category-root/, '分类根页必须暴露稳定的根节点契约');
 assert.match(collectionTemplate, /data-category-overview-link/, '分类根页必须输出真实分类概览链接');
-assert.match(collectionTemplate, /class="categories-sidebar-item pjax-link"/, '分类侧栏必须使用真实 PJAX 链接');
+assert.match(collectionTemplate, /categories-workspace--overview/, '分类根页必须使用单一概览布局');
+assert.doesNotMatch(collectionTemplate, /data-category-link/, '分类根页不得重复输出第二套分类导航');
+assert.doesNotMatch(collectionTemplate, /class="categories-sidebar"/, '分类根页不得保留重复分类侧栏');
+assert.doesNotMatch(collectionTemplate, /categories-pane--preview/, '分类根页不得保留无内容价值的说明栏');
 assert.doesNotMatch(collectionTemplate, /postFinder\.list\s*\(/, '分类根页不得再固定查询文章列表');
 assert.doesNotMatch(collectionTemplate, /data-categories-folder|selectCategory\s*\(/, '分类根页不得保留无路由的按钮切换');
 
