@@ -46,7 +46,7 @@ function matchesArchiveRoute(pathname) {
     : '';
   if (!archivePath) return false;
 
-  return /^\/\d{4}(?:\/\d{1,2})?\/?$/.test(archivePath);
+  return /^\/\d{4}(?:\/(?:0?[1-9]|1[0-2])(?:\/page\/[1-9]\d*)?)?\/?$/.test(archivePath);
 }
 
 function matchesDefaultReaderRoute(pathname) {

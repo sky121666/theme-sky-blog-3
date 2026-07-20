@@ -4,6 +4,7 @@ import {
   queuePageAppRegistrar,
   registerPageAppLifecycle
 } from '../../../shared/page-app-bridge.js';
+import { invokeAlpineDestroyHooks } from '../../../shared/alpine-destroy.js';
 
 queuePageAppRegistrar((Alpine) => {
   registerArchiveExplorer(Alpine);
@@ -13,6 +14,9 @@ registerPageAppLifecycle('explorer-archives', {
   resolveProtocol: resolveExplorerArchivesProtocol,
   hydrate(root) {
     return initArchiveSidebar(root);
+  },
+  dispose(root) {
+    invokeAlpineDestroyHooks(root, '[x-data="archiveExplorer"]');
   },
   getDocumentState(_root, context) {
     return {

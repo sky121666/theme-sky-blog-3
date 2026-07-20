@@ -18,26 +18,44 @@
         windowMaximizable = true,
         windowMetricsKey = 'browser'
       )}">
-  <th:block th:fragment="content">
+  <th:block th:fragment="content"
+            th:with="archiveBase=${!#strings.isEmpty(site.routes?.archivesUri) ? site.routes.archivesUri : '/archives'},
+                     archiveStats=${siteStatsFinder.getStats()},
+                     archiveIndexSize=${archiveStats != null and archiveStats.post > 0 ? archiveStats.post : 1},
+                     archiveIndex=${postFinder.archives(1, archiveIndexSize)},
+                     activeArchive=${archives != null and !#lists.isEmpty(archives.items) ? archives.items[0] : null},
+                     activeMonth=${activeArchive != null and !#lists.isEmpty(activeArchive.months) ? activeArchive.months[0] : null},
+                     archivePageSize=${site.post?.archivePageSize ?: 10}">
     <div class="archive-shell" data-app-root="explorer-archives">
       <h1 class="sr-only">文章归档</h1>
       <script type="application/json" data-app-props="explorer-archives">{"version":1,"appId":"explorer-archives","data":{"view":"archives"}}</script>
+
       <div class="archive-workspace"
-           th:if="${archives != null and !#lists.isEmpty(archives.items)}"
+           th:if="${archiveIndex != null and !#lists.isEmpty(archiveIndex.items) and activeArchive != null and activeMonth != null}"
+           th:attr="data-archive-base-url=${archiveBase},
+                    data-active-year=${activeArchive.year},
+                    data-active-year-label=${activeArchive.year + ' 年'},
+                    data-active-month-key=${activeArchive.year + '-' + activeMonth.month},
+                    data-active-month-label=${activeArchive.year + ' 年 ' + activeMonth.month + ' 月'},
+                    data-current-page=${archives.page},
+                    data-page-size=${archivePageSize},
+                    data-archive-index-complete=${!archiveIndex.hasNext()}"
            x-data="archiveExplorer">
         <aside class="archive-sidebar">
           <p class="archive-sidebar-title">年份</p>
-          <nav class="archive-sidebar-nav">
-            <button type="button"
-                    class="archive-sidebar-item"
-                    th:each="archive : ${archives.items}"
-                    data-archive-year-option
-                    th:attr="data-year=${archive.year},data-year-label=${archive.year} + ' 年'"
-                    @click="selectYear($el.dataset.year, $el.dataset.yearLabel)"
-                    :class="{ 'is-active': activeYear === $el.dataset.year }">
+          <nav class="archive-sidebar-nav" aria-label="归档年份">
+            <a class="archive-sidebar-item pjax-link"
+               th:each="archive : ${archiveIndex.items}"
+               th:href="${archiveBase + '/' + archive.year}"
+               data-pjax-app="explorer-archives"
+               data-archive-year-option
+               th:classappend="${archive.year == activeArchive.year} ? ' is-active'"
+               th:attr="data-year=${archive.year},
+                        data-year-label=${archive.year + ' 年'},
+                        aria-current=${archive.year == activeArchive.year ? 'page' : null}">
               <span class="archive-folder-icon archive-folder-icon--sidebar icon-[lucide--folder]" aria-hidden="true"></span>
               <span class="archive-sidebar-label" th:text="${archive.year} + ' 年'">2026 年</span>
-            </button>
+            </a>
           </nav>
         </aside>
 
@@ -48,19 +66,23 @@
               <span class="archive-pane-path" x-text="activeYearLabel"></span>
             </header>
 
-            <div class="archive-pane-scroll">
-              <th:block th:each="archive : ${archives.items}">
-                <div data-archive-year-panel
+            <div class="archive-pane-scroll" data-archive-month-list>
+              <th:block th:each="archive : ${archiveIndex.items}">
+                <nav th:if="${archive.year == activeArchive.year}"
+                     data-archive-year-panel
                      th:attr="data-year=${archive.year}"
-                     x-show="activeYear === $el.dataset.year"
-                     x-cloak>
-                  <button type="button"
-                          class="archive-entry archive-entry--folder"
-                          th:each="month : ${archive.months}"
-                          data-archive-month-option
-                          th:attr="data-parent-year=${archive.year},data-month-key=${archive.year + '-' + month.month},data-month-label=${archive.year} + ' 年 ' + ${month.month} + ' 月'"
-                          @click="selectMonth($el.dataset.monthKey, $el.dataset.monthLabel)"
-                          :class="{ 'is-active': activeMonthKey === $el.dataset.monthKey }">
+                     th:aria-label="${archive.year + ' 年归档月份'}">
+                  <a class="archive-entry archive-entry--folder pjax-link"
+                     th:each="month : ${archive.months}"
+                     th:href="${archiveBase + '/' + archive.year + '/' + month.month}"
+                     data-pjax-app="explorer-archives"
+                     data-archive-month-option
+                     th:classappend="${archive.year == activeArchive.year and month.month == activeMonth.month} ? ' is-active'"
+                     th:attr="data-parent-year=${archive.year},
+                              data-month-key=${archive.year + '-' + month.month},
+                              data-month-label=${archive.year + ' 年 ' + month.month + ' 月'},
+                              data-month-count=${#lists.size(month.posts)},
+                              aria-current=${archive.year == activeArchive.year and month.month == activeMonth.month ? 'page' : null}">
                     <div class="archive-entry-main">
                       <span class="archive-folder-icon archive-folder-icon--entry icon-[lucide--folder]" aria-hidden="true"></span>
                       <div class="archive-entry-copy">
@@ -69,8 +91,8 @@
                     </div>
                     <span class="archive-entry-trailing archive-entry-trailing--month" th:text="${#lists.size(month.posts)} + ' 篇'">0 篇</span>
                     <span class="archive-entry-chevron icon-[lucide--chevron-right]" aria-hidden="true"></span>
-                  </button>
-                </div>
+                  </a>
+                </nav>
               </th:block>
             </div>
           </section>
@@ -81,22 +103,29 @@
               <span class="archive-pane-path" x-text="activeMonthLabel"></span>
             </header>
 
-            <div class="archive-pane-scroll">
-              <th:block th:each="archive : ${archives.items}">
-                <th:block th:each="month : ${archive.months}">
-                  <div data-archive-month-panel
-                       th:attr="data-month-key=${archive.year + '-' + month.month}"
-                       x-show="activeMonthKey === $el.dataset.monthKey"
-                       x-cloak>
+            <div class="archive-pane-scroll archive-pane-scroll--posts"
+                 :aria-busy="loading ? 'true' : 'false'">
+              <div id="archive-post-list" data-archive-post-list>
+                <th:block th:each="catalogArchive : ${archiveIndex.items}">
+                  <th:block th:each="catalogMonth : ${catalogArchive.months}"
+                            th:if="${catalogArchive.year == activeArchive.year and catalogMonth.month == activeMonth.month}">
                     <a class="archive-entry archive-entry--file pjax-link"
                        data-pjax-app="reader"
-                       th:each="post : ${month.posts}"
+                       th:each="post, postStat : ${catalogMonth.posts}"
+                       th:if="${postStat.index < archives.page * archivePageSize}"
                        th:href="${post.status.permalink}"
                        data-archive-post-option
-                       th:attr="data-parent-month-key=${archive.year + '-' + month.month},data-post-key=${post.metadata.name},data-post-title=${post.spec.title},data-post-date=${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')},data-post-comments=${post.stats.comment},data-post-excerpt=${post.status.excerpt},data-post-parent-name=${archive.year + ' 年 / ' + month.month + ' 月'},data-post-author=${post.owner != null ? post.owner.displayName : site.title}"
+                       th:attr="data-parent-month-key=${catalogArchive.year + '-' + catalogMonth.month},
+                                data-post-key=${post.metadata.name},
+                                data-post-title=${post.spec.title},
+                                data-post-date=${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')},
+                                data-post-comments=${post.stats.comment},
+                                data-post-excerpt=${post.status.excerpt},
+                                data-post-parent-name=${catalogArchive.year + ' 年 / ' + catalogMonth.month + ' 月'},
+                                data-post-author=${post.owner != null ? post.owner.displayName : site.title}"
                        @mouseenter="selectPost($el)"
-                      @focus="selectPost($el)"
-                      @click="selectPost($el)"
+                       @focus="selectPost($el)"
+                       @click="selectPost($el)"
                        :class="{ 'is-active': activePostKey === $el.dataset.postKey }">
                       <div class="archive-entry-main">
                         <span class="archive-file-icon icon-[lucide--file-text]" aria-hidden="true"></span>
@@ -109,9 +138,47 @@
                         <span th:text="${post.stats.comment} + ' 评论'">0 评论</span>
                       </span>
                     </a>
-                  </div>
+                  </th:block>
                 </th:block>
-              </th:block>
+              </div>
+
+              <div class="archive-load-more-region"
+                   data-archive-pagination
+                   aria-live="polite"
+                   aria-atomic="true">
+                <th:block th:each="catalogArchive : ${archiveIndex.items}">
+                  <th:block th:each="catalogMonth : ${catalogArchive.months}">
+                    <a class="archive-load-more"
+                       th:if="${catalogArchive.year == activeArchive.year
+                                and catalogMonth.month == activeMonth.month
+                                and #lists.size(catalogMonth.posts) > archives.page * archivePageSize}"
+                       th:with="nextArchiveUrl=${archiveBase + '/' + activeArchive.year + '/' + activeMonth.month + '/page/' + (archives.page + 1)}"
+                       th:href="${nextArchiveUrl}"
+                       th:attr="data-next-url=${nextArchiveUrl}"
+                       data-archive-loadmore
+                       aria-controls="archive-post-list"
+                       @click.prevent="loadNext()"
+                       x-show="hasMore && !loading && !loadError">
+                      继续加载
+                    </a>
+                  </th:block>
+                </th:block>
+
+                <span class="archive-load-state" x-show="loading" x-cloak>正在加载…</span>
+                <button class="archive-load-more archive-load-more--retry"
+                        type="button"
+                        aria-controls="archive-post-list"
+                        x-show="loadError && !loading"
+                        x-cloak
+                        @click="loadNext()">
+                  加载失败，点击重试
+                </button>
+                <span class="archive-load-state"
+                      x-show="!hasMore && !loading && !loadError"
+                      x-cloak>
+                  本月文章已全部加载（<span x-text="loadedCount"></span> 篇）
+                </span>
+              </div>
             </div>
           </section>
 
@@ -159,27 +226,10 @@
             </div>
           </aside>
         </section>
-
-        <nav class="archive-pagination" th:if="${archives.hasPrevious() or archives.hasNext()}">
-          <a class="archive-page-btn"
-             th:if="${archives.hasPrevious()}"
-             th:href="@{${archives.prevUrl}}">
-            上一页
-          </a>
-          <span class="archive-page-btn is-disabled" th:unless="${archives.hasPrevious()}">上一页</span>
-
-          <span class="archive-page-indicator" th:text="${archives.page} + ' / ' + ${archives.totalPages}">1 / 1</span>
-
-          <a class="archive-page-btn"
-             th:if="${archives.hasNext()}"
-             th:href="@{${archives.nextUrl}}">
-            下一页
-          </a>
-          <span class="archive-page-btn is-disabled" th:unless="${archives.hasNext()}">下一页</span>
-        </nav>
       </div>
 
-      <div class="archive-empty" th:if="${archives == null or #lists.isEmpty(archives.items)}">
+      <div class="archive-empty"
+           th:if="${archiveIndex == null or #lists.isEmpty(archiveIndex.items) or activeArchive == null or activeMonth == null}">
         <h2 class="archive-empty-title">没有任何归档内容</h2>
         <p class="archive-empty-text">当前条件下没有任何文章被记录入档。稍后再来查看吧。</p>
       </div>

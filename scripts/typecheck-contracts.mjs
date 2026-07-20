@@ -92,6 +92,9 @@ const routeSamples = [
   ['https://example.com/categories/demo', 'explorer-categories', 'browser'],
   ['https://example.com/authors/demo', 'explorer-author', 'browser'],
   ['https://example.com/archives', 'explorer-archives', 'browser'],
+  ['https://example.com/archives/2024', 'explorer-archives', 'browser'],
+  ['https://example.com/archives/2024/12', 'explorer-archives', 'browser'],
+  ['https://example.com/archives/2024/12/page/2', 'explorer-archives', 'browser'],
   ['https://example.com/archives/demo', 'reader', 'browser'],
   ['https://example.com/login', 'auth', 'none']
 ];
@@ -106,7 +109,12 @@ for (const [url, expectedApp, expectedVariant] of routeSamples) {
 }
 
 const unknownRouteSamples = [
-  'https://example.com/about'
+  'https://example.com/about',
+  'https://example.com/archives/page/2',
+  'https://example.com/archives/2024/page/2',
+  'https://example.com/archives/2024/13',
+  'https://example.com/archives/2024/12/page/0',
+  'https://example.com/archives/2024/12/page/not-a-number'
 ];
 
 for (const url of unknownRouteSamples) {
@@ -128,7 +136,8 @@ const customRouteSamples = [
   ['https://example.com/labels/demo', 'explorer-tags', 'browser'],
   ['https://example.com/timeline', 'explorer-archives', 'browser'],
   ['https://example.com/timeline/2026', 'explorer-archives', 'browser'],
-  ['https://example.com/timeline/2026/05', 'explorer-archives', 'browser']
+  ['https://example.com/timeline/2026/05', 'explorer-archives', 'browser'],
+  ['https://example.com/timeline/2026/05/page/2', 'explorer-archives', 'browser']
 ];
 
 for (const [url, expectedApp, expectedVariant] of customRouteSamples) {
