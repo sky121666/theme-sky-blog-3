@@ -76,7 +76,8 @@ export function readDesktopWidgetsBootstrap() {
         },
         steamStats: {
           totalGames: 0,
-          recentPlaytimeFormatted: ''
+          recentPlaytimeFormatted: '',
+          recentPlaytimeMinutes: 0
         },
         steamRecentGames: [],
         steamOwnedGames: []

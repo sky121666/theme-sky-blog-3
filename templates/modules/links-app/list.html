@@ -4,7 +4,7 @@
             groupsData=${groups},
             allLinksTitle=${!#strings.isEmpty(theme.config.links?.profile?.display_name) ? theme.config.links.profile.display_name : '全部友链'}">
   <!-- plugin-contract: PluginLinks; contract-version: 2.0.0; tested-version: 2.0.0; status: confirmed; source: docs/插件适配契约.md -->
-  <!-- plugin-contract: link-submit; contract-version: 1.0.6; tested-version: 1.0.6; status: confirmed; source: docs/插件适配契约.md -->
+  <!-- plugin-contract: link-submit; contract-version: 1.0.7; tested-version: 1.0.7; status: confirmed; source: docs/插件适配契约.md -->
   <div class="links-app" data-app-root="links"
     th:attr="data-link-submit-enabled=${pluginFinder.available('link-submit')}">
     <script type="application/json"

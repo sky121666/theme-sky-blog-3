@@ -1,5 +1,5 @@
 <th:block th:fragment="projects">
-  <!-- plugin-contract: plugin-docsme; contract-version: 1.6.0; tested-version: 1.6.0; status: confirmed; source: docs/插件适配契约.md -->
+  <!-- plugin-contract: plugin-docsme; surface: projects-core; contract-version: 1.6.0; tested-version: 1.7.0; status: compatible-tested; source: docs/插件适配契约.md -->
   <div class="docsme-app docsme-app--projects"
        data-app-root="docsme"
        data-docsme-scene="projects"
@@ -79,7 +79,10 @@
 </th:block>
 
 <th:block th:fragment="document">
-  <!-- plugin-contract: plugin-docsme; contract-version: 1.6.0; tested-version: 1.6.0; status: confirmed; source: docs/插件适配契约.md -->
+  <!-- plugin-contract: plugin-docsme; surface: document-core; contract-version: 1.6.0; tested-version: 1.7.0; status: compatible-tested; source: docs/插件适配契约.md -->
+  <!-- plugin-contract: plugin-docsme; surface: permissions-language-version; contract-version: 1.6.0; tested-version: 1.6.0; status: confirmed; source: docs/插件适配契约.md -->
+  <!-- plugin-contract: plugin-katex; contract-version: 3.0.0; tested-version: 3.0.0; status: confirmed; source: docs/插件适配契约.md -->
+  <!-- plugin-contract: text-diagram; contract-version: 1.5.2; tested-version: 1.5.2; status: confirmed; source: docs/插件适配契约.md -->
   <th:block th:replace="~{plugin:plugin-docsme:modules/plugin-scripts}" />
   <div class="docsme-app docsme-app--document"
        data-app-root="docsme"
@@ -139,7 +142,8 @@
 </th:block>
 
 <th:block th:fragment="catalog">
-  <!-- plugin-contract: plugin-docsme; contract-version: 1.6.0; tested-version: 1.6.0; status: confirmed; source: docs/插件适配契约.md -->
+  <!-- plugin-contract: plugin-docsme; surface: catalog-core; contract-version: 1.6.0; tested-version: 1.7.0; status: compatible-tested; source: docs/插件适配契约.md -->
+  <!-- plugin-contract: plugin-docsme; surface: permissions-language-version; contract-version: 1.6.0; tested-version: 1.6.0; status: confirmed; source: docs/插件适配契约.md -->
   <th:block th:replace="~{plugin:plugin-docsme:modules/plugin-scripts}" />
   <div class="docsme-app docsme-app--catalog"
        data-app-root="docsme"

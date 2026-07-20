@@ -35,7 +35,7 @@ import {
   isContentSwitchAllowed,
   supportsSameVariantContentSwitch
 } from '../../../../../shell-core/runtime/app-manifests.js';
-import { syncSeoHeadFromResponse } from './seo.js';
+import { reconcileSeoHead, syncSeoHeadFromResponse } from './seo.js';
 import {
   syncBodyDatasetFromResponse,
   parseWindowVariantFromResponse,
@@ -53,6 +53,7 @@ import {
   closeTransientNavigationUi,
   clearTransientNavigationUi
 } from './navigation-ui.js';
+import { preparePluginCompatibilityFromResponse } from '../../shared/plugin-compat.js';
 
 const { log: pjaxLog, warn: pjaxWarn } = createLogger('pjax');
 
@@ -334,6 +335,11 @@ function stopTopProgress() {
 // ── Pjax init ──
 
 export function initPjax(Alpine) {
+  reconcileSeoHead(document);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => reconcileSeoHead(document), { once: true });
+  }
+
   setTimeout(() => {
     const isErrorPage = document.body?.dataset.errorPage === 'true';
     if (isErrorPage) { pjaxLog('skip: error page'); return; }
@@ -376,6 +382,7 @@ export function initPjax(Alpine) {
         window.location = fallbackHref;
         return;
       }
+      preparePluginCompatibilityFromResponse(responseText);
       _origHandleResponse(responseText, request, href, options);
     };
 
@@ -482,6 +489,7 @@ export function initPjax(Alpine) {
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
         const html = await resp.text();
+        preparePluginCompatibilityFromResponse(html);
 
         // Verify same variant — if variant changed, fall back to full PJAX
         const targetVariant = parseWindowVariantFromResponse(html);

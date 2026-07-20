@@ -29,10 +29,9 @@ function absoluteUrl(target) {
 }
 
 function isCodeLike(content = {}) {
-  const value = `${content.html || ''}\n${content.raw || ''}`;
-  return /<(pre|code|shiki-code)\b/i.test(value)
-    || /```/.test(value)
-    || /data-language=|language-/.test(value);
+  const html = String(content.html || '');
+  return /<shiki-code\b/i.test(html)
+    || /<pre\b[^>]*>[\s\S]*?<code\b/i.test(html);
 }
 
 async function fetchJson(target) {
@@ -109,7 +108,8 @@ function codeContentStats(moment) {
     rawLength: String(content.raw || '').length,
     htmlLength: String(content.html || '').length,
     hasFence: /```/.test(value),
-    hasPreOrCode: /<(pre|code|shiki-code)\b/i.test(value),
+    hasPreOrCode: /<shiki-code\b/i.test(value)
+      || /<pre\b[^>]*>[\s\S]*?<code\b/i.test(value),
     hasLanguageMarker: /data-language=|language-/.test(value)
   };
 }
@@ -165,7 +165,7 @@ async function inspectPage(pathname) {
     windowVariant: document.body.dataset.windowVariant || '',
     detailRoot: Boolean(document.querySelector('.moments-app--detail')),
     shikiCode: document.querySelectorAll('shiki-code').length,
-    rawPreCode: document.querySelectorAll('pre code, pre, code').length,
+    rawPreCode: document.querySelectorAll('pre > code').length,
     renderScripts: Array.from(document.querySelectorAll('script[data-pjax]'))
       .filter((script) => script.textContent.includes('renderCodeBlock')).length,
     replayScripts: document.querySelectorAll('script[data-theme-shiki-replay]').length,
@@ -300,8 +300,8 @@ async function main() {
   if (codePath) {
     const result = await inspectPage(codePath);
     const checkFailures = assertMomentPage(result, 'code sample');
-    if (result.shikiCode === 0 && result.rawPreCode === 0 && result.renderScripts === 0) {
-      checkFailures.push('code sample: no code-related DOM or Shiki render script detected');
+    if (result.shikiCode === 0 && result.rawPreCode === 0) {
+      checkFailures.push('code sample: no rendered Shiki host or pre > code block detected');
     }
     failures.push(...checkFailures);
     report.checks.push({

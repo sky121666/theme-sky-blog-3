@@ -1175,13 +1175,73 @@
   background: color-mix(in srgb, var(--docsme-accent) 5%, transparent);
 }
 
+.docsme-article .math-inline,
+.docsme-article [math-inline],
+.docsme-article .katex-inline,
+.docsme-article .katex,
+.docsme-article math {
+  max-width: 100%;
+  color: inherit;
+}
+
+.docsme-article .katex-inline {
+  display: inline;
+}
+
 .docsme-article .math-display,
 .docsme-article [math-display],
+.docsme-article .katex-block,
 .docsme-article .katex-display {
+  display: block;
   max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
   padding: 8px 0;
+}
+
+.docsme-article .katex-block > .katex-display {
+  margin-block: 0;
+}
+
+.docsme-article .docsme-rich-content-fallback {
+  border: 1px dashed color-mix(in srgb, var(--docsme-accent) 38%, var(--docsme-border));
+  background: color-mix(in srgb, var(--docsme-accent) 7%, var(--docsme-surface));
+  color: var(--docsme-soft);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.docsme-article .math-inline.docsme-rich-content-fallback,
+.docsme-article [math-inline].docsme-rich-content-fallback,
+.docsme-article .katex-inline.docsme-rich-content-fallback {
+  display: inline-block;
+  border-radius: 6px;
+  padding: 0 0.36em;
+  line-height: 1.55;
+  vertical-align: baseline;
+}
+
+.docsme-article .math-display.docsme-rich-content-fallback,
+.docsme-article [math-display].docsme-rich-content-fallback,
+.docsme-article .katex-block.docsme-rich-content-fallback {
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.docsme-article .math-display.docsme-rich-content-fallback::before,
+.docsme-article [math-display].docsme-rich-content-fallback::before,
+.docsme-article .katex-block.docsme-rich-content-fallback::before,
+.docsme-article text-diagram[data-type="mermaid"].docsme-rich-content-fallback::before,
+.docsme-article .mermaid.docsme-rich-content-fallback::before {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--docsme-muted);
+  content: "内容渲染暂不可用，以下为源内容";
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 760;
+  letter-spacing: 0.02em;
 }
 
 .docsme-article text-diagram[data-type="mermaid"],
@@ -1203,6 +1263,11 @@
 .docsme-article .mermaid svg {
   max-width: 100%;
   height: auto;
+}
+
+.docsme-article text-diagram[data-type="mermaid"].docsme-rich-content-fallback,
+.docsme-article .mermaid.docsme-rich-content-fallback {
+  text-align: left;
 }
 
 .docsme-article hyperlink-card,

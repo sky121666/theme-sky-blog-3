@@ -65,14 +65,17 @@ async function readErrorMessage(response) {
   }
 }
 
-function formatSubmitFailure(response, message) {
+export function formatSubmitFailure(response, message) {
   const status = Number(response?.status || 0);
   const genericHttpTitles = new Set([
     'bad request',
     'internal server error',
     'not found',
     'forbidden',
-    'unauthorized'
+    'unauthorized',
+    'conflict',
+    'too many requests',
+    'service unavailable'
   ]);
   const normalizedMessage = String(message || '').trim();
   const rawMessage = genericHttpTitles.has(normalizedMessage.toLowerCase()) ? '' : normalizedMessage;
@@ -87,6 +90,14 @@ function formatSubmitFailure(response, message) {
 
   if (status === 404) {
     return '友链自助提交接口未启用，请复制申请到留言板。';
+  }
+
+  if (status === 409) {
+    return rawMessage || '这个链接已存在或已有待审核申请，请切换到留言板说明修改内容。';
+  }
+
+  if (status === 429) {
+    return rawMessage || '提交过于频繁，请稍后再试；也可以复制申请到留言板。';
   }
 
   if (status >= 500) {
@@ -347,6 +358,7 @@ export function registerLinkSubmitForm(Alpine) {
     submitGroups: [],
     loadingGroups: false,
     submitting: false,
+    submitted: false,
     markdown: '',
     previewVisible: false,
     fetchingMeta: false,
@@ -421,7 +433,11 @@ export function registerLinkSubmitForm(Alpine) {
             return left.displayName.localeCompare(right.displayName, 'zh-CN');
           });
 
-        if (!this.form.groupName && this.submitGroups.length > 0) {
+        if (this.submitGroups.length === 0) {
+          throw new Error('没有可用的友链提交分组');
+        }
+
+        if (!this.form.groupName) {
           this.form.groupName = this.submitGroups[0].groupName;
         }
       } catch (_error) {
@@ -445,6 +461,7 @@ export function registerLinkSubmitForm(Alpine) {
     async fillFromUrl() {
       const normalized = normalizeUrl(this.form.url);
       this.copied = false;
+      this.submitted = false;
 
       if (!normalized) {
         this.result = {
@@ -470,6 +487,7 @@ export function registerLinkSubmitForm(Alpine) {
     async autofillFromUrl() {
       const normalized = normalizeUrl(this.form.url);
       this.copied = false;
+      this.submitted = false;
       this.autofillAttempted = true;
 
       if (!normalized) {
@@ -558,7 +576,7 @@ export function registerLinkSubmitForm(Alpine) {
     },
 
     canSubmitDirect() {
-      if (this.submitting || this.fetchingMeta || this.loadingGroups) return false;
+      if (this.submitting || this.submitted || this.fetchingMeta || this.loadingGroups) return false;
       if (!this.isDirectSubmitMode()) return false;
       if (!normalizeUrl(this.form.url)) return false;
       if (!String(this.form.displayName || '').trim()) return false;
@@ -570,6 +588,7 @@ export function registerLinkSubmitForm(Alpine) {
 
     primaryActionLabel() {
       if (this.isDirectSubmitMode()) {
+        if (this.submitted) return '已提交，等待审核';
         if (this.submitting) return '提交中...';
         return '提交友链申请';
       }
@@ -582,6 +601,7 @@ export function registerLinkSubmitForm(Alpine) {
         return '修改不会直接覆盖现有友链，请把修改申请发到留言板，由站长手动处理。';
       }
       if (this.isDirectSubmitMode()) {
+        if (this.submitted) return '申请已经提交，请等待站点后台审核。';
         return '提交后会进入后台审核，发送前可以修改表单。';
       }
       return this.messageFallback ? '自助提交暂不可用，复制后会自动切换到留言板。' : '复制后会自动切换到留言板。';
@@ -625,6 +645,7 @@ export function registerLinkSubmitForm(Alpine) {
           success: true,
           message: '友链申请已提交，等待站点后台审核'
         };
+        this.submitted = true;
       } catch (error) {
         warnApiCall('links', '友链申请提交失败，切换留言兜底', {
           endpoint: LINK_SUBMIT_API,

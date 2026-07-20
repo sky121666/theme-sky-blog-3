@@ -27,7 +27,7 @@ function heatLevel(minutes, maxMinutes) {
   return 1;
 }
 
-function parseSteamRecent(value, fallback) {
+export function parseSteamRecent(value, fallback) {
   const numeric = Number(value || 0);
   if (Number.isFinite(numeric) && numeric > 0) {
     return numeric < 1000000000000 ? numeric * 1000 : numeric;
@@ -44,13 +44,14 @@ function parseSteamRecent(value, fallback) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function heatmapThemeColors(theme) {
+export function heatmapThemeColors(theme) {
   switch (String(theme || '').toLowerCase()) {
     case 'green':
     case 'github':
       return ['rgba(23, 26, 33, 0.5)', 'rgba(48, 209, 88, 0.28)', 'rgba(48, 209, 88, 0.52)', 'rgba(48, 209, 88, 0.76)', '#30d158'];
     case 'orange':
     case 'amber':
+    case 'fire':
       return ['rgba(23, 26, 33, 0.5)', 'rgba(245, 165, 36, 0.28)', 'rgba(245, 165, 36, 0.52)', 'rgba(245, 165, 36, 0.78)', '#f5a524'];
     case 'purple':
       return ['rgba(23, 26, 33, 0.5)', 'rgba(191, 90, 242, 0.28)', 'rgba(191, 90, 242, 0.52)', 'rgba(191, 90, 242, 0.78)', '#bf5af2'];
@@ -81,6 +82,14 @@ function cssUrl(value) {
   return `url("${escaped}")`;
 }
 
+function createAbortController() {
+  return typeof AbortController === 'function' ? new AbortController() : null;
+}
+
+function isAbortError(error) {
+  return error?.name === 'AbortError';
+}
+
 export function registerSteamExplorer(Alpine) {
   Alpine.data('steamExplorer', () => ({
     activeView: 'profile',
@@ -94,8 +103,12 @@ export function registerSteamExplorer(Alpine) {
     _observer: null,
     _fallbackScrollHandler: null,
     _heatmapLoaded: false,
+    _heatmapAbortController: null,
+    _paginationAbortController: null,
+    _destroyed: false,
 
     init() {
+      this._destroyed = false;
       this.activeView = this.$root.dataset.steamInitialView || 'profile';
       this.applyConfiguredCover();
       this.readGames();
@@ -109,9 +122,15 @@ export function registerSteamExplorer(Alpine) {
     },
 
     destroy() {
+      this._destroyed = true;
       this._observer?.disconnect();
       this._observer = null;
       this.removeScrollFallback();
+      this._heatmapAbortController?.abort();
+      this._heatmapAbortController = null;
+      this._paginationAbortController?.abort();
+      this._paginationAbortController = null;
+      this._heatmapLoaded = false;
     },
 
     applyConfiguredCover() {
@@ -222,6 +241,7 @@ export function registerSteamExplorer(Alpine) {
       const grid = panel?.querySelector('[data-steam-heatmap-grid]');
       if (!panel || !grid || this._heatmapLoaded) return;
       this._heatmapLoaded = true;
+      panel.dataset.steamHeatmapState = 'loading';
       applyHeatmapTheme(panel);
 
       const configuredDays = Number(panel.dataset.steamHeatmapDays || 365);
@@ -243,16 +263,23 @@ export function registerSteamExplorer(Alpine) {
         });
       }
 
+      let failed = false;
+      const controller = createAbortController();
+      this._heatmapAbortController = controller;
+
       try {
         const api = `/apis/api.steam.timxs.com/v1alpha1/heatmap/records?startDate=${formatDate(start)}&endDate=${formatDate(end)}&page=1&size=${days}`;
         const response = await fetch(api, {
-          headers: { Accept: 'application/json' }
+          headers: { Accept: 'application/json' },
+          ...(controller ? { signal: controller.signal } : {})
         });
+        if (controller?.signal.aborted || this._destroyed) return;
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
 
         const data = await response.json();
+        if (controller?.signal.aborted || this._destroyed) return;
         const cellMap = new Map(cells.map((cell) => [cell.date, cell]));
         (data?.items || []).forEach((item) => {
           const spec = item?.spec || {};
@@ -262,12 +289,20 @@ export function registerSteamExplorer(Alpine) {
           if (spec.gameName) cell.games.add(spec.gameName);
         });
       } catch (error) {
+        if (isAbortError(error) || controller?.signal.aborted || this._destroyed) return;
+        failed = true;
         warnApiCall('steam', 'Steam 热力图记录加载失败', {
           message: error?.message || String(error || ''),
           action: 'render-empty-heatmap',
           hint: '检查 Steam 插件游玩记录 API 是否可访问，以及返回 items 是否为数组。'
         });
+      } finally {
+        if (this._heatmapAbortController === controller) {
+          this._heatmapAbortController = null;
+        }
       }
+
+      if (this._destroyed) return;
 
       const maxMinutes = Math.max(0, ...cells.map((cell) => cell.minutes));
       const activeDays = cells.filter((cell) => cell.minutes > 0).length;
@@ -276,7 +311,9 @@ export function registerSteamExplorer(Alpine) {
       if (summary) {
         const hours = Math.floor(totalMinutes / 60);
         const minutes = totalMinutes % 60;
-        summary.textContent = activeDays
+        summary.textContent = failed
+          ? '活跃记录暂不可用，请稍后再试'
+          : activeDays
           ? `${activeDays} 天有游玩记录 · ${hours} 小时 ${minutes} 分钟`
           : '暂无可展示的游玩记录';
       }
@@ -290,6 +327,7 @@ export function registerSteamExplorer(Alpine) {
         const safeTitle = escapeAttribute(title);
         return `<span class="is-${level}" title="${safeTitle}" aria-label="${safeTitle}"></span>`;
       }).join('');
+      panel.dataset.steamHeatmapState = failed ? 'unavailable' : 'ready';
     },
 
     installInfiniteLoader() {
@@ -380,24 +418,30 @@ export function registerSteamExplorer(Alpine) {
 
       this.loading = true;
       this.loadError = false;
+      const controller = createAbortController();
+      this._paginationAbortController = controller;
 
       try {
         const response = await fetch(this.nextUrl, {
-          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          ...(controller ? { signal: controller.signal } : {})
         });
+        if (controller?.signal.aborted || this._destroyed) return;
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
 
         const html = await response.text();
+        if (controller?.signal.aborted || this._destroyed) return;
         const doc = new DOMParser().parseFromString(html, 'text/html');
         const cards = Array.from(doc.querySelectorAll('.steam-library-grid > [data-steam-game-card]'));
 
         if (!cards.length) {
-          this.hasMore = false;
-          this._observer?.disconnect();
-          this._observer = null;
-          this.removeScrollFallback();
+          const appRoot = doc.querySelector('[data-app-root="steam"]');
+          if (appRoot?.dataset.steamLibraryState === 'unavailable') {
+            throw new Error('Steam library is temporarily unavailable');
+          }
+          this.updatePaginationFrom(doc);
           return;
         }
 
@@ -405,6 +449,7 @@ export function registerSteamExplorer(Alpine) {
         this.updatePaginationFrom(doc);
         this.$nextTick(() => this.checkScrollFallback());
       } catch (error) {
+        if (isAbortError(error) || controller?.signal.aborted || this._destroyed) return;
         this.loadError = true;
         warnApiCall('steam', 'Steam 游戏库下一页加载失败', {
           url: this.nextUrl,
@@ -413,7 +458,12 @@ export function registerSteamExplorer(Alpine) {
           hint: '检查 Steam 游戏库分页链接、HTML 片段中的 data-steam-game-card 和接口返回状态。'
         });
       } finally {
-        this.loading = false;
+        if (this._paginationAbortController === controller) {
+          this._paginationAbortController = null;
+        }
+        if (!this._destroyed) {
+          this.loading = false;
+        }
       }
     }
   }));

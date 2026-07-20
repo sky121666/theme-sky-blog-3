@@ -23,6 +23,7 @@ import intersect from '@alpinejs/intersect';
 import { registerComponents } from './runtime/desktop.js';
 import { activateCurrentPageApp } from './runtime/shared/page-app.js';
 import { initLazyImages } from './runtime/shared/lazy-media.js';
+import { initPluginCompatibility } from './runtime/shared/plugin-compat.js';
 import { getCurrentThemeAssetVersion, getLatestThemeBuildVersion } from '../../shell-core/runtime/resource-registry.js';
 
 const CURRENT_THEME_BUILD_VERSION = getCurrentThemeAssetVersion()
@@ -125,6 +126,7 @@ if (!window.__THEME_MAIN_LOADED__) {
 
   Alpine.start();
   window.__THEME_ALPINE_STARTED__ = true;
+  initPluginCompatibility();
   activateCurrentPageApp(document, { reason: 'initial-load' });
 
   // Detect when this tab is still running an older shell runtime after a deploy.

@@ -129,7 +129,8 @@ async function main() {
       expectedPageMode: 'auth',
       expectedWindowVariant: 'none',
       appRootSelector: '[data-app-root="auth"]',
-      appPropsSelector: 'script[data-app-props="auth"]'
+      appPropsSelector: 'script[data-app-props="auth"]',
+      extraSelectors: ['.halo-form']
     },
     {
       name: 'moments',
@@ -508,6 +509,118 @@ async function main() {
     return baseValidation;
   }
 
+  async function validateBangumiInvalidPage() {
+    const baseResponse = await context.request.get(toAbsoluteUrl('/bangumis'), {
+      failOnStatusCode: false
+    });
+    if (baseResponse.status() === 404) {
+      skipped.push('bangumis-invalid-page: plugin unavailable');
+      return null;
+    }
+
+    const invalidPath = '/bangumis/page/not-a-number';
+    const invalidResponse = await context.request.get(toAbsoluteUrl(invalidPath), {
+      failOnStatusCode: false,
+      maxRedirects: 0
+    });
+    if (invalidResponse.status() !== 404) {
+      throw new Error(`Bangumi 1.4.1 非法页码应返回 404，实际 ${invalidResponse.status()}`);
+    }
+
+    return {
+      status: invalidResponse.status(),
+      expectedStatus: 404
+    };
+  }
+
+  async function validateSearchInteraction() {
+    const nav = await navigate({
+      name: 'search-interaction',
+      target: '/',
+      optional: false,
+      requireShellLoaded: false
+    });
+    const button = page.locator('.menubar-search-btn').first();
+    if (await button.count() < 1) {
+      skipped.push('search-interaction: PluginSearchWidget unavailable or disabled');
+      return null;
+    }
+
+    await button.click();
+    await page.waitForSelector('search-modal', { state: 'attached', timeout: 5_000 });
+    await page.waitForFunction(() => {
+      const findInput = (root) => {
+        if (!root?.querySelectorAll) return null;
+        for (const element of root.querySelectorAll('*')) {
+          if (element.matches?.('input')) return element;
+          const nested = findInput(element.shadowRoot);
+          if (nested) return nested;
+        }
+        return null;
+      };
+      const input = findInput(document.querySelector('search-modal')?.shadowRoot);
+      if (!input) return false;
+      const rect = input.getBoundingClientRect();
+      const style = getComputedStyle(input);
+      return rect.width > 0 && rect.height > 0
+        && style.display !== 'none'
+        && style.visibility !== 'hidden';
+    }, null, { timeout: 5_000 });
+    await page.waitForTimeout(200);
+
+    const firstState = await page.evaluate(() => ({
+      modalCount: document.querySelectorAll('search-modal').length,
+      styleInjected: Array.from(document.querySelectorAll('search-modal'))
+        .some((modal) => Boolean(modal.shadowRoot?.getElementById('mac-search-style'))),
+      inputVisible: Array.from(document.querySelectorAll('search-modal')).some((modal) => {
+        const findInput = (root) => {
+          if (!root?.querySelectorAll) return null;
+          for (const element of root.querySelectorAll('*')) {
+            if (element.matches?.('input')) return element;
+            const nested = findInput(element.shadowRoot);
+            if (nested) return nested;
+          }
+          return null;
+        };
+        const input = findInput(modal.shadowRoot);
+        if (!input) return false;
+        const rect = input.getBoundingClientRect();
+        const style = getComputedStyle(input);
+        return rect.width > 0 && rect.height > 0
+          && style.display !== 'none'
+          && style.visibility !== 'hidden';
+      })
+    }));
+    assertSearchState(firstState);
+
+    await button.click();
+    await page.waitForTimeout(100);
+    const modalCount = await page.locator('search-modal').count();
+    if (modalCount !== 1) {
+      throw new Error(`重复打开搜索不得产生多个 search-modal，实际 ${modalCount}`);
+    }
+    await page.keyboard.press('Escape').catch(() => {});
+
+    return {
+      status: nav.status,
+      modalCount,
+      styleInjected: firstState.styleInjected,
+      inputVisible: firstState.inputVisible
+    };
+  }
+
+  function assertSearchState(state) {
+    if (state.modalCount !== 1) {
+      throw new Error(`搜索打开后应有一个 search-modal，实际 ${state.modalCount}`);
+    }
+    if (!state.styleInjected) {
+      throw new Error('搜索 Shadow DOM 缺少主题样式注入');
+    }
+    if (!state.inputVisible) {
+      throw new Error('搜索组件已创建，但 Shadow DOM 输入框不可见');
+    }
+  }
+
   async function isReachablePath(target) {
     try {
       const response = await page.request.get(toAbsoluteUrl(target), {
@@ -595,6 +708,11 @@ async function main() {
 
   discovered.photosAlbums = await discoverHref('/photos', ['a[href]'], (href) => toPathname(href).includes('/photos?view=albums'));
   discovered.photosGroup = await discoverHref('/photos', ['a[href]'], (href) => toPathname(href).startsWith('/photos?group='));
+  discovered.photoDetail = (process.env.SMOKE_PHOTO_DETAIL_PATH || '').trim()
+    || await discoverHref('/photos', ['a[data-photo-name][href]'], (href) => {
+      const normalized = toPathname(href);
+      return normalized.startsWith('/photos/') && normalized !== '/photos/';
+    }, { validateCandidate: true });
 
   const discoveredRoutes = [
     discovered.reader
@@ -680,6 +798,19 @@ async function main() {
           appRootSelector: '[data-app-root="photos"]',
           appPropsSelector: 'script[data-app-props="photos"]'
         }
+      : null,
+    discovered.photoDetail
+      ? {
+          name: 'photo-detail',
+          target: discovered.photoDetail,
+          optional: true,
+          expectedAppId: 'photos',
+          expectedPageMode: 'browser-list',
+          expectedWindowVariant: 'photos',
+          appRootSelector: '[data-app-root="photos"]',
+          appPropsSelector: 'script[data-app-props="photos"]',
+          extraSelectors: ['.photos-detail-shell', '.photos-detail-image']
+        }
       : null
   ].filter(Boolean);
 
@@ -710,6 +841,30 @@ async function main() {
   } catch (error) {
     const screenshot = await captureFailure(page, 'links-interactions');
     failures.push(`links-interactions: ${error.message} [${screenshot}]`);
+  }
+
+  try {
+    const invalidPageResult = await validateBangumiInvalidPage();
+    if (invalidPageResult) {
+      routeResults.push({
+        name: 'bangumis-invalid-page',
+        target: '/bangumis/page/not-a-number',
+        ...invalidPageResult
+      });
+    }
+  } catch (error) {
+    const screenshot = await captureFailure(page, 'bangumis-invalid-page');
+    failures.push(`bangumis-invalid-page: ${error.message} [${screenshot}]`);
+  }
+
+  try {
+    const searchResult = await validateSearchInteraction();
+    if (searchResult) {
+      routeResults.push({ name: 'search-interaction', target: '/', ...searchResult });
+    }
+  } catch (error) {
+    const screenshot = await captureFailure(page, 'search-interaction');
+    failures.push(`search-interaction: ${error.message} [${screenshot}]`);
   }
 
   const reportFile = await writeReport({ baseUrl, cacheDisabled: true, skipped, discovered, routes: routeResults, failures });

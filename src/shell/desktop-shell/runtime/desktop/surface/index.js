@@ -155,7 +155,8 @@ export function registerDesktopSurface(Alpine) {
       },
       steamStats: {
         totalGames: 0,
-        recentPlaytimeFormatted: ''
+        recentPlaytimeFormatted: '',
+        recentPlaytimeMinutes: 0
       },
       steamRecentGames: [],
       steamOwnedGames: []
@@ -643,7 +644,8 @@ export function registerDesktopSurface(Alpine) {
         },
         steamStats: {
           totalGames: Number(bootstrap.sources?.steamStats?.totalGames || 0) || 0,
-          recentPlaytimeFormatted: bootstrap.sources?.steamStats?.recentPlaytimeFormatted || ''
+          recentPlaytimeFormatted: bootstrap.sources?.steamStats?.recentPlaytimeFormatted || '',
+          recentPlaytimeMinutes: Number(bootstrap.sources?.steamStats?.recentPlaytimeMinutes || 0) || 0
         },
         steamRecentGames: Array.isArray(bootstrap.sources?.steamRecentGames) ? bootstrap.sources.steamRecentGames : [],
         steamOwnedGames: Array.isArray(bootstrap.sources?.steamOwnedGames) ? bootstrap.sources.steamOwnedGames : []

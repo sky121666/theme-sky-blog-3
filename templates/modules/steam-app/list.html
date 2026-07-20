@@ -12,8 +12,8 @@
             statusText=${profile != null and !#strings.isEmpty(profile.statusText) ? profile.statusText : '状态未知'},
             steamLevel=${profile != null and profile.steamLevel != null ? profile.steamLevel : 0},
             totalGames=${stats != null and stats.totalGames != null ? stats.totalGames : (games != null and games.total != null ? games.total : 0)},
-            totalPlaytime=${stats != null and !#strings.isEmpty(stats.totalPlaytimeFormatted) ? stats.totalPlaytimeFormatted : '暂无统计'},
-            recentPlaytime=${stats != null and !#strings.isEmpty(stats.recentPlaytimeFormatted) ? stats.recentPlaytimeFormatted : '暂无统计'},
+            totalPlaytime=${stats != null and !#strings.isEmpty(stats.totalPlaytimeFormatted) ? stats.totalPlaytimeFormatted : (stats != null and stats.totalPlaytimeMinutes != null ? (stats.totalPlaytimeMinutes < 60 ? (stats.totalPlaytimeMinutes + 'm') : (((stats.totalPlaytimeMinutes - (stats.totalPlaytimeMinutes % 60)) / 60) + 'h ' + (stats.totalPlaytimeMinutes % 60) + 'm')) : '暂无统计')},
+            recentPlaytime=${stats != null and !#strings.isEmpty(stats.recentPlaytimeFormatted) ? stats.recentPlaytimeFormatted : (stats != null and stats.recentPlaytimeMinutes != null ? (stats.recentPlaytimeMinutes < 60 ? (stats.recentPlaytimeMinutes + 'm') : (((stats.recentPlaytimeMinutes - (stats.recentPlaytimeMinutes % 60)) / 60) + 'h ' + (stats.recentPlaytimeMinutes % 60) + 'm')) : '暂无统计')},
             badgeCount=${badges != null and badges.totalBadges != null ? badges.totalBadges : 0},
             playerXp=${badges != null and badges.playerXp != null ? badges.playerXp : 0},
             playerLevel=${badges != null and badges.playerLevel != null ? badges.playerLevel : steamLevel},
@@ -22,15 +22,21 @@
             hasGames=${games != null and games.items != null and !#lists.isEmpty(games.items)},
             hasRecent=${recentGames != null and !#lists.isEmpty(recentGames)},
             hasBadges=${badges != null and badges.badges != null and !#lists.isEmpty(badges.badges)},
+            hasFinderFailure=${profile == null or stats == null or badges == null or recentGames == null or games == null},
+            hasAnyData=${hasProfile or hasGames or hasRecent or hasBadges},
+            hasPartialData=${hasFinderFailure and hasAnyData},
             steamCoverImage=${theme.config.steam?.cover?.image_url},
             pageNumber=${games != null and games.page != null ? games.page : 1},
             pageCount=${games != null and games.totalPages != null ? games.totalPages : 1},
             pageTitleText=${!#strings.isEmpty(title) ? title : 'Steam 游戏库'}">
-  <!-- plugin-contract: halo-plugin-steam; contract-version: 0.3.0; tested-version: 0.3.0; status: confirmed; source: docs/插件适配契约.md -->
+  <!-- plugin-contract: halo-plugin-steam; contract-version: 1.0.0; tested-version: 1.0.0; status: confirmed; source: docs/插件适配契约.md -->
   <div class="steam-app"
        data-app-root="steam"
        data-steam-initial-view="profile"
-       th:attr="data-steam-cover-image=${steamCoverImage}"
+       th:attr="data-steam-cover-image=${steamCoverImage},
+                data-steam-profile-state=${profile != null ? 'ready' : 'unavailable'},
+                data-steam-library-state=${games != null ? (hasGames ? 'ready' : 'empty') : 'unavailable'},
+                data-steam-recent-state=${recentGames != null ? (hasRecent ? 'ready' : 'empty') : 'unavailable'}"
        x-data="steamExplorer">
     <script type="application/json" data-app-props="steam">{"version":1,"appId":"steam","data":{"scene":"profile"}}</script>
 
@@ -80,11 +86,16 @@
 
       <main class="steam-main">
         <div class="steam-main-scroll">
+          <aside class="steam-data-notice" th:if="${hasPartialData}" role="status">
+            <span class="icon-[lucide--cloud-alert]" aria-hidden="true"></span>
+            <span>部分 Steam 数据暂不可用，当前仍展示可读取的数据；可稍后刷新。</span>
+          </aside>
+
           <section class="steam-empty"
-                   th:if="${!hasProfile and !hasGames}">
+                   th:if="${!hasAnyData}">
             <span class="steam-empty-icon icon-[lucide--key-round]" aria-hidden="true"></span>
             <h2 class="steam-empty-title">Steam 数据暂不可用</h2>
-            <p class="steam-empty-text">请确认插件已配置有效的 Steam API Key 和 Steam ID，并将 Steam 个人资料及游戏详情设为公开。</p>
+            <p class="steam-empty-text">插件接口或缓存可能尚未就绪。请稍后刷新；若持续出现，再检查 Steam API Key、Steam ID 与隐私设置。</p>
           </section>
 
           <section class="steam-profile-view"
@@ -128,28 +139,41 @@
                   <div class="steam-recent-list" th:if="${hasRecent}">
                     <a class="steam-recent-card"
                        th:each="game : ${recentGames}"
-                       th:href="${enableGameLink ? ('https://store.steampowered.com/app/' + game.appId) : '#'}"
-                       th:target="${enableGameLink ? '_blank' : ''}"
-                       th:rel="${enableGameLink ? 'noopener noreferrer' : ''}">
-                      <img th:if="${!#strings.isEmpty(game.headerImageUrl)}"
-                           th:src="${game.headerImageUrl}"
+                       th:with="gameHeaderImage=${!#strings.isEmpty(game.headerImageUrl) ? game.headerImageUrl : ''},
+                                gameRealImage=${!#strings.isEmpty(game.realHeaderImage) ? game.realHeaderImage : ''},
+                                gameImage=${game.delisted == true ? '' : (!#strings.isEmpty(gameHeaderImage) ? gameHeaderImage : gameRealImage)},
+                                gameFallbackImage=${!#strings.isEmpty(gameHeaderImage) and !#strings.isEmpty(gameRealImage) and gameHeaderImage != gameRealImage ? gameRealImage : ''},
+                                gameRecentPlaytime=${!#strings.isEmpty(game.playtime2WeeksFormatted) ? game.playtime2WeeksFormatted : (game.playtime2Weeks != null ? (game.playtime2Weeks < 60 ? (game.playtime2Weeks + 'm') : (((game.playtime2Weeks - (game.playtime2Weeks % 60)) / 60) + 'h ' + (game.playtime2Weeks % 60) + 'm')) : '')},
+                                gameTotalPlaytime=${!#strings.isEmpty(game.playtimeFormatted) ? game.playtimeFormatted : (game.playtimeForever != null ? (game.playtimeForever < 60 ? (game.playtimeForever + 'm') : (((game.playtimeForever - (game.playtimeForever % 60)) / 60) + 'h ' + (game.playtimeForever % 60) + 'm')) : '')}"
+                       th:classappend="${game.delisted == true ? ' is-unavailable' : ''}"
+                       th:href="${game.delisted == true ? null : (enableGameLink ? ('https://store.steampowered.com/app/' + game.appId) : '#')}"
+                       th:target="${enableGameLink and game.delisted != true ? '_blank' : ''}"
+                       th:rel="${enableGameLink and game.delisted != true ? 'noopener noreferrer' : ''}"
+                       th:attr="aria-disabled=${game.delisted == true ? 'true' : null},
+                                tabindex=${game.delisted == true ? '-1' : null}">
+                      <img th:if="${!#strings.isEmpty(gameImage)}"
+                           th:src="${gameImage}"
                            th:alt="${game.name}"
+                           th:attr="data-fallback-src=${gameFallbackImage}"
                            loading="lazy"
                            decoding="async"
-                           referrerpolicy="no-referrer">
-                      <span class="steam-game-image-fallback" th:if="${#strings.isEmpty(game.headerImageUrl)}">
+                           referrerpolicy="no-referrer"
+                           onerror="const fallback=this.dataset.fallbackSrc;if(fallback&&this.src!==fallback){this.dataset.fallbackSrc='';this.src=fallback;return;}this.style.display='none';this.nextElementSibling.style.display='grid';">
+                      <span class="steam-game-image-fallback"
+                            th:style="${!#strings.isEmpty(gameImage) ? 'display:none' : ''}">
                         <span class="icon-[lucide--gamepad-2]" aria-hidden="true"></span>
                       </span>
+                      <span class="steam-game-unavailable" th:if="${game.delisted == true}">不可用</span>
                       <span class="steam-recent-copy">
                         <strong th:text="${game.name}">游戏名称</strong>
-                        <span th:if="${!#strings.isEmpty(game.playtime2WeeksFormatted)}" th:text="${'过去 2 周游玩 ' + game.playtime2WeeksFormatted}">过去 2 周游玩 0 小时</span>
-                        <span th:if="${!#strings.isEmpty(game.playtimeFormatted)}" th:text="${'总时数 ' + game.playtimeFormatted}">总时数 0 小时</span>
+                        <span th:if="${!#strings.isEmpty(gameRecentPlaytime)}" th:text="${'过去 2 周游玩 ' + gameRecentPlaytime}">过去 2 周游玩 0 小时</span>
+                        <span th:if="${!#strings.isEmpty(gameTotalPlaytime)}" th:text="${'总时数 ' + gameTotalPlaytime}">总时数 0 小时</span>
                       </span>
                     </a>
                   </div>
                   <div class="steam-inline-empty" th:if="${!hasRecent}">
                     <span class="icon-[lucide--clock-3]" aria-hidden="true"></span>
-                    <p>暂无最近游玩记录，或 Steam 游戏详情未公开。</p>
+                    <p th:text="${recentGames == null ? '最近游玩数据暂不可用，请稍后刷新。' : '暂无最近游玩记录，或 Steam 游戏详情未公开。'}">暂无最近游玩记录，或 Steam 游戏详情未公开。</p>
                   </div>
                 </section>
 
@@ -256,9 +280,15 @@
             <div class="steam-library-grid" th:if="${hasGames}">
               <a class="steam-game-card"
                  th:each="game, iter : ${games.items}"
-                 th:href="${enableGameLink ? ('https://store.steampowered.com/app/' + game.appId) : '#'}"
-                 th:target="${enableGameLink ? '_blank' : ''}"
-                 th:rel="${enableGameLink ? 'noopener noreferrer' : ''}"
+                 th:with="gameHeaderImage=${!#strings.isEmpty(game.headerImageUrl) ? game.headerImageUrl : ''},
+                          gameRealImage=${!#strings.isEmpty(game.realHeaderImage) ? game.realHeaderImage : ''},
+                          gameImage=${game.delisted == true ? '' : (!#strings.isEmpty(gameHeaderImage) ? gameHeaderImage : gameRealImage)},
+                          gameFallbackImage=${!#strings.isEmpty(gameHeaderImage) and !#strings.isEmpty(gameRealImage) and gameHeaderImage != gameRealImage ? gameRealImage : ''},
+                          gamePlaytime=${!#strings.isEmpty(game.playtimeFormatted) ? game.playtimeFormatted : (game.playtimeForever != null ? (game.playtimeForever < 60 ? (game.playtimeForever + 'm') : (((game.playtimeForever - (game.playtimeForever % 60)) / 60) + 'h ' + (game.playtimeForever % 60) + 'm')) : '')}"
+                 th:classappend="${game.delisted == true ? ' is-unavailable' : ''}"
+                 th:href="${game.delisted == true ? null : (enableGameLink ? ('https://store.steampowered.com/app/' + game.appId) : '#')}"
+                 th:target="${enableGameLink and game.delisted != true ? '_blank' : ''}"
+                 th:rel="${enableGameLink and game.delisted != true ? 'noopener noreferrer' : ''}"
                  data-steam-game-card
                  x-show="shouldShowGame($el)"
                  th:style="${'order:' + iter.index}"
@@ -267,21 +297,28 @@
                           data-steam-game-name=${game.name},
                           data-steam-playtime=${game.playtimeForever != null ? game.playtimeForever : 0},
                           data-steam-recent=${game.rtimeLastPlayed != null ? game.rtimeLastPlayed : 0},
-                          data-steam-last-played=${game.lastPlayedFormatted}">
+                          data-steam-last-played=${game.lastPlayedFormatted},
+                          data-steam-delisted=${game.delisted == true ? 'true' : 'false'},
+                          aria-disabled=${game.delisted == true ? 'true' : null},
+                          tabindex=${game.delisted == true ? '-1' : null}">
                 <div class="steam-game-art">
-                  <img th:if="${!#strings.isEmpty(game.headerImageUrl)}"
-                       th:src="${game.headerImageUrl}"
+                  <img th:if="${!#strings.isEmpty(gameImage)}"
+                       th:src="${gameImage}"
                        th:alt="${game.name}"
+                       th:attr="data-fallback-src=${gameFallbackImage}"
                        loading="lazy"
                        decoding="async"
-                       referrerpolicy="no-referrer">
-                  <span class="steam-game-image-fallback" th:if="${#strings.isEmpty(game.headerImageUrl)}">
+                       referrerpolicy="no-referrer"
+                       onerror="const fallback=this.dataset.fallbackSrc;if(fallback&&this.src!==fallback){this.dataset.fallbackSrc='';this.src=fallback;return;}this.style.display='none';this.nextElementSibling.style.display='grid';">
+                  <span class="steam-game-image-fallback"
+                        th:style="${!#strings.isEmpty(gameImage) ? 'display:none' : ''}">
                     <span class="icon-[lucide--gamepad-2]" aria-hidden="true"></span>
                   </span>
                 </div>
+                <span class="steam-game-unavailable" th:if="${game.delisted == true}">不可用</span>
                 <div class="steam-game-meta">
                   <h3 th:text="${game.name}">游戏名称</h3>
-                  <p th:if="${!#strings.isEmpty(game.playtimeFormatted)}" th:text="${game.playtimeFormatted}">0 小时</p>
+                  <p th:if="${!#strings.isEmpty(gamePlaytime)}" th:text="${gamePlaytime}">0 小时</p>
                   <p th:if="${!#strings.isEmpty(game.lastPlayedFormatted)}" th:text="${'上次游玩 ' + game.lastPlayedFormatted}">上次游玩</p>
                 </div>
               </a>
@@ -298,14 +335,14 @@
 
             <section class="steam-empty steam-empty--compact" th:if="${!hasGames}">
               <span class="steam-empty-icon icon-[lucide--library]" aria-hidden="true"></span>
-              <h2 class="steam-empty-title">暂无游戏库数据</h2>
-              <p class="steam-empty-text">请检查 Steam 隐私设置，或者确认插件已成功同步游戏库。</p>
+              <h2 class="steam-empty-title" th:text="${games == null ? '游戏库暂不可用' : '暂无游戏库数据'}">暂无游戏库数据</h2>
+              <p class="steam-empty-text" th:text="${games == null ? '插件接口或缓存暂时无法读取，请稍后刷新。' : '请检查 Steam 隐私设置，或者确认插件已成功同步游戏库。'}">请检查 Steam 隐私设置，或者确认插件已成功同步游戏库。</p>
             </section>
 
             <div class="steam-loadmore"
                  th:if="${hasGames}"
                  data-steam-loadmore
-                 th:attr="data-next-url=${games.hasNext() ? games.nextUrl : ''}"
+                 th:attr="data-next-url=${games != null and games.hasNext() ? games.nextUrl : ''}"
                  x-show="hasMore || loading || loadError"
                  x-cloak>
               <div class="steam-loadmore-skeleton"
@@ -319,7 +356,7 @@
                 </div>
               </div>
               <div class="steam-loadmore-indicator"
-                   x-show="!loading && hasMore"
+                   x-show="!loading && hasMore && !loadError"
                    data-steam-scroll-sentinel>
                 <span class="steam-loadmore-spinner" aria-hidden="true"></span>
                 <span>继续向下滚动加载</span>
@@ -327,6 +364,7 @@
               <div class="steam-loadmore-error" x-show="loadError" x-cloak>
                 <span class="icon-[lucide--circle-alert]" aria-hidden="true"></span>
                 <span>加载更多游戏失败，请稍后再试。</span>
+                <button type="button" @click="loadNext()">重试</button>
               </div>
             </div>
           </section>

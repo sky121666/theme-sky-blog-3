@@ -1,4 +1,9 @@
 import { buildWidgetPjaxLink } from '../../shared/link.js';
+import {
+  formatSteamPlaytime,
+  isSteamGameUnavailable,
+  resolveSteamGameImage
+} from '../../../apps/steam/model.js';
 
 function optionEnabled(value, fallback = true) {
   if (value === false || value === 'false') return false;
@@ -84,7 +89,11 @@ export function renderWidget({ sources, escapeHtml, mode }, widget) {
   const avatar = escapeHtml(profile.avatarFull || '');
   const level = toDisplayNumber(profile.steamLevel);
   const totalGames = toDisplayNumber(stats.totalGames);
-  const recentPlaytime = escapeHtml(stats.recentPlaytimeFormatted || '--');
+  const recentPlaytime = escapeHtml(formatSteamPlaytime(
+    stats.recentPlaytimeFormatted,
+    stats.recentPlaytimeMinutes,
+    '--'
+  ));
   const parsedCurrentGameName = extractCurrentGameName(profile.statusText);
   const currentGameSourceName = profile.currentGameName || parsedCurrentGameName;
   const matchedCurrentGame = findGameByName(coverGames, currentGameSourceName);
@@ -99,7 +108,10 @@ export function renderWidget({ sources, escapeHtml, mode }, widget) {
   const recentBadge = playing && showRecentGame && recentGameName && recentGameName !== activityText
     ? `<span class="wg-steam-recent-badge">${recentGameName}</span>`
     : '';
-  const bgImage = playing ? cssUrl(profile.currentGameImage || coverGame?.headerImageUrl || '') : '';
+  const coverUnavailable = isSteamGameUnavailable(coverGame);
+  const bgImage = playing && !coverUnavailable
+    ? cssUrl(profile.currentGameImage || resolveSteamGameImage(coverGame))
+    : '';
   const coverHtml = bgImage
     ? `<div class="wg-steam-cover" style="--wg-steam-game-bg: url('${escapeHtml(bgImage)}');" aria-hidden="true"></div>`
     : '';

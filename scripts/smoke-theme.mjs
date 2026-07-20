@@ -83,9 +83,12 @@ const seoProtocolChecks = [
       '<meta name="robots" th:if="${error != null}" content="noindex,nofollow" />',
       '<link rel="canonical"',
       'th:if="${shouldEmitCanonicalFallback}"',
+      'data-theme-seo-fallback="canonical"',
       '<meta property="og:description"',
       'th:if="${shouldEmitSocialFallback and !#strings.isEmpty(pageDescription)}"',
       '<meta name="twitter:description"',
+      'data-theme-seo-fallback-config="true"',
+      'th:data-mode="${seoFallbackMode}"',
       '<link rel="alternate" type="application/rss+xml" title="RSS" th:href="@{/rss.xml}" />',
       'window.__SKY_THEME_ROUTES__ = Object.freeze({',
       'categoriesUri: [[${themeCategoriesUri}]]',
@@ -100,8 +103,19 @@ const seoProtocolChecks = [
       "meta[property^='article:']",
       "meta[name^='twitter:']",
       "script[type='application/ld+json']",
+      'allowMultiple: true',
+      'export function reconcileSeoHead',
+      'reconcileSeoHead(nextDoc)',
+      'reconcileSeoHead(document)',
       "new CustomEvent('pjax:seo-updated'",
       'detail: { title, url }'
+    ]
+  ],
+  [
+    'src/apps/docsme/runtime.js',
+    [
+      '/plugins/plugin-katex/assets/static/katex.min.js?version=3.0.0',
+      '/plugins/text-diagram/assets/static/mermaid.min.js?version=1.5.2'
     ]
   ],
   [

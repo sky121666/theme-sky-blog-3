@@ -2,6 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const root = process.cwd();
+const COMPATIBILITY_PINS = new Map([
+  ['PluginLinks', '2.0.0']
+]);
 
 function readEnvFile(filePath) {
   if (!fs.existsSync(filePath)) return {};
@@ -30,6 +33,19 @@ function normalizePhase(plugin) {
   return ready?.status === 'True' ? 'READY' : 'UNKNOWN';
 }
 
+function assertCompatibilityPins(rows) {
+  const violations = rows
+    .filter((row) => COMPATIBILITY_PINS.has(row.name))
+    .filter((row) => row.version !== COMPATIBILITY_PINS.get(row.name));
+
+  if (!violations.length) return;
+
+  const details = violations
+    .map((row) => `${row.name}=${row.version || 'unknown'}（要求 ${COMPATIBILITY_PINS.get(row.name)}）`)
+    .join(', ');
+  throw new Error(`插件兼容固定版本不匹配: ${details}`);
+}
+
 async function main() {
   const envFile = readEnvFile(path.join(root, '.env.local'));
   const token = process.env.FIVEEE_PAT || envFile.FIVEEE_PAT || '';
@@ -38,7 +54,11 @@ async function main() {
   }
 
   const baseUrl = normalizeBaseUrl(process.env.HALO_BASE_URL || envFile.HALO_BASE_URL);
-  const requestedNames = new Set(process.argv.slice(2).map((name) => name.trim()).filter(Boolean));
+  const requestedNames = new Set(
+    process.argv.slice(2)
+      .map((name) => name.trim())
+      .filter((name) => name && name !== '--')
+  );
   const response = await fetch(`${baseUrl}/apis/plugin.halo.run/v1alpha1/plugins`, {
     headers: {
       Accept: 'application/json',
@@ -72,6 +92,14 @@ async function main() {
 
   console.log(`Halo 插件清单：${baseUrl}`);
   console.table(rows);
+  assertCompatibilityPins(rows);
+
+  const activePins = rows
+    .filter((row) => COMPATIBILITY_PINS.has(row.name))
+    .map((row) => `${row.name}@${row.version}`);
+  if (activePins.length) {
+    console.log(`主题兼容固定版本：${activePins.join(', ')}`);
+  }
 }
 
 main().catch((error) => {

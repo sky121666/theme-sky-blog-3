@@ -322,6 +322,25 @@
   margin-bottom: 32px;
 }
 
+.steam-data-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 24px 0;
+  padding: 10px 14px;
+  border: 1px solid rgba(245, 165, 36, 0.32);
+  border-radius: 3px;
+  background: rgba(92, 64, 24, 0.34);
+  color: #e8c98d;
+  font-size: 12px;
+}
+
+.steam-data-notice span[class*="icon-["] {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+}
+
 .steam-section-head {
   display: flex;
   align-items: flex-end;
@@ -355,6 +374,7 @@
 }
 
 .steam-recent-card {
+  position: relative;
   display: grid;
   grid-template-columns: 180px minmax(0, 1fr);
   gap: 16px;
@@ -367,6 +387,42 @@
   text-decoration: none;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
   transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.steam-game-unavailable {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(23, 26, 33, 0.82);
+  color: #c7d5e0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.steam-recent-card .steam-game-unavailable {
+  top: 16px;
+  right: auto;
+  left: 16px;
+}
+
+.steam-recent-card.is-unavailable,
+.steam-game-card.is-unavailable {
+  border-color: rgba(199, 213, 224, 0.18);
+  cursor: default;
+}
+
+.steam-recent-card.is-unavailable .steam-game-image-fallback,
+.steam-game-card.is-unavailable .steam-game-image-fallback {
+  color: rgba(199, 213, 224, 0.68);
+  filter: grayscale(1);
 }
 
 .steam-recent-card:hover {
@@ -927,6 +983,24 @@
 .steam-loadmore-error span[class*="icon-["] {
   width: 15px;
   height: 15px;
+}
+
+.steam-loadmore-error button {
+  min-height: 26px;
+  padding: 0 10px;
+  border: 1px solid rgba(240, 160, 160, 0.42);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.steam-loadmore-error button:hover,
+.steam-loadmore-error button:focus-visible {
+  border-color: rgba(240, 160, 160, 0.72);
+  background: rgba(255, 255, 255, 0.14);
+  outline: none;
 }
 
 @keyframes steam-spin {

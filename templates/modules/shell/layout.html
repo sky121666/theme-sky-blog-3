@@ -29,35 +29,70 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+    <!-- plugin-contract: seo-tools; contract-version: 1.9.5; tested-version: 1.9.5; status: confirmed; source: docs/插件适配契约.md -->
     <!-- SEO -->
     <title th:text="${title}"></title>
     <meta name="robots" th:if="${error != null}" content="noindex,nofollow" />
     <meta name="description"
           th:if="${shouldEmitMetaFallback and !#strings.isEmpty(pageDescription)}"
+          data-theme-seo-fallback="description"
           th:content="${pageDescription}" />
     <link rel="canonical"
           th:if="${shouldEmitCanonicalFallback}"
+          data-theme-seo-fallback="canonical"
           th:href="${absoluteCanonical}" />
     <meta property="og:url"
           th:if="${shouldEmitCanonicalFallback}"
+          data-theme-seo-fallback="og:url"
           th:content="${absoluteCanonical}" />
     <meta property="og:site_name"
           th:if="${shouldEmitCanonicalFallback and !#strings.isEmpty(site.title)}"
+          data-theme-seo-fallback="og:site_name"
           th:content="${site.title}" />
 
+    <meta property="og:title"
+          th:if="${shouldEmitSocialFallback and !#strings.isEmpty(title)}"
+          data-theme-seo-fallback="og:title"
+          th:content="${title}" />
+    <meta property="og:type"
+          th:if="${shouldEmitSocialFallback and !#strings.isEmpty(pageType)}"
+          data-theme-seo-fallback="og:type"
+          th:content="${pageType}" />
     <meta property="og:description"
           th:if="${shouldEmitSocialFallback and !#strings.isEmpty(pageDescription)}"
+          data-theme-seo-fallback="og:description"
           th:content="${pageDescription}" />
     <meta property="og:image"
           th:if="${shouldEmitSocialFallback and !#strings.isEmpty(absoluteImage)}"
+          data-theme-seo-fallback="og:image"
           th:content="${absoluteImage}" />
 
+    <meta name="twitter:card"
+          th:if="${shouldEmitSocialFallback}"
+          data-theme-seo-fallback="twitter:card"
+          th:content="${!#strings.isEmpty(absoluteImage) ? 'summary_large_image' : 'summary'}" />
+    <meta name="twitter:title"
+          th:if="${shouldEmitSocialFallback and !#strings.isEmpty(title)}"
+          data-theme-seo-fallback="twitter:title"
+          th:content="${title}" />
     <meta name="twitter:description"
           th:if="${shouldEmitSocialFallback and !#strings.isEmpty(pageDescription)}"
+          data-theme-seo-fallback="twitter:description"
           th:content="${pageDescription}" />
     <meta name="twitter:image"
           th:if="${shouldEmitSocialFallback and !#strings.isEmpty(absoluteImage)}"
+          data-theme-seo-fallback="twitter:image"
           th:content="${absoluteImage}" />
+    <script id="theme-seo-fallback-config"
+            type="application/json"
+            data-theme-seo-fallback-config="true"
+            th:data-mode="${seoFallbackMode}"
+            th:data-title="${title}"
+            th:data-description="${pageDescription}"
+            th:data-canonical="${absoluteCanonical}"
+            th:data-image="${absoluteImage}"
+            th:data-page-type="${pageType}"
+            th:data-site-name="${site.title}"></script>
     <link rel="alternate" type="application/rss+xml" title="RSS" th:href="@{/rss.xml}" />
 
     <link rel="icon" type="image/svg+xml" th:if="${#strings.isEmpty(faviconHref)}" th:href="${themeFallbackIcon}" />
@@ -293,6 +328,7 @@
       widgetsSteamLevel = ${widgetsSteamProfile != null and widgetsSteamProfile.steamLevel != null ? widgetsSteamProfile.steamLevel : 0},
       widgetsSteamTotalGames = ${widgetsSteamStats != null and widgetsSteamStats.totalGames != null ? widgetsSteamStats.totalGames : 0},
       widgetsSteamRecentPlaytime = ${widgetsSteamStats != null and !#strings.isEmpty(widgetsSteamStats.recentPlaytimeFormatted) ? widgetsSteamStats.recentPlaytimeFormatted : ''},
+      widgetsSteamRecentPlaytimeMinutes = ${widgetsSteamStats != null and widgetsSteamStats.recentPlaytimeMinutes != null ? widgetsSteamStats.recentPlaytimeMinutes : 0},
       widgetsSiteTitle = ${site.title ?: ''},
       widgetsSiteSubtitle = ${site.subtitle ?: ''},
       widgetsSiteLogo = ${site.logo},
@@ -476,6 +512,7 @@
       steamLevel=${widgetsSteamLevel},
       steamStatsTotalGames=${widgetsSteamTotalGames},
       steamStatsRecentPlaytimeFormatted=${widgetsSteamRecentPlaytime},
+      steamStatsRecentPlaytimeMinutes=${widgetsSteamRecentPlaytimeMinutes},
       steamRecentGames=${widgetsSteamRecentGames != null ? widgetsSteamRecentGames : {}},
       steamOwnedGames=${widgetsSteamWidgetGames != null ? widgetsSteamWidgetGames.items : {}},
       siteUrl=${site.url != null ? site.url.toString() : ''},
@@ -708,6 +745,9 @@
       </div>
     </div>
     
+    <!-- plugin-contract: PluginLightGallery; contract-version: 1.2.1; tested-version: 1.2.1; status: confirmed; source: docs/插件适配契约.md -->
+    <!-- plugin-contract: plugin-online; contract-version: 1.0.5; tested-version: 1.0.5; status: confirmed; source: docs/插件适配契约.md -->
+    <!-- plugin-contract: plugin-shiki; contract-version: 1.4.1; tested-version: 1.4.1; status: confirmed; source: docs/插件适配契约.md -->
     <halo:footer />
   </body>
   </th:block>

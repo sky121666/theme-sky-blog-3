@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { buildWidgetCatalog } from '../src/widgets/catalog.js';
 import { renderWidget } from '../src/widgets/plugin/steam-summary/render.js';
+
+const layoutSource = fs.readFileSync(new URL('../templates/modules/shell/layout.html', import.meta.url), 'utf8');
+const widgetProtocolSource = fs.readFileSync(new URL('../templates/modules/shell/desktop-widgets.html', import.meta.url), 'utf8');
+const desktopSurfaceSource = fs.readFileSync(new URL('../src/shell/desktop-shell/runtime/desktop/surface/index.js', import.meta.url), 'utf8');
 
 const escapeHtml = (value) => String(value ?? '')
   .replace(/&/g, '&amp;')
@@ -79,6 +84,43 @@ assert.equal(playingHtml.includes('Warframe'), true, 'playing widget should deri
 assert.equal(playingHtml.includes('wg-steam-cover'), true, 'playing widget may use current/recent game image as visual background');
 assert.equal(playingHtml.includes('warframe.jpg'), true, 'playing widget should match cover from owned games when recent games are empty');
 assert.match(playingHtml, /data-pjax-app="steam"/, 'Steam widget should keep an internal PJAX entry');
+
+const realHeaderHtml = render({
+  steamAvailable: true,
+  steamProfile: { playing: true, statusText: '正在游玩: Half-Life', personaName: 'Sky' },
+  steamStats: { totalGames: 124, recentPlaytimeMinutes: 125 },
+  steamRecentGames: [{
+    name: 'Half-Life',
+    headerImageUrl: null,
+    realHeaderImage: 'https://cdn.example.test/half-life-real.jpg'
+  }]
+});
+
+assert.equal(realHeaderHtml.includes('half-life-real.jpg'), true, 'Steam 1.0.0 realHeaderImage should backfill an empty headerImageUrl');
+assert.equal(realHeaderHtml.includes('2h 5m'), true, 'raw recent playtime should backfill a missing formatted value');
+assert.match(layoutSource, /widgetsSteamStats\.recentPlaytimeMinutes/, 'SSR should read Steam 1.0.0 raw recent playtime minutes');
+assert.match(widgetProtocolSource, /recentPlaytimeMinutes:\s*\[\[\$\{steamStatsRecentPlaytimeMinutes\}\]\]/, 'widget protocol should serialize raw recent playtime minutes');
+assert.match(desktopSurfaceSource, /recentPlaytimeMinutes:\s*Number\(bootstrap\.sources\?\.steamStats\?\.recentPlaytimeMinutes/, 'desktop bootstrap should retain raw recent playtime minutes');
+
+const delistedHtml = render({
+  steamAvailable: true,
+  steamProfile: {
+    playing: true,
+    statusText: '正在游玩: Removed Game',
+    personaName: 'Sky',
+    currentGameImage: 'https://cdn.example.test/removed-current.jpg'
+  },
+  steamStats: { totalGames: 124, recentPlaytimeFormatted: '18.6h' },
+  steamRecentGames: [{
+    name: 'Removed Game',
+    headerImageUrl: 'https://cdn.example.test/removed.jpg',
+    realHeaderImage: 'https://cdn.example.test/removed-real.jpg',
+    delisted: true
+  }]
+});
+
+assert.equal(delistedHtml.includes('wg-steam-cover'), false, 'delisted games should not render a stale store cover in the widget');
+assert.equal(delistedHtml.includes('removed-current.jpg'), false, 'delisted current game image should be suppressed');
 
 const noRecentHtml = render({
   steamAvailable: true,

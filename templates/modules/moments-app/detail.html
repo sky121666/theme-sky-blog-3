@@ -7,7 +7,7 @@
                    momentDetailUrl=${!#strings.isEmpty(momentName) ? '/moments/' + momentName : '/moments'},
                    upvoteCount=${moment.stats != null and moment.stats.upvote != null ? moment.stats.upvote : 0},
                    commentCount=${moment.stats != null ? (moment.stats.approvedComment != null ? moment.stats.approvedComment : (moment.stats.totalComment != null ? moment.stats.totalComment : 0)) : 0}">
-  <!-- plugin-contract: PluginMoments; contract-version: 1.16.0; tested-version: 1.16.0; status: confirmed; source: docs/插件适配契约.md -->
+  <!-- plugin-contract: PluginMoments; contract-version: 1.16.0; tested-version: 1.16.1; status: compatible-tested; source: docs/插件适配契约.md -->
   <div class="moments-app moments-app--detail" data-app-root="moments">
     <script type="application/json" data-app-props="moments">{"version":1,"appId":"moments","data":{"scene":"detail"}}</script>
     <div class="moment-reader-shell">
