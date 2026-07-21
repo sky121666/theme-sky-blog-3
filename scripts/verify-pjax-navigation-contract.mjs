@@ -227,6 +227,42 @@ async function verifyAssetFailureRecovery() {
   assert.equal(fixture.elements.includes(staleScript), false, '状态未知且失败的旧 JS 节点必须移除');
 }
 
+async function verifyAppCssNavigationStaging() {
+  const fixture = createAssetFixture();
+  setGlobal('window', fixture.window);
+  setGlobal('document', fixture.document);
+  setGlobal('fetch', async () => ({
+    ok: true,
+    async json() {
+      return {};
+    }
+  }));
+
+  const createReadyStyle = (appId, segment, disabled) => {
+    const link = fixture.document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `/assets/css/apps/${segment}/index.css`;
+    link.dataset.appCss = appId;
+    link.dataset.appCssState = 'ready';
+    link.disabled = disabled;
+    fixture.document.head.appendChild(link);
+    return link;
+  };
+
+  const categoriesStyle = createReadyStyle('explorer-categories', 'categories', false);
+  const tagsStyle = createReadyStyle('explorer-tags', 'tags', true);
+  const archivesStyle = createReadyStyle('explorer-archives', 'archives', true);
+
+  const appLoaderUrl = pathToFileURL(path.join(root, 'src/shell-core/runtime/app-loader.js'));
+  const { stageAppCssForNavigation } = await import(`${appLoaderUrl.href}?contract=css-navigation-stage`);
+
+  assert.equal(stageAppCssForNavigation('explorer-tags'), 1, '必须找到并预激活目标应用 CSS');
+  assert.equal(tagsStyle.disabled, false, '目标 CSS 必须在 DOM 替换前启用');
+  assert.equal(categoriesStyle.disabled, false, '预激活目标 CSS 时不得关闭当前页面 CSS');
+  assert.equal(archivesStyle.disabled, true, '无关应用 CSS 必须保持禁用');
+  assert.equal(stageAppCssForNavigation('unknown-app'), 0, '未知应用不得误激活其他 CSS');
+}
+
 async function verifyTopLevelDynamicLink() {
   let attached = 0;
   const attributes = new Map();
@@ -504,6 +540,7 @@ async function verifyBusyOnlyLoadingController() {
 
 try {
   await verifyAssetFailureRecovery();
+  await verifyAppCssNavigationStaging();
   await verifyTopLevelDynamicLink();
   await verifyNavigationHelpers();
   await verifyLoadingControllerInterruption();
@@ -545,6 +582,11 @@ try {
     pjaxSource,
     /currentVariant !== 'none' &&\s*shouldUseWindowLoadingOverlay\(currentApp, targetApp\);/,
     'full PJAX（含前进后退）必须复用同一加载策略'
+  );
+  assert.match(
+    pjaxSource,
+    /ensureAppAssetsLoaded\(targetApp\)\s*\.then\(\(\) => \{[\s\S]*?stageAppCssForNavigation\(targetApp\);[\s\S]*?return _origLoadUrl/,
+    'full PJAX 必须在发起请求和替换 DOM 前预激活目标应用 CSS'
   );
   const fullSendStart = pjaxSource.indexOf('document.addEventListener("pjax:send"');
   const fullSendEnd = pjaxSource.indexOf('document.addEventListener("pjax:complete"', fullSendStart);

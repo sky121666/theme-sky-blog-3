@@ -107,6 +107,89 @@ async function waitForRoute(page, pathname, appId) {
   );
 }
 
+async function clickHeaderRoute(page, pathname) {
+  const clicked = await page.evaluate((targetPathname) => {
+    const link = Array.from(document.querySelectorAll('.menubar a.pjax-link[href]'))
+      .find((candidate) => {
+        try {
+          return new URL(candidate.href, window.location.origin).pathname === targetPathname;
+        } catch (_error) {
+          return false;
+        }
+      });
+    if (!link) return false;
+    link.click();
+    return true;
+  }, pathname);
+  assert.equal(clicked, true, `header must expose a PJAX link for ${pathname}`);
+}
+
+async function verifyWarmExplorerCssHandoff(browser) {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
+
+  try {
+    const response = await page.goto(absoluteUrl('/categories'), {
+      waitUntil: 'domcontentloaded',
+      timeout: navigationTimeoutMs
+    });
+    assert.equal(response?.status(), 200, 'categories route must return 200');
+    await page.waitForFunction(
+      () => Boolean(window.pjax?.loadUrl && window.__THEME_SHELL_CORE_LOADED__),
+      null,
+      { timeout: navigationTimeoutMs }
+    );
+
+    await clickHeaderRoute(page, '/tags');
+    await waitForRoute(page, '/tags', 'explorer-tags');
+    await clickHeaderRoute(page, '/archives');
+    await waitForRoute(page, '/archives', 'explorer-archives');
+
+    const beforeReturn = await page.evaluate(() => {
+      const categories = document.querySelector('link[data-app-css="explorer-categories"]');
+      const archives = document.querySelector('link[data-app-css="explorer-archives"]');
+      return {
+        categoriesDisabled: categories?.disabled,
+        archivesDisabled: archives?.disabled
+      };
+    });
+    assert.equal(beforeReturn.categoriesDisabled, true, 'previously visited Categories CSS must begin inactive');
+    assert.equal(beforeReturn.archivesDisabled, false, 'current Archives CSS must remain active');
+
+    await page.evaluate(() => {
+      window.__PJAX_EXPLORER_CSS_HANDOFF__ = null;
+      document.addEventListener('pjax:send', () => {
+        const categories = document.querySelector('link[data-app-css="explorer-categories"]');
+        const archives = document.querySelector('link[data-app-css="explorer-archives"]');
+        window.__PJAX_EXPLORER_CSS_HANDOFF__ = {
+          categoriesDisabled: categories?.disabled,
+          archivesDisabled: archives?.disabled
+        };
+      }, { once: true });
+    });
+
+    await clickHeaderRoute(page, '/categories');
+    await waitForRoute(page, '/categories', 'explorer-categories');
+
+    const afterReturn = await page.evaluate(() => {
+      const categories = document.querySelector('link[data-app-css="explorer-categories"]');
+      const archives = document.querySelector('link[data-app-css="explorer-archives"]');
+      return {
+        handoff: window.__PJAX_EXPLORER_CSS_HANDOFF__,
+        categoriesDisabled: categories?.disabled,
+        archivesDisabled: archives?.disabled,
+        rootDisplay: getComputedStyle(document.querySelector('[data-app-root="explorer-categories"]')).display
+      };
+    });
+    assert.equal(afterReturn.handoff?.categoriesDisabled, false, 'target CSS must be active before the Header PJAX request');
+    assert.equal(afterReturn.handoff?.archivesDisabled, false, 'current CSS must stay active until the incoming DOM is ready');
+    assert.equal(afterReturn.categoriesDisabled, false, 'Categories CSS must remain active after completion');
+    assert.equal(afterReturn.archivesDisabled, true, 'old Archives CSS must be disabled after completion');
+    assert.equal(afterReturn.rootDisplay, 'flex', 'returned Categories Finder must render with its app layout');
+  } finally {
+    await page.close();
+  }
+}
+
 async function findVisiblePhotoDetail(page) {
   await page.waitForFunction(() => {
     const clip = document.querySelector('.photos-grid-scroll');
@@ -935,6 +1018,7 @@ async function verifySkippedViewTransitionFallsBack(browser) {
 
 const browser = await chromium.launch({ headless: true });
 try {
+  await verifyWarmExplorerCssHandoff(browser);
   await verifyColdPhotosGate(browser);
   await verifyLatestNavigationWins(browser);
   await verifySameVariantNavigationWins(browser);
