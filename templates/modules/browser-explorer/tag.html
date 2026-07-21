@@ -3,7 +3,7 @@
       th:fragment="page"
       th:replace="~{modules/shell/layout :: html(
         title = ${tag.spec.displayName + ' - ' + site.title},
-        description = ${tag.spec.displayName + ' 标签下的 ' + posts.total + ' 篇文章'},
+        description = ${tag.spec.displayName + ' 标签下的 ' + (posts != null ? posts.total : 0) + ' 篇文章'},
         ssrContent = ~{modules/browser-explorer/tag :: content},
         canonical = ${tag.status.permalink},
         image = ${!#strings.isEmpty(tag.spec.cover) ? tag.spec.cover : site.logo},
@@ -18,149 +18,205 @@
         windowMaximizable = true,
         windowMetricsKey = 'browser'
       )}">
-  <th:block th:fragment="content">
-    <div class="tag-shell" data-app-root="explorer-tags">
-      <script type="application/json" data-app-props="explorer-tags">{"version":1,"appId":"explorer-tags","data":{"view":"detail"}}</script>
-      <div class="tag-workspace"
-           th:if="${posts != null and !#lists.isEmpty(posts.items)}"
-           x-data="tagPostsExplorer">
-        <aside class="tag-folder-pane">
-          <header class="tag-folder-header">
-            <span class="tag-folder-kicker">标签文件夹</span>
-            <a class="tag-folder-back pjax-link" href="/tags">返回全部标签</a>
+  <th:block th:fragment="tagSidebar(tags, currentTagName)">
+    <a class="tags-sidebar-item pjax-link"
+       data-pjax-app="explorer-tags"
+       data-tag-link
+       th:each="item : ${tags}"
+       th:href="${item.status.permalink}"
+       th:classappend="${item.metadata.name == currentTagName ? ' is-active' : ''}"
+       th:attr="aria-current=${item.metadata.name == currentTagName ? 'page' : null},
+                aria-label=${item.spec.displayName + '，' + item.postCount + ' 篇文章'}">
+      <span class="tags-folder-icon tags-folder-icon--sidebar icon-[lucide--tag]" aria-hidden="true"></span>
+      <span class="tags-sidebar-label" th:text="${item.spec.displayName}">标签</span>
+      <span class="tags-sidebar-count" th:text="${item.postCount}">0</span>
+    </a>
+  </th:block>
+
+  <th:block th:fragment="postRows(posts, parentName)">
+    <nav th:if="${posts != null and !#lists.isEmpty(posts.items)}"
+         th:attr="aria-label=${parentName == '全部文章' ? '全部文章列表' : parentName + '文章列表'}">
+      <a class="tag-post-row pjax-link"
+         data-pjax-app="reader"
+         th:each="post : ${posts.items}"
+         th:href="${post.status.permalink}"
+         data-tag-post-option
+         th:attr="data-post-key=${post.metadata.name},
+                  data-post-title=${post.spec.title},
+                  data-post-date=${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')},
+                  data-post-comments=${post.stats.comment},
+                  data-post-excerpt=${post.status.excerpt},
+                  data-post-parent-name=${parentName},
+                  data-post-author=${post.owner != null ? post.owner.displayName : site.title}"
+         @mouseenter="selectPost($el)"
+         @focus="selectPost($el)"
+         @click="selectPost($el)"
+         :class="{ 'is-active': activePostKey === $el.dataset.postKey }">
+        <div class="tag-post-row-main">
+          <span class="tag-post-file-icon icon-[lucide--file-text]" aria-hidden="true"></span>
+          <span class="tag-post-row-title" th:text="${post.spec.title}">文章标题</span>
+        </div>
+        <span class="tag-post-row-meta">
+          <time th:attr="datetime=${#dates.format(post.spec.publishTime, 'yyyy-MM-dd')}"
+                th:text="${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')}">2026.03.26</time>
+          <span th:text="${post.stats.comment} + ' 评论'">0 评论</span>
+        </span>
+      </a>
+    </nav>
+  </th:block>
+
+  <th:block th:fragment="previewPane">
+    <aside class="tag-preview-pane" aria-label="文章预览">
+      <header class="tags-pane-header">
+        <span class="tags-pane-title">预览</span>
+        <span class="tags-pane-path" x-text="activePostTitle || '未选择文章'"></span>
+      </header>
+
+      <div class="tag-preview-scroll">
+        <article class="tag-preview-panel" x-show="activePostKey" x-cloak>
+          <header class="tag-preview-header">
+            <div class="tag-preview-icon">
+              <span class="tag-post-file-icon tag-post-file-icon--preview icon-[lucide--file-text]" aria-hidden="true"></span>
+            </div>
+            <div class="tag-preview-heading">
+              <h2 class="tag-preview-title" x-text="activePostTitle">文章标题</h2>
+              <p class="tag-preview-path" x-text="(activePostParentName || '') + ' / ' + activePostDate">标签 / 时间</p>
+            </div>
           </header>
 
-          <div class="tag-folder-card is-active">
-            <div class="tag-folder-icon-wrap">
-              <span class="tags-folder-icon tags-folder-icon--detail icon-[lucide--folder]" aria-hidden="true"></span>
-            </div>
-            <div class="tag-folder-copy">
-              <h1 class="tag-folder-title" th:text="${tag.spec.displayName}">标签</h1>
-              <p class="tag-folder-meta" th:text="${posts.total} + ' 篇文章'">0 篇文章</p>
-            </div>
-          </div>
-
-          <dl class="tag-folder-meta-list">
+          <dl class="tag-preview-meta">
             <div>
-              <dt>别名</dt>
-              <dd th:text="${tag.spec.slug}">slug</dd>
+              <dt>发布日期</dt>
+              <dd x-text="activePostDate">2026.03.26</dd>
             </div>
             <div>
-              <dt>文章数量</dt>
-              <dd th:text="${posts.total} + ' 篇'">0 篇</dd>
+              <dt>评论</dt>
+              <dd x-text="activePostComments + ' 条'">0 条</dd>
             </div>
             <div>
-              <dt>颜色</dt>
-              <dd class="tags-preview-color">
-                <span class="tags-color-chip" th:style="'background:' + (${#strings.isEmpty(tag.spec.color)} ? '#94a3b8' : tag.spec.color)"></span>
-                <span th:text="${#strings.isEmpty(tag.spec.color) ? '未设置' : tag.spec.color}">#94a3b8</span>
-              </dd>
+              <dt>作者</dt>
+              <dd x-text="activePostAuthor || ''">作者</dd>
             </div>
           </dl>
+
+          <p class="tag-preview-excerpt" x-show="activePostExcerpt" x-text="activePostExcerpt"></p>
+
+          <a class="tag-preview-action pjax-link" data-pjax-app="reader" :href="activePostHref">打开文章</a>
+        </article>
+
+        <section class="tag-preview-empty" x-show="!activePostKey" x-cloak>
+          <p>选择一篇文章后，在这里查看摘要与元信息。</p>
+        </section>
+      </div>
+    </aside>
+  </th:block>
+
+  <th:block th:fragment="content"
+            th:with="tagsRootUri=${!#strings.isEmpty(site.routes?.tagsUri) ? site.routes.tagsUri : '/tags'},
+                     tagList=${tagFinder.listAll()}">
+    <div class="tag-shell" data-app-root="explorer-tags">
+      <h1 class="sr-only" th:text="${tag.spec.displayName}">标签</h1>
+      <script type="application/json" data-app-props="explorer-tags">{"version":1,"appId":"explorer-tags","data":{"view":"detail"}}</script>
+
+      <div class="tag-workspace"
+           x-data="tagPostsExplorer"
+           data-tag-scope="tag"
+           th:attr="data-tag-name=${tag.metadata.name},
+                    data-tag-current-page=${posts != null ? posts.page : 1},
+                    data-tag-total-pages=${posts != null ? posts.totalPages : 0},
+                    data-tag-total-posts=${posts != null ? posts.total : 0},
+                    data-tag-page-size=${site.post?.tagPageSize ?: 10}">
+        <aside class="tags-sidebar">
+          <p class="tags-sidebar-title">标签</p>
+          <nav class="tags-sidebar-nav" aria-label="标签导航">
+            <a class="tags-sidebar-item tags-sidebar-item--all pjax-link"
+               data-pjax-app="explorer-tags"
+               data-tag-all-link
+               th:href="${tagsRootUri}">
+              <span class="tags-folder-icon tags-folder-icon--sidebar icon-[lucide--tags]" aria-hidden="true"></span>
+              <span class="tags-sidebar-label">全部标签</span>
+            </a>
+
+            <th:block th:if="${tagList != null and !#lists.isEmpty(tagList)}"
+                      th:replace="~{::tagSidebar(tags=${tagList}, currentTagName=${tag.metadata.name})}"></th:block>
+          </nav>
         </aside>
 
         <section class="tag-posts-pane">
           <header class="tags-pane-header">
             <span class="tags-pane-title">文章</span>
-            <span class="tags-pane-path" th:text="${tag.spec.displayName}">标签</span>
+            <span class="tags-pane-path"
+                  th:text="${tag.spec.displayName + ' · ' + (posts != null ? posts.total : 0) + ' 篇'}">标签 · 0 篇</span>
           </header>
 
           <div class="tag-posts-scroll">
-            <a class="tag-post-row pjax-link"
-               data-pjax-app="reader"
-               th:each="post : ${posts.items}"
-               th:href="${post.status.permalink}"
-               data-tag-post-option
-               th:attr="data-post-key=${post.metadata.name},data-post-title=${post.spec.title},data-post-date=${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')},data-post-comments=${post.stats.comment},data-post-excerpt=${post.status.excerpt},data-post-parent-name=${tag.spec.displayName},data-post-author=${post.owner != null ? post.owner.displayName : site.title}"
-               @mouseenter="selectPost($el)"
-               @focus="selectPost($el)"
-               @click="selectPost($el)"
-               :class="{ 'is-active': activePostKey === $el.dataset.postKey }">
-              <div class="tag-post-row-main">
-                <span class="tag-post-file-icon icon-[lucide--file-text]" aria-hidden="true"></span>
-                <span class="tag-post-row-title" th:text="${post.spec.title}">文章标题</span>
+            <th:block th:replace="~{::postRows(posts=${posts}, parentName=${tag.spec.displayName})}"></th:block>
+
+            <section class="tags-post-empty"
+                     data-tag-empty
+                     aria-live="polite"
+                     th:if="${posts == null or #lists.isEmpty(posts.items)}">
+              <div>
+                <h2 class="tags-empty-title"
+                    th:if="${posts != null and posts.page > 1}"
+                    th:text="${'第 ' + posts.page + ' 页不存在'}">当前页不存在</h2>
+                <h2 class="tags-empty-title"
+                    th:if="${posts == null or posts.page <= 1}">当前标签暂无文章</h2>
+
+                <p class="tags-empty-text"
+                   th:if="${posts != null and posts.page > 1}"
+                   th:text="${posts.totalPages > 0 ? '该标签共 ' + posts.totalPages + ' 页，请返回有效页码。' : '当前标签没有可浏览的分页内容。'}">请返回有效页码。</p>
+                <p class="tags-empty-text"
+                   th:if="${posts == null or posts.page <= 1}">内容发布后会显示在这里，你也可以先浏览其他标签。</p>
+
+                <nav class="tags-post-overflow" aria-label="标签文章恢复导航">
+                  <a class="tags-post-viewmore pjax-link"
+                     data-pjax-app="explorer-tags"
+                     data-tag-return-root
+                     th:href="${tagsRootUri}">返回全部标签</a>
+                  <a class="tags-post-viewmore pjax-link"
+                     data-pjax-app="explorer-tags"
+                     data-tag-return-first
+                     th:if="${posts != null and posts.page > 1}"
+                     th:href="${tag.status.permalink}">返回第一页</a>
+                  <a class="tags-post-viewmore pjax-link"
+                     data-pjax-app="explorer-tags"
+                     data-tag-return-last
+                     th:if="${posts != null and posts.page > 1 and posts.totalPages > 1}"
+                     th:href="${tag.status.permalink + '/page/' + posts.totalPages}">返回最后一页</a>
+                </nav>
               </div>
-              <span class="tag-post-row-meta">
-                <time th:text="${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')}">2026.03.26</time>
-                <span th:text="${post.stats.comment} + ' 评论'">0 评论</span>
-              </span>
-            </a>
+            </section>
           </div>
 
-          <nav class="tag-pagination" th:if="${posts.hasPrevious() or posts.hasNext()}">
+          <nav class="tag-pagination"
+               data-tag-pagination
+               data-tag-pagination-scope="tag"
+               th:if="${posts != null and !#lists.isEmpty(posts.items) and (posts.hasPrevious() or posts.hasNext())}"
+               th:attr="aria-label=${tag.spec.displayName + '文章分页'}">
             <a class="tag-page-btn pjax-link"
+               data-pjax-app="explorer-tags"
+               data-tag-prev
+               rel="prev"
                th:if="${posts.hasPrevious()}"
-               th:href="@{${posts.prevUrl}}">
-              上一页
-            </a>
-            <span class="tag-page-btn is-disabled" th:unless="${posts.hasPrevious()}">上一页</span>
+               th:href="@{${posts.prevUrl}}">上一页</a>
+            <span class="tag-page-btn is-disabled" aria-disabled="true" th:unless="${posts.hasPrevious()}">上一页</span>
 
-            <span class="tag-page-indicator" th:text="${posts.page} + ' / ' + ${posts.totalPages}">1 / 1</span>
+            <span class="tag-page-indicator"
+                  aria-current="page"
+                  th:text="${posts.page + ' / ' + posts.totalPages}">1 / 1</span>
 
             <a class="tag-page-btn pjax-link"
+               data-pjax-app="explorer-tags"
+               data-tag-next
+               rel="next"
                th:if="${posts.hasNext()}"
-               th:href="@{${posts.nextUrl}}">
-              下一页
-            </a>
-            <span class="tag-page-btn is-disabled" th:unless="${posts.hasNext()}">下一页</span>
+               th:href="@{${posts.nextUrl}}">下一页</a>
+            <span class="tag-page-btn is-disabled" aria-disabled="true" th:unless="${posts.hasNext()}">下一页</span>
           </nav>
         </section>
 
-        <aside class="tag-preview-pane">
-          <header class="tags-pane-header">
-            <span class="tags-pane-title">预览</span>
-            <span class="tags-pane-path" x-text="activePostTitle || '未选择文章'"></span>
-          </header>
-
-          <div class="tag-preview-scroll">
-            <article class="tag-preview-panel" x-show="activePostKey" x-cloak>
-              <header class="tag-preview-header">
-                <div class="tag-preview-icon">
-                  <span class="tag-post-file-icon tag-post-file-icon--preview icon-[lucide--file-text]" aria-hidden="true"></span>
-                </div>
-                <div class="tag-preview-heading">
-                  <h2 class="tag-preview-title" x-text="activePostTitle">文章标题</h2>
-                  <p class="tag-preview-path" x-text="(activePostParentName || '') + ' / ' + activePostDate">标签 / 时间</p>
-                </div>
-              </header>
-
-              <dl class="tag-preview-meta">
-                <div>
-                  <dt>发布日期</dt>
-                  <dd x-text="activePostDate">2026.03.26</dd>
-                </div>
-                <div>
-                  <dt>评论</dt>
-                  <dd x-text="activePostComments + ' 条'">0 条</dd>
-                </div>
-                <div>
-                  <dt>作者</dt>
-                  <dd x-text="activePostAuthor || ''">作者</dd>
-                </div>
-              </dl>
-
-              <p class="tag-preview-excerpt" x-show="activePostExcerpt" x-text="activePostExcerpt"></p>
-
-              <a class="tag-preview-action pjax-link" data-pjax-app="reader" :href="activePostHref">打开文章</a>
-            </article>
-
-            <section class="tag-preview-empty" x-show="!activePostKey" x-cloak>
-              <p>选择一篇文章后，在这里查看摘要与元信息。</p>
-            </section>
-          </div>
-        </aside>
-      </div>
-
-      <div class="tag-empty" th:if="${posts == null or #lists.isEmpty(posts.items)}">
-        <div class="tag-folder-card is-active">
-          <div class="tag-folder-icon-wrap">
-            <span class="tags-folder-icon tags-folder-icon--detail icon-[lucide--folder]" aria-hidden="true"></span>
-          </div>
-          <div class="tag-folder-copy">
-            <h1 class="tag-folder-title" th:text="${tag.spec.displayName}">标签</h1>
-            <p class="tag-folder-meta">当前标签下没有文章</p>
-          </div>
-        </div>
+        <th:block th:replace="~{::previewPane}"></th:block>
       </div>
     </div>
   </th:block>

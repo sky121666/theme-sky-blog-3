@@ -192,7 +192,7 @@ const seoProtocolChecks = [
   ],
   [
     'templates/modules/browser-explorer/tags.html',
-    ['<h1 class="sr-only">所有标签</h1>']
+    ['<h1 class="sr-only">所有标签与文章</h1>']
   ],
   [
     'templates/modules/browser-explorer/archives.html',

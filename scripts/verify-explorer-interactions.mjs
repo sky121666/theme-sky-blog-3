@@ -4,7 +4,10 @@ import {
   registerCategoriesExplorer,
   registerCategoryPostsExplorer,
 } from '../src/apps/explorer/categories/runtime.js';
-import { registerTagsExplorer } from '../src/apps/explorer/tags/runtime.js';
+import {
+  registerTagsExplorer,
+  registerTagPostsExplorer,
+} from '../src/apps/explorer/tags/runtime.js';
 import { registerAuthorPostsExplorer } from '../src/apps/explorer/author/runtime.js';
 
 function deferred() {
@@ -45,15 +48,6 @@ function createContainer() {
   };
 }
 
-function post(name) {
-  return {
-    metadata: { name },
-    spec: { title: name, publishTime: '2026-07-20T00:00:00Z' },
-    status: { permalink: `/archives/${name}`, excerpt: `${name}-excerpt` },
-    stats: { comment: 0 },
-  };
-}
-
 function captureFactory(register, expectedName) {
   let factory = null;
   register({
@@ -66,7 +60,7 @@ function captureFactory(register, expectedName) {
   return factory;
 }
 
-function createCategoryOptions() {
+function createPreviewOptions(parentName) {
   return ['first', 'second'].map((key) => {
     const attributes = new Map();
     return {
@@ -76,7 +70,7 @@ function createCategoryOptions() {
         postDate: '2026.07.20',
         postComments: key === 'first' ? '1' : '2',
         postExcerpt: `${key}-excerpt`,
-        postParentName: '分类',
+        postParentName: parentName,
         postAuthor: '作者',
       },
       href: `http://theme.test/archives/${key}`,
@@ -90,25 +84,22 @@ function createCategoryOptions() {
   });
 }
 
-function verifyCategoryPreview(register, expectedName, scopeLabel) {
+function verifyPostPreview(register, expectedName, scopeLabel, selector, parentName) {
   const factory = captureFactory(register, expectedName);
-  const categoryOptions = createCategoryOptions();
-  const categoryPreview = factory();
-  categoryPreview.$root = {
-    querySelector(selector) {
-      return selector === '[data-category-post-option]' ? categoryOptions[0] : null;
-    },
-    querySelectorAll(selector) {
-      return selector === '[data-category-post-option]' ? categoryOptions : [];
+  const options = createPreviewOptions(parentName);
+  const preview = factory();
+  preview.$root = {
+    querySelector(candidateSelector) {
+      return candidateSelector === selector ? options[0] : null;
     },
   };
-  categoryPreview.init();
-  assert.equal(categoryPreview.activePostKey, 'first', `${scopeLabel}初始化应预览第一篇文档`);
-  assert.equal(categoryPreview.activePostParentName, '分类', `${scopeLabel}初始化应同步文档所属范围`);
-  categoryPreview.selectPost(categoryOptions[1]);
-  assert.equal(categoryPreview.activePostKey, 'second', `${scopeLabel}应同步最新预览文档`);
-  assert.equal(categoryPreview.activePostTitle, 'second-title', `${scopeLabel}应同步文档标题`);
-  assert.equal(categoryPreview.activePostHref, 'http://theme.test/archives/second', `${scopeLabel}应同步文档真实地址`);
+  preview.init();
+  assert.equal(preview.activePostKey, 'first', `${scopeLabel}初始化应预览第一篇内容`);
+  assert.equal(preview.activePostParentName, parentName, `${scopeLabel}初始化应同步内容所属范围`);
+  preview.selectPost(options[1]);
+  assert.equal(preview.activePostKey, 'second', `${scopeLabel}应同步最新预览内容`);
+  assert.equal(preview.activePostTitle, 'second-title', `${scopeLabel}应同步内容标题`);
+  assert.equal(preview.activePostHref, 'http://theme.test/archives/second', `${scopeLabel}应同步内容真实地址`);
 }
 
 const previousDocument = globalThis.document;
@@ -200,72 +191,10 @@ try {
   assert.equal(batchContainer.innerHTML, '<b>new-only</b>', 'a cancelled batch must not append stale frames');
   assert.equal(staleBatch.cancelled, true, 'renderBatch should expose cancellation state');
 
-  verifyCategoryPreview(registerCategoriesExplorer, 'categoriesExplorer', '分类根页');
-  verifyCategoryPreview(registerCategoryPostsExplorer, 'categoryPostsExplorer', '分类详情');
-
-  const explorerCases = [
-    {
-      factory: captureFactory(registerTagsExplorer, 'tagsExplorer'),
-      listSelector: '[data-tag-posts-list]',
-      activeHrefKey: 'activeTagHref',
-      parentName: '标签',
-      fetchMethod: 'fetchTagPosts',
-      cacheKey: 'tag-posts-cached-scope',
-    },
-  ];
-
-  for (const {
-    factory,
-    listSelector,
-    activeHrefKey,
-    parentName,
-    fetchMethod,
-    cacheKey,
-  } of explorerCases) {
-    const list = createContainer();
-    const instance = factory();
-    instance.$root = {
-      querySelector(selector) {
-        if (selector === listSelector) return list;
-        if (selector.endsWith('-posts-scroll') || selector.endsWith('-preview-scroll')) return { scrollTop: 1 };
-        return null;
-      },
-    };
-    instance[activeHrefKey] = '/current';
-
-    instance.renderDynamicPosts(
-      Array.from({ length: 10 }, (_, index) => post(`stale-${index}`)),
-      10,
-      parentName,
-      0,
-    );
-    flushFrame();
-    const staleJob = instance._renderJob;
-    instance._selectionGeneration = 1;
-    instance.renderDynamicPosts([post('current')], 1, parentName, 1);
-    flushFrames();
-
-    assert.equal(staleJob.cancelled, true, `${parentName}切换 should cancel the stale render job`);
-    assert.match(list.innerHTML, /current/, `${parentName}切换 should render the current selection`);
-    assert.doesNotMatch(list.innerHTML, /stale-/, `${parentName}切换 must not retain stale batch items`);
-
-    const ssrNode = { html: '<i>ssr-original</i>' };
-    instance._ssrPostNodes = [ssrNode];
-    instance._showingSsr = false;
-    instance.showSsrPanel(true);
-    assert.deepEqual(list.restoredNodes, [ssrNode], `${parentName}切回首项 should restore the original SSR nodes`);
-
-    instance._selectionGeneration += 1;
-    sessionEntries.set(cacheKey, JSON.stringify({
-      timestamp: Date.now(),
-      data: [post('cached-post')],
-      total: 1,
-    }));
-    await instance[fetchMethod]('cached-scope', parentName, instance._selectionGeneration);
-    assert.equal(instance.fetchController, null, `${parentName} cache hit should release its AbortController reference`);
-    flushFrames();
-    sessionEntries.delete(cacheKey);
-  }
+  verifyPostPreview(registerCategoriesExplorer, 'categoriesExplorer', '分类根页', '[data-category-post-option]', '分类');
+  verifyPostPreview(registerCategoryPostsExplorer, 'categoryPostsExplorer', '分类详情', '[data-category-post-option]', '分类');
+  verifyPostPreview(registerTagsExplorer, 'tagsExplorer', '标签根页', '[data-tag-post-option]', '全部文章');
+  verifyPostPreview(registerTagPostsExplorer, 'tagPostsExplorer', '标签详情', '[data-tag-post-option]', '标签');
 
   const authorFactory = captureFactory(registerAuthorPostsExplorer, 'authorPostsExplorer');
   const historyAuthor = authorFactory();

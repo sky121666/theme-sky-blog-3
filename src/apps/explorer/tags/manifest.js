@@ -2,6 +2,7 @@ export const explorerTagsAppManifest = {
   appId: 'explorer-tags',
   windowVariant: 'browser',
   supportsSameAppPjax: true,
+  sameAppPjaxLoading: 'progress',
   sameVariantPageModes: ['browser-list'],
   cachePolicy: 'app-path-search',
   assets: {

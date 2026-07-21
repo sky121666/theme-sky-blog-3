@@ -27,16 +27,6 @@ function getThemeRoutes() {
   };
 }
 
-function matchesRoutePrefix(pathname, routePrefix) {
-  return pathname === routePrefix || pathname.startsWith(`${routePrefix}/`);
-}
-
-function matchesConfiguredOrLegacyRoute(pathname, routeKey, legacyPrefixes = []) {
-  const routePrefix = getThemeRoutes()[routeKey];
-  if (matchesRoutePrefix(pathname, routePrefix)) return true;
-  return legacyPrefixes.some((legacyPrefix) => legacyPrefix !== routePrefix && matchesRoutePrefix(pathname, legacyPrefix));
-}
-
 function matchesArchiveRoute(pathname) {
   const routePrefix = getThemeRoutes().archivesUri;
   if (pathname === routePrefix || pathname === `${routePrefix}/`) return true;
@@ -59,6 +49,18 @@ function matchesCategoryRoute(pathname) {
   if (!categoryPath) return false;
 
   return /^\/[^/]+(?:\/page\/[1-9]\d*)?\/?$/.test(categoryPath);
+}
+
+function matchesTagRoute(pathname) {
+  const routePrefix = getThemeRoutes().tagsUri;
+  if (pathname === routePrefix || pathname === `${routePrefix}/`) return true;
+
+  const tagPath = pathname.startsWith(`${routePrefix}/`)
+    ? pathname.slice(routePrefix.length)
+    : '';
+  if (!tagPath) return false;
+
+  return /^\/[^/]+(?:\/page\/[1-9]\d*)?\/?$/.test(tagPath);
 }
 
 function matchesDefaultReaderRoute(pathname) {
@@ -169,7 +171,7 @@ const ROUTE_RULES = [
     windowVariant: BROWSER_VARIANT,
     pjaxMode: 'same-app',
     cacheKeyPolicy: 'app-path-search',
-    matches: (pathname) => matchesConfiguredOrLegacyRoute(pathname, 'tagsUri', ['/tags', '/tag'])
+    matches: (pathname) => matchesTagRoute(pathname)
   },
   {
     id: 'explorer-categories',
