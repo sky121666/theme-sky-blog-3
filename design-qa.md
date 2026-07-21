@@ -13,6 +13,8 @@
 
 - Full-view comparison: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/gallery-motion-polish/06-same-viewport-comparison.png`
 - Hidden-state implementation: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/gallery-motion-polish/04-after-hidden.png`
+- Mid-exit implementation (`180ms`): `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/gallery-motion-polish/07-gradual-exit-midpoint.png`
+- Mid-maximize implementation (`180ms`): `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/gallery-motion-polish/08-maximize-no-occlusion-midpoint.png`
 - Focused region comparison was not required: the component's pixels, typography and geometry intentionally remain unchanged; temporal fidelity was instead checked from actual `requestAnimationFrame` samples across opacity、translateY、scale、visibility、主舞台和主图矩形。
 
 ## Findings
@@ -23,12 +25,13 @@
 - Colors and visual tokens: 半透明背景、边框、阴影和选中态完全复用原有 Photos token；没有动画 blur、filter、阴影或尺寸，避免玻璃材质重绘掉帧。
 - Image quality and assets: 主照片及缩略图沿用同一真实资源、裁切和解码路径；没有新增、替换或降级任何可见资源。
 - Copy and content: 文件名、`3 / 17` 计数、相簿名称、导航和辅助文本均未变化。
-- Motion and accessibility: 显示采用 `220ms` 柔和透明度与 `340ms` 弹性位移；隐藏采用 `220ms` 柔和透明度与 `280ms` 弹性位移，位移由 `9px` 收到 `6px`、缩放由 `0.985` 收到 `0.992`。`visibility` 延迟到退场结束，隐藏时继续同步 `inert/aria-hidden`；触屏常显，减少动态效果时无过渡。
+- Motion and accessibility: 显示采用 `220ms` 柔和透明度与 `340ms` 弹性位移；隐藏改用 `360ms` 渐进透明度与 `400ms` 渐进位移，两者均使用对称 `cubic-bezier(0.33, 0, 0.67, 1)`。真页退场 `180ms` 时透明度为 `0.501`、下沉约 `2.55px`、缩放约 `0.9966` 且仍为 `visible`，`visibility` 延迟到 `400ms` 后切换；隐藏时继续同步 `inert/aria-hidden`，触屏常显，减少动态效果时无过渡。
 
 ## Primary interactions tested
 
 - 约 3.2 秒空闲后自动隐藏，移动指针后重新显示。
 - 显示与隐藏均产生至少 4 个不同的 opacity、translateY 和 scale 中间态，且方向连续单调。
+- 胶片坞隐藏后最大化及还原图库窗口，全程保持 `opacity: 0`、`visibility: hidden`、`pointer-events: none`，不再遮挡主图底部；随后回到主图仍可正常唤醒。
 - 悬停和键盘聚焦保持显示；触屏设备空闲时保持常显。
 - `prefers-reduced-motion`、详情 PJAX 切换、旧节点计时器与监听器清理。
 - 真页运行时错误与 `console.error`: none in `verify:photos:view-transition`。
@@ -36,15 +39,21 @@
 ## Comparison history
 
 - Pass 1: 基线实测发现退场使用 `140ms opacity + 200ms` 末段加速曲线，同时下沉 `9px`、缩放至 `0.985`；透明度先结束而位移继续，形成突然消失的 P2 动效问题。
-- Fix: 显隐统一复用 Photos 的 soft/spring 曲线，延长渐隐、减小位移和缩放，并只为桌面自动隐藏场景预提升 `transform/opacity` 合成层。
-- Pass 2: 同视口全景对照确认静态界面无漂移；真页逐帧采样、终态、辅助技术、触屏、减少动态效果和 PJAX 生命周期全部通过。
+- Fix 1: 显隐统一复用 Photos 的 soft/spring 曲线，延长渐隐、减小位移和缩放，并只为桌面自动隐藏场景预提升 `transform/opacity` 合成层。
+- Pass 2: 用户真页复测仍感到消失生硬；逐帧复核发现旧 soft 曲线在 `50ms / 76ms / 128ms` 时透明度已降至约 `0.357 / 0.155 / 0.041`，虽然存在过渡，但视觉信息过早耗尽。
+- Fix 2: 退场单独改用 `360ms / 400ms` 对称渐进曲线，并新增动画中段仍为 `visible`、透明度保持 `0.3–0.7` 的回归门禁。
+- Pass 3: 同视口静态界面无漂移；真页 `180ms` 中间态透明度实测 `0.501`，逐帧、终态、辅助技术、触屏、减少动态效果和 PJAX 生命周期全部通过。
+- Pass 4: 用户截图与真页时间轴确认，标题栏最大化按钮被整个窗口级活动监听器误判为照片区操作，点击后 `80ms` 胶片坞透明度已达 `0.91`，`1000ms` 仍完全显示并覆盖主图底部。
+- Fix 3: 胶片坞活动范围收窄到 `.photos-detail-main`；最大化/还原意图会在窗口 300ms 尺寸过渡期间锁定隐藏态并暂时关闭胶片坞自身 transition，避免任何遮挡帧。
+- Pass 5: 真页最大化时间轴在 `0 / 80 / 180 / 320 / 1000ms` 均保持隐藏、透明度 `0`、不可命中；还原后同样保持隐藏，主图唤醒回归继续通过。
 
 ## Implementation checklist
 
-- [x] Unified soft/spring motion language
+- [x] Spring entry and symmetric gradual exit motion language
 - [x] Subtle translate and scale range
 - [x] Compositor hints without filter animation
 - [x] Frame-by-frame motion and geometry assertions
+- [x] Maximize and restore occlusion regression
 - [x] Halo reload and live Photos regression
 
 final result: passed
