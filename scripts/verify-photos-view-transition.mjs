@@ -13,6 +13,8 @@ const transitionDirectionAttribute = 'data-photos-view-transition-direction';
 const filmstripIdleWaitTimeoutMs = 6_000;
 const filmstripMotionCaptureDurationMs = 520;
 const filmstripMotionCaptureKey = '__SKY_PHOTOS_FILMSTRIP_MOTION_CAPTURE__';
+const maximizeOcclusionCaptureDurationMs = 440;
+const maximizeOcclusionCaptureKey = '__SKY_PHOTOS_MAXIMIZE_OCCLUSION_CAPTURE__';
 
 function absoluteUrl(pathname) {
   return new URL(pathname, `${baseUrl}/`).toString();
@@ -712,6 +714,75 @@ async function finishFilmstripMotionCapture(page) {
   }, filmstripMotionCaptureKey);
 }
 
+async function beginMaximizeOcclusionCapture(page) {
+  await page.evaluate(({ captureDurationMs, captureKey, timeoutMs }) => {
+    const shell = document.querySelector('.photos-detail-shell');
+    const filmstrip = shell?.querySelector('.photos-detail-filmstrip');
+    if (!shell || !filmstrip) throw new Error('最大化遮挡逐帧采样缺少详情节点');
+
+    window[captureKey] = new Promise((resolve, reject) => {
+      let frameId = 0;
+      let started = false;
+      const observer = new MutationObserver(() => {
+        if (shell.dataset.photosFilmstripState === 'hidden') start();
+      });
+      const timeoutId = window.setTimeout(() => {
+        observer.disconnect();
+        if (frameId) cancelAnimationFrame(frameId);
+        reject(new Error('最大化后胶片坞未进入隐藏态'));
+      }, timeoutMs);
+
+      const start = () => {
+        if (started) return;
+        started = true;
+        observer.disconnect();
+        const startedAt = performance.now();
+        const samples = [];
+        const sample = (now) => {
+          const style = getComputedStyle(filmstrip);
+          samples.push({
+            elapsed: now - startedAt,
+            state: shell.dataset.photosFilmstripState || '',
+            opacity: Number.parseFloat(style.opacity),
+            visibility: style.visibility,
+            pointerEvents: style.pointerEvents,
+            transitionLocked: shell.dataset.photosWindowTransition === 'true',
+          });
+          if (now - startedAt >= captureDurationMs) {
+            clearTimeout(timeoutId);
+            resolve(samples);
+            return;
+          }
+          frameId = requestAnimationFrame(sample);
+        };
+        sample(startedAt);
+      };
+
+      observer.observe(shell, {
+        attributes: true,
+        attributeFilter: ['data-photos-filmstrip-state'],
+      });
+      if (shell.dataset.photosFilmstripState === 'hidden') start();
+    });
+  }, {
+    captureDurationMs: maximizeOcclusionCaptureDurationMs,
+    captureKey: maximizeOcclusionCaptureKey,
+    timeoutMs: navigationTimeoutMs,
+  });
+}
+
+async function finishMaximizeOcclusionCapture(page) {
+  return page.evaluate(async (captureKey) => {
+    const capture = window[captureKey];
+    if (!capture) throw new Error('最大化遮挡逐帧采样任务不存在');
+    try {
+      return await capture;
+    } finally {
+      delete window[captureKey];
+    }
+  }, maximizeOcclusionCaptureKey);
+}
+
 function assertMonotonicMotion(samples, key, direction, tolerance, label) {
   for (let index = 1; index < samples.length; index += 1) {
     const previous = samples[index - 1][key];
@@ -999,6 +1070,41 @@ async function verifyFilmstripIdleLifecycle(browser, detailHref) {
     assert.equal(woken.inert, false, '唤醒后胶片条必须恢复可交互状态');
     assertStableRect(visible.stage, woken.stage, '唤醒后的主舞台');
     assertStableRect(visible.image, woken.image, '唤醒后的主图');
+
+    const visibleWindowRect = await windowSurface.boundingBox();
+    assert.ok(visibleWindowRect, '显示态最大化回归必须取得窗口矩形');
+    await beginMaximizeOcclusionCapture(idlePage);
+    await maximizeButton.click();
+    const maximizeOcclusionSamples = await finishMaximizeOcclusionCapture(idlePage);
+    assert.ok(maximizeOcclusionSamples.length >= 12, '最大化遮挡回归必须取得足够逐帧样本');
+    assert.ok(
+      maximizeOcclusionSamples.some((sample) => sample.transitionLocked),
+      '最大化开始时必须锁定胶片坞隐藏态'
+    );
+    maximizeOcclusionSamples.forEach((sample) => {
+      assert.equal(sample.state, 'hidden', '最大化逐帧期间胶片坞状态必须保持 hidden');
+      assert.ok(sample.opacity <= 0.01, `最大化逐帧期间胶片坞不得可见，当前透明度 ${sample.opacity}`);
+      assert.equal(sample.visibility, 'hidden', '最大化逐帧期间胶片坞不得遮挡主图底部');
+      assert.equal(sample.pointerEvents, 'none', '最大化逐帧期间胶片坞不得拦截主图操作');
+    });
+    await idlePage.waitForFunction((initialWidth) => (
+      document.querySelector('[data-window-surface]')?.getBoundingClientRect().width >= initialWidth + 64
+    ), visibleWindowRect.width, { timeout: navigationTimeoutMs });
+    await maximizeButton.click();
+    await idlePage.waitForFunction(({ width, height }) => {
+      const rect = document.querySelector('[data-window-surface]')?.getBoundingClientRect();
+      const shell = document.querySelector('.photos-detail-shell');
+      return rect
+        && Math.abs(rect.width - width) <= 1
+        && Math.abs(rect.height - height) <= 1
+        && !shell?.hasAttribute('data-photos-window-transition');
+    }, {
+      width: visibleWindowRect.width,
+      height: visibleWindowRect.height,
+    }, { timeout: navigationTimeoutMs });
+    const rewoken = await wakeFilmstrip(idlePage);
+    assert.equal(rewoken.state, 'visible', '最大化回归结束后主舞台仍必须可以唤醒胶片坞');
+    assert.equal(rewoken.opacity, '1', '最大化回归结束后胶片坞必须完整恢复显示');
 
     await idlePage.locator('.photos-detail-filmstrip').hover();
     await idlePage.waitForTimeout(visible.idleDelay + 250);
