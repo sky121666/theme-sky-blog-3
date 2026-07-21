@@ -6,6 +6,7 @@ const baseUrl = String(
 ).replace(/\/$/, '');
 const navigationTimeoutMs = 30_000;
 const transitionName = 'photos-active-photo';
+const filmstripTransitionName = 'photos-detail-filmstrip';
 const transitionClass = 'photos-shared-view-transition';
 const transitionOwnerAttribute = 'data-photos-view-transition-owner';
 const transitionKindAttribute = 'data-photos-view-transition-kind';
@@ -55,7 +56,14 @@ async function waitForPhotosView(page, expectedUrl, expectedView) {
 }
 
 async function installViewTransitionProbe(page) {
-  await page.evaluate(({ ownerAttribute, kindAttribute, directionAttribute, sharedName, rootClass }) => {
+  await page.evaluate(({
+    ownerAttribute,
+    kindAttribute,
+    directionAttribute,
+    sharedName,
+    filmstripName,
+    rootClass,
+  }) => {
     if (typeof document.startViewTransition !== 'function') {
       throw new Error('当前 Chromium 不支持 document.startViewTransition');
     }
@@ -64,6 +72,19 @@ async function installViewTransitionProbe(page) {
     const capture = () => {
       const root = document.documentElement;
       const photosShell = document.querySelector('.photos-detail-shell');
+      const detailStage = photosShell?.querySelector('.photos-detail-stage') || null;
+      const detailFigure = photosShell?.querySelector('.photos-detail-figure') || null;
+      const detailImage = photosShell?.querySelector('.photos-detail-image') || null;
+      const detailFilmstrip = photosShell?.querySelector('.photos-detail-filmstrip') || null;
+      const detailFilmstripList = detailFilmstrip?.querySelector('.photos-detail-neighbor-list') || null;
+      const detailCurrentItem = detailFilmstripList?.querySelector('.photos-detail-neighbor.is-current') || null;
+      const detailStageRect = detailStage?.getBoundingClientRect() || null;
+      const detailFigureRect = detailFigure?.getBoundingClientRect() || null;
+      const detailImageRect = detailImage?.getBoundingClientRect() || null;
+      const detailFilmstripListRect = detailFilmstripList?.getBoundingClientRect() || null;
+      const detailCurrentItemRect = detailCurrentItem?.getBoundingClientRect() || null;
+      const detailImageStyle = detailImage ? getComputedStyle(detailImage) : null;
+      const detailFilmstripStyle = detailFilmstrip ? getComputedStyle(detailFilmstrip) : null;
       const participants = Array.from(document.querySelectorAll(`[${ownerAttribute}]`))
         .filter((element) => element !== root)
         .map((element) => {
@@ -105,6 +126,31 @@ async function installViewTransitionProbe(page) {
         subtitle: document.querySelector('[data-window-subtitle]')?.textContent?.trim() || '',
         shellTitle: photosShell?.dataset.photosChromeTitle || '',
         shellSubtitle: photosShell?.dataset.photosChromeSubtitle || '',
+        filmstripNamedCount: Array.from(document.querySelectorAll('.photos-detail-filmstrip'))
+          .filter((element) => getComputedStyle(element).viewTransitionName === filmstripName)
+          .length,
+        detailLayout: detailImageRect && detailFigureRect && detailStageRect
+          ? {
+              imageComputedTransform: detailImageStyle?.transform || '',
+              imageInlineTransform: detailImage?.style.transform || '',
+              imageCenterOffsetX: Math.abs(
+                ((detailImageRect.left + detailImageRect.right) / 2)
+                  - ((detailFigureRect.left + detailFigureRect.right) / 2)
+              ),
+              imageCenterOffsetY: Math.abs(
+                ((detailImageRect.top + detailImageRect.bottom) / 2)
+                  - ((detailFigureRect.top + detailFigureRect.bottom) / 2)
+              ),
+              filmstripTransitionName: detailFilmstripStyle?.viewTransitionName || '',
+              filmstripScrollLeft: detailFilmstripList?.scrollLeft || 0,
+              currentFilmstripItemVisible: Boolean(
+                detailFilmstripListRect
+                  && detailCurrentItemRect
+                  && detailCurrentItemRect.left >= detailFilmstripListRect.left - 1
+                  && detailCurrentItemRect.right <= detailFilmstripListRect.right + 1
+              ),
+            }
+          : null,
       };
     };
 
@@ -186,6 +232,9 @@ async function installViewTransitionProbe(page) {
               animationDuration: style.animationDuration,
               animationDelay: style.animationDelay,
               animationFillMode: style.animationFillMode,
+              mixBlendMode: style.mixBlendMode,
+              opacity: style.opacity,
+              zIndex: style.zIndex,
             };
           };
           record.animationStyles = {
@@ -202,6 +251,9 @@ async function installViewTransitionProbe(page) {
             group: readStyle(`::view-transition-group(${sharedName})`),
             oldPhoto: readStyle(`::view-transition-old(${sharedName})`),
             newPhoto: readStyle(`::view-transition-new(${sharedName})`),
+            filmstripGroup: readStyle(`::view-transition-group(${filmstripName})`),
+            oldFilmstrip: readStyle(`::view-transition-old(${filmstripName})`),
+            newFilmstrip: readStyle(`::view-transition-new(${filmstripName})`),
             oldRoot: readStyle('::view-transition-old(root)'),
             newRoot: readStyle('::view-transition-new(root)'),
           };
@@ -216,6 +268,7 @@ async function installViewTransitionProbe(page) {
     kindAttribute: transitionKindAttribute,
     directionAttribute: transitionDirectionAttribute,
     sharedName: transitionName,
+    filmstripName: filmstripTransitionName,
     rootClass: transitionClass,
   });
 }
@@ -237,6 +290,10 @@ async function probeState(page) {
       rootDirection: document.documentElement.getAttribute(directionAttribute) || '',
       liveOwnerCount: document.querySelectorAll(`[${ownerAttribute}]`).length,
       inlineNamedCount: document.querySelectorAll('[style*="view-transition-name"]').length,
+      liveFilmstripTransitionName: (() => {
+        const filmstrip = document.querySelector('.photos-detail-filmstrip');
+        return filmstrip ? getComputedStyle(filmstrip).viewTransitionName : 'none';
+      })(),
       trackedCleanup: Array.from(state?.trackedElements || []).map(({ source: trackedSource, target: trackedTarget }) => ({
         source: trackedSource ? {
           connected: trackedSource.isConnected,
@@ -299,6 +356,10 @@ async function assertTransitionStateIsClean(page, label) {
         && !document.documentElement.hasAttribute(directionAttribute)
         && document.querySelectorAll(`[${ownerAttribute}]`).length === 0
         && document.querySelectorAll('[style*="view-transition-name"]').length === 0
+        && (() => {
+          const filmstrip = document.querySelector('.photos-detail-filmstrip');
+          return !filmstrip || getComputedStyle(filmstrip).viewTransitionName === 'none';
+        })()
         && (!source || (!source.hasAttribute(ownerAttribute) && !source.style.viewTransitionName))
         && (!target || (!target.hasAttribute(ownerAttribute) && !target.style.viewTransitionName));
     },
@@ -318,6 +379,7 @@ async function assertTransitionStateIsClean(page, label) {
   assert.equal(state.rootDirection, '', `${label}: html direction 必须清理`);
   assert.equal(state.liveOwnerCount, 0, `${label}: DOM 中不得残留过渡 owner`);
   assert.equal(state.inlineNamedCount, 0, `${label}: DOM 中不得残留 view-transition-name`);
+  assert.equal(state.liveFilmstripTransitionName, 'none', `${label}: 胶片栏命名过渡必须清理`);
   assert.equal(state.sourceCleanup?.owner || '', '', `${label}: 已断开的来源照片 owner 必须清理`);
   assert.equal(state.sourceCleanup?.transitionName || '', '', `${label}: 已断开的来源照片样式必须清理`);
   assert.equal(state.targetCleanup?.owner || '', '', `${label}: 目标照片 owner 必须清理`);
@@ -382,6 +444,34 @@ async function assertDetailStepTransition(page, beforeState, {
   assert.equal(record.afterSwap.inlineNamedCount, 1, `${label}: 目标不得命名侧栏、标题栏或胶片项`);
   assert.equal(record.afterSwap.title, record.afterSwap.shellTitle, `${label}: 目标快照标题必须符合详情数据契约`);
   assert.equal(record.afterSwap.subtitle, record.afterSwap.shellSubtitle, `${label}: 目标快照副标题必须符合详情数据契约`);
+  assert.ok(record.afterSwap.detailLayout, `${label}: 新快照必须包含详情主图几何`);
+  assert.notEqual(
+    record.afterSwap.detailLayout.imageComputedTransform,
+    'none',
+    `${label}: Alpine 接管前主图必须已有静态居中 transform`
+  );
+  assert.ok(
+    record.afterSwap.detailLayout.imageCenterOffsetX <= 1
+      && record.afterSwap.detailLayout.imageCenterOffsetY <= 1,
+    `${label}: 新快照主图必须从首帧居中；实际偏移 ${JSON.stringify(record.afterSwap.detailLayout)}`
+  );
+  assert.equal(
+    record.before.detailLayout?.filmstripTransitionName,
+    filmstripTransitionName,
+    `${label}: 来源胶片栏必须加入稳定过渡层`
+  );
+  assert.equal(record.before.filmstripNamedCount, 1, `${label}: 来源只能有一个命名胶片栏`);
+  assert.equal(
+    record.afterSwap.detailLayout.filmstripTransitionName,
+    filmstripTransitionName,
+    `${label}: 目标胶片栏必须沿用稳定过渡层`
+  );
+  assert.equal(record.afterSwap.filmstripNamedCount, 1, `${label}: 目标只能有一个命名胶片栏`);
+  assert.equal(
+    record.afterSwap.detailLayout.currentFilmstripItemVisible,
+    true,
+    `${label}: 新快照生成前必须把当前缩略图滚入可见区`
+  );
   assert.equal(record.titlebarPresent, true, `${label}: 详情标题栏必须存在`);
   assert.equal(record.toolbarPresent, true, `${label}: 详情工具栏必须存在`);
   assert.equal(record.titlebarStable, true, `${label}: 标题栏节点必须保持稳定`);
@@ -419,6 +509,15 @@ async function assertDetailStepTransition(page, beforeState, {
   assert.equal(newAnimation.duration, 200, `${label}: 新图必须在 200ms 内柔和进入`);
   assert.equal(newAnimation.delay, 40, `${label}: 新图必须短暂延迟以避免高亮双影`);
   assert.equal(newAnimation.fill, 'both', `${label}: 新图延迟阶段必须保持透明首帧`);
+  assert.equal(record.animationStyles.group.zIndex, '1', `${label}: 主图过渡层必须位于胶片栏下方`);
+  assert.equal(record.animationStyles.filmstripGroup.zIndex, '2', `${label}: 胶片栏过渡层必须高于主图`);
+  assert.equal(record.animationStyles.filmstripGroup.animationName, 'none', `${label}: 胶片栏容器不得漂移`);
+  assert.equal(record.animationStyles.oldFilmstrip.animationName, 'none', `${label}: 旧胶片栏不得交叉淡化`);
+  assert.equal(record.animationStyles.newFilmstrip.animationName, 'none', `${label}: 新胶片栏不得交叉淡化`);
+  assert.equal(record.animationStyles.oldFilmstrip.opacity, '0', `${label}: 旧胶片栏快照必须立即退出`);
+  assert.equal(record.animationStyles.newFilmstrip.opacity, '1', `${label}: 新胶片栏快照必须始终可见`);
+  assert.equal(record.animationStyles.oldFilmstrip.mixBlendMode, 'normal', `${label}: 旧胶片栏不得与主图混色`);
+  assert.equal(record.animationStyles.newFilmstrip.mixBlendMode, 'normal', `${label}: 新胶片栏不得与主图混色`);
   assert.equal(
     record.animationStyles.animations.some((animation) => (
       animation.pseudo === '::view-transition-old(root)'
@@ -435,6 +534,14 @@ async function assertDetailStepTransition(page, beforeState, {
   );
 
   await assertTransitionStateIsClean(page, label);
+  const settledDetailState = await readDetailSwitchState(page);
+  assert.ok(
+    Math.abs(
+      settledDetailState.filmstripScrollLeft
+        - record.afterSwap.detailLayout.filmstripScrollLeft
+    ) <= 1,
+    `${label}: 胶片栏不得在过渡结束后再次跳动`
+  );
   return state;
 }
 
@@ -487,6 +594,51 @@ async function findPhotoCard(page, { visible }) {
   }
 
   throw new Error(`没有找到${visible ? '完整可见且图片已就绪' : '不可见'}的照片卡片`);
+}
+
+async function findLaterVisiblePhotoCard(page) {
+  const cards = page.locator('a.photo-card[data-photo-name]');
+  const count = await cards.count();
+  assert.ok(count >= 13, '列表进入详情层级回归至少需要 13 张照片形成溢出胶片栏');
+
+  const firstCandidateIndex = Math.min(count - 2, 14);
+  for (let index = firstCandidateIndex; index >= 10; index -= 1) {
+    const candidate = cards.nth(index);
+    await candidate.evaluate(async (card) => {
+      card.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
+      const image = card.querySelector('img');
+      if (image && !image.complete) {
+        await new Promise((resolve) => {
+          image.addEventListener('load', resolve, { once: true });
+          image.addEventListener('error', resolve, { once: true });
+        });
+      }
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    });
+
+    const state = await candidate.evaluate((card) => {
+      const inner = card.querySelector('.photo-card-inner');
+      const clip = card.closest('.photos-grid-scroll');
+      const image = card.querySelector('img');
+      if (!inner || !clip) return null;
+      const rect = inner.getBoundingClientRect();
+      const clipRect = clip.getBoundingClientRect();
+      return {
+        href: card.href,
+        photoName: card.dataset.photoName || '',
+        imageReady: Boolean(image?.complete && image.naturalWidth > 0),
+        fullyVisible: rect.width > 0
+          && rect.height > 0
+          && rect.top >= clipRect.top - 1
+          && rect.left >= clipRect.left - 1
+          && rect.right <= clipRect.right + 1
+          && rect.bottom <= clipRect.bottom + 1,
+      };
+    });
+    if (state?.fullyVisible && state.imageReady) return { index, ...state };
+  }
+
+  throw new Error('没有找到完整可见且会触发胶片栏横向居中的中后段照片');
 }
 
 async function assertDetailLayout(page, expectedSidebarHrefs, expectedPhotoName) {
@@ -1395,7 +1547,7 @@ try {
   state = await probeState(page);
   assert.equal(state.callCount, 0, '详情 → 分组不得反向启动列表共享元素过渡');
 
-  const visibleCard = await findPhotoCard(page, { visible: true });
+  const visibleCard = await findLaterVisiblePhotoCard(page);
   const visibleBefore = await probeState(page);
   await page.locator('a.photo-card[data-photo-name]').nth(visibleCard.index).click();
 
@@ -1414,6 +1566,11 @@ try {
     transitionName,
     { timeout: navigationTimeoutMs }
   );
+  await page.waitForFunction(
+    () => Boolean(window.__PHOTOS_VIEW_TRANSITION_PROBE__?.records?.[0]?.animationStyles),
+    null,
+    { timeout: navigationTimeoutMs }
+  );
 
   state = await probeState(page);
   assert.equal(state.callCount, 1, '可见照片列表 → 详情必须且只能调用一次 startViewTransition');
@@ -1430,6 +1587,7 @@ try {
   assert.equal(record.before.participants[0].transitionName, transitionName, '来源照片必须使用固定共享名称');
   assert.equal(record.before.participants[0].fullyVisible, true, '共享元素来源必须完整位于图库滚动窗口内');
   assert.equal(record.before.inlineNamedCount, 1, '过渡开始前只能有一个内联 view-transition-name');
+  assert.equal(record.before.filmstripNamedCount, 0, '列表来源不得伪造胶片栏过渡参与者');
 
   assert.equal(record.afterSwap.rootOwner, record.before.rootOwner, '内容交换后必须沿用同一个 owner');
   assert.equal(record.afterSwap.photosView, 'detail', '内容交换后的目标必须是照片详情');
@@ -1438,6 +1596,38 @@ try {
   assert.equal(record.afterSwap.participants[0].photoName, visibleCard.photoName, '详情共享元素必须与点击照片一致');
   assert.equal(record.afterSwap.participants[0].transitionName, transitionName, '详情必须沿用固定共享名称');
   assert.equal(record.afterSwap.inlineNamedCount, 1, '内容交换后只能有一个内联 view-transition-name');
+  assert.ok(record.afterSwap.detailLayout, '列表进入详情的新快照必须包含主图几何');
+  assert.notEqual(
+    record.afterSwap.detailLayout.imageComputedTransform,
+    'none',
+    '列表进入详情时主图必须从新快照首帧静态居中'
+  );
+  assert.ok(
+    record.afterSwap.detailLayout.imageCenterOffsetX <= 1
+      && record.afterSwap.detailLayout.imageCenterOffsetY <= 1,
+    `列表进入详情时主图中心不得漂移；实际 ${JSON.stringify(record.afterSwap.detailLayout)}`
+  );
+  assert.equal(
+    record.afterSwap.detailLayout.filmstripTransitionName,
+    filmstripTransitionName,
+    '列表进入详情时新胶片栏必须加入独立过渡层'
+  );
+  assert.equal(record.afterSwap.filmstripNamedCount, 1, '列表进入详情时只能有一个命名胶片栏');
+  assert.equal(
+    record.afterSwap.detailLayout.currentFilmstripItemVisible,
+    true,
+    '列表进入详情的新快照必须先把当前缩略图滚入可见区'
+  );
+  assert.ok(
+    record.afterSwap.detailLayout.filmstripScrollLeft > 1,
+    '列表进入详情回归夹具必须实际覆盖中后段缩略图横向居中'
+  );
+  assert.equal(record.animationStyles.group.zIndex, '1', '列表进入详情的主图过渡层必须位于胶片栏下方');
+  assert.equal(record.animationStyles.filmstripGroup.zIndex, '2', '列表进入详情的胶片栏过渡层必须高于主图');
+  assert.equal(record.animationStyles.filmstripGroup.animationName, 'none', '列表进入详情时胶片栏容器不得漂移');
+  assert.equal(record.animationStyles.newFilmstrip.animationName, 'none', '列表进入详情时新胶片栏不得交叉淡化');
+  assert.equal(record.animationStyles.newFilmstrip.opacity, '1', '列表进入详情时新胶片栏快照必须始终可见');
+  assert.equal(record.animationStyles.newFilmstrip.mixBlendMode, 'normal', '列表进入详情时新胶片栏不得与主图混色');
 
   const pseudoElements = await page.evaluate(() => document.getAnimations({ subtree: true })
     .map((animation) => animation.effect?.pseudoElement || '')
@@ -1456,6 +1646,12 @@ try {
   await assertTransitionStateIsClean(page, '可见照片 → 详情完成');
 
   let directState = await readDetailSwitchState(page);
+  assert.ok(
+    Math.abs(
+      directState.filmstripScrollLeft - record.afterSwap.detailLayout.filmstripScrollLeft
+    ) <= 1,
+    '列表进入详情完成后胶片栏不得从新快照位置再次跳动'
+  );
   assert.ok(directState.nextHref && directState.nextHref !== '#', '中间照片必须提供下一张用于方向回归');
   const directNextTargetName = await page
     .locator(`.photos-detail-neighbor[href="${directState.nextHref}"]`)
