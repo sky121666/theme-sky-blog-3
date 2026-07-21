@@ -10,6 +10,8 @@ const transitionClass = 'photos-shared-view-transition';
 const transitionOwnerAttribute = 'data-photos-view-transition-owner';
 const transitionKindAttribute = 'data-photos-view-transition-kind';
 const transitionDirectionAttribute = 'data-photos-view-transition-direction';
+const filmstripTransitionSettleMs = 320;
+const filmstripIdleWaitTimeoutMs = 6_000;
 
 function absoluteUrl(pathname) {
   return new URL(pathname, `${baseUrl}/`).toString();
@@ -517,6 +519,10 @@ async function assertDetailLayout(page, expectedSidebarHrefs, expectedPhotoName)
       currentPhotoName: document.querySelector('.photos-detail-figure[data-photo-name]')?.dataset.photoName || '',
       currentHref: current[0]?.getAttribute('href') || '',
       filmstripDisplay: filmstrip ? getComputedStyle(filmstrip).display : 'none',
+      filmstripPosition: filmstrip ? getComputedStyle(filmstrip).position : '',
+      filmstripBorderRadius: filmstrip
+        ? Number.parseFloat(getComputedStyle(filmstrip.querySelector('.photos-detail-neighbor-list')).borderRadius)
+        : 0,
     };
   });
 
@@ -527,12 +533,86 @@ async function assertDetailLayout(page, expectedSidebarHrefs, expectedPhotoName)
   assert.ok(Math.abs(state.sidebar.top - state.shell.top) <= 1, '详情侧栏顶部必须与应用内容对齐');
   assert.ok(Math.abs(state.sidebar.bottom - state.shell.bottom) <= 1, '详情侧栏底部必须与应用内容对齐');
   assert.ok(state.filmstrip && state.stage, '详情必须包含主舞台和底部胶片条');
-  assert.notEqual(state.filmstripDisplay, 'none', '底部胶片条必须可见');
+  assert.notEqual(state.filmstripDisplay, 'none', '底部胶片条必须保留完整 DOM');
   assert.ok(state.filmstripCount > 1, '底部胶片条必须提供附近照片');
   assert.equal(state.currentCount, 1, '底部胶片条必须唯一标记当前照片');
   assert.equal(state.currentPhotoName, expectedPhotoName, '详情主图必须对应点击的照片');
-  assert.ok(state.filmstrip.top >= state.stage.bottom - 1, '胶片条必须位于主舞台下方');
-  assert.ok(state.filmstrip.bottom <= state.main.bottom + 1, '胶片条不得越出详情主内容');
+  assert.equal(state.filmstripPosition, 'absolute', '胶片条必须作为浮层，避免显隐时重排主图');
+  assert.ok(state.filmstrip.top >= state.stage.top - 1, '浮动胶片条不得越出主舞台顶部');
+  assert.ok(state.filmstrip.top < state.stage.bottom, '浮动胶片条必须覆盖在主舞台底部');
+  assert.ok(state.filmstrip.bottom <= state.main.bottom + 12, '胶片条退场位移不得明显越出详情主内容');
+  assert.ok(state.filmstripBorderRadius >= 12, '浮动胶片条必须保留原生相册式圆角材质');
+}
+
+async function readFilmstripLifecycleState(page) {
+  return page.evaluate(() => {
+    const shell = document.querySelector('.photos-detail-shell');
+    const main = shell?.querySelector('.photos-detail-main');
+    const stage = shell?.querySelector('.photos-detail-stage');
+    const image = shell?.querySelector('.photos-detail-image');
+    const filmstrip = shell?.querySelector('.photos-detail-filmstrip');
+    const list = filmstrip?.querySelector('.photos-detail-neighbor-list');
+    const current = list?.querySelector('.photos-detail-neighbor[aria-current="true"]');
+    const rect = (element) => {
+      const box = element?.getBoundingClientRect();
+      return box ? {
+        top: box.top,
+        bottom: box.bottom,
+        left: box.left,
+        right: box.right,
+        width: box.width,
+        height: box.height,
+      } : null;
+    };
+    const filmstripStyle = filmstrip ? getComputedStyle(filmstrip) : null;
+    const listStyle = list ? getComputedStyle(list) : null;
+
+    return {
+      state: shell?.dataset.photosFilmstripState || '',
+      idleDelay: Number.parseInt(shell?.dataset.photosFilmstripIdleDelay || '0', 10),
+      main: rect(main),
+      stage: rect(stage),
+      image: rect(image),
+      filmstrip: rect(filmstrip),
+      filmstripCount: list?.querySelectorAll('.photos-detail-neighbor').length || 0,
+      currentCount: list?.querySelectorAll('.photos-detail-neighbor.is-current[aria-current="true"]').length || 0,
+      currentHref: current?.getAttribute('href') || '',
+      ariaHidden: filmstrip?.getAttribute('aria-hidden') || '',
+      inert: filmstrip?.hasAttribute('inert') || false,
+      opacity: filmstripStyle?.opacity || '',
+      visibility: filmstripStyle?.visibility || '',
+      pointerEvents: filmstripStyle?.pointerEvents || '',
+      position: filmstripStyle?.position || '',
+      transform: filmstripStyle?.transform || '',
+      transitionDuration: filmstripStyle?.transitionDuration || '',
+      listBorderRadius: listStyle?.borderRadius || '',
+      nextHref: shell?.querySelector('.photos-detail-adjacent-btn[aria-label="下一张"]:not(.is-disabled)')?.getAttribute('href') || '',
+    };
+  });
+}
+
+function assertStableRect(before, after, label) {
+  assert.ok(before && after, `${label}必须存在`);
+  for (const key of ['top', 'left', 'width', 'height']) {
+    assert.ok(
+      Math.abs(before[key] - after[key]) <= 0.75,
+      `${label}在胶片条显隐前后不得发生${key}跳动：${before[key]} -> ${after[key]}`
+    );
+  }
+}
+
+async function wakeFilmstrip(page) {
+  const current = await readFilmstripLifecycleState(page);
+  if (current.state === 'visible') return current;
+
+  await page.locator('.photos-detail-stage').hover({ position: { x: 20, y: 20 } });
+  await page.waitForFunction(
+    () => document.querySelector('.photos-detail-shell')?.dataset.photosFilmstripState === 'visible',
+    null,
+    { timeout: navigationTimeoutMs }
+  );
+  await page.waitForTimeout(filmstripTransitionSettleMs);
+  return readFilmstripLifecycleState(page);
 }
 
 async function readDetailSwitchState(page) {
@@ -568,6 +648,176 @@ async function readDetailSwitchState(page) {
       zoom: document.querySelector('[data-photos-detail-zoom]')?.value || '',
     };
   });
+}
+
+async function verifyFilmstripIdleLifecycle(browser, detailHref) {
+  const idleContext = await browser.newContext({ viewport: { width: 1245, height: 923 } });
+  await idleContext.addInitScript(() => {
+    window.localStorage.removeItem('theme-photos-explorer-prefs');
+    window.localStorage.setItem('theme-window-metrics-photos', JSON.stringify({
+      x: 66,
+      y: 68,
+      width: 1114,
+      height: 620,
+      isMaximized: false,
+      preMaxX: 0,
+      preMaxY: 0,
+      preMaxWidth: 0,
+      preMaxHeight: 0,
+    }));
+  });
+
+  const idlePage = await idleContext.newPage();
+  const idleErrors = collectRuntimeErrors(idlePage);
+  const waitForHidden = () => idlePage.waitForFunction(
+    () => document.querySelector('.photos-detail-shell')?.dataset.photosFilmstripState === 'hidden',
+    null,
+    { timeout: filmstripIdleWaitTimeoutMs }
+  );
+
+  try {
+    const response = await idlePage.goto(absoluteUrl(detailHref), {
+      waitUntil: 'networkidle',
+      timeout: navigationTimeoutMs,
+    });
+    assert.equal(response?.status(), 200, '胶片条空闲回归详情路由必须返回 200');
+    await waitForPhotosView(idlePage, detailHref, 'detail');
+    await idlePage.locator('.photos-detail-stage').hover({ position: { x: 20, y: 20 } });
+    await idlePage.waitForFunction(() => {
+      const shell = document.querySelector('.photos-detail-shell');
+      const image = document.querySelector('.photos-detail-image');
+      return shell?.dataset.photosFilmstripState === 'visible'
+        && Number.parseInt(shell.dataset.photosFilmstripIdleDelay || '0', 10) > 0
+        && image?.complete
+        && image.naturalWidth > 0;
+    }, null, { timeout: navigationTimeoutMs });
+    await idlePage.waitForTimeout(filmstripTransitionSettleMs);
+
+    const visible = await readFilmstripLifecycleState(idlePage);
+    assert.equal(visible.state, 'visible', '详情初始必须显示浮动胶片条');
+    assert.ok(visible.idleDelay >= 3_000 && visible.idleDelay <= 4_000, '胶片条空闲时间必须保持在约 3 秒');
+    assert.equal(visible.position, 'absolute', '胶片条必须浮在主舞台内，不得占用布局行');
+    assert.equal(visible.opacity, '1', '胶片条初始必须完全可见');
+    assert.equal(visible.visibility, 'visible', '胶片条初始不得被隐藏');
+    assert.equal(visible.pointerEvents, 'auto', '显示态胶片条必须可以点击');
+    assert.equal(visible.ariaHidden, '', '显示态胶片条不得从辅助技术中隐藏');
+    assert.equal(visible.inert, false, '显示态胶片条必须可聚焦');
+    assert.equal(visible.currentCount, 1, '胶片条初始必须唯一标记当前照片');
+    assert.ok(visible.filmstripCount > 1, '胶片条初始必须保留完整照片列表');
+
+    await waitForHidden();
+    await idlePage.waitForTimeout(filmstripTransitionSettleMs);
+    const hidden = await readFilmstripLifecycleState(idlePage);
+    assert.equal(hidden.state, 'hidden', '超过空闲时间后胶片条必须隐藏');
+    assert.equal(hidden.opacity, '0', '隐藏态胶片条必须完全淡出');
+    assert.equal(hidden.visibility, 'hidden', '隐藏态胶片条必须退出视觉命中');
+    assert.equal(hidden.pointerEvents, 'none', '隐藏态胶片条不得拦截主图操作');
+    assert.equal(hidden.ariaHidden, 'true', '隐藏态胶片条必须同步辅助技术状态');
+    assert.equal(hidden.inert, true, '隐藏态胶片条不得保留不可见焦点目标');
+    assert.equal(hidden.filmstripCount, visible.filmstripCount, '隐藏不得销毁胶片条照片列表');
+    assert.equal(hidden.currentCount, 1, '隐藏不得丢失当前照片标记');
+    assertStableRect(visible.stage, hidden.stage, '主舞台');
+    assertStableRect(visible.image, hidden.image, '主图');
+
+    const woken = await wakeFilmstrip(idlePage);
+    assert.equal(woken.state, 'visible', '鼠标回到主舞台时必须立即唤醒胶片条');
+    assert.equal(woken.opacity, '1', '唤醒完成后胶片条必须完全显示');
+    assert.equal(woken.inert, false, '唤醒后胶片条必须恢复可交互状态');
+    assertStableRect(visible.stage, woken.stage, '唤醒后的主舞台');
+    assertStableRect(visible.image, woken.image, '唤醒后的主图');
+
+    await idlePage.locator('.photos-detail-filmstrip').hover();
+    await idlePage.waitForTimeout(visible.idleDelay + 250);
+    const hovered = await readFilmstripLifecycleState(idlePage);
+    assert.equal(hovered.state, 'visible', '鼠标悬停胶片条时不得自动收走');
+
+    await idlePage.locator('.photos-detail-stage').hover({ position: { x: 20, y: 20 } });
+    await waitForHidden();
+    await idlePage.keyboard.press('Tab');
+    await idlePage.waitForFunction(
+      () => document.querySelector('.photos-detail-shell')?.dataset.photosFilmstripState === 'visible',
+      null,
+      { timeout: navigationTimeoutMs }
+    );
+    const currentFilmstripItem = idlePage.locator('.photos-detail-neighbor[aria-current="true"]');
+    await currentFilmstripItem.focus();
+    await idlePage.waitForTimeout(visible.idleDelay + 250);
+    const focused = await readFilmstripLifecycleState(idlePage);
+    assert.equal(focused.state, 'visible', '键盘焦点位于胶片条时不得自动收走');
+    assert.equal(
+      await currentFilmstripItem.evaluate((element) => element === document.activeElement),
+      true,
+      '胶片条保持显示时不得丢失当前键盘焦点'
+    );
+
+    await idlePage.evaluate(() => document.activeElement?.blur?.());
+    await idlePage.locator('.photos-detail-stage').hover({ position: { x: 24, y: 24 } });
+    await waitForHidden();
+    const beforePjax = await readFilmstripLifecycleState(idlePage);
+    assert.ok(beforePjax.nextHref && beforePjax.nextHref !== '#', '空闲 PJAX 回归必须提供下一张');
+    await idlePage.evaluate(() => {
+      window.__PHOTOS_IDLE_OLD_ROOT__ = document.querySelector('.photos-detail-shell');
+    });
+    await idlePage.keyboard.press('ArrowRight');
+    await waitForPhotosView(idlePage, beforePjax.nextHref, 'detail');
+    await idlePage.waitForFunction(
+      () => document.querySelector('.photos-detail-shell')?.dataset.photosFilmstripState === 'visible',
+      null,
+      { timeout: navigationTimeoutMs }
+    );
+    const afterPjax = await readFilmstripLifecycleState(idlePage);
+    assert.equal(afterPjax.state, 'visible', '详情 PJAX 切换后新胶片条必须重新短暂显示');
+    const oldRootState = await idlePage.evaluate(() => ({
+      connected: window.__PHOTOS_IDLE_OLD_ROOT__?.isConnected || false,
+      state: window.__PHOTOS_IDLE_OLD_ROOT__?.dataset.photosFilmstripState || '',
+      idleDelay: window.__PHOTOS_IDLE_OLD_ROOT__?.dataset.photosFilmstripIdleDelay || '',
+    }));
+    assert.equal(oldRootState.connected, false, 'PJAX 后旧详情根必须断开');
+    assert.equal(oldRootState.state, '', 'PJAX 销毁时必须清理旧胶片条状态');
+    assert.equal(oldRootState.idleDelay, '', 'PJAX 销毁时必须清理旧胶片条计时契约');
+    assert.deepEqual(idleErrors, [], `胶片条空闲回归出现运行时错误：\n${idleErrors.join('\n')}`);
+  } finally {
+    await idleContext.close();
+  }
+}
+
+async function verifyTouchFilmstripPersistence(browser, detailHref) {
+  const touchContext = await browser.newContext({
+    viewport: { width: 900, height: 700 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  const touchPage = await touchContext.newPage();
+  const touchErrors = collectRuntimeErrors(touchPage);
+  try {
+    const response = await touchPage.goto(absoluteUrl(detailHref), {
+      waitUntil: 'networkidle',
+      timeout: navigationTimeoutMs,
+    });
+    assert.equal(response?.status(), 200, '触屏胶片条回归详情路由必须返回 200');
+    await waitForPhotosView(touchPage, detailHref, 'detail');
+    await touchPage.waitForFunction(
+      () => document.querySelector('.photos-detail-shell')?.dataset.photosFilmstripState === 'visible',
+      null,
+      { timeout: navigationTimeoutMs }
+    );
+    const touchCapability = await touchPage.evaluate(() => ({
+      fineHover: matchMedia('(hover: hover) and (pointer: fine)').matches,
+      maxTouchPoints: navigator.maxTouchPoints,
+    }));
+    assert.equal(touchCapability.fineHover, false, '触屏回归必须禁用细指针悬停能力');
+    assert.ok(touchCapability.maxTouchPoints > 0, '触屏回归必须暴露触摸输入');
+
+    const initial = await readFilmstripLifecycleState(touchPage);
+    await touchPage.waitForTimeout(initial.idleDelay + 350);
+    const settled = await readFilmstripLifecycleState(touchPage);
+    assert.equal(settled.state, 'visible', '触屏设备空闲时胶片条必须保持常显');
+    assert.equal(settled.pointerEvents, 'auto', '触屏胶片条必须保持单击可用');
+    assert.equal(settled.inert, false, '触屏胶片条不得进入 inert 状态');
+    assert.deepEqual(touchErrors, [], `触屏胶片条回归出现运行时错误：\n${touchErrors.join('\n')}`);
+  } finally {
+    await touchContext.close();
+  }
 }
 
 async function verifyReducedMotionFallback(browser) {
@@ -609,6 +859,20 @@ async function verifyReducedMotionFallback(browser) {
     let state = await probeState(reducedPage);
     assert.equal(state.callCount, 0, 'reduced-motion 列表进入详情不得调用 startViewTransition');
     await assertTransitionStateIsClean(reducedPage, 'reduced-motion 列表进入详情');
+
+    await reducedPage.waitForFunction(
+      () => document.querySelector('.photos-detail-shell')?.dataset.photosFilmstripState === 'hidden',
+      null,
+      { timeout: filmstripIdleWaitTimeoutMs }
+    );
+    const reducedFilmstrip = await readFilmstripLifecycleState(reducedPage);
+    assert.equal(reducedFilmstrip.state, 'hidden', 'reduced-motion 仍必须保留空闲隐藏功能');
+    assert.equal(reducedFilmstrip.opacity, '0', 'reduced-motion 空闲隐藏必须直接完成');
+    assert.match(
+      reducedFilmstrip.transitionDuration,
+      /^0s(?:, 0s)*$/,
+      'reduced-motion 胶片条不得播放显隐过渡'
+    );
 
     const current = await readDetailSwitchState(reducedPage);
     assert.ok(current.nextHref && current.nextHref !== '#', 'reduced-motion 详情必须提供下一张');
@@ -860,6 +1124,7 @@ try {
   const lastFilmstripPhotoName = await lastFilmstripLink.getAttribute('data-photo-name');
   assert.ok(lastFilmstripHref, '胶片条末项必须提供详情路由');
   assert.ok(lastFilmstripPhotoName, '胶片条末项必须提供照片标识');
+  await wakeFilmstrip(page);
   const beforeFilmstripStep = await probeState(page);
   await clickSameVariant(page, lastFilmstripLink, lastFilmstripHref, 'detail');
   await assertDetailStepTransition(page, beforeFilmstripStep, {
@@ -1043,9 +1308,11 @@ try {
   }
   assert.deepEqual(runtimeErrors, [], `图库专项回归出现运行时错误：\n${runtimeErrors.join('\n')}`);
 
+  await verifyFilmstripIdleLifecycle(browser, visibleCard.href);
+  await verifyTouchFilmstripPersistence(browser, visibleCard.href);
   await verifyReducedMotionFallback(browser);
 
-  console.log('Photos View Transition 真页回归通过：列表共享进入、详情定向步进、稳定侧栏/标题栏及完整胶片条正常');
+  console.log('Photos View Transition 真页回归通过：列表共享进入、详情定向步进、稳定侧栏/标题栏及空闲胶片坞正常');
 } finally {
   await context.close();
   await browser.close();
