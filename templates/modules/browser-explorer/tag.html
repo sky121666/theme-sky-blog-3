@@ -23,11 +23,23 @@
        data-pjax-app="explorer-tags"
        data-tag-link
        th:each="item : ${tags}"
+       th:with="tagIcon=${#annotations.getOrDefault(item, 'icon', '')},
+                tagColorRaw=${item.spec.color != null ? #strings.trim(item.spec.color) : ''},
+                tagColor=${tagColorRaw matches '^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$' ? tagColorRaw : ''}"
        th:href="${item.status.permalink}"
+       th:style="${!#strings.isEmpty(tagColor) ? '--tag-item-color:' + tagColor : ''}"
        th:classappend="${item.metadata.name == currentTagName ? ' is-active' : ''}"
-       th:attr="aria-current=${item.metadata.name == currentTagName ? 'page' : null},
+       th:attr="data-tag-color=${tagColor},
+                data-tag-custom-icon=${!#strings.isEmpty(tagIcon)},
+                aria-current=${item.metadata.name == currentTagName ? 'page' : null},
                 aria-label=${item.spec.displayName + '，' + item.postCount + ' 篇文章'}">
-      <span class="tags-folder-icon tags-folder-icon--sidebar icon-[lucide--tag]" aria-hidden="true"></span>
+      <span class="tags-folder-icon tags-folder-icon--sidebar tags-folder-icon--custom"
+            th:if="${!#strings.isEmpty(tagIcon)}"
+            th:utext="${tagIcon}"
+            aria-hidden="true"></span>
+      <span class="tags-folder-icon tags-folder-icon--sidebar icon-[lucide--tag]"
+            th:unless="${!#strings.isEmpty(tagIcon)}"
+            aria-hidden="true"></span>
       <span class="tags-sidebar-label" th:text="${item.spec.displayName}">标签</span>
       <span class="tags-sidebar-count" th:text="${item.postCount}">0</span>
     </a>

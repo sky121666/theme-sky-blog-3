@@ -253,12 +253,30 @@
 
 .categories-folder-icon {
   flex: none;
-  color: var(--categories-folder-icon);
+  color: var(--category-item-color, var(--categories-folder-icon));
 }
 
 .categories-folder-icon--sidebar {
   width: 15px;
   height: 15px;
+}
+
+.categories-folder-icon--custom {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.categories-folder-icon--custom > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.categories-sidebar-item[data-category-color]:not([data-category-color=""]) .categories-folder-icon {
+  filter:
+    drop-shadow(0 0 0.45px rgba(15, 23, 42, 0.68))
+    drop-shadow(0 1px 0.75px rgba(15, 23, 42, 0.22));
 }
 
 .categories-folder-icon--card,
@@ -275,7 +293,7 @@
 .categories-sidebar-item.is-active .categories-folder-icon,
 .category-folder-card.is-active .categories-folder-icon,
 .categories-folder-card.is-active .categories-folder-icon {
-  color: var(--categories-folder-icon-soft);
+  color: var(--category-item-color, var(--categories-folder-icon-soft));
 }
 
 .categories-content,

@@ -24,12 +24,23 @@
         <a class="categories-sidebar-item pjax-link"
            data-pjax-app="explorer-categories"
            data-category-link
+           th:with="categoryIcon=${#annotations.getOrDefault(item, 'icon', '')},
+                    categoryColorRaw=${#strings.trim(#annotations.getOrDefault(item, 'color', ''))},
+                    categoryColor=${categoryColorRaw matches '^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$' ? categoryColorRaw : ''}"
            th:href="${item.status.permalink}"
-           th:style="'--category-depth:' + ${currentDepth}"
+           th:style="${'--category-depth:' + currentDepth + (!#strings.isEmpty(categoryColor) ? ';--category-item-color:' + categoryColor : '')}"
            th:classappend="${item.metadata.name == currentCategoryName ? ' is-active' : ''}"
-           th:attr="aria-current=${item.metadata.name == currentCategoryName ? 'page' : null},
+           th:attr="data-category-color=${categoryColor},
+                    data-category-custom-icon=${!#strings.isEmpty(categoryIcon)},
+                    aria-current=${item.metadata.name == currentCategoryName ? 'page' : null},
                     aria-label=${item.spec.displayName + '，' + item.postCount + ' 篇文档'}">
-          <span class="categories-folder-icon categories-folder-icon--sidebar icon-[lucide--folder]" aria-hidden="true"></span>
+          <span class="categories-folder-icon categories-folder-icon--sidebar categories-folder-icon--custom"
+                th:if="${!#strings.isEmpty(categoryIcon)}"
+                th:utext="${categoryIcon}"
+                aria-hidden="true"></span>
+          <span class="categories-folder-icon categories-folder-icon--sidebar icon-[lucide--folder]"
+                th:unless="${!#strings.isEmpty(categoryIcon)}"
+                aria-hidden="true"></span>
           <span class="categories-sidebar-label" th:text="${item.spec.displayName}">分类</span>
           <span class="categories-sidebar-count" th:text="${item.postCount}">0</span>
         </a>

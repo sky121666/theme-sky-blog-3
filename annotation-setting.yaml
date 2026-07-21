@@ -92,7 +92,7 @@ spec:
       label: 标签图标 (SVG)
       format: svg
       value-only: true
-      help: 选择一个图标用于随机标签小组件。
+      help: 选择一个图标，用于标签 Finder 列表和随机标签小组件。
 
 ---
 apiVersion: v1alpha1
@@ -111,7 +111,7 @@ spec:
       label: 分类图标 (SVG)
       format: svg
       value-only: true
-      help: 选择一个图标用于桌面分类小组件。
+      help: 选择一个图标，用于分类 Finder 列表和桌面分类小组件。
 
     - $formkit: color
       id: category_color
@@ -119,7 +119,7 @@ spec:
       name: color
       label: 分类图标颜色
       value: ""
-      help: 设置图标的点缀颜色，用于桌面分类小组件。
+      help: 设置分类图标的点缀颜色，用于分类 Finder 列表和桌面分类小组件。
 
 ---
 apiVersion: v1alpha1
