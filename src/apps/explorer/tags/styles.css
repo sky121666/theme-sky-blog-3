@@ -38,10 +38,7 @@
   --tags-selection-border: color-mix(in srgb, var(--tags-accent) 18%, rgba(0, 0, 0, 0.08));
   --tags-sidebar-active-bg: linear-gradient(180deg, color-mix(in srgb, var(--tags-accent) 10%, rgba(255, 255, 255, 0.18)), color-mix(in srgb, var(--tags-accent) 7%, rgba(255, 255, 255, 0.08)));
   --tags-sidebar-active-border: color-mix(in srgb, var(--tags-accent) 14%, rgba(15, 23, 42, 0.08));
-  --tags-sidebar-active-shadow: 0 6px 16px color-mix(in srgb, var(--tags-accent) 6%, transparent);
-  --tags-list-active-bg: linear-gradient(180deg, color-mix(in srgb, var(--tags-accent) 10%, rgba(255, 255, 255, 0.14)), color-mix(in srgb, var(--tags-accent) 7%, rgba(255, 255, 255, 0.06)));
-  --tags-list-active-border: color-mix(in srgb, var(--tags-accent) 12%, rgba(15, 23, 42, 0.08));
-  --tags-list-active-rim: color-mix(in srgb, var(--tags-accent) 26%, transparent);
+  --tags-sidebar-active-shadow: 0 1px 2px rgba(15, 23, 42, 0.035);
   --tags-folder-icon: var(--theme-folder1, var(--mac-folder1, #4a90e2));
   --tags-folder-icon-soft: var(--theme-folder2, var(--mac-folder2, #64b5f6));
   --tags-scrollbar-thumb: rgba(156, 163, 175, 0.48);
@@ -85,10 +82,7 @@
   --tags-selection-border: color-mix(in srgb, var(--tags-accent) 24%, rgba(255, 255, 255, 0.12));
   --tags-sidebar-active-bg: linear-gradient(180deg, color-mix(in srgb, var(--tags-accent) 16%, rgba(255, 255, 255, 0.03)), color-mix(in srgb, var(--tags-accent) 11%, rgba(255, 255, 255, 0.015)));
   --tags-sidebar-active-border: color-mix(in srgb, var(--tags-accent) 18%, rgba(255, 255, 255, 0.1));
-  --tags-sidebar-active-shadow: 0 8px 18px color-mix(in srgb, var(--tags-accent) 9%, transparent);
-  --tags-list-active-bg: linear-gradient(180deg, color-mix(in srgb, var(--tags-accent) 14%, rgba(255, 255, 255, 0.025)), color-mix(in srgb, var(--tags-accent) 10%, rgba(255, 255, 255, 0.015)));
-  --tags-list-active-border: color-mix(in srgb, var(--tags-accent) 18%, rgba(255, 255, 255, 0.09));
-  --tags-list-active-rim: color-mix(in srgb, var(--tags-accent) 30%, transparent);
+  --tags-sidebar-active-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
   --tags-scrollbar-thumb: rgba(203, 213, 225, 0.26);
   --tags-scrollbar-thumb-hover: rgba(203, 213, 225, 0.38);
   --window-skeleton-base: color-mix(in srgb, var(--tags-row-hover) 92%, rgba(255, 255, 255, 0.03));
@@ -244,7 +238,6 @@
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     inset 0 0 0 1px color-mix(in srgb, var(--tags-accent) 5%, transparent),
-    inset 2px 0 0 var(--tags-list-active-rim),
     var(--tags-sidebar-active-shadow);
 }
 
@@ -690,11 +683,9 @@
 
 .tag-post-row.is-active {
   color: var(--tags-text);
-  background: var(--tags-list-active-bg);
-  border-color: var(--tags-list-active-border);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    inset 2px 0 0 var(--tags-list-active-rim);
+  background: var(--tags-selection-fill);
+  border-color: var(--tags-selection-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .tag-post-row-main {

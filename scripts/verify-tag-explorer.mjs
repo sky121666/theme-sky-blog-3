@@ -70,6 +70,11 @@ assert.match(styles, /prefers-reduced-motion: reduce/, '标签页必须尊重减
 assert.match(styles, /--tag-item-color/, '标签列表样式必须消费标签颜色元数据');
 assert.match(styles, /\.tags-folder-icon--custom > svg/, '标签自定义 SVG 必须受图标容器约束');
 assert.doesNotMatch(styles, /\.tags-sidebar-icon/, '标签图标样式不得恢复底块、边框或包裹容器');
+const tagActivePostStyles = styles.match(/\.tag-post-row\.is-active\s*\{([^}]*)\}/)?.[1] ?? '';
+assert.match(tagActivePostStyles, /background:\s*var\(--tags-selection-fill\)/, '标签文档选中态必须复用归档式轻量填充');
+assert.match(tagActivePostStyles, /border-color:\s*var\(--tags-selection-border\)/, '标签文档选中态必须复用归档式细边框');
+assert.match(tagActivePostStyles, /box-shadow:\s*inset 0 1px 0/, '标签文档选中态必须只保留归档式顶部高光');
+assert.doesNotMatch(styles, /list-active-rim|inset 2px 0 0/, '标签选中态不得恢复左侧强调线');
 
 assert.match(routeManifest, /matchesTagRoute/, '标签路由必须使用严格匹配器');
 assert.match(manifest, /sameAppPjaxLoading:\s*'progress'/, '标签内部 PJAX 必须使用轻量进度而非骨架屏');

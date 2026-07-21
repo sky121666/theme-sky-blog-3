@@ -76,6 +76,11 @@ assert.match(styles, /prefers-reduced-motion: reduce/, '分类页必须尊重减
 assert.match(styles, /--category-item-color/, '分类列表样式必须消费分类颜色元数据');
 assert.match(styles, /\.categories-folder-icon--custom > svg/, '分类自定义 SVG 必须受图标容器约束');
 assert.doesNotMatch(styles, /\.categories-sidebar-icon/, '分类图标样式不得恢复底块、边框或包裹容器');
+const categoryActivePostStyles = styles.match(/\.category-post-row\.is-active\s*\{([^}]*)\}/)?.[1] ?? '';
+assert.match(categoryActivePostStyles, /background:\s*var\(--categories-selection-fill\)/, '分类文档选中态必须复用归档式轻量填充');
+assert.match(categoryActivePostStyles, /border-color:\s*var\(--categories-selection-border\)/, '分类文档选中态必须复用归档式细边框');
+assert.match(categoryActivePostStyles, /box-shadow:\s*inset 0 1px 0/, '分类文档选中态必须只保留归档式顶部高光');
+assert.doesNotMatch(styles, /list-active-rim|inset 2px 0 0/, '分类选中态不得恢复左侧强调线');
 
 assert.match(routeManifest, /matchesCategoryRoute/, '分类路由必须使用严格匹配器');
 assert.match(widgetRenderer, /__SKY_THEME_ROUTES__\?\.categoriesUri/, '分类 Widget 必须复用主题分类根路由');

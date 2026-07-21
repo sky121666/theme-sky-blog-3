@@ -34,9 +34,6 @@
   --categories-sidebar-active-bg: color-mix(in srgb, var(--categories-accent) 9%, var(--categories-surface-strong));
   --categories-sidebar-active-border: color-mix(in srgb, var(--categories-accent) 14%, rgba(15, 23, 42, 0.08));
   --categories-sidebar-active-shadow: 0 1px 2px rgba(15, 23, 42, 0.035);
-  --categories-list-active-bg: color-mix(in srgb, var(--categories-accent) 8%, var(--categories-surface-strong));
-  --categories-list-active-border: color-mix(in srgb, var(--categories-accent) 12%, rgba(15, 23, 42, 0.08));
-  --categories-list-active-rim: color-mix(in srgb, var(--categories-accent) 26%, transparent);
   --categories-folder-icon: var(--theme-folder1, var(--mac-folder1, #4a90e2));
   --categories-folder-icon-soft: var(--theme-folder2, var(--mac-folder2, #64b5f6));
   --categories-scrollbar-thumb: rgba(156, 163, 175, 0.48);
@@ -77,9 +74,6 @@
   --categories-sidebar-active-bg: color-mix(in srgb, var(--categories-accent) 16%, var(--categories-surface-strong));
   --categories-sidebar-active-border: color-mix(in srgb, var(--categories-accent) 18%, rgba(255, 255, 255, 0.1));
   --categories-sidebar-active-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
-  --categories-list-active-bg: color-mix(in srgb, var(--categories-accent) 13%, var(--categories-surface-strong));
-  --categories-list-active-border: color-mix(in srgb, var(--categories-accent) 18%, rgba(255, 255, 255, 0.09));
-  --categories-list-active-rim: color-mix(in srgb, var(--categories-accent) 30%, transparent);
   --categories-scrollbar-thumb: rgba(203, 213, 225, 0.26);
   --categories-scrollbar-thumb-hover: rgba(203, 213, 225, 0.38);
   --window-skeleton-base: color-mix(in srgb, var(--categories-row-hover) 92%, rgba(255, 255, 255, 0.03));
@@ -231,7 +225,8 @@
   background: var(--categories-sidebar-active-bg);
   border-color: var(--categories-sidebar-active-border);
   box-shadow:
-    inset 2px 0 0 var(--categories-list-active-rim),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px color-mix(in srgb, var(--categories-accent) 5%, transparent),
     var(--categories-sidebar-active-shadow);
 }
 
@@ -690,9 +685,9 @@
 
 .category-post-row.is-active {
   color: var(--categories-text);
-  background: var(--categories-list-active-bg);
-  border-color: var(--categories-list-active-border);
-  box-shadow: inset 2px 0 0 var(--categories-list-active-rim);
+  background: var(--categories-selection-fill);
+  border-color: var(--categories-selection-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .category-post-row-main {
