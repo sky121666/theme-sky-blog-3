@@ -3973,9 +3973,10 @@ html.photos-shared-view-transition {
   pointer-events: auto;
   transform: translate3d(-50%, 0, 0) scale(1);
   transform-origin: center bottom;
+  backface-visibility: hidden;
   transition:
-    opacity 0.18s var(--photos-motion-soft),
-    transform 0.28s var(--photos-motion-spring),
+    opacity var(--photos-motion-base) var(--photos-motion-soft),
+    transform var(--photos-motion-panel) var(--photos-motion-spring),
     visibility 0s linear 0s;
 }
 
@@ -3983,11 +3984,17 @@ html.photos-shared-view-transition {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transform: translate3d(-50%, 9px, 0) scale(0.985);
+  transform: translate3d(-50%, 6px, 0) scale(0.992);
   transition:
-    opacity 0.14s ease,
-    transform 0.2s var(--photos-motion-exit),
-    visibility 0s linear 0.2s;
+    opacity var(--photos-motion-base) var(--photos-motion-soft),
+    transform 0.28s var(--photos-motion-spring),
+    visibility 0s linear 0.28s;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .photos-detail-main > .photos-detail-filmstrip {
+    will-change: transform, opacity;
+  }
 }
 
 .photos-detail-filmstrip .photos-detail-neighbor-list {
