@@ -161,7 +161,7 @@
   --floating-scrollbar-thumb: var(--tags-scrollbar-thumb);
   --floating-scrollbar-thumb-hover: var(--tags-scrollbar-thumb-hover);
   display: grid;
-  gap: 1px;
+  gap: 2px;
   align-content: start;
   grid-auto-rows: max-content;
   flex: 1;
@@ -183,7 +183,7 @@
   min-height: 29px;
   padding: 0 9px;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 7px;
   color: var(--tags-text-soft);
   background: transparent;
   text-align: left;

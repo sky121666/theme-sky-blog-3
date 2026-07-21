@@ -144,7 +144,7 @@
   --floating-scrollbar-thumb: var(--categories-scrollbar-thumb);
   --floating-scrollbar-thumb-hover: var(--categories-scrollbar-thumb-hover);
   display: grid;
-  gap: 1px;
+  gap: 2px;
   align-content: start;
   grid-auto-rows: max-content;
   flex: 1;
@@ -164,10 +164,10 @@
   align-items: center;
   gap: 10px;
   width: 100%;
-  min-height: 34px;
-  padding: 0 10px 0 calc(10px + (var(--category-depth) * 14px));
+  min-height: 29px;
+  padding: 0 9px 0 calc(9px + (var(--category-depth) * 14px));
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 7px;
   color: var(--categories-text-soft);
   background: transparent;
   text-align: left;
@@ -658,7 +658,7 @@
 }
 
 .browser-explorer-posts-skeleton {
-  min-height: 44px;
+  min-height: 33px;
 }
 
 .category-post-row {
@@ -667,8 +667,8 @@
   justify-content: space-between;
   gap: 12px;
   width: 100%;
-  min-height: 44px;
-  padding: 0 10px;
+  min-height: 33px;
+  padding: 0 9px;
   border: 1px solid transparent;
   border-radius: 7px;
   color: inherit;
