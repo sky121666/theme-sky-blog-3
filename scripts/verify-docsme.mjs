@@ -710,6 +710,48 @@ async function setThemeMode(page, mode) {
   }, mode);
 }
 
+async function inspectSwitcherThemeStyles(page, target) {
+  const response = await page.goto(absoluteUrl(target), { waitUntil: 'domcontentloaded', timeout: 20_000 });
+  await page.waitForTimeout(800);
+
+  const switcherCount = await page.locator('.docsme-switcher select').count();
+  if (switcherCount < 1) return { available: false, httpStatus: response.status() };
+
+  const originalMode = await page.evaluate(() => document.documentElement.dataset.colorScheme || 'system');
+  const inspect = () => page.locator('.docsme-switcher select').first().evaluate((select) => {
+    const option = select.querySelector('option');
+    const selectStyle = getComputedStyle(select);
+    const optionStyle = option ? getComputedStyle(option) : null;
+    return {
+      colorScheme: selectStyle.colorScheme,
+      selectBackgroundColor: selectStyle.backgroundColor,
+      selectColor: selectStyle.color,
+      optionBackgroundColor: optionStyle?.backgroundColor || '',
+      optionColor: optionStyle?.color || ''
+    };
+  });
+
+  try {
+    const lightDriver = await setThemeMode(page, 'light');
+    await page.waitForTimeout(180);
+    const light = await inspect();
+    const darkDriver = await setThemeMode(page, 'dark');
+    await page.waitForTimeout(180);
+    const dark = await inspect();
+    return {
+      available: true,
+      httpStatus: response.status(),
+      originalMode,
+      lightDriver,
+      darkDriver,
+      light,
+      dark
+    };
+  } finally {
+    await setThemeMode(page, originalMode);
+  }
+}
+
 async function inspectMermaidLifecycle(page) {
   return page.evaluate(() => {
     const nodes = Array.from(document.querySelectorAll(
@@ -916,6 +958,39 @@ async function main() {
   const inspections = new Map();
   for (const pathname of candidateDocs.slice(0, 12)) {
     inspections.set(pathname, await inspectDocsPage(page, pathname));
+  }
+
+  const switcherPath = chooseSample(candidateDocs, inspections, (result) => result.switchers > 0);
+  if (switcherPath) {
+    const result = await inspectSwitcherThemeStyles(page, switcherPath);
+    const checkFailures = [];
+    const transparentColors = new Set(['transparent', 'rgba(0, 0, 0, 0)']);
+    if (!result.available) checkFailures.push('switcher theme: no version or language select was available');
+    if (result.light?.colorScheme !== 'light') {
+      checkFailures.push(`switcher theme: light color-scheme=${result.light?.colorScheme || 'missing'}`);
+    }
+    if (result.dark?.colorScheme !== 'dark') {
+      checkFailures.push(`switcher theme: dark color-scheme=${result.dark?.colorScheme || 'missing'}`);
+    }
+    if (transparentColors.has(result.light?.optionBackgroundColor)) {
+      checkFailures.push('switcher theme: light option background is transparent');
+    }
+    if (transparentColors.has(result.dark?.optionBackgroundColor)) {
+      checkFailures.push('switcher theme: dark option background is transparent');
+    }
+    if (result.light?.optionBackgroundColor === result.dark?.optionBackgroundColor) {
+      checkFailures.push(`switcher theme: light and dark option backgrounds both use ${result.dark?.optionBackgroundColor || 'missing'}`);
+    }
+    failures.push(...checkFailures);
+    report.checks.push({
+      name: 'switcher-theme',
+      status: checkFailures.length ? 'failed' : 'passed',
+      path: switcherPath,
+      result,
+      failures: checkFailures
+    });
+  } else {
+    report.checks.push(skippedCheck('switcher-theme', 'No Docsme page with multiple versions or languages was discovered.'));
   }
 
   const docPath = explicitDocPath || candidateDocs[0] || '';
