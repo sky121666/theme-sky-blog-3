@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
+  formatMetadataFailure,
   formatSubmitFailure,
   normalizeUrl,
+  parseSiteMetadata,
+  resolveMetadataUrl,
+  sanitizePlainText,
   registerLinkSubmitForm
 } from '../src/apps/links/runtime.js';
 
@@ -21,6 +25,16 @@ assert.match(
   linksTemplate,
   /class="links-submit-fields" x-show="isDirectSubmitMode\(\) \|\| isMessageFallbackMode\(\)"/,
   'manual fields must remain visible in both direct-submit and message-fallback modes'
+);
+assert.match(
+  linksTemplate,
+  /<form class="links-extract-form" @submit\.prevent="autofillFromUrl">/,
+  'public metadata lookup must be available without a Halo Console permission check'
+);
+assert.doesNotMatch(
+  linksTemplate,
+  /detailToolAvailable|后台提取权限/,
+  'public metadata lookup must not depend on an administrator-only detail API'
 );
 
 assert.equal(
@@ -50,6 +64,12 @@ assert.equal(
 
 assert.equal(normalizeUrl('https://example.test/path'), 'https://example.test/path');
 assert.equal(normalizeUrl('http://example.test/path'), 'http://example.test/path');
+assert.equal(resolveMetadataUrl('/favicon.svg', 'https://example.test/path'), 'https://example.test/favicon.svg');
+assert.equal(resolveMetadataUrl('', 'https://example.test/path'), '');
+assert.equal(resolveMetadataUrl('data:image/svg+xml,test', 'https://example.test/'), '');
+assert.equal(sanitizePlainText('测试<br><strong>友链</strong>&nbsp;&amp; 安全'), '测试 友链 & 安全');
+assert.match(formatMetadataFailure({ code: 'mixed-content' }), /HTTPS.*HTTP/);
+assert.match(formatMetadataFailure({ code: 'not-html' }), /没有返回可识别的网页/);
 for (const unsafeUrl of [
   'javascript:alert(1)',
   'data:text/html,<script>alert(1)</script>',
@@ -88,10 +108,21 @@ function createEmptyFallbackModel() {
   return model;
 }
 
-function fakeResponse(status, payload = {}) {
+function fakeResponse(status, payload = {}, options = {}) {
+  const body = typeof payload === 'string' ? payload : '';
+  const contentType = options.contentType || (typeof payload === 'string' ? 'text/html; charset=utf-8' : 'application/json');
   return {
     ok: status >= 200 && status < 300,
     status,
+    type: 'basic',
+    url: options.url || '',
+    headers: {
+      get(name) {
+        if (String(name).toLowerCase() === 'content-type') return contentType;
+        if (String(name).toLowerCase() === 'content-length') return String(Buffer.byteLength(body));
+        return null;
+      }
+    },
     clone() {
       return this;
     },
@@ -99,9 +130,52 @@ function fakeResponse(status, payload = {}) {
       return payload;
     },
     async text() {
-      return '';
+      return body;
     }
   };
+}
+
+class TestDOMParser {
+  parseFromString(html) {
+    const source = String(html || '');
+    const tags = Array.from(source.matchAll(/<(meta|link)\b[^>]*>/gi), (match) => match[0]);
+    const parseAttributes = (tag) => Object.fromEntries(
+      Array.from(tag.matchAll(/([\w:-]+)\s*=\s*(["'])(.*?)\2/g), (match) => [match[1].toLowerCase(), match[3]])
+    );
+
+    return {
+      querySelector(selector) {
+        if (selector === 'title') {
+          const match = source.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+          return match ? { textContent: match[1], getAttribute() { return ''; } } : null;
+        }
+
+        const tagName = selector.startsWith('meta') ? 'meta' : 'link';
+        const conditions = Array.from(
+          selector.matchAll(/\[([\w:-]+)(~?=)"([^"]+)"\]/g),
+          (match) => ({ name: match[1].toLowerCase(), operator: match[2], value: match[3] })
+        );
+        for (const tag of tags) {
+          if (!tag.toLowerCase().startsWith(`<${tagName}`)) continue;
+          const attributes = parseAttributes(tag);
+          const matches = conditions.every((condition) => {
+            const value = attributes[condition.name] || '';
+            return condition.operator === '~='
+              ? value.split(/\s+/).includes(condition.value)
+              : value === condition.value;
+          });
+          if (!matches) continue;
+          return {
+            textContent: '',
+            getAttribute(name) {
+              return attributes[String(name).toLowerCase()] || '';
+            }
+          };
+        }
+        return null;
+      }
+    };
+  }
 }
 
 const originalFetch = globalThis.fetch;
@@ -109,7 +183,30 @@ const originalNavigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, 
 const originalWindowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
 const originalDocumentDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'document');
 const originalCustomEventDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'CustomEvent');
+const originalDOMParserDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'DOMParser');
 try {
+  Object.defineProperty(globalThis, 'DOMParser', {
+    configurable: true,
+    value: TestDOMParser
+  });
+  const parsedMetadata = parseSiteMetadata(`
+    <html><head>
+      <title>备用标题</title>
+      <meta property="og:title" content="识别站点">
+      <meta name="description" content="安全&lt;br&gt;简介">
+      <meta name="generator" content="Halo 2.25">
+      <link rel="icon" href="/favicon.svg">
+      <link rel="alternate" type="application/rss+xml" href="/rss.xml">
+    </head></html>
+  `, 'https://metadata.test/blog/');
+  assert.deepEqual(parsedMetadata, {
+    title: '识别站点',
+    description: '安全 简介',
+    logo: 'https://metadata.test/favicon.svg',
+    rssUrl: 'https://metadata.test/rss.xml',
+    platform: 'Halo'
+  });
+
   let successPostCount = 0;
   globalThis.fetch = async () => {
     successPostCount += 1;
@@ -155,7 +252,7 @@ try {
   const autofillRequests = [];
   globalThis.fetch = (url, options = {}) => {
     const request = deferred();
-    autofillRequests.push({ url: String(url), signal: options.signal, request });
+    autofillRequests.push({ url: String(url), options, signal: options.signal, request });
     return request.promise;
   };
   const concurrentAutofillModel = createEmptyFallbackModel();
@@ -164,23 +261,31 @@ try {
   concurrentAutofillModel.form.url = 'https://second-autofill.test/';
   const secondAutofillJob = concurrentAutofillModel.autofillFromUrl();
   assert.equal(autofillRequests.length, 2, 'two explicit autofill attempts should start two keyed requests');
+  assert.equal(autofillRequests[1].url, 'https://second-autofill.test/', 'metadata lookup must request the target site directly');
+  assert.equal(autofillRequests[1].options.credentials, 'omit', 'metadata lookup must not send the Halo login state');
+  assert.equal(autofillRequests[1].options.mode, 'cors', 'metadata lookup must use the browser CORS boundary');
   assert.equal(autofillRequests[0].signal.aborted, true, 'a newer autofill request should abort the older URL lookup');
 
-  autofillRequests[1].request.resolve(fakeResponse(200, {
-    title: '第二个站点',
-    description: '第二个请求先完成',
-    icon: 'https://second-autofill.test/icon.png'
-  }));
+  autofillRequests[1].request.resolve(fakeResponse(200, `
+    <title>第二个站点</title>
+    <meta name="description" content="第二个请求先完成">
+    <meta name="generator" content="Halo">
+    <link rel="icon" href="/icon.png">
+    <link rel="alternate" type="application/rss+xml" href="/rss.xml">
+  `, { url: 'https://second-autofill.test/' }));
   await secondAutofillJob;
-  autofillRequests[0].request.resolve(fakeResponse(200, {
-    title: '过期的第一个站点',
-    description: '这个迟到响应不应覆盖表单'
-  }));
+  autofillRequests[0].request.resolve(fakeResponse(200, `
+    <title>过期的第一个站点</title>
+    <meta name="description" content="这个迟到响应不应覆盖表单">
+  `, { url: 'https://first-autofill.test/' }));
   await firstAutofillJob;
 
   assert.equal(concurrentAutofillModel.form.url, 'https://second-autofill.test/', 'the current URL should remain the second request');
   assert.equal(concurrentAutofillModel.form.displayName, '第二个站点', 'a stale first response must not overwrite the latest autofill result');
   assert.equal(concurrentAutofillModel.form.description, '第二个请求先完成');
+  assert.equal(concurrentAutofillModel.form.logo, 'https://second-autofill.test/icon.png');
+  assert.equal(concurrentAutofillModel.form.rssUrl, 'https://second-autofill.test/rss.xml');
+  assert.equal(concurrentAutofillModel.detail.platform, 'Halo');
   assert.equal(concurrentAutofillModel.fetchingMeta, false, 'the latest autofill completion should release its loading state');
   assert.equal(concurrentAutofillModel.autofillController, null, 'the latest autofill controller should be released');
 
@@ -190,9 +295,23 @@ try {
   const destroyedRequest = autofillRequests.at(-1);
   destroyedAutofillModel.destroy();
   assert.equal(destroyedRequest.signal.aborted, true, 'destroy should abort an unresolved autofill request');
-  destroyedRequest.request.resolve(fakeResponse(200, { title: '销毁后返回' }));
+  destroyedRequest.request.resolve(fakeResponse(200, '<title>销毁后返回</title>', {
+    url: 'https://destroyed-autofill.test/'
+  }));
   await destroyedAutofillJob;
   assert.equal(destroyedAutofillModel.form.displayName, '', 'a response completed after destroy must not mutate the form');
+
+  globalThis.fetch = async (url) => fakeResponse(200, '{}', {
+    contentType: 'application/json',
+    url: String(url)
+  });
+  const blockedMetadataModel = createEmptyFallbackModel();
+  blockedMetadataModel.form.url = 'https://blocked-metadata.test/';
+  await blockedMetadataModel.autofillFromUrl();
+  assert.equal(blockedMetadataModel.result.warning, true, 'blocked metadata lookup should surface a warning state');
+  assert.match(blockedMetadataModel.result.message, /已保留网址/);
+  assert.equal(blockedMetadataModel.form.url, 'https://blocked-metadata.test/');
+  assert.equal(blockedMetadataModel.form.description, '', 'metadata fallback must still require a real manual description');
 
   const copiedDrafts = [];
   Object.defineProperty(globalThis, 'navigator', {
@@ -268,7 +387,8 @@ try {
     ['navigator', originalNavigatorDescriptor],
     ['window', originalWindowDescriptor],
     ['document', originalDocumentDescriptor],
-    ['CustomEvent', originalCustomEventDescriptor]
+    ['CustomEvent', originalCustomEventDescriptor],
+    ['DOMParser', originalDOMParserDescriptor]
   ]) {
     if (descriptor) {
       Object.defineProperty(globalThis, key, descriptor);

@@ -642,18 +642,130 @@ async function main() {
         return { ...baseValidation, ...runtimeErrors.snapshot() };
       }
 
+      const totalCards = await page.locator('.link-card').count();
+      const allLinksButton = page.locator('.links-sidebar-item').first();
+      const totalBadge = Number(await allLinksButton.locator('.links-sidebar-count-pill').innerText());
+      if (totalBadge !== totalCards) {
+        throw new Error(`全部友链计数不稳定: badge=${totalBadge}, cards=${totalCards}`);
+      }
+
+      const renderedDescriptions = await page.locator('.link-card-desc').allTextContents();
+      if (renderedDescriptions.some((value) => /<(?:br|strong)\b/i.test(value))) {
+        throw new Error('友链描述仍显示上游 HTML 标签文本');
+      }
+
       await page.locator('.links-toolbar-search').fill('http');
       await page.waitForTimeout(250);
       const visibleCards = await page.locator('.link-card:visible').count();
       if (visibleCards < 1) {
         throw new Error('搜索后未保留任何友链卡片');
       }
+      await page.locator('.links-toolbar-search').fill('');
+
+      const firstGroup = page.locator('[data-links-group]').first();
+      if (await firstGroup.count() > 0) {
+        const groupKey = await firstGroup.getAttribute('data-group-key');
+        await firstGroup.click();
+        await page.waitForFunction((key) => new URL(window.location.href).searchParams.get('group') === key, groupKey);
+        if (Number(await allLinksButton.locator('.links-sidebar-count-pill').innerText()) !== totalCards) {
+          throw new Error('切换分组后“全部友链”计数被错误改成筛选结果数');
+        }
+
+        await page.goBack();
+        await page.waitForFunction(() => !new URL(window.location.href).searchParams.has('group'));
+        await page.goForward();
+        await page.waitForFunction((key) => new URL(window.location.href).searchParams.get('group') === key, groupKey);
+      }
+
+      await page.goto(toAbsoluteUrl('/links?group=__missing_group__'), { waitUntil: 'domcontentloaded' });
+      await page.waitForSelector('[data-app-root="links"]');
+      await page.waitForFunction(() => !new URL(window.location.href).searchParams.has('group'));
+      if (await allLinksButton.getAttribute('aria-pressed') !== 'true') {
+        throw new Error('非法友链分组没有回退到“全部友链”');
+      }
+
+      const emptyGroup = page.locator('[data-links-group][data-group-count="0"]').first();
+      if (await emptyGroup.count() > 0) {
+        await emptyGroup.click();
+        await page.waitForSelector('.links-empty:visible');
+        const emptyTitle = await page.locator('.links-empty:visible .links-empty-title').innerText();
+        if (!emptyTitle.includes('该分组暂无友链')) {
+          throw new Error(`空分组提示不准确: ${emptyTitle}`);
+        }
+        await allLinksButton.click();
+      }
+
+      const boardButton = page.locator('#nav-board');
+      if (await boardButton.count() > 0) {
+        await boardButton.click();
+        await page.waitForFunction(() => new URL(window.location.href).searchParams.get('view') === 'board');
+        await page.waitForSelector('#view-board:visible');
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('#view-board:visible');
+        if (new URL(page.url()).searchParams.get('view') !== 'board') {
+          throw new Error('留言板刷新后没有保留 view=board 深链状态');
+        }
+      }
 
       const submitButton = page.locator('.links-toolbar-apply').first();
       if (await submitButton.count() > 0) {
+        const metadataPath = '/__link-metadata-smoke';
+        const metadataUrl = toAbsoluteUrl(metadataPath);
+        await page.route('**/__link-metadata-smoke*', async (route) => {
+          const url = new URL(route.request().url());
+          if (url.pathname.endsWith('.svg')) {
+            await route.fulfill({
+              status: 200,
+              contentType: 'image/svg+xml',
+              body: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="8" fill="#2563eb"/></svg>'
+            });
+            return;
+          }
+          if (url.pathname.endsWith('.json')) {
+            await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+            return;
+          }
+          await route.fulfill({
+            status: 200,
+            contentType: 'text/html; charset=utf-8',
+            body: `<!doctype html><html><head>
+              <title>友链识别测试站</title>
+              <meta name="description" content="纯前端识别&lt;strong&gt;测试&lt;/strong&gt;">
+              <meta name="generator" content="Halo 2.25">
+              <link rel="icon" href="${metadataPath}-logo.svg">
+              <link rel="alternate" type="application/rss+xml" href="${metadataPath}-rss.xml">
+            </head><body></body></html>`
+          });
+        });
+
         await submitButton.click();
         await page.waitForSelector('#link-submit-modal[open]');
+        await page.locator('[data-link-meta-input]').fill(metadataUrl);
+        await page.locator('[data-link-meta-action="autofill"]').click();
+        await page.waitForFunction(() => document.querySelector('[data-link-field="displayName"]')?.value === '友链识别测试站');
+        const metadataValues = await page.evaluate(() => ({
+          description: document.querySelector('[data-link-field="description"]')?.value || '',
+          logo: document.querySelector('[data-link-field="logo"]')?.value || '',
+          rssUrl: document.querySelector('[data-link-field="rssUrl"]')?.value || '',
+          result: document.querySelector('.links-submit-result')?.textContent || ''
+        }));
+        if (metadataValues.description !== '纯前端识别 测试') {
+          throw new Error(`友链描述识别或清理异常: ${metadataValues.description}`);
+        }
+        if (!metadataValues.logo.endsWith(`${metadataPath}-logo.svg`)
+          || !metadataValues.rssUrl.endsWith(`${metadataPath}-rss.xml`)
+          || !metadataValues.result.includes('Halo')) {
+          throw new Error(`友链 Logo/RSS/平台识别异常: ${JSON.stringify(metadataValues)}`);
+        }
+
+        await page.locator('[data-link-meta-input]').fill(toAbsoluteUrl(`${metadataPath}.json`));
+        await page.locator('[data-link-meta-action="autofill"]').click();
+        await page.waitForFunction(() => document.querySelector('.links-submit-result')?.textContent?.includes('已保留网址'));
+        if (await page.locator('[data-link-field="description"]').inputValue() !== '') {
+          throw new Error('识别新网址失败后仍残留上一站点的描述');
+        }
         await page.locator('.links-modal-close').click();
+        await page.unroute('**/__link-metadata-smoke*');
         await page.waitForTimeout(150);
       }
 

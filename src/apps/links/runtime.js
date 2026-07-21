@@ -2,10 +2,8 @@ import { warnApiCall } from '../../shell/desktop-shell/runtime/shared/debug.js';
 
 const LINK_SUBMIT_API = '/apis/anonymous.link.submit.kunkunyu.com/v1alpha1/linksubmits/-/submit';
 const LINK_SUBMIT_GROUPS_API = '/apis/anonymous.link.submit.kunkunyu.com/v1alpha1/linkgroups';
-const LINK_DETAIL_API = '/apis/console.api.link.halo.run/v1alpha1/links/-/detail';
-const CURRENT_USER_API = '/apis/api.console.halo.run/v1alpha1/users/-';
-const HALO_ANONYMOUS_USERNAME = 'anonymousUser';
-const HALO_ADMIN_ROLE_NAMES = new Set(['super-role', 'admin', 'administrator']);
+const SITE_METADATA_TIMEOUT_MS = 8000;
+const SITE_METADATA_MAX_BYTES = 1_500_000;
 
 function normalizeText(value) {
   return String(value || '').trim().toLowerCase();
@@ -14,6 +12,50 @@ function normalizeText(value) {
 export function normalizeUrl(value) {
   try {
     const url = new URL(String(value || '').trim());
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
+    return url.toString();
+  } catch {
+    return '';
+  }
+}
+
+function decodeTextEntities(value) {
+  const namedEntities = {
+    amp: '&',
+    apos: "'",
+    gt: '>',
+    lt: '<',
+    nbsp: ' ',
+    quot: '"'
+  };
+
+  return String(value || '')
+    .replace(/&#(x[\da-f]+|\d+);/gi, (match, code) => {
+      const radix = String(code).toLowerCase().startsWith('x') ? 16 : 10;
+      const valueText = radix === 16 ? String(code).slice(1) : String(code);
+      const codePoint = Number.parseInt(valueText, radix);
+      if (!Number.isFinite(codePoint) || codePoint < 0 || codePoint > 0x10ffff) return match;
+      try {
+        return String.fromCodePoint(codePoint);
+      } catch {
+        return match;
+      }
+    })
+    .replace(/&(amp|apos|gt|lt|nbsp|quot);/gi, (match, name) => namedEntities[name.toLowerCase()] || match);
+}
+
+export function sanitizePlainText(value) {
+  return decodeTextEntities(value)
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/[\s\u00a0]+/g, ' ')
+    .trim();
+}
+
+export function resolveMetadataUrl(value, baseUrl) {
+  try {
+    const rawValue = String(value || '').trim();
+    if (!rawValue) return '';
+    const url = new URL(rawValue, baseUrl);
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
     return url.toString();
   } catch {
@@ -109,59 +151,139 @@ export function formatSubmitFailure(response, message) {
   return rawMessage || '友链自助提交没有成功，请复制申请到留言板。';
 }
 
-async function fetchLinkDetail(url, signal) {
-  const response = await fetch(`${LINK_DETAIL_API}?url=${encodeURIComponent(url)}`, {
-    credentials: 'same-origin',
+function metadataContent(documentNode, selectors) {
+  for (const selector of selectors) {
+    const node = documentNode.querySelector(selector);
+    const value = node?.getAttribute?.('content') || node?.getAttribute?.('href') || node?.textContent || '';
+    const text = sanitizePlainText(value);
+    if (text) return text;
+  }
+  return '';
+}
+
+function detectSitePlatform(generator) {
+  const value = sanitizePlainText(generator).slice(0, 80);
+  const normalized = value.toLowerCase();
+  if (!normalized) return '';
+  if (normalized.includes('halo')) return 'Halo';
+  if (normalized.includes('wordpress')) return 'WordPress';
+  if (normalized.includes('typecho')) return 'Typecho';
+  if (normalized.includes('hexo')) return 'Hexo';
+  if (normalized.includes('hugo')) return 'Hugo';
+  if (normalized.includes('ghost')) return 'Ghost';
+  return value;
+}
+
+export function parseSiteMetadata(html, baseUrl) {
+  if (typeof DOMParser === 'undefined') {
+    throw new Error('当前浏览器不支持 HTML 元数据解析');
+  }
+
+  const documentNode = new DOMParser().parseFromString(String(html || ''), 'text/html');
+  const title = metadataContent(documentNode, [
+    'meta[property="og:title"]',
+    'meta[name="twitter:title"]',
+    'title'
+  ]).slice(0, 120);
+  const description = metadataContent(documentNode, [
+    'meta[property="og:description"]',
+    'meta[name="description"]',
+    'meta[name="twitter:description"]'
+  ]).slice(0, 500);
+  const logo = resolveMetadataUrl(metadataContent(documentNode, [
+    'meta[property="og:image"]',
+    'meta[name="twitter:image"]',
+    'link[rel~="apple-touch-icon"]',
+    'link[rel~="icon"]'
+  ]), baseUrl);
+  const rssUrl = resolveMetadataUrl(metadataContent(documentNode, [
+    'link[rel="alternate"][type="application/rss+xml"]',
+    'link[rel="alternate"][type="application/atom+xml"]'
+  ]), baseUrl);
+  const platform = detectSitePlatform(metadataContent(documentNode, ['meta[name="generator"]']));
+
+  return { title, description, logo, rssUrl, platform };
+}
+
+async function fetchSiteMetadata(url, signal) {
+  const targetUrl = new URL(url);
+  if (typeof window !== 'undefined'
+    && window.location?.protocol === 'https:'
+    && targetUrl.protocol === 'http:') {
+    const error = new Error('mixed-content');
+    error.code = 'mixed-content';
+    throw error;
+  }
+
+  const response = await fetch(url, {
+    method: 'GET',
+    mode: 'cors',
+    credentials: 'omit',
+    cache: 'no-store',
+    redirect: 'follow',
+    referrerPolicy: 'no-referrer',
     headers: {
-      Accept: 'application/json'
+      Accept: 'text/html,application/xhtml+xml'
     },
-    signal,
-    redirect: 'manual'
+    signal
   });
 
-  if (!response.ok || response.type === 'opaqueredirect' || response.status === 0) {
-    const message = await readErrorMessage(response);
-    throw new Error(message || `${response.status || 'redirect'}`);
+  if (!response.ok || response.type === 'opaque' || response.status === 0) {
+    const error = new Error(`HTTP ${response.status || 'blocked'}`);
+    error.code = 'request-failed';
+    throw error;
   }
 
-  return response.json();
-}
-
-async function resolveCurrentUser() {
-  const response = await fetch(CURRENT_USER_API, {
-    credentials: 'same-origin',
-    headers: {
-      Accept: 'application/json'
-    }
-  });
-
-  if (!response.ok || response.redirected) return null;
-
-  const payload = await response.json();
-  const user = payload?.user || payload;
-  const name = user?.metadata?.name || '';
-  if (!name || name === HALO_ANONYMOUS_USERNAME || user?.spec?.disabled === true) {
-    return null;
+  const contentType = String(response.headers?.get?.('content-type') || '').toLowerCase();
+  if (contentType && !contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
+    const error = new Error(`unsupported-content-type:${contentType}`);
+    error.code = 'not-html';
+    throw error;
   }
-  return user;
-}
 
-function parseRoleNames(value) {
-  if (Array.isArray(value)) return value.map((item) => String(item || '').trim()).filter(Boolean);
-  const raw = String(value || '').trim();
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed.map((item) => String(item || '').trim()).filter(Boolean);
-  } catch (_error) {
-    // Halo stores role names as a JSON array string; fall through for older/plain values.
+  const contentLength = Number(response.headers?.get?.('content-length') || 0);
+  if (contentLength > SITE_METADATA_MAX_BYTES) {
+    const error = new Error('site-html-too-large');
+    error.code = 'too-large';
+    throw error;
   }
-  return raw.split(',').map((item) => item.trim()).filter(Boolean);
+
+  const html = await response.text();
+  if (!html.trim()) {
+    const error = new Error('empty-site-html');
+    error.code = 'empty';
+    throw error;
+  }
+  if (new Blob([html]).size > SITE_METADATA_MAX_BYTES) {
+    const error = new Error('site-html-too-large');
+    error.code = 'too-large';
+    throw error;
+  }
+
+  const resolvedUrl = normalizeUrl(response.url) || url;
+  const metadata = parseSiteMetadata(html, resolvedUrl);
+  if (!metadata.title && !metadata.description && !metadata.logo && !metadata.rssUrl && !metadata.platform) {
+    const error = new Error('site-metadata-empty');
+    error.code = 'empty';
+    throw error;
+  }
+  return metadata;
 }
 
-function isAdminUser(user) {
-  const roleNames = parseRoleNames(user?.metadata?.annotations?.['rbac.authorization.halo.run/role-names']);
-  return roleNames.some((roleName) => HALO_ADMIN_ROLE_NAMES.has(roleName));
+export function formatMetadataFailure(error) {
+  if (error?.code === 'mixed-content') {
+    return '当前页面使用 HTTPS，浏览器会阻止读取 HTTP 站点；已保留网址，请手动补充站点信息。';
+  }
+  if (error?.code === 'not-html') {
+    return '目标地址没有返回可识别的网页；已保留网址，请手动补充站点信息。';
+  }
+  if (error?.code === 'too-large') {
+    return '目标网页内容过大，已停止自动识别；网址已保留，请手动补充站点信息。';
+  }
+  if (error?.code === 'timeout') {
+    return '目标站点响应超时；已保留网址，请手动补充站点信息。';
+  }
+  return '浏览器未能读取目标站点（常见原因是跨域限制或访问拦截）；已保留网址，请手动补充站点信息。';
 }
 
 export function registerLinksExplorer(Alpine) {
@@ -175,17 +297,23 @@ export function registerLinksExplorer(Alpine) {
     links: [],
     allLinksTitle: '全部友链',
     _showBoardHandler: null,
+    _popstateHandler: null,
 
     init() {
-      this.selectedGroup = this.$root.dataset.linksInitialGroup || '';
       this.readDataset();
+      this.applyLocationState(true);
       this._showBoardHandler = () => this.showBoard(true);
+      this._popstateHandler = () => this.applyLocationState(false);
       window.addEventListener('links:show-board', this._showBoardHandler);
+      window.addEventListener('popstate', this._popstateHandler);
     },
 
     destroy() {
       if (this._showBoardHandler) {
         window.removeEventListener('links:show-board', this._showBoardHandler);
+      }
+      if (this._popstateHandler) {
+        window.removeEventListener('popstate', this._popstateHandler);
       }
     },
 
@@ -200,33 +328,39 @@ export function registerLinksExplorer(Alpine) {
         synthetic: node.dataset.groupSynthetic === 'true'
       }));
 
-      this.links = linkNodes.map((node) => ({
-        key: node.dataset.linkKey || '',
-        groupKey: node.dataset.groupKey || '',
-        name: node.dataset.linkName || '',
-        description: node.dataset.linkDescription || '',
-        url: node.dataset.linkUrl || '',
-        priority: Number(node.dataset.linkPriority || 0),
-        createdAt: node.dataset.linkCreated || ''
-      }));
+      this.links = linkNodes.map((node) => {
+        const description = sanitizePlainText(node.dataset.linkDescription || '');
+        const descriptionNode = node.querySelector('.link-card-desc');
+        if (descriptionNode) {
+          descriptionNode.textContent = description || '这个站点还没有填写简介。';
+        }
+        node.dataset.linkDescription = description;
+
+        return {
+          key: node.dataset.linkKey || '',
+          groupKey: node.dataset.groupKey || '',
+          name: sanitizePlainText(node.dataset.linkName || ''),
+          description,
+          url: node.dataset.linkUrl || '',
+          priority: Number(node.dataset.linkPriority || 0),
+          createdAt: node.dataset.linkCreated || ''
+        };
+      });
 
       this.totalLinks = this.links.length;
     },
 
     setGroup(key) {
       this.activeView = 'links';
-      this.selectedGroup = key || '';
-      this.syncUrl();
+      this.selectedGroup = this.groups.some((group) => group.key === key) ? key : '';
+      this.syncUrl('push');
       this.scrollMainToTop();
     },
 
     showBoard(scrollToTop = true) {
       this.activeView = 'board';
-      if (typeof window !== 'undefined') {
-        const url = new URL(window.location.href);
-        url.searchParams.delete('group');
-        window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
-      }
+      this.selectedGroup = '';
+      this.syncUrl('push');
       if (scrollToTop) this.scrollMainToTop();
     },
 
@@ -238,18 +372,52 @@ export function registerLinksExplorer(Alpine) {
       const scroller = this.$root.querySelector('.links-main-scroll')
         || this.$root.closest('[data-window-scroll]')
         || this.$root;
-      scroller?.scrollTo?.({ top: 0, behavior: 'smooth' });
+      const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+      scroller?.scrollTo?.({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
     },
 
-    syncUrl() {
+    applyLocationState(canonicalize = false) {
       if (typeof window === 'undefined') return;
       const url = new URL(window.location.href);
-      if (this.selectedGroup) {
-        url.searchParams.set('group', this.selectedGroup);
+      const requestedView = url.searchParams.get('view') || '';
+      const requestedGroup = url.searchParams.get('group') || '';
+      const validGroup = requestedGroup && this.groups.some((group) => group.key === requestedGroup);
+      let needsCanonicalUrl = Boolean(requestedView && requestedView !== 'board');
+
+      if (requestedView === 'board') {
+        this.activeView = 'board';
+        this.selectedGroup = '';
+        needsCanonicalUrl = needsCanonicalUrl || url.searchParams.has('group');
       } else {
-        url.searchParams.delete('group');
+        this.activeView = 'links';
+        this.selectedGroup = validGroup ? requestedGroup : '';
+        needsCanonicalUrl = needsCanonicalUrl
+          || (url.searchParams.has('group') && !validGroup);
       }
-      window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+
+      if (canonicalize && needsCanonicalUrl) this.syncUrl('replace');
+    },
+
+    syncUrl(mode = 'push') {
+      if (typeof window === 'undefined') return;
+      const url = new URL(window.location.href);
+      if (this.activeView === 'board') {
+        url.searchParams.set('view', 'board');
+        url.searchParams.delete('group');
+      } else {
+        url.searchParams.delete('view');
+        if (this.selectedGroup) {
+          url.searchParams.set('group', this.selectedGroup);
+        } else {
+          url.searchParams.delete('group');
+        }
+      }
+
+      const target = `${url.pathname}${url.search}${url.hash}`;
+      const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      if (target === current) return;
+      const method = mode === 'replace' ? 'replaceState' : 'pushState';
+      window.history[method](window.history.state, '', target);
     },
 
     isGroupActive(key) {
@@ -329,6 +497,22 @@ export function registerLinksExplorer(Alpine) {
       return this.activeView === 'board' ? '留言板' : this.activeGroupLabel();
     },
 
+    resultSummary() {
+      const count = this.visibleCount();
+      if (this.searchQuery.trim()) return `${count} 个搜索结果`;
+      if (this.selectedGroup) return `${count} 个友链`;
+      return `共 ${this.totalLinks} 个友链`;
+    },
+
+    emptyTitle() {
+      return this.searchQuery.trim() ? '没有匹配的友链' : '该分组暂无友链';
+    },
+
+    emptyText() {
+      if (this.searchQuery.trim()) return `换一个关键词，或者回到${this.allLinksTitle}继续浏览。`;
+      return `这个分组还没有收录站点，可以返回${this.allLinksTitle}继续浏览。`;
+    },
+
     cardOrder(el) {
       const key = el?.dataset?.linkKey || '';
       if (!key) return 0;
@@ -354,7 +538,8 @@ export function registerLinkSubmitForm(Alpine) {
     detail: {
       displayName: '',
       description: '',
-      logo: ''
+      logo: '',
+      platform: ''
     },
     submitPluginEnabled: false,
     messageFallback: false,
@@ -365,12 +550,11 @@ export function registerLinkSubmitForm(Alpine) {
     markdown: '',
     previewVisible: false,
     fetchingMeta: false,
-    detailToolChecking: false,
-    detailToolAvailable: false,
     autofillAttempted: false,
     autofillAvailable: false,
     autofillController: null,
     autofillGeneration: 0,
+    autofillSnapshot: null,
     destroyed: false,
     copied: false,
     result: {
@@ -386,7 +570,6 @@ export function registerLinkSubmitForm(Alpine) {
       if (this.submitPluginEnabled) {
         this.loadSubmitGroups();
       }
-      this.detectDetailTool();
     },
 
     destroy() {
@@ -399,28 +582,6 @@ export function registerLinkSubmitForm(Alpine) {
       this.autofillController?.abort();
       this.autofillController = null;
       this.fetchingMeta = false;
-    },
-
-    async detectDetailTool() {
-      this.detailToolChecking = true;
-      try {
-        const user = await resolveCurrentUser();
-        if (!user) {
-          this.detailToolAvailable = false;
-          return;
-        }
-        this.detailToolAvailable = isAdminUser(user);
-      } catch (_error) {
-        this.detailToolAvailable = false;
-        warnApiCall('links', '友链自动补全权限检测失败，使用手动表单', {
-          endpoint: CURRENT_USER_API,
-          message: _error?.message || String(_error || ''),
-          action: 'hide-autofill',
-          hint: '检查 Halo 当前用户接口、登录态和管理员角色判断。'
-        });
-      } finally {
-        this.detailToolChecking = false;
-      }
     },
 
     async loadSubmitGroups() {
@@ -492,16 +653,15 @@ export function registerLinkSubmitForm(Alpine) {
         return;
       }
 
-      this.fetchingMeta = true;
+      this.clearStaleAutofill(normalized);
       this.previewVisible = true;
       this.result.show = false;
       this.applyManualDraft(normalized);
       this.result = {
         show: true,
         success: true,
-        message: this.isDirectSubmitMode() ? '已生成申请草稿，请补充信息后提交' : '已生成申请草稿，可以复制到留言板'
+        message: this.isDirectSubmitMode() ? '已保留网址，请补充站点信息后提交' : '已保留网址，请补充信息后复制到留言板'
       };
-      this.fetchingMeta = false;
     },
 
     async autofillFromUrl() {
@@ -520,50 +680,71 @@ export function registerLinkSubmitForm(Alpine) {
         return;
       }
 
+      this.clearStaleAutofill(normalized);
       this.fetchingMeta = true;
       this.previewVisible = true;
       this.result.show = false;
       const controller = new AbortController();
       const generation = ++this.autofillGeneration;
       this.autofillController = controller;
-      const isCurrent = () => !controller.signal.aborted
-        && !this.destroyed
+      let timedOut = false;
+      const timeoutId = globalThis.setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, SITE_METADATA_TIMEOUT_MS);
+      const isLatest = () => !this.destroyed
         && generation === this.autofillGeneration
         && normalizeUrl(this.form.url) === normalized;
+      const isCurrent = () => !controller.signal.aborted && isLatest();
 
       try {
-        const detail = await fetchLinkDetail(normalized, controller.signal);
+        const detail = await fetchSiteMetadata(normalized, controller.signal);
         if (!isCurrent()) return;
         this.detail = {
           displayName: detail?.title || readableHost(normalized) || '待确认站点',
-          description: detail?.description || '请手动补充一句话简介。',
-          logo: detail?.icon || detail?.image || ''
+          description: detail?.description || '',
+          logo: detail?.logo || '',
+          platform: detail?.platform || ''
         };
         this.autofillAvailable = true;
-        this.syncFormFromDetail(normalized);
+        this.syncFormFromDetail(normalized, true);
+        this.form.rssUrl = detail?.rssUrl || this.form.rssUrl;
+        this.autofillSnapshot = {
+          url: normalized,
+          displayName: this.form.displayName,
+          description: this.form.description,
+          logo: this.form.logo,
+          rssUrl: this.form.rssUrl
+        };
         this.markdown = this.buildMarkdown(normalized);
         this.result = {
           show: true,
           success: true,
-          message: '已自动补全站点信息，请确认后提交'
+          message: this.detail.platform
+            ? `已在浏览器中识别站点信息（${this.detail.platform}），请确认后提交`
+            : '已在浏览器中识别站点信息，请确认后提交'
         };
       } catch (_error) {
-        if (_error?.name === 'AbortError' || !isCurrent()) return;
-        warnApiCall('links', '友链自动补全失败，已生成手动草稿', {
-          endpoint: LINK_DETAIL_API,
+        if (!isLatest()) return;
+        if (_error?.name === 'AbortError' && !timedOut) return;
+        if (timedOut) _error.code = 'timeout';
+        warnApiCall('links', '浏览器读取友链站点失败，已切换手动填写', {
+          endpoint: normalized,
           url: normalized,
           message: _error?.message || String(_error || ''),
           action: 'generate-manual-draft',
-          hint: '检查管理员登录态、Console detail API 权限，以及目标站点是否允许抓取基础信息。'
+          hint: '目标站点可能限制跨域读取；保留网址并提示访客手动补充。'
         });
         this.autofillAvailable = false;
         this.applyManualDraft(normalized);
         this.result = {
           show: true,
-          success: true,
-          message: this.isDirectSubmitMode() ? '当前无后台提取权限，已生成申请草稿' : '已生成申请草稿，可以复制到留言板'
+          success: false,
+          warning: true,
+          message: formatMetadataFailure(_error)
         };
       } finally {
+        globalThis.clearTimeout(timeoutId);
         if (this.autofillController === controller) {
           this.autofillController = null;
           this.fetchingMeta = false;
@@ -575,17 +756,38 @@ export function registerLinkSubmitForm(Alpine) {
       this.detail = {
         displayName: readableHost(url) || '待确认站点',
         description: '请手动补充一句话简介。',
-        logo: ''
+        logo: '',
+        platform: ''
       };
-      this.syncFormFromDetail(url);
+      this.syncFormFromDetail(url, false);
       this.markdown = this.buildMarkdown(url);
     },
 
-    syncFormFromDetail(url) {
+    clearStaleAutofill(url) {
+      const snapshot = this.autofillSnapshot;
+      if (!snapshot || snapshot.url === url) return;
+      for (const field of ['displayName', 'description', 'logo', 'rssUrl']) {
+        if (this.form[field] === snapshot[field]) this.form[field] = '';
+      }
+      this.autofillSnapshot = null;
+      this.autofillAvailable = false;
+      this.detail = {
+        displayName: '',
+        description: '',
+        logo: '',
+        platform: ''
+      };
+    },
+
+    syncFormFromDetail(url, preferDetail = true) {
       this.form.url = url;
-      this.form.displayName = this.detail.displayName || this.form.displayName;
-      this.form.description = this.detail.description || this.form.description;
-      this.form.logo = this.detail.logo || this.form.logo;
+      if (preferDetail) {
+        this.form.displayName = this.detail.displayName || this.form.displayName;
+        this.form.description = this.detail.description || this.form.description;
+        this.form.logo = this.detail.logo || this.form.logo;
+        return;
+      }
+      this.form.displayName = this.form.displayName || this.detail.displayName;
     },
 
     enableMessageFallback() {

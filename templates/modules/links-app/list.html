@@ -1,6 +1,7 @@
 <th:block th:fragment="content"
   th:with="
             currentGroup=${param.group != null and !#lists.isEmpty(param.group) ? param.group[0] : ''},
+            currentView=${param.view != null and !#lists.isEmpty(param.view) and param.view[0] == 'board' ? 'board' : 'links'},
             groupsData=${groups},
             allLinksTitle=${!#strings.isEmpty(theme.config.links?.profile?.display_name) ? theme.config.links.profile.display_name : '全部友链'}">
   <!-- plugin-contract: PluginLinks; contract-version: 2.0.0; tested-version: 2.0.0; status: confirmed; source: docs/插件适配契约.md -->
@@ -11,7 +12,7 @@
       data-app-props="links">{"version":1,"appId":"links","data":{"scene":"collection"}}</script>
 
     <div class="links-app-shell" x-data="linksExplorer"
-      th:attr="data-links-initial-group=${currentGroup},data-links-all-title=${allLinksTitle},data-links-chrome-title=${allLinksTitle}">
+      th:attr="data-links-initial-group=${currentGroup},data-links-initial-view=${currentView},data-links-all-title=${allLinksTitle},data-links-chrome-title=${allLinksTitle}">
       <aside class="links-sidebar">
         <div class="links-window-dragbar"
           @mousedown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
@@ -22,12 +23,13 @@
           <div class="links-sidebar-block">
             <nav class="links-sidebar-nav">
               <button type="button" class="links-sidebar-item"
-                :class="{ 'is-active': activeView === 'links' && !selectedGroup }" @click="setGroup('')">
+                :class="{ 'is-active': activeView === 'links' && !selectedGroup }"
+                :aria-pressed="activeView === 'links' && !selectedGroup" aria-controls="view-links" @click="setGroup('')">
                 <span class="links-sidebar-item-main">
                   <span class="links-sidebar-symbol icon-[lucide--layout-dashboard]" aria-hidden="true"></span>
                   <span class="links-sidebar-label" th:text="${allLinksTitle}">全部友链</span>
                 </span>
-                <span class="links-sidebar-count-pill" x-text="visibleCount()"></span>
+                <span class="links-sidebar-count-pill" x-text="totalLinks"></span>
               </button>
             </nav>
           </div>
@@ -42,6 +44,7 @@
                                data-group-synthetic=${group.metadata.name == 'ungrouped'},
                                data-group-count=${group.links != null ? #lists.size(group.links) : 0}"
                 :class="{ 'is-active': activeView === 'links' && isGroupActive($el.dataset.groupKey) }"
+                :aria-pressed="activeView === 'links' && isGroupActive($el.dataset.groupKey)" aria-controls="view-links"
                 @click="setGroup($el.dataset.groupKey)">
                 <span class="links-sidebar-item-main">
                   <span class="links-sidebar-symbol" aria-hidden="true">
@@ -71,7 +74,8 @@
               </button>
               <button type="button" id="nav-board" class="links-sidebar-item"
                 th:if="${pluginFinder.available('PluginCommentWidget')}"
-                :class="{ 'is-active': activeView === 'board' }" @click="showBoard()">
+                :class="{ 'is-active': activeView === 'board' }" :aria-pressed="activeView === 'board'"
+                aria-controls="view-board" @click="showBoard()">
                 <span class="links-sidebar-item-main">
                   <span class="links-sidebar-symbol icon-[lucide--message-circle]" aria-hidden="true"></span>
                   <span class="links-sidebar-label">留言板</span>
@@ -86,15 +90,19 @@
         <header class="links-main-toolbar">
           <div class="links-toolbar-heading">
             <h1 id="header-title" class="links-toolbar-title" x-text="activeHeaderTitle()">全部友链</h1>
+            <p class="links-toolbar-summary" x-show="activeView === 'links'" x-text="resultSummary()"
+              aria-live="polite">共 0 个友链</p>
           </div>
 
           <div class="links-toolbar-actions">
             <label class="links-toolbar-search-wrap" x-show="activeView === 'links'">
               <span class="links-toolbar-search-icon icon-[lucide--search]" aria-hidden="true"></span>
-              <input class="links-toolbar-search" type="search" x-model="searchQuery" placeholder="搜索...">
+              <input class="links-toolbar-search" type="search" x-model="searchQuery" placeholder="搜索..."
+                aria-label="搜索友链">
             </label>
 
-            <select class="links-toolbar-select" x-model="sortMode" x-show="activeView === 'links'">
+            <select class="links-toolbar-select" x-model="sortMode" x-show="activeView === 'links'"
+              aria-label="友链排序方式">
               <option value="default">默认排序</option>
               <option value="name">名称排序</option>
               <option value="recent">最近收录</option>
@@ -107,7 +115,7 @@
         </header>
 
         <div class="links-main-scroll">
-          <div id="view-links" class="links-view" x-show="activeView === 'links'">
+          <div id="view-links" class="links-view" x-cloak x-show="activeView === 'links'">
             <div class="links-groups" th:if="${groupsData != null and !#lists.isEmpty(groupsData)}">
               <section class="links-group" th:each="group : ${groupsData}" th:with="
                          resolvedGroupLabel=${!#strings.isEmpty(group.spec.displayName) ? group.spec.displayName : (group.metadata.name == 'ungrouped' ? '未分组' : group.metadata.name)},
@@ -137,7 +145,7 @@
                               data-link-created=${link.metadata.creationTimestamp}">
                     <div class="link-card-logo">
                       <img th:if="${!#strings.isEmpty(link.spec.logo)}" th:src="${link.spec.logo}"
-                        th:alt="${link.spec.displayName}" loading="lazy" decoding="async"
+                        alt="" loading="lazy" decoding="async"
                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
                       <span class="link-card-fallback"
                         th:style="${!#strings.isEmpty(link.spec.logo) ? 'display:none' : ''}">
@@ -165,13 +173,13 @@
               <p class="links-empty-text">安装并配置 Links 插件后，这里会自动显示分组与友链卡片。</p>
             </section>
 
-            <section class="links-empty" x-show="links.length > 0 && visibleCount() === 0">
-              <h2 class="links-empty-title">没有匹配的友链</h2>
-              <p class="links-empty-text" x-text="`换一个关键词，或者回到${allLinksTitle}继续浏览。`">换一个关键词，或者回到全部友链继续浏览。</p>
+            <section class="links-empty" x-show="groups.length > 0 && visibleCount() === 0" aria-live="polite">
+              <h2 class="links-empty-title" x-text="emptyTitle()">没有匹配的友链</h2>
+              <p class="links-empty-text" x-text="emptyText()">换一个关键词，或者回到全部友链继续浏览。</p>
             </section>
           </div>
 
-          <div id="view-board" class="links-board-view" x-show="activeView === 'board'">
+          <div id="view-board" class="links-board-view" x-cloak x-show="activeView === 'board'">
             <section class="links-board-compose" th:if="${!pluginFinder.available('link-submit')}">
               <div class="links-board-accent"></div>
               <h2 class="links-board-title">发表留言 / 申请友链</h2>
@@ -197,7 +205,8 @@
       </section>
     </div>
 
-    <dialog id="link-submit-modal" class="links-modal" x-data="linkSubmitForm">
+    <dialog id="link-submit-modal" class="links-modal" x-data="linkSubmitForm"
+      aria-labelledby="link-submit-modal-title" aria-describedby="link-submit-modal-hint">
       <div class="links-modal-topbar">
         <div class="links-modal-lights traffic-lights">
           <button type="button" class="links-modal-light is-red" aria-label="关闭友链申请窗口" title="关闭"
@@ -205,31 +214,34 @@
           <span class="links-modal-light is-yellow"></span>
           <span class="links-modal-light is-green"></span>
         </div>
-        <div class="links-modal-title">添加友链申请助手</div>
-        <button type="button" class="links-modal-close" @click="$el.closest('dialog').close()">
+        <div id="link-submit-modal-title" class="links-modal-title">添加友链申请助手</div>
+        <button type="button" class="links-modal-close" aria-label="关闭友链申请窗口" title="关闭"
+          @click="$el.closest('dialog').close()">
           <span class="links-button-icon icon-[lucide--x]" aria-hidden="true"></span>
         </button>
       </div>
 
       <div class="links-modal-body">
-        <p class="links-modal-hint"
-          x-text="detailToolAvailable ? '已检测到后台提取权限，可先自动补全后提交。' : '请手动填写友链申请信息；提交失败时会自动切换到留言板草稿。'">
-          请手动填写友链申请信息；提交失败时会自动切换到留言板草稿。
+        <p id="link-submit-modal-hint" class="links-modal-hint">
+          浏览器会尝试读取公开网页的名称、简介、Logo 与 RSS；若目标站限制跨域访问，会保留网址并提示你手动补充。
         </p>
 
-        <form class="links-extract-form" x-show="detailToolAvailable" @submit.prevent="fillFromUrl">
+        <form class="links-extract-form" @submit.prevent="autofillFromUrl">
+          <label class="links-extract-label" for="link-submit-site-url">网站地址</label>
           <div class="links-extract-row">
-            <input class="links-input" type="url" x-model="form.url" required
+            <input id="link-submit-site-url" class="links-input" type="url" x-model="form.url" required
+              data-link-meta-input
               placeholder="https://your-site.example.com">
-            <button type="submit" class="links-helper-btn" :disabled="fetchingMeta">
-              <span x-text="fetchingMeta ? '生成中...' : '生成'"></span>
+            <button type="submit" class="links-helper-btn" data-link-meta-action="autofill"
+              :disabled="fetchingMeta">
+              <span x-text="fetchingMeta ? '识别中...' : '识别信息'"></span>
             </button>
             <button type="button" class="links-helper-btn links-helper-btn--ghost"
-              :disabled="fetchingMeta"
-              @click="autofillFromUrl">
-              <span x-text="fetchingMeta ? '补全中...' : '自动补全'"></span>
+              data-link-meta-action="manual" :disabled="fetchingMeta" @click="fillFromUrl">
+              <span>仅保留网址</span>
             </button>
           </div>
+          <p class="links-extract-note">识别仅在你的浏览器中进行，不携带本站登录信息；失败不会影响手动填写和提交。</p>
         </form>
 
         <div class="links-preview" x-show="previewVisible">
@@ -240,8 +252,9 @@
               </template>
             </div>
             <div class="links-preview-copy">
-              <h3 x-text="detail.displayName || '等待生成申请草稿'"></h3>
-              <p x-text="detail.description || '生成后可继续补充站点简介。'"></p>
+              <h3 x-text="detail.displayName || '等待识别站点信息'"></h3>
+              <p x-text="detail.description || '识别后可继续补充站点简介。'"></p>
+              <span class="links-preview-platform" x-show="detail.platform" x-text="detail.platform"></span>
             </div>
           </div>
         </div>
@@ -270,17 +283,14 @@
 
           <label class="links-field">
             <span>名称</span>
-            <input class="links-input" type="text" x-model="form.displayName" placeholder="网站名称">
-          </label>
-
-          <label class="links-field">
-            <span>链接</span>
-            <input class="links-input" type="url" x-model="form.url" placeholder="https://example.com">
+            <input class="links-input" type="text" x-model="form.displayName" data-link-field="displayName"
+              placeholder="网站名称">
           </label>
 
           <label class="links-field">
             <span>Logo</span>
-            <input class="links-input" type="url" x-model="form.logo" placeholder="https://example.com/logo.png">
+            <input class="links-input" type="url" x-model="form.logo" data-link-field="logo"
+              placeholder="https://example.com/logo.png">
           </label>
 
           <label class="links-field">
@@ -291,7 +301,8 @@
 
           <label class="links-field links-field--wide">
             <span>描述</span>
-            <textarea class="links-textarea" x-model="form.description" placeholder="一句话介绍你的网站"></textarea>
+            <textarea class="links-textarea" x-model="form.description" data-link-field="description"
+              placeholder="一句话介绍你的网站"></textarea>
           </label>
 
           <label class="links-field links-field--wide" x-show="form.type === 'update'">
@@ -302,16 +313,18 @@
 
           <label class="links-field links-field--wide">
             <span>RSS 链接</span>
-            <input class="links-input" type="url" x-model="form.rssUrl" placeholder="https://example.com/rss.xml">
-            <small>RSS 地址通常无法自动提取，如站点提供订阅源，建议手动补充。</small>
+            <input class="links-input" type="url" x-model="form.rssUrl" data-link-field="rssUrl"
+              placeholder="https://example.com/rss.xml">
+            <small>识别不到 RSS 时，可以手动补充订阅地址。</small>
           </label>
         </div>
 
         <textarea id="markdownOutput" class="links-markdown-output" x-show="isMessageFallbackMode()" readonly
           :value="buildMarkdown(form.url)" placeholder="申请草稿会展示在这里..."></textarea>
 
-        <div class="links-submit-result" x-show="result.show" :class="result.success ? 'is-success' : 'is-error'"
-          x-text="result.message"></div>
+        <div class="links-submit-result" x-show="result.show"
+          :class="{ 'is-success': result.success, 'is-warning': result.warning, 'is-error': !result.success && !result.warning }"
+          role="status" aria-live="polite" x-text="result.message"></div>
 
         <div class="links-modal-actions">
           <span class="links-modal-note" x-text="primaryActionNote()"></span>
