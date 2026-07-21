@@ -73,9 +73,14 @@ const NAVIGATION_INTENT_OPTION = '__themeNavigationIntent';
 const PHOTOS_DETAIL_VIEW = 'detail';
 const PHOTOS_SHARED_TRANSITION_CLASS = 'photos-shared-view-transition';
 const PHOTOS_TRANSITION_OWNER_ATTR = 'data-photos-view-transition-owner';
+const PHOTOS_TRANSITION_KIND_ATTR = 'data-photos-view-transition-kind';
+const PHOTOS_TRANSITION_DIRECTION_ATTR = 'data-photos-view-transition-direction';
 const PHOTOS_SHARED_TRANSITION_NAME = 'photos-active-photo';
+const PHOTOS_DETAIL_STEP_KIND = 'detail-step';
+const PHOTOS_TRANSITION_IMAGE_TIMEOUT_MS = 200;
 let photosViewTransitionSequence = 0;
 let activePhotosViewTransition = null;
+let photosViewTransitionSettleBarrier = Promise.resolve();
 
 function findPhotosAppRoot(root) {
   if (!root) return null;
@@ -114,6 +119,97 @@ function isPhotoTransitionSourceReady(element) {
     && elementRect.bottom <= clipRect.bottom + tolerance;
 }
 
+function findDetailPhotoName(photosRoot) {
+  return photosRoot
+    ?.querySelector('.photos-detail-figure[data-photo-name]')
+    ?.dataset.photoName || '';
+}
+
+function isPhotosDetailToDetailNavigation(contentContainer, targetContainer) {
+  const currentRoot = findPhotosAppRoot(contentContainer);
+  const targetRoot = findPhotosAppRoot(targetContainer);
+  return currentRoot?.dataset.photosView === PHOTOS_DETAIL_VIEW
+    && targetRoot?.dataset.photosView === PHOTOS_DETAIL_VIEW;
+}
+
+function resolvePhotosDetailDirection(currentRoot, targetRoot, triggerElement, sourcePhotoName, targetPhotoName) {
+  const adjacentLink = triggerElement?.closest?.('.photos-detail-adjacent-btn');
+  if (adjacentLink?.matches('[rel="next"]')) return 'next';
+  if (adjacentLink?.matches('[rel="prev"]')) return 'previous';
+
+  const compareFilmstripOrder = (root) => {
+    const photoNames = Array.from(root?.querySelectorAll('.photos-detail-neighbor[data-photo-name]') || [])
+      .map((item) => item.dataset.photoName || '');
+    const sourceIndex = photoNames.indexOf(sourcePhotoName);
+    const targetIndex = photoNames.indexOf(targetPhotoName);
+    if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return '';
+    return targetIndex > sourceIndex ? 'next' : 'previous';
+  };
+
+  return compareFilmstripOrder(currentRoot)
+    || compareFilmstripOrder(targetRoot)
+    || 'neutral';
+}
+
+function preloadPhotosDetailTransitionTarget(
+  descriptor,
+  {
+    timeoutMs = PHOTOS_TRANSITION_IMAGE_TIMEOUT_MS,
+    signal = null
+  } = {}
+) {
+  if (descriptor?.kind !== PHOTOS_DETAIL_STEP_KIND) return Promise.resolve(true);
+  if (signal?.aborted) return Promise.resolve(false);
+
+  const targetImage = descriptor.targetElement?.querySelector('img[src]');
+  const source = targetImage?.getAttribute('src') || '';
+  if (!source) return Promise.resolve(false);
+
+  let sourceUrl;
+  try {
+    sourceUrl = new URL(source, document.baseURI).href;
+  } catch (_error) {
+    return Promise.resolve(false);
+  }
+
+  return new Promise((resolve) => {
+    const image = new Image();
+    let settled = false;
+    let timeoutId = 0;
+    const handleAbort = () => finish(false);
+    const finish = (ready) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      signal?.removeEventListener?.('abort', handleAbort);
+      image.onload = null;
+      image.onerror = null;
+      resolve(Boolean(ready && image.complete && image.naturalWidth > 0));
+    };
+    const decodeLoadedImage = async () => {
+      try {
+        await image.decode?.();
+      } catch (_error) {
+        // A completed image can still be used when decode() is unavailable or rejects.
+      }
+      finish(true);
+    };
+    timeoutId = window.setTimeout(() => finish(false), timeoutMs);
+    signal?.addEventListener?.('abort', handleAbort, { once: true });
+    if (signal?.aborted) handleAbort();
+    if (settled) return;
+
+    image.decoding = 'async';
+    image.onload = decodeLoadedImage;
+    image.onerror = () => finish(false);
+    image.src = sourceUrl;
+    if (image.complete) {
+      if (image.naturalWidth > 0) void decodeLoadedImage();
+      else finish(false);
+    }
+  });
+}
+
 function resolvePhotosSharedTransition(contentContainer, targetContainer, triggerElement) {
   const currentRoot = findPhotosAppRoot(contentContainer);
   const targetRoot = findPhotosAppRoot(targetContainer);
@@ -122,24 +218,44 @@ function resolvePhotosSharedTransition(contentContainer, targetContainer, trigge
   const currentView = currentRoot.dataset.photosView || '';
   const targetView = targetRoot.dataset.photosView || '';
   const isListToDetail = currentView !== PHOTOS_DETAIL_VIEW && targetView === PHOTOS_DETAIL_VIEW;
-  if (!isListToDetail) return null;
+  const isDetailToDetail = currentView === PHOTOS_DETAIL_VIEW && targetView === PHOTOS_DETAIL_VIEW;
+  if (!isListToDetail && !isDetailToDetail) return null;
 
   const triggerPhotoName = triggerElement?.closest?.('[data-photo-name]')?.dataset.photoName || '';
-  const targetDetailName = targetRoot
-    .querySelector('.photos-detail-figure[data-photo-name]')
-    ?.dataset.photoName || '';
-  const photoName = triggerPhotoName || targetDetailName;
-  if (!photoName || targetDetailName !== photoName) return null;
+  const currentDetailName = findDetailPhotoName(currentRoot);
+  const targetDetailName = findDetailPhotoName(targetRoot);
+  const sourcePhotoName = isDetailToDetail
+    ? currentDetailName
+    : (triggerPhotoName || targetDetailName);
+  const targetPhotoName = targetDetailName;
+  if (!sourcePhotoName || !targetPhotoName) return null;
+  if (isListToDetail && sourcePhotoName !== targetPhotoName) return null;
+  if (isDetailToDetail && sourcePhotoName === targetPhotoName) return null;
 
-  const currentElement = findPhotoTransitionElement(currentRoot, currentView, photoName);
-  const targetElement = findPhotoTransitionElement(targetRoot, targetView, photoName);
+  const currentElement = findPhotoTransitionElement(currentRoot, currentView, sourcePhotoName);
+  const targetElement = findPhotoTransitionElement(targetRoot, targetView, targetPhotoName);
   if (!currentElement || !targetElement || !isPhotoTransitionSourceReady(currentElement)) return null;
+
+  const kind = isDetailToDetail ? PHOTOS_DETAIL_STEP_KIND : 'list-to-detail';
+  const direction = isDetailToDetail
+    ? resolvePhotosDetailDirection(
+      currentRoot,
+      targetRoot,
+      triggerElement,
+      sourcePhotoName,
+      targetPhotoName
+    )
+    : 'neutral';
 
   return {
     owner: String(++photosViewTransitionSequence),
-    photoName,
+    kind,
+    direction,
+    sourcePhotoName,
+    targetPhotoName,
     transitionName: PHOTOS_SHARED_TRANSITION_NAME,
     currentElement,
+    targetElement,
     targetView,
     elements: new Set()
   };
@@ -157,13 +273,64 @@ function beginPhotosSharedTransition(descriptor) {
   const root = document.documentElement;
   root.classList.add(PHOTOS_SHARED_TRANSITION_CLASS);
   root.setAttribute(PHOTOS_TRANSITION_OWNER_ATTR, descriptor.owner);
+  root.setAttribute(PHOTOS_TRANSITION_KIND_ATTR, descriptor.kind);
+  root.setAttribute(PHOTOS_TRANSITION_DIRECTION_ATTR, descriptor.direction);
   markPhotosSharedTransitionElement(descriptor.currentElement, descriptor);
 }
 
 function markPhotosSharedTransitionTarget(contentContainer, descriptor) {
   const targetRoot = findPhotosAppRoot(contentContainer);
-  const targetElement = findPhotoTransitionElement(targetRoot, descriptor.targetView, descriptor.photoName);
+  const targetElement = findPhotoTransitionElement(
+    targetRoot,
+    descriptor.targetView,
+    descriptor.targetPhotoName
+  );
   markPhotosSharedTransitionElement(targetElement, descriptor);
+}
+
+async function decodePhotosTransitionTarget(
+  contentContainer,
+  descriptor,
+  {
+    timeoutMs = PHOTOS_TRANSITION_IMAGE_TIMEOUT_MS,
+    isCurrent = () => true,
+    signal = null
+  } = {}
+) {
+  if (!descriptor || !isCurrent() || signal?.aborted) return false;
+  const targetRoot = findPhotosAppRoot(contentContainer);
+  const targetElement = findPhotoTransitionElement(
+    targetRoot,
+    descriptor.targetView,
+    descriptor.targetPhotoName
+  );
+  const image = targetElement?.querySelector('img');
+  if (!image) return false;
+
+  let timeoutId = 0;
+  const timeout = new Promise((resolve) => {
+    timeoutId = window.setTimeout(() => resolve(false), timeoutMs);
+  });
+  let handleAbort = null;
+  const aborted = signal
+    ? new Promise((resolve) => {
+        handleAbort = () => resolve(false);
+        signal.addEventListener('abort', handleAbort, { once: true });
+        if (signal.aborted) handleAbort();
+      })
+    : new Promise(() => {});
+  const decode = typeof image.decode === 'function'
+    ? Promise.resolve()
+      .then(() => image.decode())
+      .then(() => true)
+      .catch(() => false)
+    : Promise.resolve(Boolean(image.complete && image.naturalWidth > 0));
+  const decoded = await Promise.race([decode, timeout, aborted]);
+  window.clearTimeout(timeoutId);
+  if (handleAbort) signal.removeEventListener('abort', handleAbort);
+
+  if (!isCurrent() || signal?.aborted) return false;
+  return Boolean(decoded || (image.complete && image.naturalWidth > 0));
 }
 
 function cleanupPhotosSharedTransition(descriptor) {
@@ -179,20 +346,24 @@ function cleanupPhotosSharedTransition(descriptor) {
   const root = document.documentElement;
   if (root.getAttribute(PHOTOS_TRANSITION_OWNER_ATTR) === descriptor.owner) {
     root.removeAttribute(PHOTOS_TRANSITION_OWNER_ATTR);
+    root.removeAttribute(PHOTOS_TRANSITION_KIND_ATTR);
+    root.removeAttribute(PHOTOS_TRANSITION_DIRECTION_ATTR);
     root.classList.remove(PHOTOS_SHARED_TRANSITION_CLASS);
   }
 }
 
 function cancelActivePhotosViewTransition() {
   const active = activePhotosViewTransition;
-  if (!active) return;
-  activePhotosViewTransition = null;
-  try {
-    active.transition?.skipTransition?.();
-  } catch (_error) {
-    // The transition may already be finishing; DOM cleanup is still safe.
+  if (active) {
+    activePhotosViewTransition = null;
+    try {
+      active.transition?.skipTransition?.();
+    } catch (_error) {
+      // The transition may already be finishing; DOM cleanup is still safe.
+    }
+    cleanupPhotosSharedTransition(active.descriptor);
   }
-  cleanupPhotosSharedTransition(active.descriptor);
+  return photosViewTransitionSettleBarrier;
 }
 
 function parsePageModeFromResponse(html) {
@@ -209,6 +380,22 @@ function syncWindowTitlebarFromDocument(targetDoc) {
   const importedTitlebar = document.importNode(nextTitlebar, true);
   currentTitlebar.replaceWith(importedTitlebar);
   return importedTitlebar;
+}
+
+function syncWindowTitlebarCopyFromDocument(targetDoc, overrides = {}) {
+  const currentTitlebar = document.querySelector('[data-window-titlebar]');
+  const targetTitlebar = targetDoc?.querySelector?.('[data-window-titlebar]');
+  if (!currentTitlebar || !targetTitlebar) return false;
+
+  const syncText = (selector, override) => {
+    const current = currentTitlebar.querySelector(selector);
+    const target = targetTitlebar.querySelector(selector);
+    if (!current || !target) return;
+    current.textContent = typeof override === 'string' ? override : target.textContent;
+  };
+  syncText('[data-window-title]', overrides.windowTitle);
+  syncText('[data-window-subtitle]', overrides.windowSubtitle);
+  return true;
 }
 
 // ── Reader mobile back-stack depth (site-internal only) ──
@@ -683,8 +870,8 @@ export function initPjax(Alpine) {
 
     const _origLoadUrl = pjax.loadUrl.bind(pjax);
     pjax.loadUrl = function(url, options = {}) {
-      cancelActivePhotosViewTransition();
       const intentGeneration = ++navigationIntentGeneration;
+      void cancelActivePhotosViewTransition();
       const isPopstateIntent = options?.history === false;
       browserNavigationOwnership.begin(intentGeneration, { popstate: isPopstateIntent });
       window._browserPopstatePending = isPopstateIntent;
@@ -772,8 +959,8 @@ export function initPjax(Alpine) {
      * keep the window frame (titlebar, traffic lights, toolbar) intact.
      */
     async function navigateWithinVariant(targetUrl, triggerElement = null) {
-      cancelActivePhotosViewTransition();
       const intentGeneration = ++navigationIntentGeneration;
+      const previousPhotosTransitionSettled = cancelActivePhotosViewTransition();
       browserNavigationOwnership.begin(intentGeneration);
       _fullPjaxGeneration += 1;
       pjax.abortRequest(pjax.request);
@@ -877,6 +1064,9 @@ export function initPjax(Alpine) {
         const photosSidebarScrollTop = currentApp === 'photos'
           ? contentContainer.querySelector('[data-app-root="photos"] > .photos-sidebar')?.scrollTop
           : null;
+        const photosFilmstripScrollLeft = currentApp === 'photos'
+          ? contentContainer.querySelector('.photos-detail-neighbor-list')?.scrollLeft
+          : null;
 
         // Parse target's inner content (the content inside [data-window-content-variant] or #pjax-container)
         const parser = new DOMParser();
@@ -891,17 +1081,52 @@ export function initPjax(Alpine) {
           throw new DOMException('Navigation superseded', 'AbortError');
         }
 
-        preparePluginCompatibilityFromResponse(html);
-        const syncedTitlebar = syncWindowTitlebarFromDocument(targetDoc);
+        await previousPhotosTransitionSettled;
+        if (!isCurrentNavigation()) {
+          throw new DOMException('Navigation superseded', 'AbortError');
+        }
 
-        const photosSharedTransition = currentApp === 'photos' && responseApp === 'photos'
+        const preservePhotosDetailTitlebar = currentApp === 'photos'
+          && responseApp === 'photos'
+          && isPhotosDetailToDetailNavigation(contentContainer, targetContainer);
+        const targetPhotosRoot = preservePhotosDetailTitlebar
+          ? findPhotosAppRoot(targetContainer)
+          : null;
+        const targetPhotosChrome = targetPhotosRoot
+          ? {
+              windowTitle: targetPhotosRoot.dataset.photosChromeTitle,
+              windowSubtitle: targetPhotosRoot.dataset.photosChromeSubtitle
+            }
+          : {};
+        const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+        const photosSharedTransition = currentApp === 'photos'
+          && responseApp === 'photos'
+          && typeof document.startViewTransition === 'function'
+          && !reduceMotion
           ? resolvePhotosSharedTransition(contentContainer, targetContainer, triggerElement)
           : null;
+        const canAttemptPhotosViewTransition = Boolean(photosSharedTransition);
+        const photosTransitionTargetReady = canAttemptPhotosViewTransition
+          ? await preloadPhotosDetailTransitionTarget(photosSharedTransition, {
+              signal: navigation.signal
+            })
+          : false;
+        if (!isCurrentNavigation()) {
+          throw new DOMException('Navigation superseded', 'AbortError');
+        }
+
+        preparePluginCompatibilityFromResponse(html);
+        const syncedTitlebar = preservePhotosDetailTitlebar
+          ? null
+          : syncWindowTitlebarFromDocument(targetDoc);
         let activePhotosTransition = null;
         let contentSwapped = false;
-        const performContentSwap = () => {
+        const performContentSwap = async () => {
           if (!isCurrentNavigation()) return;
           deactivateCurrentPageApp();
+          if (preservePhotosDetailTitlebar) {
+            syncWindowTitlebarCopyFromDocument(targetDoc, targetPhotosChrome);
+          }
           if (targetContainer) {
             contentContainer.innerHTML = targetContainer.innerHTML;
           } else {
@@ -913,18 +1138,27 @@ export function initPjax(Alpine) {
               .querySelector('[data-app-root="photos"] > .photos-sidebar');
             if (nextPhotosSidebar) nextPhotosSidebar.scrollTop = photosSidebarScrollTop;
           }
+          if (Number.isFinite(photosFilmstripScrollLeft)) {
+            const nextFilmstrip = contentContainer.querySelector('.photos-detail-neighbor-list');
+            if (nextFilmstrip) nextFilmstrip.scrollLeft = photosFilmstripScrollLeft;
+          }
+          if (activePhotosTransition) {
+            markPhotosSharedTransitionTarget(contentContainer, activePhotosTransition);
+            await decodePhotosTransitionTarget(contentContainer, activePhotosTransition, {
+              isCurrent: isCurrentNavigation,
+              signal: navigation.signal
+            });
+          }
+          if (!isCurrentNavigation()) {
+            return;
+          }
           document.dispatchEvent(new CustomEvent('theme:content-swapped', {
             detail: { root: contentContainer, reason: 'same-variant' }
           }));
-          if (activePhotosTransition) {
-            markPhotosSharedTransitionTarget(contentContainer, activePhotosTransition);
-          }
           contentSwapped = true;
         };
-        const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-        const canUseViewTransition = typeof document.startViewTransition === 'function'
-          && !reduceMotion
-          && Boolean(photosSharedTransition);
+        const canUseViewTransition = canAttemptPhotosViewTransition
+          && photosTransitionTargetReady;
         if (canUseViewTransition) {
           activePhotosTransition = photosSharedTransition;
           beginPhotosSharedTransition(activePhotosTransition);
@@ -939,17 +1173,22 @@ export function initPjax(Alpine) {
             descriptor: activePhotosTransition,
             transition
           };
-          Promise.resolve(transition.finished)
+          const transitionLifecycle = Promise.resolve(transition.finished)
             .catch(() => {})
-            .finally(() => {
+            .then(() => {
               if (activePhotosViewTransition?.descriptor.owner === activePhotosTransition.owner) {
                 activePhotosViewTransition = null;
               }
               cleanupPhotosSharedTransition(activePhotosTransition);
             });
+          const previousSettleBarrier = photosViewTransitionSettleBarrier;
+          photosViewTransitionSettleBarrier = Promise.all([
+            previousSettleBarrier,
+            transitionLifecycle
+          ]).then(() => {});
           await transition.updateCallbackDone.catch(() => {});
         } else {
-          performContentSwap();
+          await performContentSwap();
         }
 
         if (!isCurrentNavigation()) {

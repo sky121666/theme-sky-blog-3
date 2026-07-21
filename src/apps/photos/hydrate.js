@@ -19,7 +19,9 @@ registerPageAppLifecycle('photos', {
     invokeAlpineDestroyHooks(root, '[x-data="photosExplorer"]');
   },
   getDocumentState(root, context) {
-    const shell = root?.querySelector('.photos-shell');
+    const shell = root?.matches?.('.photos-shell')
+      ? root
+      : root?.querySelector('.photos-shell');
     const photosTitle = shell?.dataset.photosChromeTitle || '';
     const photosSubtitle = shell?.dataset.photosChromeSubtitle || '';
     const photosSiteTitle = shell?.dataset.photosSiteTitle || '';
