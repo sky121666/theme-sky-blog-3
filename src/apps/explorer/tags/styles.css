@@ -161,7 +161,7 @@
   --floating-scrollbar-thumb: var(--tags-scrollbar-thumb);
   --floating-scrollbar-thumb-hover: var(--tags-scrollbar-thumb-hover);
   display: grid;
-  gap: 2px;
+  gap: 1px;
   align-content: start;
   grid-auto-rows: max-content;
   flex: 1;
@@ -180,7 +180,7 @@
   align-items: center;
   gap: 10px;
   width: 100%;
-  min-height: 30px;
+  min-height: 29px;
   padding: 0 9px;
   border: 1px solid transparent;
   border-radius: 8px;
@@ -194,7 +194,7 @@
 
 .tags-sidebar-item--all {
   position: relative;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .tags-sidebar-item--all::after {
@@ -202,7 +202,7 @@
   position: absolute;
   left: 8px;
   right: 8px;
-  bottom: -5px;
+  bottom: -4px;
   height: 1px;
   background: var(--tags-border-soft);
   pointer-events: none;

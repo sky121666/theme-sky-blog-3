@@ -144,7 +144,7 @@
   --floating-scrollbar-thumb: var(--categories-scrollbar-thumb);
   --floating-scrollbar-thumb-hover: var(--categories-scrollbar-thumb-hover);
   display: grid;
-  gap: 2px;
+  gap: 1px;
   align-content: start;
   grid-auto-rows: max-content;
   flex: 1;
@@ -164,7 +164,7 @@
   align-items: center;
   gap: 10px;
   width: 100%;
-  min-height: 36px;
+  min-height: 34px;
   padding: 0 10px 0 calc(10px + (var(--category-depth) * 14px));
   border: 1px solid transparent;
   border-radius: 8px;
@@ -176,7 +176,7 @@
 
 .categories-sidebar-item--all {
   position: relative;
-  margin-bottom: 6px;
+  margin-bottom: 5px;
 }
 
 .categories-sidebar-item--all::after {
