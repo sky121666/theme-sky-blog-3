@@ -11,7 +11,7 @@ const transitionOwnerAttribute = 'data-photos-view-transition-owner';
 const transitionKindAttribute = 'data-photos-view-transition-kind';
 const transitionDirectionAttribute = 'data-photos-view-transition-direction';
 const filmstripIdleWaitTimeoutMs = 6_000;
-const filmstripMotionCaptureDurationMs = 380;
+const filmstripMotionCaptureDurationMs = 520;
 const filmstripMotionCaptureKey = '__SKY_PHOTOS_FILMSTRIP_MOTION_CAPTURE__';
 
 function absoluteUrl(pathname) {
@@ -730,6 +730,12 @@ function countIntermediateValues(samples, key, min, max, precision) {
     .map((value) => value.toFixed(precision))).size;
 }
 
+function nearestMotionSample(samples, elapsed) {
+  return samples.reduce((nearest, sample) => (
+    Math.abs(sample.elapsed - elapsed) < Math.abs(nearest.elapsed - elapsed) ? sample : nearest
+  ), samples[0]);
+}
+
 function assertFilmstripMotionCapture(capture, targetState) {
   const { samples } = capture;
   assert.equal(capture.targetState, targetState, '胶片条逐帧采样目标状态必须匹配');
@@ -750,8 +756,13 @@ function assertFilmstripMotionCapture(capture, targetState) {
   }
 
   if (hiding) {
+    const middle = nearestMotionSample(samples, 180);
+    assert.equal(middle.visibility, 'visible', '胶片条退场中段必须保持可见');
+    assert.ok(middle.opacity >= 0.3 && middle.opacity <= 0.7, '胶片条退场中段必须保留可感知透明度');
+    assert.ok(middle.translateY >= 1.8 && middle.translateY <= 4.2, '胶片条退场中段必须保持渐进位移');
+    assert.ok(middle.scale >= 0.994 && middle.scale <= 0.998, '胶片条退场中段必须保持渐进缩放');
     const firstHidden = samples.find((sample) => sample.visibility === 'hidden');
-    assert.ok(firstHidden?.elapsed >= 250, '胶片条 visibility 不得提前截断退场动画');
+    assert.ok(firstHidden?.elapsed >= 360, '胶片条 visibility 不得提前截断退场动画');
     assert.equal(samples.at(-1)?.visibility, 'hidden', '胶片条退场结束后必须隐藏');
   } else {
     assert.equal(samples[0]?.visibility, 'visible', '胶片条唤醒首帧必须恢复可见');
@@ -873,6 +884,10 @@ async function verifyFilmstripIdleLifecycle(browser, detailHref) {
     assert.equal(visible.currentCount, 1, '胶片条初始必须唯一标记当前照片');
     assert.ok(visible.filmstripCount > 1, '胶片条初始必须保留完整照片列表');
 
+    const windowSurface = idlePage.locator('[data-window-surface]');
+    const maximizeButton = idlePage.locator('.traffic-btn.maximize');
+    const minimizeButton = idlePage.locator('.traffic-btn.minimize');
+    await minimizeButton.hover();
     await beginFilmstripMotionCapture(idlePage, 'hidden');
     await waitForHidden();
     const hideMotion = await finishFilmstripMotionCapture(idlePage);
@@ -884,12 +899,12 @@ async function verifyFilmstripIdleLifecycle(browser, detailHref) {
     assert.equal(hidden.pointerEvents, 'none', '隐藏态胶片条不得拦截主图操作');
     assert.equal(hidden.ariaHidden, 'true', '隐藏态胶片条必须同步辅助技术状态');
     assert.equal(hidden.inert, true, '隐藏态胶片条不得保留不可见焦点目标');
-    assert.equal(hidden.transitionDuration, '0.22s, 0.28s, 0s', '胶片条退场必须保留完整柔和过渡');
-    assert.equal(hidden.transitionDelay, '0s, 0s, 0.28s', '胶片条 visibility 必须在退场结束后切换');
+    assert.equal(hidden.transitionDuration, '0.36s, 0.4s, 0s', '胶片条退场必须保留完整渐进过渡');
+    assert.equal(hidden.transitionDelay, '0s, 0s, 0.4s', '胶片条 visibility 必须在退场结束后切换');
     assert.equal(
       hidden.transitionTimingFunction,
-      'cubic-bezier(0.2, 0.8, 0.2, 1), cubic-bezier(0.16, 1, 0.3, 1), linear',
-      '胶片条退场不得使用末段突然加速的退出曲线'
+      'cubic-bezier(0.33, 0, 0.67, 1), cubic-bezier(0.33, 0, 0.67, 1), linear',
+      '胶片条退场必须使用中段清晰可见的对称缓动'
     );
     assert.ok(hidden.transformScale >= 0.991 && hidden.transformScale <= 0.993, '胶片条退场缩放必须保持克制');
     assert.ok(hidden.transformTranslateY >= 5.5 && hidden.transformTranslateY <= 6.5, '胶片条退场位移必须保持轻微');
@@ -897,6 +912,83 @@ async function verifyFilmstripIdleLifecycle(browser, detailHref) {
     assert.equal(hidden.currentCount, 1, '隐藏不得丢失当前照片标记');
     assertStableRect(visible.stage, hidden.stage, '主舞台');
     assertStableRect(visible.image, hidden.image, '主图');
+
+    const beforeMaximizeRect = await windowSurface.boundingBox();
+    assert.ok(beforeMaximizeRect, '最大化回归必须取得窗口初始矩形');
+    await idlePage.evaluate(() => {
+      const shell = document.querySelector('.photos-detail-shell');
+      if (!shell) throw new Error('最大化回归缺少图库详情根节点');
+      const states = [shell.dataset.photosFilmstripState || ''];
+      const observer = new MutationObserver(() => {
+        const next = shell.dataset.photosFilmstripState || '';
+        if (states.at(-1) !== next) states.push(next);
+      });
+      observer.observe(shell, {
+        attributes: true,
+        attributeFilter: ['data-photos-filmstrip-state'],
+      });
+      window.__PHOTOS_MAXIMIZE_FILMSTRIP_PROBE__ = { observer, states };
+    });
+    await maximizeButton.click();
+    await idlePage.waitForFunction((initialWidth) => {
+      const surface = document.querySelector('[data-window-surface]');
+      const shell = document.querySelector('.photos-detail-shell');
+      return surface?.getBoundingClientRect().width >= initialWidth + 64
+        && !shell?.hasAttribute('data-photos-window-transition');
+    }, beforeMaximizeRect.width, { timeout: navigationTimeoutMs });
+    const maximizedRect = await windowSurface.boundingBox();
+    const maximizedHidden = await readFilmstripLifecycleState(idlePage);
+    assert.ok(
+      maximizedRect?.width >= beforeMaximizeRect.width + 64,
+      '最大化按钮必须实际扩大图库窗口'
+    );
+    assert.equal(maximizedHidden.state, 'hidden', '最大化窗口不得错误唤醒胶片坞');
+    assert.equal(maximizedHidden.opacity, '0', '最大化期间胶片坞必须保持完全透明');
+    assert.equal(maximizedHidden.visibility, 'hidden', '最大化期间胶片坞不得遮挡主图底部');
+    assert.equal(maximizedHidden.pointerEvents, 'none', '最大化期间隐藏胶片坞不得拦截主图操作');
+    assert.equal(maximizedHidden.ariaHidden, 'true', '最大化期间隐藏胶片坞必须保持辅助技术状态');
+    assert.equal(maximizedHidden.inert, true, '最大化期间隐藏胶片坞不得保留焦点目标');
+
+    await maximizeButton.click();
+    await idlePage.waitForFunction(({ width, height }) => {
+      const surface = document.querySelector('[data-window-surface]');
+      const shell = document.querySelector('.photos-detail-shell');
+      const rect = surface?.getBoundingClientRect();
+      return rect
+        && Math.abs(rect.width - width) <= 1
+        && Math.abs(rect.height - height) <= 1
+        && !shell?.hasAttribute('data-photos-window-transition');
+    }, {
+      width: beforeMaximizeRect.width,
+      height: beforeMaximizeRect.height,
+    }, { timeout: navigationTimeoutMs });
+    const restoredRect = await windowSurface.boundingBox();
+    const restoredHidden = await readFilmstripLifecycleState(idlePage);
+    assert.ok(restoredRect, '还原回归必须取得窗口矩形');
+    assert.ok(
+      Math.abs(restoredRect.width - beforeMaximizeRect.width) <= 1
+        && Math.abs(restoredRect.height - beforeMaximizeRect.height) <= 1,
+      '退出最大化后必须恢复原窗口尺寸'
+    );
+    assert.equal(restoredHidden.state, 'hidden', '还原窗口不得错误唤醒胶片坞');
+    assert.equal(restoredHidden.opacity, '0', '还原期间胶片坞必须保持完全透明');
+    assert.equal(restoredHidden.visibility, 'hidden', '还原期间胶片坞不得遮挡主图底部');
+    assert.equal(restoredHidden.pointerEvents, 'none', '还原期间隐藏胶片坞不得拦截主图操作');
+    assert.equal(restoredHidden.ariaHidden, 'true', '还原期间隐藏胶片坞必须保持辅助技术状态');
+    assert.equal(restoredHidden.inert, true, '还原期间隐藏胶片坞不得保留焦点目标');
+    const maximizeStateHistory = await idlePage.evaluate(async () => {
+      await Promise.resolve();
+      const probe = window.__PHOTOS_MAXIMIZE_FILMSTRIP_PROBE__;
+      if (!probe) throw new Error('最大化回归状态探针不存在');
+      probe.observer.disconnect();
+      delete window.__PHOTOS_MAXIMIZE_FILMSTRIP_PROBE__;
+      return probe.states;
+    });
+    assert.deepEqual(
+      maximizeStateHistory,
+      ['hidden'],
+      '最大化及还原期间胶片坞不得出现 visible 瞬态'
+    );
 
     await beginFilmstripMotionCapture(idlePage, 'visible');
     const woken = await wakeFilmstrip(idlePage);
