@@ -23,7 +23,13 @@ const appManifestsMod = await importModule('src/shell-core/runtime/app-manifests
 const routeManifestMod = await importModule('src/shell-core/runtime/route-manifest.js');
 const categoriesWidgetMod = await importModule('src/widgets/halo/categories/render.js');
 
-const { APP_MANIFESTS, getAppManifest, getKnownAppIds } = appManifestsMod;
+const {
+  APP_MANIFESTS,
+  getAppManifest,
+  getKnownAppIds,
+  getSameAppPjaxLoadingMode,
+  shouldUseWindowLoadingOverlay
+} = appManifestsMod;
 const {
   resolveRoute,
   inferPageAppFromUrl,
@@ -41,6 +47,16 @@ for (const manifest of APP_MANIFESTS) {
   seenIds.add(manifest.appId);
   assert(typeof manifest.windowVariant === 'string', `${manifest.appId}.windowVariant 必须是字符串`);
   assert(typeof manifest.supportsSameAppPjax === 'boolean', `${manifest.appId}.supportsSameAppPjax 必须是布尔值`);
+  const sameAppPjaxLoading = Object.prototype.hasOwnProperty.call(manifest, 'sameAppPjaxLoading')
+    ? manifest.sameAppPjaxLoading
+    : 'window-overlay';
+  assert(
+    ['window-overlay', 'progress'].includes(sameAppPjaxLoading),
+    `${manifest.appId}.sameAppPjaxLoading 必须为 window-overlay 或 progress`
+  );
+  if (sameAppPjaxLoading === 'progress') {
+    assert(manifest.supportsSameAppPjax, `${manifest.appId} 仅在支持 same-app PJAX 时才能使用 progress`);
+  }
   assert(Array.isArray(manifest.sameVariantPageModes), `${manifest.appId}.sameVariantPageModes 必须是数组`);
   assert(typeof manifest.cachePolicy === 'string' && manifest.cachePolicy, `${manifest.appId}.cachePolicy 必须是非空字符串`);
   assert(typeof manifest.assets === 'object' && manifest.assets, `${manifest.appId}.assets 必须存在`);
@@ -62,6 +78,26 @@ assert(doubanManifest?.windowVariant === 'douban', 'Douban manifest.windowVarian
 assert(doubanManifest?.supportsSameAppPjax === true, 'Douban 必须支持 same-app PJAX');
 assert(doubanManifest?.sameVariantPageModes?.includes('browser-douban'), 'Douban 必须声明 browser-douban 页面模式');
 assert(doubanManifest?.cachePolicy === 'app-path-search', 'Douban cachePolicy 必须覆盖路径和查询参数');
+
+assert(getSameAppPjaxLoadingMode('explorer-categories') === 'progress', '分类同应用 PJAX 必须使用轻量进度');
+assert(getSameAppPjaxLoadingMode('explorer-archives') === 'progress', '归档同应用 PJAX 必须使用轻量进度');
+assert(getSameAppPjaxLoadingMode('explorer-tags') === 'window-overlay', '未声明策略的应用必须保守回退窗口骨架');
+assert(
+  shouldUseWindowLoadingOverlay('explorer-categories', 'explorer-categories') === false,
+  '分类内部切换不得使用窗口骨架'
+);
+assert(
+  shouldUseWindowLoadingOverlay('explorer-archives', 'explorer-archives') === false,
+  '归档内部切换不得使用窗口骨架'
+);
+assert(
+  shouldUseWindowLoadingOverlay('explorer-categories', 'explorer-archives') === true,
+  '分类到归档的跨应用切换必须保留窗口加载反馈'
+);
+assert(
+  shouldUseWindowLoadingOverlay('explorer-categories', 'reader') === true,
+  '分类到正文的跨应用切换必须保留窗口加载反馈'
+);
 
 const routableIds = getRoutableAppIds();
 for (const appId of routableIds) {

@@ -19,12 +19,17 @@ function getWindowLoadingRoot(scope) {
 }
 
 function getControllerOverlay(controllerOrOverlay) {
-  return controllerOrOverlay?.overlay || controllerOrOverlay;
+  if (controllerOrOverlay && Object.prototype.hasOwnProperty.call(controllerOrOverlay, 'overlay')) {
+    return controllerOrOverlay.overlay;
+  }
+  return controllerOrOverlay;
 }
 
 export function createWindowLoadingController(scope, options = {}) {
   const contentRoot = getWindowLoadingRoot(scope);
-  const overlay = contentRoot?.querySelector?.('[data-window-loading-overlay]');
+  const overlay = options.useOverlay === false
+    ? null
+    : contentRoot?.querySelector?.('[data-window-loading-overlay]');
   const showDelay = options.showDelay ?? LOADING_OVERLAY_SHOW_DELAY;
   const minVisible = options.minVisible ?? LOADING_OVERLAY_MIN_VISIBLE;
   const fadeDuration = options.fadeDuration ?? LOADING_OVERLAY_FADE_DURATION;

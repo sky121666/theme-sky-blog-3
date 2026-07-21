@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
+import {
+  assertPjaxLoadingSettled,
+  verifyPendingPjaxLoading
+} from './pjax-loading-test-helpers.mjs';
 
 const baseUrl = String(process.env.SMOKE_BASE_URL || '').trim();
 const configuredCategoriesPath = String(process.env.CATEGORIES_BASE_PATH || '/categories').trim();
@@ -262,8 +266,16 @@ try {
   const rootTreePaths = rootPageOne.treePaths.map(withoutTrailingSlash);
   const rootMarker = `categories-root-${Date.now()}`;
   await page.evaluate((value) => { document.documentElement.dataset.categoryVerifyMarker = value; }, rootMarker);
-  await page.locator('[data-category-all-next]').click();
+  await verifyPendingPjaxLoading({
+    page,
+    targetUrl: absoluteUrl(`${categoriesBasePath}?page=2`),
+    action: () => page.locator('[data-category-all-next]').click(),
+    preservedSelector: '[data-app-root="explorer-categories"] .category-workspace',
+    expectWindowOverlay: false,
+    label: '全部文档分页'
+  });
   await waitForFinder(page, { pathname: categoriesBasePath, scope: 'all', pageNumber: 2, queryPage: 2 });
+  await assertPjaxLoadingSettled(page, '全部文档分页');
   const rootPageTwo = await finderState(page);
   assert.equal(rootPageTwo.marker, rootMarker, '全部文档下一页必须走 PJAX 并保留当前 Document');
   assert.equal(rootPageTwo.search, '?page=2', '全部文档第二页地址必须明确为 /categories?page=2');
@@ -274,14 +286,30 @@ try {
   assert.ok(rootPageTwo.previous, '全部文档第二页必须提供上一页');
   assert.equal(rootPageTwo.previous.search, '', '全部文档第二页的上一页必须回到无 query 的根地址');
 
-  await page.goBack();
+  await verifyPendingPjaxLoading({
+    page,
+    targetUrl: absoluteUrl(categoriesBasePath),
+    action: () => page.evaluate(() => history.back()),
+    preservedSelector: '[data-app-root="explorer-categories"] .category-workspace',
+    expectWindowOverlay: false,
+    label: '全部文档浏览器后退'
+  });
   await waitForFinder(page, { pathname: categoriesBasePath, scope: 'all', pageNumber: 1 });
+  await assertPjaxLoadingSettled(page, '全部文档浏览器后退');
   const rootBack = await finderState(page);
   assert.equal(rootBack.marker, rootMarker, '浏览器后退必须在同一 Document 中恢复全部文档第一页');
   assert.deepEqual(rootBack.postKeys, rootPageOne.postKeys, '浏览器后退必须恢复全部文档第一页内容');
 
-  await page.goForward();
+  await verifyPendingPjaxLoading({
+    page,
+    targetUrl: absoluteUrl(`${categoriesBasePath}?page=2`),
+    action: () => page.evaluate(() => history.forward()),
+    preservedSelector: '[data-app-root="explorer-categories"] .category-workspace',
+    expectWindowOverlay: false,
+    label: '全部文档浏览器前进'
+  });
   await waitForFinder(page, { pathname: categoriesBasePath, scope: 'all', pageNumber: 2, queryPage: 2 });
+  await assertPjaxLoadingSettled(page, '全部文档浏览器前进');
   const rootForward = await finderState(page);
   assert.equal(rootForward.marker, rootMarker, '浏览器前进必须在同一 Document 中恢复全部文档第二页');
   assert.deepEqual(rootForward.postKeys, rootPageTwo.postKeys, '浏览器前进必须恢复全部文档第二页内容');
@@ -338,25 +366,41 @@ try {
   await waitForPjax(page);
   const categoryMarker = `category-detail-${Date.now()}`;
   await page.evaluate((value) => { document.documentElement.dataset.categoryVerifyMarker = value; }, categoryMarker);
-  await clickCategoryPath(page, candidate.pathname);
+  await verifyPendingPjaxLoading({
+    page,
+    targetUrl: absoluteUrl(candidate.pathname),
+    action: () => clickCategoryPath(page, candidate.pathname),
+    preservedSelector: '[data-app-root="explorer-categories"] .category-workspace',
+    expectWindowOverlay: false,
+    label: '分类选择'
+  });
   await waitForFinder(page, {
     pathname: candidate.pathname,
     scope: 'category',
     categoryName: candidate.categoryName,
     pageNumber: 1
   });
+  await assertPjaxLoadingSettled(page, '分类选择');
   const categoryPageOne = await finderState(page);
   assert.equal(categoryPageOne.marker, categoryMarker, '从全部分类选择分类必须走 PJAX 并保留当前 Document');
   assert.deepEqual(categoryPageOne.postKeys, candidate.firstPage.postKeys, 'PJAX 分类详情必须与直达结果一致');
 
-  await page.locator('[data-category-next]').click();
   const categorySecondPath = categoryPagePath(candidate.pathname, 2);
+  await verifyPendingPjaxLoading({
+    page,
+    targetUrl: absoluteUrl(categorySecondPath),
+    action: () => page.locator('[data-category-next]').click(),
+    preservedSelector: '[data-app-root="explorer-categories"] .category-workspace',
+    expectWindowOverlay: false,
+    label: '分类文档分页'
+  });
   await waitForFinder(page, {
     pathname: categorySecondPath,
     scope: 'category',
     categoryName: candidate.categoryName,
     pageNumber: 2
   });
+  await assertPjaxLoadingSettled(page, '分类文档分页');
   const categoryPageTwo = await finderState(page);
   assert.equal(categoryPageTwo.marker, categoryMarker, '分类下一页必须走 PJAX 并保留当前 Document');
   assert.deepEqual(categoryPageTwo.currentTreePaths.map(withoutTrailingSlash), [candidate.pathname], '分类第二页必须保持当前分类选中');

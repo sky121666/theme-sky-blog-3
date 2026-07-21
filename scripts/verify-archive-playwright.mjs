@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
+import {
+  assertPjaxLoadingSettled,
+  verifyPendingPjaxLoading
+} from './pjax-loading-test-helpers.mjs';
 
 const baseUrl = String(process.env.SMOKE_BASE_URL || '').trim();
 const configuredArchivePath = String(process.env.ARCHIVES_BASE_PATH || '/archives').trim();
@@ -104,16 +108,32 @@ try {
   await waitForArchive(page);
   await page.evaluate((value) => { document.documentElement.dataset.archiveVerifyMarker = value; }, marker);
 
-  await page.locator(`[data-archive-year-option][data-year="${candidate.year}"]`).click();
+  await verifyPendingPjaxLoading({
+    page,
+    targetUrl: absoluteUrl(`${archivesBasePath}/${candidate.year}`),
+    action: () => page.locator(`[data-archive-year-option][data-year="${candidate.year}"]`).click(),
+    preservedSelector: '[data-app-root="explorer-archives"] .archive-workspace',
+    expectWindowOverlay: false,
+    label: '归档年份切换'
+  });
   await page.waitForFunction((path) => location.pathname === path, `${archivesBasePath}/${candidate.year}`);
   await waitForArchive(page, { year: candidate.year });
+  await assertPjaxLoadingSettled(page, '归档年份切换');
   assert.equal((await archiveState(page)).marker, marker, '年份切换必须走 PJAX，不能整页刷新');
 
   const monthKey = candidate.month.key;
   const monthPath = pathnameOf(candidate.month.href);
-  await page.locator(`[data-archive-month-option][data-month-key="${monthKey}"]`).click();
+  await verifyPendingPjaxLoading({
+    page,
+    targetUrl: absoluteUrl(candidate.month.href),
+    action: () => page.locator(`[data-archive-month-option][data-month-key="${monthKey}"]`).click(),
+    preservedSelector: '[data-app-root="explorer-archives"] .archive-workspace',
+    expectWindowOverlay: false,
+    label: '归档月份切换'
+  });
   await page.waitForFunction((path) => location.pathname === path, monthPath);
   await waitForArchive(page, { year: candidate.year, monthKey });
+  await assertPjaxLoadingSettled(page, '归档月份切换');
 
   const firstMonthState = await archiveState(page);
   assert.equal(firstMonthState.marker, marker, '月份切换必须走 PJAX，不能整页刷新');
@@ -168,8 +188,20 @@ try {
   assert.match(appendedState.completionText, new RegExp(`${candidate.month.count}\\s*篇`), '完成状态必须播报正确的本月总数');
   assert.ok(appendedState.focusedPostKey, '继续加载后焦点必须移动到第一篇新增文章');
 
-  await page.locator('[data-archive-post-option]').last().click();
+  const archivePreviewAction = page.locator('.archive-preview-action');
+  assert.equal(await archivePreviewAction.count(), 1, '归档必须提供唯一预览打开入口');
+  const archivePostHref = await archivePreviewAction.getAttribute('href');
+  assert.ok(archivePostHref, '归档预览必须提供真实文章地址');
+  await verifyPendingPjaxLoading({
+    page,
+    targetUrl: absoluteUrl(archivePostHref),
+    action: () => archivePreviewAction.click(),
+    preservedSelector: '[data-app-root="explorer-archives"] .archive-workspace',
+    expectWindowOverlay: true,
+    label: '归档进入正文'
+  });
   await page.waitForFunction(() => document.body?.dataset.pageApp === 'reader');
+  await assertPjaxLoadingSettled(page, '归档进入正文');
   await page.goBack();
   await waitForArchive(page, { year: candidate.year, monthKey });
   const restoredState = await archiveState(page);

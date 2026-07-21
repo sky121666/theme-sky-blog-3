@@ -44,6 +44,16 @@ export function supportsSameVariantContentSwitch(appId) {
   return !!getAppManifest(appId)?.supportsSameAppPjax;
 }
 
+export function getSameAppPjaxLoadingMode(appId) {
+  const mode = getAppManifest(appId)?.sameAppPjaxLoading;
+  return mode === 'progress' ? 'progress' : 'window-overlay';
+}
+
+export function shouldUseWindowLoadingOverlay(currentApp, targetApp) {
+  if (!currentApp || !targetApp || currentApp !== targetApp) return true;
+  return getSameAppPjaxLoadingMode(targetApp) === 'window-overlay';
+}
+
 export function isContentSwitchAllowed(appId, pageMode) {
   const allowedModes = getAppManifest(appId)?.sameVariantPageModes || [];
   if (!appId || !pageMode) return false;

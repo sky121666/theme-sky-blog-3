@@ -469,11 +469,45 @@ async function verifyLoadingControllerInterruption() {
   assert.equal(attributes.has('data-fading'), false, '新导航打断旧淡出时必须清理旧计时器');
 }
 
+async function verifyBusyOnlyLoadingController() {
+  const rootAttributes = new Map();
+  let overlayQueries = 0;
+  const contentRoot = {
+    matches(selector) {
+      return selector === '[data-window-content-root]';
+    },
+    querySelector() {
+      overlayQueries += 1;
+      return null;
+    },
+    setAttribute(name, value) {
+      rootAttributes.set(name, String(value));
+    }
+  };
+  const controllerUrl = pathToFileURL(
+    path.join(root, 'src/shell/desktop-shell/runtime/desktop/pjax/loading-controller.js')
+  );
+  const {
+    createWindowLoadingController,
+    hasLoadingOverlay
+  } = await import(`${controllerUrl.href}?contract=busy-only`);
+  const controller = createWindowLoadingController(contentRoot, { useOverlay: false }).start();
+
+  assert.equal(controller.overlay, null, 'progress 模式不得持有窗口骨架');
+  assert.equal(hasLoadingOverlay(controller), false, 'busy-only controller 不得被误判为窗口骨架');
+  assert.equal(overlayQueries, 0, 'progress 模式不得查询或触碰窗口骨架 DOM');
+  assert.equal(rootAttributes.get('aria-busy'), 'true', 'progress 模式仍须声明内容忙碌状态');
+
+  await controller.finish({ immediate: true });
+  assert.equal(rootAttributes.get('aria-busy'), 'false', 'progress 模式完成或中断后必须清除忙碌状态');
+}
+
 try {
   await verifyAssetFailureRecovery();
   await verifyTopLevelDynamicLink();
   await verifyNavigationHelpers();
   await verifyLoadingControllerInterruption();
+  await verifyBusyOnlyLoadingController();
 
   const pjaxSource = fs.readFileSync(
     path.join(root, 'src/shell/desktop-shell/runtime/desktop/pjax/index.js'),
@@ -501,6 +535,28 @@ try {
     pjaxSource,
     /await loadingController\?\.finish\([\s\S]*?if \(isCurrentCompletion\(\)\) \{[\s\S]*?container\?\.classList\.remove\('pjax-loading'\);[\s\S]*?clearTransientNavigationUi\(\);/,
     'complete finally 必须在 overlay await 后重新校验 generation/intent 再清 DOM'
+  );
+  assert.match(
+    pjaxSource,
+    /const useWindowOverlay = shouldUseWindowLoadingOverlay\(currentApp, targetApp\);\s*const loadingController = createWindowLoadingController\(contentRoot, \{\s*useOverlay: useWindowOverlay\s*\}\)\.start\(\);/,
+    'same-variant 必须按应用清单决定使用窗口骨架或轻量进度'
+  );
+  assert.match(
+    pjaxSource,
+    /currentVariant !== 'none' &&\s*shouldUseWindowLoadingOverlay\(currentApp, targetApp\);/,
+    'full PJAX（含前进后退）必须复用同一加载策略'
+  );
+  const fullSendStart = pjaxSource.indexOf('document.addEventListener("pjax:send"');
+  const fullSendEnd = pjaxSource.indexOf('document.addEventListener("pjax:complete"', fullSendStart);
+  const fullSendSource = pjaxSource.slice(fullSendStart, fullSendEnd);
+  assert.ok(
+    fullSendSource.indexOf('const currentApp =') < fullSendSource.indexOf('deactivateCurrentPageApp();'),
+    'full PJAX 必须在停用当前应用前保存 currentApp，确保 popstate 可选择正确加载策略'
+  );
+  assert.match(
+    fullSendSource,
+    /event\?\.triggerElement\?\.href \|\| event\?\.requestOptions\?\.requestUrl/,
+    'full PJAX 必须从 requestOptions.requestUrl 识别无 triggerElement 的前进后退目标'
   );
   const sameVariantStart = pjaxSource.indexOf('async function navigateWithinVariant');
   const tailHookIndex = pjaxSource.indexOf('runNonFatalNavigationHook(window.__momentsScrollSetup', sameVariantStart);

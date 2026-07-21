@@ -33,6 +33,7 @@ import {
 import { inferWindowVariantFromUrl } from '../../../../../shell-core/runtime/route-manifest.js';
 import {
   isContentSwitchAllowed,
+  shouldUseWindowLoadingOverlay,
   supportsSameVariantContentSwitch
 } from '../../../../../shell-core/runtime/app-manifests.js';
 import { reconcileSeoHead, syncSeoHeadFromResponse } from './seo.js';
@@ -43,10 +44,8 @@ import {
 } from './protocol.js';
 import {
   createWindowLoadingController,
-  showOverlay,
   hideOverlay,
   hasLoadingOverlay,
-  setBusyState,
   clearBusyState
 } from './loading-controller.js';
 import {
@@ -678,7 +677,12 @@ export function initPjax(Alpine) {
         return false;
       }
 
-      const loadingController = showOverlay(contentRoot);
+      const currentApp = getCurrentPageApp() || document.body.dataset.pageApp || '';
+      const targetApp = inferPageAppForNavigation(targetUrl) || '';
+      const useWindowOverlay = shouldUseWindowLoadingOverlay(currentApp, targetApp);
+      const loadingController = createWindowLoadingController(contentRoot, {
+        useOverlay: useWindowOverlay
+      }).start();
       _sameVariantLoadingController = loadingController;
       const useTopProgress = !hasLoadingOverlay(loadingController);
       let navigationSucceeded = false;
@@ -695,7 +699,6 @@ export function initPjax(Alpine) {
       document.dispatchEvent(new CustomEvent('pjax:same-variant-send', { detail: { targetUrl: targetUrl } }));
 
       try {
-        const targetApp = inferPageAppForNavigation(targetUrl);
         const [resp] = await Promise.all([
           fetch(targetUrl, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
@@ -725,7 +728,6 @@ export function initPjax(Alpine) {
         // Verify pageApp + pageMode compatibility via whitelist
         const responseApp = parsePageAppFromResponse(html) || '';
         const responseMode = parsePageModeFromResponse(html);
-        const currentApp = getCurrentPageApp() || '';
         const currentMode = document.body.dataset.pageMode || '';
 
         if (!isContentSwitchAllowed(currentApp, currentMode) ||
@@ -935,6 +937,11 @@ export function initPjax(Alpine) {
       const eventIntent = Number(event?.[NAVIGATION_INTENT_OPTION]) > 0
         ? Number(event[NAVIGATION_INTENT_OPTION])
         : navigationIntentGeneration;
+      const currentApp = getCurrentPageApp() || document.body.dataset.pageApp || '';
+      const targetHref = event?.triggerElement?.href || event?.requestOptions?.requestUrl;
+      const targetApp = targetHref
+        ? inferPageAppForNavigation(targetHref, event?.triggerElement) || ''
+        : '';
       _fullPjaxGeneration += 1;
       sameVariantCoordinator.cancel();
       _sameVariantLoadingController?.finish({ immediate: true });
@@ -944,7 +951,6 @@ export function initPjax(Alpine) {
       closeTransientNavigationUi();
       deactivateCurrentPageApp();
       startTopProgress();
-      const targetHref = event?.triggerElement?.href || event?.requestOptions?.requestUrl;
       let targetVariant = '';
       try {
         targetVariant = targetHref ? inferWindowVariantFromUrl(new URL(targetHref, window.location.origin)) : '';
@@ -956,20 +962,17 @@ export function initPjax(Alpine) {
         currentVariant &&
         targetVariant &&
         currentVariant === targetVariant &&
-        currentVariant !== 'none';
+        currentVariant !== 'none' &&
+        shouldUseWindowLoadingOverlay(currentApp, targetApp);
       const container = document.getElementById('window-frame-root');
       if (container) {
         container.classList.add('pjax-loading');
-        _pjaxLoadingController = canUseWindowOverlay
-          ? createWindowLoadingController(container).start()
-          : null;
-        if (!_pjaxLoadingController) {
-          setBusyState(container, true);
-        }
+        _pjaxLoadingController = createWindowLoadingController(container, {
+          useOverlay: canUseWindowOverlay
+        }).start();
       }
 
       if (targetHref) {
-        const targetApp = inferPageAppForNavigation(targetHref, event?.triggerElement);
         ensureAppAssetsLoaded(targetApp).catch(() => {});
         try {
           const targetUrl = new URL(targetHref, window.location.origin);
