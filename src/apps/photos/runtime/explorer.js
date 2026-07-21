@@ -25,6 +25,8 @@ const COMPACT_MIN_COL_COUNT = 1;
 const COMPACT_MAX_COL_COUNT = 4;
 const COMPACT_DEFAULT_COL_COUNT = 2;
 const SKELETON_HEIGHTS = [164, 212, 188, 236, 176, 224, 196, 248];
+const DETAIL_FILMSTRIP_IDLE_DELAY_MS = 3_200;
+const DETAIL_FILMSTRIP_ACTIVITY_THROTTLE_MS = 180;
 
 function clampGridColCount(value) {
   const parsed = Number.parseInt(String(value ?? ''), 10);
@@ -473,6 +475,112 @@ export function registerPhotosExplorer(Alpine) {
       const image = this._getDetailImage();
       if (!stage || !image) return;
 
+      const shell = this.$el;
+      const activitySurface = this._getWindowSurface() || shell;
+      const filmstrip = shell?.querySelector('.photos-detail-filmstrip') || null;
+      const autoHideQuery = window.matchMedia?.('(hover: hover) and (pointer: fine)') || null;
+      let filmstripHideTimer = 0;
+      let filmstripFocusFrame = 0;
+      let filmstripPointerLocked = false;
+      let lastFilmstripActivityAt = 0;
+      let lastPointerX = null;
+      let lastPointerY = null;
+
+      const clearFilmstripHideTimer = () => {
+        if (!filmstripHideTimer) return;
+        window.clearTimeout(filmstripHideTimer);
+        filmstripHideTimer = 0;
+      };
+      const setFilmstripHidden = (hidden) => {
+        if (!filmstrip || !shell?.isConnected) return;
+        const nextState = hidden ? 'hidden' : 'visible';
+        shell.dataset.photosFilmstripState = nextState;
+        filmstrip.dataset.photosFilmstripState = nextState;
+        if (hidden) {
+          filmstrip.setAttribute('inert', '');
+          filmstrip.setAttribute('aria-hidden', 'true');
+        } else {
+          filmstrip.removeAttribute('inert');
+          filmstrip.removeAttribute('aria-hidden');
+        }
+      };
+      const filmstripInteractionLocked = () => Boolean(
+        filmstripPointerLocked
+        || filmstrip?.matches?.(':hover')
+        || filmstrip?.contains?.(document.activeElement)
+        || this.photoPanning
+      );
+      const autoHideAllowed = () => autoHideQuery?.matches !== false;
+      const scheduleFilmstripHide = () => {
+        clearFilmstripHideTimer();
+        if (!filmstrip || !autoHideAllowed() || document.hidden || this._destroyed) return;
+
+        filmstripHideTimer = window.setTimeout(() => {
+          filmstripHideTimer = 0;
+          if (this._destroyed || !shell?.isConnected || filmstripInteractionLocked()) return;
+          setFilmstripHidden(true);
+        }, DETAIL_FILMSTRIP_IDLE_DELAY_MS);
+      };
+      const wakeFilmstrip = ({ force = false } = {}) => {
+        if (!filmstrip) return;
+        const now = Date.now();
+        const hidden = shell?.dataset.photosFilmstripState === 'hidden';
+        if (!force && !hidden && now - lastFilmstripActivityAt < DETAIL_FILMSTRIP_ACTIVITY_THROTTLE_MS) {
+          return;
+        }
+
+        lastFilmstripActivityAt = now;
+        setFilmstripHidden(false);
+        scheduleFilmstripHide();
+      };
+      const holdFilmstripOpen = () => {
+        setFilmstripHidden(false);
+        clearFilmstripHideTimer();
+      };
+      const onPointerMoveActivity = (event) => {
+        const pointerMovedEnough = lastPointerX == null
+          || lastPointerY == null
+          || Math.hypot(event.clientX - lastPointerX, event.clientY - lastPointerY) >= 3;
+        const hidden = shell?.dataset.photosFilmstripState === 'hidden';
+        if (!hidden && !pointerMovedEnough) return;
+
+        lastPointerX = event.clientX;
+        lastPointerY = event.clientY;
+        wakeFilmstrip();
+      };
+      const onDirectActivity = () => wakeFilmstrip({ force: true });
+      const onFilmstripPointerEnter = () => {
+        filmstripPointerLocked = true;
+        holdFilmstripOpen();
+      };
+      const onFilmstripPointerLeave = () => {
+        filmstripPointerLocked = false;
+        scheduleFilmstripHide();
+      };
+      const onFilmstripFocusIn = () => holdFilmstripOpen();
+      const onFilmstripFocusOut = (event) => {
+        if (filmstrip?.contains?.(event.relatedTarget)) return;
+        if (filmstripFocusFrame) window.cancelAnimationFrame(filmstripFocusFrame);
+        filmstripFocusFrame = window.requestAnimationFrame(() => {
+          filmstripFocusFrame = 0;
+          if (!filmstrip?.contains?.(document.activeElement)) scheduleFilmstripHide();
+        });
+      };
+      const onVisibilityChange = () => {
+        if (document.hidden) {
+          clearFilmstripHideTimer();
+          return;
+        }
+        wakeFilmstrip({ force: true });
+      };
+      const onAutoHideChange = () => {
+        if (autoHideAllowed()) {
+          wakeFilmstrip({ force: true });
+          return;
+        }
+        holdFilmstripOpen();
+      };
+
       const onWheel = (event) => this.handlePhotoWheel(event);
       const onPointerDown = (event) => this.beginPhotoPan(event);
       const onMouseDown = (event) => this.beginPhotoPan(event);
@@ -485,6 +593,7 @@ export function registerPhotosExplorer(Alpine) {
       const onImageLoad = () => this.updatePhotoPanAvailability();
       const currentFilmstripItem = this.$el?.querySelector('.photos-detail-neighbor.is-current');
       const onKeyDown = (event) => {
+        wakeFilmstrip({ force: true });
         if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
         if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
         if (event.target?.closest?.('input, textarea, select, button, [contenteditable="true"]')) return;
@@ -503,6 +612,22 @@ export function registerPhotosExplorer(Alpine) {
       stage.addEventListener('dblclick', onDblClick);
       image.addEventListener('load', onImageLoad);
       window.addEventListener('keydown', onKeyDown);
+      if (filmstrip) {
+        shell.dataset.photosFilmstripIdleDelay = String(DETAIL_FILMSTRIP_IDLE_DELAY_MS);
+        setFilmstripHidden(false);
+        activitySurface?.addEventListener('pointermove', onPointerMoveActivity, { passive: true });
+        activitySurface?.addEventListener('pointerdown', onDirectActivity, { passive: true });
+        activitySurface?.addEventListener('wheel', onDirectActivity, { passive: true });
+        activitySurface?.addEventListener('touchstart', onDirectActivity, { passive: true });
+        filmstrip.addEventListener('pointerenter', onFilmstripPointerEnter);
+        filmstrip.addEventListener('pointerleave', onFilmstripPointerLeave);
+        filmstrip.addEventListener('focusin', onFilmstripFocusIn);
+        filmstrip.addEventListener('focusout', onFilmstripFocusOut);
+        filmstrip.addEventListener('scroll', onDirectActivity, { passive: true, capture: true });
+        document.addEventListener('visibilitychange', onVisibilityChange);
+        autoHideQuery?.addEventListener?.('change', onAutoHideChange);
+        scheduleFilmstripHide();
+      }
 
       requestAnimationFrame(() => {
         if (!currentFilmstripItem?.isConnected) return;
@@ -514,6 +639,11 @@ export function registerPhotosExplorer(Alpine) {
       });
 
       engine.detailCleanup = () => {
+        clearFilmstripHideTimer();
+        if (filmstripFocusFrame) {
+          window.cancelAnimationFrame(filmstripFocusFrame);
+          filmstripFocusFrame = 0;
+        }
         stage.removeEventListener('wheel', onWheel);
         stage.removeEventListener('pointerdown', onPointerDown);
         stage.removeEventListener('mousedown', onMouseDown);
@@ -521,6 +651,24 @@ export function registerPhotosExplorer(Alpine) {
         stage.removeEventListener('dblclick', onDblClick);
         image.removeEventListener('load', onImageLoad);
         window.removeEventListener('keydown', onKeyDown);
+        if (filmstrip) {
+          activitySurface?.removeEventListener('pointermove', onPointerMoveActivity);
+          activitySurface?.removeEventListener('pointerdown', onDirectActivity);
+          activitySurface?.removeEventListener('wheel', onDirectActivity);
+          activitySurface?.removeEventListener('touchstart', onDirectActivity);
+          filmstrip.removeEventListener('pointerenter', onFilmstripPointerEnter);
+          filmstrip.removeEventListener('pointerleave', onFilmstripPointerLeave);
+          filmstrip.removeEventListener('focusin', onFilmstripFocusIn);
+          filmstrip.removeEventListener('focusout', onFilmstripFocusOut);
+          filmstrip.removeEventListener('scroll', onDirectActivity, true);
+          document.removeEventListener('visibilitychange', onVisibilityChange);
+          autoHideQuery?.removeEventListener?.('change', onAutoHideChange);
+          filmstrip.removeAttribute('inert');
+          filmstrip.removeAttribute('aria-hidden');
+          delete filmstrip.dataset.photosFilmstripState;
+          delete shell.dataset.photosFilmstripState;
+          delete shell.dataset.photosFilmstripIdleDelay;
+        }
       };
 
       this.updatePhotoPanAvailability();

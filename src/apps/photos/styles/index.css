@@ -3906,7 +3906,7 @@ html.photos-shared-view-transition {
   position: relative;
   order: 1;
   display: grid !important;
-  grid-template-rows: minmax(0, 1fr) 74px;
+  grid-template-rows: minmax(0, 1fr);
   width: auto;
   height: 100%;
   min-width: 0;
@@ -3951,18 +3951,43 @@ html.photos-shared-view-transition {
 }
 
 .photos-detail-main > .photos-detail-filmstrip {
-  grid-row: 2;
+  position: absolute;
+  left: 50%;
+  bottom: max(10px, env(safe-area-inset-bottom, 0px));
+  z-index: 6;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: min(760px, calc(100% - 32px));
+  max-width: calc(100% - 32px);
   min-width: 0;
   min-height: 0;
   margin: 0;
-  padding: 8px 20px 12px;
-  overflow: hidden;
-  border-top: 1px solid color-mix(in srgb, var(--photos-detail-border) 64%, transparent);
-  background: var(--photos-detail-stage-bg);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--photos-detail-hairline) 64%, transparent);
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translate3d(-50%, 0, 0) scale(1);
+  transform-origin: center bottom;
+  transition:
+    opacity 0.18s var(--photos-motion-soft),
+    transform 0.28s var(--photos-motion-spring),
+    visibility 0s linear 0s;
+}
+
+.photos-detail-shell[data-photos-filmstrip-state="hidden"] .photos-detail-filmstrip {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translate3d(-50%, 9px, 0) scale(0.985);
+  transition:
+    opacity 0.14s ease,
+    transform 0.2s var(--photos-motion-exit),
+    visibility 0s linear 0.2s;
 }
 
 .photos-detail-filmstrip .photos-detail-neighbor-list {
@@ -3974,11 +3999,35 @@ html.photos-shared-view-transition {
   max-width: 100%;
   min-width: 0;
   margin: 0;
-  padding: 3px 5px;
+  padding: 4px 7px;
   overflow-x: auto;
   overflow-y: hidden;
   scroll-snap-type: x proximity;
+  overscroll-behavior-inline: contain;
+  touch-action: pan-x;
   scrollbar-width: none;
+  border: 1px solid color-mix(in srgb, var(--photos-detail-border-soft) 82%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--photos-detail-stage-bg) 76%, transparent);
+  backdrop-filter: blur(24px) saturate(145%);
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
+  box-shadow:
+    0 14px 34px color-mix(in srgb, var(--photos-detail-border) 72%, transparent),
+    0 3px 10px color-mix(in srgb, var(--photos-detail-border) 46%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--photos-detail-hairline) 86%, transparent);
+  transition:
+    background-color var(--photos-motion-base) ease,
+    border-color var(--photos-motion-base) ease,
+    box-shadow var(--photos-motion-base) ease;
+}
+
+.photos-detail-filmstrip:is(:hover, :focus-within) .photos-detail-neighbor-list {
+  background: color-mix(in srgb, var(--photos-detail-stage-bg) 84%, transparent);
+  border-color: color-mix(in srgb, var(--photos-detail-border-soft) 96%, transparent);
+  box-shadow:
+    0 16px 38px color-mix(in srgb, var(--photos-detail-border) 76%, transparent),
+    0 4px 12px color-mix(in srgb, var(--photos-detail-border) 52%, transparent),
+    inset 0 1px 0 var(--photos-detail-hairline);
 }
 
 .photos-detail-filmstrip .photos-detail-neighbor-list::-webkit-scrollbar {
@@ -4158,6 +4207,8 @@ html.photos-shared-view-transition {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .photos-detail-main > .photos-detail-filmstrip,
+  .photos-detail-filmstrip .photos-detail-neighbor-list,
   .photos-detail-filmstrip .photos-detail-neighbor,
   html[data-photos-view-transition-kind="detail-step"]::view-transition-group(photos-active-photo),
   html[data-photos-view-transition-kind="detail-step"]::view-transition-old(photos-active-photo),
@@ -4180,7 +4231,7 @@ html.photos-shared-view-transition {
 
   .photos-detail-main,
   .photos-detail-shell.is-comments-open .photos-detail-main {
-    grid-template-rows: minmax(0, 1fr) 64px;
+    grid-template-rows: minmax(0, 1fr);
   }
 
   .photos-detail-main > .photos-detail-stage {
@@ -4189,7 +4240,10 @@ html.photos-shared-view-transition {
 
   .photos-detail-main > .photos-detail-filmstrip {
     justify-content: flex-start;
-    padding: 6px 8px 10px;
+    width: calc(100% - 16px);
+    max-width: calc(100% - 16px);
+    bottom: max(8px, env(safe-area-inset-bottom, 0px));
+    padding: 0;
   }
 
   .photos-detail-filmstrip .photos-detail-neighbor-list {
