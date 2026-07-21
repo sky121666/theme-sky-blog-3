@@ -171,7 +171,38 @@ async function inspectDocsPage(page, target) {
         articleTextLength: article?.innerText?.trim?.().length || 0
       };
     });
-    return { ...result, httpStatus: response.status(), consoleErrors };
+
+    let projectCardHover = null;
+    const projectCards = page.locator('.docsme-project-card');
+    if (await projectCards.count() > 0) {
+      const firstCard = projectCards.first();
+      const secondCard = projectCards.nth(Math.min(1, (await projectCards.count()) - 1));
+      const before = await firstCard.boundingBox();
+
+      for (let index = 0; index < 4; index += 1) {
+        await firstCard.hover();
+        await secondCard.hover();
+      }
+      await firstCard.hover();
+      await page.waitForTimeout(240);
+
+      const after = await firstCard.boundingBox();
+      projectCardHover = await firstCard.evaluate((card, positions) => {
+        const cardStyle = getComputedStyle(card);
+        const glow = card.querySelector('.docsme-project-card__glow');
+        return {
+          active: card.matches(':hover'),
+          transform: cardStyle.transform,
+          glowFilter: glow ? getComputedStyle(glow).filter : '',
+          verticalShift: positions.before && positions.after
+            ? Math.round((positions.after.y - positions.before.y) * 100) / 100
+            : null
+        };
+      }, { before, after });
+      await page.mouse.move(0, 0);
+    }
+
+    return { ...result, projectCardHover, httpStatus: response.status(), consoleErrors };
   } finally {
     page.off('console', onConsole);
   }
@@ -200,6 +231,7 @@ function diagnosticsForCheck(check) {
     return {
       scene: result.scene || '',
       projectCards: result.projectCards ?? 0,
+      projectCardHover: result.projectCardHover || null,
       mode: result.mode || '',
       appId: result.appId || '',
       hint: '若项目页失败，先检查 /docs 是否由 Docsme 接管、data-app-root="docsme" 和 data-docsme-scene 是否输出。'
@@ -848,6 +880,16 @@ async function main() {
   const projectFailures = assertDocsProtocol(projects, 'projects');
   if (projects.scene !== 'projects') projectFailures.push(`projects: scene=${projects.scene}`);
   if (projects.projectCards < 1) projectFailures.push('projects: no project cards found');
+  if (!projects.projectCardHover?.active) projectFailures.push('projects: project card hover state was not activated');
+  if (projects.projectCardHover?.transform !== 'none') {
+    projectFailures.push(`projects: hover transform=${projects.projectCardHover?.transform || 'missing'}`);
+  }
+  if (projects.projectCardHover?.glowFilter !== 'none') {
+    projectFailures.push(`projects: glow filter=${projects.projectCardHover?.glowFilter || 'missing'}`);
+  }
+  if (Math.abs(projects.projectCardHover?.verticalShift || 0) > 0.1) {
+    projectFailures.push(`projects: hover vertical shift=${projects.projectCardHover.verticalShift}`);
+  }
   failures.push(...projectFailures);
   report.checks.push({
     name: 'projects',
