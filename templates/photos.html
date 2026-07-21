@@ -37,51 +37,12 @@
          th:attrappend=" data-photos-site-title=${site.title}, data-photos-chrome-title=${resolvedWindowTitle}, data-photos-chrome-subtitle=${resolvedWindowSubtitle}">
       <h1 class="sr-only" th:text="${resolvedWindowTitle}">图库</h1>
       <script type="application/json" data-app-props="photos" th:inline="javascript">{"version":1,"appId":"photos","data":{"view":[[${photosViewValue}]]}}</script>
-      <!-- =============== 左侧边栏 =============== -->
-      <aside class="photos-sidebar">
-        <!-- 固定系统项 -->
-        <nav class="photos-sidebar-section">
-          <a class="photos-sidebar-item pjax-link"
-             href="/photos"
-             th:classappend="${!isAlbumsView and !isGroupView ? 'is-active' : ''}">
-            <span class="photos-sidebar-icon icon-[lucide--images]" aria-hidden="true"></span>
-            <span class="photos-sidebar-label">图库</span>
-          </a>
-          <a class="photos-sidebar-item pjax-link"
-             href="/photos?view=albums"
-             th:classappend="${isAlbumsView ? 'is-active' : ''}">
-            <span class="photos-sidebar-icon icon-[lucide--folder]" aria-hidden="true"></span>
-            <span class="photos-sidebar-label">精选集</span>
-          </a>
-        </nav>
-
-        <!-- 相册分组 -->
-        <div class="photos-sidebar-section" th:if="${not #lists.isEmpty(groups)}">
-          <p class="photos-sidebar-section-title">相簿</p>
-          <nav class="photos-sidebar-nav">
-            <a class="photos-sidebar-item pjax-link"
-               th:each="groupItem : ${groups}"
-               th:with="
-                 groupIcon=${#annotations.getOrDefault(groupItem, 'icon', '')},
-                 groupLeadPhoto=${groupItem.photos != null and !#lists.isEmpty(groupItem.photos) ? groupItem.photos[0] : null},
-                 groupCover=${groupLeadPhoto != null ? (!#strings.isEmpty(groupLeadPhoto.spec.cover) ? groupLeadPhoto.spec.cover : groupLeadPhoto.spec.url) : ''}
-               "
-               th:href="${photoUrl != null ? photoUrl.list(groupItem.metadata.name) : ('/photos?group=' + groupItem.metadata.name)}"
-               th:classappend="${activeGroup == groupItem.metadata.name ? 'is-active' : ''}">
-             
-             <!-- 优先使用用户配置的 SVG 图标 -->
-             <span th:if="${!#strings.isEmpty(groupIcon)}" class="photos-sidebar-custom-icon" th:utext="${groupIcon}"></span>
-             
-             <!-- 否则使用默认图标 -->
-             <span th:unless="${!#strings.isEmpty(groupIcon)}"
-                   class="photos-sidebar-icon icon-[lucide--folder]"
-                   aria-hidden="true"></span>
-              <span class="photos-sidebar-label" th:text="${groupItem.spec.displayName}">相册</span>
-              <span class="photos-sidebar-badge" th:text="${groupItem.status?.photoCount ?: ''}" th:if="${groupItem.status?.photoCount != null}"></span>
-            </a>
-          </nav>
-        </div>
-      </aside>
+      <th:block th:replace="~{modules/photos-app/sidebar :: sidebar(
+          groups=${groups},
+          activeGroup=${activeGroup},
+          view=${photosViewValue},
+          photoUrl=${photoUrl}
+        )}"></th:block>
 
       <!-- =============== 主内容区 =============== -->
       <div class="photos-main">
@@ -149,8 +110,7 @@
                  th:href="${photoUrl != null ? photoUrl.detail(photo) : ('/photos/' + photo.metadata.name)}"
                  data-pjax-app="photos"
                  th:attr="data-photo-name=${photo.metadata.name}">
-                <div class="photo-card-inner"
-                     th:style="${'view-transition-name: photo-' + photo.metadata.name}">
+                <div class="photo-card-inner">
                   <img th:if="${isFirstPhotoPage and photoIter.first and !#strings.isEmpty(photoListImage)}"
                        th:src="${thumbnail.gen(photoListImage, 'm')}"
                        th:srcset="|${thumbnail.gen(photoListImage, 's')} 400w,

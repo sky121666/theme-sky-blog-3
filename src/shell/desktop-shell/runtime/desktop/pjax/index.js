@@ -70,6 +70,130 @@ import {
 
 const { log: pjaxLog, warn: pjaxWarn } = createLogger('pjax');
 const NAVIGATION_INTENT_OPTION = '__themeNavigationIntent';
+const PHOTOS_DETAIL_VIEW = 'detail';
+const PHOTOS_SHARED_TRANSITION_CLASS = 'photos-shared-view-transition';
+const PHOTOS_TRANSITION_OWNER_ATTR = 'data-photos-view-transition-owner';
+const PHOTOS_SHARED_TRANSITION_NAME = 'photos-active-photo';
+let photosViewTransitionSequence = 0;
+let activePhotosViewTransition = null;
+
+function findPhotosAppRoot(root) {
+  if (!root) return null;
+  if (root.matches?.('[data-app-root="photos"]')) return root;
+  return root.querySelector?.('[data-app-root="photos"]') || null;
+}
+
+function findPhotoTransitionElement(photosRoot, view, photoName) {
+  if (!photosRoot || !photoName) return null;
+
+  if (view === PHOTOS_DETAIL_VIEW) {
+    const detailFigure = photosRoot.querySelector('.photos-detail-figure[data-photo-name]');
+    return detailFigure?.dataset.photoName === photoName ? detailFigure : null;
+  }
+
+  const card = Array.from(photosRoot.querySelectorAll('.photo-card[data-photo-name]'))
+    .find((candidate) => candidate.dataset.photoName === photoName);
+  return card?.querySelector('.photo-card-inner') || null;
+}
+
+function isPhotoTransitionSourceReady(element) {
+  if (!element) return false;
+  const image = element.querySelector('img');
+  if (image && (!image.complete || image.naturalWidth <= 0)) return false;
+
+  const clip = element.closest('.photos-grid-scroll');
+  if (!clip) return true;
+  const elementRect = element.getBoundingClientRect();
+  const clipRect = clip.getBoundingClientRect();
+  const tolerance = 1;
+  return elementRect.width > 0
+    && elementRect.height > 0
+    && elementRect.top >= clipRect.top - tolerance
+    && elementRect.left >= clipRect.left - tolerance
+    && elementRect.right <= clipRect.right + tolerance
+    && elementRect.bottom <= clipRect.bottom + tolerance;
+}
+
+function resolvePhotosSharedTransition(contentContainer, targetContainer, triggerElement) {
+  const currentRoot = findPhotosAppRoot(contentContainer);
+  const targetRoot = findPhotosAppRoot(targetContainer);
+  if (!currentRoot || !targetRoot) return null;
+
+  const currentView = currentRoot.dataset.photosView || '';
+  const targetView = targetRoot.dataset.photosView || '';
+  const isListToDetail = currentView !== PHOTOS_DETAIL_VIEW && targetView === PHOTOS_DETAIL_VIEW;
+  if (!isListToDetail) return null;
+
+  const triggerPhotoName = triggerElement?.closest?.('[data-photo-name]')?.dataset.photoName || '';
+  const targetDetailName = targetRoot
+    .querySelector('.photos-detail-figure[data-photo-name]')
+    ?.dataset.photoName || '';
+  const photoName = triggerPhotoName || targetDetailName;
+  if (!photoName || targetDetailName !== photoName) return null;
+
+  const currentElement = findPhotoTransitionElement(currentRoot, currentView, photoName);
+  const targetElement = findPhotoTransitionElement(targetRoot, targetView, photoName);
+  if (!currentElement || !targetElement || !isPhotoTransitionSourceReady(currentElement)) return null;
+
+  return {
+    owner: String(++photosViewTransitionSequence),
+    photoName,
+    transitionName: PHOTOS_SHARED_TRANSITION_NAME,
+    currentElement,
+    targetView,
+    elements: new Set()
+  };
+}
+
+function markPhotosSharedTransitionElement(element, descriptor) {
+  if (!element || !descriptor) return;
+  element.setAttribute(PHOTOS_TRANSITION_OWNER_ATTR, descriptor.owner);
+  element.style.viewTransitionName = descriptor.transitionName;
+  descriptor.elements.add(element);
+}
+
+function beginPhotosSharedTransition(descriptor) {
+  if (!descriptor) return;
+  const root = document.documentElement;
+  root.classList.add(PHOTOS_SHARED_TRANSITION_CLASS);
+  root.setAttribute(PHOTOS_TRANSITION_OWNER_ATTR, descriptor.owner);
+  markPhotosSharedTransitionElement(descriptor.currentElement, descriptor);
+}
+
+function markPhotosSharedTransitionTarget(contentContainer, descriptor) {
+  const targetRoot = findPhotosAppRoot(contentContainer);
+  const targetElement = findPhotoTransitionElement(targetRoot, descriptor.targetView, descriptor.photoName);
+  markPhotosSharedTransitionElement(targetElement, descriptor);
+}
+
+function cleanupPhotosSharedTransition(descriptor) {
+  if (!descriptor) return;
+
+  descriptor.elements.forEach((element) => {
+    if (element.getAttribute(PHOTOS_TRANSITION_OWNER_ATTR) !== descriptor.owner) return;
+    element.removeAttribute(PHOTOS_TRANSITION_OWNER_ATTR);
+    element.style.removeProperty('view-transition-name');
+    if (element.style.length === 0) element.removeAttribute('style');
+  });
+
+  const root = document.documentElement;
+  if (root.getAttribute(PHOTOS_TRANSITION_OWNER_ATTR) === descriptor.owner) {
+    root.removeAttribute(PHOTOS_TRANSITION_OWNER_ATTR);
+    root.classList.remove(PHOTOS_SHARED_TRANSITION_CLASS);
+  }
+}
+
+function cancelActivePhotosViewTransition() {
+  const active = activePhotosViewTransition;
+  if (!active) return;
+  activePhotosViewTransition = null;
+  try {
+    active.transition?.skipTransition?.();
+  } catch (_error) {
+    // The transition may already be finishing; DOM cleanup is still safe.
+  }
+  cleanupPhotosSharedTransition(active.descriptor);
+}
 
 function parsePageModeFromResponse(html) {
   if (!html) return '';
@@ -559,6 +683,7 @@ export function initPjax(Alpine) {
 
     const _origLoadUrl = pjax.loadUrl.bind(pjax);
     pjax.loadUrl = function(url, options = {}) {
+      cancelActivePhotosViewTransition();
       const intentGeneration = ++navigationIntentGeneration;
       const isPopstateIntent = options?.history === false;
       browserNavigationOwnership.begin(intentGeneration, { popstate: isPopstateIntent });
@@ -646,7 +771,8 @@ export function initPjax(Alpine) {
      * Navigate within the same window variant — replace only the content root,
      * keep the window frame (titlebar, traffic lights, toolbar) intact.
      */
-    async function navigateWithinVariant(targetUrl) {
+    async function navigateWithinVariant(targetUrl, triggerElement = null) {
+      cancelActivePhotosViewTransition();
       const intentGeneration = ++navigationIntentGeneration;
       browserNavigationOwnership.begin(intentGeneration);
       _fullPjaxGeneration += 1;
@@ -748,6 +874,10 @@ export function initPjax(Alpine) {
 
         if (!contentContainer) throw new Error('No content container found');
 
+        const photosSidebarScrollTop = currentApp === 'photos'
+          ? contentContainer.querySelector('[data-app-root="photos"] > .photos-sidebar')?.scrollTop
+          : null;
+
         // Parse target's inner content (the content inside [data-window-content-variant] or #pjax-container)
         const parser = new DOMParser();
         const targetDoc = parser.parseFromString(html, 'text/html');
@@ -764,6 +894,10 @@ export function initPjax(Alpine) {
         preparePluginCompatibilityFromResponse(html);
         const syncedTitlebar = syncWindowTitlebarFromDocument(targetDoc);
 
+        const photosSharedTransition = currentApp === 'photos' && responseApp === 'photos'
+          ? resolvePhotosSharedTransition(contentContainer, targetContainer, triggerElement)
+          : null;
+        let activePhotosTransition = null;
         let contentSwapped = false;
         const performContentSwap = () => {
           if (!isCurrentNavigation()) return;
@@ -774,17 +908,45 @@ export function initPjax(Alpine) {
             // Fallback: use full content root innerHTML
             contentContainer.innerHTML = parsed.contentHtml;
           }
+          if (Number.isFinite(photosSidebarScrollTop)) {
+            const nextPhotosSidebar = contentContainer
+              .querySelector('[data-app-root="photos"] > .photos-sidebar');
+            if (nextPhotosSidebar) nextPhotosSidebar.scrollTop = photosSidebarScrollTop;
+          }
           document.dispatchEvent(new CustomEvent('theme:content-swapped', {
             detail: { root: contentContainer, reason: 'same-variant' }
           }));
+          if (activePhotosTransition) {
+            markPhotosSharedTransitionTarget(contentContainer, activePhotosTransition);
+          }
           contentSwapped = true;
         };
         const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
         const canUseViewTransition = typeof document.startViewTransition === 'function'
           && !reduceMotion
-          && (currentApp === 'photos' || targetApp === 'photos' || responseApp === 'photos');
+          && Boolean(photosSharedTransition);
         if (canUseViewTransition) {
-          const transition = document.startViewTransition(performContentSwap);
+          activePhotosTransition = photosSharedTransition;
+          beginPhotosSharedTransition(activePhotosTransition);
+          let transition;
+          try {
+            transition = document.startViewTransition(performContentSwap);
+          } catch (error) {
+            cleanupPhotosSharedTransition(activePhotosTransition);
+            throw error;
+          }
+          activePhotosViewTransition = {
+            descriptor: activePhotosTransition,
+            transition
+          };
+          Promise.resolve(transition.finished)
+            .catch(() => {})
+            .finally(() => {
+              if (activePhotosViewTransition?.descriptor.owner === activePhotosTransition.owner) {
+                activePhotosViewTransition = null;
+              }
+              cleanupPhotosSharedTransition(activePhotosTransition);
+            });
           await transition.updateCallbackDone.catch(() => {});
         } else {
           performContentSwap();
@@ -1168,7 +1330,7 @@ export function initPjax(Alpine) {
         e.preventDefault();
         e.stopImmediatePropagation();
         pjaxLog('same-variant intercept:', currentVariant, currentApp, currentMode, '→', targetApp, targetUrl.href);
-        navigateWithinVariant(targetUrl.href);
+        navigateWithinVariant(targetUrl.href, link);
       }
     }, true); // capture phase
 

@@ -367,6 +367,7 @@ export function registerPhotosExplorer(Alpine) {
       if (!this.canPanPhoto()) return;
       if (event.button != null && event.button !== 0) return;
       if (this.photoPanning) return;
+      if (event.target?.closest?.('a, button, input, select, textarea, [contenteditable="true"]')) return;
 
       event.preventDefault();
       event.stopPropagation();
@@ -482,6 +483,18 @@ export function registerPhotosExplorer(Alpine) {
         this.resetPhotoZoom();
       };
       const onImageLoad = () => this.updatePhotoPanAvailability();
+      const currentFilmstripItem = this.$el?.querySelector('.photos-detail-neighbor.is-current');
+      const onKeyDown = (event) => {
+        if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+        if (event.target?.closest?.('input, textarea, select, button, [contenteditable="true"]')) return;
+
+        const direction = event.key === 'ArrowLeft' ? '上一张' : '下一张';
+        const adjacentLink = stage.querySelector(`.photos-detail-adjacent-btn[aria-label="${direction}"]:not(.is-disabled)`);
+        if (!adjacentLink) return;
+        event.preventDefault();
+        adjacentLink.click();
+      };
 
       stage.addEventListener('wheel', onWheel, { passive: false });
       stage.addEventListener('pointerdown', onPointerDown);
@@ -489,6 +502,16 @@ export function registerPhotosExplorer(Alpine) {
       stage.addEventListener('auxclick', onAuxClick);
       stage.addEventListener('dblclick', onDblClick);
       image.addEventListener('load', onImageLoad);
+      window.addEventListener('keydown', onKeyDown);
+
+      requestAnimationFrame(() => {
+        if (!currentFilmstripItem?.isConnected) return;
+        currentFilmstripItem.scrollIntoView({
+          behavior: 'auto',
+          block: 'nearest',
+          inline: 'center'
+        });
+      });
 
       engine.detailCleanup = () => {
         stage.removeEventListener('wheel', onWheel);
@@ -497,6 +520,7 @@ export function registerPhotosExplorer(Alpine) {
         stage.removeEventListener('auxclick', onAuxClick);
         stage.removeEventListener('dblclick', onDblClick);
         image.removeEventListener('load', onImageLoad);
+        window.removeEventListener('keydown', onKeyDown);
       };
 
       this.updatePhotoPanAvailability();

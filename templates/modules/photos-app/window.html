@@ -32,7 +32,7 @@
                    th:classappend="${windowScene == 'detail' ? ' photos-titlebar-leading--detail' : ''}">
                 <th:block th:replace="~{modules/shell/window-titlebar-leading :: trafficLightsOnly(maximizable=${maximizable})}"></th:block>
                 <a th:if="${windowScene == 'detail'}"
-                        href="/photos"
+                        th:href="${!#strings.isEmpty(backUrl) ? backUrl : '/photos'}"
                         class="photos-titlebar-btn photos-detail-titlebar-back pjax-link"
                         data-pjax-app="photos"
                         title="返回图库">

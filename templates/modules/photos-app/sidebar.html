@@ -1,0 +1,44 @@
+<th:block xmlns:th="https://www.thymeleaf.org"
+          th:fragment="sidebar (groups, activeGroup, view, photoUrl)">
+  <aside class="photos-sidebar" aria-label="图库导航">
+    <nav class="photos-sidebar-section" aria-label="图库视图">
+      <a class="photos-sidebar-item pjax-link"
+         data-pjax-app="photos"
+         th:href="${photoUrl != null ? photoUrl.list() : '/photos'}"
+         th:classappend="${view == 'library' ? 'is-active' : ''}">
+        <span class="photos-sidebar-icon icon-[lucide--images]" aria-hidden="true"></span>
+        <span class="photos-sidebar-label">图库</span>
+      </a>
+      <a class="photos-sidebar-item pjax-link"
+         data-pjax-app="photos"
+         href="/photos?view=albums"
+         th:classappend="${view == 'albums' ? 'is-active' : ''}">
+        <span class="photos-sidebar-icon icon-[lucide--folder]" aria-hidden="true"></span>
+        <span class="photos-sidebar-label">精选集</span>
+      </a>
+    </nav>
+
+    <div class="photos-sidebar-section" th:if="${groups != null and !#lists.isEmpty(groups)}">
+      <p class="photos-sidebar-section-title">相簿</p>
+      <nav class="photos-sidebar-nav" aria-label="相簿">
+        <a class="photos-sidebar-item pjax-link"
+           data-pjax-app="photos"
+           th:each="groupItem : ${groups}"
+           th:with="groupIcon=${#annotations.getOrDefault(groupItem, 'icon', '')}"
+           th:href="${photoUrl != null ? photoUrl.list(groupItem.metadata.name) : ('/photos?group=' + groupItem.metadata.name)}"
+           th:classappend="${activeGroup == groupItem.metadata.name ? 'is-active' : ''}">
+          <span th:if="${!#strings.isEmpty(groupIcon)}"
+                class="photos-sidebar-custom-icon"
+                th:utext="${groupIcon}"></span>
+          <span th:unless="${!#strings.isEmpty(groupIcon)}"
+                class="photos-sidebar-icon icon-[lucide--folder]"
+                aria-hidden="true"></span>
+          <span class="photos-sidebar-label" th:text="${groupItem.spec.displayName}">相册</span>
+          <span class="photos-sidebar-badge"
+                th:if="${groupItem.status?.photoCount != null}"
+                th:text="${groupItem.status.photoCount}"></span>
+        </a>
+      </nav>
+    </div>
+  </aside>
+</th:block>

@@ -8,7 +8,18 @@
             photoCanonical=${photo != null and !#strings.isEmpty(photo.permalink) ? photo.permalink : ('/photos/' + photo.metadata.name)},
             photoSubtitle=${position != null and total != null ? (position + ' / ' + total) : '图片详情'},
             photoTakenAt=${photo != null and photo.exif != null and photo.exif.dateTimeOriginal != null ? photo.exif.dateTimeOriginal : ''},
-            photoResolution=${photo != null and photo.exif != null and photo.exif.imageWidth != null and photo.exif.imageHeight != null ? (photo.exif.imageWidth + ' × ' + photo.exif.imageHeight) : ''}">
+            photoResolution=${photo != null and photo.exif != null and photo.exif.imageWidth != null and photo.exif.imageHeight != null ? (photo.exif.imageWidth + ' × ' + photo.exif.imageHeight) : ''},
+            detailGroups=${photoFinder.groupBy()},
+            requestedDetailGroup=${!#strings.isEmpty(group) ? group : ''},
+            detailGroupNameIndex=${detailGroups != null ? detailGroups.![metadata.name].indexOf(requestedDetailGroup) : -1},
+            detailActiveGroup=${detailGroupNameIndex >= 0 ? requestedDetailGroup : ''},
+            detailSidebarView=${!#strings.isEmpty(detailActiveGroup) ? 'group' : 'library'},
+            detailPage=${page != null and page > 0 ? page : 1},
+            detailSize=${size != null and size > 0 ? size : 20},
+            detailFilmstripResult=${photoFinder.list(detailPage, detailSize, detailActiveGroup)},
+            detailFilmstripItems=${detailFilmstripResult != null ? detailFilmstripResult.items : null},
+            detailFilmstripCurrentIndex=${detailFilmstripItems != null ? detailFilmstripItems.![metadata.name].indexOf(photo.metadata.name) : -1},
+            detailFilmstripPhotos=${detailFilmstripCurrentIndex >= 0 ? detailFilmstripItems : neighbors}">
   <html th:replace="~{modules/shell/layout :: html(
           title = ${photoTitle + ' - ' + site.title},
           description = ${!#strings.isEmpty(photoDescription) ? photoDescription : '图库照片'},
@@ -38,80 +49,18 @@
         <h1 class="sr-only" th:text="${photoTitle}">图片详情</h1>
         <script type="application/json" data-app-props="photos">{"version":1,"appId":"photos","data":{"view":"detail","scene":"detail"}}</script>
 
-        <aside class="photos-sidebar photos-detail-sidebar" aria-label="附近照片">
-          <section class="photos-sidebar-section"
-                   th:if="${neighbors != null and !#lists.isEmpty(neighbors)}">
-            <div class="photos-detail-neighbor-head">
-              <p class="photos-sidebar-section-title">附近照片</p>
-              <span th:if="${position != null and total != null}" th:text="${position + ' / ' + total}">1 / 46</span>
-            </div>
-            <div class="photos-detail-neighbor-list">
-              <a class="photos-detail-neighbor pjax-link"
-                 data-pjax-app="photos"
-                 th:each="neighbor, stat : ${neighbors}"
-                 th:if="${stat.index < 4 or neighbor.metadata.name == photo.metadata.name}"
-                 th:classappend="${neighbor.metadata.name == photo.metadata.name ? ' is-current' : ''}"
-                 th:href="${photoUrl.detail(neighbor)}"
-                 th:title="${neighbor.spec.displayName}">
-                <img th:src="${!#strings.isEmpty(neighbor.spec.cover) ? neighbor.spec.cover : neighbor.spec.url}"
-                     th:alt="${neighbor.spec.displayName}"
-                     loading="lazy"
-                     decoding="async" />
-                <span class="photos-detail-neighbor-index"
-                      th:if="${neighbor.metadata.name == photo.metadata.name and position != null and total != null}"
-                      th:text="${position + ' / ' + total}">1 / 46</span>
-              </a>
-            </div>
-          </section>
-
-          <section class="photos-sidebar-section"
-                   th:if="${(neighbors == null or #lists.isEmpty(neighbors)) and (prev != null or next != null)}">
-            <div class="photos-detail-neighbor-head">
-              <p class="photos-sidebar-section-title">附近照片</p>
-              <span th:if="${position != null and total != null}" th:text="${position + ' / ' + total}">1 / 46</span>
-            </div>
-            <div class="photos-detail-neighbor-list">
-              <a class="photos-detail-neighbor pjax-link"
-                 data-pjax-app="photos"
-                 th:if="${prev != null}"
-                 th:href="${photoUrl.detail(prev)}"
-                 th:title="${prev.spec.displayName}">
-                <img th:src="${!#strings.isEmpty(prev.spec.cover) ? prev.spec.cover : prev.spec.url}"
-                     th:alt="${prev.spec.displayName}"
-                     loading="lazy"
-                     decoding="async" />
-              </a>
-              <a class="photos-detail-neighbor is-current pjax-link"
-                 data-pjax-app="photos"
-                 th:href="${photoUrl.detail(photo)}"
-                 th:title="${photoTitle}">
-                <img th:src="${!#strings.isEmpty(photo.spec.cover) ? photo.spec.cover : photo.spec.url}"
-                     th:alt="${photoTitle}"
-                     loading="lazy"
-                     decoding="async" />
-                <span class="photos-detail-neighbor-index"
-                      th:if="${position != null and total != null}"
-                      th:text="${position + ' / ' + total}">1 / 46</span>
-              </a>
-              <a class="photos-detail-neighbor pjax-link"
-                 data-pjax-app="photos"
-                 th:if="${next != null}"
-                 th:href="${photoUrl.detail(next)}"
-                 th:title="${next.spec.displayName}">
-                <img th:src="${!#strings.isEmpty(next.spec.cover) ? next.spec.cover : next.spec.url}"
-                     th:alt="${next.spec.displayName}"
-                     loading="lazy"
-                     decoding="async" />
-              </a>
-            </div>
-          </section>
-        </aside>
+        <th:block th:replace="~{modules/photos-app/sidebar :: sidebar(
+            groups=${detailGroups},
+            activeGroup=${detailActiveGroup},
+            view=${detailSidebarView},
+            photoUrl=${photoUrl}
+          )}"></th:block>
 
         <main class="photos-main photos-detail-main">
           <section class="photos-detail-stage"
                    :class="{ 'is-pannable': photoCanPan, 'is-panning': photoPanning }">
             <figure class="photos-detail-figure"
-                    th:style="${'view-transition-name: photo-' + photo.metadata.name}">
+                    th:attr="data-photo-name=${photo.metadata.name}">
               <img class="photos-detail-image"
                    th:src="${photo.spec.url}"
                    th:alt="${photoTitle}"
@@ -127,6 +76,8 @@
                  data-pjax-app="photos"
                  th:classappend="${prev == null ? 'is-disabled' : ''}"
                  th:href="${prev != null ? photoUrl.detail(prev) : '#'}"
+                 th:attr="aria-disabled=${prev == null ? 'true' : null}, tabindex=${prev == null ? '-1' : null}"
+                 rel="prev"
                  aria-label="上一张">
                 <span class="icon-[lucide--chevron-left]" aria-hidden="true"></span>
               </a>
@@ -134,11 +85,32 @@
                  data-pjax-app="photos"
                  th:classappend="${next == null ? 'is-disabled' : ''}"
                  th:href="${next != null ? photoUrl.detail(next) : '#'}"
+                 th:attr="aria-disabled=${next == null ? 'true' : null}, tabindex=${next == null ? '-1' : null}"
+                 rel="next"
                  aria-label="下一张">
                 <span class="icon-[lucide--chevron-right]" aria-hidden="true"></span>
               </a>
             </div>
           </section>
+
+          <nav class="photos-detail-filmstrip"
+               th:if="${detailFilmstripPhotos != null and !#lists.isEmpty(detailFilmstripPhotos)}"
+               th:attr="aria-label=${position != null and total != null ? ('照片切换列表，当前 ' + position + ' / ' + total) : '照片切换列表'}">
+            <div class="photos-detail-neighbor-list">
+              <a class="photos-detail-neighbor pjax-link"
+                 data-pjax-app="photos"
+                 th:each="neighbor : ${detailFilmstripPhotos}"
+                 th:classappend="${neighbor.metadata.name == photo.metadata.name ? ' is-current' : ''}"
+                 th:href="${photoUrl.detail(neighbor)}"
+                 th:title="${neighbor.spec.displayName}"
+                 th:attr="data-photo-name=${neighbor.metadata.name}, aria-current=${neighbor.metadata.name == photo.metadata.name ? 'true' : null}">
+                <img th:src="${thumbnail.gen(!#strings.isEmpty(neighbor.spec.cover) ? neighbor.spec.cover : neighbor.spec.url, 's')}"
+                     th:alt="${neighbor.spec.displayName}"
+                     loading="eager"
+                     decoding="async" />
+              </a>
+            </div>
+          </nav>
 
           <section class="photos-detail-popover"
                    x-show="infoOpen"
