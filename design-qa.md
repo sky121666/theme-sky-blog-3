@@ -1,4 +1,57 @@
-# 分类 Finder 设计 QA
+# 图库胶片坞显隐动效设计 QA
+
+## 对照目标
+
+- Source visual truth: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/gallery-motion-polish/01-before-visible.png`
+- Browser-rendered implementation: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/gallery-motion-polish/03-after-visible.png`
+- Route: `http://localhost:8090/photos/photo-gtulnjy1?group=photo-group-8ruj7awi`
+- Viewport: `1280 × 720`
+- State: 图库详情、星空相簿、第 3/17 张、胶片坞显示
+- 对照说明：本轮只优化显隐的时间曲线与合成层，不改变胶片坞的静态布局、材质、内容或路由行为。
+
+## 对照证据
+
+- Full-view comparison: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/gallery-motion-polish/06-same-viewport-comparison.png`
+- Hidden-state implementation: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/gallery-motion-polish/04-after-hidden.png`
+- Focused region comparison was not required: the component's pixels, typography and geometry intentionally remain unchanged; temporal fidelity was instead checked from actual `requestAnimationFrame` samples across opacity、translateY、scale、visibility、主舞台和主图矩形。
+
+## Findings
+
+- No actionable P0/P1/P2 findings remain.
+- Fonts and typography: 标题、计数、侧栏和胶片缩略图没有改动；同视口对照未出现字重、换行、截断或抗锯齿漂移。
+- Spacing and layout rhythm: 胶片坞位置、宽度、圆角、缩略图间距和主图比例保持一致；逐帧样本中主舞台与主图的 `top/left/width/height` 漂移均未超过 `0.75px`。
+- Colors and visual tokens: 半透明背景、边框、阴影和选中态完全复用原有 Photos token；没有动画 blur、filter、阴影或尺寸，避免玻璃材质重绘掉帧。
+- Image quality and assets: 主照片及缩略图沿用同一真实资源、裁切和解码路径；没有新增、替换或降级任何可见资源。
+- Copy and content: 文件名、`3 / 17` 计数、相簿名称、导航和辅助文本均未变化。
+- Motion and accessibility: 显示采用 `220ms` 柔和透明度与 `340ms` 弹性位移；隐藏采用 `220ms` 柔和透明度与 `280ms` 弹性位移，位移由 `9px` 收到 `6px`、缩放由 `0.985` 收到 `0.992`。`visibility` 延迟到退场结束，隐藏时继续同步 `inert/aria-hidden`；触屏常显，减少动态效果时无过渡。
+
+## Primary interactions tested
+
+- 约 3.2 秒空闲后自动隐藏，移动指针后重新显示。
+- 显示与隐藏均产生至少 4 个不同的 opacity、translateY 和 scale 中间态，且方向连续单调。
+- 悬停和键盘聚焦保持显示；触屏设备空闲时保持常显。
+- `prefers-reduced-motion`、详情 PJAX 切换、旧节点计时器与监听器清理。
+- 真页运行时错误与 `console.error`: none in `verify:photos:view-transition`。
+
+## Comparison history
+
+- Pass 1: 基线实测发现退场使用 `140ms opacity + 200ms` 末段加速曲线，同时下沉 `9px`、缩放至 `0.985`；透明度先结束而位移继续，形成突然消失的 P2 动效问题。
+- Fix: 显隐统一复用 Photos 的 soft/spring 曲线，延长渐隐、减小位移和缩放，并只为桌面自动隐藏场景预提升 `transform/opacity` 合成层。
+- Pass 2: 同视口全景对照确认静态界面无漂移；真页逐帧采样、终态、辅助技术、触屏、减少动态效果和 PJAX 生命周期全部通过。
+
+## Implementation checklist
+
+- [x] Unified soft/spring motion language
+- [x] Subtle translate and scale range
+- [x] Compositor hints without filter animation
+- [x] Frame-by-frame motion and geometry assertions
+- [x] Halo reload and live Photos regression
+
+final result: passed
+
+---
+
+# 历史记录：分类 Finder 设计 QA
 
 ## 对照目标
 
