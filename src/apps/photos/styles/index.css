@@ -3986,9 +3986,13 @@ html.photos-shared-view-transition {
   pointer-events: none;
   transform: translate3d(-50%, 6px, 0) scale(0.992);
   transition:
-    opacity var(--photos-motion-base) var(--photos-motion-soft),
-    transform 0.28s var(--photos-motion-spring),
-    visibility 0s linear 0.28s;
+    opacity 0.36s cubic-bezier(0.33, 0, 0.67, 1),
+    transform 0.4s cubic-bezier(0.33, 0, 0.67, 1),
+    visibility 0s linear 0.4s;
+}
+
+.photos-detail-shell[data-photos-window-transition="true"] .photos-detail-filmstrip {
+  transition: none;
 }
 
 @media (hover: hover) and (pointer: fine) {

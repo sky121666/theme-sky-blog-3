@@ -27,6 +27,7 @@ const COMPACT_DEFAULT_COL_COUNT = 2;
 const SKELETON_HEIGHTS = [164, 212, 188, 236, 176, 224, 196, 248];
 const DETAIL_FILMSTRIP_IDLE_DELAY_MS = 3_200;
 const DETAIL_FILMSTRIP_ACTIVITY_THROTTLE_MS = 180;
+const DETAIL_WINDOW_TRANSITION_SETTLE_MS = 360;
 
 function clampGridColCount(value) {
   const parsed = Number.parseInt(String(value ?? ''), 10);
@@ -476,11 +477,15 @@ export function registerPhotosExplorer(Alpine) {
       if (!stage || !image) return;
 
       const shell = this.$el;
-      const activitySurface = this._getWindowSurface() || shell;
+      const windowSurface = this._getWindowSurface() || shell;
+      const activitySurface = shell?.querySelector('.photos-detail-main') || shell;
       const filmstrip = shell?.querySelector('.photos-detail-filmstrip') || null;
+      const maximizeControl = windowSurface?.querySelector('.traffic-btn.maximize') || null;
       const autoHideQuery = window.matchMedia?.('(hover: hover) and (pointer: fine)') || null;
       let filmstripHideTimer = 0;
       let filmstripFocusFrame = 0;
+      let filmstripWindowTransitionTimer = 0;
+      let filmstripWindowTransitionLocked = false;
       let filmstripPointerLocked = false;
       let lastFilmstripActivityAt = 0;
       let lastPointerX = null;
@@ -490,6 +495,14 @@ export function registerPhotosExplorer(Alpine) {
         if (!filmstripHideTimer) return;
         window.clearTimeout(filmstripHideTimer);
         filmstripHideTimer = 0;
+      };
+      const clearFilmstripWindowTransition = () => {
+        if (filmstripWindowTransitionTimer) {
+          window.clearTimeout(filmstripWindowTransitionTimer);
+          filmstripWindowTransitionTimer = 0;
+        }
+        filmstripWindowTransitionLocked = false;
+        delete shell.dataset.photosWindowTransition;
       };
       const setFilmstripHidden = (hidden) => {
         if (!filmstrip || !shell?.isConnected) return;
@@ -513,7 +526,11 @@ export function registerPhotosExplorer(Alpine) {
       const autoHideAllowed = () => autoHideQuery?.matches !== false;
       const scheduleFilmstripHide = () => {
         clearFilmstripHideTimer();
-        if (!filmstrip || !autoHideAllowed() || document.hidden || this._destroyed) return;
+        if (!filmstrip
+          || filmstripWindowTransitionLocked
+          || !autoHideAllowed()
+          || document.hidden
+          || this._destroyed) return;
 
         filmstripHideTimer = window.setTimeout(() => {
           filmstripHideTimer = 0;
@@ -522,7 +539,7 @@ export function registerPhotosExplorer(Alpine) {
         }, DETAIL_FILMSTRIP_IDLE_DELAY_MS);
       };
       const wakeFilmstrip = ({ force = false } = {}) => {
-        if (!filmstrip) return;
+        if (!filmstrip || filmstripWindowTransitionLocked) return;
         const now = Date.now();
         const hidden = shell?.dataset.photosFilmstripState === 'hidden';
         if (!force && !hidden && now - lastFilmstripActivityAt < DETAIL_FILMSTRIP_ACTIVITY_THROTTLE_MS) {
@@ -534,8 +551,22 @@ export function registerPhotosExplorer(Alpine) {
         scheduleFilmstripHide();
       };
       const holdFilmstripOpen = () => {
+        if (filmstripWindowTransitionLocked) return;
         setFilmstripHidden(false);
         clearFilmstripHideTimer();
+      };
+      const onWindowMaximizeIntent = () => {
+        if (!filmstrip || !autoHideAllowed()) return;
+        clearFilmstripWindowTransition();
+        filmstripWindowTransitionLocked = true;
+        shell.dataset.photosWindowTransition = 'true';
+        clearFilmstripHideTimer();
+        setFilmstripHidden(true);
+        filmstripWindowTransitionTimer = window.setTimeout(() => {
+          filmstripWindowTransitionTimer = 0;
+          filmstripWindowTransitionLocked = false;
+          delete shell.dataset.photosWindowTransition;
+        }, DETAIL_WINDOW_TRANSITION_SETTLE_MS);
       };
       const onPointerMoveActivity = (event) => {
         const pointerMovedEnough = lastPointerX == null
@@ -624,6 +655,8 @@ export function registerPhotosExplorer(Alpine) {
         filmstrip.addEventListener('focusin', onFilmstripFocusIn);
         filmstrip.addEventListener('focusout', onFilmstripFocusOut);
         filmstrip.addEventListener('scroll', onDirectActivity, { passive: true, capture: true });
+        maximizeControl?.addEventListener('pointerdown', onWindowMaximizeIntent, true);
+        maximizeControl?.addEventListener('click', onWindowMaximizeIntent, true);
         document.addEventListener('visibilitychange', onVisibilityChange);
         autoHideQuery?.addEventListener?.('change', onAutoHideChange);
         scheduleFilmstripHide();
@@ -640,6 +673,7 @@ export function registerPhotosExplorer(Alpine) {
 
       engine.detailCleanup = () => {
         clearFilmstripHideTimer();
+        clearFilmstripWindowTransition();
         if (filmstripFocusFrame) {
           window.cancelAnimationFrame(filmstripFocusFrame);
           filmstripFocusFrame = 0;
@@ -661,6 +695,8 @@ export function registerPhotosExplorer(Alpine) {
           filmstrip.removeEventListener('focusin', onFilmstripFocusIn);
           filmstrip.removeEventListener('focusout', onFilmstripFocusOut);
           filmstrip.removeEventListener('scroll', onDirectActivity, true);
+          maximizeControl?.removeEventListener('pointerdown', onWindowMaximizeIntent, true);
+          maximizeControl?.removeEventListener('click', onWindowMaximizeIntent, true);
           document.removeEventListener('visibilitychange', onVisibilityChange);
           autoHideQuery?.removeEventListener?.('change', onAutoHideChange);
           filmstrip.removeAttribute('inert');
