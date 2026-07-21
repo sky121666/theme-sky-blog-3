@@ -10,8 +10,9 @@ const transitionClass = 'photos-shared-view-transition';
 const transitionOwnerAttribute = 'data-photos-view-transition-owner';
 const transitionKindAttribute = 'data-photos-view-transition-kind';
 const transitionDirectionAttribute = 'data-photos-view-transition-direction';
-const filmstripTransitionSettleMs = 320;
 const filmstripIdleWaitTimeoutMs = 6_000;
+const filmstripMotionCaptureDurationMs = 380;
+const filmstripMotionCaptureKey = '__SKY_PHOTOS_FILMSTRIP_MOTION_CAPTURE__';
 
 function absoluteUrl(pathname) {
   return new URL(pathname, `${baseUrl}/`).toString();
@@ -566,6 +567,9 @@ async function readFilmstripLifecycleState(page) {
     };
     const filmstripStyle = filmstrip ? getComputedStyle(filmstrip) : null;
     const listStyle = list ? getComputedStyle(list) : null;
+    const filmstripTransform = filmstripStyle?.transform && filmstripStyle.transform !== 'none'
+      ? new DOMMatrixReadOnly(filmstripStyle.transform)
+      : null;
 
     return {
       state: shell?.dataset.photosFilmstripState || '',
@@ -584,7 +588,14 @@ async function readFilmstripLifecycleState(page) {
       pointerEvents: filmstripStyle?.pointerEvents || '',
       position: filmstripStyle?.position || '',
       transform: filmstripStyle?.transform || '',
+      transformScale: filmstripTransform?.a ?? 1,
+      transformTranslateY: filmstripTransform?.m42 ?? 0,
+      transitionDelay: filmstripStyle?.transitionDelay || '',
       transitionDuration: filmstripStyle?.transitionDuration || '',
+      transitionProperty: filmstripStyle?.transitionProperty || '',
+      transitionTimingFunction: filmstripStyle?.transitionTimingFunction || '',
+      willChange: filmstripStyle?.willChange || '',
+      backfaceVisibility: filmstripStyle?.backfaceVisibility || '',
       listBorderRadius: listStyle?.borderRadius || '',
       nextHref: shell?.querySelector('.photos-detail-adjacent-btn[aria-label="下一张"]:not(.is-disabled)')?.getAttribute('href') || '',
     };
@@ -601,6 +612,153 @@ function assertStableRect(before, after, label) {
   }
 }
 
+async function waitForFilmstripMotion(page) {
+  await page.locator('.photos-detail-filmstrip').evaluate(async (filmstrip) => {
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const transitions = filmstrip.getAnimations().filter((animation) => (
+      animation.transitionProperty === 'opacity'
+      || animation.transitionProperty === 'transform'
+    ));
+    await Promise.allSettled(transitions.map((animation) => animation.finished));
+  });
+}
+
+async function beginFilmstripMotionCapture(page, targetState) {
+  await page.evaluate(({ captureDurationMs, captureKey, expectedState, timeoutMs }) => {
+    const shell = document.querySelector('.photos-detail-shell');
+    const filmstrip = shell?.querySelector('.photos-detail-filmstrip');
+    const stage = shell?.querySelector('.photos-detail-stage');
+    const image = shell?.querySelector('.photos-detail-image');
+    if (!shell || !filmstrip || !stage || !image) {
+      throw new Error('胶片条逐帧采样缺少详情节点');
+    }
+
+    const rect = (element) => {
+      const box = element.getBoundingClientRect();
+      return {
+        top: box.top,
+        left: box.left,
+        width: box.width,
+        height: box.height,
+      };
+    };
+
+    window[captureKey] = new Promise((resolve, reject) => {
+      let frameId = 0;
+      let started = false;
+      const observer = new MutationObserver(() => {
+        if (shell.dataset.photosFilmstripState === expectedState) start();
+      });
+      const timeoutId = window.setTimeout(() => {
+        observer.disconnect();
+        if (frameId) cancelAnimationFrame(frameId);
+        reject(new Error(`胶片条未进入${expectedState}逐帧采样状态`));
+      }, timeoutMs);
+
+      const start = () => {
+        if (started) return;
+        started = true;
+        observer.disconnect();
+        const startedAt = performance.now();
+        const samples = [];
+        const sample = (now) => {
+          const style = getComputedStyle(filmstrip);
+          const matrix = style.transform && style.transform !== 'none'
+            ? new DOMMatrixReadOnly(style.transform)
+            : new DOMMatrixReadOnly();
+          samples.push({
+            elapsed: now - startedAt,
+            opacity: Number.parseFloat(style.opacity),
+            scale: matrix.a,
+            translateY: matrix.m42,
+            visibility: style.visibility,
+            stage: rect(stage),
+            image: rect(image),
+          });
+
+          if (now - startedAt >= captureDurationMs) {
+            clearTimeout(timeoutId);
+            resolve({ targetState: expectedState, samples });
+            return;
+          }
+          frameId = requestAnimationFrame(sample);
+        };
+        frameId = requestAnimationFrame(sample);
+      };
+
+      observer.observe(shell, {
+        attributes: true,
+        attributeFilter: ['data-photos-filmstrip-state'],
+      });
+      if (shell.dataset.photosFilmstripState === expectedState) start();
+    });
+  }, {
+    captureDurationMs: filmstripMotionCaptureDurationMs,
+    captureKey: filmstripMotionCaptureKey,
+    expectedState: targetState,
+    timeoutMs: filmstripIdleWaitTimeoutMs + filmstripMotionCaptureDurationMs,
+  });
+}
+
+async function finishFilmstripMotionCapture(page) {
+  return page.evaluate(async (captureKey) => {
+    const capture = window[captureKey];
+    if (!capture) throw new Error('胶片条逐帧采样任务不存在');
+    try {
+      return await capture;
+    } finally {
+      delete window[captureKey];
+    }
+  }, filmstripMotionCaptureKey);
+}
+
+function assertMonotonicMotion(samples, key, direction, tolerance, label) {
+  for (let index = 1; index < samples.length; index += 1) {
+    const previous = samples[index - 1][key];
+    const current = samples[index][key];
+    const monotonic = direction === 'increasing'
+      ? current + tolerance >= previous
+      : current <= previous + tolerance;
+    assert.ok(monotonic, `${label}必须连续单调：${previous} -> ${current}`);
+  }
+}
+
+function countIntermediateValues(samples, key, min, max, precision) {
+  return new Set(samples
+    .map((sample) => sample[key])
+    .filter((value) => value > min && value < max)
+    .map((value) => value.toFixed(precision))).size;
+}
+
+function assertFilmstripMotionCapture(capture, targetState) {
+  const { samples } = capture;
+  assert.equal(capture.targetState, targetState, '胶片条逐帧采样目标状态必须匹配');
+  assert.ok(samples.length >= 8, '胶片条过渡必须产生足够的逐帧样本');
+
+  const hiding = targetState === 'hidden';
+  assert.ok(countIntermediateValues(samples, 'opacity', 0.03, 0.97, 3) >= 4, '胶片条透明度必须经过连续中间态');
+  assert.ok(countIntermediateValues(samples, 'translateY', 0.2, 5.8, 2) >= 4, '胶片条位移必须经过连续中间态');
+  assert.ok(countIntermediateValues(samples, 'scale', 0.9922, 0.9998, 4) >= 4, '胶片条缩放必须经过连续中间态');
+  assertMonotonicMotion(samples, 'opacity', hiding ? 'decreasing' : 'increasing', 0.03, '胶片条透明度');
+  assertMonotonicMotion(samples, 'translateY', hiding ? 'increasing' : 'decreasing', 0.5, '胶片条纵向位移');
+  assertMonotonicMotion(samples, 'scale', hiding ? 'decreasing' : 'increasing', 0.002, '胶片条缩放');
+
+  const first = samples[0];
+  for (const sample of samples.slice(1)) {
+    assertStableRect(first.stage, sample.stage, '逐帧采样主舞台');
+    assertStableRect(first.image, sample.image, '逐帧采样主图');
+  }
+
+  if (hiding) {
+    const firstHidden = samples.find((sample) => sample.visibility === 'hidden');
+    assert.ok(firstHidden?.elapsed >= 250, '胶片条 visibility 不得提前截断退场动画');
+    assert.equal(samples.at(-1)?.visibility, 'hidden', '胶片条退场结束后必须隐藏');
+  } else {
+    assert.equal(samples[0]?.visibility, 'visible', '胶片条唤醒首帧必须恢复可见');
+    assert.equal(samples.at(-1)?.visibility, 'visible', '胶片条进入结束后必须保持可见');
+  }
+}
+
 async function wakeFilmstrip(page) {
   const current = await readFilmstripLifecycleState(page);
   if (current.state === 'visible') return current;
@@ -611,7 +769,7 @@ async function wakeFilmstrip(page) {
     null,
     { timeout: navigationTimeoutMs }
   );
-  await page.waitForTimeout(filmstripTransitionSettleMs);
+  await waitForFilmstripMotion(page);
   return readFilmstripLifecycleState(page);
 }
 
@@ -691,7 +849,7 @@ async function verifyFilmstripIdleLifecycle(browser, detailHref) {
         && image?.complete
         && image.naturalWidth > 0;
     }, null, { timeout: navigationTimeoutMs });
-    await idlePage.waitForTimeout(filmstripTransitionSettleMs);
+    await waitForFilmstripMotion(idlePage);
 
     const visible = await readFilmstripLifecycleState(idlePage);
     assert.equal(visible.state, 'visible', '详情初始必须显示浮动胶片条');
@@ -702,11 +860,23 @@ async function verifyFilmstripIdleLifecycle(browser, detailHref) {
     assert.equal(visible.pointerEvents, 'auto', '显示态胶片条必须可以点击');
     assert.equal(visible.ariaHidden, '', '显示态胶片条不得从辅助技术中隐藏');
     assert.equal(visible.inert, false, '显示态胶片条必须可聚焦');
+    assert.equal(visible.transitionProperty, 'opacity, transform, visibility', '胶片条只能动画合成属性与可见性');
+    assert.equal(visible.transitionDuration, '0.22s, 0.34s, 0s', '胶片条进入必须使用柔和渐显和较长弹性位移');
+    assert.equal(
+      visible.transitionTimingFunction,
+      'cubic-bezier(0.2, 0.8, 0.2, 1), cubic-bezier(0.16, 1, 0.3, 1), linear',
+      '胶片条进入必须复用图库柔和与弹性缓动'
+    );
+    assert.match(visible.willChange, /transform/, '桌面胶片条必须预提升 transform 合成层');
+    assert.match(visible.willChange, /opacity/, '桌面胶片条必须预提升 opacity 合成层');
+    assert.equal(visible.backfaceVisibility, 'hidden', '胶片条显隐必须避免合成层背面闪烁');
     assert.equal(visible.currentCount, 1, '胶片条初始必须唯一标记当前照片');
     assert.ok(visible.filmstripCount > 1, '胶片条初始必须保留完整照片列表');
 
+    await beginFilmstripMotionCapture(idlePage, 'hidden');
     await waitForHidden();
-    await idlePage.waitForTimeout(filmstripTransitionSettleMs);
+    const hideMotion = await finishFilmstripMotionCapture(idlePage);
+    assertFilmstripMotionCapture(hideMotion, 'hidden');
     const hidden = await readFilmstripLifecycleState(idlePage);
     assert.equal(hidden.state, 'hidden', '超过空闲时间后胶片条必须隐藏');
     assert.equal(hidden.opacity, '0', '隐藏态胶片条必须完全淡出');
@@ -714,12 +884,24 @@ async function verifyFilmstripIdleLifecycle(browser, detailHref) {
     assert.equal(hidden.pointerEvents, 'none', '隐藏态胶片条不得拦截主图操作');
     assert.equal(hidden.ariaHidden, 'true', '隐藏态胶片条必须同步辅助技术状态');
     assert.equal(hidden.inert, true, '隐藏态胶片条不得保留不可见焦点目标');
+    assert.equal(hidden.transitionDuration, '0.22s, 0.28s, 0s', '胶片条退场必须保留完整柔和过渡');
+    assert.equal(hidden.transitionDelay, '0s, 0s, 0.28s', '胶片条 visibility 必须在退场结束后切换');
+    assert.equal(
+      hidden.transitionTimingFunction,
+      'cubic-bezier(0.2, 0.8, 0.2, 1), cubic-bezier(0.16, 1, 0.3, 1), linear',
+      '胶片条退场不得使用末段突然加速的退出曲线'
+    );
+    assert.ok(hidden.transformScale >= 0.991 && hidden.transformScale <= 0.993, '胶片条退场缩放必须保持克制');
+    assert.ok(hidden.transformTranslateY >= 5.5 && hidden.transformTranslateY <= 6.5, '胶片条退场位移必须保持轻微');
     assert.equal(hidden.filmstripCount, visible.filmstripCount, '隐藏不得销毁胶片条照片列表');
     assert.equal(hidden.currentCount, 1, '隐藏不得丢失当前照片标记');
     assertStableRect(visible.stage, hidden.stage, '主舞台');
     assertStableRect(visible.image, hidden.image, '主图');
 
+    await beginFilmstripMotionCapture(idlePage, 'visible');
     const woken = await wakeFilmstrip(idlePage);
+    const showMotion = await finishFilmstripMotionCapture(idlePage);
+    assertFilmstripMotionCapture(showMotion, 'visible');
     assert.equal(woken.state, 'visible', '鼠标回到主舞台时必须立即唤醒胶片条');
     assert.equal(woken.opacity, '1', '唤醒完成后胶片条必须完全显示');
     assert.equal(woken.inert, false, '唤醒后胶片条必须恢复可交互状态');
