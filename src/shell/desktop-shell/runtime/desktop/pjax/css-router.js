@@ -9,7 +9,8 @@ import { getRoutableAppIds, inferPageAppFromUrl as inferPageAppFromRouteManifest
 import {
   ensureAppAssetsLoaded as ensureShellCoreAppAssetsLoaded,
   ensureAppCssLoaded as ensureShellCoreAppCssLoaded,
-  markAppAssetsLoaded
+  markAppAssetsLoaded,
+  stageAppCssForNavigation as stageShellCoreAppCssForNavigation
 } from '../../../../../shell-core/runtime/app-loader.js';
 
 const { log: cssLog } = createLogger('pjax');
@@ -82,6 +83,10 @@ export async function ensureAppJsLoaded(appName) {
 
 export async function ensureAppAssetsLoaded(appName) {
   return ensureShellCoreAppAssetsLoaded(appName);
+}
+
+export function stageAppCssForNavigation(appName) {
+  return stageShellCoreAppCssForNavigation(appName);
 }
 
 /** Disable CSS for page apps other than `activeApp`. */

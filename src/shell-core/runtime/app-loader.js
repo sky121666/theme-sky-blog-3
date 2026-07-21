@@ -185,6 +185,38 @@ export function markAppAssetsLoaded(appId) {
   pendingAppsJs.delete(normalized);
 }
 
+/**
+ * Enable an already-loaded app stylesheet before Pjax replaces the current DOM.
+ *
+ * `syncAppCss()` disables inactive app styles after each navigation. When a
+ * previously visited app is opened again, the loader can resolve immediately,
+ * but the cached link is still disabled until `pjax:complete`. Enabling only the
+ * target link here keeps the current page styled while guaranteeing that the
+ * incoming DOM never paints without its app CSS.
+ */
+export function stageAppCssForNavigation(appId) {
+  const normalized = normalizeAppId(appId);
+  if (!normalized) return 0;
+
+  const segment = assetPathSegment(normalized);
+  const fallbackPath = `${getThemeAssetBase()}css/apps/${segment}/index.css`
+    .replace(window.location.origin, '');
+  let staged = 0;
+
+  document.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
+    if (getAssetState(link, 'css') === ASSET_STATE.error) return;
+
+    const linkAppId = normalizeAppId(link.dataset?.appCss);
+    const linkPath = normalizeAssetPath(link.href || link.getAttribute?.('href') || '');
+    if (linkAppId !== normalized && linkPath !== fallbackPath) return;
+
+    link.disabled = false;
+    staged += 1;
+  });
+
+  return staged;
+}
+
 export async function ensureAppCssLoaded(appId) {
   const normalized = normalizeAppId(appId);
   const segment = assetPathSegment(normalized);

@@ -25,6 +25,7 @@ import {
   getCurrentPageApp,
   setCurrentPageApp,
   ensureAppAssetsLoaded,
+  stageAppCssForNavigation,
   syncAppCss,
   parsePageAppFromResponse,
   inferPageAppForNavigation,
@@ -908,6 +909,7 @@ export function initPjax(Alpine) {
       return ensureAppAssetsLoaded(targetApp)
         .then(() => {
           if (intentGeneration !== navigationIntentGeneration) return false;
+          stageAppCssForNavigation(targetApp);
           return _origLoadUrl(url, {
             ...options,
             requestOptions: {
@@ -919,6 +921,7 @@ export function initPjax(Alpine) {
         })
         .catch((error) => {
           if (intentGeneration !== navigationIntentGeneration) return false;
+          syncAppCss(getCurrentPageApp() || document.body?.dataset?.pageApp || '');
           browserNavigationOwnership.release(intentGeneration);
           window._browserPopstatePending = false;
           window._browserForwardNavPending = false;
