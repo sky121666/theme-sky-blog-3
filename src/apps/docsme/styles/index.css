@@ -18,6 +18,7 @@
   --docsme-soft: #475569;
   --docsme-code-bg: rgba(15, 23, 42, 0.06);
   --docsme-code-text: #be185d;
+  --docsme-option-bg: #ffffff;
   --docsme-shadow: 0 28px 70px rgba(15, 23, 42, 0.16);
   background: var(--docsme-bg);
   color: var(--docsme-text);
@@ -45,6 +46,7 @@
   --docsme-soft: #cbd5e1;
   --docsme-code-bg: rgba(255, 255, 255, 0.09);
   --docsme-code-text: #f9a8d4;
+  --docsme-option-bg: #232429;
   --docsme-shadow: 0 50px 110px rgba(0, 0, 0, 0.72);
 }
 
@@ -269,6 +271,17 @@
   color: var(--docsme-strong);
   padding: 0 8px;
   outline: none;
+  color-scheme: light;
+}
+
+.docsme-switcher select option {
+  background-color: var(--docsme-option-bg);
+  color: var(--docsme-strong);
+}
+
+.dark .docsme-switcher select,
+[data-color-scheme="dark"] .docsme-switcher select {
+  color-scheme: dark;
 }
 
 .docsme-switcher select:focus {
