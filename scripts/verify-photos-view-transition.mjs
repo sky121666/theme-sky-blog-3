@@ -8,6 +8,8 @@ const navigationTimeoutMs = 30_000;
 const transitionName = 'photos-active-photo';
 const transitionClass = 'photos-shared-view-transition';
 const transitionOwnerAttribute = 'data-photos-view-transition-owner';
+const transitionKindAttribute = 'data-photos-view-transition-kind';
+const transitionDirectionAttribute = 'data-photos-view-transition-direction';
 
 function absoluteUrl(pathname) {
   return new URL(pathname, `${baseUrl}/`).toString();
@@ -48,7 +50,7 @@ async function waitForPhotosView(page, expectedUrl, expectedView) {
 }
 
 async function installViewTransitionProbe(page) {
-  await page.evaluate(({ ownerAttribute, sharedName, rootClass }) => {
+  await page.evaluate(({ ownerAttribute, kindAttribute, directionAttribute, sharedName, rootClass }) => {
     if (typeof document.startViewTransition !== 'function') {
       throw new Error('当前 Chromium 不支持 document.startViewTransition');
     }
@@ -56,6 +58,7 @@ async function installViewTransitionProbe(page) {
     const nativeStartViewTransition = document.startViewTransition.bind(document);
     const capture = () => {
       const root = document.documentElement;
+      const photosShell = document.querySelector('.photos-detail-shell');
       const participants = Array.from(document.querySelectorAll(`[${ownerAttribute}]`))
         .filter((element) => element !== root)
         .map((element) => {
@@ -69,6 +72,10 @@ async function installViewTransitionProbe(page) {
             owner: element.getAttribute(ownerAttribute) || '',
             transitionName: element.style.viewTransitionName || '',
             photoName: photo?.dataset?.photoName || '',
+            imageReady: !element.querySelector('img') || Boolean(
+              element.querySelector('img')?.complete
+              && element.querySelector('img')?.naturalWidth > 0
+            ),
             fullyVisible: clipRect
               ? elementRect.width > 0
                 && elementRect.height > 0
@@ -83,9 +90,16 @@ async function installViewTransitionProbe(page) {
       return {
         rootClassPresent: root.classList.contains(rootClass),
         rootOwner: root.getAttribute(ownerAttribute) || '',
+        kind: root.getAttribute(kindAttribute) || '',
+        direction: root.getAttribute(directionAttribute) || '',
         participants,
         inlineNamedCount: document.querySelectorAll('[style*="view-transition-name"]').length,
         photosView: document.querySelector('[data-app-root="photos"]')?.dataset?.photosView || '',
+        path: `${window.location.pathname}${window.location.search}`,
+        title: document.querySelector('[data-window-title]')?.textContent?.trim() || '',
+        subtitle: document.querySelector('[data-window-subtitle]')?.textContent?.trim() || '',
+        shellTitle: photosShell?.dataset.photosChromeTitle || '',
+        shellSubtitle: photosShell?.dataset.photosChromeSubtitle || '',
       };
     };
 
@@ -94,9 +108,23 @@ async function installViewTransitionProbe(page) {
       callbackCount: 0,
       sameVariantCompleteCount: 0,
       records: [],
+      decodeCalls: [],
+      trackedElements: [],
       sourceElement: null,
       targetElement: null,
     };
+
+    const nativeImageDecode = HTMLImageElement.prototype.decode;
+    if (typeof nativeImageDecode === 'function') {
+      HTMLImageElement.prototype.decode = function (...args) {
+        window.__PHOTOS_VIEW_TRANSITION_PROBE__?.decodeCalls.push({
+          connected: this.isConnected,
+          photoName: this.closest?.('[data-photo-name]')?.dataset.photoName || '',
+          src: this.currentSrc || this.src || '',
+        });
+        return nativeImageDecode.apply(this, args);
+      };
+    }
 
     document.addEventListener('pjax:same-variant-complete', () => {
       window.__PHOTOS_VIEW_TRANSITION_PROBE__.sameVariantCompleteCount += 1;
@@ -107,12 +135,28 @@ async function installViewTransitionProbe(page) {
       const record = {
         before: capture(),
         afterSwap: null,
+        animationStyles: null,
+        animationError: '',
+        titlebarPresent: false,
+        toolbarPresent: false,
+        titlebarStable: false,
+        toolbarStable: false,
       };
+      const tracked = {
+        source: null,
+        target: null,
+      };
+      const titlebar = document.querySelector('[data-window-titlebar]');
+      const toolbar = document.querySelector('[data-photos-detail-toolbar]');
+      record.titlebarPresent = Boolean(titlebar);
+      record.toolbarPresent = Boolean(toolbar);
       state.callCount += 1;
       state.records.push(record);
       state.sourceElement = document.querySelector(
         `[${ownerAttribute}][style*="${sharedName}"]`
       );
+      tracked.source = state.sourceElement;
+      state.trackedElements.push(tracked);
 
       const transition = nativeStartViewTransition(async () => {
         state.callbackCount += 1;
@@ -121,19 +165,58 @@ async function installViewTransitionProbe(page) {
         state.targetElement = document.querySelector(
           `[${ownerAttribute}][style*="${sharedName}"]`
         );
+        tracked.target = state.targetElement;
+        record.titlebarStable = titlebar === document.querySelector('[data-window-titlebar]');
+        record.toolbarStable = toolbar === document.querySelector('[data-photos-detail-toolbar]');
         return result;
       });
+      Promise.resolve(transition.ready)
+        .then(async () => {
+          await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+          const root = document.documentElement;
+          const readStyle = (pseudo) => {
+            const style = getComputedStyle(root, pseudo);
+            return {
+              animationName: style.animationName,
+              animationDuration: style.animationDuration,
+              animationDelay: style.animationDelay,
+              animationFillMode: style.animationFillMode,
+            };
+          };
+          record.animationStyles = {
+            animations: document.getAnimations({ subtree: true }).map((animation) => {
+              const timing = animation.effect?.getTiming?.() || {};
+              return {
+                pseudo: animation.effect?.pseudoElement || '',
+                name: animation.animationName || '',
+                duration: timing.duration,
+                delay: timing.delay,
+                fill: timing.fill,
+              };
+            }),
+            group: readStyle(`::view-transition-group(${sharedName})`),
+            oldPhoto: readStyle(`::view-transition-old(${sharedName})`),
+            newPhoto: readStyle(`::view-transition-new(${sharedName})`),
+            oldRoot: readStyle('::view-transition-old(root)'),
+            newRoot: readStyle('::view-transition-new(root)'),
+          };
+        })
+        .catch((error) => {
+          record.animationError = error?.message || String(error || 'transition.ready failed');
+        });
       return transition;
     };
   }, {
     ownerAttribute: transitionOwnerAttribute,
+    kindAttribute: transitionKindAttribute,
+    directionAttribute: transitionDirectionAttribute,
     sharedName: transitionName,
     rootClass: transitionClass,
   });
 }
 
 async function probeState(page) {
-  return page.evaluate(({ ownerAttribute, rootClass }) => {
+  return page.evaluate(({ ownerAttribute, kindAttribute, directionAttribute, rootClass }) => {
     const state = window.__PHOTOS_VIEW_TRANSITION_PROBE__;
     const source = state?.sourceElement || null;
     const target = state?.targetElement || null;
@@ -142,10 +225,25 @@ async function probeState(page) {
       callbackCount: state?.callbackCount || 0,
       sameVariantCompleteCount: state?.sameVariantCompleteCount || 0,
       records: state?.records || [],
+      decodeCalls: state?.decodeCalls || [],
       rootClassPresent: document.documentElement.classList.contains(rootClass),
       rootOwner: document.documentElement.getAttribute(ownerAttribute) || '',
+      rootKind: document.documentElement.getAttribute(kindAttribute) || '',
+      rootDirection: document.documentElement.getAttribute(directionAttribute) || '',
       liveOwnerCount: document.querySelectorAll(`[${ownerAttribute}]`).length,
       inlineNamedCount: document.querySelectorAll('[style*="view-transition-name"]').length,
+      trackedCleanup: Array.from(state?.trackedElements || []).map(({ source: trackedSource, target: trackedTarget }) => ({
+        source: trackedSource ? {
+          connected: trackedSource.isConnected,
+          owner: trackedSource.getAttribute(ownerAttribute) || '',
+          transitionName: trackedSource.style.viewTransitionName || '',
+        } : null,
+        target: trackedTarget ? {
+          connected: trackedTarget.isConnected,
+          owner: trackedTarget.getAttribute(ownerAttribute) || '',
+          transitionName: trackedTarget.style.viewTransitionName || '',
+        } : null,
+      })),
       sourceCleanup: source
         ? {
             connected: source.isConnected,
@@ -163,6 +261,8 @@ async function probeState(page) {
     };
   }, {
     ownerAttribute: transitionOwnerAttribute,
+    kindAttribute: transitionKindAttribute,
+    directionAttribute: transitionDirectionAttribute,
     rootClass: transitionClass,
   });
 }
@@ -184,30 +284,153 @@ async function clickSameVariant(page, locator, expectedUrl, expectedView) {
 
 async function assertTransitionStateIsClean(page, label) {
   await page.waitForFunction(
-    ({ ownerAttribute, rootClass }) => {
+    ({ ownerAttribute, kindAttribute, directionAttribute, rootClass }) => {
       const state = window.__PHOTOS_VIEW_TRANSITION_PROBE__;
       const source = state?.sourceElement || null;
       const target = state?.targetElement || null;
       return !document.documentElement.classList.contains(rootClass)
         && !document.documentElement.hasAttribute(ownerAttribute)
+        && !document.documentElement.hasAttribute(kindAttribute)
+        && !document.documentElement.hasAttribute(directionAttribute)
         && document.querySelectorAll(`[${ownerAttribute}]`).length === 0
         && document.querySelectorAll('[style*="view-transition-name"]').length === 0
         && (!source || (!source.hasAttribute(ownerAttribute) && !source.style.viewTransitionName))
         && (!target || (!target.hasAttribute(ownerAttribute) && !target.style.viewTransitionName));
     },
-    { ownerAttribute: transitionOwnerAttribute, rootClass: transitionClass },
+    {
+      ownerAttribute: transitionOwnerAttribute,
+      kindAttribute: transitionKindAttribute,
+      directionAttribute: transitionDirectionAttribute,
+      rootClass: transitionClass,
+    },
     { timeout: navigationTimeoutMs }
   );
 
   const state = await probeState(page);
   assert.equal(state.rootClassPresent, false, `${label}: html 过渡 class 必须清理`);
   assert.equal(state.rootOwner, '', `${label}: html owner 必须清理`);
+  assert.equal(state.rootKind, '', `${label}: html kind 必须清理`);
+  assert.equal(state.rootDirection, '', `${label}: html direction 必须清理`);
   assert.equal(state.liveOwnerCount, 0, `${label}: DOM 中不得残留过渡 owner`);
   assert.equal(state.inlineNamedCount, 0, `${label}: DOM 中不得残留 view-transition-name`);
   assert.equal(state.sourceCleanup?.owner || '', '', `${label}: 已断开的来源照片 owner 必须清理`);
   assert.equal(state.sourceCleanup?.transitionName || '', '', `${label}: 已断开的来源照片样式必须清理`);
   assert.equal(state.targetCleanup?.owner || '', '', `${label}: 目标照片 owner 必须清理`);
   assert.equal(state.targetCleanup?.transitionName || '', '', `${label}: 目标照片样式必须清理`);
+  state.trackedCleanup.forEach((tracked, index) => {
+    assert.equal(tracked.source?.owner || '', '', `${label}: 第 ${index + 1} 轮来源 owner 必须清理`);
+    assert.equal(tracked.source?.transitionName || '', '', `${label}: 第 ${index + 1} 轮来源样式必须清理`);
+    assert.equal(tracked.target?.owner || '', '', `${label}: 第 ${index + 1} 轮目标 owner 必须清理`);
+    assert.equal(tracked.target?.transitionName || '', '', `${label}: 第 ${index + 1} 轮目标样式必须清理`);
+  });
+}
+
+async function assertDetailStepTransition(page, beforeState, {
+  sourcePhotoName,
+  targetPhotoName,
+  direction,
+  label,
+}) {
+  await page.waitForFunction(
+    (recordIndex) => {
+      const record = window.__PHOTOS_VIEW_TRANSITION_PROBE__?.records?.[recordIndex];
+      return Boolean(record?.animationStyles || record?.animationError);
+    },
+    beforeState.records.length,
+    { timeout: navigationTimeoutMs }
+  );
+  const state = await probeState(page);
+  assert.equal(state.callCount, beforeState.callCount + 1, `${label}: 必须新增且仅新增一次 View Transition`);
+  assert.equal(state.callbackCount, beforeState.callbackCount + 1, `${label}: 内容交换回调必须执行一次`);
+  assert.equal(
+    state.sameVariantCompleteCount,
+    beforeState.sameVariantCompleteCount + 1,
+    `${label}: 必须新增且仅新增一次 PJAX 完成事件`
+  );
+  assert.equal(state.records.length, beforeState.records.length + 1, `${label}: 必须新增一条过渡记录`);
+
+  const record = state.records.at(-1);
+  assert.equal(record.animationError, '', `${label}: transition.ready 不得失败`);
+  assert.equal(record.before.rootClassPresent, true, `${label}: 过渡开始前必须标记根 class`);
+  assert.ok(record.before.rootOwner, `${label}: 过渡开始前必须生成 owner`);
+  assert.equal(record.before.kind, 'detail-step', `${label}: 必须使用详情步进过渡`);
+  assert.equal(record.before.direction, direction, `${label}: 方向必须正确`);
+  assert.equal(record.before.photosView, 'detail', `${label}: 来源必须是照片详情`);
+  assert.equal(record.before.participants.length, 1, `${label}: 来源只能命名主照片 figure`);
+  assert.equal(record.before.participants[0].tagName, 'FIGURE', `${label}: 来源参与者必须是 figure`);
+  assert.equal(record.before.participants[0].photoName, sourcePhotoName, `${label}: 来源照片必须正确`);
+  assert.equal(record.before.participants[0].transitionName, transitionName, `${label}: 来源必须复用固定过渡名`);
+  assert.equal(record.before.inlineNamedCount, 1, `${label}: 来源不得命名侧栏、标题栏或胶片项`);
+  assert.equal(record.before.title, record.before.shellTitle, `${label}: 来源标题必须符合详情数据契约`);
+  assert.equal(record.before.subtitle, record.before.shellSubtitle, `${label}: 来源副标题必须符合详情数据契约`);
+
+  assert.equal(record.afterSwap.rootClassPresent, true, `${label}: 交换后必须保留根 class`);
+  assert.equal(record.afterSwap.rootOwner, record.before.rootOwner, `${label}: 交换后必须沿用同一 owner`);
+  assert.equal(record.afterSwap.kind, 'detail-step', `${label}: 交换后必须保留详情步进标记`);
+  assert.equal(record.afterSwap.direction, direction, `${label}: 交换后必须保留方向`);
+  assert.equal(record.afterSwap.photosView, 'detail', `${label}: 目标必须仍是照片详情`);
+  assert.equal(record.afterSwap.participants.length, 1, `${label}: 目标只能命名主照片 figure`);
+  assert.equal(record.afterSwap.participants[0].tagName, 'FIGURE', `${label}: 目标参与者必须是 figure`);
+  assert.equal(record.afterSwap.participants[0].photoName, targetPhotoName, `${label}: 目标照片必须正确`);
+  assert.equal(record.afterSwap.participants[0].transitionName, transitionName, `${label}: 目标必须复用固定过渡名`);
+  assert.equal(record.afterSwap.participants[0].imageReady, true, `${label}: 目标原图必须在新快照前完成解码`);
+  assert.equal(record.afterSwap.inlineNamedCount, 1, `${label}: 目标不得命名侧栏、标题栏或胶片项`);
+  assert.equal(record.afterSwap.title, record.afterSwap.shellTitle, `${label}: 目标快照标题必须符合详情数据契约`);
+  assert.equal(record.afterSwap.subtitle, record.afterSwap.shellSubtitle, `${label}: 目标快照副标题必须符合详情数据契约`);
+  assert.equal(record.titlebarPresent, true, `${label}: 详情标题栏必须存在`);
+  assert.equal(record.toolbarPresent, true, `${label}: 详情工具栏必须存在`);
+  assert.equal(record.titlebarStable, true, `${label}: 标题栏节点必须保持稳定`);
+  assert.equal(record.toolbarStable, true, `${label}: 工具栏节点必须保持稳定`);
+
+  const currentChrome = await page.evaluate(() => ({
+    title: document.querySelector('[data-window-title]')?.textContent?.trim() || '',
+    subtitle: document.querySelector('[data-window-subtitle]')?.textContent?.trim() || '',
+  }));
+  assert.equal(record.afterSwap.title, currentChrome.title, `${label}: 新快照标题必须精确等于目标标题`);
+  assert.equal(record.afterSwap.subtitle, currentChrome.subtitle, `${label}: 新快照副标题必须精确等于目标计数`);
+  assert.notEqual(record.afterSwap.subtitle, '图库', `${label}: 新快照不得闪回通用“图库”副标题`);
+
+  const expectedPrefix = direction === 'previous'
+    ? 'photos-detail-step-previous'
+    : direction === 'next'
+      ? 'photos-detail-step-next'
+      : 'photos-detail-step-neutral';
+  const oldAnimation = record.animationStyles.animations.find((animation) => (
+    animation.pseudo === `::view-transition-old(${transitionName})`
+      && animation.name === `${expectedPrefix}-out`
+  ));
+  const newAnimation = record.animationStyles.animations.find((animation) => (
+    animation.pseudo === `::view-transition-new(${transitionName})`
+      && animation.name === `${expectedPrefix}-in`
+  ));
+  assert.ok(
+    oldAnimation,
+    `${label}: 旧图动画名称必须匹配方向；实际 ${JSON.stringify(record.animationStyles.animations)}`
+  );
+  assert.equal(oldAnimation.duration, 140, `${label}: 旧图必须在 140ms 内平滑淡出`);
+  assert.equal(oldAnimation.delay, 0, `${label}: 旧图不得延迟退出`);
+  assert.equal(oldAnimation.fill, 'both', `${label}: 旧图必须保持首尾帧`);
+  assert.ok(newAnimation, `${label}: 新图动画名称必须匹配方向`);
+  assert.equal(newAnimation.duration, 200, `${label}: 新图必须在 200ms 内柔和进入`);
+  assert.equal(newAnimation.delay, 40, `${label}: 新图必须短暂延迟以避免高亮双影`);
+  assert.equal(newAnimation.fill, 'both', `${label}: 新图延迟阶段必须保持透明首帧`);
+  assert.equal(
+    record.animationStyles.animations.some((animation) => (
+      animation.pseudo === '::view-transition-old(root)'
+        || animation.pseudo === '::view-transition-new(root)'
+    )),
+    false,
+    `${label}: 页面根快照不得参与动画`
+  );
+  assert.ok(
+    state.decodeCalls.slice(beforeState.decodeCalls.length).some((call) => (
+      call.connected && call.photoName === targetPhotoName
+    )),
+    `${label}: 新快照前必须对已接入 DOM 的目标主图调用 decode()`
+  );
+
+  await assertTransitionStateIsClean(page, label);
+  return state;
 }
 
 async function findPhotoCard(page, { visible }) {
@@ -320,14 +543,21 @@ async function readDetailSwitchState(page) {
     const listRect = list?.getBoundingClientRect();
     const currentRect = current?.getBoundingClientRect();
     const subtitle = document.querySelector('[data-window-subtitle]')?.textContent?.trim() || '';
+    const title = document.querySelector('[data-window-title]')?.textContent?.trim() || '';
+    const photosRoot = document.querySelector('[data-app-root="photos"]');
     const [position, total] = subtitle.split('/').map((part) => Number.parseInt(part.trim(), 10));
     return {
       path: `${window.location.pathname}${window.location.search}`,
+      title,
       subtitle,
+      chromeTitle: photosRoot?.dataset.photosChromeTitle || '',
+      chromeSubtitle: photosRoot?.dataset.photosChromeSubtitle || '',
+      photoName: document.querySelector('.photos-detail-figure[data-photo-name]')?.dataset.photoName || '',
       position: Number.isFinite(position) ? position : 0,
       total: Number.isFinite(total) ? total : 0,
       filmstripCount: list?.querySelectorAll('.photos-detail-neighbor').length || 0,
       currentHref: current?.getAttribute('href') || '',
+      filmstripScrollLeft: list?.scrollLeft || 0,
       currentVisible: Boolean(listRect && currentRect
         && currentRect.left >= listRect.left - 1
         && currentRect.right <= listRect.right + 1),
@@ -338,6 +568,101 @@ async function readDetailSwitchState(page) {
       zoom: document.querySelector('[data-photos-detail-zoom]')?.value || '',
     };
   });
+}
+
+async function verifyReducedMotionFallback(browser) {
+  const reducedContext = await browser.newContext({
+    viewport: { width: 1245, height: 923 },
+    reducedMotion: 'reduce',
+  });
+  await reducedContext.addInitScript(() => {
+    window.localStorage.removeItem('theme-photos-explorer-prefs');
+    window.localStorage.setItem('theme-window-metrics-photos', JSON.stringify({
+      x: 66,
+      y: 68,
+      width: 1114,
+      height: 620,
+      isMaximized: false,
+      preMaxX: 0,
+      preMaxY: 0,
+      preMaxWidth: 0,
+      preMaxHeight: 0,
+    }));
+  });
+
+  const reducedPage = await reducedContext.newPage();
+  const reducedErrors = collectRuntimeErrors(reducedPage);
+  try {
+    const response = await reducedPage.goto(absoluteUrl('/photos'), {
+      waitUntil: 'networkidle',
+      timeout: navigationTimeoutMs,
+    });
+    assert.equal(response?.status(), 200, 'reduced-motion 图库路由必须返回 200');
+    await waitForPhotosView(reducedPage, '/photos', 'library');
+    await installViewTransitionProbe(reducedPage);
+
+    const visibleCard = await findPhotoCard(reducedPage, { visible: true });
+    const beforeDetail = await probeState(reducedPage);
+    await reducedPage.locator('a.photo-card[data-photo-name]').nth(visibleCard.index).click();
+    await waitForSameVariantCompletion(reducedPage, beforeDetail.sameVariantCompleteCount);
+    await waitForPhotosView(reducedPage, visibleCard.href, 'detail');
+    let state = await probeState(reducedPage);
+    assert.equal(state.callCount, 0, 'reduced-motion 列表进入详情不得调用 startViewTransition');
+    await assertTransitionStateIsClean(reducedPage, 'reduced-motion 列表进入详情');
+
+    const current = await readDetailSwitchState(reducedPage);
+    assert.ok(current.nextHref && current.nextHref !== '#', 'reduced-motion 详情必须提供下一张');
+    const reducedNextPhotoName = await reducedPage
+      .locator(`.photos-detail-neighbor[href="${current.nextHref}"]`)
+      .getAttribute('data-photo-name');
+    assert.ok(reducedNextPhotoName, 'reduced-motion 下一张必须映射到胶片条照片');
+    await reducedPage.evaluate(() => {
+      window.__PHOTOS_REDUCED_NATIVE_IMAGE__ = window.Image;
+      window.__PHOTOS_REDUCED_IMAGE_COUNT__ = 0;
+      window.__PHOTOS_REDUCED_TITLEBAR__ = document.querySelector('[data-window-titlebar]');
+      window.Image = new Proxy(window.Image, {
+        construct(target, args, newTarget) {
+          window.__PHOTOS_REDUCED_IMAGE_COUNT__ += 1;
+          return Reflect.construct(target, args, newTarget);
+        },
+      });
+    });
+    const beforeNext = await probeState(reducedPage);
+    try {
+      await reducedPage.locator('.photos-detail-adjacent-btn[aria-label="下一张"]').click();
+      await waitForSameVariantCompletion(reducedPage, beforeNext.sameVariantCompleteCount);
+      await waitForPhotosView(reducedPage, current.nextHref, 'detail');
+    } finally {
+      await reducedPage.evaluate(() => {
+        window.Image = window.__PHOTOS_REDUCED_NATIVE_IMAGE__;
+        delete window.__PHOTOS_REDUCED_NATIVE_IMAGE__;
+      });
+    }
+    state = await probeState(reducedPage);
+    assert.equal(state.callCount, 0, 'reduced-motion 详情步进不得调用 startViewTransition');
+    assert.equal(state.callbackCount, 0, 'reduced-motion 详情步进不得执行 View Transition 回调');
+    assert.equal(state.records.length, 0, 'reduced-motion 详情步进不得产生 View Transition 记录');
+    assert.equal(state.sameVariantCompleteCount, beforeNext.sameVariantCompleteCount + 1, 'reduced-motion 详情步进仍必须完成一次 PJAX');
+    const reducedImageCount = await reducedPage.evaluate(() => window.__PHOTOS_REDUCED_IMAGE_COUNT__ || 0);
+    assert.equal(reducedImageCount, 0, 'reduced-motion 详情步进不得创建脱离 DOM 的预载图片');
+    const reducedNext = await readDetailSwitchState(reducedPage);
+    assert.equal(reducedNext.photoName, reducedNextPhotoName, 'reduced-motion 必须切到正确的目标主图');
+    assert.equal(reducedNext.position, current.position + 1, 'reduced-motion 必须将位置递增 1');
+    assert.equal(reducedNext.currentVisible, true, 'reduced-motion 当前胶片项必须保持可见');
+    assert.equal(reducedNext.title, reducedNext.chromeTitle, 'reduced-motion 标题必须同步目标数据');
+    assert.equal(reducedNext.subtitle, reducedNext.chromeSubtitle, 'reduced-motion 副标题必须同步目标计数');
+    assert.equal(
+      await reducedPage.evaluate(() => (
+        window.__PHOTOS_REDUCED_TITLEBAR__ === document.querySelector('[data-window-titlebar]')
+      )),
+      true,
+      'reduced-motion 详情步进仍必须保留标题栏节点'
+    );
+    await assertTransitionStateIsClean(reducedPage, 'reduced-motion 详情步进');
+    assert.deepEqual(reducedErrors, [], `reduced-motion 回归出现运行时错误：\n${reducedErrors.join('\n')}`);
+  } finally {
+    await reducedContext.close();
+  }
 }
 
 const browser = await chromium.launch({ headless: true });
@@ -454,6 +779,8 @@ try {
   const record = state.records[0];
   assert.equal(record.before.rootClassPresent, true, '过渡开始前必须标记 Photos 过渡根 class');
   assert.ok(record.before.rootOwner, '过渡开始前必须生成 owner');
+  assert.equal(record.before.kind, 'list-to-detail', '列表进入详情必须记录正确的过渡类型');
+  assert.equal(record.before.direction, 'neutral', '列表进入详情不得伪造前后方向');
   assert.equal(record.before.participants.length, 1, '过渡开始前只能标记被点击的一张照片');
   assert.equal(record.before.participants[0].photoName, visibleCard.photoName, '来源过渡元素必须是被点击的照片');
   assert.equal(record.before.participants[0].transitionName, transitionName, '来源照片必须使用固定共享名称');
@@ -484,12 +811,63 @@ try {
   await assertDetailLayout(page, sidebarHrefs, visibleCard.photoName);
   await assertTransitionStateIsClean(page, '可见照片 → 详情完成');
 
+  let directState = await readDetailSwitchState(page);
+  assert.ok(directState.nextHref && directState.nextHref !== '#', '中间照片必须提供下一张用于方向回归');
+  const directNextTargetName = await page
+    .locator(`.photos-detail-neighbor[href="${directState.nextHref}"]`)
+    .getAttribute('data-photo-name');
+  assert.ok(directNextTargetName, '下一张路由必须映射到胶片条照片');
+  const beforeDirectNext = await probeState(page);
+  await clickSameVariant(
+    page,
+    page.locator('.photos-detail-adjacent-btn[aria-label="下一张"]'),
+    directState.nextHref,
+    'detail'
+  );
+  await assertDetailStepTransition(page, beforeDirectNext, {
+    sourcePhotoName: directState.photoName,
+    targetPhotoName: directNextTargetName,
+    direction: 'next',
+    label: '下一张按钮',
+  });
+  let directNextState = await readDetailSwitchState(page);
+  assert.equal(directNextState.position, directState.position + 1, '下一张按钮必须将位置递增 1');
+
+  const directPreviousTargetName = await page
+    .locator(`.photos-detail-neighbor[href="${directNextState.previousHref}"]`)
+    .getAttribute('data-photo-name');
+  assert.equal(directPreviousTargetName, directState.photoName, '上一张路由必须返回原照片');
+  const beforeDirectPrevious = await probeState(page);
+  await clickSameVariant(
+    page,
+    page.locator('.photos-detail-adjacent-btn[aria-label="上一张"]'),
+    directNextState.previousHref,
+    'detail'
+  );
+  await assertDetailStepTransition(page, beforeDirectPrevious, {
+    sourcePhotoName: directNextState.photoName,
+    targetPhotoName: directPreviousTargetName,
+    direction: 'previous',
+    label: '上一张按钮',
+  });
+  directState = await readDetailSwitchState(page);
+  assert.equal(directState.photoName, visibleCard.photoName, '上一张按钮必须回到原照片');
+
   const filmstripCount = await page.locator('.photos-detail-neighbor').count();
   assert.ok(filmstripCount >= 3, '详情底部必须输出当前分页的可切换照片列表');
   const lastFilmstripLink = page.locator('.photos-detail-neighbor').last();
   const lastFilmstripHref = await lastFilmstripLink.getAttribute('href');
+  const lastFilmstripPhotoName = await lastFilmstripLink.getAttribute('data-photo-name');
   assert.ok(lastFilmstripHref, '胶片条末项必须提供详情路由');
+  assert.ok(lastFilmstripPhotoName, '胶片条末项必须提供照片标识');
+  const beforeFilmstripStep = await probeState(page);
   await clickSameVariant(page, lastFilmstripLink, lastFilmstripHref, 'detail');
+  await assertDetailStepTransition(page, beforeFilmstripStep, {
+    sourcePhotoName: directState.photoName,
+    targetPhotoName: lastFilmstripPhotoName,
+    direction: 'next',
+    label: '胶片条向后跳转',
+  });
 
   let switchState = await readDetailSwitchState(page);
   assert.equal(switchState.filmstripCount, filmstripCount, '胶片条切换后必须保留完整分页列表');
@@ -509,26 +887,165 @@ try {
   switchState = await readDetailSwitchState(page);
   assert.equal(switchState.zoom, '1.5', '切换验证前必须进入可拖拽的 1.5 倍缩放状态');
 
+  const zoomedPreviousTargetName = await page
+    .locator(`.photos-detail-neighbor[href="${switchState.previousHref}"]`)
+    .getAttribute('data-photo-name');
+  assert.ok(zoomedPreviousTargetName, '放大状态的上一张必须映射到胶片条照片');
   const beforeZoomedPrevious = await probeState(page);
   await page.locator('.photos-detail-adjacent-btn[aria-label="上一张"]').click();
   await waitForSameVariantCompletion(page, beforeZoomedPrevious.sameVariantCompleteCount);
   await waitForPhotosView(page, switchState.previousHref, 'detail');
+  await assertDetailStepTransition(page, beforeZoomedPrevious, {
+    sourcePhotoName: switchState.photoName,
+    targetPhotoName: zoomedPreviousTargetName,
+    direction: 'previous',
+    label: '放大后的上一张按钮',
+  });
   const previousState = await readDetailSwitchState(page);
   assert.equal(previousState.subtitle, `${switchState.position - 1} / ${switchState.total}`, '放大后点击“上一张”必须正确切换计数');
   assert.equal(previousState.currentVisible, true, '左右按钮切换后当前缩略图必须可见');
 
+  const keyboardPreviousTargetName = await page
+    .locator(`.photos-detail-neighbor[href="${previousState.previousHref}"]`)
+    .getAttribute('data-photo-name');
+  assert.ok(keyboardPreviousTargetName, '左方向键目标必须映射到胶片条照片');
   const beforeKeyboardPrevious = await probeState(page);
   await page.keyboard.press('ArrowLeft');
   await waitForSameVariantCompletion(page, beforeKeyboardPrevious.sameVariantCompleteCount);
+  await assertDetailStepTransition(page, beforeKeyboardPrevious, {
+    sourcePhotoName: previousState.photoName,
+    targetPhotoName: keyboardPreviousTargetName,
+    direction: 'previous',
+    label: '左方向键',
+  });
   const keyboardState = await readDetailSwitchState(page);
   assert.equal(keyboardState.subtitle, `${switchState.position - 2} / ${switchState.total}`, '左方向键必须与“上一张”使用同一切换语义');
   assert.equal(keyboardState.currentVisible, true, '键盘切换后当前缩略图必须可见');
-  state = await probeState(page);
-  assert.equal(state.callCount, 1, '详情内胶片条/按钮/键盘切换不得新启共享元素过渡');
-  await assertTransitionStateIsClean(page, '胶片条与上一张切换');
+
+  const keyboardNextTargetName = await page
+    .locator(`.photos-detail-neighbor[href="${keyboardState.nextHref}"]`)
+    .getAttribute('data-photo-name');
+  assert.equal(keyboardNextTargetName, previousState.photoName, '右方向键目标必须返回上一轮照片');
+  const beforeKeyboardNext = await probeState(page);
+  await page.keyboard.press('ArrowRight');
+  await waitForSameVariantCompletion(page, beforeKeyboardNext.sameVariantCompleteCount);
+  await assertDetailStepTransition(page, beforeKeyboardNext, {
+    sourcePhotoName: keyboardState.photoName,
+    targetPhotoName: keyboardNextTargetName,
+    direction: 'next',
+    label: '右方向键',
+  });
+  const keyboardNextState = await readDetailSwitchState(page);
+  assert.equal(keyboardNextState.photoName, previousState.photoName, '右方向键必须与“下一张”使用同一切换语义');
+  assert.equal(keyboardNextState.currentVisible, true, '右方向键切换后当前缩略图必须可见');
+
+  assert.ok(keyboardNextState.previousHref && keyboardNextState.previousHref !== '#', 'decode 超时回归前必须仍有上一张');
+  const decodeTimeoutTargetName = await page
+    .locator(`.photos-detail-neighbor[href="${keyboardNextState.previousHref}"]`)
+    .getAttribute('data-photo-name');
+  assert.ok(decodeTimeoutTargetName, 'decode 超时目标必须映射到胶片条照片');
+  await page.evaluate(() => {
+    window.__PHOTOS_LIVE_DECODE_NATIVE__ = HTMLImageElement.prototype.decode;
+    window.__PHOTOS_LIVE_DECODE_COUNT__ = 0;
+    HTMLImageElement.prototype.decode = function (...args) {
+      if (this.isConnected && this.closest?.('.photos-detail-figure')) {
+        window.__PHOTOS_LIVE_DECODE_COUNT__ += 1;
+        window.__PHOTOS_VIEW_TRANSITION_PROBE__?.decodeCalls.push({
+          connected: true,
+          photoName: this.closest('[data-photo-name]')?.dataset.photoName || '',
+          src: this.currentSrc || this.src || '',
+        });
+        return new Promise(() => {});
+      }
+      return window.__PHOTOS_LIVE_DECODE_NATIVE__.apply(this, args);
+    };
+  });
+  const beforeDecodeTimeout = await probeState(page);
+  try {
+    await clickSameVariant(
+      page,
+      page.locator('.photos-detail-adjacent-btn[aria-label="上一张"]'),
+      keyboardNextState.previousHref,
+      'detail'
+    );
+    await assertDetailStepTransition(page, beforeDecodeTimeout, {
+      sourcePhotoName: keyboardNextState.photoName,
+      targetPhotoName: decodeTimeoutTargetName,
+      direction: 'previous',
+      label: '目标主图 decode 超时降级',
+    });
+  } finally {
+    await page.evaluate(() => {
+      HTMLImageElement.prototype.decode = window.__PHOTOS_LIVE_DECODE_NATIVE__;
+      delete window.__PHOTOS_LIVE_DECODE_NATIVE__;
+    });
+  }
+  const decodeTimeoutState = await readDetailSwitchState(page);
+  assert.equal(decodeTimeoutState.position, keyboardNextState.position - 1, 'decode 超时后仍必须完成目标切换');
+  assert.equal(
+    await page.evaluate(() => window.__PHOTOS_LIVE_DECODE_COUNT__ || 0),
+    1,
+    'live decode 超时路径必须且只能尝试一次目标主图解码'
+  );
+
+  assert.ok(decodeTimeoutState.nextHref && decodeTimeoutState.nextHref !== '#', '冷图降级前必须仍有下一张');
+  await page.evaluate(() => {
+    window.__PHOTOS_NATIVE_IMAGE__ = window.Image;
+    window.__PHOTOS_COLD_TITLEBAR__ = document.querySelector('[data-window-titlebar]');
+    window.Image = class DeferredPhotosImage {
+      constructor() {
+        this.complete = false;
+        this.naturalWidth = 0;
+        this.onload = null;
+        this.onerror = null;
+      }
+
+      set src(value) {
+        this.currentSrc = value;
+      }
+    };
+  });
+  try {
+    const beforeColdTarget = await probeState(page);
+    await page.locator('.photos-detail-adjacent-btn[aria-label="下一张"]').click();
+    await waitForSameVariantCompletion(page, beforeColdTarget.sameVariantCompleteCount);
+    await waitForPhotosView(page, decodeTimeoutState.nextHref, 'detail');
+    state = await probeState(page);
+    assert.equal(state.callCount, beforeColdTarget.callCount, '目标原图 200ms 内未就绪时不得启动空白过渡');
+    assert.equal(state.sameVariantCompleteCount, beforeColdTarget.sameVariantCompleteCount + 1, '冷图降级仍必须完成一次 PJAX');
+    await assertTransitionStateIsClean(page, '目标原图超时降级');
+    await page.waitForFunction(() => {
+      const list = document.querySelector('.photos-detail-neighbor-list');
+      const current = list?.querySelector('.photos-detail-neighbor[aria-current="true"]');
+      const listRect = list?.getBoundingClientRect();
+      const currentRect = current?.getBoundingClientRect();
+      return Boolean(listRect && currentRect
+        && currentRect.left >= listRect.left - 1
+        && currentRect.right <= listRect.right + 1);
+    }, null, { timeout: navigationTimeoutMs });
+    const coldTargetState = await readDetailSwitchState(page);
+    assert.equal(coldTargetState.position, decodeTimeoutState.position + 1, '冷图降级仍必须切到正确照片');
+    assert.equal(coldTargetState.currentVisible, true, '冷图降级后当前胶片项必须可见');
+    assert.equal(coldTargetState.title, coldTargetState.chromeTitle, '冷图降级后标题必须属于目标照片');
+    assert.equal(coldTargetState.subtitle, coldTargetState.chromeSubtitle, '冷图降级后计数必须属于目标照片');
+    assert.equal(
+      await page.evaluate(() => (
+        window.__PHOTOS_COLD_TITLEBAR__ === document.querySelector('[data-window-titlebar]')
+      )),
+      true,
+      '冷图降级仍必须保留标题栏节点'
+    );
+  } finally {
+    await page.evaluate(() => {
+      window.Image = window.__PHOTOS_NATIVE_IMAGE__;
+      delete window.__PHOTOS_NATIVE_IMAGE__;
+    });
+  }
   assert.deepEqual(runtimeErrors, [], `图库专项回归出现运行时错误：\n${runtimeErrors.join('\n')}`);
 
-  console.log('Photos View Transition 真页回归通过：列表无过渡、可见单图共享、稳定侧栏、完整胶片条及按钮/键盘切换正常');
+  await verifyReducedMotionFallback(browser);
+
+  console.log('Photos View Transition 真页回归通过：列表共享进入、详情定向步进、稳定侧栏/标题栏及完整胶片条正常');
 } finally {
   await context.close();
   await browser.close();
