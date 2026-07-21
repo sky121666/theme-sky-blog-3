@@ -151,6 +151,19 @@ function resolvePhotosDetailDirection(currentRoot, targetRoot, triggerElement, s
     || 'neutral';
 }
 
+function centerPhotosFilmstripCurrentItem(root) {
+  const filmstrip = root?.querySelector?.('.photos-detail-neighbor-list');
+  const currentItem = filmstrip?.querySelector?.('.photos-detail-neighbor.is-current');
+  if (!filmstrip || !currentItem) return;
+
+  const filmstripRect = filmstrip.getBoundingClientRect();
+  const currentRect = currentItem.getBoundingClientRect();
+  const centerDelta = ((currentRect.left + currentRect.right) / 2)
+    - ((filmstripRect.left + filmstripRect.right) / 2);
+  if (Math.abs(centerDelta) <= 1) return;
+  filmstrip.scrollLeft += centerDelta;
+}
+
 function preloadPhotosDetailTransitionTarget(
   descriptor,
   {
@@ -1143,6 +1156,7 @@ export function initPjax(Alpine) {
             if (nextFilmstrip) nextFilmstrip.scrollLeft = photosFilmstripScrollLeft;
           }
           if (activePhotosTransition) {
+            centerPhotosFilmstripCurrentItem(contentContainer);
             markPhotosSharedTransitionTarget(contentContainer, activePhotosTransition);
             await decodePhotosTransitionTarget(contentContainer, activePhotosTransition, {
               isCurrent: isCurrentNavigation,

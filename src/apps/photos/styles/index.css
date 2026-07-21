@@ -2696,6 +2696,7 @@
   left: 50%;
   max-width: min(100%, 980px);
   max-height: min(72vh, 720px);
+  transform: translate(-50%, -50%) scale(1);
   transform-origin: center center;
   will-change: transform;
   user-select: none;
@@ -4167,6 +4168,20 @@ html.photos-shared-view-transition {
 }
 
 @supports (view-transition-name: none) {
+  html.photos-shared-view-transition:is(
+    [data-photos-view-transition-kind="detail-step"],
+    [data-photos-view-transition-kind="list-to-detail"]
+  ) .photos-detail-filmstrip {
+    view-transition-name: photos-detail-filmstrip;
+  }
+
+  html.photos-shared-view-transition:is(
+    [data-photos-view-transition-kind="detail-step"],
+    [data-photos-view-transition-kind="list-to-detail"]
+  )::view-transition-group(photos-active-photo) {
+    z-index: 1;
+  }
+
   html.photos-shared-view-transition[data-photos-view-transition-kind="detail-step"]::view-transition-group(photos-active-photo) {
     animation-duration: 0.26s;
     animation-timing-function: var(--photos-motion-soft);
@@ -4178,6 +4193,47 @@ html.photos-shared-view-transition {
 
   html.photos-shared-view-transition[data-photos-view-transition-kind="detail-step"]::view-transition-image-pair(photos-active-photo) {
     isolation: isolate;
+  }
+
+  html.photos-shared-view-transition:is(
+    [data-photos-view-transition-kind="detail-step"],
+    [data-photos-view-transition-kind="list-to-detail"]
+  )::view-transition-group(photos-detail-filmstrip) {
+    z-index: 2;
+    animation: none;
+  }
+
+  html.photos-shared-view-transition:is(
+    [data-photos-view-transition-kind="detail-step"],
+    [data-photos-view-transition-kind="list-to-detail"]
+  )::view-transition-image-pair(photos-detail-filmstrip) {
+    isolation: isolate;
+  }
+
+  html.photos-shared-view-transition:is(
+    [data-photos-view-transition-kind="detail-step"],
+    [data-photos-view-transition-kind="list-to-detail"]
+  )::view-transition-old(photos-detail-filmstrip),
+  html.photos-shared-view-transition:is(
+    [data-photos-view-transition-kind="detail-step"],
+    [data-photos-view-transition-kind="list-to-detail"]
+  )::view-transition-new(photos-detail-filmstrip) {
+    animation: none;
+    mix-blend-mode: normal;
+  }
+
+  html.photos-shared-view-transition:is(
+    [data-photos-view-transition-kind="detail-step"],
+    [data-photos-view-transition-kind="list-to-detail"]
+  )::view-transition-old(photos-detail-filmstrip) {
+    opacity: 0;
+  }
+
+  html.photos-shared-view-transition:is(
+    [data-photos-view-transition-kind="detail-step"],
+    [data-photos-view-transition-kind="list-to-detail"]
+  )::view-transition-new(photos-detail-filmstrip) {
+    opacity: 1;
   }
 
   html.photos-shared-view-transition[data-photos-view-transition-kind="detail-step"]::view-transition-old(photos-active-photo),

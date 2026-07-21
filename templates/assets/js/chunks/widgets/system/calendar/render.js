@@ -1,1 +1,1 @@
-import{n as r}from"../../../rolldown-runtime.js?v=0.9.42&r=34752c25632f";import{t as e}from"../../shared/clock-calendar.js?v=0.9.42&r=34752c25632f";var a=r({renderWidget:()=>e});export{a as t};
+import{n as r}from"../../../rolldown-runtime.js?v=0.9.42&r=0b7c415df1b3";import{t as e}from"../../shared/clock-calendar.js?v=0.9.42&r=0b7c415df1b3";var a=r({renderWidget:()=>e});export{a as t};
