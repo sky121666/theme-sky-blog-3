@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { renderBatch } from '../src/apps/explorer/shared/render-batch.js';
-import { registerCategoryPostsExplorer } from '../src/apps/explorer/categories/runtime.js';
+import {
+  registerCategoriesExplorer,
+  registerCategoryPostsExplorer,
+} from '../src/apps/explorer/categories/runtime.js';
 import { registerTagsExplorer } from '../src/apps/explorer/tags/runtime.js';
 import { registerAuthorPostsExplorer } from '../src/apps/explorer/author/runtime.js';
 
@@ -61,6 +64,51 @@ function captureFactory(register, expectedName) {
   });
   assert.equal(typeof factory, 'function', `${expectedName} should register an Alpine factory`);
   return factory;
+}
+
+function createCategoryOptions() {
+  return ['first', 'second'].map((key) => {
+    const attributes = new Map();
+    return {
+      dataset: {
+        postKey: key,
+        postTitle: `${key}-title`,
+        postDate: '2026.07.20',
+        postComments: key === 'first' ? '1' : '2',
+        postExcerpt: `${key}-excerpt`,
+        postParentName: '分类',
+        postAuthor: '作者',
+      },
+      href: `http://theme.test/archives/${key}`,
+      setAttribute(name, value) {
+        attributes.set(name, String(value));
+      },
+      getAttribute(name) {
+        return attributes.get(name) ?? null;
+      },
+    };
+  });
+}
+
+function verifyCategoryPreview(register, expectedName, scopeLabel) {
+  const factory = captureFactory(register, expectedName);
+  const categoryOptions = createCategoryOptions();
+  const categoryPreview = factory();
+  categoryPreview.$root = {
+    querySelector(selector) {
+      return selector === '[data-category-post-option]' ? categoryOptions[0] : null;
+    },
+    querySelectorAll(selector) {
+      return selector === '[data-category-post-option]' ? categoryOptions : [];
+    },
+  };
+  categoryPreview.init();
+  assert.equal(categoryPreview.activePostKey, 'first', `${scopeLabel}初始化应预览第一篇文档`);
+  assert.equal(categoryPreview.activePostParentName, '分类', `${scopeLabel}初始化应同步文档所属范围`);
+  categoryPreview.selectPost(categoryOptions[1]);
+  assert.equal(categoryPreview.activePostKey, 'second', `${scopeLabel}应同步最新预览文档`);
+  assert.equal(categoryPreview.activePostTitle, 'second-title', `${scopeLabel}应同步文档标题`);
+  assert.equal(categoryPreview.activePostHref, 'http://theme.test/archives/second', `${scopeLabel}应同步文档真实地址`);
 }
 
 const previousDocument = globalThis.document;
@@ -152,42 +200,8 @@ try {
   assert.equal(batchContainer.innerHTML, '<b>new-only</b>', 'a cancelled batch must not append stale frames');
   assert.equal(staleBatch.cancelled, true, 'renderBatch should expose cancellation state');
 
-  const categoryFactory = captureFactory(registerCategoryPostsExplorer, 'categoryPostsExplorer');
-  const categoryOptions = ['first', 'second'].map((key) => {
-    const attributes = new Map();
-    return {
-      dataset: {
-        postKey: key,
-        postTitle: `${key}-title`,
-        postDate: '2026.07.20',
-        postComments: key === 'first' ? '1' : '2',
-        postExcerpt: `${key}-excerpt`,
-        postParentName: '分类',
-        postAuthor: '作者',
-      },
-      href: `http://theme.test/archives/${key}`,
-      setAttribute(name, value) {
-        attributes.set(name, String(value));
-      },
-      getAttribute(name) {
-        return attributes.get(name) ?? null;
-      },
-    };
-  });
-  const categoryPreview = categoryFactory();
-  categoryPreview.$root = {
-    querySelector(selector) {
-      return selector === '[data-category-post-option]' ? categoryOptions[0] : null;
-    },
-    querySelectorAll(selector) {
-      return selector === '[data-category-post-option]' ? categoryOptions : [];
-    },
-  };
-  categoryPreview.init();
-  assert.equal(categoryPreview.activePostKey, 'first', '分类详情初始化应预览第一篇文章');
-  categoryPreview.selectPost(categoryOptions[1]);
-  assert.equal(categoryPreview.activePostKey, 'second', '分类详情应同步最新预览文章');
-  assert.equal(categoryPreview.activePostHref, 'http://theme.test/archives/second', '分类详情应同步文章真实地址');
+  verifyCategoryPreview(registerCategoriesExplorer, 'categoriesExplorer', '分类根页');
+  verifyCategoryPreview(registerCategoryPostsExplorer, 'categoryPostsExplorer', '分类详情');
 
   const explorerCases = [
     {

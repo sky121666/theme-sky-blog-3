@@ -18,55 +18,120 @@
         windowMaximizable = true,
         windowMetricsKey = 'browser'
       )}">
-  <th:block th:fragment="categoryOverview(categories, depth)">
-    <th:block th:with="currentDepth=${depth != null ? depth : 0}">
-      <th:block th:each="item : ${categories}">
-        <a class="categories-folder-card pjax-link"
-           data-pjax-app="explorer-categories"
-           data-category-overview-link
-           th:href="${item.status.permalink}"
-           th:attr="data-category-depth=${currentDepth},
-                    aria-label=${item.spec.displayName + '，' + item.postCount + ' 篇文章'}">
-          <span class="categories-folder-icon categories-folder-icon--card icon-[lucide--folder]" aria-hidden="true"></span>
-          <span class="categories-folder-copy">
-            <span class="categories-folder-title" th:text="${item.spec.displayName}">分类</span>
-            <span class="categories-folder-meta" th:text="${item.postCount} + ' 篇文章'">0 篇文章</span>
-          </span>
-        </a>
-
-        <th:block th:if="${not #lists.isEmpty(item.children)}"
-                  th:replace="~{::categoryOverview(categories=${item.children}, depth=${currentDepth + 1})}"></th:block>
-      </th:block>
-    </th:block>
-  </th:block>
-
-  <th:block th:fragment="content">
+  <th:block th:fragment="content"
+            th:with="categoriesRootUri=${!#strings.isEmpty(site.routes?.categoriesUri) ? site.routes.categoriesUri : '/categories'},
+                     categoryTree=${categories},
+                     requestedPageText=${param.page != null and !#lists.isEmpty(param.page) ? param.page[0] : '1'},
+                     requestedPage=${requestedPageText matches '^[1-9][0-9]{0,8}$' ? requestedPageText : 1},
+                     categoryPageSize=${site.post?.categoryPageSize ?: 10},
+                     allPosts=${postFinder.list({
+                       page: requestedPage,
+                       size: categoryPageSize,
+                       sort: {'spec.publishTime,desc'}
+                     })}">
     <div class="categories-shell" data-app-root="explorer-categories">
-      <h1 class="sr-only">所有分类</h1>
+      <h1 class="sr-only">所有分类与文档</h1>
       <script type="application/json" data-app-props="explorer-categories">{"version":1,"appId":"explorer-categories","data":{"view":"collection"}}</script>
 
-      <div class="categories-workspace categories-workspace--overview"
+      <div class="category-workspace category-workspace--all"
+           x-data="categoriesExplorer"
            data-category-root
-           th:if="${categories != null and !#lists.isEmpty(categories)}">
-        <section class="categories-content categories-content--overview">
-          <section class="categories-pane categories-pane--posts">
-            <header class="categories-pane-header">
-              <span class="categories-pane-title">全部分类</span>
-              <span class="categories-pane-path" th:text="${#lists.size(categories)} + ' 个顶级分类'">0 个顶级分类</span>
-            </header>
+           data-category-scope="all"
+           th:attr="data-category-current-page=${allPosts != null ? allPosts.page : 1},
+                    data-category-total-pages=${allPosts != null ? allPosts.totalPages : 0},
+                    data-category-total-posts=${allPosts != null ? allPosts.total : 0},
+                    data-category-page-size=${categoryPageSize}">
+        <aside class="category-folder-pane">
+          <p class="categories-sidebar-title">分类</p>
+          <nav class="categories-sidebar-nav" aria-label="分类导航">
+            <a class="categories-sidebar-item categories-sidebar-item--all is-active pjax-link"
+               data-pjax-app="explorer-categories"
+               data-category-all-link
+               aria-current="page"
+               th:href="${categoriesRootUri}">
+              <span class="categories-folder-icon categories-folder-icon--sidebar icon-[lucide--folders]" aria-hidden="true"></span>
+              <span class="categories-sidebar-label">全部分类</span>
+              <span class="categories-sidebar-count" th:text="${allPosts != null ? allPosts.total : 0}">0</span>
+            </a>
 
-            <div class="category-posts-scroll">
-              <nav class="categories-folder-grid" aria-label="全部分类">
-                <th:block th:replace="~{::categoryOverview(categories=${categories}, depth=${0})}"></th:block>
-              </nav>
-            </div>
-          </section>
+            <th:block th:if="${categoryTree != null and !#lists.isEmpty(categoryTree)}"
+                      th:replace="~{modules/browser-explorer/category :: categorySidebar(categories=${categoryTree}, depth=${0}, currentCategoryName=${''})}"></th:block>
+
+            <p class="categories-sidebar-empty"
+               th:if="${categoryTree == null or #lists.isEmpty(categoryTree)}">暂无分类</p>
+          </nav>
+        </aside>
+
+        <section class="category-posts-pane">
+          <header class="categories-pane-header">
+            <span class="categories-pane-title">文档</span>
+            <span class="categories-pane-path"
+                  th:text="${'全部文档 · ' + (allPosts != null ? allPosts.total : 0) + ' 篇'}">全部文档 · 0 篇</span>
+          </header>
+
+          <div class="category-posts-scroll">
+            <th:block th:replace="~{modules/browser-explorer/category :: postRows(posts=${allPosts}, parentName=${'全部文档'})}"></th:block>
+
+            <section class="categories-post-empty"
+                     data-category-empty
+                     aria-live="polite"
+                     th:if="${allPosts == null or #lists.isEmpty(allPosts.items)}">
+              <div>
+                <h2 class="categories-empty-title"
+                    th:if="${allPosts != null and allPosts.page > 1}"
+                    th:text="${'第 ' + allPosts.page + ' 页不存在'}">当前页不存在</h2>
+                <h2 class="categories-empty-title"
+                    th:if="${allPosts == null or allPosts.page <= 1}">当前没有可浏览的文档</h2>
+
+                <p class="categories-empty-text"
+                   th:if="${allPosts != null and allPosts.page > 1}"
+                   th:text="${allPosts.totalPages > 0 ? '全部文档共 ' + allPosts.totalPages + ' 页，请返回有效页码。' : '当前没有可浏览的分页内容。'}">请返回有效页码。</p>
+                <p class="categories-empty-text"
+                   th:if="${allPosts == null or allPosts.page <= 1}">文章发布后会显示在这里。</p>
+
+                <nav class="categories-post-overflow" aria-label="全部文档恢复导航">
+                  <a class="categories-post-viewmore pjax-link"
+                     data-pjax-app="explorer-categories"
+                     data-category-return-root
+                     th:href="${categoriesRootUri}">返回全部文档</a>
+                  <a class="categories-post-viewmore pjax-link"
+                     data-pjax-app="explorer-categories"
+                     data-category-return-last
+                     th:if="${allPosts != null and allPosts.page > 1 and allPosts.totalPages > 1}"
+                     th:href="${categoriesRootUri + '?page=' + allPosts.totalPages}">返回最后一页</a>
+                </nav>
+              </div>
+            </section>
+          </div>
+
+          <nav class="category-pagination"
+               data-category-pagination
+               data-category-pagination-scope="all"
+               th:if="${allPosts != null and !#lists.isEmpty(allPosts.items) and (allPosts.page > 1 or allPosts.hasNext())}"
+               aria-label="全部文档分页">
+            <a class="category-page-btn pjax-link"
+               data-pjax-app="explorer-categories"
+               data-category-all-prev
+               rel="prev"
+               th:if="${allPosts.page > 1}"
+               th:href="${allPosts.page == 2 ? categoriesRootUri : categoriesRootUri + '?page=' + (allPosts.page - 1)}">上一页</a>
+            <span class="category-page-btn is-disabled" aria-disabled="true" th:unless="${allPosts.page > 1}">上一页</span>
+
+            <span class="category-page-indicator"
+                  aria-current="page"
+                  th:text="${allPosts.page + ' / ' + allPosts.totalPages}">1 / 1</span>
+
+            <a class="category-page-btn pjax-link"
+               data-pjax-app="explorer-categories"
+               data-category-all-next
+               rel="next"
+               th:if="${allPosts.hasNext()}"
+               th:href="${categoriesRootUri + '?page=' + (allPosts.page + 1)}">下一页</a>
+            <span class="category-page-btn is-disabled" aria-disabled="true" th:unless="${allPosts.hasNext()}">下一页</span>
+          </nav>
         </section>
-      </div>
 
-      <div class="categories-empty" th:if="${categories == null or #lists.isEmpty(categories)}">
-        <h2 class="categories-empty-title">当前没有任何分类</h2>
-        <p class="categories-empty-text">内容还没有整理到分类文件夹中，稍后再来查看。</p>
+        <th:block th:replace="~{modules/browser-explorer/category :: previewPane}"></th:block>
       </div>
     </div>
   </th:block>

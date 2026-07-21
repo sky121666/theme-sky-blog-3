@@ -30,7 +30,7 @@ function createPostPreviewState(optionSelector) {
 }
 
 export function registerCategoriesExplorer(Alpine) {
-  Alpine.data('categoriesExplorer', () => createPostPreviewState('[data-category-post-item]'));
+  Alpine.data('categoriesExplorer', () => createPostPreviewState('[data-category-post-option]'));
 }
 
 export function registerCategoryPostsExplorer(Alpine) {

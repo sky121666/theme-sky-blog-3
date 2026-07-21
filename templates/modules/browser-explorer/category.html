@@ -3,7 +3,7 @@
       th:fragment="page"
       th:replace="~{modules/shell/layout :: html(
         title = ${category.spec.displayName + ' - ' + site.title},
-        description = ${!#strings.isEmpty(category.spec.description) ? category.spec.description : category.spec.displayName + ' 下的 ' + posts.total + ' 篇文章'},
+        description = ${!#strings.isEmpty(category.spec.description) ? category.spec.description : category.spec.displayName + ' 下的 ' + posts.total + ' 篇文档'},
         ssrContent = ~{modules/browser-explorer/category :: content},
         canonical = ${category.status.permalink},
         image = ${!#strings.isEmpty(category.spec.cover) ? category.spec.cover : site.logo},
@@ -28,9 +28,10 @@
            th:style="'--category-depth:' + ${currentDepth}"
            th:classappend="${item.metadata.name == currentCategoryName ? ' is-active' : ''}"
            th:attr="aria-current=${item.metadata.name == currentCategoryName ? 'page' : null},
-                    aria-label=${item.spec.displayName + '，' + item.postCount + ' 篇文章'}">
+                    aria-label=${item.spec.displayName + '，' + item.postCount + ' 篇文档'}">
           <span class="categories-folder-icon categories-folder-icon--sidebar icon-[lucide--folder]" aria-hidden="true"></span>
           <span class="categories-sidebar-label" th:text="${item.spec.displayName}">分类</span>
+          <span class="categories-sidebar-count" th:text="${item.postCount}">0</span>
         </a>
 
         <th:block th:if="${not #lists.isEmpty(item.children)}"
@@ -39,80 +40,123 @@
     </th:block>
   </th:block>
 
+  <th:block th:fragment="postRows(posts, parentName)">
+    <nav th:if="${posts != null and !#lists.isEmpty(posts.items)}"
+         th:attr="aria-label=${parentName == '全部文档' ? '全部文档列表' : parentName + '文档列表'}">
+      <a class="category-post-row pjax-link"
+         data-pjax-app="reader"
+         th:each="post : ${posts.items}"
+         th:href="${post.status.permalink}"
+         data-category-post-option
+         th:attr="data-post-key=${post.metadata.name},
+                  data-post-title=${post.spec.title},
+                  data-post-date=${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')},
+                  data-post-comments=${post.stats.comment},
+                  data-post-excerpt=${post.status.excerpt},
+                  data-post-parent-name=${parentName},
+                  data-post-author=${post.owner != null ? post.owner.displayName : site.title}"
+         @mouseenter="selectPost($el)"
+         @focus="selectPost($el)"
+         @click="selectPost($el)"
+         :class="{ 'is-active': activePostKey === $el.dataset.postKey }">
+        <div class="category-post-row-main">
+          <span class="category-post-file-icon icon-[lucide--file-text]" aria-hidden="true"></span>
+          <span class="category-post-row-title" th:text="${post.spec.title}">文章标题</span>
+        </div>
+        <span class="category-post-row-meta">
+          <time th:attr="datetime=${#dates.format(post.spec.publishTime, 'yyyy-MM-dd')}"
+                th:text="${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')}">2026.03.26</time>
+          <span th:text="${post.stats.comment} + ' 评论'">0 评论</span>
+        </span>
+      </a>
+    </nav>
+  </th:block>
+
+  <th:block th:fragment="previewPane">
+    <aside class="category-preview-pane" aria-label="文档预览">
+      <header class="categories-pane-header">
+        <span class="categories-pane-title">预览</span>
+        <span class="categories-pane-path" x-text="activePostTitle || '未选择文档'"></span>
+      </header>
+
+      <div class="category-preview-scroll">
+        <article class="category-preview-panel" x-show="activePostKey" x-cloak>
+          <header class="category-preview-header">
+            <div class="category-preview-icon">
+              <span class="category-post-file-icon category-post-file-icon--preview icon-[lucide--file-text]" aria-hidden="true"></span>
+            </div>
+            <div class="category-preview-heading">
+              <h2 class="category-preview-title" x-text="activePostTitle">文档标题</h2>
+              <p class="category-preview-path" x-text="(activePostParentName || '') + ' / ' + activePostDate">分类 / 时间</p>
+            </div>
+          </header>
+
+          <dl class="category-preview-meta">
+            <div>
+              <dt>发布日期</dt>
+              <dd x-text="activePostDate">2026.03.26</dd>
+            </div>
+            <div>
+              <dt>评论</dt>
+              <dd x-text="activePostComments + ' 条'">0 条</dd>
+            </div>
+            <div>
+              <dt>作者</dt>
+              <dd x-text="activePostAuthor || ''">作者</dd>
+            </div>
+          </dl>
+
+          <p class="category-preview-excerpt" x-show="activePostExcerpt" x-text="activePostExcerpt"></p>
+
+          <a class="category-preview-action pjax-link" data-pjax-app="reader" :href="activePostHref">打开文档</a>
+        </article>
+
+        <section class="category-preview-empty" x-show="!activePostKey" x-cloak>
+          <p>选择一篇文档后，在这里查看摘要与元信息。</p>
+        </section>
+      </div>
+    </aside>
+  </th:block>
+
   <th:block th:fragment="content"
             th:with="categoriesRootUri=${!#strings.isEmpty(site.routes?.categoriesUri) ? site.routes.categoriesUri : '/categories'},
                      categoryTree=${categoryFinder.listAsTree()}">
     <div class="category-shell" data-app-root="explorer-categories">
+      <h1 class="sr-only" th:text="${category.spec.displayName}">分类</h1>
       <script type="application/json" data-app-props="explorer-categories">{"version":1,"appId":"explorer-categories","data":{"view":"detail"}}</script>
 
       <div class="category-workspace"
            x-data="categoryPostsExplorer"
+           data-category-scope="category"
            th:attr="data-category-name=${category.metadata.name},
                     data-category-current-page=${posts != null ? posts.page : 1},
-                    data-category-total-pages=${posts != null ? posts.totalPages : 0}">
+                    data-category-total-pages=${posts != null ? posts.totalPages : 0},
+                    data-category-total-posts=${posts != null ? posts.total : 0},
+                    data-category-page-size=${site.post?.categoryPageSize ?: 10}">
         <aside class="category-folder-pane">
-          <header class="category-folder-header">
-            <span class="category-folder-kicker">分类文件夹</span>
-            <a class="category-folder-back pjax-link"
+          <p class="categories-sidebar-title">分类</p>
+          <nav class="categories-sidebar-nav" aria-label="分类导航">
+            <a class="categories-sidebar-item categories-sidebar-item--all pjax-link"
                data-pjax-app="explorer-categories"
-               th:href="${categoriesRootUri}">返回全部分类</a>
-          </header>
-
-          <div class="category-folder-card is-active">
-            <div class="category-folder-icon-wrap">
-              <span class="categories-folder-icon categories-folder-icon--detail icon-[lucide--folder]" aria-hidden="true"></span>
-            </div>
-            <div class="category-folder-copy">
-              <h1 class="category-folder-title" th:text="${category.spec.displayName}">分类</h1>
-              <p class="category-folder-meta" th:text="${(posts != null ? posts.total : 0)} + ' 篇文章'">0 篇文章</p>
-            </div>
-          </div>
-
-          <p class="categories-sidebar-title">全部分类</p>
-          <nav class="categories-sidebar-nav"
-               aria-label="分类导航"
-               th:if="${categoryTree != null and !#lists.isEmpty(categoryTree)}">
-            <th:block th:replace="~{::categorySidebar(categories=${categoryTree}, depth=${0}, currentCategoryName=${category.metadata.name})}"></th:block>
+               data-category-all-link
+               th:href="${categoriesRootUri}">
+              <span class="categories-folder-icon categories-folder-icon--sidebar icon-[lucide--folders]" aria-hidden="true"></span>
+              <span class="categories-sidebar-label">全部分类</span>
+            </a>
+            <th:block th:if="${categoryTree != null and !#lists.isEmpty(categoryTree)}"
+                      th:replace="~{::categorySidebar(categories=${categoryTree}, depth=${0}, currentCategoryName=${category.metadata.name})}"></th:block>
           </nav>
         </aside>
 
         <section class="category-posts-pane">
           <header class="categories-pane-header">
-            <span class="categories-pane-title">文章</span>
+            <span class="categories-pane-title">文档</span>
             <span class="categories-pane-path"
                   th:text="${category.spec.displayName + ' · ' + (posts != null ? posts.total : 0) + ' 篇'}">分类 · 0 篇</span>
           </header>
 
           <div class="category-posts-scroll">
-            <nav th:if="${posts != null and !#lists.isEmpty(posts.items)}"
-                 th:attr="aria-label=${category.spec.displayName + '文章列表'}">
-              <a class="category-post-row pjax-link"
-                 data-pjax-app="reader"
-                 th:each="post : ${posts.items}"
-                 th:href="${post.status.permalink}"
-                 data-category-post-option
-                 th:attr="data-post-key=${post.metadata.name},
-                          data-post-title=${post.spec.title},
-                          data-post-date=${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')},
-                          data-post-comments=${post.stats.comment},
-                          data-post-excerpt=${post.status.excerpt},
-                          data-post-parent-name=${category.spec.displayName},
-                          data-post-author=${post.owner != null ? post.owner.displayName : site.title}"
-                 @mouseenter="selectPost($el)"
-                 @focus="selectPost($el)"
-                 @click="selectPost($el)"
-                 :class="{ 'is-active': activePostKey === $el.dataset.postKey }">
-                <div class="category-post-row-main">
-                  <span class="category-post-file-icon icon-[lucide--file-text]" aria-hidden="true"></span>
-                  <span class="category-post-row-title" th:text="${post.spec.title}">文章标题</span>
-                </div>
-                <span class="category-post-row-meta">
-                  <time th:attr="datetime=${#dates.format(post.spec.publishTime, 'yyyy-MM-dd')}"
-                        th:text="${#dates.format(post.spec.publishTime, 'yyyy.MM.dd')}">2026.03.26</time>
-                  <span th:text="${post.stats.comment} + ' 评论'">0 评论</span>
-                </span>
-              </a>
-            </nav>
+            <th:block th:replace="~{::postRows(posts=${posts}, parentName=${category.spec.displayName})}"></th:block>
 
             <section class="categories-post-empty"
                      data-category-empty
@@ -123,7 +167,7 @@
                     th:if="${posts != null and posts.page > 1}"
                     th:text="'第 ' + ${posts.page} + ' 页不存在'">当前页不存在</h2>
                 <h2 class="categories-empty-title"
-                    th:if="${posts == null or posts.page <= 1}">当前分类暂无文章</h2>
+                    th:if="${posts == null or posts.page <= 1}">当前分类暂无文档</h2>
 
                 <p class="categories-empty-text"
                    th:if="${posts != null and posts.page > 1}"
@@ -131,7 +175,7 @@
                 <p class="categories-empty-text"
                    th:if="${posts == null or posts.page <= 1}">内容发布后会显示在这里，你也可以先浏览其他分类。</p>
 
-                <nav class="categories-post-overflow" aria-label="分类文章恢复导航">
+                <nav class="categories-post-overflow" aria-label="分类文档恢复导航">
                   <a class="categories-post-viewmore pjax-link"
                      data-pjax-app="explorer-categories"
                      data-category-return-root
@@ -153,8 +197,9 @@
 
           <nav class="category-pagination"
                data-category-pagination
+               data-category-pagination-scope="category"
                th:if="${posts != null and !#lists.isEmpty(posts.items) and (posts.hasPrevious() or posts.hasNext())}"
-               th:attr="aria-label=${category.spec.displayName + '文章分页'}">
+               th:attr="aria-label=${category.spec.displayName + '文档分页'}">
             <a class="category-page-btn pjax-link"
                data-pjax-app="explorer-categories"
                data-category-prev
@@ -177,49 +222,7 @@
           </nav>
         </section>
 
-        <aside class="category-preview-pane" aria-label="文章预览">
-          <header class="categories-pane-header">
-            <span class="categories-pane-title">预览</span>
-            <span class="categories-pane-path" x-text="activePostTitle || '未选择文章'"></span>
-          </header>
-
-          <div class="category-preview-scroll">
-            <article class="category-preview-panel" x-show="activePostKey" x-cloak>
-              <header class="category-preview-header">
-                <div class="category-preview-icon">
-                  <span class="category-post-file-icon category-post-file-icon--preview icon-[lucide--file-text]" aria-hidden="true"></span>
-                </div>
-                <div class="category-preview-heading">
-                  <h2 class="category-preview-title" x-text="activePostTitle">文章标题</h2>
-                  <p class="category-preview-path" x-text="(activePostParentName || '') + ' / ' + activePostDate">分类 / 时间</p>
-                </div>
-              </header>
-
-              <dl class="category-preview-meta">
-                <div>
-                  <dt>发布日期</dt>
-                  <dd x-text="activePostDate">2026.03.26</dd>
-                </div>
-                <div>
-                  <dt>评论</dt>
-                  <dd x-text="activePostComments + ' 条'">0 条</dd>
-                </div>
-                <div>
-                  <dt>作者</dt>
-                  <dd x-text="activePostAuthor || ''">作者</dd>
-                </div>
-              </dl>
-
-              <p class="category-preview-excerpt" x-show="activePostExcerpt" x-text="activePostExcerpt"></p>
-
-              <a class="category-preview-action pjax-link" data-pjax-app="reader" :href="activePostHref">打开文章</a>
-            </article>
-
-            <section class="category-preview-empty" x-show="!activePostKey" x-cloak>
-              <p>选择一篇文章后，在这里查看摘要与元信息。</p>
-            </section>
-          </div>
-        </aside>
+        <th:block th:replace="~{::previewPane}"></th:block>
       </div>
     </div>
   </th:block>

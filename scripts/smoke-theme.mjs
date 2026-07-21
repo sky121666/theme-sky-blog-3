@@ -188,7 +188,7 @@ const seoProtocolChecks = [
   ],
   [
     'templates/modules/browser-explorer/categories.html',
-    ['<h1 class="sr-only">所有分类</h1>']
+    ['<h1 class="sr-only">所有分类与文档</h1>']
   ],
   [
     'templates/modules/browser-explorer/tags.html',

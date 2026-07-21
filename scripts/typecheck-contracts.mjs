@@ -92,6 +92,7 @@ const routeSamples = [
   ['https://example.com/tags/demo', 'explorer-tags', 'browser'],
   ['https://example.com/categories', 'explorer-categories', 'browser'],
   ['https://example.com/categories/', 'explorer-categories', 'browser'],
+  ['https://example.com/categories?page=2', 'explorer-categories', 'browser'],
   ['https://example.com/categories/demo', 'explorer-categories', 'browser'],
   ['https://example.com/categories/demo/page/2', 'explorer-categories', 'browser'],
   ['https://example.com/authors/demo', 'explorer-author', 'browser'],
@@ -143,6 +144,7 @@ window.__SKY_THEME_ROUTES__ = Object.freeze({
 const customRouteSamples = [
   ['https://example.com/topics', 'explorer-categories', 'browser'],
   ['https://example.com/topics/', 'explorer-categories', 'browser'],
+  ['https://example.com/topics?page=3', 'explorer-categories', 'browser'],
   ['https://example.com/topics/demo', 'explorer-categories', 'browser'],
   ['https://example.com/topics/demo/page/3', 'explorer-categories', 'browser'],
   ['https://example.com/labels', 'explorer-tags', 'browser'],
