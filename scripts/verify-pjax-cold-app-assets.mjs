@@ -107,6 +107,54 @@ async function waitForRoute(page, pathname, appId) {
   );
 }
 
+async function findVisiblePhotoDetail(page) {
+  await page.waitForFunction(() => {
+    const clip = document.querySelector('.photos-grid-scroll');
+    if (!clip) return false;
+    const clipRect = clip.getBoundingClientRect();
+    return Array.from(document.querySelectorAll('a.photo-card[data-photo-name]')).some((card) => {
+      const inner = card.querySelector('.photo-card-inner');
+      const image = card.querySelector('img');
+      if (!inner || !image?.complete || image.naturalWidth <= 0) return false;
+      const rect = inner.getBoundingClientRect();
+      return rect.width > 0
+        && rect.height > 0
+        && rect.top >= clipRect.top - 1
+        && rect.left >= clipRect.left - 1
+        && rect.right <= clipRect.right + 1
+        && rect.bottom <= clipRect.bottom + 1;
+    });
+  }, null, { timeout: navigationTimeoutMs });
+
+  const cards = page.locator('a.photo-card[data-photo-name]');
+  const count = await cards.count();
+  for (let index = 0; index < count; index += 1) {
+    const state = await cards.nth(index).evaluate((card) => {
+      const inner = card.querySelector('.photo-card-inner');
+      const clip = card.closest('.photos-grid-scroll');
+      const image = card.querySelector('img');
+      if (!inner || !clip) return null;
+      const rect = inner.getBoundingClientRect();
+      const clipRect = clip.getBoundingClientRect();
+      return {
+        href: card.getAttribute('href') || '',
+        imageReady: Boolean(image?.complete && image.naturalWidth > 0),
+        fullyVisible: rect.width > 0
+          && rect.height > 0
+          && rect.top >= clipRect.top - 1
+          && rect.left >= clipRect.left - 1
+          && rect.right <= clipRect.right + 1
+          && rect.bottom <= clipRect.bottom + 1
+      };
+    });
+    if (state?.href && state.imageReady && state.fullyVisible) {
+      return { index, href: state.href, url: new URL(state.href, `${baseUrl}/`) };
+    }
+  }
+
+  throw new Error('photos page must expose a fully visible, loaded detail card');
+}
+
 async function verifyColdPhotosGate(browser) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
   const errors = collectAlpineUndefinedErrors(page);
@@ -328,7 +376,7 @@ async function verifyDelayedViewTransitionLatestWins(browser) {
       { timeout: navigationTimeoutMs }
     );
 
-    const albumsHref = '/photos?view=albums';
+    const detail = await findVisiblePhotoDetail(page);
     const groupHref = await page.locator('a.photos-sidebar-item.pjax-link[href*="?group="]')
       .first()
       .getAttribute('href');
@@ -379,7 +427,7 @@ async function verifyDelayedViewTransitionLatestWins(browser) {
       };
     });
 
-    await page.locator(`a.pjax-link[href="${albumsHref}"]`).first().click();
+    await page.locator('a.photo-card[data-photo-name]').nth(detail.index).click();
     await page.waitForFunction(
       () => window.__PJAX_VIEW_TRANSITION_STATE__?.callCount === 1,
       null,
@@ -399,10 +447,14 @@ async function verifyDelayedViewTransitionLatestWins(browser) {
     const beforeRelease = await page.evaluate(() => ({
       activeHref: document.querySelector('.photos-sidebar-item.is-active')?.getAttribute('href') || '',
       activeApp: window.__THEME_PAGE_APP_REGISTRY__?.activeApp?.appId || '',
-      completeCount: window.__PJAX_VIEW_TRANSITION_STATE__?.completeCount || 0
+      completeCount: window.__PJAX_VIEW_TRANSITION_STATE__?.completeCount || 0,
+      callCount: window.__PJAX_VIEW_TRANSITION_STATE__?.callCount || 0,
+      firstReleased: window.__PJAX_VIEW_TRANSITION_STATE__?.firstReleased === true
     }));
     assert.equal(beforeRelease.activeHref, groupHref, 'newer Photos navigation must own the visible active group');
     assert.equal(beforeRelease.activeApp, 'photos', 'newer Photos lifecycle must be active before releasing the old callback');
+    assert.equal(beforeRelease.callCount, 1, 'list navigation must not start a second View Transition');
+    assert.equal(beforeRelease.firstReleased, true, 'newer list navigation must cancel the delayed detail transition');
 
     await page.evaluate(() => {
       window.__PJAX_VIEW_TRANSITION_STATE__?.releaseFirst?.();
@@ -447,6 +499,7 @@ async function verifySkippedViewTransitionFallsBack(browser) {
       null,
       { timeout: navigationTimeoutMs }
     );
+    const detail = await findVisiblePhotoDetail(page);
 
     await page.evaluate(() => {
       window.__PJAX_SKIPPED_TRANSITION_STATE__ = {
@@ -471,15 +524,15 @@ async function verifySkippedViewTransitionFallsBack(browser) {
       });
     });
 
-    await page.locator('a.pjax-link[href="/photos?view=albums"]').first().click();
+    await page.locator('a.photo-card[data-photo-name]').nth(detail.index).click();
     await page.waitForFunction(
-      () => window.location.pathname === '/photos'
-        && window.location.search === '?view=albums'
-        && document.querySelector('.photos-sidebar-item.is-active')?.getAttribute('href') === '/photos?view=albums'
+      ({ pathname, search }) => window.location.pathname === pathname
+        && window.location.search === search
+        && document.querySelector('[data-app-root="photos"]')?.dataset?.photosView === 'detail'
         && window.__PJAX_SKIPPED_TRANSITION_STATE__?.fullSendCount === 1
         && window.__PJAX_SKIPPED_TRANSITION_STATE__?.fullCompleteCount === 1
         && !document.getElementById('window-frame-root')?.classList.contains('pjax-loading'),
-      null,
+      { pathname: detail.url.pathname, search: detail.url.search },
       { timeout: navigationTimeoutMs }
     );
     await page.waitForFunction(

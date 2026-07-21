@@ -236,7 +236,19 @@ for (const [rel, pattern] of photosLightboxForbiddenPatterns) {
 const photosWindowChecks = [
   [
     'templates/modules/photos-app/window.html',
-    ["th:replace=\"~{modules/shell/window-titlebar-actions :: refreshButton(", "iconClasses='w-4 h-4'", "buttonClasses='photos-titlebar-btn'"]
+    ["th:replace=\"~{modules/shell/window-titlebar-actions :: refreshButton(", "iconClasses='w-4 h-4'", "buttonClasses='photos-titlebar-btn'", "!#strings.isEmpty(backUrl) ? backUrl : '/photos'"]
+  ],
+  [
+    'templates/modules/photos-app/sidebar.html',
+    ['th:fragment="sidebar (groups, activeGroup, view, photoUrl)"', 'aria-label="图库导航"', 'data-pjax-app="photos"', "photoUrl.list()", "photoUrl.list(groupItem.metadata.name)"]
+  ],
+  [
+    'templates/photo.html',
+    ['detailGroups=${photoFinder.groupBy()}', 'detailActiveGroup=${detailGroupNameIndex >= 0 ? requestedDetailGroup : \'\'}', 'detailFilmstripResult=${photoFinder.list(detailPage, detailSize, detailActiveGroup)}', 'modules/photos-app/sidebar :: sidebar(', 'class="photos-detail-filmstrip"', 'aria-current=${neighbor.metadata.name == photo.metadata.name ? \'true\' : null}']
+  ],
+  [
+    'src/shell/desktop-shell/runtime/desktop/pjax/index.js',
+    ["const PHOTOS_SHARED_TRANSITION_NAME = 'photos-active-photo'", 'const isListToDetail = currentView !== PHOTOS_DETAIL_VIEW && targetView === PHOTOS_DETAIL_VIEW;', 'isPhotoTransitionSourceReady(currentElement)', 'photosSidebarScrollTop']
   ]
 ];
 
@@ -245,6 +257,18 @@ for (const [rel, patterns] of photosWindowChecks) {
   for (const pattern of patterns) {
     assert(content.includes(pattern), `${rel} 缺少图库标题栏结构: ${pattern}`);
   }
+}
+
+const photosViewerForbiddenPatterns = [
+  ['templates/photo.html', 'class="photos-sidebar photos-detail-sidebar"'],
+  ['templates/photo.html', 'photos-detail-neighbor-head'],
+  ['templates/photos.html', "view-transition-name: photo-"],
+  ['templates/photo.html', "view-transition-name: photo-"]
+];
+
+for (const [rel, pattern] of photosViewerForbiddenPatterns) {
+  const content = read(path.join(root, rel));
+  assert(!content.includes(pattern), `${rel} 不应保留旧图库详情/常驻过渡结构: ${pattern}`);
 }
 
 const tagWidgetChecks = [

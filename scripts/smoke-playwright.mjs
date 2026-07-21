@@ -975,7 +975,13 @@ async function main() {
           expectedWindowVariant: 'photos',
           appRootSelector: '[data-app-root="photos"]',
           appPropsSelector: 'script[data-app-props="photos"]',
-          extraSelectors: ['.photos-detail-shell', '.photos-detail-image']
+          extraSelectors: [
+            '.photos-detail-shell',
+            '.photos-detail-shell > .photos-sidebar[aria-label="图库导航"]',
+            '.photos-detail-image',
+            '.photos-detail-filmstrip',
+            '.photos-detail-neighbor[aria-current="true"]'
+          ]
         }
       : null
   ].filter(Boolean);

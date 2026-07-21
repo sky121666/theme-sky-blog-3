@@ -21,6 +21,7 @@
     "verify:douban-adaptation": "node scripts/verify-douban-adaptation.mjs",
     "verify:link-submit": "node scripts/verify-link-submit-adaptation.mjs",
     "verify:photos-pagination": "node scripts/verify-photos-pagination.mjs",
+    "verify:photos:view-transition": "node scripts/verify-photos-view-transition.mjs",
     "verify:plugin-inventory": "node scripts/verify-plugin-inventory.mjs",
     "verify:plugin-runtime": "node scripts/verify-plugin-runtime-compat.mjs",
     "verify:plugins:live": "node scripts/verify-injected-plugin-lifecycle.mjs",
