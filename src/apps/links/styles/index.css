@@ -1293,6 +1293,14 @@ select.links-input { padding-right: 24px; }
 .links-comments,
 .links-comments halo-comment { display: block; width: 100%; }
 
+.links-comments comment-widget,
+.links-comments .halo-comment-widget {
+  --halo-cw-primary-1-color: var(--wx-green);
+  --halo-cw-primary-2-color: var(--wx-green-pressed);
+  --halo-cw-primary-3-color: color-mix(in srgb, var(--wx-green) 22%, transparent);
+  --halo-cw-emoji-picker-rgb-accent: 7, 193, 96;
+}
+
 .links-window-skeleton {
   display: grid;
   grid-template-columns: 60px minmax(0, 440px);

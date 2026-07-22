@@ -1,3 +1,47 @@
+# PluginLinks 留言板提交评论按钮配色 QA
+
+## 对照目标
+
+- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-2cd0379b-2d8b-4141-80da-a4d55a083c2a.png`
+- Mobile implementation: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-comment-button/after-mobile.jpg`
+- Desktop regression: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-comment-button/after-desktop.jpg`
+- Route: `http://localhost:8090/links?view=board`
+- State: 暗色、已登录、评论编辑器和 3 条真实评论已加载
+- Viewport: CSS `390 × 844px`，`devicePixelRatio: 1`；桌面回归 `1280 × 720px`
+- Pixel normalization: 参考截图为 `588 × 757px` 的移动端问题裁切，实现在 `390 × 844px` 真页中按 1x CSS 像素检查。两者外框比例不同，因此只比较留言板评论区、按钮层级和配色，不进行跨画布逐像素判断。
+- Full-view comparison evidence: 参考截图与 `after-mobile.jpg` 已放入同一视觉输入，蓝色按钮问题、评论区层级、底部导航和移动端边界均清晰可辨。
+- Focused region evidence: 不需要额外裁切；两张全图中的 `91 × 37px`“提交评论”按钮均可直接辨认，并以真页计算样式补充核对背景、边框和文字色。
+
+## Findings
+
+- No actionable P0/P1/P2 findings remain.
+- Fonts and typography: 按钮继续使用评论组件原有 14px 系统字体、白色文字和当前字重，没有改变评论正文、作者或时间信息层级。
+- Spacing and layout rhythm: 保留原有 `91 × 37px` 圆角按钮、编辑器间距与右对齐位置；390px 下页面 `scrollWidth` 等于视口宽度，没有横向溢出。
+- Colors and visual tokens: 留言板范围内的评论组件主色由主题蓝 `#2e5fbd` 改为微信绿 `#07c160`，按压色为 `#06ad56`，按钮背景与边框计算值均为 `rgb(7, 193, 96)`，文字保持白色。
+- Image quality and assets: 没有修改头像、评论内容、图标或其他图像资源。
+- Copy and content: “提交评论”、评论数量和已有留言完全保留，没有改写或创建测试评论。
+- Scope: 配色通过 `.links-comments comment-widget` 的局部变量覆盖实现，不影响文章、文档、图库或其他页面的评论组件，也没有改变评论接口和提交行为。
+- Interaction and accessibility: 评论按钮仍由原组件处理悬停、聚焦和提交；主题提供绿色主态、深绿色按压 token 与白色文字。手机真页控制台错误为 0。
+
+## Comparison history
+
+- Pass 1: 参考截图及修复前真页显示“提交评论”为主题蓝 `rgb(46, 95, 189)`，与留言导航及友链应用的微信绿主色不一致，记录为 P2 配色漂移。
+- Fix 1: 仅在 `.links-comments` 内覆盖 CommentWidget 的主色、按压色、浅色状态和表情选择器强调色，并增加适配契约断言。
+- Pass 2: 390px 真页按钮变为 `rgb(7, 193, 96)`，评论区布局和底部导航保持稳定；桌面真页同样生效，无剩余 P0/P1/P2。
+
+## Verification
+
+- [x] `pnpm run verify:links`
+- [x] `pnpm run build`
+- [x] `pnpm run check`
+- [x] `pnpm run verify:reload`
+- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
+- [x] 390px 手机真页、桌面真页、计算样式、无横向溢出与 console error 复核
+
+final result: passed
+
+---
+
 # PluginLinks 手机端全屏响应式设计 QA
 
 ## 对照目标
