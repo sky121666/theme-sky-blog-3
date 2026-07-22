@@ -53,27 +53,13 @@
             <span class="links-rail-badge" x-text="totalLinks" x-show="totalLinks > 0"></span>
           </button>
           <button type="button" class="links-rail-button"
-            :class="{ 'is-active': activeView === 'friends' && !isSavedFeedScope() }"
-            :aria-pressed="activeView === 'friends' && !isSavedFeedScope()" aria-controls="view-friends"
+            :class="{ 'is-active': activeView === 'friends' }"
+            :aria-pressed="activeView === 'friends'" aria-controls="view-friends"
             @click="showFriends()" title="朋友圈">
             <span class="icon-[lucide--aperture]" aria-hidden="true"></span>
             <span class="links-rail-label">朋友圈</span>
             <span class="links-rail-badge" x-show="canReadFeed && unreadCount > 0"
               x-text="unreadCount > 99 ? '99+' : unreadCount"></span>
-          </button>
-          <button type="button" class="links-rail-button" x-show="canReadFeed"
-            :class="{ 'is-active': activeView === 'friends' && feedScope === 'favorite' }"
-            :aria-pressed="activeView === 'friends' && feedScope === 'favorite'"
-            aria-controls="view-friends" @click="showSavedFeed('favorite')" title="收藏">
-            <span class="icon-[lucide--star]" aria-hidden="true"></span>
-            <span class="links-rail-label">收藏</span>
-          </button>
-          <button type="button" class="links-rail-button" x-show="canReadFeed"
-            :class="{ 'is-active': activeView === 'friends' && feedScope === 'later' }"
-            :aria-pressed="activeView === 'friends' && feedScope === 'later'"
-            aria-controls="view-friends" @click="showSavedFeed('later')" title="稍后阅读">
-            <span class="icon-[lucide--bookmark]" aria-hidden="true"></span>
-            <span class="links-rail-label">稍后阅读</span>
           </button>
           <button type="button" class="links-rail-button"
             :class="{ 'is-active': activeView === 'apply' }"
@@ -95,16 +81,12 @@
 
       <section class="links-list-pane" aria-label="链接与动态列表">
         <header class="links-list-header">
-          <label class="links-search-wrap" x-show="!isSavedFeedScope()">
+          <label class="links-search-wrap">
             <span class="icon-[lucide--search]" aria-hidden="true"></span>
             <input class="links-search" type="search" x-model="searchQuery"
               :placeholder="activeView === 'friends' ? '搜索来源' : '搜索'"
               :aria-label="activeView === 'friends' ? '搜索 RSS 来源' : '搜索友链'" />
           </label>
-          <div class="links-search-wrap links-search-static" x-show="isSavedFeedScope()" aria-live="polite">
-            <span :class="feedScope === 'favorite' ? 'icon-[lucide--star]' : 'icon-[lucide--bookmark]'" aria-hidden="true"></span>
-            <strong x-text="activeFeedLabel()"></strong>
-          </div>
           <button type="button" class="links-list-add" @click="showApply()" aria-label="添加友链" title="添加友链">
             <span class="icon-[lucide--plus]" aria-hidden="true"></span>
           </button>
@@ -127,9 +109,9 @@
           </label>
         </div>
 
-        <div class="links-list-toolbar" x-show="activeView === 'friends' && !isSavedFeedScope()">
-          <strong x-text="activeFeedLabel()">朋友圈</strong>
-          <span x-text="isSavedFeedScope() ? feedItemCount + ' 条' : feedSources.length + ' 个来源'">0 个来源</span>
+        <div class="links-list-toolbar" x-show="activeView === 'friends'">
+          <strong>朋友圈</strong>
+          <span x-text="feedSources.length + ' 个来源'">0 个来源</span>
         </div>
 
         <div class="links-list-scroll">
@@ -182,7 +164,8 @@
             </section>
           </div>
 
-          <div class="links-chat-list" x-show="activeView === 'friends' && !isSavedFeedScope()">
+          <div class="links-chat-list" x-show="activeView === 'friends'">
+            <span class="links-list-section">动态</span>
             <button type="button" class="links-chat-row links-feed-all-row"
               :class="{ 'is-active': feedScope === 'all' && !feedGroupName && !feedLinkName }"
               @click="showAllFeed()">
@@ -210,6 +193,38 @@
                   <span class="links-row-time" x-text="unreadCount ? unreadCount + ' 条' : '已读完'"></span>
                 </span>
                 <span class="links-row-preview">查看尚未打开的 RSS 更新</span>
+              </span>
+            </button>
+
+            <button type="button" class="links-chat-row links-feed-favorite-row" x-show="canReadFeed"
+              :class="{ 'is-active': feedScope === 'favorite' && !feedGroupName && !feedLinkName }"
+              @click="showSavedFeed('favorite')">
+              <span class="links-row-avatar links-row-avatar--moments">
+                <span class="icon-[lucide--star]" aria-hidden="true"></span>
+              </span>
+              <span class="links-row-copy">
+                <span class="links-row-topline">
+                  <strong class="links-row-title">收藏</strong>
+                  <span class="links-row-time"
+                    x-text="feedScope === 'favorite' && feedItemCount ? feedItemCount + ' 条' : ''"></span>
+                </span>
+                <span class="links-row-preview">收藏的 RSS 动态</span>
+              </span>
+            </button>
+
+            <button type="button" class="links-chat-row links-feed-later-row" x-show="canReadFeed"
+              :class="{ 'is-active': feedScope === 'later' && !feedGroupName && !feedLinkName }"
+              @click="showSavedFeed('later')">
+              <span class="links-row-avatar links-row-avatar--moments">
+                <span class="icon-[lucide--bookmark]" aria-hidden="true"></span>
+              </span>
+              <span class="links-row-copy">
+                <span class="links-row-topline">
+                  <strong class="links-row-title">稍后阅读</strong>
+                  <span class="links-row-time"
+                    x-text="feedScope === 'later' && feedItemCount ? feedItemCount + ' 条' : ''"></span>
+                </span>
+                <span class="links-row-preview">准备稍后继续阅读的动态</span>
               </span>
             </button>
 
@@ -250,22 +265,6 @@
             </section>
           </div>
 
-          <div class="links-chat-list links-saved-shortcuts" x-show="activeView === 'friends' && isSavedFeedScope()">
-            <button type="button" class="links-chat-row is-active" @click="refreshFeed()">
-              <span class="links-row-avatar links-row-avatar--moments">
-                <span :class="feedScope === 'favorite' ? 'icon-[lucide--star]' : 'icon-[lucide--bookmark]'" aria-hidden="true"></span>
-              </span>
-              <span class="links-row-copy">
-                <span class="links-row-topline">
-                  <strong class="links-row-title" x-text="activeFeedLabel()"></strong>
-                  <span class="links-row-time" x-text="feedItemCount + ' 条'"></span>
-                </span>
-                <span class="links-row-preview"
-                  x-text="feedScope === 'favorite' ? '收藏的 RSS 动态' : '准备稍后继续阅读的动态'"></span>
-              </span>
-            </button>
-            <p class="links-saved-note">状态由 PluginLinks 保存；打开“稍后阅读”内容后会自动移出该列表。</p>
-          </div>
         </div>
       </section>
 

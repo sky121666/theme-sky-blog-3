@@ -279,14 +279,6 @@
 
 .links-search::placeholder { color: var(--wx-text-muted); }
 
-.links-search-static {
-  color: var(--wx-text);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.links-search-static > span { color: var(--wx-green); }
-
 .links-list-add {
   width: 32px;
   height: 32px;
@@ -414,14 +406,8 @@
 
 .links-feed-all-row.is-active .links-row-avatar--moments,
 .links-feed-unread-row.is-active .links-row-avatar--moments,
-.links-saved-shortcuts .is-active .links-row-avatar--moments { color: var(--wx-green); }
-
-.links-saved-note {
-  margin: 12px 18px;
-  color: var(--wx-text-muted);
-  font-size: 10px;
-  line-height: 1.55;
-}
+.links-feed-favorite-row.is-active .links-row-avatar--moments,
+.links-feed-later-row.is-active .links-row-avatar--moments { color: var(--wx-green); }
 
 .links-row-copy { min-width: 0; display: grid; gap: 4px; }
 
