@@ -27,7 +27,7 @@ export function buildWidgetCatalog(sources) {
       if (widgetId === 'plugin-bangumis.recent') {
         return !!sources?.bangumisAvailable;
       }
-      if (widgetId === 'plugin-friends.recent') {
+      if (widgetId === 'plugin-links.feed') {
         return !!sources?.friendsAvailable;
       }
       if (widgetId === 'plugin-docsme.quick') {

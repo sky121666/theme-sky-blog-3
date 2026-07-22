@@ -17,6 +17,10 @@ const desktopTemplate = readFileSync(new URL('../templates/modules/shell/desktop
 const pjaxRuntime = readFileSync(new URL('../src/shell/desktop-shell/runtime/desktop/pjax/index.js', import.meta.url), 'utf8');
 const widgetProtocolRuntime = readFileSync(new URL('../src/shell/desktop-shell/runtime/widgets/protocol.js', import.meta.url), 'utf8');
 const windowManager = readFileSync(new URL('../src/shell/desktop-shell/runtime/desktop/window-manager.js', import.meta.url), 'utf8');
+const widgetRegistry = readFileSync(new URL('../src/widgets/registry.js', import.meta.url), 'utf8');
+const widgetLoaders = readFileSync(new URL('../src/widgets/loaders.js', import.meta.url), 'utf8');
+const widgetCatalog = readFileSync(new URL('../src/widgets/catalog.js', import.meta.url), 'utf8');
+const widgetDataReload = readFileSync(new URL('../src/shell/desktop-shell/runtime/desktop/surface/data-reload.js', import.meta.url), 'utf8');
 
 const widgetFlagContracts = [
   ['widgetsNeedsLatestPosts', 'halo.latest_posts'],
@@ -26,7 +30,7 @@ const widgetFlagContracts = [
   ['widgetsNeedsRandomTags', 'halo.random_tags'],
   ['widgetsNeedsMoments', 'plugin-moments.recent'],
   ['widgetsNeedsBangumis', 'plugin-bangumis.recent'],
-  ['widgetsNeedsFriends', 'plugin-friends.recent'],
+  ['widgetsNeedsLinksFeed', 'plugin-links.feed'],
   ['widgetsNeedsDocsme', 'plugin-docsme.quick'],
   ['widgetsNeedsPhotos', 'plugin-photos.gallery'],
   ['widgetsNeedsDouban', 'plugin-douban.showcase'],
@@ -84,7 +88,7 @@ const dataQueryContracts = [
   /widgetsBangumisDramaWish = \$\{widgetsNeedsBangumis and widgetsBangumisAvailable \? bangumiFinder\.list\(/,
   /widgetsBangumisDramaWatching = \$\{widgetsNeedsBangumis and widgetsBangumisAvailable \? bangumiFinder\.list\(/,
   /widgetsBangumisDramaDone = \$\{widgetsNeedsBangumis and widgetsBangumisAvailable \? bangumiFinder\.list\(/,
-  /widgetsRecentFriendsPage = \$\{widgetsNeedsFriends and widgetsFriendsAvailable \? linkFeedFinder\.list\(\{limit: 5\}\)/,
+  /widgetsRecentFriendsPage = \$\{widgetsNeedsLinksFeed and widgetsFriendsAvailable \? linkFeedFinder\.list\(\{limit: 5\}\)/,
   /widgetsRecentFriends = \$\{widgetsRecentFriendsPage\}/,
   /widgetsPhotos = \$\{widgetsNeedsPhotos and widgetsPhotosAvailable \? photoFinder\.list\(/,
   /widgetsPhotoGroups = \$\{widgetsNeedsPhotos and widgetsPhotosAvailable \? photoFinder\.groupBy\(\)/,
@@ -97,6 +101,10 @@ const dataQueryContracts = [
 for (const contract of dataQueryContracts) {
   assert.match(layout, contract, `data Finder query must be gated by its saved widget: ${contract}`);
 }
+
+const activeWidgetContract = [layout, widgetRegistry, widgetLoaders, widgetCatalog, widgetDataReload].join('\n');
+assert.match(activeWidgetContract, /plugin-links\.feed/, 'PluginLinks RSS 小组件必须使用当前契约 ID');
+assert.doesNotMatch(activeWidgetContract, /plugin-friends\.recent|friendFinder|friends-recent/, '旧朋友圈插件契约不得重新进入主题运行时');
 
 assert.doesNotMatch(
   layout,

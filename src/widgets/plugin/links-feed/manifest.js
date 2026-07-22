@@ -1,5 +1,5 @@
-export const pluginFriendsRecentWidgetManifest = {
-  widgetId: 'plugin-friends.recent',
+export const pluginLinksFeedWidgetManifest = {
+  widgetId: 'plugin-links.feed',
   title: '朋友圈',
   kicker: '朋友圈',
   defaultSize: 'medium',

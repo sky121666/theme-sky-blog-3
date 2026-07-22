@@ -12,7 +12,7 @@ const SERVER_DATA_WIDGET_TYPES = new Set([
   'halo.random_tags',
   'plugin-moments.recent',
   'plugin-bangumis.recent',
-  'plugin-friends.recent',
+  'plugin-links.feed',
   'plugin-docsme.quick',
   'plugin-photos.gallery',
   'plugin-steam.summary'

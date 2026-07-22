@@ -11,7 +11,7 @@ function formatFriendTime(value) {
   return `${pad(date.getMonth() + 1)}.${pad(date.getDate())}`;
 }
 
-function normalizeFriendPost(item) {
+function normalizeLinkFeedPost(item) {
   const title = stripText(item?.title, item?.summary || '新的友链动态');
   const author = stripText(item?.author, item?.linkName || '友链');
   return {
@@ -223,7 +223,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget) {
       ? sources.recentFriends.items
       : [];
   const items = sourceItems.length
-    ? sourceItems.slice(0, limit).map((item) => normalizeFriendPost(item)).filter((item) => item.title)
+    ? sourceItems.slice(0, limit).map((item) => normalizeLinkFeedPost(item)).filter((item) => item.title)
     : [];
 
   if (!items.length) {

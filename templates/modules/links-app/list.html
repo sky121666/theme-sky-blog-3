@@ -448,11 +448,11 @@
           </div>
 
           <section id="view-apply" class="links-submit-panel" x-data="linkSubmitForm"
-            x-show="activeView === 'apply'" aria-labelledby="link-submit-title">
+            x-show="activeView === 'apply'" aria-labelledby="links-apply-title">
             <div class="links-panel-intro">
               <span class="links-panel-intro-icon icon-[lucide--user-round-plus]" aria-hidden="true"></span>
               <div>
-                <h1 id="link-submit-title">添加友链</h1>
+                <h1 id="links-apply-title">添加友链</h1>
                 <p>成功时安静填入或提交；失败时会说明是跨域、权限、地址还是服务问题。</p>
               </div>
             </div>
@@ -466,9 +466,9 @@
             </div>
 
             <form class="links-extract-form" @submit.prevent="autofillFromUrl">
-              <label for="link-submit-site-url">网站地址</label>
+              <label for="links-apply-site-url">网站地址</label>
               <div class="links-extract-row">
-                <input id="link-submit-site-url" class="links-input" type="url"
+                <input id="links-apply-site-url" class="links-input" type="url"
                   x-model="form.url" required data-link-meta-input placeholder="https://your-site.example.com" />
                 <button type="submit" class="links-helper-btn"
                   data-link-meta-action="autofill" :disabled="fetchingMeta"
