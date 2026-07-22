@@ -2,16 +2,18 @@
 <th:block xmlns:th="https://www.thymeleaf.org"
           th:with="
             currentGroup=${param.group != null and !#lists.isEmpty(param.group) ? param.group[0] : ''},
-            currentView=${param.view != null and !#lists.isEmpty(param.view) and (param.view[0] == 'friends' or param.view[0] == 'board') ? param.view[0] : 'links'},
+            currentView=${param.view != null and !#lists.isEmpty(param.view) and (param.view[0] == 'friends' or param.view[0] == 'apply' or param.view[0] == 'board') ? param.view[0] : 'links'},
+            currentLink=${param.link != null and !#lists.isEmpty(param.link) ? param.link[0] : ''},
+            currentFeedScope=${param.scope != null and !#lists.isEmpty(param.scope) and (param.scope[0] == 'all' or param.scope[0] == 'unread' or param.scope[0] == 'favorite' or param.scope[0] == 'later') ? param.scope[0] : ''},
             currentFeedGroup=${param.groupName != null and !#lists.isEmpty(param.groupName) ? param.groupName[0] : ''},
             currentFeedLink=${#strings.isEmpty(currentFeedGroup) and param.linkName != null and !#lists.isEmpty(param.linkName) ? param.linkName[0] : ''},
             feedGroups=${linkFeedFinder.groupBy(1)},
             feedPublicSources=${feedGroups != null and !#lists.isEmpty(feedGroups)},
-            initialFeedPage=${feedPublicSources ? (!#strings.isEmpty(currentFeedGroup) ? linkFeedFinder.list({limit: 20, groupName: currentFeedGroup}) : (!#strings.isEmpty(currentFeedLink) ? linkFeedFinder.list({limit: 20, linkName: currentFeedLink}) : linkFeedFinder.list({limit: 20}))) : null},
+            initialFeedPage=${feedPublicSources and currentView == 'friends' and (currentFeedScope == 'all' or !#strings.isEmpty(currentFeedGroup) or !#strings.isEmpty(currentFeedLink)) ? (!#strings.isEmpty(currentFeedGroup) ? linkFeedFinder.list({limit: 20, groupName: currentFeedGroup}) : (!#strings.isEmpty(currentFeedLink) ? linkFeedFinder.list({limit: 20, linkName: currentFeedLink}) : linkFeedFinder.list({limit: 20}))) : null},
             groupNameIndex=${groups != null ? groups.![metadata.name].indexOf(currentGroup) : -1},
             configuredLinksTitle=${!#strings.isEmpty(theme.config.links?.profile?.display_name) ? theme.config.links.profile.display_name : ''},
             baseTitle=${!#strings.isEmpty(configuredLinksTitle) ? configuredLinksTitle : (!#strings.isEmpty(linksTitle) ? linksTitle : '全部友链')},
-            resolvedWindowTitle=${currentView == 'friends' ? '朋友圈' : (currentView == 'board' ? '留言板' : (groupNameIndex >= 0 ? groups[groupNameIndex].spec.displayName : baseTitle))},
+            resolvedWindowTitle=${currentView == 'friends' ? (currentFeedScope == 'favorite' ? '收藏' : (currentFeedScope == 'later' ? '稍后阅读' : (currentFeedScope == 'unread' ? '未读动态' : '朋友圈'))) : (currentView == 'apply' ? '添加友链' : (currentView == 'board' ? '留言板' : (groupNameIndex >= 0 ? groups[groupNameIndex].spec.displayName : baseTitle)))},
             resolvedDocumentTitle=${resolvedWindowTitle + ' - ' + site.title}">
   <html th:replace="~{modules/shell/layout :: html(
           title = ${resolvedDocumentTitle},
@@ -28,6 +30,6 @@
           windowTitle = ${resolvedWindowTitle},
           windowResizable = true,
           windowMaximizable = false,
-          windowMetricsKey = 'links'
+          windowMetricsKey = 'links-wechat-v1'
         )}"></html>
 </th:block>

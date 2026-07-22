@@ -5,8 +5,10 @@ import {
   LINK_CORE_API,
   LINK_DETAIL_API,
   LINK_FEED_API,
+  LINK_FEED_CONSOLE_API,
   LINK_FEED_DISCOVERY_API,
-  LINK_MANAGE_API,
+  LINK_FEED_UNREAD_SUMMARY_API,
+  USER_PERMISSIONS_API,
   buildCsrfHeaders,
   buildLinkFeedApiUrl,
   buildPluginLinkPayload,
@@ -15,6 +17,7 @@ import {
   formatFeedFailure,
   formatMetadataFailure,
   normalizeLinkFeedPage,
+  normalizeLinkCapabilities,
   normalizeUrl,
   parseSiteMetadata,
   registerLinkSubmitForm,
@@ -24,24 +27,65 @@ import {
 
 const linksPage = readFileSync(new URL('../templates/links.html', import.meta.url), 'utf8');
 const linksTemplate = readFileSync(new URL('../templates/modules/links-app/list.html', import.meta.url), 'utf8');
+const linksWindow = readFileSync(new URL('../templates/modules/links-app/window.html', import.meta.url), 'utf8');
 const linksRuntime = readFileSync(new URL('../src/apps/links/runtime.js', import.meta.url), 'utf8');
+const linksStyles = readFileSync(new URL('../src/apps/links/styles/index.css', import.meta.url), 'utf8');
 
 assert.match(linksPage, /linkFeedFinder\.groupBy\(1\)/);
 assert.match(linksPage, /feedPublicSources=\$\{feedGroups != null and !#lists\.isEmpty\(feedGroups\)\}/);
-assert.match(linksPage, /initialFeedPage=\$\{feedPublicSources \?/);
+assert.match(linksPage, /initialFeedPage=\$\{feedPublicSources and currentView == 'friends'/);
 assert.match(linksPage, /linkFeedFinder\.list\(\{limit: 20/);
+assert.match(linksPage, /windowMetricsKey = 'links-wechat-v1'/);
 assert.match(linksTemplate, /plugin-contract: PluginLinks; contract-version: 2\.2\.1; tested-version: 2\.2\.1/);
+assert.match(linksTemplate, /class="links-rail"/);
+assert.match(linksTemplate, /class="links-list-pane"/);
+assert.match(linksTemplate, /class="links-detail-pane"/);
+assert.match(linksTemplate, /data-links-initial-link=\$\{currentLink\}/);
+assert.match(linksTemplate, /data-links-initial-feed-scope=\$\{currentFeedScope\}/);
 assert.match(linksTemplate, /id="view-friends"/);
+assert.match(linksTemplate, /id="view-apply"/);
+assert.match(linksTemplate, /showSavedFeed\('favorite'\)/);
+assert.match(linksTemplate, /showSavedFeed\('later'\)/);
+assert.match(linksTemplate, /icon-\[lucide--aperture\]/);
+assert.match(linksTemplate, /toggleFeedFavorite\(\)/);
+assert.match(linksTemplate, /toggleFeedReadLater\(\)/);
+assert.match(linksTemplate, /toggleFeedRead\(\)/);
+assert.doesNotMatch(linksTemplate, /preferMessage|links-mode-switch/);
 assert.match(linksTemplate, /data-feed-list/);
+assert.match(linksTemplate, /data-feed-link-url=/);
+assert.match(linksTemplate, /class="links-feed-profile"/);
 assert.match(linksTemplate, /th:attr="name=\$\{pluginName\}"/);
+assert.match(linksWindow, /widthAttr='500'/);
+assert.match(linksRuntime, /showAllFeed\(\)/);
+assert.match(linksRuntime, /showSavedFeed\(scope\)/);
+assert.match(linksRuntime, /consumeFeedItem\(item\)/);
+assert.match(linksRuntime, /selectLink\(key\)/);
+assert.match(linksRuntime, /activeFeedSource\(\)/);
+assert.match(linksRuntime, /syncWindowLayout\(\)/);
+assert.match(linksStyles, /--wx-green: #07c160/);
+assert.match(linksStyles, /--wx-green-soft: #95ec69/);
+assert.match(linksStyles, /--wx-green-pale: #dff7e8/);
+assert.doesNotMatch(linksStyles, /--theme-accent|--mac-accent/);
+assert.doesNotMatch(linksTemplate + linksStyles, /daisy(?:ui|-)/i);
+assert.doesNotMatch(linksRuntime, /PluginLinks 2\.2\.1/);
+assert.match(linksStyles, /\.links-rail-button\.is-active \{ color: var\(--wx-green\); background: transparent; \}/);
+assert.match(linksStyles, /\.links-feed-all-row\.is-active \.links-row-avatar--moments/);
+assert.match(linksStyles, /\.links-feed-unread-row\.is-active \.links-row-avatar--moments/);
+assert.match(linksStyles, /\.links-saved-shortcuts \.is-active \.links-row-avatar--moments \{ color: var\(--wx-green\); \}/);
+assert.match(linksStyles, /\.links-rail-drag \.traffic-lights \{[^}]*transform: none;/s);
+assert.match(linksStyles, /\.links-row-avatar--moments > span \{ width: 26px; height: 26px; \}/);
+assert.match(linksStyles, /\.links-feed-avatar\.is-fallback \{ background: var\(--wx-panel\); \}/);
+assert.doesNotMatch(linksTemplate + linksStyles, /links-rail-settings|管理后台/);
 assert.doesNotMatch(linksTemplate, /pluginFinder\.available\('link-submit'\)|data-link-submit-enabled/);
 assert.doesNotMatch(linksRuntime, /anonymous\.link\.submit|LINK_SUBMIT_API|LINK_SUBMIT_GROUPS_API/);
 assert.match(linksRuntime, new RegExp(LINK_FEED_API.replaceAll('/', '\\/')));
+assert.match(linksRuntime, new RegExp(LINK_FEED_CONSOLE_API.replaceAll('/', '\\/')));
+assert.equal(LINK_FEED_UNREAD_SUMMARY_API, `${LINK_FEED_CONSOLE_API}/-/unread-summary`);
 assert.match(linksRuntime, new RegExp(LINK_DETAIL_API.replaceAll('/', '\\/')));
 assert.match(linksRuntime, new RegExp(LINK_FEED_DISCOVERY_API.replaceAll('/', '\\/')));
-assert.match(linksRuntime, new RegExp(LINK_MANAGE_API.replaceAll('/', '\\/')));
 assert.match(linksRuntime, new RegExp(LINK_CORE_API.replaceAll('/', '\\/')));
 assert.match(linksRuntime, new RegExp(CURRENT_USER_API.replaceAll('/', '\\/')));
+assert.match(linksRuntime, new RegExp(USER_PERMISSIONS_API.replaceAll('/', '\\/')));
 
 assert.equal(normalizeUrl('https://example.test/path'), 'https://example.test/path');
 assert.equal(normalizeUrl('http://example.test/path'), 'http://example.test/path');
@@ -74,6 +118,20 @@ assert.equal(groupFeedUrl.searchParams.has('linkName'), false, 'groupName and li
 assert.equal(groupFeedUrl.searchParams.get('beforeId'), 'cursor-1');
 assert.equal(groupFeedUrl.searchParams.get('limit'), '100');
 
+const favoriteFeedUrl = buildLinkFeedApiUrl({
+  scope: 'favorite',
+  protectedMode: true,
+  limit: 20
+}, 'https://halo.test');
+assert.equal(favoriteFeedUrl.pathname, LINK_FEED_CONSOLE_API);
+assert.equal(favoriteFeedUrl.searchParams.get('favorite'), 'true');
+assert.equal(favoriteFeedUrl.searchParams.has('readLater'), false);
+
+const laterFeedUrl = buildLinkFeedApiUrl({ scope: 'later', protectedMode: true }, 'https://halo.test');
+assert.equal(laterFeedUrl.searchParams.get('readLater'), 'true');
+const unreadFeedUrl = buildLinkFeedApiUrl({ scope: 'unread', protectedMode: true }, 'https://halo.test');
+assert.equal(unreadFeedUrl.searchParams.get('read'), 'false');
+
 const feedPage = normalizeLinkFeedPage({
   items: [
     {
@@ -85,7 +143,10 @@ const feedPage = normalizeLinkFeedPage({
       author: '来源 A',
       authorUrl: 'https://source.test',
       authorLogo: 'https://source.test/logo.png',
-      publishedAt: '2026-07-22T00:00:00Z'
+      publishedAt: '2026-07-22T00:00:00Z',
+      read: false,
+      favorite: true,
+      readLater: true
     },
     { id: 'bad', url: 'javascript:alert(1)', title: 'bad' }
   ],
@@ -96,7 +157,27 @@ const feedPage = normalizeLinkFeedPage({
 assert.equal(feedPage.items.length, 1);
 assert.equal(feedPage.items[0].title, '安全标题');
 assert.equal(feedPage.items[0].summary, 'alert(1) 正文');
+assert.equal(feedPage.items[0].read, false);
+assert.equal(feedPage.items[0].favorite, true);
+assert.equal(feedPage.items[0].readLater, true);
 assert.equal(feedPage.hasNext, true);
+
+assert.deepEqual(normalizeLinkCapabilities({
+  uiPermissions: ['plugin:links:view']
+}, { metadata: { name: 'reader' } }), {
+  authenticated: true,
+  username: 'reader',
+  canReadFeed: true,
+  canManage: false
+});
+assert.deepEqual(normalizeLinkCapabilities({
+  permissions: [{ metadata: { name: 'role-template-link-manage' } }]
+}, { metadata: { name: 'manager' } }), {
+  authenticated: true,
+  username: 'manager',
+  canReadFeed: true,
+  canManage: true
+});
 
 assert.match(formatFeedFailure(404), /尚未.*公开 RSS|公开 RSS.*未开启/);
 assert.match(formatFeedFailure(429), /频繁/);
@@ -289,13 +370,15 @@ try {
     if (requestUrl.includes(CURRENT_USER_API)) {
       return fakeResponse(200, { user: { metadata: { name: 'sky' }, spec: { displayName: 'Sky' } } });
     }
+    if (requestUrl.includes('/permissions')) {
+      return fakeResponse(200, { uiPermissions: ['plugin:links:view', 'plugin:links:manage'] });
+    }
     if (requestUrl.includes(LINK_DETAIL_API)) {
       return fakeResponse(200, { title: '官方识别站点', description: '官方描述', icon: 'https://example.test/icon.png' });
     }
     if (requestUrl.includes(LINK_FEED_DISCOVERY_API)) {
       return fakeResponse(200, { feedUrls: ['https://example.test/feed.xml'] });
     }
-    if (requestUrl.includes(LINK_MANAGE_API)) return fakeResponse(200, { items: [] });
     throw new Error(`unexpected request: ${requestUrl}`);
   };
   const managerModel = createModel();
@@ -309,7 +392,8 @@ try {
   assert.equal(managerModel.form.rssUrl, 'https://example.test/feed.xml');
   assert.equal(managerModel.result.show, false, 'successful official recognition must stay silent');
   const protectedRequests = managerRequests.filter((request) => request.url.includes('/apis/console.api.link.halo.run/'));
-  assert.equal(protectedRequests.length, 3, 'permission, detail, and RSS discovery should use official protected APIs');
+  assert.equal(protectedRequests.length, 2, 'detail and RSS discovery should use official PluginLinks protected APIs');
+  assert(managerRequests.some((request) => request.url.includes(`${USER_PERMISSIONS_API}/sky/permissions`)));
   assert(protectedRequests.every((request) => request.options.credentials === 'same-origin'));
 
   const fallbackModel = createModel();

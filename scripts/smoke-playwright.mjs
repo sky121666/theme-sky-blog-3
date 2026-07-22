@@ -341,6 +341,7 @@ async function main() {
     const pageErrors = [];
     const consoleErrors = [];
     const requestFailures = [];
+    const responseErrors = [];
     const handlePageError = (error) => {
       pageErrors.push(String(error?.message || error));
     };
@@ -357,26 +358,40 @@ async function main() {
         errorText: String(request.failure()?.errorText || 'unknown request failure')
       });
     };
+    const handleResponse = (response) => {
+      if (response.status() < 500) return;
+      responseErrors.push({
+        method: response.request().method(),
+        resourceType: response.request().resourceType(),
+        status: response.status(),
+        url: response.url()
+      });
+    };
 
     page.on('pageerror', handlePageError);
     page.on('console', handleConsole);
     page.on('requestfailed', handleRequestFailed);
+    page.on('response', handleResponse);
 
     return {
       snapshot() {
         return {
           pageErrors: [...pageErrors],
           consoleErrors: [...consoleErrors],
-          requestFailures: requestFailures.map((failure) => ({ ...failure }))
+          requestFailures: requestFailures.map((failure) => ({ ...failure })),
+          responseErrors: responseErrors.map((failure) => ({ ...failure }))
         };
       },
       assertEmpty(scope) {
-        if (!pageErrors.length && !consoleErrors.length && !requestFailures.length) return;
+        if (!pageErrors.length && !consoleErrors.length && !requestFailures.length && !responseErrors.length) return;
         const detail = [
           ...pageErrors.map((message) => `pageerror: ${message}`),
           ...consoleErrors.map((message) => `console.error: ${message}`),
           ...requestFailures.map((failure) => (
             `requestfailed: ${failure.method} ${failure.resourceType} ${failure.url} (${failure.errorText})`
+          )),
+          ...responseErrors.map((failure) => (
+            `response: ${failure.method} ${failure.resourceType} ${failure.url} (HTTP ${failure.status})`
           ))
         ].join(' | ');
         throw new Error(`${scope}存在运行时错误: ${detail}`);
@@ -385,6 +400,7 @@ async function main() {
         page.off('pageerror', handlePageError);
         page.off('console', handleConsole);
         page.off('requestfailed', handleRequestFailed);
+        page.off('response', handleResponse);
       }
     };
   }
@@ -542,15 +558,15 @@ async function main() {
       const baseValidation = await validateRoute(route);
       if (!baseValidation) return null;
 
-      const firstCard = page.locator('.link-card').first();
+      const firstCard = page.locator('[data-link-card]').first();
       if (await firstCard.count() < 1) {
         runtimeErrors.assertEmpty('友链交互');
         return { ...baseValidation, ...runtimeErrors.snapshot() };
       }
 
-      const totalCards = await page.locator('.link-card').count();
-      const allLinksButton = page.locator('.links-sidebar-item').first();
-      const totalBadge = Number(await allLinksButton.locator('.links-sidebar-count-pill').innerText());
+      const totalCards = await page.locator('[data-link-card]').count();
+      const allLinksButton = page.locator('.links-rail-button[title="链接"]').first();
+      const totalBadge = Number(await allLinksButton.locator('.links-rail-badge').innerText());
       if (totalBadge !== totalCards) {
         throw new Error(`全部友链计数不稳定: badge=${totalBadge}, cards=${totalCards}`);
       }
@@ -560,20 +576,21 @@ async function main() {
         throw new Error('友链描述仍显示上游 HTML 标签文本');
       }
 
-      await page.locator('.links-toolbar-search').fill('http');
+      const firstLinkName = await firstCard.getAttribute('data-link-name') || '';
+      await page.locator('.links-search').fill(firstLinkName.slice(0, Math.max(1, Math.min(3, firstLinkName.length))));
       await page.waitForTimeout(250);
-      const visibleCards = await page.locator('.link-card:visible').count();
+      const visibleCards = await page.locator('[data-link-card]:visible').count();
       if (visibleCards < 1) {
         throw new Error('搜索后未保留任何友链卡片');
       }
-      await page.locator('.links-toolbar-search').fill('');
+      await page.locator('.links-search').fill('');
 
-      const firstGroup = page.locator('[data-links-group]').first();
+      const firstGroup = page.locator('.links-group-filter option[data-links-group]').first();
       if (await firstGroup.count() > 0) {
         const groupKey = await firstGroup.getAttribute('data-group-key');
-        await firstGroup.click();
+        await page.locator('.links-group-filter select').selectOption(groupKey);
         await page.waitForFunction((key) => new URL(window.location.href).searchParams.get('group') === key, groupKey);
-        if (Number(await allLinksButton.locator('.links-sidebar-count-pill').innerText()) !== totalCards) {
+        if (Number(await allLinksButton.locator('.links-rail-badge').innerText()) !== totalCards) {
           throw new Error('切换分组后“全部友链”计数被错误改成筛选结果数');
         }
 
@@ -590,16 +607,39 @@ async function main() {
         throw new Error('非法友链分组没有回退到“全部友链”');
       }
 
-      const emptyGroup = page.locator('[data-links-group][data-group-count="0"]').first();
+      const emptyGroup = page.locator('.links-group-filter option[data-links-group][data-group-count="0"]').first();
       if (await emptyGroup.count() > 0) {
-        await emptyGroup.click();
-        await page.waitForSelector('.links-empty:visible');
-        const emptyTitle = await page.locator('.links-empty:visible .links-empty-title').innerText();
+        const emptyGroupKey = await emptyGroup.getAttribute('data-group-key');
+        await page.locator('.links-group-filter select').selectOption(emptyGroupKey);
+        await page.waitForSelector('.links-list-empty:visible');
+        const emptyTitle = await page.locator('.links-list-empty:visible strong').innerText();
         if (!emptyTitle.includes('该分组暂无友链')) {
           throw new Error(`空分组提示不准确: ${emptyTitle}`);
         }
-        await allLinksButton.click();
+        await page.locator('.links-group-filter select').selectOption('');
       }
+
+      await page.waitForSelector('[data-link-card]:visible');
+      const firstLinkKey = await page.locator('[data-link-card]:visible').first().getAttribute('data-link-key');
+      const compactWidth = await page.locator('[data-window-surface]').evaluate((element) => element.getBoundingClientRect().width);
+      await page.locator('[data-link-card]:visible').first().click();
+      await page.waitForFunction((key) => new URL(window.location.href).searchParams.get('link') === key, firstLinkKey);
+      await page.waitForSelector('.links-detail-pane:visible');
+      await page.waitForFunction((width) => {
+        const surface = document.querySelector('[data-window-surface]');
+        return surface && surface.getBoundingClientRect().width > width + 200;
+      }, compactWidth);
+      await page.goBack();
+      await page.waitForFunction(() => !new URL(window.location.href).searchParams.has('link'));
+      await page.waitForFunction((width) => {
+        const surface = document.querySelector('[data-window-surface]');
+        return surface && surface.getBoundingClientRect().width <= width + 2;
+      }, compactWidth);
+      await page.goForward();
+      await page.waitForFunction((key) => new URL(window.location.href).searchParams.get('link') === key, firstLinkKey);
+      await page.waitForSelector('.links-detail-pane:visible');
+      await page.locator('.links-detail-close').click();
+      await page.waitForFunction(() => !new URL(window.location.href).searchParams.has('link'));
 
       const boardButton = page.locator('#nav-board');
       if (await boardButton.count() > 0) {
@@ -675,17 +715,27 @@ async function main() {
         });
       });
 
-      const friendsButton = page.locator('.links-sidebar-item[aria-controls="view-friends"]').first();
+      const friendsButton = page.locator('.links-rail-button[aria-controls="view-friends"]').first();
       if (await friendsButton.count() < 1) {
         throw new Error('PluginLinks 2.2.1 友链页缺少朋友圈视图入口');
       }
       await friendsButton.click();
-      await page.waitForSelector('#view-friends:visible');
       await page.waitForFunction(() => new URL(window.location.href).searchParams.get('view') === 'friends');
+      await page.waitForSelector('.links-feed-all-row:visible');
+      if (feedApiRequests.length !== 0) {
+        throw new Error('朋友圈来源列表不应提前请求动态正文');
+      }
 
-      const refreshFeedButton = page.locator('.links-toolbar-refresh');
+      await Promise.all([
+        page.waitForResponse((response) => new URL(response.url()).pathname === '/apis/api.link.halo.run/v1alpha1/linkfeeds'),
+        page.locator('.links-feed-all-row').click()
+      ]);
+      await page.waitForFunction(() => new URL(window.location.href).searchParams.get('scope') === 'all');
+      await page.waitForSelector('#view-friends:visible');
+
+      const refreshFeedButton = page.locator('.links-detail-action[aria-label="刷新动态"]');
       await page.waitForFunction(() => {
-        const button = document.querySelector('.links-toolbar-refresh');
+        const button = document.querySelector('.links-detail-action[aria-label="刷新动态"]');
         return button && !button.disabled;
       });
       await Promise.all([
@@ -726,7 +776,7 @@ async function main() {
         throw new Error('朋友圈来源筛选错误地同时发送 linkName 与 groupName');
       }
 
-      const submitButton = page.locator('.links-toolbar-apply').first();
+      const submitButton = page.locator('.links-list-add').first();
       if (await submitButton.count() > 0) {
         const metadataPath = '/__link-metadata-smoke';
         const metadataUrl = toAbsoluteUrl(metadataPath);
@@ -765,7 +815,8 @@ async function main() {
         });
 
         await submitButton.click();
-        await page.waitForSelector('#link-submit-modal[open]');
+        await page.waitForFunction(() => new URL(window.location.href).searchParams.get('view') === 'apply');
+        await page.waitForSelector('#view-apply:visible');
         await page.locator('[data-link-meta-input]').fill(metadataUrl);
         await page.locator('[data-link-meta-action="autofill"]').click();
         await page.waitForFunction(() => document.querySelector('[data-link-field="displayName"]')?.value === '友链识别测试站');
@@ -792,7 +843,8 @@ async function main() {
         if (await page.locator('[data-link-field="description"]').inputValue() !== '') {
           throw new Error('识别新网址失败后仍残留上一站点的描述');
         }
-        await page.locator('.links-modal-close').click();
+        await page.locator('.links-detail-close').click();
+        await page.waitForFunction(() => !new URL(window.location.href).searchParams.has('view'));
         await page.unroute('**/apis/api.console.halo.run/v1alpha1/users/-*');
         await page.unroute('**/__link-metadata-smoke*');
         await page.waitForTimeout(150);

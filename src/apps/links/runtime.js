@@ -1,11 +1,14 @@
 import { warnApiCall } from '../../shell/desktop-shell/runtime/shared/debug.js';
 
 export const LINK_FEED_API = '/apis/api.link.halo.run/v1alpha1/linkfeeds';
+export const LINK_FEED_CONSOLE_API = '/apis/console.api.link.halo.run/v1alpha1/rss/items';
+export const LINK_FEED_UNREAD_SUMMARY_API = `${LINK_FEED_CONSOLE_API}/-/unread-summary`;
 export const LINK_DETAIL_API = '/apis/console.api.link.halo.run/v1alpha1/links/-/detail';
 export const LINK_FEED_DISCOVERY_API = '/apis/console.api.link.halo.run/v1alpha1/rss/discovery';
 export const LINK_MANAGE_API = '/apis/console.api.link.halo.run/v1alpha1/links';
 export const LINK_CORE_API = '/apis/core.halo.run/v1alpha1/links';
 export const CURRENT_USER_API = '/apis/api.console.halo.run/v1alpha1/users/-';
+export const USER_PERMISSIONS_API = '/apis/api.console.halo.run/v1alpha1/users';
 
 const SITE_METADATA_TIMEOUT_MS = 8000;
 const CAPABILITY_TIMEOUT_MS = 6000;
@@ -166,17 +169,23 @@ function normalizeCursor(value) {
 export function buildLinkFeedApiUrl({
   groupName = '',
   linkName = '',
+  scope = 'all',
+  protectedMode = false,
   beforePublishedAt = '',
   beforeId = '',
   limit = LINK_FEED_PAGE_SIZE
 } = {}, baseUrl = globalThis.location?.origin || 'http://localhost') {
-  const url = new URL(LINK_FEED_API, baseUrl);
+  const url = new URL(protectedMode ? LINK_FEED_CONSOLE_API : LINK_FEED_API, baseUrl);
   const resolvedGroup = String(groupName || '').trim();
   const resolvedLink = resolvedGroup ? '' : String(linkName || '').trim();
+  const resolvedScope = ['unread', 'favorite', 'later'].includes(scope) ? scope : 'all';
   const resolvedLimit = Math.min(100, Math.max(1, Number.parseInt(limit, 10) || LINK_FEED_PAGE_SIZE));
 
   if (resolvedGroup) url.searchParams.set('groupName', resolvedGroup);
   if (resolvedLink) url.searchParams.set('linkName', resolvedLink);
+  if (protectedMode && resolvedScope === 'unread') url.searchParams.set('read', 'false');
+  if (protectedMode && resolvedScope === 'favorite') url.searchParams.set('favorite', 'true');
+  if (protectedMode && resolvedScope === 'later') url.searchParams.set('readLater', 'true');
   if (beforePublishedAt) url.searchParams.set('beforePublishedAt', normalizeCursor(beforePublishedAt));
   if (beforeId) url.searchParams.set('beforeId', normalizeCursor(beforeId));
   url.searchParams.set('limit', String(resolvedLimit));
@@ -196,7 +205,10 @@ export function normalizeLinkFeedPage(payload) {
       authorLogo: normalizeUrl(item?.authorLogo),
       publishedAt: String(item?.publishedAt || '').trim(),
       fetchedAt: String(item?.fetchedAt || '').trim(),
-      updatedAt: String(item?.updatedAt || '').trim()
+      updatedAt: String(item?.updatedAt || '').trim(),
+      read: item?.read === true,
+      favorite: item?.favorite === true,
+      readLater: item?.readLater === true
     }))
     .filter((item) => item.url);
 
@@ -444,7 +456,46 @@ function externalAnchor(className, href, text = '') {
   return anchor;
 }
 
-function createFeedCard(item, onSourceClick) {
+function feedActionButton({ className = '', icon, label, pressed = false, onClick }) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = `links-feed-state-action ${className}`.trim();
+  button.title = label;
+  button.setAttribute('aria-label', label);
+  button.setAttribute('aria-pressed', String(pressed));
+  button.appendChild(iconNode(icon));
+  button.addEventListener('click', (event) => {
+    event.stopPropagation();
+    onClick?.();
+  });
+  return button;
+}
+
+function refreshFeedCardState(article, item) {
+  article.classList.toggle('is-unread', item.read !== true);
+  const favorite = article.querySelector('[data-feed-action="favorite"]');
+  if (favorite) {
+    favorite.classList.toggle('is-active', item.favorite === true);
+    favorite.setAttribute('aria-pressed', String(item.favorite === true));
+    favorite.setAttribute('aria-label', item.favorite ? '取消收藏' : '收藏');
+    favorite.title = item.favorite ? '取消收藏' : '收藏';
+  }
+  const later = article.querySelector('[data-feed-action="later"]');
+  if (later) {
+    later.classList.toggle('is-active', item.readLater === true);
+    later.setAttribute('aria-pressed', String(item.readLater === true));
+    later.setAttribute('aria-label', item.readLater ? '移出稍后阅读' : '稍后阅读');
+    later.title = item.readLater ? '移出稍后阅读' : '稍后阅读';
+  }
+}
+
+function createFeedCard(item, {
+  protectedMode = false,
+  onSourceClick,
+  onOpen,
+  onToggleFavorite,
+  onToggleLater
+} = {}) {
   const article = document.createElement('article');
   article.className = 'links-feed-card is-entering';
   article.dataset.feedItem = '';
@@ -462,6 +513,7 @@ function createFeedCard(item, onSourceClick) {
     image.decoding = 'async';
     avatar.appendChild(image);
   } else {
+    avatar.classList.add('is-fallback');
     avatar.appendChild(iconNode('icon-[lucide--rss]'));
   }
 
@@ -481,7 +533,16 @@ function createFeedCard(item, onSourceClick) {
 
   const heading = document.createElement('h2');
   heading.className = 'links-feed-title';
-  heading.appendChild(externalAnchor('', item.url, item.title || '未命名动态'));
+  if (protectedMode) {
+    const titleButton = document.createElement('button');
+    titleButton.type = 'button';
+    titleButton.className = 'links-feed-title-button';
+    titleButton.textContent = item.title || '未命名动态';
+    titleButton.addEventListener('click', () => onOpen?.(item.id));
+    heading.appendChild(titleButton);
+  } else {
+    heading.appendChild(externalAnchor('', item.url, item.title || '未命名动态'));
+  }
   copy.appendChild(heading);
   if (item.summary) {
     const summary = document.createElement('p');
@@ -497,8 +558,30 @@ function createFeedCard(item, onSourceClick) {
     source.type = 'button';
     source.className = 'links-feed-source-action';
     source.textContent = '只看此来源';
-    source.addEventListener('click', () => onSourceClick(item.linkName));
+    source.addEventListener('click', () => onSourceClick?.(item.linkName));
     footer.appendChild(source);
+  }
+  if (protectedMode) {
+    const actions = document.createElement('div');
+    actions.className = 'links-feed-state-actions';
+    const favorite = feedActionButton({
+      className: item.favorite ? 'is-active' : '',
+      icon: 'icon-[lucide--star]',
+      label: item.favorite ? '取消收藏' : '收藏',
+      pressed: item.favorite,
+      onClick: () => onToggleFavorite?.(item.id)
+    });
+    favorite.dataset.feedAction = 'favorite';
+    const later = feedActionButton({
+      className: item.readLater ? 'is-active' : '',
+      icon: 'icon-[lucide--bookmark]',
+      label: item.readLater ? '移出稍后阅读' : '稍后阅读',
+      pressed: item.readLater,
+      onClick: () => onToggleLater?.(item.id)
+    });
+    later.dataset.feedAction = 'later';
+    actions.append(favorite, later);
+    footer.appendChild(actions);
   }
   const original = externalAnchor('links-feed-open', item.url, '阅读原文');
   original.appendChild(iconNode('icon-[lucide--arrow-up-right]'));
@@ -506,21 +589,73 @@ function createFeedCard(item, onSourceClick) {
   copy.appendChild(footer);
 
   article.append(avatar, copy);
+  refreshFeedCardState(article, item);
   return article;
 }
 
-function currentFilterKey(groupName = '', linkName = '') {
-  if (groupName) return `group:${groupName}`;
-  if (linkName) return `link:${linkName}`;
-  return 'all';
+function currentFilterKey(groupName = '', linkName = '', scope = 'all', protectedMode = false) {
+  const mode = protectedMode ? 'console' : 'public';
+  const resolvedScope = ['unread', 'favorite', 'later'].includes(scope) ? scope : 'all';
+  if (groupName) return `${mode}:group:${groupName}`;
+  if (linkName) return `${mode}:link:${linkName}`;
+  return `${mode}:${resolvedScope}`;
+}
+
+export function normalizeLinkCapabilities(payload = {}, user = null) {
+  const uiPermissions = new Set(
+    (Array.isArray(payload?.uiPermissions) ? payload.uiPermissions : [])
+      .map((permission) => String(permission || '').trim())
+      .filter(Boolean)
+  );
+  const resolvedRoleNames = new Set(
+    (Array.isArray(payload?.permissions) ? payload.permissions : [])
+      .map((role) => String(role?.metadata?.name || role?.name || '').trim())
+      .filter(Boolean)
+  );
+  const canManage = uiPermissions.has('plugin:links:manage')
+    || resolvedRoleNames.has('role-template-link-manage');
+  const canReadFeed = canManage
+    || uiPermissions.has('plugin:links:view')
+    || resolvedRoleNames.has('role-template-link-view');
+  return {
+    authenticated: Boolean(user),
+    username: String(user?.metadata?.name || '').trim(),
+    canReadFeed,
+    canManage
+  };
+}
+
+export async function resolveLinkCapabilities(signal) {
+  const user = await resolveCurrentUser(signal);
+  throwIfAborted(signal);
+  if (!user) return normalizeLinkCapabilities({}, null);
+
+  const username = String(user.metadata?.name || '').trim();
+  const requestUrl = new URL(
+    `${USER_PERMISSIONS_API}/${encodeURIComponent(username)}/permissions`,
+    window.location.origin
+  );
+  const response = await fetch(requestUrl, {
+    credentials: 'same-origin',
+    cache: 'no-store',
+    headers: { Accept: 'application/json' },
+    signal
+  });
+  if (!response.ok) throw statusError(response, await readErrorMessage(response));
+  if (!isJsonResponse(response)) throw statusError(response, '权限接口没有返回 JSON');
+  return normalizeLinkCapabilities(await response.json(), user);
 }
 
 export function registerLinksExplorer(Alpine) {
   Alpine.data('linksExplorer', () => ({
     activeView: 'links',
     selectedGroup: '',
+    selectedLinkKey: '',
+    selectedLink: null,
+    feedScope: '',
     feedGroupName: '',
     feedLinkName: '',
+    mobileDetailOpen: false,
     searchQuery: '',
     sortMode: 'default',
     totalLinks: 0,
@@ -529,6 +664,10 @@ export function registerLinksExplorer(Alpine) {
     feedGroups: [],
     feedSources: [],
     allLinksTitle: '全部友链',
+    capabilityStatus: 'idle',
+    canReadFeed: false,
+    canManageLinks: false,
+    unreadCount: 0,
     feedStatus: 'unknown',
     feedStatusMessage: '',
     feedItemCount: 0,
@@ -538,11 +677,19 @@ export function registerLinksExplorer(Alpine) {
     feedLoading: false,
     feedReplacing: false,
     feedLoadedKey: 'all',
+    feedItems: [],
+    selectedFeedItemId: '',
+    selectedFeedItem: null,
+    feedActionBusy: {},
+    feedActionMessage: '',
     feedRequestController: null,
+    capabilityController: null,
     feedGeneration: 0,
     destroyed: false,
     _showBoardHandler: null,
     _popstateHandler: null,
+    _windowResizeHandler: null,
+    _windowTransitionTimer: 0,
 
     init() {
       this.destroyed = false;
@@ -550,16 +697,26 @@ export function registerLinksExplorer(Alpine) {
       this.applyLocationState(true);
       this._showBoardHandler = () => this.showBoard(true);
       this._popstateHandler = () => this.applyLocationState(false);
+      this._windowResizeHandler = () => this.syncWindowLayout();
       window.addEventListener('links:show-board', this._showBoardHandler);
       window.addEventListener('popstate', this._popstateHandler);
-      if (this.activeView === 'friends') this.ensureFeedState();
+      window.addEventListener('resize', this._windowResizeHandler);
+      if (this.activeView === 'friends' && this.detailOpen() && !this.isSavedFeedScope()) this.ensureFeedState();
+      this.ensureLinkCapabilities();
+      this.$nextTick(() => {
+        this.syncWindowLayout();
+      });
     },
 
     destroy() {
       this.destroyed = true;
       this.cancelFeedRequest();
+      this.capabilityController?.abort();
+      this.capabilityController = null;
       if (this._showBoardHandler) window.removeEventListener('links:show-board', this._showBoardHandler);
       if (this._popstateHandler) window.removeEventListener('popstate', this._popstateHandler);
+      if (this._windowResizeHandler) window.removeEventListener('resize', this._windowResizeHandler);
+      window.clearTimeout(this._windowTransitionTimer);
     },
 
     readDataset() {
@@ -578,10 +735,19 @@ export function registerLinksExplorer(Alpine) {
         key: node.dataset.feedGroupKey || '',
         label: node.dataset.feedGroupLabel || ''
       }));
-      this.feedSources = feedSourceNodes.map((node) => ({
-        key: node.dataset.feedLinkKey || '',
-        label: node.dataset.feedLinkLabel || ''
-      }));
+      this.feedSources = feedSourceNodes.map((node) => {
+        const description = sanitizePlainText(node.dataset.feedLinkDescription || '');
+        const descriptionNode = node.querySelector('.links-row-preview');
+        if (descriptionNode) descriptionNode.textContent = description || '查看该来源的 RSS 动态';
+        node.dataset.feedLinkDescription = description;
+        return {
+          key: node.dataset.feedLinkKey || '',
+          label: sanitizePlainText(node.dataset.feedLinkLabel || ''),
+          description,
+          logo: normalizeUrl(node.dataset.feedLinkLogo || ''),
+          url: normalizeUrl(node.dataset.feedLinkUrl || '')
+        };
+      });
 
       this.links = linkNodes.map((node) => {
         const description = sanitizePlainText(node.dataset.linkDescription || '');
@@ -591,150 +757,407 @@ export function registerLinksExplorer(Alpine) {
         return {
           key: node.dataset.linkKey || '',
           groupKey: node.dataset.groupKey || '',
+          groupLabel: sanitizePlainText(node.dataset.groupLabel || ''),
           name: sanitizePlainText(node.dataset.linkName || ''),
           description,
           url: node.dataset.linkUrl || '',
+          logo: normalizeUrl(node.dataset.linkLogo || ''),
           priority: Number(node.dataset.linkPriority || 0),
           createdAt: node.dataset.linkCreated || ''
         };
       });
 
       this.totalLinks = this.links.length;
+      this.selectedLinkKey = this.$root.dataset.linksInitialLink || '';
+      this.selectedLink = this.links.find((link) => link.key === this.selectedLinkKey) || null;
+      if (!this.selectedLink) this.selectedLinkKey = '';
+      this.feedScope = ['all', 'unread', 'favorite', 'later'].includes(this.$root.dataset.linksInitialFeedScope)
+        ? this.$root.dataset.linksInitialFeedScope
+        : '';
       this.feedItemCount = Number(this.$root.dataset.feedInitialCount || 0);
       this.feedHasNext = this.$root.dataset.feedHasNext === 'true';
       this.feedNextPublishedAt = this.$root.dataset.feedNextPublishedAt || '';
       this.feedNextId = this.$root.dataset.feedNextId || '';
       this.feedLoadedKey = currentFilterKey(
         this.$root.dataset.linksInitialFeedGroup || '',
-        this.$root.dataset.linksInitialFeedLink || ''
+        this.$root.dataset.linksInitialFeedLink || '',
+        this.feedScope,
+        false
       );
       const hasPublicSources = this.$root.dataset.feedPublicSources === 'true';
       this.feedStatus = this.feedItemCount > 0 ? 'ready' : hasPublicSources ? 'unknown' : 'empty';
     },
 
+    async ensureLinkCapabilities() {
+      this.capabilityController?.abort();
+      const controller = new AbortController();
+      const timeoutId = withTimeout(controller, CAPABILITY_TIMEOUT_MS);
+      this.capabilityController = controller;
+      this.capabilityStatus = 'checking';
+
+      try {
+        const capabilities = await resolveLinkCapabilities(controller.signal);
+        throwIfAborted(controller.signal);
+        if (this.destroyed) return;
+        this.canReadFeed = capabilities.canReadFeed;
+        this.canManageLinks = capabilities.canManage;
+        this.capabilityStatus = capabilities.authenticated ? 'ready' : 'guest';
+        window.dispatchEvent(new CustomEvent('links:capabilities', { detail: capabilities }));
+
+        if (this.canReadFeed) {
+          this.refreshUnreadSummary();
+          if (this.activeView === 'friends' && this.detailOpen()) await this.replaceFeed();
+        } else if (this.isSavedFeedScope()) {
+          this.feedScope = 'all';
+          this.selectedFeedItemId = '';
+          this.selectedFeedItem = null;
+          this.feedStatus = 'unknown';
+          this.syncUrl('replace');
+          await this.replaceFeed();
+        }
+      } catch (error) {
+        if (error?.name === 'AbortError') return;
+        const status = Number(error?.status || 0);
+        this.canReadFeed = false;
+        this.canManageLinks = false;
+        this.capabilityStatus = status === 401 ? 'guest' : status === 403 ? 'denied' : 'error';
+        window.dispatchEvent(new CustomEvent('links:capabilities', {
+          detail: { authenticated: status !== 401, canReadFeed: false, canManage: false, error: true }
+        }));
+        if (this.isSavedFeedScope()) {
+          this.feedScope = 'all';
+          this.syncUrl('replace');
+          this.replaceFeed();
+        }
+      } finally {
+        globalThis.clearTimeout(timeoutId);
+        if (this.capabilityController === controller) this.capabilityController = null;
+      }
+    },
+
+    async refreshUnreadSummary() {
+      if (!this.canReadFeed) return;
+      try {
+        const response = await fetch(LINK_FEED_UNREAD_SUMMARY_API, {
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: { Accept: 'application/json' }
+        });
+        if (!response.ok) throw statusError(response, await readErrorMessage(response));
+        if (!isJsonResponse(response)) throw statusError(response, '未读统计接口没有返回 JSON');
+        const payload = await response.json();
+        this.unreadCount = Math.max(0, Number(payload?.totalUnreadCount || 0));
+      } catch (error) {
+        if (Number(error?.status || 0) === 401 || Number(error?.status || 0) === 403) {
+          this.canReadFeed = false;
+          this.unreadCount = 0;
+        }
+      }
+    },
+
+    isSavedFeedScope() {
+      return this.feedScope === 'favorite' || this.feedScope === 'later';
+    },
+
+    clearFeedSelection() {
+      this.selectedFeedItemId = '';
+      this.selectedFeedItem = null;
+    },
+
+    showLinks() {
+      this.activeView = 'links';
+      this.selectedLinkKey = '';
+      this.selectedLink = null;
+      this.feedScope = '';
+      this.feedGroupName = '';
+      this.feedLinkName = '';
+      this.clearFeedSelection();
+      this.commitNavigation();
+    },
+
     setGroup(key) {
       this.activeView = 'links';
       this.selectedGroup = this.groups.some((group) => group.key === key) ? key : '';
-      this.syncUrl('push');
-      this.scrollMainToTop();
+      this.selectedLinkKey = '';
+      this.selectedLink = null;
+      this.commitNavigation();
+    },
+
+    selectLink(key) {
+      const link = this.links.find((item) => item.key === String(key || ''));
+      if (!link) return;
+      this.activeView = 'links';
+      this.selectedLinkKey = link.key;
+      this.selectedLink = link;
+      if (this.selectedGroup && link.groupKey !== this.selectedGroup) this.selectedGroup = '';
+      this.commitNavigation();
     },
 
     showFriends(scrollToTop = true) {
       this.activeView = 'friends';
+      this.selectedLinkKey = '';
+      this.selectedLink = null;
+      this.feedScope = '';
       this.feedGroupName = '';
       this.feedLinkName = '';
-      this.syncUrl('push');
-      if (scrollToTop) this.scrollMainToTop();
-      if (this.feedLoadedKey !== 'all') this.replaceFeed();
+      this.clearFeedSelection();
+      this.commitNavigation({ scrollToTop });
+    },
+
+    showAllFeed() {
+      this.activeView = 'friends';
+      this.feedScope = 'all';
+      this.feedGroupName = '';
+      this.feedLinkName = '';
+      this.clearFeedSelection();
+      this.commitNavigation();
+      if (this.feedLoadedKey !== currentFilterKey('', '', 'all', this.canReadFeed)) this.replaceFeed();
+      else this.ensureFeedState();
+    },
+
+    showUnreadFeed() {
+      if (!this.canReadFeed) return;
+      this.showFeedScope('unread');
+    },
+
+    showSavedFeed(scope) {
+      if (!this.canReadFeed || !['favorite', 'later'].includes(scope)) return;
+      this.showFeedScope(scope);
+    },
+
+    showFeedScope(scope) {
+      this.activeView = 'friends';
+      this.feedScope = ['all', 'unread', 'favorite', 'later'].includes(scope) ? scope : 'all';
+      this.feedGroupName = '';
+      this.feedLinkName = '';
+      this.clearFeedSelection();
+      this.commitNavigation();
+      const nextKey = currentFilterKey('', '', this.feedScope, this.canReadFeed);
+      if (this.feedLoadedKey !== nextKey) this.replaceFeed();
       else this.ensureFeedState();
     },
 
     showFeedGroup(key) {
       const value = String(key || '').trim();
       this.activeView = 'friends';
+      this.feedScope = '';
       this.feedGroupName = value;
       this.feedLinkName = '';
-      this.syncUrl('push');
-      this.scrollMainToTop();
-      if (this.feedLoadedKey !== currentFilterKey(value, '')) this.replaceFeed();
+      this.clearFeedSelection();
+      this.commitNavigation();
+      if (this.feedLoadedKey !== currentFilterKey(value, '', 'all', this.canReadFeed)) this.replaceFeed();
       else this.ensureFeedState();
     },
 
     showFeedSource(key) {
       const value = String(key || '').trim();
+      if (!value) return;
       this.activeView = 'friends';
+      this.feedScope = '';
       this.feedGroupName = '';
       this.feedLinkName = value;
-      this.syncUrl('push');
-      this.scrollMainToTop();
-      if (this.feedLoadedKey !== currentFilterKey('', value)) this.replaceFeed();
+      this.clearFeedSelection();
+      this.commitNavigation();
+      if (this.feedLoadedKey !== currentFilterKey('', value, 'all', this.canReadFeed)) this.replaceFeed();
       else this.ensureFeedState();
+    },
+
+    showApply() {
+      this.activeView = 'apply';
+      this.selectedLinkKey = '';
+      this.selectedLink = null;
+      this.feedScope = '';
+      this.feedGroupName = '';
+      this.feedLinkName = '';
+      this.clearFeedSelection();
+      this.commitNavigation();
+      window.dispatchEvent(new CustomEvent('links:submit-open'));
+    },
+
+    openSubmitAssistant() {
+      this.showApply();
     },
 
     showBoard(scrollToTop = true) {
       this.activeView = 'board';
-      this.selectedGroup = '';
-      this.syncUrl('push');
-      if (scrollToTop) this.scrollMainToTop();
+      this.selectedLinkKey = '';
+      this.selectedLink = null;
+      this.feedScope = '';
+      this.feedGroupName = '';
+      this.feedLinkName = '';
+      this.clearFeedSelection();
+      this.commitNavigation({ scrollToTop });
     },
 
-    openSubmitAssistant() {
-      const dialog = document.getElementById('link-submit-modal');
-      if (dialog && !dialog.open) dialog.showModal();
-      window.dispatchEvent(new CustomEvent('links:submit-open'));
+    collapseDetail() {
+      if (this.activeView === 'friends' && this.selectedFeedItem) {
+        this.closeFeedItem();
+        return;
+      }
+      if (this.activeView === 'links') {
+        this.selectedLinkKey = '';
+        this.selectedLink = null;
+      } else if (this.activeView === 'friends') {
+        this.feedScope = '';
+        this.feedGroupName = '';
+        this.feedLinkName = '';
+        this.clearFeedSelection();
+      } else {
+        this.activeView = 'links';
+      }
+      this.commitNavigation();
     },
 
-    scrollMainToTop() {
-      const scroller = this.$root.querySelector('.links-main-scroll')
-        || this.$root.closest('[data-window-scroll]')
-        || this.$root;
+    commitNavigation({ historyMode = 'push', scrollToTop = true } = {}) {
+      this.mobileDetailOpen = this.detailOpen();
+      this.syncUrl(historyMode);
+      if (scrollToTop) this.scrollActivePaneToTop();
+      this.$nextTick(() => this.syncWindowLayout());
+    },
+
+    scrollActivePaneToTop() {
+      const scroller = this.detailOpen()
+        ? this.$root.querySelector('.links-detail-scroll')
+        : this.$root.querySelector('.links-list-scroll');
       const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
       scroller?.scrollTo?.({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
     },
 
+    syncWindowLayout() {
+      const surface = this.$root.closest('[data-window-surface]');
+      if (!surface) return;
+      const isDesktop = window.innerWidth > 768;
+      this.mobileDetailOpen = this.detailOpen();
+      if (!isDesktop) {
+        surface.style.transition = '';
+        return;
+      }
+
+      const viewportPadding = 24;
+      const compactWidth = 500;
+      const expandedWidth = 1120;
+      const targetWidth = Math.max(
+        Math.min(compactWidth, window.innerWidth - viewportPadding * 2),
+        Math.min(this.detailOpen() ? expandedWidth : compactWidth, window.innerWidth - viewportPadding * 2)
+      );
+      const rect = surface.getBoundingClientRect();
+      const center = rect.left + rect.width / 2;
+      const maxLeft = Math.max(viewportPadding, window.innerWidth - targetWidth - viewportPadding);
+      const nextLeft = Math.min(Math.max(viewportPadding, center - targetWidth / 2), maxLeft);
+      const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+
+      window.clearTimeout(this._windowTransitionTimer);
+      surface.style.transition = reduceMotion
+        ? 'none'
+        : 'width 260ms cubic-bezier(0.22, 1, 0.36, 1), left 260ms cubic-bezier(0.22, 1, 0.36, 1)';
+      surface.style.width = `${targetWidth}px`;
+      surface.style.left = `${nextLeft}px`;
+      surface.style.transform = 'none';
+      this._windowTransitionTimer = window.setTimeout(() => {
+        surface.style.transition = '';
+      }, reduceMotion ? 0 : 280);
+    },
+
     applyLocationState(canonicalize = false) {
       if (typeof window === 'undefined') return;
-      const previousFeedKey = currentFilterKey(this.feedGroupName, this.feedLinkName);
+      const previousFeedKey = currentFilterKey(
+        this.feedGroupName,
+        this.feedLinkName,
+        this.feedScope,
+        this.canReadFeed
+      );
       const url = new URL(window.location.href);
       const requestedView = url.searchParams.get('view') || '';
       const requestedGroup = url.searchParams.get('group') || '';
+      const requestedLink = url.searchParams.get('link') || '';
+      const requestedScope = url.searchParams.get('scope') || '';
+      const requestedFeedItem = String(url.searchParams.get('itemId') || '').trim();
       const requestedFeedGroup = url.searchParams.get('groupName') || '';
       const requestedFeedLink = requestedFeedGroup ? '' : (url.searchParams.get('linkName') || '');
       const validGroup = requestedGroup && this.groups.some((group) => group.key === requestedGroup);
-      let needsCanonicalUrl = Boolean(requestedView && !['friends', 'board'].includes(requestedView));
+      const resolvedLink = this.links.find((link) => link.key === requestedLink) || null;
+      let needsCanonicalUrl = Boolean(requestedView && !['friends', 'apply', 'board'].includes(requestedView));
 
-      if (requestedView === 'board') {
-        this.activeView = 'board';
-        this.selectedGroup = '';
-        this.feedGroupName = '';
-        this.feedLinkName = '';
+      this.selectedGroup = '';
+      this.selectedLinkKey = '';
+      this.selectedLink = null;
+      this.feedScope = '';
+      this.feedGroupName = '';
+      this.feedLinkName = '';
+      this.selectedFeedItemId = '';
+      this.selectedFeedItem = null;
+
+      if (requestedView === 'board' || requestedView === 'apply') {
+        this.activeView = requestedView;
         needsCanonicalUrl = needsCanonicalUrl
-          || url.searchParams.has('group')
-          || url.searchParams.has('groupName')
-          || url.searchParams.has('linkName');
+          || ['group', 'link', 'scope', 'groupName', 'linkName', 'itemId'].some((name) => url.searchParams.has(name));
       } else if (requestedView === 'friends') {
         this.activeView = 'friends';
-        this.selectedGroup = '';
         this.feedGroupName = requestedFeedGroup;
         this.feedLinkName = requestedFeedLink;
+        this.feedScope = !requestedFeedGroup && !requestedFeedLink
+          && ['all', 'unread', 'favorite', 'later'].includes(requestedScope)
+          ? requestedScope
+          : '';
+        this.selectedFeedItemId = requestedFeedItem;
         needsCanonicalUrl = needsCanonicalUrl
           || url.searchParams.has('group')
-          || (Boolean(requestedFeedGroup) && url.searchParams.has('linkName'));
+          || url.searchParams.has('link')
+          || (requestedScope && !['all', 'unread', 'favorite', 'later'].includes(requestedScope))
+          || (Boolean(requestedFeedGroup) && url.searchParams.has('linkName'))
+          || ((requestedFeedGroup || requestedFeedLink) && url.searchParams.has('scope'))
+          || (requestedFeedItem && !this.feedScope && !requestedFeedGroup && !requestedFeedLink);
       } else {
         this.activeView = 'links';
         this.selectedGroup = validGroup ? requestedGroup : '';
-        this.feedGroupName = '';
-        this.feedLinkName = '';
+        this.selectedLink = resolvedLink;
+        this.selectedLinkKey = resolvedLink?.key || '';
+        if (this.selectedLink && this.selectedGroup && this.selectedLink.groupKey !== this.selectedGroup) {
+          this.selectedGroup = '';
+          needsCanonicalUrl = true;
+        }
         needsCanonicalUrl = needsCanonicalUrl
           || (url.searchParams.has('group') && !validGroup)
-          || url.searchParams.has('groupName')
-          || url.searchParams.has('linkName');
+          || (url.searchParams.has('link') && !resolvedLink)
+          || ['scope', 'groupName', 'linkName', 'itemId'].some((name) => url.searchParams.has(name));
       }
 
+      this.mobileDetailOpen = this.detailOpen();
       if (canonicalize && needsCanonicalUrl) this.syncUrl('replace');
-      if (!canonicalize && this.activeView === 'friends') {
-        const nextFeedKey = currentFilterKey(this.feedGroupName, this.feedLinkName);
+      if (!canonicalize && this.activeView === 'friends' && this.detailOpen()) {
+        const nextFeedKey = currentFilterKey(
+          this.feedGroupName,
+          this.feedLinkName,
+          this.feedScope,
+          this.canReadFeed
+        );
         if (nextFeedKey !== previousFeedKey || nextFeedKey !== this.feedLoadedKey) this.replaceFeed();
+        else if (this.selectedFeedItemId) this.restoreSelectedFeedItem(true);
         else this.ensureFeedState();
       }
+      this.$nextTick(() => this.syncWindowLayout());
     },
 
     syncUrl(mode = 'push') {
       if (typeof window === 'undefined') return;
       const url = new URL(window.location.href);
-      url.searchParams.delete('group');
-      url.searchParams.delete('groupName');
-      url.searchParams.delete('linkName');
+      for (const name of ['view', 'group', 'link', 'scope', 'groupName', 'linkName', 'itemId']) {
+        url.searchParams.delete(name);
+      }
 
-      if (this.activeView === 'board') {
-        url.searchParams.set('view', 'board');
+      if (this.activeView === 'board' || this.activeView === 'apply') {
+        url.searchParams.set('view', this.activeView);
       } else if (this.activeView === 'friends') {
         url.searchParams.set('view', 'friends');
         if (this.feedGroupName) url.searchParams.set('groupName', this.feedGroupName);
         else if (this.feedLinkName) url.searchParams.set('linkName', this.feedLinkName);
+        else if (['all', 'unread', 'favorite', 'later'].includes(this.feedScope)) {
+          url.searchParams.set('scope', this.feedScope);
+        }
+        if (this.selectedFeedItemId) url.searchParams.set('itemId', this.selectedFeedItemId);
       } else {
-        url.searchParams.delete('view');
         if (this.selectedGroup) url.searchParams.set('group', this.selectedGroup);
+        if (this.selectedLinkKey) url.searchParams.set('link', this.selectedLinkKey);
       }
 
       const target = `${url.pathname}${url.search}${url.hash}`;
@@ -771,7 +1194,14 @@ export function registerLinksExplorer(Alpine) {
 
     async fetchFeedPage({ replace }) {
       if (this.destroyed || this.feedLoading && !replace) return false;
-      const filterKey = currentFilterKey(this.feedGroupName, this.feedLinkName);
+      if (this.isSavedFeedScope() && !this.canReadFeed) return false;
+      const protectedMode = this.canReadFeed;
+      const filterKey = currentFilterKey(
+        this.feedGroupName,
+        this.feedLinkName,
+        this.feedScope,
+        protectedMode
+      );
       const generation = this.feedGeneration + 1;
       const controller = new AbortController();
       this.feedGeneration = generation;
@@ -785,6 +1215,8 @@ export function registerLinksExplorer(Alpine) {
       const requestUrl = buildLinkFeedApiUrl({
         groupName: this.feedGroupName,
         linkName: this.feedLinkName,
+        scope: this.feedScope || 'all',
+        protectedMode,
         beforePublishedAt: replace ? '' : this.feedNextPublishedAt,
         beforeId: replace ? '' : this.feedNextId,
         limit: LINK_FEED_PAGE_SIZE
@@ -792,7 +1224,7 @@ export function registerLinksExplorer(Alpine) {
 
       try {
         const response = await fetch(requestUrl, {
-          credentials: 'omit',
+          credentials: protectedMode ? 'same-origin' : 'omit',
           cache: 'no-store',
           headers: { Accept: 'application/json' },
           signal: controller.signal
@@ -800,20 +1232,44 @@ export function registerLinksExplorer(Alpine) {
         if (!response.ok) throw statusError(response, await readErrorMessage(response));
         if (!isJsonResponse(response)) throw statusError(response, '朋友圈接口没有返回 JSON');
         const page = normalizeLinkFeedPage(await response.json());
+        page.items = page.items.map((item) => {
+          const source = this.feedSources.find((candidate) => candidate.key === item.linkName);
+          return {
+            ...item,
+            author: item.author || source?.label || '未知来源',
+            authorUrl: item.authorUrl || source?.url || item.url,
+            authorLogo: item.authorLogo || source?.logo || ''
+          };
+        });
         throwIfAborted(controller.signal);
-        if (this.destroyed || generation !== this.feedGeneration || filterKey !== currentFilterKey(this.feedGroupName, this.feedLinkName)) return false;
+        if (this.destroyed || generation !== this.feedGeneration || filterKey !== currentFilterKey(
+          this.feedGroupName,
+          this.feedLinkName,
+          this.feedScope,
+          protectedMode
+        )) return false;
 
         const list = this.$root.querySelector('[data-feed-list]');
         if (!list) throw new Error('朋友圈列表容器不存在');
-        if (replace) list.replaceChildren();
+        if (replace) {
+          list.replaceChildren();
+          this.feedItems = [];
+        }
         const knownIds = new Set(Array.from(list.querySelectorAll('[data-feed-id]'), (node) => node.dataset.feedId || ''));
         const fragment = document.createDocumentFragment();
         const inserted = [];
         for (const item of page.items) {
           if (item.id && knownIds.has(item.id)) continue;
-          const card = createFeedCard(item, (linkName) => this.showFeedSource(linkName));
+          const card = createFeedCard(item, {
+            protectedMode,
+            onSourceClick: (linkName) => this.showFeedSource(linkName),
+            onOpen: (id) => this.openFeedItem(id),
+            onToggleFavorite: (id) => this.toggleFeedFavorite(id),
+            onToggleLater: (id) => this.toggleFeedReadLater(id)
+          });
           fragment.appendChild(card);
           inserted.push(card);
+          this.feedItems.push(item);
           if (item.id) knownIds.add(item.id);
         }
         list.appendChild(fragment);
@@ -825,6 +1281,7 @@ export function registerLinksExplorer(Alpine) {
         this.feedNextId = page.nextBeforeId;
         this.feedLoadedKey = filterKey;
         this.feedStatus = this.feedItemCount > 0 ? 'ready' : 'empty';
+        if (this.selectedFeedItemId) this.restoreSelectedFeedItem(true);
         return true;
       } catch (error) {
         if (error?.name === 'AbortError' || controller.signal.aborted || generation !== this.feedGeneration) return false;
@@ -832,7 +1289,9 @@ export function registerLinksExplorer(Alpine) {
           endpoint: requestUrl.toString(),
           message: error?.message || String(error || ''),
           action: replace ? 'replace-link-feed' : 'append-link-feed',
-          hint: '检查 PluginLinks 2.2.1、rss.publicEnabled 与游标参数。'
+          hint: protectedMode
+            ? '检查当前用户 plugin:links:view 权限与 PluginLinks RSS 缓存。'
+            : '检查链接插件的公开 RSS 设置与游标参数。'
         });
         if (replace) {
           this.$root.querySelector('[data-feed-list]')?.replaceChildren();
@@ -841,9 +1300,13 @@ export function registerLinksExplorer(Alpine) {
           this.feedNextPublishedAt = '';
           this.feedNextId = '';
           this.feedLoadedKey = filterKey;
+          this.feedItems = [];
+          this.selectedFeedItem = null;
         }
-        this.feedStatus = Number(error?.status || 0) === 404 ? 'disabled' : 'error';
-        this.feedStatusMessage = formatFeedFailure(error?.status || 0, error?.message || '');
+        this.feedStatus = !protectedMode && Number(error?.status || 0) === 404 ? 'disabled' : 'error';
+        this.feedStatusMessage = protectedMode && [401, 403].includes(Number(error?.status || 0))
+          ? '当前登录账号没有读取 RSS 状态的权限。'
+          : formatFeedFailure(error?.status || 0, error?.message || '');
         return false;
       } finally {
         if (generation === this.feedGeneration) {
@@ -852,6 +1315,180 @@ export function registerLinksExplorer(Alpine) {
           if (this.feedRequestController === controller) this.feedRequestController = null;
         }
       }
+    },
+
+    restoreSelectedFeedItem(markRead = false) {
+      if (!this.selectedFeedItemId) {
+        this.selectedFeedItem = null;
+        return false;
+      }
+      const item = this.feedItems.find((candidate) => candidate.id === this.selectedFeedItemId) || null;
+      this.selectedFeedItem = item;
+      if (item && markRead) this.consumeFeedItem(item);
+      return Boolean(item);
+    },
+
+    openFeedItem(id) {
+      if (!this.canReadFeed) return;
+      const item = this.feedItems.find((candidate) => candidate.id === String(id || ''));
+      if (!item) return;
+      this.selectedFeedItemId = item.id;
+      this.selectedFeedItem = item;
+      this.feedActionMessage = '';
+      this.syncUrl('push');
+      this.scrollActivePaneToTop();
+      this.consumeFeedItem(item);
+    },
+
+    closeFeedItem() {
+      const closingItem = this.selectedFeedItem;
+      this.clearFeedSelection();
+      if (closingItem) this.removeFeedItemIfFiltered(closingItem);
+      this.syncUrl('push');
+      this.scrollActivePaneToTop();
+    },
+
+    removeFeedItemIfFiltered(item) {
+      if (!item) return false;
+      const excluded = this.feedScope === 'favorite' && !item.favorite
+        || this.feedScope === 'later' && !item.readLater
+        || this.feedScope === 'unread' && item.read;
+      if (!excluded) return false;
+      this.feedItems = this.feedItems.filter((candidate) => candidate.id !== item.id);
+      this.$root.querySelector(`[data-feed-id="${CSS.escape(item.id)}"]`)?.remove();
+      this.feedItemCount = this.$root.querySelectorAll('[data-feed-item]').length;
+      this.feedStatus = this.feedItemCount > 0 ? 'ready' : 'empty';
+      return true;
+    },
+
+    async consumeFeedItem(item) {
+      if (!item || !this.canReadFeed) return;
+      if (!item.read) await this.setFeedItemState(item.id, 'read', true, { silent: true });
+      if (item.readLater) await this.setFeedItemState(item.id, 'later', false, { silent: true });
+    },
+
+    isFeedStateBusy(id, field) {
+      return this.feedActionBusy[`${id}:${field}`] === true;
+    },
+
+    toggleFeedFavorite(id = this.selectedFeedItemId) {
+      const item = this.feedItems.find((candidate) => candidate.id === id) || this.selectedFeedItem;
+      if (!item) return Promise.resolve(false);
+      return this.setFeedItemState(item.id, 'favorite', !item.favorite);
+    },
+
+    toggleFeedReadLater(id = this.selectedFeedItemId) {
+      const item = this.feedItems.find((candidate) => candidate.id === id) || this.selectedFeedItem;
+      if (!item) return Promise.resolve(false);
+      return this.setFeedItemState(item.id, 'later', !item.readLater);
+    },
+
+    toggleFeedRead(id = this.selectedFeedItemId) {
+      const item = this.feedItems.find((candidate) => candidate.id === id) || this.selectedFeedItem;
+      if (!item) return Promise.resolve(false);
+      return this.setFeedItemState(item.id, 'read', !item.read);
+    },
+
+    async setFeedItemState(id, field, value, { silent = false } = {}) {
+      if (!this.canReadFeed || !id || !['read', 'favorite', 'later'].includes(field)) return false;
+      const busyKey = `${id}:${field}`;
+      if (this.feedActionBusy[busyKey]) return false;
+      this.feedActionBusy = { ...this.feedActionBusy, [busyKey]: true };
+      if (!silent) this.feedActionMessage = '';
+      const endpoint = field === 'later' ? 'read-later' : field;
+      const parameter = field === 'later' ? 'readLater' : field;
+      const requestUrl = new URL(
+        `${LINK_FEED_CONSOLE_API}/${encodeURIComponent(id)}/${endpoint}`,
+        window.location.origin
+      );
+      requestUrl.searchParams.set(parameter, String(Boolean(value)));
+
+      try {
+        const response = await fetch(requestUrl, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json', ...buildCsrfHeaders() }
+        });
+        if (!response.ok) throw statusError(response, await readErrorMessage(response));
+        const item = this.feedItems.find((candidate) => candidate.id === id);
+        if (item) {
+          const previousRead = item.read;
+          item[field === 'later' ? 'readLater' : field] = Boolean(value);
+          if (field === 'read' && previousRead !== item.read) {
+            this.unreadCount = Math.max(0, this.unreadCount + (item.read ? -1 : 1));
+          }
+          const node = this.$root.querySelector(`[data-feed-id="${CSS.escape(id)}"]`);
+          if (node) refreshFeedCardState(node, item);
+        }
+        if (this.selectedFeedItem?.id === id) {
+          this.selectedFeedItem = { ...this.selectedFeedItem, [field === 'later' ? 'readLater' : field]: Boolean(value) };
+        } else if (item) {
+          this.removeFeedItemIfFiltered(item);
+        }
+        return true;
+      } catch (error) {
+        this.feedActionMessage = `状态更新失败：${Number(error?.status || 0) ? `HTTP ${error.status}` : '网络或服务异常'}`;
+        warnApiCall('links', 'PluginLinks RSS 状态更新失败', {
+          endpoint: requestUrl.toString(),
+          message: error?.message || String(error || ''),
+          action: `update-feed-${field}`,
+          hint: '检查当前用户 plugin:links:view 权限与 CSRF 会话。'
+        });
+        return false;
+      } finally {
+        const nextBusy = { ...this.feedActionBusy };
+        delete nextBusy[busyKey];
+        this.feedActionBusy = nextBusy;
+      }
+    },
+
+    detailOpen() {
+      if (this.activeView === 'links') return Boolean(this.selectedLink);
+      if (this.activeView === 'friends') return Boolean(
+        ['all', 'unread', 'favorite', 'later'].includes(this.feedScope)
+        || this.feedGroupName
+        || this.feedLinkName
+      );
+      return this.activeView === 'apply' || this.activeView === 'board';
+    },
+
+    isLinkActive(key) {
+      return this.activeView === 'links' && this.selectedLinkKey === String(key || '');
+    },
+
+    matchesFeedSource(el) {
+      const query = normalizeText(this.searchQuery);
+      if (!query) return true;
+      return [
+        el?.dataset?.feedLinkLabel || '',
+        el?.dataset?.feedLinkDescription || ''
+      ].map(normalizeText).join(' ').includes(query);
+    },
+
+    readableLinkHost(url) {
+      return readableHost(url || '');
+    },
+
+    feedPublishedLabel(value) {
+      return formatFeedTime(value);
+    },
+
+    detailTitle() {
+      if (this.activeView === 'apply') return '添加友链';
+      if (this.activeView === 'board') return '留言板';
+      if (this.activeView === 'friends') return this.selectedFeedItem?.title || this.activeFeedLabel();
+      return this.selectedLink?.name || '链接详情';
+    },
+
+    detailSubtitle() {
+      if (this.activeView === 'apply') return '添加或申请友链';
+      if (this.activeView === 'board') return '友链申请与站点留言';
+      if (this.activeView === 'friends') {
+        if (this.selectedFeedItem) return this.selectedFeedItem.author || 'RSS 动态';
+        if (this.feedLoading && this.feedReplacing) return '正在更新…';
+        return `${this.feedItemCount} 条动态`;
+      }
+      return this.selectedLink ? readableHost(this.selectedLink.url) : '';
     },
 
     isGroupActive(key) {
@@ -867,7 +1504,7 @@ export function registerLinksExplorer(Alpine) {
     },
 
     matchesLink(link) {
-      if (!link || this.activeView !== 'links') return false;
+      if (!link || this.activeView === 'friends') return false;
       if (this.selectedGroup && link.groupKey !== this.selectedGroup) return false;
       const query = normalizeText(this.searchQuery);
       if (!query) return true;
@@ -915,18 +1552,28 @@ export function registerLinksExplorer(Alpine) {
     },
 
     activeFeedLabel() {
+      if (this.feedScope === 'favorite') return '收藏';
+      if (this.feedScope === 'later') return '稍后阅读';
+      if (this.feedScope === 'unread') return '未读动态';
       if (this.feedLinkName) return this.feedSources.find((source) => source.key === this.feedLinkName)?.label || '当前来源';
       if (this.feedGroupName) return this.feedGroups.find((group) => group.key === this.feedGroupName)?.label || '当前分组动态';
       return '朋友圈';
     },
 
+    activeFeedSource() {
+      if (!this.feedLinkName) return null;
+      return this.feedSources.find((source) => source.key === this.feedLinkName) || null;
+    },
+
     activeHeaderTitle() {
+      if (this.activeView === 'apply') return '添加友链';
       if (this.activeView === 'board') return '留言板';
       if (this.activeView === 'friends') return this.activeFeedLabel();
       return this.activeGroupLabel();
     },
 
     resultSummary() {
+      if (this.activeView === 'apply') return '自动识别当前账号可用的提交方式';
       if (this.activeView === 'board') return '友链申请与站点留言';
       if (this.activeView === 'friends') {
         if (this.feedLoading && this.feedReplacing) return '正在更新动态…';
@@ -951,6 +1598,9 @@ export function registerLinksExplorer(Alpine) {
     },
 
     feedStatusTitle() {
+      if (this.feedScope === 'favorite' && this.feedStatus === 'empty') return '还没有收藏内容';
+      if (this.feedScope === 'later' && this.feedStatus === 'empty') return '稍后阅读是空的';
+      if (this.feedScope === 'unread' && this.feedStatus === 'empty') return '动态都已读完';
       if (this.feedStatus === 'disabled') return '朋友圈暂未公开';
       if (this.feedStatus === 'error') return '朋友圈加载失败';
       if (this.feedStatus === 'empty') return this.feedGroupName || this.feedLinkName ? '当前来源暂无动态' : '这里还没有 RSS 动态';
@@ -963,12 +1613,17 @@ export function registerLinksExplorer(Alpine) {
       if (this.feedStatus === 'disabled') return '管理员可在链接管理插件的 RSS 订阅设置中开启公开动态。';
       if (this.feedStatus === 'empty') return this.feedGroupName || this.feedLinkName
         ? '可以切换到全部动态，或等待该来源下次同步。'
-        : '请在 PluginLinks 中启用友链 RSS 和公开动态；完成首次抓取后，内容会显示在这里。';
+        : this.canReadFeed
+          ? '收藏或稍后阅读的内容会保存在 PluginLinks 中；未读状态也会在这里同步。'
+          : '请在 PluginLinks 中启用友链 RSS 和公开动态；完成首次抓取后，内容会显示在这里。';
       if (this.feedStatus === 'checking' || this.feedStatus === 'unknown') return '不会显示骨架屏，确认完成后会直接展示结果。';
       return '请稍后重试。';
     },
 
     feedStatusIcon() {
+      if (this.feedScope === 'favorite') return 'icon-[lucide--star]';
+      if (this.feedScope === 'later') return 'icon-[lucide--bookmark]';
+      if (this.feedScope === 'unread') return 'icon-[lucide--mail-check]';
       if (this.feedStatus === 'disabled') return 'icon-[lucide--lock-keyhole]';
       if (this.feedStatus === 'error') return 'icon-[lucide--circle-alert]';
       if (this.feedStatus === 'checking' || this.feedStatus === 'unknown') return 'icon-[lucide--loader-circle] is-spinning';
@@ -998,21 +1653,6 @@ async function resolveCurrentUser(signal) {
   const username = String(user?.metadata?.name || '').trim();
   if (!username || username === HALO_ANONYMOUS_USERNAME || user?.spec?.disabled === true) return null;
   return user;
-}
-
-async function checkLinkManagePermission(signal) {
-  const url = new URL(LINK_MANAGE_API, window.location.origin);
-  url.searchParams.set('page', '1');
-  url.searchParams.set('size', '1');
-  const response = await fetch(url, {
-    credentials: 'same-origin',
-    cache: 'no-store',
-    headers: { Accept: 'application/json' },
-    signal
-  });
-  if (!response.ok) throw statusError(response, await readErrorMessage(response));
-  if (!isJsonResponse(response)) throw statusError(response, '权限检查接口没有返回 JSON');
-  return true;
 }
 
 async function fetchOfficialLinkDetail(url, signal) {
@@ -1075,7 +1715,6 @@ export function registerLinkSubmitForm(Alpine) {
     submitGroups: [],
     capabilityStatus: 'idle',
     canManage: false,
-    preferMessage: false,
     capabilityController: null,
     capabilityPromise: null,
     submitting: false,
@@ -1089,6 +1728,7 @@ export function registerLinkSubmitForm(Alpine) {
     destroyed: false,
     copied: false,
     _openHandler: null,
+    _capabilitiesHandler: null,
     result: {
       show: false,
       success: false,
@@ -1103,7 +1743,9 @@ export function registerLinkSubmitForm(Alpine) {
         displayName: option.textContent?.trim() || option.value
       })).filter((group) => group.groupName);
       this._openHandler = () => this.prepareOpen();
+      this._capabilitiesHandler = (event) => this.applyCapabilitySnapshot(event.detail || {});
       window.addEventListener('links:submit-open', this._openHandler);
+      window.addEventListener('links:capabilities', this._capabilitiesHandler);
     },
 
     destroy() {
@@ -1113,16 +1755,18 @@ export function registerLinkSubmitForm(Alpine) {
       this.capabilityController = null;
       this.capabilityPromise = null;
       if (this._openHandler) window.removeEventListener('links:submit-open', this._openHandler);
+      if (this._capabilitiesHandler) window.removeEventListener('links:capabilities', this._capabilitiesHandler);
     },
 
     prepareOpen() {
       this.result.show = false;
-      this.ensureCapability();
     },
 
-    onDialogClosed() {
-      this.cancelAutofill();
-      this.result.show = false;
+    applyCapabilitySnapshot(capabilities) {
+      this.canManage = capabilities?.canManage === true;
+      this.capabilityStatus = !capabilities?.authenticated
+        ? 'guest'
+        : this.canManage ? 'manager' : capabilities?.error ? 'error' : 'denied';
     },
 
     async ensureCapability(force = false) {
@@ -1137,23 +1781,18 @@ export function registerLinkSubmitForm(Alpine) {
 
       this.capabilityPromise = (async () => {
         try {
-          const user = await resolveCurrentUser(controller.signal);
+          const capabilities = await resolveLinkCapabilities(controller.signal);
           throwIfAborted(controller.signal);
-          if (!user) {
-            this.capabilityStatus = 'guest';
-            return false;
-          }
-          await checkLinkManagePermission(controller.signal);
-          throwIfAborted(controller.signal);
-          this.canManage = true;
-          this.capabilityStatus = 'manager';
-          return true;
+          this.canManage = capabilities.canManage;
+          this.capabilityStatus = !capabilities.authenticated
+            ? 'guest'
+            : capabilities.canManage ? 'manager' : 'denied';
+          return this.canManage;
         } catch (error) {
           if (error?.name === 'AbortError') return false;
           const status = Number(error?.status || 0);
           this.canManage = false;
           this.capabilityStatus = status === 401 ? 'guest' : status === 403 ? 'denied' : 'error';
-          this.preferMessage = true;
           this.result = {
             show: true,
             success: false,
@@ -1174,15 +1813,15 @@ export function registerLinkSubmitForm(Alpine) {
 
     capabilityIcon() {
       if (this.capabilityStatus === 'checking') return 'icon-[lucide--loader-circle] is-spinning';
-      if (this.canManage && !this.preferMessage && this.form.type === 'add') return 'icon-[lucide--shield-check]';
+      if (this.canManage && this.form.type === 'add') return 'icon-[lucide--shield-check]';
       if (this.capabilityStatus === 'denied' || this.capabilityStatus === 'error') return 'icon-[lucide--shield-alert]';
       return 'icon-[lucide--message-circle]';
     },
 
     capabilityLabel() {
       if (this.capabilityStatus === 'checking') return '正在确认提交方式';
-      if (this.canManage && !this.preferMessage && this.form.type === 'add') return '管理员直连';
-      if (this.canManage) return '管理员 · 留言申请';
+      if (this.canManage && this.form.type === 'add') return '管理员直连';
+      if (this.canManage) return '修改申请 · 留言确认';
       if (this.capabilityStatus === 'denied') return '已登录 · 无链接管理权限';
       if (this.capabilityStatus === 'error') return '权限检查失败 · 安全降级';
       return '访客申请';
@@ -1190,8 +1829,8 @@ export function registerLinkSubmitForm(Alpine) {
 
     capabilityDescription() {
       if (this.capabilityStatus === 'checking') return '只检查当前 Halo 会话，不会请求目标站点。';
-      if (this.canManage && !this.preferMessage && this.form.type === 'add') return '识别和创建均调用 PluginLinks 2.2.1 官方受保护接口。';
-      if (this.canManage) return '当前选择生成申请内容，不直接写入链接管理。';
+      if (this.canManage && this.form.type === 'add') return '识别和创建均通过站点受保护接口完成。';
+      if (this.canManage) return '修改已有链接仍生成申请内容，避免直接覆盖。';
       if (this.capabilityStatus === 'denied') return '不会尝试受保护写入，只生成可复制的申请内容。';
       if (this.capabilityStatus === 'error') return '为避免误用后台能力，本次只使用访客申请流程。';
       return '浏览器识别目标站点，确认后复制申请到留言板。';
@@ -1246,7 +1885,7 @@ export function registerLinkSubmitForm(Alpine) {
 
       try {
         let metadata = null;
-        if (this.canManage && !this.preferMessage) {
+        if (this.canManage) {
           try {
             metadata = await fetchOfficialLinkDetail(normalized, controller.signal);
             if (metadata.discoveryError) {
@@ -1263,7 +1902,6 @@ export function registerLinkSubmitForm(Alpine) {
             if (status === 401 || status === 403) {
               this.canManage = false;
               this.capabilityStatus = status === 401 ? 'guest' : 'denied';
-              this.preferMessage = true;
             }
           }
         }
@@ -1359,7 +1997,6 @@ export function registerLinkSubmitForm(Alpine) {
     onTypeChange() {
       this.submitted = false;
       this.copied = false;
-      if (this.form.type === 'update') this.preferMessage = true;
       this.markdown = this.buildMarkdown(this.form.url);
     },
 
@@ -1368,7 +2005,7 @@ export function registerLinkSubmitForm(Alpine) {
     },
 
     isDirectCreateMode() {
-      return this.canManage && !this.preferMessage && !this.isUpdateMode();
+      return this.canManage && !this.isUpdateMode();
     },
 
     isMessageMode() {
@@ -1442,7 +2079,6 @@ export function registerLinkSubmitForm(Alpine) {
         if (status === 401 || status === 403) {
           this.canManage = false;
           this.capabilityStatus = status === 401 ? 'guest' : 'denied';
-          this.preferMessage = true;
         }
         warnApiCall('links', 'PluginLinks 官方创建接口失败', {
           endpoint: LINK_CORE_API,
@@ -1495,7 +2131,6 @@ export function registerLinkSubmitForm(Alpine) {
         };
         if (copied) {
           window.setTimeout(() => {
-            document.getElementById('link-submit-modal')?.close();
             window.dispatchEvent(new CustomEvent('links:show-board'));
           }, 240);
         }

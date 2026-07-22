@@ -1,3 +1,141 @@
+# PluginLinks 窗口控件与全部动态比例修正设计 QA
+
+## 对照目标
+
+- Source problem evidence: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-4a021984-7c1d-4214-9239-3c872a0cc568.png`
+- Browser-rendered controls: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/links-controls-scale-after.png`
+- Browser-rendered all-feed row: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/links-all-feed-icon-after.png`
+- Route: `http://localhost:8090/links?view=friends&scope=all`
+- Viewport: `1250 × 1169`
+- State: 暗色、朋友圈、全部动态选中、真实 RSS 来源已加载
+- 对照说明：用户截图用于指出“全部动态”图标比例问题；最终目标同时遵循用户文字约束——恢复系统窗口按钮比例、放大全部动态图标、删除侧栏设置入口。
+
+## 对照证据
+
+- Same-input comparison: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/links-all-feed-icon-comparison.png`
+- 对比图左侧为用户问题截图，右侧为真实页面修正后选中态。
+
+## Findings
+
+- No actionable P0/P1/P2 findings remain.
+- 窗口控件：友链应用不再对全局三色按钮做 `0.72` 倍缩放；关闭、最小化、最大化按钮真页尺寸均恢复为 `12 × 12px`，与桌面窗口系统规格一致。
+- 全部动态：光圈图标从通用 `21 × 21px` 提升为 `26 × 26px`；选中态计算颜色为 `rgb(7, 193, 96)`，绿色只作用于图标并保留克制的行背景。
+- 侧栏设置：模板和真页中 `.links-rail-settings` 与侧栏 `/console` 链接数量均为 `0`；其他链接、朋友圈、添加和留言入口不受影响。
+- 布局：应用继续使用原有 `60px + 440px` 左侧结构，页面无横向溢出；没有改动全局桌面窗口控件或引入 UI 依赖。
+
+## Verification
+
+- [x] `pnpm run verify:links`
+- [x] `pnpm run typecheck`
+- [x] `pnpm run build-only`
+- [x] `pnpm run verify:reload`
+- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
+- [x] 暗色真页尺寸、节点缺失与并排截图复核
+
+final result: passed
+
+---
+
+# PluginLinks 选中图标与透明头像修正设计 QA
+
+## 对照目标
+
+- Source problem evidence: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-f3affd5c-2f21-4ac9-a5da-f92519a077ad.png`
+- Source problem evidence: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-b131f7fa-0793-4e84-bf2f-b9fb7964cd85.png`
+- Browser-rendered implementation: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/links-selected-icons-after.png`
+- Route: `http://localhost:8090/links?view=friends&scope=all`
+- State: 暗色、朋友圈、全部动态选中、真实透明站点 Logo 可见
+- 对照说明：两张用户截图是问题区域证据，不是继续复刻的目标；修正目标以用户明确约束为准——透明像素不填绿，选中态只让图标本身变绿。
+
+## 对照证据
+
+- Same-input comparison: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/links-icon-avatar-comparison.png`
+- 对比图左侧为修正前问题区域，右侧为同一真实页面修正后实现。
+
+## Findings
+
+- No actionable P0/P1/P2 findings remain.
+- 透明头像：来源资料头像与动态头像的计算背景均为 `rgba(0, 0, 0, 0)`，透明 PNG 直接透出当前列表或详情面板；缺图时才使用中性面板占位，不再使用绿色底。
+- 选中图标：朋友圈轨道图标和“全部动态”图标的计算颜色均为 `rgb(7, 193, 96)`，计算背景为透明，绿色方块已移除。
+- 版本证据：前台可见文本不再包含 `PluginLinks 2.2.1`；版本仍由 `templates/modules/links-app/list.html` 的 `plugin-contract` 注释和 `docs/插件适配契约.md` 维护。
+- Framework boundary: 延续项目现有 Thymeleaf、Alpine、Iconify 与原生 CSS，没有新增或引用 UI 框架。
+
+## Verification
+
+- [x] `pnpm run verify:links`
+- [x] `pnpm run build-only`
+- [x] `pnpm run verify:reload`
+- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
+- [x] 暗色真页计算样式与合并对照图复核
+
+final result: passed
+
+---
+
+# PluginLinks 微信式链接应用初版设计 QA
+
+## 对照目标
+
+- Source visual truth: `/Users/sky/.codex/generated_images/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/exec-81e45e0b-9849-4fbb-9dba-251d69034510.png`
+- Browser-rendered implementation: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/links-wechat-initial/05-source-profile-dark.png`
+- Route: `http://localhost:8090/links?view=friends&linkName=link-QDUTJ`
+- Viewport: `1120 × 832`
+- State: 暗色、朋友圈、单一 RSS 来源、来源资料头与动态列表展开
+- 对照说明：参考图按中心裁切归一到 `1120 × 832`；实现使用 PluginLinks 2.2.1 的真实来源与动态，不补造点赞、评论、图片或不存在的 RSS 字段。
+
+## 对照证据
+
+- Same-viewport reference: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/links-wechat-initial/06-reference-1120x832.png`
+- Side-by-side comparison: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/links-wechat-initial/07-reference-vs-implementation.png`
+- Compact default state: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/links-wechat-initial/01-compact-dark.png`
+- All-feed state: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/links-wechat-initial/03-feed-dark.png`
+
+## Findings
+
+- No actionable P0/P1/P2 findings remain.
+- Fonts and density: 使用系统字体、紧凑 `68px` 会话行、14px 主标题和克制的 10–13px 元数据；长标题与真实简介均截断，不改变左栏几何。
+- Layout: 默认窗口固定为 `60px + 440px` 紧凑列表；点击链接、RSS 来源、添加或留言后只向右展开，左侧栏与列表不重建。参考图左栏比例更窄，但这里保留用户确认的 `500px` 默认窗口约束。
+- Colors: links app 固定使用 `#07C160 / #95EC69 / #DFF7E8`，暗亮切换实测只替换中性表面；微信绿在两种模式下都保持 `#07C160`，不读取主题或系统强调色。
+- Assets: 头像和站点 Logo 全部来自 PluginLinks 或站点真实资源；缺图使用项目现有 Lucide/Iconify 图标，没有 CSS 图形、内联 SVG、emoji 或占位图片。
+- Content hierarchy: 单来源详情补齐来源头像、名称、简介、域名和访问入口，再展示动态；全部动态不伪造来源资料头。公开 RSS 缺少的点赞、评论与图片字段不在 UI 中伪造。
+- Interaction and accessibility: 默认列表、链接详情、全部动态、单来源、添加助手、留言板、收起详情、刷新、前进/后退与暗亮切换均可操作；键盘焦点使用 3px 左侧绿线，避免鼠标点击产生过重整圈描边。
+- Framework boundary: 只使用项目现有 Thymeleaf、Alpine、Tailwind/Iconify 管线与原生 CSS/控件，没有引入 daisyUI 或其他 UI 框架。
+
+## Primary interactions tested
+
+- `/links` 默认保持 500px 紧凑列表，不提前请求 RSS 正文。
+- 点击友链展开资料详情；收起后恢复列表宽度。
+- `/links?view=friends` 显示公开来源且插件描述 HTML 只以纯文本展示。
+- “全部动态”与单一来源使用真实 PluginLinks 2.2.1 RSS 数据、刷新与继续加载。
+- `/links?view=apply` 展示权限感知的内嵌提交助手；`/links?view=board` 展示留言兜底。
+- 浏览器后退从留言板恢复添加助手，前进重新恢复留言板。
+- 暗色 `#1F1F1F` 与亮色 `#F5F7F5` 表面切换时，主绿色保持 `#07C160`。
+- Playwright 中 `links` 与 `links-interactions` 的 page error、console error、request failure 均为 0。
+
+## Comparison history
+
+- Pass 1: 真页基线确认默认紧凑列表和按需展开成立，但发现插件来源描述中的 HTML 标签会短暂以源码显示。
+- Fix 1: 来源描述在运行时统一转成纯文本并回写列表节点，复测不再出现 `<br>`、`<strong>` 等标记。
+- Pass 2: 详情截图发现鼠标点击后的选中行仍继承整圈焦点描边，视觉重量高于微信列表。
+- Fix 2: 提高链接行焦点覆盖规则的特异性，只保留左侧 3px 微信绿焦点线。
+- Pass 3: 同视口对照发现单来源详情缺少参考图中的来源资料层级。
+- Fix 3: 增加真实来源头像、名称、简介、域名与访问入口；全部动态仍保持纯时间流。
+- Pass 4: 同视口并排复核后无剩余 P0/P1/P2；真实数据差异、500px 默认左栏宽度和不伪造社交字段属于明确产品约束。
+
+## Implementation checklist
+
+- [x] 500px 默认会话列表和按需展开详情
+- [x] 微信固定绿与独立暗亮中性色
+- [x] 链接、RSS 来源、添加助手和留言板完整路由状态
+- [x] 单来源资料头与真实 RSS 时间流
+- [x] 移动端列表到全屏详情规则
+- [x] 无新增 UI 框架，daisyUI 零引用
+- [x] 构建、Halo Reload、静态契约、全站 Playwright 与同视口设计 QA
+
+final result: passed
+
+---
+
 # 图库胶片坞显隐与切图层级设计 QA
 
 ## 对照目标

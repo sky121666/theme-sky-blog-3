@@ -1,7 +1,9 @@
 <th:block th:fragment="content"
   th:with="
             currentGroup=${param.group != null and !#lists.isEmpty(param.group) ? param.group[0] : ''},
-            currentView=${param.view != null and !#lists.isEmpty(param.view) and (param.view[0] == 'friends' or param.view[0] == 'board') ? param.view[0] : 'links'},
+            currentView=${param.view != null and !#lists.isEmpty(param.view) and (param.view[0] == 'friends' or param.view[0] == 'apply' or param.view[0] == 'board') ? param.view[0] : 'links'},
+            currentLink=${param.link != null and !#lists.isEmpty(param.link) ? param.link[0] : ''},
+            currentFeedScope=${param.scope != null and !#lists.isEmpty(param.scope) and (param.scope[0] == 'all' or param.scope[0] == 'unread' or param.scope[0] == 'favorite' or param.scope[0] == 'later') ? param.scope[0] : ''},
             currentFeedGroup=${param.groupName != null and !#lists.isEmpty(param.groupName) ? param.groupName[0] : ''},
             currentFeedLink=${#strings.isEmpty(currentFeedGroup) and param.linkName != null and !#lists.isEmpty(param.linkName) ? param.linkName[0] : ''},
             groupsData=${groups},
@@ -12,11 +14,15 @@
   <!-- plugin-contract: PluginLinks; contract-version: 2.2.1; tested-version: 2.2.1; status: confirmed; source: docs/插件适配契约.md -->
   <div class="links-app" data-app-root="links">
     <script type="application/json"
-      data-app-props="links">{"version":2,"appId":"links","data":{"scene":"collection-feed"}}</script>
+      data-app-props="links">{"version":3,"appId":"links","data":{"scene":"wechat-list-detail"}}</script>
 
-    <div class="links-app-shell" x-data="linksExplorer"
+    <div class="links-app-shell" x-data="linksExplorer" x-cloak
+      :class="{ 'is-expanded': detailOpen(), 'is-mobile-detail': mobileDetailOpen }"
+      :data-view="activeView"
       th:attr="data-links-initial-group=${currentGroup},
                data-links-initial-view=${currentView},
+               data-links-initial-link=${currentLink},
+               data-links-initial-feed-scope=${currentFeedScope},
                data-links-initial-feed-group=${currentFeedGroup},
                data-links-initial-feed-link=${currentFeedLink},
                data-links-all-title=${allLinksTitle},
@@ -26,429 +32,541 @@
                data-feed-has-next=${feedPageData != null and feedPageData.hasNext},
                data-feed-next-published-at=${feedPageData != null ? feedPageData.nextBeforePublishedAt : ''},
                data-feed-next-id=${feedPageData != null ? feedPageData.nextBeforeId : ''}">
-      <aside class="links-sidebar">
-        <div class="links-window-dragbar"
+
+      <aside class="links-rail" aria-label="链接应用功能">
+        <div class="links-rail-drag"
           @mousedown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
           <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=true)}"></th:block>
         </div>
 
-        <div class="links-sidebar-scroll">
-          <div class="links-sidebar-block">
-            <nav class="links-sidebar-nav" aria-label="链接页面视图">
-              <button type="button" class="links-sidebar-item"
-                :class="{ 'is-active': activeView === 'links' && !selectedGroup }"
-                :aria-pressed="activeView === 'links' && !selectedGroup" aria-controls="view-links" @click="setGroup('')">
-                <span class="links-sidebar-item-main">
-                  <span class="links-sidebar-symbol icon-[lucide--layout-dashboard]" aria-hidden="true"></span>
-                  <span class="links-sidebar-label" th:text="${allLinksTitle}">全部友链</span>
-                </span>
-                <span class="links-sidebar-count-pill" x-text="totalLinks"></span>
-              </button>
-              <button type="button" class="links-sidebar-item"
-                :class="{ 'is-active': activeView === 'friends' && !feedGroupName && !feedLinkName }"
-                :aria-pressed="activeView === 'friends' && !feedGroupName && !feedLinkName"
-                aria-controls="view-friends" @click="showFriends()">
-                <span class="links-sidebar-item-main">
-                  <span class="links-sidebar-symbol icon-[lucide--rss]" aria-hidden="true"></span>
-                  <span class="links-sidebar-label">朋友圈</span>
-                </span>
-              </button>
-            </nav>
-          </div>
-
-          <div class="links-sidebar-block" x-show="activeView === 'links'"
-            th:if="${groupsData != null and !#lists.isEmpty(groupsData)}">
-            <p class="links-sidebar-title">友链分组</p>
-            <nav class="links-sidebar-nav" aria-label="友链分组">
-              <button type="button" class="links-sidebar-item" th:each="group : ${groupsData}" th:with="
-                        resolvedGroupLabel=${!#strings.isEmpty(group.spec.displayName) ? group.spec.displayName : (group.metadata.name == 'ungrouped' ? '未分组' : group.metadata.name)},
-                        groupIcon=${#annotations.get(group, 'icon')}" data-links-group th:attr="data-group-key=${group.metadata.name},
-                               data-group-label=${resolvedGroupLabel},
-                               data-group-synthetic=${group.metadata.name == 'ungrouped'},
-                               data-group-count=${group.links != null ? #lists.size(group.links) : 0}"
-                :class="{ 'is-active': activeView === 'links' && isGroupActive($el.dataset.groupKey) }"
-                :aria-pressed="activeView === 'links' && isGroupActive($el.dataset.groupKey)" aria-controls="view-links"
-                @click="setGroup($el.dataset.groupKey)">
-                <span class="links-sidebar-item-main">
-                  <span class="links-sidebar-symbol" aria-hidden="true">
-                    <span class="links-icon-svg" th:if="${!#strings.isEmpty(groupIcon)}" th:utext="${groupIcon}"></span>
-                    <span class="links-icon-svg icon-[lucide--folder]"
-                      th:if="${#strings.isEmpty(groupIcon) and group.metadata.name != 'ungrouped'}"></span>
-                    <span class="links-icon-svg icon-[lucide--archive]"
-                      th:if="${#strings.isEmpty(groupIcon) and group.metadata.name == 'ungrouped'}"></span>
-                  </span>
-                  <span class="links-sidebar-label" th:text="${resolvedGroupLabel}">分组</span>
-                </span>
-                <span class="links-sidebar-count-pill"
-                  x-text="$el.closest('[data-links-group]').dataset.groupCount || '0'"
-                  th:text="${group.links != null ? group.links.size() : 0}">0</span>
-              </button>
-            </nav>
-          </div>
-
-          <div class="links-sidebar-block links-feed-sources" x-show="activeView === 'friends'"
-            th:if="${feedGroupsData != null and !#lists.isEmpty(feedGroupsData)}">
-            <p class="links-sidebar-title">RSS 来源</p>
-            <nav class="links-sidebar-nav" aria-label="朋友圈来源">
-              <th:block th:each="feedGroup : ${feedGroupsData}"
-                th:with="feedGroupLabel=${!#strings.isEmpty(feedGroup.spec.displayName) ? feedGroup.spec.displayName : (feedGroup.metadata.name == 'ungrouped' ? '未分组' : feedGroup.metadata.name)}">
-                <button type="button" class="links-sidebar-item" data-feed-group
-                  th:if="${feedGroup.metadata.name != 'ungrouped'}"
-                  th:attr="data-feed-group-key=${feedGroup.metadata.name},data-feed-group-label=${feedGroupLabel}"
-                  :class="{ 'is-active': activeView === 'friends' && isFeedGroupActive($el.dataset.feedGroupKey) }"
-                  :aria-pressed="activeView === 'friends' && isFeedGroupActive($el.dataset.feedGroupKey)"
-                  aria-controls="view-friends" @click="showFeedGroup($el.dataset.feedGroupKey)">
-                  <span class="links-sidebar-item-main">
-                    <span class="links-sidebar-symbol icon-[lucide--folder]" aria-hidden="true"></span>
-                    <span class="links-sidebar-label" th:text="${feedGroupLabel}">分组</span>
-                  </span>
-                  <span class="links-sidebar-count-pill" th:text="${feedGroup.links != null ? #lists.size(feedGroup.links) : 0}">0</span>
-                </button>
-                <button type="button" class="links-sidebar-item links-sidebar-source" data-feed-source
-                  th:each="feedSource : ${feedGroup.links}"
-                  th:attr="data-feed-link-key=${feedSource.metadata.name},data-feed-link-label=${feedSource.spec.displayName}"
-                  :class="{ 'is-active': activeView === 'friends' && isFeedLinkActive($el.dataset.feedLinkKey) }"
-                  :aria-pressed="activeView === 'friends' && isFeedLinkActive($el.dataset.feedLinkKey)"
-                  aria-controls="view-friends" @click="showFeedSource($el.dataset.feedLinkKey)">
-                  <span class="links-sidebar-item-main">
-                    <span class="links-sidebar-source-logo" aria-hidden="true">
-                      <img th:if="${!#strings.isEmpty(feedSource.spec.logo)}" th:src="${feedSource.spec.logo}"
-                        alt="" loading="lazy" decoding="async" />
-                      <span class="icon-[lucide--rss]" th:if="${#strings.isEmpty(feedSource.spec.logo)}"></span>
-                    </span>
-                    <span class="links-sidebar-label" th:text="${feedSource.spec.displayName}">来源</span>
-                  </span>
-                </button>
-              </th:block>
-            </nav>
-          </div>
-
-          <div class="links-sidebar-block">
-            <p class="links-sidebar-title">互动与申请</p>
-            <nav class="links-sidebar-nav" aria-label="友链互动">
-              <button type="button" class="links-sidebar-item" @click="openSubmitAssistant()">
-                <span class="links-sidebar-item-main">
-                  <span class="links-sidebar-symbol icon-[lucide--plus]" aria-hidden="true"></span>
-                  <span class="links-sidebar-label">添加友链</span>
-                </span>
-              </button>
-              <button type="button" id="nav-board" class="links-sidebar-item"
-                th:if="${pluginFinder.available('PluginCommentWidget')}"
-                :class="{ 'is-active': activeView === 'board' }" :aria-pressed="activeView === 'board'"
-                aria-controls="view-board" @click="showBoard()">
-                <span class="links-sidebar-item-main">
-                  <span class="links-sidebar-symbol icon-[lucide--message-circle]" aria-hidden="true"></span>
-                  <span class="links-sidebar-label">留言板</span>
-                </span>
-              </button>
-            </nav>
-          </div>
+        <div class="links-rail-avatar" aria-hidden="true">
+          <img th:if="${!#strings.isEmpty(site.logo)}" th:src="${site.logo}" alt="" />
+          <span th:if="${#strings.isEmpty(site.logo)}" class="icon-[lucide--link-2]"></span>
         </div>
+
+        <nav class="links-rail-nav" aria-label="主要视图">
+          <button type="button" class="links-rail-button"
+            :class="{ 'is-active': activeView === 'links' }"
+            :aria-pressed="activeView === 'links'" @click="showLinks()" title="链接">
+            <span class="icon-[lucide--layout-grid]" aria-hidden="true"></span>
+            <span class="links-rail-label">链接</span>
+            <span class="links-rail-badge" x-text="totalLinks" x-show="totalLinks > 0"></span>
+          </button>
+          <button type="button" class="links-rail-button"
+            :class="{ 'is-active': activeView === 'friends' && !isSavedFeedScope() }"
+            :aria-pressed="activeView === 'friends' && !isSavedFeedScope()" aria-controls="view-friends"
+            @click="showFriends()" title="朋友圈">
+            <span class="icon-[lucide--aperture]" aria-hidden="true"></span>
+            <span class="links-rail-label">朋友圈</span>
+            <span class="links-rail-badge" x-show="canReadFeed && unreadCount > 0"
+              x-text="unreadCount > 99 ? '99+' : unreadCount"></span>
+          </button>
+          <button type="button" class="links-rail-button" x-show="canReadFeed"
+            :class="{ 'is-active': activeView === 'friends' && feedScope === 'favorite' }"
+            :aria-pressed="activeView === 'friends' && feedScope === 'favorite'"
+            aria-controls="view-friends" @click="showSavedFeed('favorite')" title="收藏">
+            <span class="icon-[lucide--star]" aria-hidden="true"></span>
+            <span class="links-rail-label">收藏</span>
+          </button>
+          <button type="button" class="links-rail-button" x-show="canReadFeed"
+            :class="{ 'is-active': activeView === 'friends' && feedScope === 'later' }"
+            :aria-pressed="activeView === 'friends' && feedScope === 'later'"
+            aria-controls="view-friends" @click="showSavedFeed('later')" title="稍后阅读">
+            <span class="icon-[lucide--bookmark]" aria-hidden="true"></span>
+            <span class="links-rail-label">稍后阅读</span>
+          </button>
+          <button type="button" class="links-rail-button"
+            :class="{ 'is-active': activeView === 'apply' }"
+            :aria-pressed="activeView === 'apply'" @click="showApply()" title="添加友链">
+            <span class="icon-[lucide--user-round-plus]" aria-hidden="true"></span>
+            <span class="links-rail-label">添加</span>
+          </button>
+          <button type="button" id="nav-board" class="links-rail-button"
+            th:if="${pluginFinder.available('PluginCommentWidget')}"
+            :class="{ 'is-active': activeView === 'board' }"
+            :aria-pressed="activeView === 'board'" aria-controls="view-board"
+            @click="showBoard()" title="留言板">
+            <span class="icon-[lucide--message-circle]" aria-hidden="true"></span>
+            <span class="links-rail-label">留言</span>
+          </button>
+        </nav>
+
       </aside>
 
-      <section class="links-main">
-        <header class="links-main-toolbar">
-          <div class="links-toolbar-heading">
-            <h1 id="header-title" class="links-toolbar-title" x-text="activeHeaderTitle()">全部友链</h1>
-            <p class="links-toolbar-summary" x-text="resultSummary()" aria-live="polite">共 0 个友链</p>
+      <section class="links-list-pane" aria-label="链接与动态列表">
+        <header class="links-list-header">
+          <label class="links-search-wrap" x-show="!isSavedFeedScope()">
+            <span class="icon-[lucide--search]" aria-hidden="true"></span>
+            <input class="links-search" type="search" x-model="searchQuery"
+              :placeholder="activeView === 'friends' ? '搜索来源' : '搜索'"
+              :aria-label="activeView === 'friends' ? '搜索 RSS 来源' : '搜索友链'" />
+          </label>
+          <div class="links-search-wrap links-search-static" x-show="isSavedFeedScope()" aria-live="polite">
+            <span :class="feedScope === 'favorite' ? 'icon-[lucide--star]' : 'icon-[lucide--bookmark]'" aria-hidden="true"></span>
+            <strong x-text="activeFeedLabel()"></strong>
           </div>
-
-          <div class="links-toolbar-actions">
-            <label class="links-toolbar-search-wrap" x-show="activeView === 'links'">
-              <span class="links-toolbar-search-icon icon-[lucide--search]" aria-hidden="true"></span>
-              <input class="links-toolbar-search" type="search" x-model="searchQuery" placeholder="搜索..."
-                aria-label="搜索友链">
-            </label>
-
-            <select class="links-toolbar-select" x-model="sortMode" x-show="activeView === 'links'"
-              aria-label="友链排序方式">
-              <option value="default">默认排序</option>
-              <option value="name">名称排序</option>
-              <option value="recent">最近收录</option>
-            </select>
-
-            <button type="button" class="links-toolbar-refresh" x-show="activeView === 'friends'"
-              :disabled="feedLoading" @click="refreshFeed()" aria-label="刷新朋友圈" title="刷新朋友圈">
-              <span class="links-button-icon icon-[lucide--refresh-cw]" :class="{ 'is-spinning': feedLoading }" aria-hidden="true"></span>
-            </button>
-            <button type="button" class="links-toolbar-apply" @click="openSubmitAssistant()" aria-label="添加友链">
-              <span class="links-button-icon icon-[lucide--plus]" aria-hidden="true"></span>
-            </button>
-          </div>
+          <button type="button" class="links-list-add" @click="showApply()" aria-label="添加友链" title="添加友链">
+            <span class="icon-[lucide--plus]" aria-hidden="true"></span>
+          </button>
         </header>
 
-        <div class="links-main-scroll">
-          <div id="view-links" class="links-view" x-cloak x-show="activeView === 'links'">
-            <div class="links-groups" th:if="${groupsData != null and !#lists.isEmpty(groupsData)}">
-              <section class="links-group" th:each="group : ${groupsData}" th:with="
-                         resolvedGroupLabel=${!#strings.isEmpty(group.spec.displayName) ? group.spec.displayName : (group.metadata.name == 'ungrouped' ? '未分组' : group.metadata.name)},
-                         groupIcon=${#annotations.get(group, 'icon')}" x-show="hasVisibleGroup($el.dataset.groupKey)"
-                data-links-group-section th:attr="data-group-key=${group.metadata.name}">
-                <header class="links-group-header">
-                  <span class="links-group-icon" aria-hidden="true">
-                    <span class="links-icon-svg" th:if="${!#strings.isEmpty(groupIcon)}" th:utext="${groupIcon}"></span>
-                    <span class="links-icon-svg icon-[lucide--folder]" th:if="${#strings.isEmpty(groupIcon)}"></span>
+        <div class="links-list-toolbar" x-show="activeView !== 'friends'">
+          <strong x-text="allLinksTitle">全部友链</strong>
+          <label class="links-group-filter">
+            <span class="sr-only">筛选友链分组</span>
+            <select x-model="selectedGroup" @change="setGroup($event.target.value)">
+              <option value="">全部分组</option>
+              <option th:each="group : ${groupsData}" data-links-group
+                th:value="${group.metadata.name}"
+                th:attr="data-group-key=${group.metadata.name},
+                         data-group-label=${!#strings.isEmpty(group.spec.displayName) ? group.spec.displayName : (group.metadata.name == 'ungrouped' ? '未分组' : group.metadata.name)},
+                         data-group-synthetic=${group.metadata.name == 'ungrouped'},
+                         data-group-count=${group.links != null ? #lists.size(group.links) : 0}"
+                th:text="${!#strings.isEmpty(group.spec.displayName) ? group.spec.displayName : (group.metadata.name == 'ungrouped' ? '未分组' : group.metadata.name)}">分组</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="links-list-toolbar" x-show="activeView === 'friends' && !isSavedFeedScope()">
+          <strong x-text="activeFeedLabel()">朋友圈</strong>
+          <span x-text="isSavedFeedScope() ? feedItemCount + ' 条' : feedSources.length + ' 个来源'">0 个来源</span>
+        </div>
+
+        <div class="links-list-scroll">
+          <div class="links-chat-list" x-show="activeView !== 'friends'">
+            <th:block th:each="group : ${groupsData}"
+              th:with="resolvedGroupLabel=${!#strings.isEmpty(group.spec.displayName) ? group.spec.displayName : (group.metadata.name == 'ungrouped' ? '未分组' : group.metadata.name)}">
+              <button type="button" class="links-chat-row" th:each="link : ${group.links}"
+                data-link-card
+                x-show="shouldShowLink($el)"
+                :class="{ 'is-active': isLinkActive($el.dataset.linkKey) }"
+                :style="{ order: cardOrder($el) }"
+                @click="selectLink($el.dataset.linkKey)"
+                th:attr="data-link-key=${link.metadata.name},
+                         data-group-key=${group.metadata.name},
+                         data-group-label=${resolvedGroupLabel},
+                         data-link-name=${link.spec.displayName},
+                         data-link-description=${link.spec.description ?: ''},
+                         data-link-url=${link.spec.url},
+                         data-link-logo=${link.spec.logo ?: ''},
+                         data-link-priority=${link.spec.priority ?: 0},
+                         data-link-created=${link.metadata.creationTimestamp}">
+                <span class="links-row-avatar" aria-hidden="true">
+                  <img th:if="${!#strings.isEmpty(link.spec.logo)}" th:src="${link.spec.logo}" alt=""
+                    loading="lazy" decoding="async"
+                    onerror="this.hidden=true;this.nextElementSibling.hidden=false" />
+                  <span class="links-row-avatar-fallback icon-[lucide--globe]"
+                    th:attr="hidden=${!#strings.isEmpty(link.spec.logo)}"></span>
+                </span>
+                <span class="links-row-copy">
+                  <span class="links-row-topline">
+                    <strong class="links-row-title" th:text="${link.spec.displayName}">站点</strong>
+                    <time class="links-row-time" th:if="${link.metadata.creationTimestamp != null}"
+                      th:text="${#temporals.format(link.metadata.creationTimestamp, 'MM/dd')}">01/01</time>
                   </span>
-                  <h2 class="links-group-title" th:text="${resolvedGroupLabel}">分组</h2>
-                  <span class="links-group-count"
-                    x-text="groupVisibleCount($el.closest('[data-links-group-section]').dataset.groupKey)"
-                    th:text="${group.links != null ? group.links.size() : 0}">0</span>
-                  <div class="links-group-divider"></div>
-                </header>
+                  <span class="link-card-desc links-row-preview"
+                    th:text="${!#strings.isEmpty(link.spec.description) ? link.spec.description : link.spec.url}">简介</span>
+                </span>
+              </button>
+            </th:block>
 
-                <div class="links-group-grid">
-                  <a class="link-card" th:each="link : ${group.links}" data-link-card th:href="${link.spec.url}"
-                    target="_blank" rel="noopener noreferrer" x-show="shouldShowLink($el)"
-                    x-bind:style="{ order: cardOrder($el) }" th:attr="data-link-key=${link.metadata.name},
-                              data-group-key=${group.metadata.name},
-                              data-link-name=${link.spec.displayName},
-                              data-link-description=${link.spec.description ?: ''},
-                              data-link-url=${link.spec.url},
-                              data-link-priority=${link.spec.priority ?: 0},
-                              data-link-created=${link.metadata.creationTimestamp}">
-                    <div class="link-card-logo">
-                      <img th:if="${!#strings.isEmpty(link.spec.logo)}" th:src="${link.spec.logo}"
-                        alt="" loading="lazy" decoding="async"
-                        onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-                      <span class="link-card-fallback"
-                        th:style="${!#strings.isEmpty(link.spec.logo) ? 'display:none' : ''}">
-                        <span class="link-card-fallback-icon icon-[lucide--globe]" aria-hidden="true"></span>
-                      </span>
-                    </div>
-                    <div class="link-card-copy">
-                      <h3 class="link-card-title" th:text="${link.spec.displayName}">站点</h3>
-                      <p class="link-card-desc"
-                        th:text="${!#strings.isEmpty(link.spec.description) ? link.spec.description : '这个站点还没有填写简介。'}">
-                        描述</p>
-                      <p class="link-card-url">
-                        <span class="link-card-url-icon icon-[lucide--external-link]" aria-hidden="true"></span>
-                        <span class="link-card-url-text" x-text="linkHost($el.closest('[data-link-card]'))"
-                          th:text="${link.spec.url}">example.com</span>
-                      </p>
-                    </div>
-                  </a>
-                </div>
-              </section>
-            </div>
-
-            <section class="links-empty" th:if="${groupsData == null or #lists.isEmpty(groupsData)}">
-              <h2 class="links-empty-title">这里还没有友情链接</h2>
-              <p class="links-empty-text">在链接管理插件中新增链接后，这里会自动显示分组与友链卡片。</p>
+            <section class="links-list-empty" th:if="${groupsData == null or #lists.isEmpty(groupsData)}">
+              <span class="icon-[lucide--link-2-off]" aria-hidden="true"></span>
+              <strong>还没有友情链接</strong>
+              <p>在 PluginLinks 中新增链接后会显示在这里。</p>
             </section>
-
-            <section class="links-empty" x-show="groups.length > 0 && visibleCount() === 0" aria-live="polite">
-              <h2 class="links-empty-title" x-text="emptyTitle()">没有匹配的友链</h2>
-              <p class="links-empty-text" x-text="emptyText()">换一个关键词，或者回到全部友链继续浏览。</p>
+            <section class="links-list-empty" x-show="groups.length > 0 && visibleCount() === 0" aria-live="polite">
+              <span class="icon-[lucide--search-x]" aria-hidden="true"></span>
+              <strong x-text="emptyTitle()">没有匹配的友链</strong>
+              <p x-text="emptyText()">换一个关键词或分组继续浏览。</p>
             </section>
           </div>
 
-          <div id="view-friends" class="links-feed-view" x-cloak x-show="activeView === 'friends'">
-            <div class="links-feed-list" data-feed-list :class="{ 'is-updating': feedLoading && feedReplacing }">
-              <article class="links-feed-card" data-feed-item th:each="feed : ${feedPageData != null ? feedPageData.items : {}}"
+          <div class="links-chat-list" x-show="activeView === 'friends' && !isSavedFeedScope()">
+            <button type="button" class="links-chat-row links-feed-all-row"
+              :class="{ 'is-active': feedScope === 'all' && !feedGroupName && !feedLinkName }"
+              @click="showAllFeed()">
+              <span class="links-row-avatar links-row-avatar--moments">
+                <span class="icon-[lucide--aperture]" aria-hidden="true"></span>
+              </span>
+              <span class="links-row-copy">
+                <span class="links-row-topline">
+                  <strong class="links-row-title">全部动态</strong>
+                  <span class="links-row-time" x-text="feedItemCount ? feedItemCount + ' 条' : ''"></span>
+                </span>
+                <span class="links-row-preview">按时间查看所有公开 RSS 更新</span>
+              </span>
+            </button>
+
+            <button type="button" class="links-chat-row links-feed-unread-row" x-show="canReadFeed"
+              :class="{ 'is-active': feedScope === 'unread' && !feedGroupName && !feedLinkName }"
+              @click="showUnreadFeed()">
+              <span class="links-row-avatar links-row-avatar--moments">
+                <span class="icon-[lucide--mail]" aria-hidden="true"></span>
+              </span>
+              <span class="links-row-copy">
+                <span class="links-row-topline">
+                  <strong class="links-row-title">未读动态</strong>
+                  <span class="links-row-time" x-text="unreadCount ? unreadCount + ' 条' : '已读完'"></span>
+                </span>
+                <span class="links-row-preview">查看尚未打开的 RSS 更新</span>
+              </span>
+            </button>
+
+            <th:block th:each="feedGroup : ${feedGroupsData}"
+              th:with="feedGroupLabel=${!#strings.isEmpty(feedGroup.spec.displayName) ? feedGroup.spec.displayName : (feedGroup.metadata.name == 'ungrouped' ? '未分组' : feedGroup.metadata.name)}">
+              <span class="links-list-section" data-feed-group
+                th:attr="data-feed-group-key=${feedGroup.metadata.name},data-feed-group-label=${feedGroupLabel}"
+                th:text="${feedGroupLabel}">分组</span>
+              <button type="button" class="links-chat-row links-source-row"
+                data-feed-source th:each="feedSource : ${feedGroup.links}"
+                x-show="matchesFeedSource($el)"
+                :class="{ 'is-active': isFeedLinkActive($el.dataset.feedLinkKey) }"
+                @click="showFeedSource($el.dataset.feedLinkKey)"
+                th:attr="data-feed-link-key=${feedSource.metadata.name},
+                         data-feed-link-label=${feedSource.spec.displayName},
+                         data-feed-link-description=${feedSource.spec.description ?: ''},
+                         data-feed-link-logo=${feedSource.spec.logo ?: ''},
+                         data-feed-link-url=${feedSource.spec.url ?: ''}">
+                <span class="links-row-avatar" aria-hidden="true">
+                  <img th:if="${!#strings.isEmpty(feedSource.spec.logo)}" th:src="${feedSource.spec.logo}" alt=""
+                    loading="lazy" decoding="async" />
+                  <span th:if="${#strings.isEmpty(feedSource.spec.logo)}" class="icon-[lucide--rss]"></span>
+                </span>
+                <span class="links-row-copy">
+                  <span class="links-row-topline">
+                    <strong class="links-row-title" th:text="${feedSource.spec.displayName}">来源</strong>
+                  </span>
+                  <span class="links-row-preview"
+                    th:text="${!#strings.isEmpty(feedSource.spec.description) ? feedSource.spec.description : '查看该来源的 RSS 动态'}">RSS 动态</span>
+                </span>
+              </button>
+            </th:block>
+
+            <section class="links-list-empty" th:if="${feedGroupsData == null or #lists.isEmpty(feedGroupsData)}">
+              <span class="icon-[lucide--rss]" aria-hidden="true"></span>
+              <strong>还没有公开的 RSS 来源</strong>
+              <p>在 PluginLinks 中开启 RSS 与公开动态后会显示在这里。</p>
+            </section>
+          </div>
+
+          <div class="links-chat-list links-saved-shortcuts" x-show="activeView === 'friends' && isSavedFeedScope()">
+            <button type="button" class="links-chat-row is-active" @click="refreshFeed()">
+              <span class="links-row-avatar links-row-avatar--moments">
+                <span :class="feedScope === 'favorite' ? 'icon-[lucide--star]' : 'icon-[lucide--bookmark]'" aria-hidden="true"></span>
+              </span>
+              <span class="links-row-copy">
+                <span class="links-row-topline">
+                  <strong class="links-row-title" x-text="activeFeedLabel()"></strong>
+                  <span class="links-row-time" x-text="feedItemCount + ' 条'"></span>
+                </span>
+                <span class="links-row-preview"
+                  x-text="feedScope === 'favorite' ? '收藏的 RSS 动态' : '准备稍后继续阅读的动态'"></span>
+              </span>
+            </button>
+            <p class="links-saved-note">状态由 PluginLinks 保存；打开“稍后阅读”内容后会自动移出该列表。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="links-detail-pane" :aria-hidden="!detailOpen()">
+        <header class="links-detail-header">
+          <button type="button" class="links-detail-back" @click="collapseDetail()" aria-label="返回列表">
+            <span class="icon-[lucide--chevron-left]" aria-hidden="true"></span>
+          </button>
+          <div class="links-detail-heading">
+            <strong x-text="detailTitle()">链接</strong>
+            <span x-text="detailSubtitle()"></span>
+          </div>
+          <button type="button" class="links-detail-action" x-show="activeView === 'friends' && !selectedFeedItem"
+            :disabled="feedLoading" @click="refreshFeed()" aria-label="刷新动态" title="刷新动态">
+            <span class="icon-[lucide--refresh-cw]" :class="{ 'is-spinning': feedLoading }" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="links-detail-action links-detail-close"
+            @click="collapseDetail()" aria-label="收起详情" title="收起详情">
+            <span class="icon-[lucide--panel-right-close]" aria-hidden="true"></span>
+          </button>
+        </header>
+
+        <div class="links-detail-scroll">
+          <div id="view-links" class="links-link-detail" x-show="activeView === 'links' && selectedLink">
+            <div class="links-profile-card">
+              <span class="links-profile-logo" aria-hidden="true">
+                <template x-if="selectedLink?.logo">
+                  <img :src="selectedLink.logo" alt="" />
+                </template>
+                <span x-show="!selectedLink?.logo" class="icon-[lucide--globe]"></span>
+              </span>
+              <div>
+                <h1 x-text="selectedLink?.name || '链接详情'"></h1>
+                <p x-text="selectedLink?.description || '这个站点还没有填写简介。'"></p>
+              </div>
+            </div>
+            <dl class="links-profile-meta">
+              <div><dt>分组</dt><dd x-text="selectedLink?.groupLabel || '未分组'"></dd></div>
+              <div><dt>网址</dt><dd x-text="selectedLink ? readableLinkHost(selectedLink.url) : ''"></dd></div>
+            </dl>
+            <a class="links-primary-action" :href="selectedLink?.url || '#'"
+              target="_blank" rel="noopener noreferrer">
+              <span>访问网站</span>
+              <span class="icon-[lucide--arrow-up-right]" aria-hidden="true"></span>
+            </a>
+          </div>
+
+          <div id="view-friends" class="links-feed-view" x-show="activeView === 'friends' && detailOpen()">
+            <article class="links-feed-reader" x-show="selectedFeedItem">
+              <button type="button" class="links-feed-reader-back" @click="closeFeedItem()">
+                <span class="icon-[lucide--arrow-left]" aria-hidden="true"></span>
+                返回动态列表
+              </button>
+              <header class="links-feed-reader-source">
+                <span class="links-feed-profile-logo" :class="{ 'is-fallback': !selectedFeedItem?.authorLogo }" aria-hidden="true">
+                  <template x-if="selectedFeedItem?.authorLogo">
+                    <img :src="selectedFeedItem.authorLogo" alt="" />
+                  </template>
+                  <span x-show="!selectedFeedItem?.authorLogo" class="icon-[lucide--rss]"></span>
+                </span>
+                <div>
+                  <strong x-text="selectedFeedItem?.author || '未知来源'"></strong>
+                  <time :datetime="selectedFeedItem?.publishedAt || ''"
+                    x-text="feedPublishedLabel(selectedFeedItem?.publishedAt)"></time>
+                </div>
+              </header>
+              <h1 x-text="selectedFeedItem?.title || '未命名动态'"></h1>
+              <p class="links-feed-reader-summary"
+                x-text="selectedFeedItem?.summary || '这条 RSS 动态没有提供摘要，可打开原文继续阅读。'"></p>
+              <p class="links-feed-reader-hint">进入详情后自动标记为已读；来自“稍后阅读”时也会自动完成该任务。</p>
+              <div class="links-feed-reader-actions">
+                <button type="button" class="links-feed-reader-action"
+                  :class="{ 'is-active': selectedFeedItem?.favorite }"
+                  :disabled="isFeedStateBusy(selectedFeedItemId, 'favorite')"
+                  @click="toggleFeedFavorite()">
+                  <span class="icon-[lucide--star]" aria-hidden="true"></span>
+                  <span x-text="selectedFeedItem?.favorite ? '取消收藏' : '收藏'"></span>
+                </button>
+                <button type="button" class="links-feed-reader-action"
+                  :class="{ 'is-active': selectedFeedItem?.readLater }"
+                  :disabled="isFeedStateBusy(selectedFeedItemId, 'later')"
+                  @click="toggleFeedReadLater()">
+                  <span class="icon-[lucide--bookmark]" aria-hidden="true"></span>
+                  <span x-text="selectedFeedItem?.readLater ? '移出稍后阅读' : '稍后阅读'"></span>
+                </button>
+                <button type="button" class="links-feed-reader-action"
+                  :class="{ 'is-active': selectedFeedItem && !selectedFeedItem.read }"
+                  :disabled="isFeedStateBusy(selectedFeedItemId, 'read')"
+                  @click="toggleFeedRead()">
+                  <span :class="selectedFeedItem?.read ? 'icon-[lucide--mail]' : 'icon-[lucide--mail-open]'" aria-hidden="true"></span>
+                  <span x-text="selectedFeedItem?.read ? '设为未读' : '设为已读'"></span>
+                </button>
+                <a class="links-primary-action" :href="selectedFeedItem?.url || '#'"
+                  target="_blank" rel="noopener noreferrer">
+                  阅读原文 <span class="icon-[lucide--arrow-up-right]" aria-hidden="true"></span>
+                </a>
+              </div>
+            </article>
+
+            <section class="links-feed-profile" x-show="!selectedFeedItem && feedLinkName && activeFeedSource()">
+              <span class="links-feed-profile-logo" :class="{ 'is-fallback': !activeFeedSource()?.logo }" aria-hidden="true">
+                <template x-if="activeFeedSource()?.logo">
+                  <img :src="activeFeedSource().logo" alt="" />
+                </template>
+                <span x-show="!activeFeedSource()?.logo" class="icon-[lucide--rss]"></span>
+              </span>
+              <div class="links-feed-profile-copy">
+                <strong x-text="activeFeedSource()?.label || '当前来源'"></strong>
+                <p x-text="activeFeedSource()?.description || '查看该来源的 RSS 动态'"></p>
+                <span x-text="readableLinkHost(activeFeedSource()?.url || '')"></span>
+              </div>
+              <a class="links-primary-action links-feed-profile-action"
+                :href="activeFeedSource()?.url || '#'" target="_blank" rel="noopener noreferrer">
+                <span>访问网站</span>
+                <span class="icon-[lucide--arrow-up-right]" aria-hidden="true"></span>
+              </a>
+            </section>
+
+            <div class="links-feed-list" data-feed-list x-show="!selectedFeedItem"
+              :class="{ 'is-updating': feedLoading && feedReplacing }">
+              <article class="links-feed-card" data-feed-item
+                th:each="feed : ${feedPageData != null ? feedPageData.items : {}}"
                 th:attr="data-feed-id=${feed.id},data-feed-link-name=${feed.linkName}">
-                <a class="links-feed-avatar" th:href="${!#strings.isEmpty(feed.authorUrl) ? feed.authorUrl : feed.url}"
+                <a class="links-feed-avatar" th:classappend="${#strings.isEmpty(feed.authorLogo)} ? ' is-fallback' : ''"
+                  th:href="${!#strings.isEmpty(feed.authorUrl) ? feed.authorUrl : feed.url}"
                   target="_blank" rel="noopener noreferrer" tabindex="-1" aria-hidden="true">
-                  <img th:if="${!#strings.isEmpty(feed.authorLogo)}" th:src="${feed.authorLogo}" alt="" loading="lazy" decoding="async" />
+                  <img th:if="${!#strings.isEmpty(feed.authorLogo)}" th:src="${feed.authorLogo}" alt=""
+                    loading="lazy" decoding="async" />
                   <span th:if="${#strings.isEmpty(feed.authorLogo)}" class="icon-[lucide--rss]"></span>
                 </a>
                 <div class="links-feed-copy">
                   <div class="links-feed-head">
                     <a class="links-feed-author" th:href="${!#strings.isEmpty(feed.authorUrl) ? feed.authorUrl : feed.url}"
-                      target="_blank" rel="noopener noreferrer" th:text="${!#strings.isEmpty(feed.author) ? feed.author : '未知来源'}">来源</a>
+                      target="_blank" rel="noopener noreferrer"
+                      th:text="${!#strings.isEmpty(feed.author) ? feed.author : '未知来源'}">来源</a>
                     <time class="links-feed-time" th:if="${feed.publishedAt != null}"
-                      th:datetime="${feed.publishedAt}" th:text="${#temporals.format(feed.publishedAt, 'yyyy年MM月dd日 HH:mm')}">时间</time>
+                      th:datetime="${feed.publishedAt}"
+                      th:text="${#temporals.format(feed.publishedAt, 'MM月dd日 HH:mm')}">时间</time>
                   </div>
                   <h2 class="links-feed-title">
                     <a th:href="${feed.url}" target="_blank" rel="noopener noreferrer"
-                      th:text="${!#strings.isEmpty(feed.title) ? feed.title : '未命名动态'}">动态标题</a>
+                      th:text="${!#strings.isEmpty(feed.title) ? feed.title : '未命名动态'}">动态</a>
                   </h2>
                   <p class="links-feed-summary" th:if="${!#strings.isEmpty(feed.summary)}" th:text="${feed.summary}">摘要</p>
                   <div class="links-feed-footer">
-                    <button type="button" class="links-feed-source-action" th:if="${!#strings.isEmpty(feed.linkName)}"
-                      th:attr="data-feed-link-key=${feed.linkName}" @click="showFeedSource($el.dataset.feedLinkKey)">
-                      只看此来源
-                    </button>
+                    <button type="button" class="links-feed-source-action"
+                      th:if="${!#strings.isEmpty(feed.linkName)}"
+                      th:attr="data-feed-target-link=${feed.linkName}"
+                      @click="showFeedSource($el.dataset.feedTargetLink)">只看此来源</button>
                     <a class="links-feed-open" th:href="${feed.url}" target="_blank" rel="noopener noreferrer">
-                      阅读原文
-                      <span class="icon-[lucide--arrow-up-right]" aria-hidden="true"></span>
+                      阅读原文 <span class="icon-[lucide--arrow-up-right]" aria-hidden="true"></span>
                     </a>
                   </div>
                 </div>
               </article>
             </div>
 
-            <section class="links-empty links-feed-status" x-show="feedStatus !== 'ready' || feedItemCount === 0"
+            <div class="links-feed-action-message" x-show="feedActionMessage" role="status"
+              aria-live="polite" x-text="feedActionMessage"></div>
+
+            <section class="links-detail-empty" x-show="!selectedFeedItem && (feedStatus !== 'ready' || feedItemCount === 0)"
               :data-state="feedStatus" aria-live="polite">
-              <span class="links-feed-status-icon" :class="feedStatusIcon()" aria-hidden="true"></span>
-              <h2 class="links-empty-title" x-text="feedStatusTitle()">正在确认朋友圈状态</h2>
-              <p class="links-empty-text" x-text="feedStatusText()">不会显示骨架屏，确认完成后会直接展示结果。</p>
-              <button type="button" class="links-board-action" x-show="feedStatus === 'error'" @click="refreshFeed()">重试</button>
+              <span :class="feedStatusIcon()" aria-hidden="true"></span>
+              <strong x-text="feedStatusTitle()">正在确认朋友圈状态</strong>
+              <p x-text="feedStatusText()">确认完成后会直接显示结果。</p>
+              <button type="button" class="links-secondary-action"
+                x-show="feedStatus === 'error'" @click="refreshFeed()">重试</button>
             </section>
 
-            <div class="links-feed-pagination" x-show="feedHasNext || feedLoading" x-intersect.margin.240px="loadNextFeed()">
-              <button type="button" class="links-feed-more" :disabled="feedLoading" @click="loadNextFeed()">
+            <div class="links-feed-pagination" x-show="!selectedFeedItem && (feedHasNext || feedLoading)"
+              x-intersect.margin.240px="loadNextFeed()">
+              <button type="button" class="links-secondary-action links-feed-more"
+                :disabled="feedLoading" @click="loadNextFeed()">
                 <span class="icon-[lucide--loader-circle]" :class="{ 'is-spinning': feedLoading }" aria-hidden="true"></span>
                 <span x-text="feedLoading ? '正在加载…' : '继续加载'"></span>
               </button>
             </div>
           </div>
 
-          <div id="view-board" class="links-board-view" x-cloak x-show="activeView === 'board'">
-            <section class="links-board-compose">
-              <div class="links-board-accent"></div>
-              <h2 class="links-board-title">发表留言 / 申请友链</h2>
-              <p class="links-board-text">添加友链助手会先在浏览器识别站点；已登录且有权限时可使用官方后台识别和直接创建，访客则生成申请内容投递到留言板。</p>
-              <button type="button" class="links-board-action" @click="openSubmitAssistant()">打开添加友链助手</button>
-            </section>
+          <section id="view-apply" class="links-submit-panel" x-data="linkSubmitForm"
+            x-show="activeView === 'apply'" aria-labelledby="link-submit-title">
+            <div class="links-panel-intro">
+              <span class="links-panel-intro-icon icon-[lucide--user-round-plus]" aria-hidden="true"></span>
+              <div>
+                <h1 id="link-submit-title">添加友链</h1>
+                <p>成功时安静填入或提交；失败时会说明是跨域、权限、地址还是服务问题。</p>
+              </div>
+            </div>
 
+            <div class="links-submit-mode" :data-state="capabilityStatus">
+              <span class="links-submit-mode-icon" :class="capabilityIcon()" aria-hidden="true"></span>
+              <div>
+                <strong x-text="capabilityLabel()">正在确认提交方式</strong>
+                <p x-text="capabilityDescription()">只在登录后检查官方后台权限。</p>
+              </div>
+            </div>
+
+            <form class="links-extract-form" @submit.prevent="autofillFromUrl">
+              <label for="link-submit-site-url">网站地址</label>
+              <div class="links-extract-row">
+                <input id="link-submit-site-url" class="links-input" type="url"
+                  x-model="form.url" required data-link-meta-input placeholder="https://your-site.example.com" />
+                <button type="submit" class="links-helper-btn"
+                  data-link-meta-action="autofill" :disabled="fetchingMeta"
+                  x-text="fetchingMeta ? '识别中…' : '识别信息'">识别信息</button>
+                <button type="button" class="links-helper-btn links-helper-btn--ghost"
+                  data-link-meta-action="manual" :disabled="fetchingMeta" @click="fillFromUrl">手动填写</button>
+              </div>
+              <p>管理员优先使用 PluginLinks 官方受保护接口；访客只做不带本站凭据的浏览器识别。</p>
+            </form>
+
+            <div class="links-preview" x-show="previewVisible">
+              <span class="links-preview-logo">
+                <template x-if="detail.logo"><img :src="detail.logo" alt="" /></template>
+                <span x-show="!detail.logo" class="icon-[lucide--globe]" aria-hidden="true"></span>
+              </span>
+              <div>
+                <strong x-text="detail.displayName || '等待识别站点信息'"></strong>
+                <p x-text="detail.description || '识别后可继续补充站点简介。'"></p>
+                <span class="links-preview-platform" x-show="detail.platform" x-text="detail.platform"></span>
+              </div>
+            </div>
+
+            <div class="links-submit-fields">
+              <label><span>申请类型</span>
+                <select class="links-input" x-model="form.type" @change="onTypeChange()">
+                  <option value="add">新增友链</option><option value="update">修改友链</option>
+                </select>
+              </label>
+              <label><span>分组</span>
+                <select class="links-input" x-model="form.groupName">
+                  <option value="">不指定分组</option>
+                  <option th:each="group : ${groupsData}" th:if="${group.metadata.name != 'ungrouped'}"
+                    data-submit-group-option th:value="${group.metadata.name}"
+                    th:text="${group.spec.displayName}">分组</option>
+                </select>
+              </label>
+              <label><span>名称</span>
+                <input class="links-input" type="text" x-model="form.displayName"
+                  data-link-field="displayName" placeholder="网站名称" />
+              </label>
+              <label><span>Logo</span>
+                <input class="links-input" type="url" x-model="form.logo"
+                  data-link-field="logo" placeholder="https://example.com/logo.png" />
+              </label>
+              <label class="links-field-wide"><span>描述</span>
+                <textarea class="links-textarea" x-model="form.description"
+                  data-link-field="description" placeholder="一句话介绍你的网站"></textarea>
+              </label>
+              <label class="links-field-wide" x-show="form.type === 'update'"><span>修改说明</span>
+                <textarea class="links-textarea" x-model="form.updateDescription"
+                  placeholder="说明需要修改的内容"></textarea>
+                <small>修改申请不会直接覆盖链接，由管理员确认后处理。</small>
+              </label>
+              <label class="links-field-wide"><span>RSS 链接</span>
+                <input class="links-input" type="url" x-model="form.rssUrl"
+                  data-link-field="rssUrl" placeholder="https://example.com/rss.xml" />
+              </label>
+              <label class="links-field-wide" x-show="isMessageMode()"><span>联系邮箱（可选）</span>
+                <input class="links-input" type="email" x-model="form.email"
+                  placeholder="name@example.com" />
+              </label>
+            </div>
+
+            <textarea id="markdownOutput" class="links-markdown-output" x-show="isMessageMode()" readonly
+              :value="buildMarkdown(form.url)" placeholder="申请草稿会显示在这里"></textarea>
+            <div class="links-submit-result" x-show="result.show"
+              :class="{ 'is-success': result.success, 'is-warning': result.warning, 'is-error': !result.success && !result.warning }"
+              role="status" aria-live="polite" x-text="result.message"></div>
+            <div class="links-submit-actions">
+              <span x-text="primaryActionNote()"></span>
+              <button id="copyBtn" type="button" class="links-primary-action"
+                :disabled="isDirectCreateMode() ? !canCreateDirect() : !canCopyDraft()"
+                @click="isDirectCreateMode() ? createLink() : copyAndGotoBoard()">
+                <span x-text="primaryActionLabel()"></span>
+              </button>
+            </div>
+          </section>
+
+          <div id="view-board" class="links-board-view" x-show="activeView === 'board'">
+            <section class="links-board-compose">
+              <span class="links-panel-intro-icon icon-[lucide--message-circle]" aria-hidden="true"></span>
+              <div>
+                <h1>留言板</h1>
+                <p>这里用于友链申请与站点留言，申请助手可以自动生成完整内容。</p>
+              </div>
+              <button type="button" class="links-secondary-action" @click="showApply()">填写友链申请</button>
+            </section>
             <!-- plugin-contract: PluginCommentWidget; contract-version: 3.1.2; tested-version: 3.1.2; status: confirmed; source: docs/插件适配契约.md -->
             <section class="links-comments" id="links-comments"
               th:if="${pluginFinder.available('PluginCommentWidget')}">
-              <h2 class="links-comments-title">留言板</h2>
-              <div class="links-comments-shell">
-                <halo:comment group="plugin.halo.run" kind="Plugin" th:attr="name=${pluginName}"></halo:comment>
-              </div>
+              <halo:comment group="plugin.halo.run" kind="Plugin" th:attr="name=${pluginName}"></halo:comment>
             </section>
-
-            <section class="links-empty" th:if="${!pluginFinder.available('PluginCommentWidget')}">
-              <h2 class="links-empty-title">留言组件未启用</h2>
-              <p class="links-empty-text">管理员仍可直接添加友链；访客可复制申请内容后通过站点提供的其他联系方式提交。</p>
+            <section class="links-detail-empty" th:if="${!pluginFinder.available('PluginCommentWidget')}">
+              <span class="icon-[lucide--message-circle-off]" aria-hidden="true"></span>
+              <strong>留言组件未启用</strong>
+              <p>管理员仍可直接添加友链，访客可复制申请内容后通过其他联系方式提交。</p>
             </section>
           </div>
         </div>
       </section>
     </div>
-
-    <dialog id="link-submit-modal" class="links-modal" x-data="linkSubmitForm" @close="onDialogClosed()"
-      aria-labelledby="link-submit-modal-title" aria-describedby="link-submit-modal-hint">
-      <div class="links-modal-topbar">
-        <div class="links-modal-lights traffic-lights">
-          <button type="button" class="links-modal-light is-red" aria-label="关闭添加友链窗口" title="关闭"
-            @click="$el.closest('dialog').close()"></button>
-          <span class="links-modal-light is-yellow"></span>
-          <span class="links-modal-light is-green"></span>
-        </div>
-        <div id="link-submit-modal-title" class="links-modal-title">添加友链</div>
-        <button type="button" class="links-modal-close" aria-label="关闭添加友链窗口" title="关闭"
-          @click="$el.closest('dialog').close()">
-          <span class="links-button-icon icon-[lucide--x]" aria-hidden="true"></span>
-        </button>
-      </div>
-
-      <div class="links-modal-body">
-        <div class="links-submit-mode" :data-state="capabilityStatus">
-          <span class="links-submit-mode-icon" :class="capabilityIcon()" aria-hidden="true"></span>
-          <div>
-            <strong x-text="capabilityLabel()">正在确认提交方式</strong>
-            <p x-text="capabilityDescription()">只在登录后检查官方后台权限。</p>
-          </div>
-          <button type="button" class="links-submit-mode-switch" x-show="canManage && form.type === 'add'"
-            @click="preferMessage = !preferMessage" x-text="preferMessage ? '使用直接添加' : '改用留言申请'">改用留言申请</button>
-        </div>
-
-        <p id="link-submit-modal-hint" class="links-modal-hint">
-          识别成功不会弹出提示，内容会直接填入表单；只有识别或提交失败时才说明具体原因。访客请求不会携带本站登录信息。
-        </p>
-
-        <form class="links-extract-form" @submit.prevent="autofillFromUrl">
-          <label class="links-extract-label" for="link-submit-site-url">网站地址</label>
-          <div class="links-extract-row">
-            <input id="link-submit-site-url" class="links-input" type="url" x-model="form.url" required
-              data-link-meta-input placeholder="https://your-site.example.com">
-            <button type="submit" class="links-helper-btn" data-link-meta-action="autofill" :disabled="fetchingMeta">
-              <span x-text="fetchingMeta ? '识别中…' : '识别信息'"></span>
-            </button>
-            <button type="button" class="links-helper-btn links-helper-btn--ghost"
-              data-link-meta-action="manual" :disabled="fetchingMeta" @click="fillFromUrl">
-              <span>手动填写</span>
-            </button>
-          </div>
-          <p class="links-extract-note">登录且具权限时优先调用 PluginLinks 官方详情接口；否则仅由浏览器读取目标网页，跨域失败后仍可手动填写。</p>
-        </form>
-
-        <div class="links-preview" x-show="previewVisible">
-          <div class="links-preview-card" :class="{ 'is-loading': fetchingMeta }">
-            <div class="links-preview-logo">
-              <template x-if="detail.logo">
-                <img :src="detail.logo" alt="">
-              </template>
-              <span x-show="!detail.logo" class="icon-[lucide--globe]" aria-hidden="true"></span>
-            </div>
-            <div class="links-preview-copy">
-              <h3 x-text="detail.displayName || '等待识别站点信息'"></h3>
-              <p x-text="detail.description || '识别后可继续补充站点简介。'"></p>
-              <span class="links-preview-platform" x-show="detail.platform" x-text="detail.platform"></span>
-            </div>
-          </div>
-        </div>
-
-        <div class="links-submit-fields">
-          <label class="links-field">
-            <span>申请类型</span>
-            <select class="links-input" x-model="form.type" @change="onTypeChange()">
-              <option value="add">新增友链</option>
-              <option value="update">修改友链</option>
-            </select>
-          </label>
-
-          <label class="links-field">
-            <span>分组</span>
-            <select class="links-input" x-model="form.groupName">
-              <option value="">不指定分组</option>
-              <option th:each="group : ${groupsData}" th:if="${group.metadata.name != 'ungrouped'}"
-                data-submit-group-option th:value="${group.metadata.name}" th:text="${group.spec.displayName}">分组</option>
-            </select>
-          </label>
-
-          <label class="links-field">
-            <span>名称</span>
-            <input class="links-input" type="text" x-model="form.displayName" data-link-field="displayName" placeholder="网站名称">
-          </label>
-
-          <label class="links-field">
-            <span>Logo</span>
-            <input class="links-input" type="url" x-model="form.logo" data-link-field="logo" placeholder="https://example.com/logo.png">
-          </label>
-
-          <label class="links-field links-field--wide">
-            <span>描述</span>
-            <textarea class="links-textarea" x-model="form.description" data-link-field="description" placeholder="一句话介绍你的网站"></textarea>
-          </label>
-
-          <label class="links-field links-field--wide" x-show="form.type === 'update'">
-            <span>修改说明</span>
-            <textarea class="links-textarea" x-model="form.updateDescription" placeholder="说明需要修改的内容"></textarea>
-            <small>官方插件没有匿名修改接口，修改申请始终通过留言板交给管理员处理。</small>
-          </label>
-
-          <label class="links-field links-field--wide">
-            <span>RSS 链接</span>
-            <input class="links-input" type="url" x-model="form.rssUrl" data-link-field="rssUrl" placeholder="https://example.com/rss.xml">
-            <small>管理员直接添加时会写入 PluginLinks 2.2.1 的 RSS 配置；访客申请时会附在留言内容中。</small>
-          </label>
-
-          <label class="links-field links-field--wide" x-show="isMessageMode()">
-            <span>联系邮箱（可选）</span>
-            <input class="links-input" type="email" x-model="form.email" placeholder="name@example.com">
-          </label>
-        </div>
-
-        <textarea id="markdownOutput" class="links-markdown-output" x-show="isMessageMode()" readonly
-          :value="buildMarkdown(form.url)" placeholder="申请草稿会展示在这里..."></textarea>
-
-        <div class="links-submit-result" x-show="result.show"
-          :class="{ 'is-success': result.success, 'is-warning': result.warning, 'is-error': !result.success && !result.warning }"
-          role="status" aria-live="polite" x-text="result.message"></div>
-
-        <div class="links-modal-actions">
-          <span class="links-modal-note" x-text="primaryActionNote()"></span>
-          <button id="copyBtn" type="button" class="links-submit-primary"
-            :disabled="isDirectCreateMode() ? !canCreateDirect() : !canCopyDraft()"
-            @click="isDirectCreateMode() ? createLink() : copyAndGotoBoard()">
-            <span x-text="primaryActionLabel()"></span>
-          </button>
-        </div>
-      </div>
-    </dialog>
   </div>
 </th:block>
