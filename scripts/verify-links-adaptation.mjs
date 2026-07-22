@@ -80,6 +80,11 @@ assert.match(linksStyles, /\.links-feed-later-row\.is-active \.links-row-avatar-
 assert.match(linksStyles, /\.links-rail-drag \.traffic-lights \{[^}]*transform: none;/s);
 assert.match(linksStyles, /\.links-row-avatar--moments > span \{ width: 26px; height: 26px; \}/);
 assert.match(linksStyles, /\.links-feed-avatar\.is-fallback \{ background: var\(--wx-panel\); \}/);
+assert.match(linksStyles, /\.links-feed-card\.is-unread::before \{/);
+assert.match(linksStyles, /background: var\(--wx-danger\);/);
+assert.doesNotMatch(linksStyles, /\.links-feed-card\.is-unread \{ box-shadow: inset 3px 0/);
+assert.match(linksStyles, /\.links-feed-state-actions \{[^}]*var\(--wx-control-surface\)/s);
+assert.match(linksStyles, /\.links-feed-state-action\.is-active \{ color: var\(--wx-green\); background: var\(--wx-control-active\); \}/);
 assert.doesNotMatch(linksTemplate + linksStyles, /links-rail-settings|管理后台/);
 assert.doesNotMatch(linksTemplate, /pluginFinder\.available\('link-submit'\)|data-link-submit-enabled/);
 assert.doesNotMatch(linksRuntime, /anonymous\.link\.submit|LINK_SUBMIT_API|LINK_SUBMIT_GROUPS_API/);
