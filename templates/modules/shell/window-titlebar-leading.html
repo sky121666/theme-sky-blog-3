@@ -29,15 +29,4 @@
       <span class="icon-[lucide--chevron-left]" aria-hidden="true"></span>
     </a>
   </th:block>
-
-  <th:block th:fragment="friendsBack">
-    <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=false)}"></th:block>
-    <a th:href="@{/}"
-       class="moments-titlebar-back friends-titlebar-back pjax-link"
-       data-pjax-app="friends"
-       title="返回"
-       onclick="if(window.history.length > 1) { event.preventDefault(); history.back(); }">
-      <span class="icon-[lucide--chevron-left]" aria-hidden="true"></span>
-    </a>
-  </th:block>
 </th:block>

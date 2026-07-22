@@ -2,10 +2,16 @@
 <th:block xmlns:th="https://www.thymeleaf.org"
           th:with="
             currentGroup=${param.group != null and !#lists.isEmpty(param.group) ? param.group[0] : ''},
+            currentView=${param.view != null and !#lists.isEmpty(param.view) and (param.view[0] == 'friends' or param.view[0] == 'board') ? param.view[0] : 'links'},
+            currentFeedGroup=${param.groupName != null and !#lists.isEmpty(param.groupName) ? param.groupName[0] : ''},
+            currentFeedLink=${#strings.isEmpty(currentFeedGroup) and param.linkName != null and !#lists.isEmpty(param.linkName) ? param.linkName[0] : ''},
+            feedGroups=${linkFeedFinder.groupBy(1)},
+            feedPublicSources=${feedGroups != null and !#lists.isEmpty(feedGroups)},
+            initialFeedPage=${feedPublicSources ? (!#strings.isEmpty(currentFeedGroup) ? linkFeedFinder.list({limit: 20, groupName: currentFeedGroup}) : (!#strings.isEmpty(currentFeedLink) ? linkFeedFinder.list({limit: 20, linkName: currentFeedLink}) : linkFeedFinder.list({limit: 20}))) : null},
             groupNameIndex=${groups != null ? groups.![metadata.name].indexOf(currentGroup) : -1},
             configuredLinksTitle=${!#strings.isEmpty(theme.config.links?.profile?.display_name) ? theme.config.links.profile.display_name : ''},
-            baseTitle=${!#strings.isEmpty(configuredLinksTitle) ? configuredLinksTitle : '全部友链'},
-            resolvedWindowTitle=${groupNameIndex >= 0 ? groups[groupNameIndex].spec.displayName : baseTitle},
+            baseTitle=${!#strings.isEmpty(configuredLinksTitle) ? configuredLinksTitle : (!#strings.isEmpty(linksTitle) ? linksTitle : '全部友链')},
+            resolvedWindowTitle=${currentView == 'friends' ? '朋友圈' : (currentView == 'board' ? '留言板' : (groupNameIndex >= 0 ? groups[groupNameIndex].spec.displayName : baseTitle))},
             resolvedDocumentTitle=${resolvedWindowTitle + ' - ' + site.title}">
   <html th:replace="~{modules/shell/layout :: html(
           title = ${resolvedDocumentTitle},

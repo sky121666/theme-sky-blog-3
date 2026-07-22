@@ -144,7 +144,7 @@ export function registerDesktopSurface(Alpine) {
       bangumiStatusCounts: {},
       friendsAvailable: false,
       recentFriends: [],
-      friendsUrl: '/friends',
+      friendsUrl: '/links?view=friends',
       docsmeAvailable: false,
       docsmeUrl: '/docs',
       docsmeProjects: [],

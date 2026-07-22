@@ -12,19 +12,18 @@ function formatFriendTime(value) {
 }
 
 function normalizeFriendPost(item) {
-  const spec = item?.spec || {};
-  const title = stripText(spec.title, spec.description || '新的友链动态');
-  const author = stripText(spec.author, spec.linkName || '友链');
+  const title = stripText(item?.title, item?.summary || '新的友链动态');
+  const author = stripText(item?.author, item?.linkName || '友链');
   return {
-    key: item?.metadata?.name || `${spec.linkName || author || title}`,
+    key: item?.id || `${item?.linkName || author || title}`,
     title,
-    description: stripText(spec.description, ''),
+    description: stripText(item?.summary, ''),
     author,
-    logo: String(spec.logo || '').trim(),
-    href: String(spec.postLink || '').trim(),
-    authorUrl: String(spec.authorUrl || '').trim(),
-    linkName: String(spec.linkName || '').trim(),
-    time: formatFriendTime(spec.pubDate)
+    logo: String(item?.authorLogo || '').trim(),
+    href: String(item?.url || '').trim(),
+    authorUrl: String(item?.authorUrl || '').trim(),
+    linkName: String(item?.linkName || '').trim(),
+    time: formatFriendTime(item?.publishedAt)
   };
 }
 
@@ -148,8 +147,8 @@ function renderMedium({ items, escapeHtml, mode }) {
 
 function renderOpenFriendsLink(escapeHtml, mode, label = '朋友圈') {
   return buildWidgetPjaxLink({
-    href: '/friends',
-    app: 'friends',
+    href: '/links?view=friends',
+    app: 'links',
     className: 'wg-friends-more',
     attrs: `aria-label="${escapeHtml('打开朋友圈')}"`,
     disabled: mode === 'preview',
@@ -166,8 +165,8 @@ function renderEmpty({ escapeHtml, mode, installed }) {
       <span class="wg-friends-empty-icon">
         <span class="icon-[lucide--rss]" aria-hidden="true"></span>
       </span>
-      <strong>${installed ? '暂无友链动态' : '未安装朋友圈插件'}</strong>
-      <p>${installed ? '同步 RSS 后会在这里显示最近更新。' : '安装 plugin-friends 后可添加朋友圈小组件。'}</p>
+      <strong>${installed ? '暂无友链动态' : '未安装链接管理插件'}</strong>
+      <p>${installed ? '在 PluginLinks 中启用并公开 RSS 动态后，这里会显示最近更新。' : '安装 PluginLinks 2.2.1 后可使用朋友圈小组件。'}</p>
       ${installed ? renderOpenFriendsLink(escapeHtml, mode, '打开') : ''}
     </div>
   `;
@@ -218,8 +217,13 @@ export function renderWidget({ sources, escapeHtml, mode }, widget) {
 
   const size = widget?.size || 'medium';
   const limit = size === 'large' ? 4 : 1;
-  const items = Array.isArray(sources.recentFriends)
-    ? sources.recentFriends.slice(0, limit).map((item) => normalizeFriendPost(item)).filter((item) => item.title)
+  const sourceItems = Array.isArray(sources.recentFriends)
+    ? sources.recentFriends
+    : Array.isArray(sources.recentFriends?.items)
+      ? sources.recentFriends.items
+      : [];
+  const items = sourceItems.length
+    ? sourceItems.slice(0, limit).map((item) => normalizeFriendPost(item)).filter((item) => item.title)
     : [];
 
   if (!items.length) {

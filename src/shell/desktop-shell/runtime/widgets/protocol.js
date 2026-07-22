@@ -69,7 +69,7 @@ export function normalizeDesktopWidgetSources(rawSources, siteUrl = '') {
     bangumiStatusCounts: asRecord(sources.bangumiStatusCounts),
     friendsAvailable: sources.friendsAvailable === true,
     recentFriends: asArray(sources.recentFriends),
-    friendsUrl: asString(sources.friendsUrl, '/friends') || '/friends',
+    friendsUrl: asString(sources.friendsUrl, '/links?view=friends') || '/links?view=friends',
     docsmeAvailable: sources.docsmeAvailable === true,
     docsmeUrl: asString(sources.docsmeUrl, '/docs') || '/docs',
     docsmeProjects: asArray(sources.docsmeProjects),

@@ -112,8 +112,6 @@ const routeSamples = [
   ['https://example.com/', '', 'none'],
   ['https://example.com/moments', 'moments', 'moments'],
   ['https://example.com/moments/demo', 'moments', 'moments'],
-  ['https://example.com/friends', 'friends', 'friends'],
-  ['https://example.com/friends/page/2', 'friends', 'friends'],
   ['https://example.com/links', 'links', 'links'],
   ['https://example.com/bangumis', 'bangumis', 'bangumis'],
   ['https://example.com/bangumis/page/2', 'bangumis', 'bangumis'],

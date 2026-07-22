@@ -1,12 +1,25 @@
 import { warnApiCall } from '../../shell/desktop-shell/runtime/shared/debug.js';
 
-const LINK_SUBMIT_API = '/apis/anonymous.link.submit.kunkunyu.com/v1alpha1/linksubmits/-/submit';
-const LINK_SUBMIT_GROUPS_API = '/apis/anonymous.link.submit.kunkunyu.com/v1alpha1/linkgroups';
+export const LINK_FEED_API = '/apis/api.link.halo.run/v1alpha1/linkfeeds';
+export const LINK_DETAIL_API = '/apis/console.api.link.halo.run/v1alpha1/links/-/detail';
+export const LINK_FEED_DISCOVERY_API = '/apis/console.api.link.halo.run/v1alpha1/rss/discovery';
+export const LINK_MANAGE_API = '/apis/console.api.link.halo.run/v1alpha1/links';
+export const LINK_CORE_API = '/apis/core.halo.run/v1alpha1/links';
+export const CURRENT_USER_API = '/apis/api.console.halo.run/v1alpha1/users/-';
+
 const SITE_METADATA_TIMEOUT_MS = 8000;
+const CAPABILITY_TIMEOUT_MS = 6000;
 const SITE_METADATA_MAX_BYTES = 1_500_000;
+const LINK_FEED_PAGE_SIZE = 20;
+const HALO_ANONYMOUS_USERNAME = 'anonymousUser';
 
 function normalizeText(value) {
   return String(value || '').trim().toLowerCase();
+}
+
+function textValue(value, maxLength = 0) {
+  const text = sanitizePlainText(value);
+  return maxLength > 0 ? text.slice(0, maxLength) : text;
 }
 
 export function normalizeUrl(value) {
@@ -17,6 +30,19 @@ export function normalizeUrl(value) {
   } catch {
     return '';
   }
+}
+
+export function buildCsrfHeaders(cookie = globalThis.document?.cookie || '') {
+  const match = String(cookie).match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+  if (!match?.[1]) return {};
+
+  let token = match[1];
+  try {
+    token = decodeURIComponent(token);
+  } catch {
+    // 保留原值，让服务端按标准 CSRF 校验拒绝异常令牌。
+  }
+  return { 'X-XSRF-TOKEN': token };
 }
 
 function decodeTextEntities(value) {
@@ -72,6 +98,10 @@ function readableHost(value) {
   }
 }
 
+function isJsonResponse(response) {
+  return String(response?.headers?.get?.('content-type') || '').toLowerCase().includes('json');
+}
+
 async function copyText(text) {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(text);
@@ -109,46 +139,85 @@ async function readErrorMessage(response) {
   }
 }
 
-export function formatSubmitFailure(response, message) {
-  const status = Number(response?.status || 0);
-  const genericHttpTitles = new Set([
-    'bad request',
-    'internal server error',
-    'not found',
-    'forbidden',
-    'unauthorized',
-    'conflict',
-    'too many requests',
-    'service unavailable'
-  ]);
-  const normalizedMessage = String(message || '').trim();
-  const rawMessage = genericHttpTitles.has(normalizedMessage.toLowerCase()) ? '' : normalizedMessage;
+function statusError(response, message = '') {
+  const error = new Error(String(message || '').trim() || `HTTP ${response?.status || 0}`);
+  error.status = Number(response?.status || 0);
+  return error;
+}
 
-  if (rawMessage.includes('已存在')) {
-    return '这个链接已经存在，不能直接新增。请切换为“修改友链”，复制修改申请到留言板。';
-  }
+function abortError() {
+  return new DOMException('操作已取消', 'AbortError');
+}
 
-  if (status === 400) {
-    return rawMessage || '提交内容没有通过校验，请检查网站地址、名称、描述和分组。';
-  }
+function throwIfAborted(signal) {
+  if (signal?.aborted) throw signal.reason || abortError();
+}
 
-  if (status === 404) {
-    return '友链自助提交接口未启用，请复制申请到留言板。';
-  }
+function withTimeout(controller, timeoutMs) {
+  return globalThis.setTimeout(() => {
+    controller.abort(new DOMException('请求超时', 'TimeoutError'));
+  }, timeoutMs);
+}
 
-  if (status === 409) {
-    return rawMessage || '这个链接已存在或已有待审核申请，请切换到留言板说明修改内容。';
-  }
+function normalizeCursor(value) {
+  return String(value || '').trim();
+}
 
-  if (status === 429) {
-    return rawMessage || '提交过于频繁，请稍后再试；也可以复制申请到留言板。';
-  }
+export function buildLinkFeedApiUrl({
+  groupName = '',
+  linkName = '',
+  beforePublishedAt = '',
+  beforeId = '',
+  limit = LINK_FEED_PAGE_SIZE
+} = {}, baseUrl = globalThis.location?.origin || 'http://localhost') {
+  const url = new URL(LINK_FEED_API, baseUrl);
+  const resolvedGroup = String(groupName || '').trim();
+  const resolvedLink = resolvedGroup ? '' : String(linkName || '').trim();
+  const resolvedLimit = Math.min(100, Math.max(1, Number.parseInt(limit, 10) || LINK_FEED_PAGE_SIZE));
 
-  if (status >= 500) {
-    return '友链自助提交服务暂时异常，请复制申请到留言板。';
-  }
+  if (resolvedGroup) url.searchParams.set('groupName', resolvedGroup);
+  if (resolvedLink) url.searchParams.set('linkName', resolvedLink);
+  if (beforePublishedAt) url.searchParams.set('beforePublishedAt', normalizeCursor(beforePublishedAt));
+  if (beforeId) url.searchParams.set('beforeId', normalizeCursor(beforeId));
+  url.searchParams.set('limit', String(resolvedLimit));
+  return url;
+}
 
-  return rawMessage || '友链自助提交没有成功，请复制申请到留言板。';
+export function normalizeLinkFeedPage(payload) {
+  const items = (Array.isArray(payload?.items) ? payload.items : [])
+    .map((item) => ({
+      id: String(item?.id || '').trim(),
+      linkName: String(item?.linkName || '').trim(),
+      url: normalizeUrl(item?.url),
+      title: textValue(item?.title, 300),
+      summary: textValue(item?.summary, 2000),
+      author: textValue(item?.author, 160),
+      authorUrl: normalizeUrl(item?.authorUrl),
+      authorLogo: normalizeUrl(item?.authorLogo),
+      publishedAt: String(item?.publishedAt || '').trim(),
+      fetchedAt: String(item?.fetchedAt || '').trim(),
+      updatedAt: String(item?.updatedAt || '').trim()
+    }))
+    .filter((item) => item.url);
+
+  const nextBeforePublishedAt = normalizeCursor(payload?.nextBeforePublishedAt);
+  const nextBeforeId = normalizeCursor(payload?.nextBeforeId);
+  return {
+    items,
+    nextBeforePublishedAt,
+    nextBeforeId,
+    hasNext: payload?.hasNext === true && Boolean(nextBeforePublishedAt || nextBeforeId)
+  };
+}
+
+export function formatFeedFailure(response, message = '') {
+  const status = Number(response?.status || response || 0);
+  const detail = sanitizePlainText(message);
+  if (status === 404) return '站点尚未在 PluginLinks 设置中开启“公开 RSS 订阅动态”。';
+  if (status === 400) return detail || '朋友圈筛选参数无效，请回到全部动态后重试。';
+  if (status === 429) return '朋友圈请求过于频繁，请稍后重试。';
+  if (status >= 500) return '朋友圈服务暂时不可用，请稍后重试。';
+  return detail || '朋友圈加载失败，请检查网络后重试。';
 }
 
 function metadataContent(documentNode, selectors) {
@@ -231,6 +300,7 @@ async function fetchSiteMetadata(url, signal) {
   if (!response.ok || response.type === 'opaque' || response.status === 0) {
     const error = new Error(`HTTP ${response.status || 'blocked'}`);
     error.code = 'request-failed';
+    error.status = Number(response.status || 0);
     throw error;
   }
 
@@ -272,54 +342,231 @@ async function fetchSiteMetadata(url, signal) {
 
 export function formatMetadataFailure(error) {
   if (error?.code === 'mixed-content') {
-    return '当前页面使用 HTTPS，浏览器会阻止读取 HTTP 站点；已保留网址，请手动补充站点信息。';
+    return '当前页面使用 HTTPS，浏览器会阻止读取 HTTP 站点';
   }
   if (error?.code === 'not-html') {
-    return '目标地址没有返回可识别的网页；已保留网址，请手动补充站点信息。';
+    return '目标地址没有返回可识别的网页';
   }
   if (error?.code === 'too-large') {
-    return '目标网页内容过大，已停止自动识别；网址已保留，请手动补充站点信息。';
+    return '目标网页内容过大，已停止自动识别';
   }
-  if (error?.code === 'timeout') {
-    return '目标站点响应超时；已保留网址，请手动补充站点信息。';
+  if (error?.code === 'timeout' || error?.name === 'TimeoutError') {
+    return '目标站点响应超时';
   }
-  return '浏览器未能读取目标站点（常见原因是跨域限制或访问拦截）；已保留网址，请手动补充站点信息。';
+  return '浏览器读取被目标站点的跨域策略或访问规则阻止';
+}
+
+export function formatBackendMetadataFailure(error) {
+  const status = Number(error?.status || 0);
+  if (status === 401) return '当前登录已失效，官方后台识别未执行';
+  if (status === 403) return '当前账号没有链接管理权限，官方后台识别被拒绝';
+  if (status === 400 || status === 422) return '目标网址未通过官方后台校验';
+  if (status === 429) return '官方后台识别请求过于频繁';
+  if (status >= 500) return '官方后台识别服务暂时异常';
+  if (error?.name === 'TimeoutError') return '官方后台识别请求超时';
+  return '官方后台识别请求失败';
+}
+
+export function formatCreateFailure(error) {
+  const status = Number(error?.status || 0);
+  const detail = sanitizePlainText(error?.message || '');
+  if (status === 401) return '登录状态已失效，不能直接添加友链。';
+  if (status === 403) return '当前账号没有创建链接的权限。';
+  if (status === 400 || status === 422) return detail && !/^HTTP\s/i.test(detail)
+    ? `链接内容未通过校验：${detail}`
+    : '链接内容未通过校验，请检查网址、名称、Logo、分组和 RSS 地址。';
+  if (status === 409) return '该网址或链接资源已经存在，请改用修改申请。';
+  if (status === 429) return '创建请求过于频繁，请稍后再试。';
+  if (status >= 500) return '链接管理服务暂时异常，请稍后再试。';
+  return detail && !/^HTTP\s/i.test(detail) ? detail : '直接添加友链失败，请稍后重试。';
+}
+
+export function buildPluginLinkPayload(form = {}) {
+  const url = normalizeUrl(form.url);
+  const logo = normalizeUrl(form.logo);
+  const rssUrl = normalizeUrl(form.rssUrl);
+  const spec = {
+    url,
+    displayName: textValue(form.displayName, 120),
+    description: textValue(form.description, 500)
+  };
+  const groupName = String(form.groupName || '').trim();
+  if (logo) spec.logo = logo;
+  if (groupName) spec.groupName = groupName;
+  if (rssUrl) {
+    spec.rss = {
+      enabled: true,
+      feedUrls: [rssUrl]
+    };
+  }
+
+  return {
+    apiVersion: 'core.halo.run/v1alpha1',
+    kind: 'Link',
+    metadata: {
+      name: '',
+      generateName: 'link-',
+      annotations: {}
+    },
+    spec
+  };
+}
+
+function formatFeedTime(value) {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return '';
+  const parts = new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(date);
+  const valueOf = (type) => parts.find((part) => part.type === type)?.value || '';
+  return `${valueOf('year')}年${valueOf('month')}月${valueOf('day')}日 ${valueOf('hour')}:${valueOf('minute')}`;
+}
+
+function iconNode(className) {
+  const node = document.createElement('span');
+  node.className = className;
+  node.setAttribute('aria-hidden', 'true');
+  return node;
+}
+
+function externalAnchor(className, href, text = '') {
+  const anchor = document.createElement('a');
+  anchor.className = className;
+  anchor.href = href;
+  anchor.target = '_blank';
+  anchor.rel = 'noopener noreferrer';
+  if (text) anchor.textContent = text;
+  return anchor;
+}
+
+function createFeedCard(item, onSourceClick) {
+  const article = document.createElement('article');
+  article.className = 'links-feed-card is-entering';
+  article.dataset.feedItem = '';
+  article.dataset.feedId = item.id;
+  article.dataset.feedLinkName = item.linkName;
+
+  const avatar = externalAnchor('links-feed-avatar', item.authorUrl || item.url);
+  avatar.tabIndex = -1;
+  avatar.setAttribute('aria-hidden', 'true');
+  if (item.authorLogo) {
+    const image = document.createElement('img');
+    image.src = item.authorLogo;
+    image.alt = '';
+    image.loading = 'lazy';
+    image.decoding = 'async';
+    avatar.appendChild(image);
+  } else {
+    avatar.appendChild(iconNode('icon-[lucide--rss]'));
+  }
+
+  const copy = document.createElement('div');
+  copy.className = 'links-feed-copy';
+  const head = document.createElement('div');
+  head.className = 'links-feed-head';
+  head.appendChild(externalAnchor('links-feed-author', item.authorUrl || item.url, item.author || '未知来源'));
+  if (item.publishedAt) {
+    const time = document.createElement('time');
+    time.className = 'links-feed-time';
+    time.dateTime = item.publishedAt;
+    time.textContent = formatFeedTime(item.publishedAt);
+    head.appendChild(time);
+  }
+  copy.appendChild(head);
+
+  const heading = document.createElement('h2');
+  heading.className = 'links-feed-title';
+  heading.appendChild(externalAnchor('', item.url, item.title || '未命名动态'));
+  copy.appendChild(heading);
+  if (item.summary) {
+    const summary = document.createElement('p');
+    summary.className = 'links-feed-summary';
+    summary.textContent = item.summary;
+    copy.appendChild(summary);
+  }
+
+  const footer = document.createElement('div');
+  footer.className = 'links-feed-footer';
+  if (item.linkName) {
+    const source = document.createElement('button');
+    source.type = 'button';
+    source.className = 'links-feed-source-action';
+    source.textContent = '只看此来源';
+    source.addEventListener('click', () => onSourceClick(item.linkName));
+    footer.appendChild(source);
+  }
+  const original = externalAnchor('links-feed-open', item.url, '阅读原文');
+  original.appendChild(iconNode('icon-[lucide--arrow-up-right]'));
+  footer.appendChild(original);
+  copy.appendChild(footer);
+
+  article.append(avatar, copy);
+  return article;
+}
+
+function currentFilterKey(groupName = '', linkName = '') {
+  if (groupName) return `group:${groupName}`;
+  if (linkName) return `link:${linkName}`;
+  return 'all';
 }
 
 export function registerLinksExplorer(Alpine) {
   Alpine.data('linksExplorer', () => ({
     activeView: 'links',
     selectedGroup: '',
+    feedGroupName: '',
+    feedLinkName: '',
     searchQuery: '',
     sortMode: 'default',
     totalLinks: 0,
     groups: [],
     links: [],
+    feedGroups: [],
+    feedSources: [],
     allLinksTitle: '全部友链',
+    feedStatus: 'unknown',
+    feedStatusMessage: '',
+    feedItemCount: 0,
+    feedHasNext: false,
+    feedNextPublishedAt: '',
+    feedNextId: '',
+    feedLoading: false,
+    feedReplacing: false,
+    feedLoadedKey: 'all',
+    feedRequestController: null,
+    feedGeneration: 0,
+    destroyed: false,
     _showBoardHandler: null,
     _popstateHandler: null,
 
     init() {
+      this.destroyed = false;
       this.readDataset();
       this.applyLocationState(true);
       this._showBoardHandler = () => this.showBoard(true);
       this._popstateHandler = () => this.applyLocationState(false);
       window.addEventListener('links:show-board', this._showBoardHandler);
       window.addEventListener('popstate', this._popstateHandler);
+      if (this.activeView === 'friends') this.ensureFeedState();
     },
 
     destroy() {
-      if (this._showBoardHandler) {
-        window.removeEventListener('links:show-board', this._showBoardHandler);
-      }
-      if (this._popstateHandler) {
-        window.removeEventListener('popstate', this._popstateHandler);
-      }
+      this.destroyed = true;
+      this.cancelFeedRequest();
+      if (this._showBoardHandler) window.removeEventListener('links:show-board', this._showBoardHandler);
+      if (this._popstateHandler) window.removeEventListener('popstate', this._popstateHandler);
     },
 
     readDataset() {
       const groupNodes = Array.from(this.$root.querySelectorAll('[data-links-group]'));
       const linkNodes = Array.from(this.$root.querySelectorAll('[data-link-card]'));
+      const feedGroupNodes = Array.from(this.$root.querySelectorAll('[data-feed-group]'));
+      const feedSourceNodes = Array.from(this.$root.querySelectorAll('[data-feed-source]'));
       this.allLinksTitle = this.$root.dataset.linksAllTitle || '全部友链';
 
       this.groups = groupNodes.map((node) => ({
@@ -327,15 +574,20 @@ export function registerLinksExplorer(Alpine) {
         label: node.dataset.groupLabel || '',
         synthetic: node.dataset.groupSynthetic === 'true'
       }));
+      this.feedGroups = feedGroupNodes.map((node) => ({
+        key: node.dataset.feedGroupKey || '',
+        label: node.dataset.feedGroupLabel || ''
+      }));
+      this.feedSources = feedSourceNodes.map((node) => ({
+        key: node.dataset.feedLinkKey || '',
+        label: node.dataset.feedLinkLabel || ''
+      }));
 
       this.links = linkNodes.map((node) => {
         const description = sanitizePlainText(node.dataset.linkDescription || '');
         const descriptionNode = node.querySelector('.link-card-desc');
-        if (descriptionNode) {
-          descriptionNode.textContent = description || '这个站点还没有填写简介。';
-        }
+        if (descriptionNode) descriptionNode.textContent = description || '这个站点还没有填写简介。';
         node.dataset.linkDescription = description;
-
         return {
           key: node.dataset.linkKey || '',
           groupKey: node.dataset.groupKey || '',
@@ -348,6 +600,16 @@ export function registerLinksExplorer(Alpine) {
       });
 
       this.totalLinks = this.links.length;
+      this.feedItemCount = Number(this.$root.dataset.feedInitialCount || 0);
+      this.feedHasNext = this.$root.dataset.feedHasNext === 'true';
+      this.feedNextPublishedAt = this.$root.dataset.feedNextPublishedAt || '';
+      this.feedNextId = this.$root.dataset.feedNextId || '';
+      this.feedLoadedKey = currentFilterKey(
+        this.$root.dataset.linksInitialFeedGroup || '',
+        this.$root.dataset.linksInitialFeedLink || ''
+      );
+      const hasPublicSources = this.$root.dataset.feedPublicSources === 'true';
+      this.feedStatus = this.feedItemCount > 0 ? 'ready' : hasPublicSources ? 'unknown' : 'empty';
     },
 
     setGroup(key) {
@@ -355,6 +617,38 @@ export function registerLinksExplorer(Alpine) {
       this.selectedGroup = this.groups.some((group) => group.key === key) ? key : '';
       this.syncUrl('push');
       this.scrollMainToTop();
+    },
+
+    showFriends(scrollToTop = true) {
+      this.activeView = 'friends';
+      this.feedGroupName = '';
+      this.feedLinkName = '';
+      this.syncUrl('push');
+      if (scrollToTop) this.scrollMainToTop();
+      if (this.feedLoadedKey !== 'all') this.replaceFeed();
+      else this.ensureFeedState();
+    },
+
+    showFeedGroup(key) {
+      const value = String(key || '').trim();
+      this.activeView = 'friends';
+      this.feedGroupName = value;
+      this.feedLinkName = '';
+      this.syncUrl('push');
+      this.scrollMainToTop();
+      if (this.feedLoadedKey !== currentFilterKey(value, '')) this.replaceFeed();
+      else this.ensureFeedState();
+    },
+
+    showFeedSource(key) {
+      const value = String(key || '').trim();
+      this.activeView = 'friends';
+      this.feedGroupName = '';
+      this.feedLinkName = value;
+      this.syncUrl('push');
+      this.scrollMainToTop();
+      if (this.feedLoadedKey !== currentFilterKey('', value)) this.replaceFeed();
+      else this.ensureFeedState();
     },
 
     showBoard(scrollToTop = true) {
@@ -365,7 +659,9 @@ export function registerLinksExplorer(Alpine) {
     },
 
     openSubmitAssistant() {
-      document.getElementById('link-submit-modal')?.showModal();
+      const dialog = document.getElementById('link-submit-modal');
+      if (dialog && !dialog.open) dialog.showModal();
+      window.dispatchEvent(new CustomEvent('links:submit-open'));
     },
 
     scrollMainToTop() {
@@ -378,39 +674,67 @@ export function registerLinksExplorer(Alpine) {
 
     applyLocationState(canonicalize = false) {
       if (typeof window === 'undefined') return;
+      const previousFeedKey = currentFilterKey(this.feedGroupName, this.feedLinkName);
       const url = new URL(window.location.href);
       const requestedView = url.searchParams.get('view') || '';
       const requestedGroup = url.searchParams.get('group') || '';
+      const requestedFeedGroup = url.searchParams.get('groupName') || '';
+      const requestedFeedLink = requestedFeedGroup ? '' : (url.searchParams.get('linkName') || '');
       const validGroup = requestedGroup && this.groups.some((group) => group.key === requestedGroup);
-      let needsCanonicalUrl = Boolean(requestedView && requestedView !== 'board');
+      let needsCanonicalUrl = Boolean(requestedView && !['friends', 'board'].includes(requestedView));
 
       if (requestedView === 'board') {
         this.activeView = 'board';
         this.selectedGroup = '';
-        needsCanonicalUrl = needsCanonicalUrl || url.searchParams.has('group');
+        this.feedGroupName = '';
+        this.feedLinkName = '';
+        needsCanonicalUrl = needsCanonicalUrl
+          || url.searchParams.has('group')
+          || url.searchParams.has('groupName')
+          || url.searchParams.has('linkName');
+      } else if (requestedView === 'friends') {
+        this.activeView = 'friends';
+        this.selectedGroup = '';
+        this.feedGroupName = requestedFeedGroup;
+        this.feedLinkName = requestedFeedLink;
+        needsCanonicalUrl = needsCanonicalUrl
+          || url.searchParams.has('group')
+          || (Boolean(requestedFeedGroup) && url.searchParams.has('linkName'));
       } else {
         this.activeView = 'links';
         this.selectedGroup = validGroup ? requestedGroup : '';
+        this.feedGroupName = '';
+        this.feedLinkName = '';
         needsCanonicalUrl = needsCanonicalUrl
-          || (url.searchParams.has('group') && !validGroup);
+          || (url.searchParams.has('group') && !validGroup)
+          || url.searchParams.has('groupName')
+          || url.searchParams.has('linkName');
       }
 
       if (canonicalize && needsCanonicalUrl) this.syncUrl('replace');
+      if (!canonicalize && this.activeView === 'friends') {
+        const nextFeedKey = currentFilterKey(this.feedGroupName, this.feedLinkName);
+        if (nextFeedKey !== previousFeedKey || nextFeedKey !== this.feedLoadedKey) this.replaceFeed();
+        else this.ensureFeedState();
+      }
     },
 
     syncUrl(mode = 'push') {
       if (typeof window === 'undefined') return;
       const url = new URL(window.location.href);
+      url.searchParams.delete('group');
+      url.searchParams.delete('groupName');
+      url.searchParams.delete('linkName');
+
       if (this.activeView === 'board') {
         url.searchParams.set('view', 'board');
-        url.searchParams.delete('group');
+      } else if (this.activeView === 'friends') {
+        url.searchParams.set('view', 'friends');
+        if (this.feedGroupName) url.searchParams.set('groupName', this.feedGroupName);
+        else if (this.feedLinkName) url.searchParams.set('linkName', this.feedLinkName);
       } else {
         url.searchParams.delete('view');
-        if (this.selectedGroup) {
-          url.searchParams.set('group', this.selectedGroup);
-        } else {
-          url.searchParams.delete('group');
-        }
+        if (this.selectedGroup) url.searchParams.set('group', this.selectedGroup);
       }
 
       const target = `${url.pathname}${url.search}${url.hash}`;
@@ -420,31 +744,139 @@ export function registerLinksExplorer(Alpine) {
       window.history[method](window.history.state, '', target);
     },
 
+    cancelFeedRequest() {
+      this.feedGeneration += 1;
+      this.feedRequestController?.abort();
+      this.feedRequestController = null;
+      this.feedLoading = false;
+      this.feedReplacing = false;
+    },
+
+    ensureFeedState() {
+      if (this.feedStatus === 'unknown' && !this.feedLoading) this.replaceFeed();
+    },
+
+    refreshFeed() {
+      this.replaceFeed();
+    },
+
+    replaceFeed() {
+      return this.fetchFeedPage({ replace: true });
+    },
+
+    loadNextFeed() {
+      if (!this.feedHasNext || this.feedLoading) return Promise.resolve(false);
+      return this.fetchFeedPage({ replace: false });
+    },
+
+    async fetchFeedPage({ replace }) {
+      if (this.destroyed || this.feedLoading && !replace) return false;
+      const filterKey = currentFilterKey(this.feedGroupName, this.feedLinkName);
+      const generation = this.feedGeneration + 1;
+      const controller = new AbortController();
+      this.feedGeneration = generation;
+      this.feedRequestController?.abort();
+      this.feedRequestController = controller;
+      this.feedLoading = true;
+      this.feedReplacing = replace;
+      this.feedStatusMessage = '';
+      if (replace && this.feedItemCount === 0) this.feedStatus = 'checking';
+
+      const requestUrl = buildLinkFeedApiUrl({
+        groupName: this.feedGroupName,
+        linkName: this.feedLinkName,
+        beforePublishedAt: replace ? '' : this.feedNextPublishedAt,
+        beforeId: replace ? '' : this.feedNextId,
+        limit: LINK_FEED_PAGE_SIZE
+      }, window.location.origin);
+
+      try {
+        const response = await fetch(requestUrl, {
+          credentials: 'omit',
+          cache: 'no-store',
+          headers: { Accept: 'application/json' },
+          signal: controller.signal
+        });
+        if (!response.ok) throw statusError(response, await readErrorMessage(response));
+        if (!isJsonResponse(response)) throw statusError(response, '朋友圈接口没有返回 JSON');
+        const page = normalizeLinkFeedPage(await response.json());
+        throwIfAborted(controller.signal);
+        if (this.destroyed || generation !== this.feedGeneration || filterKey !== currentFilterKey(this.feedGroupName, this.feedLinkName)) return false;
+
+        const list = this.$root.querySelector('[data-feed-list]');
+        if (!list) throw new Error('朋友圈列表容器不存在');
+        if (replace) list.replaceChildren();
+        const knownIds = new Set(Array.from(list.querySelectorAll('[data-feed-id]'), (node) => node.dataset.feedId || ''));
+        const fragment = document.createDocumentFragment();
+        const inserted = [];
+        for (const item of page.items) {
+          if (item.id && knownIds.has(item.id)) continue;
+          const card = createFeedCard(item, (linkName) => this.showFeedSource(linkName));
+          fragment.appendChild(card);
+          inserted.push(card);
+          if (item.id) knownIds.add(item.id);
+        }
+        list.appendChild(fragment);
+        requestAnimationFrame(() => inserted.forEach((card) => card.classList.remove('is-entering')));
+
+        this.feedItemCount = list.querySelectorAll('[data-feed-item]').length;
+        this.feedHasNext = page.hasNext;
+        this.feedNextPublishedAt = page.nextBeforePublishedAt;
+        this.feedNextId = page.nextBeforeId;
+        this.feedLoadedKey = filterKey;
+        this.feedStatus = this.feedItemCount > 0 ? 'ready' : 'empty';
+        return true;
+      } catch (error) {
+        if (error?.name === 'AbortError' || controller.signal.aborted || generation !== this.feedGeneration) return false;
+        warnApiCall('links', 'PluginLinks 朋友圈加载失败', {
+          endpoint: requestUrl.toString(),
+          message: error?.message || String(error || ''),
+          action: replace ? 'replace-link-feed' : 'append-link-feed',
+          hint: '检查 PluginLinks 2.2.1、rss.publicEnabled 与游标参数。'
+        });
+        if (replace) {
+          this.$root.querySelector('[data-feed-list]')?.replaceChildren();
+          this.feedItemCount = 0;
+          this.feedHasNext = false;
+          this.feedNextPublishedAt = '';
+          this.feedNextId = '';
+          this.feedLoadedKey = filterKey;
+        }
+        this.feedStatus = Number(error?.status || 0) === 404 ? 'disabled' : 'error';
+        this.feedStatusMessage = formatFeedFailure(error?.status || 0, error?.message || '');
+        return false;
+      } finally {
+        if (generation === this.feedGeneration) {
+          this.feedLoading = false;
+          this.feedReplacing = false;
+          if (this.feedRequestController === controller) this.feedRequestController = null;
+        }
+      }
+    },
+
     isGroupActive(key) {
       return (this.selectedGroup || '') === (key || '');
     },
 
-    matchesLink(link) {
-      if (!link) return false;
-      if (this.activeView !== 'links') return false;
-      if (this.selectedGroup && link.groupKey !== this.selectedGroup) return false;
+    isFeedGroupActive(key) {
+      return !this.feedLinkName && this.feedGroupName === String(key || '');
+    },
 
+    isFeedLinkActive(key) {
+      return !this.feedGroupName && this.feedLinkName === String(key || '');
+    },
+
+    matchesLink(link) {
+      if (!link || this.activeView !== 'links') return false;
+      if (this.selectedGroup && link.groupKey !== this.selectedGroup) return false;
       const query = normalizeText(this.searchQuery);
       if (!query) return true;
-
-      const haystack = [
-        link.name,
-        link.description,
-        link.url
-      ].map(normalizeText).join(' ');
-
-      return haystack.includes(query);
+      return [link.name, link.description, link.url].map(normalizeText).join(' ').includes(query);
     },
 
     shouldShowLink(el) {
       const key = el?.dataset?.linkKey || '';
-      const link = this.links.find((item) => item.key === key);
-      return this.matchesLink(link);
+      return this.matchesLink(this.links.find((item) => item.key === key));
     },
 
     hasVisibleGroup(groupKey) {
@@ -464,40 +896,45 @@ export function registerLinksExplorer(Alpine) {
     },
 
     sortedVisibleLinks() {
-      const links = this.links.filter((link) => this.matchesLink(link));
-
-      return links.slice().sort((left, right) => {
-        if (this.sortMode === 'name') {
-          return normalizeText(left.name).localeCompare(normalizeText(right.name), 'zh-CN');
-        }
-
+      return this.links.filter((link) => this.matchesLink(link)).slice().sort((left, right) => {
+        if (this.sortMode === 'name') return normalizeText(left.name).localeCompare(normalizeText(right.name), 'zh-CN');
         if (this.sortMode === 'recent') {
           const leftTime = left.createdAt ? Date.parse(left.createdAt) : 0;
           const rightTime = right.createdAt ? Date.parse(right.createdAt) : 0;
-          if (leftTime !== rightTime) {
-            return rightTime - leftTime;
-          }
+          if (leftTime !== rightTime) return rightTime - leftTime;
           return normalizeText(left.name).localeCompare(normalizeText(right.name), 'zh-CN');
         }
-
-        if (left.priority !== right.priority) {
-          return Number(right.priority || 0) - Number(left.priority || 0);
-        }
+        if (left.priority !== right.priority) return Number(right.priority || 0) - Number(left.priority || 0);
         return normalizeText(left.name).localeCompare(normalizeText(right.name), 'zh-CN');
       });
     },
 
     activeGroupLabel() {
       if (!this.selectedGroup) return this.allLinksTitle;
-      const current = this.groups.find((group) => group.key === this.selectedGroup);
-      return current?.label || '当前分组';
+      return this.groups.find((group) => group.key === this.selectedGroup)?.label || '当前分组';
+    },
+
+    activeFeedLabel() {
+      if (this.feedLinkName) return this.feedSources.find((source) => source.key === this.feedLinkName)?.label || '当前来源';
+      if (this.feedGroupName) return this.feedGroups.find((group) => group.key === this.feedGroupName)?.label || '当前分组动态';
+      return '朋友圈';
     },
 
     activeHeaderTitle() {
-      return this.activeView === 'board' ? '留言板' : this.activeGroupLabel();
+      if (this.activeView === 'board') return '留言板';
+      if (this.activeView === 'friends') return this.activeFeedLabel();
+      return this.activeGroupLabel();
     },
 
     resultSummary() {
+      if (this.activeView === 'board') return '友链申请与站点留言';
+      if (this.activeView === 'friends') {
+        if (this.feedLoading && this.feedReplacing) return '正在更新动态…';
+        if (this.feedStatus === 'disabled') return '公开 RSS 动态未开启';
+        if (this.feedStatus === 'error') return '动态加载失败';
+        if (this.feedStatus === 'checking') return '正在确认公开状态…';
+        return `${this.feedItemCount} 条动态已加载`;
+      }
       const count = this.visibleCount();
       if (this.searchQuery.trim()) return `${count} 个搜索结果`;
       if (this.selectedGroup) return `${count} 个友链`;
@@ -513,6 +950,31 @@ export function registerLinksExplorer(Alpine) {
       return `这个分组还没有收录站点，可以返回${this.allLinksTitle}继续浏览。`;
     },
 
+    feedStatusTitle() {
+      if (this.feedStatus === 'disabled') return '朋友圈暂未公开';
+      if (this.feedStatus === 'error') return '朋友圈加载失败';
+      if (this.feedStatus === 'empty') return this.feedGroupName || this.feedLinkName ? '当前来源暂无动态' : '这里还没有 RSS 动态';
+      if (this.feedStatus === 'checking' || this.feedStatus === 'unknown') return '正在确认朋友圈状态';
+      return '这里还没有 RSS 动态';
+    },
+
+    feedStatusText() {
+      if (this.feedStatusMessage) return this.feedStatusMessage;
+      if (this.feedStatus === 'disabled') return '管理员可在链接管理插件的 RSS 订阅设置中开启公开动态。';
+      if (this.feedStatus === 'empty') return this.feedGroupName || this.feedLinkName
+        ? '可以切换到全部动态，或等待该来源下次同步。'
+        : '请在 PluginLinks 中启用友链 RSS 和公开动态；完成首次抓取后，内容会显示在这里。';
+      if (this.feedStatus === 'checking' || this.feedStatus === 'unknown') return '不会显示骨架屏，确认完成后会直接展示结果。';
+      return '请稍后重试。';
+    },
+
+    feedStatusIcon() {
+      if (this.feedStatus === 'disabled') return 'icon-[lucide--lock-keyhole]';
+      if (this.feedStatus === 'error') return 'icon-[lucide--circle-alert]';
+      if (this.feedStatus === 'checking' || this.feedStatus === 'unknown') return 'icon-[lucide--loader-circle] is-spinning';
+      return 'icon-[lucide--rss]';
+    },
+
     cardOrder(el) {
       const key = el?.dataset?.linkKey || '';
       if (!key) return 0;
@@ -520,6 +982,75 @@ export function registerLinksExplorer(Alpine) {
       return index >= 0 ? index : 0;
     }
   }));
+}
+
+async function resolveCurrentUser(signal) {
+  const response = await fetch(CURRENT_USER_API, {
+    credentials: 'same-origin',
+    cache: 'no-store',
+    headers: { Accept: 'application/json' },
+    signal
+  });
+  if (response.status === 401 || response.status === 403 || response.redirected || !isJsonResponse(response)) return null;
+  if (!response.ok) throw statusError(response, await readErrorMessage(response));
+  const payload = await response.json();
+  const user = payload?.user || payload;
+  const username = String(user?.metadata?.name || '').trim();
+  if (!username || username === HALO_ANONYMOUS_USERNAME || user?.spec?.disabled === true) return null;
+  return user;
+}
+
+async function checkLinkManagePermission(signal) {
+  const url = new URL(LINK_MANAGE_API, window.location.origin);
+  url.searchParams.set('page', '1');
+  url.searchParams.set('size', '1');
+  const response = await fetch(url, {
+    credentials: 'same-origin',
+    cache: 'no-store',
+    headers: { Accept: 'application/json' },
+    signal
+  });
+  if (!response.ok) throw statusError(response, await readErrorMessage(response));
+  if (!isJsonResponse(response)) throw statusError(response, '权限检查接口没有返回 JSON');
+  return true;
+}
+
+async function fetchOfficialLinkDetail(url, signal) {
+  const detailUrl = new URL(LINK_DETAIL_API, window.location.origin);
+  detailUrl.searchParams.set('url', url);
+  const discoveryUrl = new URL(LINK_FEED_DISCOVERY_API, window.location.origin);
+  discoveryUrl.searchParams.set('url', url);
+
+  const fetchOfficial = async (requestUrl) => {
+    const response = await fetch(requestUrl, {
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+      signal
+    });
+    if (!response.ok) throw statusError(response, await readErrorMessage(response));
+    if (!isJsonResponse(response)) throw statusError(response, '官方接口没有返回 JSON');
+    return response.json();
+  };
+
+  const [detailResult, discoveryResult] = await Promise.allSettled([
+    fetchOfficial(detailUrl),
+    fetchOfficial(discoveryUrl)
+  ]);
+  throwIfAborted(signal);
+  if (detailResult.status === 'rejected') throw detailResult.reason;
+  const detail = detailResult.value || {};
+  const feedUrls = discoveryResult.status === 'fulfilled' && Array.isArray(discoveryResult.value?.feedUrls)
+    ? discoveryResult.value.feedUrls.map(normalizeUrl).filter(Boolean)
+    : [];
+  return {
+    title: textValue(detail.title, 120),
+    description: textValue(detail.description, 500),
+    logo: normalizeUrl(detail.icon) || normalizeUrl(detail.image),
+    rssUrl: feedUrls[0] || '',
+    platform: 'PluginLinks 官方识别',
+    discoveryError: discoveryResult.status === 'rejected' ? discoveryResult.reason : null
+  };
 }
 
 export function registerLinkSubmitForm(Alpine) {
@@ -541,40 +1072,129 @@ export function registerLinkSubmitForm(Alpine) {
       logo: '',
       platform: ''
     },
-    submitPluginEnabled: false,
-    messageFallback: false,
     submitGroups: [],
-    loadingGroups: false,
+    capabilityStatus: 'idle',
+    canManage: false,
+    preferMessage: false,
+    capabilityController: null,
+    capabilityPromise: null,
     submitting: false,
     submitted: false,
     markdown: '',
     previewVisible: false,
     fetchingMeta: false,
-    autofillAttempted: false,
-    autofillAvailable: false,
     autofillController: null,
     autofillGeneration: 0,
     autofillSnapshot: null,
     destroyed: false,
     copied: false,
+    _openHandler: null,
     result: {
       show: false,
       success: false,
+      warning: false,
       message: ''
     },
 
     init() {
       this.destroyed = false;
-      const root = document.querySelector('[data-app-root="links"]');
-      this.submitPluginEnabled = root?.dataset?.linkSubmitEnabled === 'true';
-      if (this.submitPluginEnabled) {
-        this.loadSubmitGroups();
-      }
+      this.submitGroups = Array.from(this.$root.querySelectorAll('[data-submit-group-option]'), (option) => ({
+        groupName: option.value,
+        displayName: option.textContent?.trim() || option.value
+      })).filter((group) => group.groupName);
+      this._openHandler = () => this.prepareOpen();
+      window.addEventListener('links:submit-open', this._openHandler);
     },
 
     destroy() {
       this.destroyed = true;
       this.cancelAutofill();
+      this.capabilityController?.abort();
+      this.capabilityController = null;
+      this.capabilityPromise = null;
+      if (this._openHandler) window.removeEventListener('links:submit-open', this._openHandler);
+    },
+
+    prepareOpen() {
+      this.result.show = false;
+      this.ensureCapability();
+    },
+
+    onDialogClosed() {
+      this.cancelAutofill();
+      this.result.show = false;
+    },
+
+    async ensureCapability(force = false) {
+      if (!force && this.capabilityPromise) return this.capabilityPromise;
+      if (!force && ['manager', 'guest', 'denied'].includes(this.capabilityStatus)) return this.canManage;
+      this.capabilityController?.abort();
+      const controller = new AbortController();
+      const timeoutId = withTimeout(controller, CAPABILITY_TIMEOUT_MS);
+      this.capabilityController = controller;
+      this.capabilityStatus = 'checking';
+      this.canManage = false;
+
+      this.capabilityPromise = (async () => {
+        try {
+          const user = await resolveCurrentUser(controller.signal);
+          throwIfAborted(controller.signal);
+          if (!user) {
+            this.capabilityStatus = 'guest';
+            return false;
+          }
+          await checkLinkManagePermission(controller.signal);
+          throwIfAborted(controller.signal);
+          this.canManage = true;
+          this.capabilityStatus = 'manager';
+          return true;
+        } catch (error) {
+          if (error?.name === 'AbortError') return false;
+          const status = Number(error?.status || 0);
+          this.canManage = false;
+          this.capabilityStatus = status === 401 ? 'guest' : status === 403 ? 'denied' : 'error';
+          this.preferMessage = true;
+          this.result = {
+            show: true,
+            success: false,
+            warning: true,
+            message: status === 403
+              ? '当前账号没有链接管理权限，已切换为留言申请。'
+              : `官方权限检查失败（${status ? `HTTP ${status}` : '网络或服务异常'}），已切换为留言申请。`
+          };
+          return false;
+        } finally {
+          globalThis.clearTimeout(timeoutId);
+          if (this.capabilityController === controller) this.capabilityController = null;
+          this.capabilityPromise = null;
+        }
+      })();
+      return this.capabilityPromise;
+    },
+
+    capabilityIcon() {
+      if (this.capabilityStatus === 'checking') return 'icon-[lucide--loader-circle] is-spinning';
+      if (this.canManage && !this.preferMessage && this.form.type === 'add') return 'icon-[lucide--shield-check]';
+      if (this.capabilityStatus === 'denied' || this.capabilityStatus === 'error') return 'icon-[lucide--shield-alert]';
+      return 'icon-[lucide--message-circle]';
+    },
+
+    capabilityLabel() {
+      if (this.capabilityStatus === 'checking') return '正在确认提交方式';
+      if (this.canManage && !this.preferMessage && this.form.type === 'add') return '管理员直连';
+      if (this.canManage) return '管理员 · 留言申请';
+      if (this.capabilityStatus === 'denied') return '已登录 · 无链接管理权限';
+      if (this.capabilityStatus === 'error') return '权限检查失败 · 安全降级';
+      return '访客申请';
+    },
+
+    capabilityDescription() {
+      if (this.capabilityStatus === 'checking') return '只检查当前 Halo 会话，不会请求目标站点。';
+      if (this.canManage && !this.preferMessage && this.form.type === 'add') return '识别和创建均调用 PluginLinks 2.2.1 官方受保护接口。';
+      if (this.canManage) return '当前选择生成申请内容，不直接写入链接管理。';
+      if (this.capabilityStatus === 'denied') return '不会尝试受保护写入，只生成可复制的申请内容。';
+      if (this.capabilityStatus === 'error') return '为避免误用后台能力，本次只使用访客申请流程。';
+      return '浏览器识别目标站点，确认后复制申请到留言板。';
     },
 
     cancelAutofill() {
@@ -584,84 +1204,19 @@ export function registerLinkSubmitForm(Alpine) {
       this.fetchingMeta = false;
     },
 
-    async loadSubmitGroups() {
-      this.loadingGroups = true;
-
-      try {
-        const response = await fetch(LINK_SUBMIT_GROUPS_API, {
-          headers: {
-            Accept: 'application/json'
-          }
-        });
-
-        if (!response.ok) {
-          const message = await readErrorMessage(response);
-          throw new Error(message || `${response.status}`);
-        }
-
-        const payload = await response.json();
-        const groups = Array.isArray(payload) ? payload : (payload?.items || payload?.data || []);
-        this.submitGroups = groups
-          .map((group) => ({
-            displayName: String(group?.displayName || group?.groupName || '').trim(),
-            groupName: String(group?.groupName || '').trim(),
-            priority: Number(group?.priority || 0)
-          }))
-          .filter((group) => group.groupName)
-          .sort((left, right) => {
-            if (left.priority !== right.priority) return Number(left.priority) - Number(right.priority);
-            return left.displayName.localeCompare(right.displayName, 'zh-CN');
-          });
-
-        if (this.submitGroups.length === 0) {
-          throw new Error('没有可用的友链提交分组');
-        }
-
-        if (!this.form.groupName) {
-          this.form.groupName = this.submitGroups[0].groupName;
-        }
-      } catch (_error) {
-        warnApiCall('links', '友链提交分组加载失败，切换留言兜底', {
-          endpoint: LINK_SUBMIT_GROUPS_API,
-          message: _error?.message || String(_error || ''),
-          action: 'enable-message-fallback',
-          hint: '检查 Link Submit 插件是否启用、匿名分组接口是否可访问。'
-        });
-        this.enableMessageFallback();
-        this.result = {
-          show: true,
-          success: false,
-          message: '友链提交插件分组加载失败，已切换为留言申请方式'
-        };
-      } finally {
-        this.loadingGroups = false;
-      }
-    },
-
     async fillFromUrl() {
       this.cancelAutofill();
       const normalized = normalizeUrl(this.form.url);
       this.copied = false;
       this.submitted = false;
-
       if (!normalized) {
-        this.result = {
-          show: true,
-          success: false,
-          message: '请先输入有效的网站地址'
-        };
+        this.result = { show: true, success: false, warning: false, message: '请先输入有效的 HTTP 或 HTTPS 网站地址。' };
         return;
       }
-
       this.clearStaleAutofill(normalized);
       this.previewVisible = true;
-      this.result.show = false;
       this.applyManualDraft(normalized);
-      this.result = {
-        show: true,
-        success: true,
-        message: this.isDirectSubmitMode() ? '已保留网址，请补充站点信息后提交' : '已保留网址，请补充信息后复制到留言板'
-      };
+      this.result.show = false;
     },
 
     async autofillFromUrl() {
@@ -669,46 +1224,72 @@ export function registerLinkSubmitForm(Alpine) {
       const normalized = normalizeUrl(this.form.url);
       this.copied = false;
       this.submitted = false;
-      this.autofillAttempted = true;
-
       if (!normalized) {
-        this.result = {
-          show: true,
-          success: false,
-          message: '请先输入有效的网站地址'
-        };
+        this.result = { show: true, success: false, warning: false, message: '请先输入有效的 HTTP 或 HTTPS 网站地址。' };
         return;
       }
 
+      await this.ensureCapability();
+      if (this.destroyed) return;
       this.clearStaleAutofill(normalized);
       this.fetchingMeta = true;
       this.previewVisible = true;
       this.result.show = false;
       const controller = new AbortController();
       const generation = ++this.autofillGeneration;
+      const timeoutId = withTimeout(controller, SITE_METADATA_TIMEOUT_MS);
       this.autofillController = controller;
-      let timedOut = false;
-      const timeoutId = globalThis.setTimeout(() => {
-        timedOut = true;
-        controller.abort();
-      }, SITE_METADATA_TIMEOUT_MS);
       const isLatest = () => !this.destroyed
         && generation === this.autofillGeneration
         && normalizeUrl(this.form.url) === normalized;
-      const isCurrent = () => !controller.signal.aborted && isLatest();
+      let backendError = null;
 
       try {
-        const detail = await fetchSiteMetadata(normalized, controller.signal);
-        if (!isCurrent()) return;
+        let metadata = null;
+        if (this.canManage && !this.preferMessage) {
+          try {
+            metadata = await fetchOfficialLinkDetail(normalized, controller.signal);
+            if (metadata.discoveryError) {
+              this.result = {
+                show: true,
+                success: false,
+                warning: true,
+                message: `${formatBackendMetadataFailure(metadata.discoveryError)}，站点基本信息已识别，RSS 请手动确认。`
+              };
+            }
+          } catch (error) {
+            backendError = error;
+            const status = Number(error?.status || 0);
+            if (status === 401 || status === 403) {
+              this.canManage = false;
+              this.capabilityStatus = status === 401 ? 'guest' : 'denied';
+              this.preferMessage = true;
+            }
+          }
+        }
+
+        if (!metadata) {
+          metadata = await fetchSiteMetadata(normalized, controller.signal);
+          if (backendError) {
+            this.result = {
+              show: true,
+              success: false,
+              warning: true,
+              message: `${formatBackendMetadataFailure(backendError)}，已改用浏览器识别。`
+            };
+          }
+        }
+
+        throwIfAborted(controller.signal);
+        if (!isLatest()) return;
         this.detail = {
-          displayName: detail?.title || readableHost(normalized) || '待确认站点',
-          description: detail?.description || '',
-          logo: detail?.logo || '',
-          platform: detail?.platform || ''
+          displayName: metadata?.title || readableHost(normalized) || '待确认站点',
+          description: metadata?.description || '',
+          logo: metadata?.logo || '',
+          platform: metadata?.platform || ''
         };
-        this.autofillAvailable = true;
         this.syncFormFromDetail(normalized, true);
-        this.form.rssUrl = detail?.rssUrl || this.form.rssUrl;
+        this.form.rssUrl = metadata?.rssUrl || this.form.rssUrl;
         this.autofillSnapshot = {
           url: normalized,
           displayName: this.form.displayName,
@@ -717,31 +1298,22 @@ export function registerLinkSubmitForm(Alpine) {
           rssUrl: this.form.rssUrl
         };
         this.markdown = this.buildMarkdown(normalized);
-        this.result = {
-          show: true,
-          success: true,
-          message: this.detail.platform
-            ? `已在浏览器中识别站点信息（${this.detail.platform}），请确认后提交`
-            : '已在浏览器中识别站点信息，请确认后提交'
-        };
-      } catch (_error) {
+      } catch (error) {
         if (!isLatest()) return;
-        if (_error?.name === 'AbortError' && !timedOut) return;
-        if (timedOut) _error.code = 'timeout';
-        warnApiCall('links', '浏览器读取友链站点失败，已切换手动填写', {
+        if (error?.name === 'AbortError' && controller.signal.reason?.name !== 'TimeoutError') return;
+        if (controller.signal.reason?.name === 'TimeoutError') error.code = 'timeout';
+        warnApiCall('links', '友链站点识别失败，已保留手动填写', {
           endpoint: normalized,
-          url: normalized,
-          message: _error?.message || String(_error || ''),
+          message: error?.message || String(error || ''),
           action: 'generate-manual-draft',
-          hint: '目标站点可能限制跨域读取；保留网址并提示访客手动补充。'
+          hint: '访客检查目标站 CORS；管理员检查 PluginLinks detail/discovery 权限与目标 URL。'
         });
-        this.autofillAvailable = false;
         this.applyManualDraft(normalized);
         this.result = {
           show: true,
           success: false,
           warning: true,
-          message: formatMetadataFailure(_error)
+          message: `${backendError ? `${formatBackendMetadataFailure(backendError)}；` : ''}${formatMetadataFailure(error)}。网址已保留，请手动填写。`
         };
       } finally {
         globalThis.clearTimeout(timeoutId);
@@ -755,7 +1327,7 @@ export function registerLinkSubmitForm(Alpine) {
     applyManualDraft(url) {
       this.detail = {
         displayName: readableHost(url) || '待确认站点',
-        description: '请手动补充一句话简介。',
+        description: '',
         logo: '',
         platform: ''
       };
@@ -770,13 +1342,7 @@ export function registerLinkSubmitForm(Alpine) {
         if (this.form[field] === snapshot[field]) this.form[field] = '';
       }
       this.autofillSnapshot = null;
-      this.autofillAvailable = false;
-      this.detail = {
-        displayName: '',
-        description: '',
-        logo: '',
-        platform: ''
-      };
+      this.detail = { displayName: '', description: '', logo: '', platform: '' };
     },
 
     syncFormFromDetail(url, preferDetail = true) {
@@ -790,40 +1356,37 @@ export function registerLinkSubmitForm(Alpine) {
       this.form.displayName = this.form.displayName || this.detail.displayName;
     },
 
-    enableMessageFallback() {
-      this.messageFallback = true;
-      const hasSiteDraft = normalizeUrl(this.form.url)
-        || String(this.form.displayName || this.detail.displayName || '').trim()
-        || String(this.form.description || this.detail.description || '').trim();
-      this.markdown = hasSiteDraft ? this.buildMarkdown(this.form.url) : '';
+    onTypeChange() {
+      this.submitted = false;
+      this.copied = false;
+      if (this.form.type === 'update') this.preferMessage = true;
+      this.markdown = this.buildMarkdown(this.form.url);
     },
 
     isUpdateMode() {
       return this.form.type === 'update';
     },
 
-    isDirectSubmitMode() {
-      return this.submitPluginEnabled && !this.messageFallback && !this.isUpdateMode();
+    isDirectCreateMode() {
+      return this.canManage && !this.preferMessage && !this.isUpdateMode();
     },
 
-    isMessageFallbackMode() {
-      return !this.submitPluginEnabled || this.messageFallback || this.isUpdateMode();
+    isMessageMode() {
+      return !this.isDirectCreateMode();
     },
 
-    canSubmitDirect() {
-      if (this.submitting || this.submitted || this.fetchingMeta || this.loadingGroups) return false;
-      if (!this.isDirectSubmitMode()) return false;
+    canCreateDirect() {
+      if (this.submitting || this.submitted || this.fetchingMeta || !this.isDirectCreateMode()) return false;
       if (!normalizeUrl(this.form.url)) return false;
       if (!String(this.form.displayName || '').trim()) return false;
       if (!String(this.form.description || '').trim()) return false;
-      if (!this.form.groupName) return false;
-      if (this.form.type === 'update' && !String(this.form.updateDescription || '').trim()) return false;
+      if (this.form.logo && !normalizeUrl(this.form.logo)) return false;
+      if (this.form.rssUrl && !normalizeUrl(this.form.rssUrl)) return false;
       return true;
     },
 
     canCopyDraft() {
-      if (this.fetchingMeta) return false;
-      if (!this.isMessageFallbackMode()) return false;
+      if (this.fetchingMeta || !this.isMessageMode()) return false;
       if (!normalizeUrl(this.form.url)) return false;
       if (!String(this.form.displayName || '').trim()) return false;
       if (!String(this.form.description || '').trim()) return false;
@@ -832,78 +1395,66 @@ export function registerLinkSubmitForm(Alpine) {
     },
 
     primaryActionLabel() {
-      if (this.isDirectSubmitMode()) {
-        if (this.submitted) return '已提交，等待审核';
-        if (this.submitting) return '提交中...';
-        return '提交友链申请';
+      if (this.isDirectCreateMode()) {
+        if (this.submitted) return '已添加';
+        if (this.submitting) return '正在添加…';
+        return '添加到链接管理';
       }
-      if (this.isUpdateMode()) return this.copied ? '已复制，前往留言板' : '复制修改申请到留言板';
-      return this.copied ? '已复制，前往留言板' : '复制并前往留言板';
+      if (this.isUpdateMode()) return this.copied ? '已复制' : '复制修改申请到留言板';
+      return this.copied ? '已复制' : '复制并前往留言板';
     },
 
     primaryActionNote() {
-      if (this.isUpdateMode()) {
-        return '修改不会直接覆盖现有友链，请把修改申请发到留言板，由站长手动处理。';
-      }
-      if (this.isDirectSubmitMode()) {
-        if (this.submitted) return '申请已经提交，请等待站点后台审核。';
-        return '提交后会进入后台审核，发送前可以修改表单。';
-      }
-      return this.messageFallback ? '自助提交暂不可用，复制后会自动切换到留言板。' : '复制后会自动切换到留言板。';
+      if (this.isDirectCreateMode()) return this.submitted
+        ? '链接已经写入 PluginLinks，刷新页面后可见。'
+        : '将通过 Halo 受保护的标准 Link CRUD 接口直接创建。';
+      if (this.isUpdateMode()) return '修改申请不会直接覆盖现有链接，由管理员确认后处理。';
+      return '访客没有公开写入接口；复制后会切换到留言板。';
     },
 
-    async submitLink() {
-      if (!this.canSubmitDirect()) return;
-
+    async createLink() {
+      if (!this.canCreateDirect()) return;
       this.submitting = true;
       this.result.show = false;
-
-      const payload = {
-        type: this.form.type || 'add',
-        displayName: String(this.form.displayName || '').trim(),
-        url: normalizeUrl(this.form.url),
-        logo: String(this.form.logo || '').trim(),
-        email: String(this.form.email || '').trim(),
-        description: String(this.form.description || '').trim(),
-        updateDescription: String(this.form.updateDescription || '').trim(),
-        groupName: String(this.form.groupName || '').trim(),
-        rssUrl: String(this.form.rssUrl || '').trim()
-      };
+      const payload = buildPluginLinkPayload(this.form);
 
       try {
-        const response = await fetch(LINK_SUBMIT_API, {
+        const response = await fetch(LINK_CORE_API, {
           method: 'POST',
+          credentials: 'same-origin',
           headers: {
             Accept: 'application/json',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            ...buildCsrfHeaders()
           },
           body: JSON.stringify(payload)
         });
-
-        if (!response.ok) {
-          const message = await readErrorMessage(response);
-          throw new Error(formatSubmitFailure(response, message));
-        }
-
+        if (!response.ok) throw statusError(response, await readErrorMessage(response));
+        this.submitted = true;
         this.result = {
           show: true,
           success: true,
-          message: '友链申请已提交，等待站点后台审核'
+          warning: false,
+          message: '友链已添加到 PluginLinks。'
         };
-        this.submitted = true;
       } catch (error) {
-        warnApiCall('links', '友链申请提交失败，切换留言兜底', {
-          endpoint: LINK_SUBMIT_API,
+        const status = Number(error?.status || 0);
+        if (status === 401 || status === 403) {
+          this.canManage = false;
+          this.capabilityStatus = status === 401 ? 'guest' : 'denied';
+          this.preferMessage = true;
+        }
+        warnApiCall('links', 'PluginLinks 官方创建接口失败', {
+          endpoint: LINK_CORE_API,
           message: error?.message || String(error || ''),
-          action: 'enable-message-fallback',
-          hint: '检查 Link Submit 插件状态、匿名提交接口、分组 groupName 和提交字段契约。'
+          action: 'create-link',
+          hint: '检查当前用户 links 资源权限与 LinkSpec/groupName/rss 字段。'
         });
-        this.enableMessageFallback();
-        const errorMessage = String(error?.message || '').trim();
         this.result = {
           show: true,
           success: false,
-          message: `${errorMessage || '友链自助提交没有成功。'} 已为你切换到留言板申请方式。`
+          warning: false,
+          message: `${formatCreateFailure(error)}${status === 401 || status === 403 ? ' 已切换为留言申请。' : ''}`
         };
       } finally {
         this.submitting = false;
@@ -916,57 +1467,40 @@ export function registerLinkSubmitForm(Alpine) {
         this.form.type === 'update' ? '申请修改友链：' : '申请交换友链：',
         `- 网站名称：${this.form.displayName || this.detail.displayName || '请补充网站名称'}`,
         `- 网站地址：${normalized || '请补充网站地址'}`,
-        `- 头像链接：${this.form.logo || this.detail.logo || '请补充头像或 Logo 地址'}`,
+        `- Logo：${this.form.logo || this.detail.logo || '请补充 Logo 地址'}`,
         `- 网站描述：${this.form.description || this.detail.description || '请补充一句话简介'}`
       ];
-
-      if (this.form.email) {
-        lines.push(`- 邮箱：${this.form.email}`);
-      }
-
+      if (this.form.email) lines.push(`- 联系邮箱：${this.form.email}`);
       if (this.form.groupName) {
         const group = this.submitGroups.find((item) => item.groupName === this.form.groupName);
         lines.push(`- 申请分组：${group?.displayName || this.form.groupName}`);
       }
-
-      if (this.form.rssUrl) {
-        lines.push(`- RSS 链接：${this.form.rssUrl}`);
-      }
-
-      if (this.form.type === 'update' && this.form.updateDescription) {
-        lines.push(`- 修改说明：${this.form.updateDescription}`);
-      }
-
+      if (this.form.rssUrl) lines.push(`- RSS 链接：${this.form.rssUrl}`);
+      if (this.form.type === 'update' && this.form.updateDescription) lines.push(`- 修改说明：${this.form.updateDescription}`);
       return lines.join('\n');
     },
 
     async copyAndGotoBoard() {
       if (!this.canCopyDraft()) return;
-
       const markdown = this.buildMarkdown(this.form.url);
       this.markdown = markdown;
-
       try {
         const copied = await copyText(markdown);
         this.copied = copied;
         this.result = {
           show: true,
           success: copied,
-          message: copied ? '信息已复制，请在留言板粘贴提交' : '复制失败，请手动复制文本'
+          warning: false,
+          message: copied ? '申请内容已复制，请粘贴到留言板。' : '复制失败，请手动复制申请内容。'
         };
-
         if (copied) {
           window.setTimeout(() => {
             document.getElementById('link-submit-modal')?.close();
             window.dispatchEvent(new CustomEvent('links:show-board'));
           }, 240);
         }
-      } catch (_error) {
-        this.result = {
-          show: true,
-          success: false,
-          message: '复制失败，请手动复制文本'
-        };
+      } catch {
+        this.result = { show: true, success: false, warning: false, message: '复制失败，请手动复制申请内容。' };
       }
     }
   }));

@@ -4,11 +4,9 @@ import path from 'node:path';
 
 const root = process.cwd();
 const momentsPath = path.join(root, 'templates/modules/moments-app/list.html');
-const friendsPath = path.join(root, 'templates/modules/friends-app/list.html');
 const pjaxPath = path.join(root, 'src/shell/desktop-shell/runtime/desktop/pjax/index.js');
 
 const momentsSource = fs.readFileSync(momentsPath, 'utf8');
-const friendsSource = fs.readFileSync(friendsPath, 'utf8');
 const pjaxSource = fs.readFileSync(pjaxPath, 'utf8');
 
 function extractAlpineData(source, marker) {
@@ -308,21 +306,11 @@ const momentsExpression = assertWaterfallContract(
   '<div class="moments-feed-pagination"',
   'moments'
 );
-const friendsExpression = assertWaterfallContract(
-  friendsSource,
-  '<div class="friends-feed-pagination moments-feed-pagination"',
-  'friends'
-);
-
 assert.ok(
   momentsExpression.includes("detail: { source: 'waterfall', root: targetList }")
     && momentsExpression.includes("detail: { source: 'cache', root: targetList }"),
   'Moments updates must identify the local root for incremental Shiki rendering'
 );
-
-const friendsCatch = friendsExpression.match(/catch \(error\) \{([\s\S]*?)\n\s*\} finally/)?.[1] || '';
-assert.ok(friendsCatch.includes("this.loadError = '\u52a0\u8f7d\u5931\u8d25\uff0c\u70b9\u51fb\u91cd\u8bd5'"), 'Friends errors must expose retry state');
-assert.equal(friendsCatch.includes('this.hasMore = false'), false, 'Friends errors must not masquerade as end-of-list');
 
 [
   'readShikiRenderDescriptor(targetDoc)',
@@ -341,6 +329,4 @@ assert.doesNotMatch(pjaxSource, /github-(?:light|dark)|one-(?:light|dark)/, 'Shi
 
 verifyShikiBridgeBehavior();
 await verifyWaterfallRuntime(momentsExpression, 'moments');
-await verifyWaterfallRuntime(friendsExpression, 'friends');
-
-console.log('Waterfall lifecycle and incremental Shiki contracts passed.');
+console.log('Moments waterfall lifecycle and incremental Shiki contracts passed.');

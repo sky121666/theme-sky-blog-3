@@ -7,7 +7,6 @@ import { explorerArchivesAppManifest } from '../../apps/explorer/archives/manife
 import { explorerAuthorAppManifest } from '../../apps/explorer/author/manifest.js';
 import { explorerCategoriesAppManifest } from '../../apps/explorer/categories/manifest.js';
 import { explorerTagsAppManifest } from '../../apps/explorer/tags/manifest.js';
-import { friendsAppManifest } from '../../apps/friends/manifest.js';
 import { linksAppManifest } from '../../apps/links/manifest.js';
 import { momentsAppManifest } from '../../apps/moments/manifest.js';
 import { photosAppManifest } from '../../apps/photos/manifest.js';
@@ -17,7 +16,6 @@ import { steamAppManifest } from '../../apps/steam/manifest.js';
 export const APP_MANIFESTS = [
   readerAppManifest,
   momentsAppManifest,
-  friendsAppManifest,
   linksAppManifest,
   bangumisAppManifest,
   doubanAppManifest,

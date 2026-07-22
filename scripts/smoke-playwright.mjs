@@ -232,18 +232,6 @@ async function main() {
       appPropsSelector: 'script[data-app-props="moments"]'
     },
     {
-      name: 'friends',
-      target: '/friends',
-      optional: !requirePluginRoutes,
-      optionalFailure: 'plugin-unavailable',
-      requireShellLoaded: true,
-      expectedAppId: 'friends',
-      expectedPageMode: 'browser-friends',
-      expectedWindowVariant: 'friends',
-      appRootSelector: '[data-app-root="friends"]',
-      appPropsSelector: 'script[data-app-props="friends"]'
-    },
-    {
       name: 'links',
       target: '/links',
       optional: !requirePluginRoutes,
@@ -536,88 +524,6 @@ async function main() {
     };
   }
 
-  async function validateFriendsInteractions() {
-    const route = {
-      name: 'friends-interactions',
-      target: '/friends',
-      optional: !requirePluginRoutes,
-      optionalFailure: 'plugin-unavailable',
-      expectedAppId: 'friends',
-      expectedPageMode: 'browser-friends',
-      expectedWindowVariant: 'friends',
-      appRootSelector: '[data-app-root="friends"]',
-      appPropsSelector: 'script[data-app-props="friends"]'
-    };
-
-    const runtimeErrors = createRuntimeErrorCollector();
-    try {
-      const baseValidation = await validateRoute(route);
-      if (!baseValidation) return null;
-
-      const firstCard = page.locator('.friends-feed-list > article').first();
-      if (await firstCard.count() < 1) {
-        runtimeErrors.assertEmpty('朋友圈交互');
-        return { ...baseValidation, ...runtimeErrors.snapshot() };
-      }
-
-      const menuToggle = firstCard.locator('.friend-feed-action-toggle').first();
-      await menuToggle.click();
-      await page.waitForTimeout(150);
-
-      const sourceFilter = firstCard.locator('.friend-feed-actions-menu a.pjax-link').first();
-      if (await sourceFilter.count() < 1) {
-        throw new Error('首条朋友圈缺少“只看此来源”入口');
-      }
-
-      const titleLink = firstCard.locator('.friend-feed-title-link').first();
-      if (await titleLink.count() > 0) {
-        const href = await titleLink.getAttribute('href');
-        if (!href) {
-          throw new Error('标题链接缺少 href');
-        }
-      }
-
-      const authorLink = firstCard.locator('.friend-feed-author-link, .friend-feed-avatar-link').first();
-      if (await authorLink.count() > 0) {
-        const href = await authorLink.getAttribute('href');
-        if (!href) {
-          throw new Error('来源主页链接缺少 href');
-        }
-      }
-
-      const sourceFilterHref = await sourceFilter.getAttribute('href');
-      if (!sourceFilterHref || !sourceFilterHref.includes('linkName=')) {
-        throw new Error(`“只看此来源”入口 href 异常: ${sourceFilterHref || ''}`);
-      }
-
-      await sourceFilter.click();
-      await page.waitForFunction(
-        (href) => {
-          const target = new URL(href, window.location.origin);
-          return window.location.pathname === target.pathname && window.location.search === target.search;
-        },
-        sourceFilterHref,
-        { timeout: 10000 }
-      );
-      await page.waitForTimeout(250);
-
-      const pageMode = await page.evaluate(() => document.body?.dataset.pageMode || '');
-      if (pageMode !== 'browser-friends') {
-        throw new Error(`筛选后 pageMode 异常: ${pageMode}`);
-      }
-
-      const search = await page.evaluate(() => window.location.search || '');
-      if (!search.includes('linkName=')) {
-        throw new Error(`筛选后缺少 linkName 参数: ${search}`);
-      }
-
-      runtimeErrors.assertEmpty('朋友圈交互');
-      return { ...baseValidation, ...runtimeErrors.snapshot() };
-    } finally {
-      runtimeErrors.stop();
-    }
-  }
-
   async function validateLinksInteractions() {
     const route = {
       name: 'links-interactions',
@@ -707,10 +613,130 @@ async function main() {
         }
       }
 
+      const feedApiRequests = [];
+      await page.route('**/apis/api.link.halo.run/v1alpha1/linkfeeds**', async (requestRoute) => {
+        const requestUrl = new URL(requestRoute.request().url());
+        feedApiRequests.push(requestUrl);
+        const source = requestUrl.searchParams.get('linkName') || '';
+        const cursor = requestUrl.searchParams.get('beforeId') || '';
+        const items = source
+          ? [{
+              id: 'feed-source-a',
+              linkName: source,
+              url: 'https://source-a.example/posts/filtered',
+              title: '来源筛选动态',
+              summary: '只显示当前来源。',
+              author: '来源 A',
+              authorUrl: 'https://source-a.example/',
+              publishedAt: '2026-07-22T01:00:00Z'
+            }]
+          : cursor
+            ? [{
+                id: 'feed-3',
+                linkName: 'source-c',
+                url: 'https://source-c.example/posts/3',
+                title: '游标续载动态',
+                summary: '第二页动态。',
+                author: '来源 C',
+                authorUrl: 'https://source-c.example/',
+                publishedAt: '2026-07-20T01:00:00Z'
+              }]
+            : [
+                {
+                  id: 'feed-1',
+                  linkName: 'source-a',
+                  url: 'https://source-a.example/posts/1',
+                  title: '官方 RSS 动态一',
+                  summary: 'PluginLinks 公开 feed 第一条。',
+                  author: '来源 A',
+                  authorUrl: 'https://source-a.example/',
+                  publishedAt: '2026-07-22T01:00:00Z'
+                },
+                {
+                  id: 'feed-2',
+                  linkName: 'source-b',
+                  url: 'https://source-b.example/posts/2',
+                  title: '官方 RSS 动态二',
+                  summary: 'PluginLinks 公开 feed 第二条。',
+                  author: '来源 B',
+                  authorUrl: 'https://source-b.example/',
+                  publishedAt: '2026-07-21T01:00:00Z'
+                }
+              ];
+        await requestRoute.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            items,
+            hasNext: !source && !cursor,
+            nextBeforePublishedAt: !source && !cursor ? '2026-07-21T01:00:00Z' : '',
+            nextBeforeId: !source && !cursor ? 'feed-2' : ''
+          })
+        });
+      });
+
+      const friendsButton = page.locator('.links-sidebar-item[aria-controls="view-friends"]').first();
+      if (await friendsButton.count() < 1) {
+        throw new Error('PluginLinks 2.2.1 友链页缺少朋友圈视图入口');
+      }
+      await friendsButton.click();
+      await page.waitForSelector('#view-friends:visible');
+      await page.waitForFunction(() => new URL(window.location.href).searchParams.get('view') === 'friends');
+
+      const refreshFeedButton = page.locator('.links-toolbar-refresh');
+      await page.waitForFunction(() => {
+        const button = document.querySelector('.links-toolbar-refresh');
+        return button && !button.disabled;
+      });
+      await Promise.all([
+        page.waitForResponse((response) => new URL(response.url()).pathname === '/apis/api.link.halo.run/v1alpha1/linkfeeds'),
+        refreshFeedButton.click()
+      ]);
+      await page.waitForFunction(() => document.querySelectorAll('[data-feed-item]').length >= 2);
+      if (await page.locator('.links-feed-skeleton, [data-feed-list] .skeleton').count() > 0) {
+        throw new Error('朋友圈切换仍渲染骨架屏');
+      }
+
+      if (!feedApiRequests.some((requestUrl) => requestUrl.searchParams.get('beforeId') === 'feed-2')) {
+        await page.waitForFunction(() => {
+          const button = document.querySelector('.links-feed-more');
+          return button && !button.disabled && getComputedStyle(button).display !== 'none';
+        });
+        await page.locator('.links-feed-more').click();
+      }
+      await page.waitForFunction(() => document.querySelectorAll('[data-feed-item]').length === 3);
+      if (!feedApiRequests.some((requestUrl) => requestUrl.searchParams.get('beforePublishedAt')
+        && requestUrl.searchParams.get('beforeId') === 'feed-2')) {
+        throw new Error('朋友圈继续加载没有携带完整游标');
+      }
+
+      const sourceFilterButton = page.locator('[data-feed-item][data-feed-link-name="source-a"] .links-feed-source-action').first();
+      await Promise.all([
+        page.waitForResponse((response) => {
+          const responseUrl = new URL(response.url());
+          return responseUrl.pathname === '/apis/api.link.halo.run/v1alpha1/linkfeeds'
+            && responseUrl.searchParams.get('linkName') === 'source-a';
+        }),
+        sourceFilterButton.click()
+      ]);
+      await page.waitForFunction(() => new URL(window.location.href).searchParams.get('linkName') === 'source-a');
+      await page.waitForFunction(() => document.querySelectorAll('[data-feed-item]').length === 1);
+      const sourceRequest = feedApiRequests.find((requestUrl) => requestUrl.searchParams.get('linkName') === 'source-a');
+      if (!sourceRequest || sourceRequest.searchParams.has('groupName')) {
+        throw new Error('朋友圈来源筛选错误地同时发送 linkName 与 groupName');
+      }
+
       const submitButton = page.locator('.links-toolbar-apply').first();
       if (await submitButton.count() > 0) {
         const metadataPath = '/__link-metadata-smoke';
         const metadataUrl = toAbsoluteUrl(metadataPath);
+        await page.route('**/apis/api.console.halo.run/v1alpha1/users/-*', async (requestRoute) => {
+          await requestRoute.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ metadata: { name: 'anonymousUser' }, spec: { displayName: 'Anonymous' } })
+          });
+        });
         await page.route('**/__link-metadata-smoke*', async (route) => {
           const url = new URL(route.request().url());
           if (url.pathname.endsWith('.svg')) {
@@ -747,6 +773,7 @@ async function main() {
           description: document.querySelector('[data-link-field="description"]')?.value || '',
           logo: document.querySelector('[data-link-field="logo"]')?.value || '',
           rssUrl: document.querySelector('[data-link-field="rssUrl"]')?.value || '',
+          platform: document.querySelector('.links-preview-platform')?.textContent || '',
           result: document.querySelector('.links-submit-result')?.textContent || ''
         }));
         if (metadataValues.description !== '纯前端识别 测试') {
@@ -754,20 +781,24 @@ async function main() {
         }
         if (!metadataValues.logo.endsWith(`${metadataPath}-logo.svg`)
           || !metadataValues.rssUrl.endsWith(`${metadataPath}-rss.xml`)
-          || !metadataValues.result.includes('Halo')) {
+          || !metadataValues.platform.includes('Halo')
+          || metadataValues.result.trim() !== '') {
           throw new Error(`友链 Logo/RSS/平台识别异常: ${JSON.stringify(metadataValues)}`);
         }
 
         await page.locator('[data-link-meta-input]').fill(toAbsoluteUrl(`${metadataPath}.json`));
         await page.locator('[data-link-meta-action="autofill"]').click();
-        await page.waitForFunction(() => document.querySelector('.links-submit-result')?.textContent?.includes('已保留网址'));
+        await page.waitForFunction(() => document.querySelector('.links-submit-result')?.textContent?.includes('网址已保留'));
         if (await page.locator('[data-link-field="description"]').inputValue() !== '') {
           throw new Error('识别新网址失败后仍残留上一站点的描述');
         }
         await page.locator('.links-modal-close').click();
+        await page.unroute('**/apis/api.console.halo.run/v1alpha1/users/-*');
         await page.unroute('**/__link-metadata-smoke*');
         await page.waitForTimeout(150);
       }
+
+      await page.unroute('**/apis/api.link.halo.run/v1alpha1/linkfeeds**');
 
       runtimeErrors.assertEmpty('友链交互');
       return { ...baseValidation, ...runtimeErrors.snapshot() };
@@ -1105,16 +1136,6 @@ async function main() {
       const screenshot = await captureFailure(page, route.name);
       failures.push(`${route.name}: ${error.message} [${screenshot}]`);
     }
-  }
-
-  try {
-    const interactionResult = await validateFriendsInteractions();
-    if (interactionResult) {
-      routeResults.push({ name: 'friends-interactions', target: '/friends', ...interactionResult });
-    }
-  } catch (error) {
-    const screenshot = await captureFailure(page, 'friends-interactions');
-    failures.push(`friends-interactions: ${error.message} [${screenshot}]`);
   }
 
   try {

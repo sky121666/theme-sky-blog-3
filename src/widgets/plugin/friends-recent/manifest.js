@@ -5,7 +5,7 @@ export const pluginFriendsRecentWidgetManifest = {
   defaultSize: 'medium',
   supportedSizes: ['small', 'medium', 'large'],
   category: 'plugin',
-  description: '最新友链动态',
+  description: 'PluginLinks RSS 最新动态',
   appearanceSupport: ['follow', 'light', 'dark'],
   cachePolicy: 'ttl',
   loadWhen: 'desktop-visible'

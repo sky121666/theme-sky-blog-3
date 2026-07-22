@@ -328,8 +328,9 @@
       widgetsBangumiDramaWishCount = ${widgetsBangumisDramaWish != null ? widgetsBangumisDramaWish.total : 0},
       widgetsBangumiDramaWatchingCount = ${widgetsBangumisDramaWatching != null ? widgetsBangumisDramaWatching.total : 0},
       widgetsBangumiDramaDoneCount = ${widgetsBangumisDramaDone != null ? widgetsBangumisDramaDone.total : 0},
-      widgetsFriendsAvailable = ${(widgetsNeedsFriends or widgetsCatalogOptionsNeeded) and pluginFinder.available('plugin-friends')},
-      widgetsRecentFriends = ${widgetsNeedsFriends and widgetsFriendsAvailable ? friendFinder.list(1, 5) : null},
+      widgetsFriendsAvailable = ${(widgetsNeedsFriends or widgetsCatalogOptionsNeeded) and pluginFinder.available('PluginLinks', '>=2.2.1')},
+      widgetsRecentFriendsPage = ${widgetsNeedsFriends and widgetsFriendsAvailable ? linkFeedFinder.list({limit: 5}) : null},
+      widgetsRecentFriends = ${widgetsRecentFriendsPage},
       widgetsDocsmeAvailable = ${(widgetsNeedsDocsme or widgetsCatalogOptionsNeeded) and pluginFinder.available('plugin-docsme', '>=1.4.0')},
       widgetsDocsmeProjects = ${(widgetsNeedsDocsme or widgetsCatalogOptionsNeeded) and widgetsDocsmeAvailable ? docsmeProjectsFinder.list(1, 5) : null},
       widgetsPhotosAvailable = ${(widgetsNeedsPhotos or widgetsCatalogOptionsNeeded) and pluginFinder.available('PluginPhotos')},
@@ -568,16 +569,6 @@
                       windowResizable=${windowResizable != null ? windowResizable : 'y'},
                       windowScene=${windowScene != null ? windowScene : 'feed'},
                       metricsKey=${windowMetricsKey != null ? windowMetricsKey : 'moments'}
-                    )}" />
-        </th:block>
-
-        <th:block th:if="${windowVariant == 'friends'}">
-          <th:block th:replace="~{modules/friends-app/window :: frame(
-                      titleText=${windowTitle},
-                      contentFragment=${ssrContent},
-                      windowResizable=${windowResizable != null ? windowResizable : 'y'},
-                      windowScene=${windowScene != null ? windowScene : 'feed'},
-                      metricsKey=${windowMetricsKey != null ? windowMetricsKey : 'friends'}
                     )}" />
         </th:block>
 

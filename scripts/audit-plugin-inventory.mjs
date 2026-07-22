@@ -12,9 +12,7 @@ export const THEME_PLUGIN_MANIFEST = Object.freeze([
   { id: 'plugin-docsme', expectedVersion: '1.7.0', aliases: [] },
   { id: 'PluginPhotos', expectedVersion: '2.1.2', aliases: [] },
   { id: 'PluginMoments', expectedVersion: '1.16.1', aliases: [] },
-  { id: 'plugin-friends', expectedVersion: '1.4.6', aliases: [] },
-  { id: 'PluginLinks', expectedVersion: '2.0.0', aliases: ['plugin-links'] },
-  { id: 'link-submit', expectedVersion: '1.0.7', aliases: [] },
+  { id: 'PluginLinks', expectedVersion: '2.2.1', aliases: ['plugin-links'] },
   { id: 'halo-plugin-steam', expectedVersion: '1.0.0', aliases: ['steam', 'PluginSteam', 'plugin-steam'] },
   { id: 'plugin-equipment', expectedVersion: '1.1.1', aliases: ['equipment'] },
   { id: 'PluginCommentWidget', expectedVersion: '3.1.2', aliases: ['plugin-comment-widget'] },
@@ -40,7 +38,7 @@ export const THEME_PLUGIN_MANIFEST = Object.freeze([
 })));
 
 const COMPATIBILITY_PINS = new Map([
-  ['PluginLinks', '2.0.0']
+  ['PluginLinks', '2.2.1']
 ]);
 
 function nameKey(value) {

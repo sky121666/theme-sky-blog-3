@@ -67,10 +67,10 @@ const wrongVersionRows = passingRows.map((row) => row.canonicalName === 'PluginF
 assert.throws(() => assertStrictThemeInventory(wrongVersionRows), /PluginFeed: version=1\.4\.9/);
 
 const wrongLinksRows = passingRows.map((row) => row.canonicalName === 'PluginLinks'
-  ? { ...row, version: '2.2.1' }
+  ? { ...row, version: '2.0.0' }
   : row);
-assert.throws(() => assertCompatibilityPins(wrongLinksRows), /PluginLinks=2\.2\.1/);
-assert.throws(() => assertStrictThemeInventory(wrongLinksRows), /PluginLinks: version=2\.2\.1/);
+assert.throws(() => assertCompatibilityPins(wrongLinksRows), /PluginLinks=2\.0\.0/);
+assert.throws(() => assertStrictThemeInventory(wrongLinksRows), /PluginLinks: version=2\.0\.0/);
 
 const duplicateAliasRows = normalizePluginInventory([
   ...passingPlugins,

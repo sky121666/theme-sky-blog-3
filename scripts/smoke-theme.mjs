@@ -21,7 +21,7 @@ const assetManifestFile = path.join(root, 'templates/assets/asset-manifest.json'
 assert(fs.existsSync(assetManifestFile), '缺少 templates/assets/asset-manifest.json');
 
 const manifest = readJson(assetManifestFile);
-const requiredAssets = ['shell-core', 'auth', 'reader', 'moments', 'friends', 'links', 'bangumis', 'douban', 'docsme', 'steam', 'equipments', 'photos', 'explorer-tags', 'explorer-categories', 'explorer-author', 'explorer-archives'];
+const requiredAssets = ['shell-core', 'auth', 'reader', 'moments', 'links', 'bangumis', 'douban', 'docsme', 'steam', 'equipments', 'photos', 'explorer-tags', 'explorer-categories', 'explorer-author', 'explorer-archives'];
 
 for (const key of requiredAssets) {
   assert(manifest[key], `asset-manifest 缺少入口: ${key}`);
@@ -64,7 +64,6 @@ const protocolChecks = [
   ['templates/modules/browser-reader/page.html', ['data-app-root="reader"', 'data-app-props="reader"']],
   ['templates/modules/moments-app/list.html', ['data-app-root="moments"', 'data-app-props="moments"']],
   ['templates/modules/moments-app/detail.html', ['data-app-root="moments"', 'data-app-props="moments"']],
-  ['templates/modules/friends-app/list.html', ['data-app-root="friends"', 'data-app-props="friends"']],
   ['templates/modules/links-app/list.html', ['data-app-root="links"', 'data-app-props="links"']],
   ['templates/modules/bangumis-app/list.html', ['data-app-root="bangumis"', 'data-app-props="bangumis"']],
   ['templates/modules/douban-app/list.html', ['data-app-root="douban"', 'data-app-props="douban"']],
