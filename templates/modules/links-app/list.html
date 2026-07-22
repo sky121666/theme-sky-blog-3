@@ -269,14 +269,38 @@
       </section>
 
       <section class="links-detail-pane" :aria-hidden="!detailOpen()">
-        <header class="links-detail-header">
+        <header class="links-detail-header"
+          :class="{ 'is-feed-source': activeView === 'friends' && !selectedFeedItem && feedLinkName && activeFeedSource() }">
           <button type="button" class="links-detail-back" @click="collapseDetail()" aria-label="返回列表">
             <span class="icon-[lucide--chevron-left]" aria-hidden="true"></span>
           </button>
+          <span class="links-detail-source-logo"
+            x-show="activeView === 'friends' && !selectedFeedItem && feedLinkName && activeFeedSource()"
+            :class="{ 'is-fallback': !activeFeedSource()?.logo }" aria-hidden="true">
+            <template x-if="activeFeedSource()?.logo">
+              <img :src="activeFeedSource().logo" alt="" />
+            </template>
+            <span x-show="!activeFeedSource()?.logo" class="icon-[lucide--rss]"></span>
+          </span>
           <div class="links-detail-heading">
             <strong x-text="detailTitle()">链接</strong>
-            <span x-text="detailSubtitle()"></span>
+            <span class="links-detail-subtitle"
+              x-show="!(activeView === 'friends' && !selectedFeedItem && feedLinkName && activeFeedSource())"
+              x-text="detailSubtitle()"></span>
+            <span class="links-detail-source-description"
+              x-show="activeView === 'friends' && !selectedFeedItem && feedLinkName && activeFeedSource()"
+              x-text="activeFeedSource()?.description || '查看该来源的 RSS 动态'"></span>
+            <span class="links-detail-source-meta"
+              x-show="activeView === 'friends' && !selectedFeedItem && feedLinkName && activeFeedSource()"
+              x-text="`${readableLinkHost(activeFeedSource()?.url || '')} · ${feedItemCount} 条动态`"></span>
           </div>
+          <a class="links-detail-source-link"
+            x-show="activeView === 'friends' && !selectedFeedItem && feedLinkName && activeFeedSource()"
+            :href="activeFeedSource()?.url || '#'" target="_blank" rel="noopener noreferrer"
+            aria-label="访问来源网站" title="访问来源网站">
+            <span class="links-detail-source-link-label">访问网站</span>
+            <span class="icon-[lucide--arrow-up-right]" aria-hidden="true"></span>
+          </a>
           <button type="button" class="links-detail-action" x-show="activeView === 'friends' && !selectedFeedItem"
             :disabled="feedLoading" @click="refreshFeed()" aria-label="刷新动态" title="刷新动态">
             <span class="icon-[lucide--refresh-cw]" :class="{ 'is-spinning': feedLoading }" aria-hidden="true"></span>
@@ -312,7 +336,9 @@
             </a>
           </div>
 
-          <div id="view-friends" class="links-feed-view" x-show="activeView === 'friends' && detailOpen()">
+          <div id="view-friends" class="links-feed-view"
+            :class="{ 'is-source-context': !selectedFeedItem && feedLinkName && activeFeedSource() }"
+            x-show="activeView === 'friends' && detailOpen()">
             <article class="links-feed-reader" x-show="selectedFeedItem">
               <button type="button" class="links-feed-reader-back" @click="closeFeedItem()">
                 <span class="icon-[lucide--arrow-left]" aria-hidden="true"></span>
@@ -364,25 +390,6 @@
               </div>
             </article>
 
-            <section class="links-feed-profile" x-show="!selectedFeedItem && feedLinkName && activeFeedSource()">
-              <span class="links-feed-profile-logo" :class="{ 'is-fallback': !activeFeedSource()?.logo }" aria-hidden="true">
-                <template x-if="activeFeedSource()?.logo">
-                  <img :src="activeFeedSource().logo" alt="" />
-                </template>
-                <span x-show="!activeFeedSource()?.logo" class="icon-[lucide--rss]"></span>
-              </span>
-              <div class="links-feed-profile-copy">
-                <strong x-text="activeFeedSource()?.label || '当前来源'"></strong>
-                <p x-text="activeFeedSource()?.description || '查看该来源的 RSS 动态'"></p>
-                <span x-text="readableLinkHost(activeFeedSource()?.url || '')"></span>
-              </div>
-              <a class="links-primary-action links-feed-profile-action"
-                :href="activeFeedSource()?.url || '#'" target="_blank" rel="noopener noreferrer">
-                <span>访问网站</span>
-                <span class="icon-[lucide--arrow-up-right]" aria-hidden="true"></span>
-              </a>
-            </section>
-
             <div class="links-feed-list" data-feed-list x-show="!selectedFeedItem"
               :class="{ 'is-updating': feedLoading && feedReplacing }">
               <article class="links-feed-card" data-feed-item
@@ -413,7 +420,11 @@
                     <button type="button" class="links-feed-source-action"
                       th:if="${!#strings.isEmpty(feed.linkName)}"
                       th:attr="data-feed-target-link=${feed.linkName}"
-                      @click="showFeedSource($el.dataset.feedTargetLink)">只看此来源</button>
+                      x-show="feedLinkName !== $el.dataset.feedTargetLink"
+                      @click="showFeedSource($el.dataset.feedTargetLink)">
+                      <span>只看此来源</span>
+                      <span class="icon-[lucide--chevron-right]" aria-hidden="true"></span>
+                    </button>
                     <div class="links-feed-utilities">
                       <a class="links-feed-open" th:href="${feed.url}" target="_blank" rel="noopener noreferrer"
                         aria-label="阅读原文" title="阅读原文">

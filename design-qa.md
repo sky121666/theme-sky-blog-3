@@ -1,3 +1,48 @@
+# PluginLinks 来源页头、外链层级与暗色下拉设计 QA
+
+## 对照目标
+
+- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-f961f4b5-8d64-40a6-ae4f-8c0063472daf.png`
+- Select problem evidence: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-b80f3dac-7fbb-44a4-a543-2ea04b7d52fe.png`
+- Browser-rendered implementation: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-source-header/02-after.png`
+- Same-size implementation: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-source-header/03-after-1068x826.png`
+- All-feed action state: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-source-header/05-after-actions-all.png`
+- Route: `http://localhost:8090/links?view=friends&linkName=link-QDUTJ`
+- State: 暗色、朋友圈、单一 RSS 来源、真实动态与管理员操作已加载
+- Pixel normalization: 参考图 `1068 × 826px`；同尺寸实现 `1068 × 826px`，CSS viewport `1068 × 826`、`devicePixelRatio: 1`。参考图不携带 CSS viewport 元数据，因此只按相同像素画布、相同暗色来源状态比较，不做亚像素密度推断。
+- Full-view comparison evidence: 用户问题图与 `03-after-1068x826.png` 已在同一视觉比较输入中检查。
+- Focused region evidence: 用户问题图本身已是来源页头与首批动态的聚焦截图；实现页头在同尺寸截图中保持清晰可读，因此没有再以不同裁切制造第二组比较。
+
+## Findings
+
+- No actionable P0/P1/P2 findings remain.
+- Fonts and typography: 延续系统字体与微信式紧凑字级；来源名称、简介、域名和动态计数在 `78px` 页头内形成清楚的三级信息，不再上下重复，长内容保持单行截断。
+- Spacing and layout rhythm: 来源头像为 `40 × 40px`，访问入口为 `83 × 32px`；旧 `.links-feed-profile` 节点数量为 `0`，首条动态直接衔接页头，重复资料卡与过重留白均已移除。
+- Colors and visual tokens: 访问入口改为低饱和微信绿轻底，不再使用大面积实心绿色；暗色应用和分组下拉的计算 `color-scheme` 均为 `dark`，选项背景为 `rgb(51, 51, 51)`、文字为 `rgb(231, 231, 231)`。
+- Image quality and assets: 页头继续使用 PluginLinks 的真实站点 Logo；缺图只回退到项目已有 Lucide/Iconify RSS 图标，没有新增、替换或伪造图片资源。
+- Copy and content: 来源名称、原简介、域名与真实动态数量完整保留；“只看此来源”增加轻量方向提示，当前已经处于该来源时自动隐藏，避免重复动作。
+- Interaction and accessibility: 从“全部动态”点击首条“只看此来源”可回到 `linkName=link-QDUTJ`，页头同步出现；来源网站与原文入口保持 `_blank` 和 `noopener noreferrer`，原文图标命中区为 `28 × 28px`，页面 `console.error` 为 `0`。
+- Framework boundary: 继续使用现有 Thymeleaf、Alpine、Lucide/Iconify 与原生 CSS；没有新增 daisyUI、依赖、接口、权限或路由。
+
+## Comparison history
+
+- Pass 1: 用户问题图显示顶部标题与下方来源资料卡重复；“访问网站”实心绿按钮过重，“只看此来源 / 阅读原文”层级割裂；暗色原生下拉仍以亮色选项面板出现。
+- Fix 1: 将真实头像、名称、简介、域名、数量和访问入口合并到来源页头；删除独立资料卡；统一站内来源跳转、原文图标和页头外链的尺寸、方向提示与按压反馈；为应用和选项补齐原生暗色契约。
+- Pass 2: 同尺寸暗色真页复核中没有重复名称块、裁切、溢出或明显层级漂移；来源跳转、外链属性、原生选项计算样式和控制台均通过，无剩余 P0/P1/P2。
+
+## Verification
+
+- [x] `node --check src/apps/links/runtime.js`
+- [x] `pnpm run verify:links`
+- [x] `pnpm run check`
+- [x] `pnpm run verify:reload`
+- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
+- [x] 同尺寸暗色截图、来源跳转、外链属性、暗色下拉计算样式与 console error 真页复核
+
+final result: passed
+
+---
+
 # PluginLinks 微信式三点操作菜单设计 QA
 
 ## 对照目标

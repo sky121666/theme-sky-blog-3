@@ -549,6 +549,7 @@ function refreshFeedCardState(article, item) {
 
 function createFeedCard(item, {
   protectedMode = false,
+  activeLinkName = '',
   onSourceClick,
   onOpen,
   onToggleFavorite,
@@ -612,11 +613,13 @@ function createFeedCard(item, {
 
   const footer = document.createElement('div');
   footer.className = 'links-feed-footer';
-  if (item.linkName) {
+  if (item.linkName && item.linkName !== activeLinkName) {
     const source = document.createElement('button');
     source.type = 'button';
     source.className = 'links-feed-source-action';
-    source.textContent = '只看此来源';
+    const sourceLabel = document.createElement('span');
+    sourceLabel.textContent = '只看此来源';
+    source.append(sourceLabel, iconNode('icon-[lucide--chevron-right]'));
     source.addEventListener('click', () => onSourceClick?.(item.linkName));
     footer.appendChild(source);
   }
@@ -1407,6 +1410,7 @@ export function registerLinksExplorer(Alpine) {
           if (item.id && knownIds.has(item.id)) continue;
           const card = createFeedCard(item, {
             protectedMode,
+            activeLinkName: this.feedLinkName,
             onSourceClick: (linkName) => this.showFeedSource(linkName),
             onOpen: (id) => this.openFeedItem(id),
             onToggleFavorite: (id) => this.toggleFeedFavorite(id),
