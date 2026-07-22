@@ -1,3 +1,62 @@
+# PluginLinks 手机端全屏响应式设计 QA
+
+## 对照目标
+
+- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-d6e2dc87-08eb-4b85-ab45-06d2dae63215.png`
+- Mobile before: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-mobile-responsive/01-before-source.png`
+- Mobile implementation: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-mobile-responsive/02-after-source-390.png`
+- Narrow implementation: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-mobile-responsive/08-after-source-320.png`
+- Mobile list: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-mobile-responsive/03-after-list-390.png`
+- Mobile apply: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-mobile-responsive/07-after-apply-320.png`
+- Mobile more menu: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-mobile-responsive/09-after-more-menu-320.png`
+- Desktop regression: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-mobile-responsive/10-desktop-regression.png`
+- Route: `http://localhost:8090/links?view=friends&linkName=link-QDUTJ`
+- State: 暗色、PluginLinks 真实来源和 20 条 RSS 动态、管理员能力已加载
+- Viewports: CSS `390 × 844px`、`320 × 640px`、桌面 `1250 × 1169px`；`devicePixelRatio: 1`
+- Pixel normalization: 桌面目标是页头聚焦裁切 `720 × 213px`；移动实现分别为 `390 × 844px` 与 `320 × 640px`。这是同一设计语言的响应式重排，不进行跨形态逐像素比较；所有实现截图按 1x CSS 像素检查。
+- Full-view comparison evidence: 桌面视觉目标、手机端修复前和 `02-after-source-390.png` 已放入同一视觉输入，确认信息层级、微信配色和来源动态语义保持一致，并修复整窗不可见问题。
+- Focused region evidence: `08-after-source-320.png`、`03-after-list-390.png`、`07-after-apply-320.png` 与桌面回归图已放入同一视觉输入，逐项核对 320px Header、底部导航、表单、真实头像、文本换行和桌面布局。
+
+## Findings
+
+- No actionable P0/P1/P2 findings remain.
+- Fonts and typography: 继续使用系统字体与原有 10–14px 信息层级；320px 下来源标题、日期和摘要可自然换行，Header 标题与域名/动态数保持两行，不发生逐字换行或遮挡。
+- Spacing and layout rhythm: 手机端窗口改为完整 `100dvh` 沉浸式画布，390px 与 320px 均无横向溢出；底部导航为 64px 并显示图标与短标签，详情按钮和主要表单控件提升到 40px 触控尺寸。
+- Colors and visual tokens: 微信绿只用于当前导航、访问入口和状态动作；暗色背景、边界与弱化文本全部继续复用 links app 自有 token，不受主题强调色影响。
+- Image quality and assets: 左侧来源与动态作者继续使用 PluginLinks 的真实头像；透明 Logo 背景保持透明，没有新增、替换或伪造图像资产。
+- Copy and content: “5ee博客 / 5ee.net · 20 条动态”“访问网站”“收藏 / 稍后读 / 未读”等桌面信息在移动端保留；访问网站在窄 Header 中仅隐藏文字、保留语义完整的图标入口。
+- Interaction and accessibility: 390px 下已验证来源详情返回列表、朋友圈与链接标签切换、友链详情、添加友链；320px 下更多菜单边界为 `x=86..303`，没有越出视口。底部导航显示文字标签，触控入口拥有明确语义，真页 `console.error` 为 0。
+- Desktop regression: 桌面窗口仍为 `1120 × 652px`，来源 Header 仍为 78px，菜单栏和 Dock 保持显示，用户确认的桌面布局未变化。
+- Framework boundary: 仅扩展现有响应式 CSS 和静态契约测试，没有新增 DaisyUI、依赖、接口、权限或路由。
+
+## Comparison history
+
+- Pass 1: 390px 修复前截图中友链窗口收缩为约 `2 × 60px`，整个应用不可见，属于 P0 响应式阻断。
+- Fix 1: 为 links 页面补齐移动端全屏窗口契约：隐藏桌面菜单栏/Dock/拖拽控件，令 `#window-frame-root` 和 `.links-window` 占满 `100dvh`；同时优化底部导航标签、Header、动态操作和表单触控尺寸。
+- Pass 2: 390px 来源详情、来源列表与 320px 来源详情、添加表单、更多菜单均可见且无横向溢出；桌面回归保持原布局，无剩余 P0/P1/P2。
+
+## Primary interactions tested
+
+- 来源详情返回朋友圈来源列表，URL 正确移除 `linkName`。
+- 朋友圈切换到链接列表后，`view=links` 状态在 2.1 秒复核中保持稳定。
+- 点击真实“5ee博客”友链进入资料详情。
+- 点击底部“添加”进入管理员直连表单。
+- 320px 下展开首条动态三点菜单，收藏、稍后读、未读操作完整可见且未越界。
+- 390px、320px 均无 body 横向溢出；当前页控制台错误为 0。
+
+## Verification
+
+- [x] `pnpm run build`
+- [x] `pnpm run verify:links`
+- [x] `pnpm run check`
+- [x] `pnpm run verify:reload`
+- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
+- [x] 390px、320px 和桌面真页视觉及交互复核
+
+final result: passed
+
+---
+
 # PluginLinks 来源详情页头精简设计 QA
 
 ## 对照目标
