@@ -1,3 +1,43 @@
+# PluginLinks 来源详情页头精简设计 QA
+
+## 对照目标
+
+- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-d6e2dc87-08eb-4b85-ab45-06d2dae63215.png`
+- Browser-rendered implementation: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-header-final/implementation.png`
+- Route: `http://localhost:8090/links?view=friends&linkName=link-QDUTJ`
+- State: 暗色、朋友圈、单一 RSS 来源、20 条真实动态已加载
+- Viewport: CSS `1250 × 1169px`，`devicePixelRatio: 1`
+- Pixel normalization: 参考图是页头聚焦裁切 `720 × 213px`；实现全页截图为 `1250 × 1169px`。两者均按 1x 像素查看，不做缩放后的亚像素推断；实现页头的 DOM 实测区域为 `618 × 78px`。
+- Full-view comparison evidence: 参考图与 `implementation.png` 已放入同一个视觉比较输入，核对应用窗口比例、详情页头层级、首条动态衔接及左右栏关系。
+- Focused region comparison evidence: 参考图本身就是目标页头的聚焦区域；同一比较输入中实现页头文字与控件可清晰辨认，并辅以真页 DOM 实测：页头图片 `0`、旧简介节点 `0`、标题为“5ee博客”、第二行为“5ee.net · 20 条动态”。浏览器后端不支持元素局部截图，因此未伪造额外裁切图。
+
+## Findings
+
+- No actionable P0/P1/P2 findings remain.
+- Fonts and typography: 标题继续使用 14px/600 系统字体，第二行使用 10px 弱化元数据；两行层级与参考图一致，没有重复简介、换行或截断异常。
+- Spacing and layout rhythm: 来源页头维持 `78px` 高度、`0 12px 0 18px` 内边距和 `8px` 控件间距；删除页头头像后，标题左对齐更干净，首条动态仍按原间距衔接。
+- Colors and visual tokens: 暗色面板、弱化文字、微信绿访问按钮与参考图一致，继续复用现有 links app token，没有受主题强调色影响。
+- Image quality and assets: 只移除了页头内重复 Logo；左侧来源列表和 20 条动态中的真实头像全部保留，真页统计为 20 个动态图片节点，没有新增或伪造资源。
+- Copy and content: 页头仅保留“5ee博客”“5ee.net · 20 条动态”和“访问网站”；刷新与收起控件保持不变，信息噪点与参考图一致。
+- Interaction and accessibility: “访问来源网站”“刷新动态”“收起详情”均保留明确语义；`links` 与 `links-interactions` 冒烟页的 page error、console error、request failure 均为空，当前真页额外检查 `console.error` 为 0。
+- Framework boundary: 只修改现有 Thymeleaf 模板和原生 CSS，没有引入 daisyUI、依赖、接口、权限或路由变化。
+
+## Comparison history
+
+- Pass 1: 将用户确认的页头截图与重载后的真实页面放入同一视觉输入，未发现 P0/P1/P2 差异；本轮没有因视觉 QA 产生二次修复。
+
+## Verification
+
+- [x] `pnpm run build`
+- [x] `pnpm run verify:reload`
+- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
+- [x] 真页 DOM、动态头像保留、控件语义和 console error 核对
+- [x] 参考图与浏览器实现同一视觉输入复核
+
+final result: passed
+
+---
+
 # PluginLinks 来源页头、外链层级与暗色下拉设计 QA
 
 ## 对照目标

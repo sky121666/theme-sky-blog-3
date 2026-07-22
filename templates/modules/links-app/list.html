@@ -274,22 +274,11 @@
           <button type="button" class="links-detail-back" @click="collapseDetail()" aria-label="返回列表">
             <span class="icon-[lucide--chevron-left]" aria-hidden="true"></span>
           </button>
-          <span class="links-detail-source-logo"
-            x-show="activeView === 'friends' && !selectedFeedItem && feedLinkName && activeFeedSource()"
-            :class="{ 'is-fallback': !activeFeedSource()?.logo }" aria-hidden="true">
-            <template x-if="activeFeedSource()?.logo">
-              <img :src="activeFeedSource().logo" alt="" />
-            </template>
-            <span x-show="!activeFeedSource()?.logo" class="icon-[lucide--rss]"></span>
-          </span>
           <div class="links-detail-heading">
             <strong x-text="detailTitle()">链接</strong>
             <span class="links-detail-subtitle"
               x-show="!(activeView === 'friends' && !selectedFeedItem && feedLinkName && activeFeedSource())"
               x-text="detailSubtitle()"></span>
-            <span class="links-detail-source-description"
-              x-show="activeView === 'friends' && !selectedFeedItem && feedLinkName && activeFeedSource()"
-              x-text="activeFeedSource()?.description || '查看该来源的 RSS 动态'"></span>
             <span class="links-detail-source-meta"
               x-show="activeView === 'friends' && !selectedFeedItem && feedLinkName && activeFeedSource()"
               x-text="`${readableLinkHost(activeFeedSource()?.url || '')} · ${feedItemCount} 条动态`"></span>
