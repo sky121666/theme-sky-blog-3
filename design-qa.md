@@ -1,3 +1,37 @@
+# PluginLinks 微信式三点操作菜单设计 QA
+
+## 对照目标
+
+- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-2b886c48-c9d2-407b-ba6d-04d0d048bea2.png`
+- Browser-rendered closed state: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-more-menu/02-after-closed.png`
+- Browser-rendered open state: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-more-menu/03-after-open.png`
+- Route: `http://localhost:8090/links?view=friends&scope=all`
+- Viewport: `1250 × 1169`
+- State: 暗色、朋友圈、全部动态、真实 RSS 与受保护状态操作已加载
+- 对照说明：参考微信朋友圈的右下角三点入口与横向深色浮层，不复制参考图中 PluginLinks 不提供的点赞、评论或图片字段。
+
+## Findings
+
+- No actionable P0/P1/P2 findings remain.
+- 默认层级：每条动态只常显“只看此来源”、原文图标和 `36 × 24px` 三点按钮；收藏、稍后阅读与未读状态不再形成常驻管理工具栏。
+- 展开层级：三项操作以 `237 × 40px` 横向深色浮层出现，菜单完全位于详情滚动区内，页面没有横向溢出；同一时间只允许一个菜单展开。
+- 文案与状态：可见短标签固定为“收藏 / 稍后读 / 未读”，微信绿只表达已选状态；完整的“取消收藏 / 移出稍后阅读 / 设为未读”等操作说明保留在 `title` 与无障碍语义中。
+- 交互：鼠标点击三点切换菜单，点击外部或按 `Escape` 均可收起；键盘打开时自动聚焦首项，并支持方向键、Home 与 End 导航。
+- Framework boundary: 复用现有 Thymeleaf、Alpine、Lucide/Iconify 与原生 CSS，没有新增 UI 框架、依赖、接口或路由。
+
+## Verification
+
+- [x] `pnpm run verify:links`
+- [x] `pnpm run check`
+- [x] `pnpm run verify:reload`
+- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
+- [x] 真页菜单唯一性、矩形边界、点外部、`Escape`、无横向溢出与 console error 复核
+- [x] 微信参考图、收起态与展开态同一视觉比较输入复核
+
+final result: passed
+
+---
+
 # PluginLinks 窗口控件与全部动态比例修正设计 QA
 
 ## 对照目标

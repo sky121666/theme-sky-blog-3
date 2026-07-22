@@ -414,9 +414,12 @@
                       th:if="${!#strings.isEmpty(feed.linkName)}"
                       th:attr="data-feed-target-link=${feed.linkName}"
                       @click="showFeedSource($el.dataset.feedTargetLink)">只看此来源</button>
-                    <a class="links-feed-open" th:href="${feed.url}" target="_blank" rel="noopener noreferrer">
-                      阅读原文 <span class="icon-[lucide--arrow-up-right]" aria-hidden="true"></span>
-                    </a>
+                    <div class="links-feed-utilities">
+                      <a class="links-feed-open" th:href="${feed.url}" target="_blank" rel="noopener noreferrer"
+                        aria-label="阅读原文" title="阅读原文">
+                        <span class="icon-[lucide--arrow-up-right]" aria-hidden="true"></span>
+                      </a>
+                    </div>
                   </div>
                 </div>
               </article>

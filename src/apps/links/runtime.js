@@ -456,14 +456,22 @@ function externalAnchor(className, href, text = '') {
   return anchor;
 }
 
-function feedActionButton({ className = '', icon, label, pressed = false, onClick }) {
+function feedOverflowAction({ field, icon, label, displayLabel = label, title = label, checked = false, onClick }) {
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = `links-feed-state-action ${className}`.trim();
-  button.title = label;
+  button.className = `links-feed-overflow-action${checked ? ' is-active' : ''}`;
+  button.dataset.feedAction = field;
+  button.title = title;
   button.setAttribute('aria-label', label);
-  button.setAttribute('aria-pressed', String(pressed));
-  button.appendChild(iconNode(icon));
+  button.setAttribute('role', 'menuitemcheckbox');
+  button.setAttribute('aria-checked', String(checked));
+  const actionIcon = iconNode(icon);
+  actionIcon.dataset.feedActionIcon = '';
+  const actionLabel = document.createElement('span');
+  actionLabel.className = 'links-feed-overflow-label';
+  actionLabel.dataset.feedActionLabel = '';
+  actionLabel.textContent = displayLabel;
+  button.append(actionIcon, actionLabel);
   button.addEventListener('click', (event) => {
     event.stopPropagation();
     onClick?.();
@@ -471,22 +479,72 @@ function feedActionButton({ className = '', icon, label, pressed = false, onClic
   return button;
 }
 
+function setFeedOverflowOpen(container, open, { focusFirst = false, restoreFocus = false } = {}) {
+  if (!container) return;
+  const trigger = container.querySelector('.links-feed-overflow-trigger');
+  const menu = container.querySelector('.links-feed-overflow-menu');
+  if (!trigger || !menu) return;
+  container.classList.toggle('is-open', open);
+  trigger.setAttribute('aria-expanded', String(open));
+  menu.setAttribute('aria-hidden', String(!open));
+  if (open && focusFirst) {
+    requestAnimationFrame(() => menu.querySelector('.links-feed-overflow-action')?.focus({ preventScroll: true }));
+  } else if (!open && restoreFocus) {
+    trigger.focus({ preventScroll: true });
+  }
+}
+
+function closeFeedOverflowMenus(root, { except = null, restoreFocus = false } = {}) {
+  if (!root) return;
+  root.querySelectorAll('[data-feed-overflow].is-open').forEach((container) => {
+    if (container === except) return;
+    setFeedOverflowOpen(container, false, { restoreFocus });
+  });
+}
+
+function syncFeedOverflowAction(article, field, {
+  active = false,
+  checked = false,
+  icon,
+  label,
+  displayLabel = label,
+  title = label
+}) {
+  const button = article.querySelector(`[data-feed-action="${field}"]`);
+  if (!button) return;
+  button.classList.toggle('is-active', active);
+  button.setAttribute('aria-checked', String(checked));
+  button.setAttribute('aria-label', label);
+  button.title = title;
+  const actionIcon = button.querySelector('[data-feed-action-icon]');
+  if (actionIcon && icon) actionIcon.className = icon;
+  const actionLabel = button.querySelector('[data-feed-action-label]');
+  if (actionLabel) actionLabel.textContent = displayLabel;
+}
+
 function refreshFeedCardState(article, item) {
   article.classList.toggle('is-unread', item.read !== true);
-  const favorite = article.querySelector('[data-feed-action="favorite"]');
-  if (favorite) {
-    favorite.classList.toggle('is-active', item.favorite === true);
-    favorite.setAttribute('aria-pressed', String(item.favorite === true));
-    favorite.setAttribute('aria-label', item.favorite ? '取消收藏' : '收藏');
-    favorite.title = item.favorite ? '取消收藏' : '收藏';
-  }
-  const later = article.querySelector('[data-feed-action="later"]');
-  if (later) {
-    later.classList.toggle('is-active', item.readLater === true);
-    later.setAttribute('aria-pressed', String(item.readLater === true));
-    later.setAttribute('aria-label', item.readLater ? '移出稍后阅读' : '稍后阅读');
-    later.title = item.readLater ? '移出稍后阅读' : '稍后阅读';
-  }
+  syncFeedOverflowAction(article, 'favorite', {
+    active: item.favorite === true,
+    checked: item.favorite === true,
+    icon: 'icon-[lucide--star]',
+    label: '收藏',
+    title: item.favorite ? '取消收藏' : '收藏'
+  });
+  syncFeedOverflowAction(article, 'later', {
+    active: item.readLater === true,
+    checked: item.readLater === true,
+    icon: 'icon-[lucide--bookmark]',
+    label: '稍后阅读',
+    displayLabel: '稍后读',
+    title: item.readLater ? '移出稍后阅读' : '稍后阅读'
+  });
+  syncFeedOverflowAction(article, 'read', {
+    checked: item.read !== true,
+    icon: item.read ? 'icon-[lucide--mail]' : 'icon-[lucide--mail-open]',
+    label: '未读',
+    title: item.read ? '设为未读' : '设为已读'
+  });
 }
 
 function createFeedCard(item, {
@@ -494,7 +552,8 @@ function createFeedCard(item, {
   onSourceClick,
   onOpen,
   onToggleFavorite,
-  onToggleLater
+  onToggleLater,
+  onToggleRead
 } = {}) {
   const article = document.createElement('article');
   article.className = 'links-feed-card is-entering';
@@ -561,31 +620,101 @@ function createFeedCard(item, {
     source.addEventListener('click', () => onSourceClick?.(item.linkName));
     footer.appendChild(source);
   }
-  if (protectedMode) {
-    const actions = document.createElement('div');
-    actions.className = 'links-feed-state-actions';
-    const favorite = feedActionButton({
-      className: item.favorite ? 'is-active' : '',
-      icon: 'icon-[lucide--star]',
-      label: item.favorite ? '取消收藏' : '收藏',
-      pressed: item.favorite,
-      onClick: () => onToggleFavorite?.(item.id)
-    });
-    favorite.dataset.feedAction = 'favorite';
-    const later = feedActionButton({
-      className: item.readLater ? 'is-active' : '',
-      icon: 'icon-[lucide--bookmark]',
-      label: item.readLater ? '移出稍后阅读' : '稍后阅读',
-      pressed: item.readLater,
-      onClick: () => onToggleLater?.(item.id)
-    });
-    later.dataset.feedAction = 'later';
-    actions.append(favorite, later);
-    footer.appendChild(actions);
-  }
-  const original = externalAnchor('links-feed-open', item.url, '阅读原文');
+  const utilities = document.createElement('div');
+  utilities.className = 'links-feed-utilities';
+  const original = externalAnchor('links-feed-open', item.url);
+  original.setAttribute('aria-label', '阅读原文');
+  original.title = '阅读原文';
   original.appendChild(iconNode('icon-[lucide--arrow-up-right]'));
-  footer.appendChild(original);
+  utilities.appendChild(original);
+  if (protectedMode) {
+    const overflow = document.createElement('div');
+    overflow.className = 'links-feed-overflow';
+    overflow.dataset.feedOverflow = '';
+
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'links-feed-overflow-trigger';
+    trigger.setAttribute('aria-label', '更多操作');
+    trigger.setAttribute('aria-haspopup', 'menu');
+    trigger.setAttribute('aria-expanded', 'false');
+    trigger.title = '更多操作';
+    trigger.appendChild(iconNode('icon-[lucide--ellipsis]'));
+
+    const menu = document.createElement('div');
+    menu.className = 'links-feed-overflow-menu';
+    menu.id = `links-feed-menu-${String(item.id || 'item').replace(/[^a-zA-Z0-9_-]+/g, '-')}`;
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', '动态操作');
+    menu.setAttribute('aria-hidden', 'true');
+    trigger.setAttribute('aria-controls', menu.id);
+
+    const closeAndRun = (callback) => {
+      setFeedOverflowOpen(overflow, false);
+      trigger.focus({ preventScroll: true });
+      callback?.(item.id);
+    };
+    const favorite = feedOverflowAction({
+      field: 'favorite',
+      icon: 'icon-[lucide--star]',
+      label: '收藏',
+      title: item.favorite ? '取消收藏' : '收藏',
+      checked: item.favorite,
+      onClick: () => closeAndRun(onToggleFavorite)
+    });
+    const later = feedOverflowAction({
+      field: 'later',
+      icon: 'icon-[lucide--bookmark]',
+      label: '稍后阅读',
+      displayLabel: '稍后读',
+      title: item.readLater ? '移出稍后阅读' : '稍后阅读',
+      checked: item.readLater,
+      onClick: () => closeAndRun(onToggleLater)
+    });
+    const read = feedOverflowAction({
+      field: 'read',
+      icon: item.read ? 'icon-[lucide--mail]' : 'icon-[lucide--mail-open]',
+      label: '未读',
+      title: item.read ? '设为未读' : '设为已读',
+      checked: item.read !== true,
+      onClick: () => closeAndRun(onToggleRead)
+    });
+    menu.append(favorite, later, read);
+    overflow.append(menu, trigger);
+
+    trigger.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const shouldOpen = !overflow.classList.contains('is-open');
+      closeFeedOverflowMenus(article.closest('[data-feed-list]') || article);
+      setFeedOverflowOpen(overflow, shouldOpen, { focusFirst: shouldOpen && event.detail === 0 });
+    });
+    menu.addEventListener('click', (event) => event.stopPropagation());
+    menu.addEventListener('keydown', (event) => {
+      const actions = Array.from(menu.querySelectorAll('.links-feed-overflow-action:not(:disabled)'));
+      if (actions.length === 0) return;
+      const currentIndex = actions.indexOf(document.activeElement);
+      let targetIndex = -1;
+      if (event.key === 'ArrowRight' || event.key === 'ArrowDown') targetIndex = (currentIndex + 1) % actions.length;
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') targetIndex = (currentIndex - 1 + actions.length) % actions.length;
+      if (event.key === 'Home') targetIndex = 0;
+      if (event.key === 'End') targetIndex = actions.length - 1;
+      if (targetIndex >= 0) {
+        event.preventDefault();
+        actions[targetIndex]?.focus({ preventScroll: true });
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        setFeedOverflowOpen(overflow, false, { restoreFocus: true });
+      }
+    });
+    overflow.addEventListener('focusout', () => {
+      requestAnimationFrame(() => {
+        if (!overflow.contains(document.activeElement)) setFeedOverflowOpen(overflow, false);
+      });
+    });
+    utilities.appendChild(overflow);
+  }
+  footer.appendChild(utilities);
   copy.appendChild(footer);
 
   article.append(avatar, copy);
@@ -689,6 +818,8 @@ export function registerLinksExplorer(Alpine) {
     _showBoardHandler: null,
     _popstateHandler: null,
     _windowResizeHandler: null,
+    _documentClickHandler: null,
+    _documentKeydownHandler: null,
     _windowTransitionTimer: 0,
 
     init() {
@@ -698,9 +829,17 @@ export function registerLinksExplorer(Alpine) {
       this._showBoardHandler = () => this.showBoard(true);
       this._popstateHandler = () => this.applyLocationState(false);
       this._windowResizeHandler = () => this.syncWindowLayout();
+      this._documentClickHandler = (event) => {
+        if (!event.target?.closest?.('[data-feed-overflow]')) this.closeFeedMenus();
+      };
+      this._documentKeydownHandler = (event) => {
+        if (event.key === 'Escape') this.closeFeedMenus({ restoreFocus: true });
+      };
       window.addEventListener('links:show-board', this._showBoardHandler);
       window.addEventListener('popstate', this._popstateHandler);
       window.addEventListener('resize', this._windowResizeHandler);
+      document.addEventListener('click', this._documentClickHandler);
+      document.addEventListener('keydown', this._documentKeydownHandler);
       if (this.activeView === 'friends' && this.detailOpen() && !this.isSavedFeedScope()) this.ensureFeedState();
       this.ensureLinkCapabilities();
       this.$nextTick(() => {
@@ -716,7 +855,13 @@ export function registerLinksExplorer(Alpine) {
       if (this._showBoardHandler) window.removeEventListener('links:show-board', this._showBoardHandler);
       if (this._popstateHandler) window.removeEventListener('popstate', this._popstateHandler);
       if (this._windowResizeHandler) window.removeEventListener('resize', this._windowResizeHandler);
+      if (this._documentClickHandler) document.removeEventListener('click', this._documentClickHandler);
+      if (this._documentKeydownHandler) document.removeEventListener('keydown', this._documentKeydownHandler);
       window.clearTimeout(this._windowTransitionTimer);
+    },
+
+    closeFeedMenus(options = {}) {
+      closeFeedOverflowMenus(this.$root, options);
     },
 
     readDataset() {
@@ -1265,7 +1410,8 @@ export function registerLinksExplorer(Alpine) {
             onSourceClick: (linkName) => this.showFeedSource(linkName),
             onOpen: (id) => this.openFeedItem(id),
             onToggleFavorite: (id) => this.toggleFeedFavorite(id),
-            onToggleLater: (id) => this.toggleFeedReadLater(id)
+            onToggleLater: (id) => this.toggleFeedReadLater(id),
+            onToggleRead: (id) => this.toggleFeedRead(id)
           });
           fragment.appendChild(card);
           inserted.push(card);
