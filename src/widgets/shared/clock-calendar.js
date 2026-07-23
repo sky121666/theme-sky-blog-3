@@ -29,9 +29,12 @@ export function renderClockWidget({ now }) {
   const hours = now.getHours();
   const minutes = now.getMinutes();
   const seconds = now.getSeconds();
-  const hourAngle = (hours % 12) * 30 + minutes * 0.5;
-  const minuteAngle = minutes * 6 + seconds * 0.1;
-  const secondAngle = seconds * 6;
+  const elapsedSeconds = seconds + now.getMilliseconds() / 1000;
+  const elapsedMinutes = minutes * 60 + elapsedSeconds;
+  const elapsedHours = (hours % 12) * 3600 + elapsedMinutes;
+  const hourAngle = (hours % 12) * 30 + elapsedMinutes / 120;
+  const minuteAngle = minutes * 6 + elapsedSeconds * 0.1;
+  const secondAngle = elapsedSeconds * 6;
 
   const hourNumbers = Array.from({ length: 12 }, (_, i) => {
     const num = i + 1;
@@ -60,9 +63,9 @@ export function renderClockWidget({ now }) {
         <circle cx="50" cy="50" r="49" class="desktop-widget-clock-dial"/>
         ${ticks}
         ${hourNumbers}
-        <line x1="50" y1="50" x2="50" y2="22" transform="rotate(${hourAngle} 50 50)" class="desktop-widget-clock-hand is-hour"/>
-        <line x1="50" y1="50" x2="50" y2="14" transform="rotate(${minuteAngle} 50 50)" class="desktop-widget-clock-hand is-minute"/>
-        <line x1="50" y1="56" x2="50" y2="12" transform="rotate(${secondAngle} 50 50)" class="desktop-widget-clock-hand is-second"/>
+        <line x1="50" y1="50" x2="50" y2="22" transform="rotate(${hourAngle} 50 50)" style="--desktop-clock-duration:43200s;--desktop-clock-delay:-${elapsedHours.toFixed(3)}s" class="desktop-widget-clock-hand is-hour"/>
+        <line x1="50" y1="50" x2="50" y2="14" transform="rotate(${minuteAngle} 50 50)" style="--desktop-clock-duration:3600s;--desktop-clock-delay:-${elapsedMinutes.toFixed(3)}s" class="desktop-widget-clock-hand is-minute"/>
+        <line x1="50" y1="56" x2="50" y2="12" transform="rotate(${secondAngle} 50 50)" style="--desktop-clock-duration:60s;--desktop-clock-delay:-${elapsedSeconds.toFixed(3)}s" class="desktop-widget-clock-hand is-second"/>
         <circle cx="50" cy="50" r="2.2" class="desktop-widget-clock-center"/>
       </svg>
     </div>

@@ -71,6 +71,7 @@ import {
 
 const { log: pjaxLog, warn: pjaxWarn } = createLogger('pjax');
 const NAVIGATION_INTENT_OPTION = '__themeNavigationIntent';
+const BEFORE_PJAX_NAVIGATION_EVENT = 'theme:before-pjax-navigation';
 const PHOTOS_DETAIL_VIEW = 'detail';
 const PHOTOS_SHARED_TRANSITION_CLASS = 'photos-shared-view-transition';
 const PHOTOS_TRANSITION_OWNER_ATTR = 'data-photos-view-transition-owner';
@@ -884,6 +885,15 @@ export function initPjax(Alpine) {
 
     const _origLoadUrl = pjax.loadUrl.bind(pjax);
     pjax.loadUrl = function(url, options = {}) {
+      const beforeNavigation = new CustomEvent(BEFORE_PJAX_NAVIGATION_EVENT, {
+        cancelable: true,
+        detail: { url: String(url || '') }
+      });
+      if (!window.dispatchEvent(beforeNavigation)) {
+        pjaxLog('navigation cancelled by desktop layout guard', { url: String(url || '') });
+        return Promise.resolve(false);
+      }
+
       const intentGeneration = ++navigationIntentGeneration;
       void cancelActivePhotosViewTransition();
       const isPopstateIntent = options?.history === false;

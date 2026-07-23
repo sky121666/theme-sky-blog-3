@@ -8,12 +8,18 @@ import { runGenieAnimation } from './window.js';
 import { createLogger } from '../shared/debug.js';
 import { parseDesktopLayoutPayload, mergeDesktopWidgetLayout } from '../widgets/persistence-read.js';
 import { getWidgetCatalogEntry, normalizeWidgetAppearance, normalizeWidgetInstance } from '../widgets/catalog-core.js';
-import { ensureWidgetRendererRuntime, renderWidgetBodyWithHost } from '../widgets/render-runtime.js';
+import {
+  ensureWidgetRendererRuntime,
+  renderWidgetBodyWithHost,
+  renderWidgetLoadingMarkup
+} from '../widgets/render-runtime.js';
+import { syncHomeDesktopWidgetProtocolFromResponse } from '../widgets/protocol.js';
 import { createNotificationCenterMotion } from './notification-center-motion.js';
 import { enhanceDoubanShowcaseWidgets } from '../../../../widgets/plugin/douban-showcase/runtime.js';
 
 const { log: wmLog } = createLogger('window');
 const HEADER_MOBILE_BREAKPOINT = 640;
+const LOCAL_NOTIFICATION_WIDGETS = new Set(['system.clock', 'system.calendar', 'system.weather']);
 const HEADER_TIME_PRESETS = new Set([
   'time-only',
   'time-seconds',
@@ -384,6 +390,9 @@ export function registerWindowManager(Alpine) {
     notificationWidgetRenderVersions: {},
     notificationWidgetHtmlCache: new Map(),
     notificationWidgetRenderTick: 0,
+    notificationWidgetDataStatus: 'idle',
+    notificationWidgetDataPromise: null,
+    notificationWidgetDataController: null,
     notificationWidgetEnhanceScheduled: false,
     notificationWidgetEnhanceRafId: 0,
     notificationWidgetDropPreview: {
@@ -416,6 +425,7 @@ export function registerWindowManager(Alpine) {
       this.notificationCenterAuthenticated = parseBooleanData(dataset.notificationCenterAuthenticated, false);
       this.notificationCenterAuthResolved = true;
       this.notificationMotion = createNotificationCenterMotion();
+      this.notificationWidgetDataStatus = getDesktopWidgetProtocol().isHome === true ? 'ready' : 'idle';
 
       this.tick();
       this.tickTimer = window.setInterval(() => this.tick(), 1000);
@@ -428,6 +438,9 @@ export function registerWindowManager(Alpine) {
       };
       this.handlePjaxComplete = () => {
         this.closeMobileMenu();
+        if (getDesktopWidgetProtocol().isHome === true) {
+          this.notificationWidgetDataStatus = 'ready';
+        }
         this.syncNotificationWidgets();
         this.tick();
       };
@@ -442,6 +455,9 @@ export function registerWindowManager(Alpine) {
         // replacing all Finder/plugin data, so the old markup is not reusable.
         this.notificationWidgetHtmlCache.clear();
         this.notificationWidgetRenderTick += 1;
+        if (getDesktopWidgetProtocol().isHome === true) {
+          this.notificationWidgetDataStatus = 'ready';
+        }
         this.syncNotificationWidgets(event.detail?.widgets, { beforeRects });
       };
       this.handleNotificationCenterOpen = () => {
@@ -513,6 +529,7 @@ export function registerWindowManager(Alpine) {
         window.cancelAnimationFrame(this.notificationWidgetEnhanceRafId);
       }
       this.notificationController?.abort();
+      this.notificationWidgetDataController?.abort();
       this.notificationMotion?.destroy();
       document.body.classList.remove('notification-center-open');
     },
@@ -538,6 +555,7 @@ export function registerWindowManager(Alpine) {
     async openNotificationCenter(_options = {}) {
       this.closeMobileMenu();
       this.syncNotificationWidgets();
+      void this.ensureNotificationWidgetData();
       if (this.notificationCenterOpen && this.notificationCenterVisible) {
         if (this.notificationCenterAuthenticated) {
           void this.loadNotifications();
@@ -1013,6 +1031,69 @@ export function registerWindowManager(Alpine) {
         });
       });
     },
+    notificationWidgetNeedsHomeData(widget) {
+      const widgetType = String(widget?.widget || '').trim();
+      return !!widgetType && !LOCAL_NOTIFICATION_WIDGETS.has(widgetType);
+    },
+    notificationWidgetHomePath() {
+      const siteUrl = String(getDesktopWidgetProtocol().siteUrl || '').trim();
+      if (!siteUrl) return '/';
+      try {
+        const url = new URL(siteUrl, window.location.origin);
+        return `${url.pathname || '/'}${url.search || ''}`;
+      } catch (_error) {
+        return '/';
+      }
+    },
+    async ensureNotificationWidgetData() {
+      if (getDesktopWidgetProtocol().isHome === true) {
+        this.notificationWidgetDataStatus = 'ready';
+        return getDesktopWidgetProtocol();
+      }
+      if (!this.notificationWidgets.some((widget) => this.notificationWidgetNeedsHomeData(widget))) {
+        return null;
+      }
+      if (this.notificationWidgetDataPromise) return this.notificationWidgetDataPromise;
+
+      this.notificationWidgetDataController?.abort();
+      this.notificationWidgetDataController = new AbortController();
+      const controller = this.notificationWidgetDataController;
+      this.notificationWidgetDataStatus = 'loading';
+      this.notificationWidgetRenderTick += 1;
+
+      this.notificationWidgetDataPromise = fetch(this.notificationWidgetHomePath(), {
+        credentials: 'same-origin',
+        headers: { Accept: 'text/html' },
+        signal: controller.signal
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            throw new Error(`首页小组件数据请求失败（HTTP ${response.status}）`);
+          }
+          const protocol = syncHomeDesktopWidgetProtocolFromResponse(await response.text());
+          if (!protocol?.isHome) {
+            throw new Error('首页响应缺少桌面小组件数据协议');
+          }
+          this.notificationWidgetDataStatus = 'ready';
+          return protocol;
+        })
+        .catch((error) => {
+          if (error?.name === 'AbortError' || controller.signal.aborted) return null;
+          this.notificationWidgetDataStatus = 'error';
+          wmLog('notification widget home data failed', { message: error?.message || String(error || '') });
+          return null;
+        })
+        .finally(() => {
+          if (this.notificationWidgetDataController === controller) {
+            this.notificationWidgetDataController = null;
+          }
+          this.notificationWidgetDataPromise = null;
+          this.notificationWidgetHtmlCache.clear();
+          this.notificationWidgetRenderTick += 1;
+        });
+
+      return this.notificationWidgetDataPromise;
+    },
     syncNotificationWidgets(widgets = null, options = {}) {
       if (Array.isArray(widgets)) {
         this.notificationWidgetDraftWidgets = widgets.map((widget) => ({ ...widget }));
@@ -1263,10 +1344,16 @@ export function registerWindowManager(Alpine) {
     notificationWidgetAppearanceValue(widget) {
       return normalizeWidgetAppearance(widget?.appearance);
     },
-    renderNotificationWidget(widget, _tick = 0) {
+    renderNotificationWidget(widget, _renderTick = 0) {
       const protocol = getDesktopWidgetProtocol();
+      if (protocol.isHome !== true && this.notificationWidgetNeedsHomeData(widget)) {
+        if (this.notificationWidgetDataStatus === 'error') {
+          return '<div class="desktop-widget-empty" role="status">小组件数据暂时无法加载，请关闭后重试。</div>';
+        }
+        return renderWidgetLoadingMarkup();
+      }
       return renderWidgetBodyWithHost({
-        surface: 'desktop',
+        surface: 'notification-center',
         now: new Date(),
         modules: protocol.modules || { weather: { cityName: '北京', refreshMinutes: 30 } },
         sources: protocol.sources || {},
@@ -1279,7 +1366,7 @@ export function registerWindowManager(Alpine) {
           this.notificationWidgetHtmlCache.clear();
           this.notificationWidgetRenderTick += 1;
         }
-      }, widget, { surface: 'desktop', compact: false });
+      }, widget, { surface: 'notification-center', compact: false });
     },
     dispatchNotificationWidgetCommand(widget, action, event = null) {
       if (!widget?.key || !action) return;

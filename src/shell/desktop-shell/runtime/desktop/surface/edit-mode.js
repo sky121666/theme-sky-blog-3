@@ -13,6 +13,7 @@ import {
   generateWidgetTitle
 } from '../../widgets/catalog-core.js';
 import { flattenCategoryTree } from '../../../../../widgets/shared/data.js';
+import { cloneJsonValue } from '../../shared/utils.js';
 
 const PHOTO_GROUPS_API = '/apis/api.photo.halo.run/v1alpha1/photogroups';
 
@@ -31,7 +32,7 @@ export const editModeMethods = {
       if (!saved) return false;
     }
 
-    await this.exitEditMode();
+    await this.exitEditMode({ force: true });
     if (this.serverLayoutReloadRequired) {
       this.serverLayoutReloadRequired = false;
       window.location.reload();
@@ -54,7 +55,43 @@ export const editModeMethods = {
     this.syncDesktopBodyState();
   },
 
-  async exitEditMode() {
+  hasUnsavedDesktopChanges() {
+    return this.serverLayoutMutationVersion !== this.serverLayoutSavedMutationVersion;
+  },
+
+  discardDesktopEditingChanges() {
+    this.widgets = cloneJsonValue(this.defaultWidgets) || [];
+    this.icons = cloneJsonValue(this.defaultIcons) || [];
+    this.iconTombstones = cloneJsonValue(this.defaultIconTombstones) || [];
+    this.serverLayoutMutationVersion = this.serverLayoutSavedMutationVersion;
+    this.serverLayoutReloadRequired = false;
+    this.serverLayoutSaveState = 'idle';
+    this.serverLayoutSaveMessage = '已放弃未保存更改';
+    this.selectedDesktopKey = null;
+    this.previewPlacement = null;
+    this.invalidateWidgetCache();
+    this.syncGridMetrics();
+    this.syncWidgetRuntimes();
+    this.dispatchNotificationWidgetsChange();
+  },
+
+  async exitEditMode(options = {}) {
+    const force = options?.force === true;
+    if (!force && this.serverLayoutSaving) {
+      this.serverLayoutSaveState = 'saving';
+      this.serverLayoutSaveMessage = '布局正在保存，请稍候再退出';
+      return false;
+    }
+    if (!force && this.hasUnsavedDesktopChanges()) {
+      const confirmed = window.confirm('桌面布局有未保存修改。确定放弃这些修改并退出吗？');
+      if (!confirmed) {
+        this.serverLayoutSaveState = 'dirty';
+        this.serverLayoutSaveMessage = '请先保存，或再次退出并确认放弃修改';
+        return false;
+      }
+      this.discardDesktopEditingChanges();
+    }
+
     this.closeDesktopContextMenu();
     this.endCenterSheetDrag(true);
     this.isEditing = false;
@@ -62,6 +99,7 @@ export const editModeMethods = {
     this.previewPlacement = null;
     this.endDrag();
     this.syncDesktopBodyState();
+    return true;
   },
 
   setEditStage(stage) {

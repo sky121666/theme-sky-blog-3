@@ -6,6 +6,11 @@ import {
   parseDesktopWidgetProtocolFromResponse,
   syncHomeDesktopWidgetProtocolFromResponse
 } from '../src/shell/desktop-shell/runtime/widgets/protocol.js';
+import {
+  mergeDesktopWidgetLayout,
+  migrateLegacyWidgetInstance,
+  migrateLegacyWidgetType
+} from '../src/shell/desktop-shell/runtime/widgets/persistence-read.js';
 import { registerDesktopSurface } from '../src/shell/desktop-shell/runtime/desktop/surface/index.js';
 
 const layout = readFileSync(new URL('../templates/modules/shell/layout.html', import.meta.url), 'utf8');
@@ -21,6 +26,10 @@ const widgetRegistry = readFileSync(new URL('../src/widgets/registry.js', import
 const widgetLoaders = readFileSync(new URL('../src/widgets/loaders.js', import.meta.url), 'utf8');
 const widgetCatalog = readFileSync(new URL('../src/widgets/catalog.js', import.meta.url), 'utf8');
 const widgetDataReload = readFileSync(new URL('../src/shell/desktop-shell/runtime/desktop/surface/data-reload.js', import.meta.url), 'utf8');
+const widgetPersistenceRead = readFileSync(new URL('../src/shell/desktop-shell/runtime/widgets/persistence-read.js', import.meta.url), 'utf8');
+const notificationCenterCss = readFileSync(new URL('../src/shell/desktop-shell/styles/desktop/notification-center.css', import.meta.url), 'utf8');
+const widgetBaseCss = readFileSync(new URL('../src/shell/desktop-shell/styles/widgets/base.css', import.meta.url), 'utf8');
+const clockCalendarRenderer = readFileSync(new URL('../src/widgets/shared/clock-calendar.js', import.meta.url), 'utf8');
 
 const widgetFlagContracts = [
   ['widgetsNeedsLatestPosts', 'halo.latest_posts'],
@@ -102,9 +111,24 @@ for (const contract of dataQueryContracts) {
   assert.match(layout, contract, `data Finder query must be gated by its saved widget: ${contract}`);
 }
 
-const activeWidgetContract = [layout, widgetRegistry, widgetLoaders, widgetCatalog, widgetDataReload].join('\n');
+const activeWidgetContract = [widgetRegistry, widgetLoaders, widgetCatalog, widgetDataReload].join('\n');
 assert.match(activeWidgetContract, /plugin-links\.feed/, 'PluginLinks RSS 小组件必须使用当前契约 ID');
 assert.doesNotMatch(activeWidgetContract, /plugin-friends\.recent|friendFinder|friends-recent/, '旧朋友圈插件契约不得重新进入主题运行时');
+assert.match(
+  layout,
+  /widgetsLegacyLinksFeedLayout = \$\{#strings\.contains\(desktopLayoutJson, 'plugin-friends\.recent'\)\}/,
+  '旧布局 ID 只允许作为 PluginLinks 数据迁移触发器'
+);
+assert.match(
+  widgetPersistenceRead,
+  /'plugin-friends\.recent': 'plugin-links\.feed'/,
+  '旧布局实例必须迁移为当前 PluginLinks 小组件 ID'
+);
+assert.doesNotMatch(
+  [layout, widgetPersistenceRead].join('\n'),
+  /friendFinder|friends-recent/,
+  '布局迁移不得恢复旧朋友圈 Finder 或渲染器'
+);
 
 assert.doesNotMatch(
   layout,
@@ -145,6 +169,74 @@ assert.match(
   /this\.handleNotificationWidgetsChange = \(event\) => \{[\s\S]*?this\.notificationWidgetHtmlCache\.clear\(\);[\s\S]*?this\.notificationWidgetRenderTick \+= 1;[\s\S]*?this\.syncNotificationWidgets/,
   'home protocol hydration must invalidate notification widget markup too'
 );
+assert.match(
+  windowManager,
+  /async ensureNotificationWidgetData\(\)[\s\S]*?fetch\(this\.notificationWidgetHomePath\(\)[\s\S]*?syncHomeDesktopWidgetProtocolFromResponse/,
+  'non-home direct loads must lazily hydrate notification widget data from the home protocol'
+);
+assert.match(
+  windowManager,
+  /surface: 'notification-center'[\s\S]*?\}, widget, \{ surface: 'notification-center'/,
+  'notification widgets must render with their real surface context'
+);
+assert.match(
+  clockCalendarRenderer,
+  /--desktop-clock-duration:60s;--desktop-clock-delay:-\$\{elapsedSeconds\.toFixed\(3\)\}s/,
+  'clock renderer must seed a wall-clock-aligned CSS animation delay'
+);
+assert.match(
+  widgetBaseCss,
+  /@keyframes desktop-widget-clock-rotate[\s\S]*?rotate\(360deg\)/,
+  'clock hands must keep moving independently of Alpine DOM refreshes'
+);
+assert.doesNotMatch(
+  [desktopTemplate, desktopSurface, windowManager].join('\n'),
+  /clockRenderTick|notificationWidgetClockTick|TICK_SENSITIVE_WIDGETS/,
+  'CSS-driven clocks must not trigger redundant per-second widget HTML re-rendering'
+);
+assert.match(
+  notificationCenterCss,
+  /@media \(width <= 640px\)[\s\S]*?--nc-panel-content-width:[^;]+;[\s\S]*?--nc-width:[^;]+;/,
+  'mobile notification center must recompute derived width variables in the same scope'
+);
+assert.match(
+  pjaxRuntime,
+  /new CustomEvent\(BEFORE_PJAX_NAVIGATION_EVENT,[\s\S]*?cancelable: true[\s\S]*?!window\.dispatchEvent\(beforeNavigation\)/,
+  'PJAX must expose a cancelable guard before discarding a dirty desktop layout'
+);
+assert.match(
+  desktopSurface,
+  /window\.addEventListener\('theme-open-widget-center', this\.handleOpenWidgetCenter\)/,
+  'notification-center edit action must be handled by the persistent desktop surface'
+);
+assert.match(
+  desktopSurface,
+  /window\.addEventListener\('beforeunload', this\.handleBeforeUnload\)/,
+  'full-page exits must retain native unsaved-layout protection'
+);
+assert.match(
+  editMode,
+  /discardDesktopEditingChanges\(\)[\s\S]*?this\.widgets = cloneJsonValue\(this\.defaultWidgets\)[\s\S]*?this\.iconTombstones = cloneJsonValue\(this\.defaultIconTombstones\)/,
+  'confirmed discard must restore the last saved widgets, icons, and tombstones'
+);
+
+assert.equal(migrateLegacyWidgetType('plugin-friends.recent'), 'plugin-links.feed');
+assert.equal(migrateLegacyWidgetType('system.clock'), 'system.clock');
+assert.equal(
+  migrateLegacyWidgetInstance({ key: 'legacy', widget: 'plugin-friends.recent' }).widget,
+  'plugin-links.feed'
+);
+const migratedLegacyLayout = mergeDesktopWidgetLayout([], {
+  instances: [{
+    key: 'legacy-feed',
+    title: '朋友圈',
+    widget: 'plugin-friends.recent',
+    size: 'medium',
+    surface: 'notification-center'
+  }]
+});
+assert.equal(migratedLegacyLayout[0]?.widget, 'plugin-links.feed');
+assert.equal(migratedLegacyLayout[0]?.surface, 'notification-center');
 
 const normalizedSources = normalizeDesktopWidgetSources({
   latestPosts: [{ metadata: { name: 'post-a' } }],

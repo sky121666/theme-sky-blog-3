@@ -1175,6 +1175,8 @@ body.notification-widget-drop-active .notification-center-widget-dropzone {
     --nc-scrim-width: clamp(72px, 20vw, 96px);
     --nc-content-gutter: 20px;
     --nc-content-width: min(344px, calc(100vw - var(--nc-scrim-width) - (var(--nc-content-gutter) * 2) - 8px));
+    --nc-panel-content-width: calc(var(--nc-content-width) + (var(--nc-content-gutter) * 2));
+    --nc-width: calc(var(--nc-panel-content-width) + var(--nc-scrim-width));
     top: 0;
     right: 0;
     bottom: 0;

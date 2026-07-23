@@ -15,14 +15,16 @@ import {
   serializeDeletedIconTombstone,
 } from '../../icons/index.js';
 import { cloneJsonValue, escapeHtml, toPositiveInt } from '../../shared/utils.js';
-import { normalizeMomentRecord } from '../../shared/moments.js';
 import { markPjaxLinks, attachDynamicLinks } from '../pjax/link-attach.js';
 import { inferPageAppFromUrl } from '../../../../../shell-core/runtime/route-manifest.js';
 import { initLazyImages } from '../../shared/lazy-media.js';
 import { initLazyComments } from '../../shared/lazy-comment.js';
 import { createLogger } from '../../shared/debug.js';
-import { loadWidgetRenderer } from '../../../../../widgets/loaders.js';
 import { enhanceDoubanShowcaseWidgets } from '../../../../../widgets/plugin/douban-showcase/runtime.js';
+import {
+  ensureWidgetRendererRuntime as ensureWidgetRendererRuntimeWithHost,
+  renderWidgetBodyWithHost
+} from '../../widgets/render-runtime.js';
 
 import {
   createWidgetInstance,
@@ -55,41 +57,15 @@ import { gridMethods } from './grid.js';
 import { placementMethods } from './placement.js';
 
 const { log: widgetPjaxLog } = createLogger('desktop-widget-pjax');
+const DESKTOP_BEFORE_PJAX_NAVIGATION_EVENT = 'theme:before-pjax-navigation';
+const WIDGET_CENTER_PENDING_STORAGE_KEY = 'theme-widget-center-open-pending';
 
 /* ── Helpers ── */
-
-function createWidgetRendererContext(state, options = {}) {
-  return {
-    now: state.now,
-    modules: state.modules,
-    sources: state.sources,
-    weatherState: state.weatherState,
-    escapeHtml,
-    normalizeMomentRecord,
-    mode: options.mode || (options.preview === true ? 'preview' : 'live')
-  };
-}
-
-/** Widgets that need per-second re-rendering */
-const TICK_SENSITIVE_WIDGETS = new Set(['system.clock']);
 const DEFAULT_WIDGET_CENTER_CATEGORIES = [{ id: 'all', label: '所有小组件' }];
 
 function resolveDesktopIconApp(href, explicitApp = '') {
   if (explicitApp) return explicitApp;
   return inferPageAppFromUrl(href) || '';
-}
-
-/** Build a lightweight cache key from widget state */
-function widgetCacheKey(widget, options = {}) {
-  const mode = options.mode || (options.preview === true ? 'preview' : 'live');
-  const metaStr = widget.meta && typeof widget.meta === 'object'
-    ? Object.entries(widget.meta).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${k}=${v}`).join('&')
-    : '';
-  return `${widget.widget}:${widget.size}:${widget.key}:${widget.appearance || 'follow'}:mode=${mode}:compact=${options.compact === true ? 1 : 0}:meta=${metaStr}`;
-}
-
-function renderWidgetLoadingMarkup() {
-  return '<div class="desktop-widget-loading" role="status" aria-live="polite"><span class="sr-only">组件加载中</span><span class="desktop-widget-loading-bar"></span><span class="desktop-widget-loading-bar desktop-widget-loading-bar--short"></span></div>';
 }
 
 /* ── Alpine registration ── */
@@ -179,6 +155,7 @@ export function registerDesktopSurface(Alpine) {
     iconsManaged: false,
     icons: [],
     defaultIcons: [],
+    defaultIconTombstones: [],
     iconTombstones: [],   // [{key}] — 已删图标的 tombstone，保存时写入 JSON 防复活
     addIconForm: {
       open: false,
@@ -267,7 +244,7 @@ export function registerDesktopSurface(Alpine) {
     },
     weatherRequestId: 0,
     now: new Date(),
-    tickTimer: null,
+    widgetCenterOpenPending: false,
     routeSyncHandler: null,
     protocolHydrationHandler: null,
     resizeHandler: null,
@@ -330,28 +307,7 @@ export function registerDesktopSurface(Alpine) {
       return this.hasVisibleWidgetType('system.weather');
     },
 
-    hasTickSensitiveWidgets() {
-      return this.placedWidgets.some((widget) => TICK_SENSITIVE_WIDGETS.has(widget.widget));
-    },
-
-    syncTickTimer() {
-      if (this.hasTickSensitiveWidgets()) {
-        if (!this.tickTimer) {
-          this.tickTimer = window.setInterval(() => {
-            this.now = new Date();
-          }, 1000);
-        }
-        return;
-      }
-
-      if (this.tickTimer) {
-        window.clearInterval(this.tickTimer);
-        this.tickTimer = null;
-      }
-    },
-
     syncWidgetRuntimes() {
-      this.syncTickTimer();
       if (this.hasVisibleWeatherWidget()) return;
 
       this.weatherRequestId += 1;
@@ -459,30 +415,12 @@ export function registerDesktopSurface(Alpine) {
     },
 
     async ensureWidgetRendererRuntime(widgetType) {
-      const type = String(widgetType || '').trim();
-      if (!type) return null;
+      return ensureWidgetRendererRuntimeWithHost(this, widgetType);
+    },
 
-      if (this.widgetRenderers[type]) {
-        return this.widgetRenderers[type];
-      }
-
-      if (!this.widgetRendererPromises[type]) {
-        this.widgetRendererPromises[type] = loadWidgetRenderer(type)
-          .then((renderer) => {
-            if (typeof renderer === 'function') {
-              this.widgetRenderers[type] = renderer;
-              this.widgetRenderVersions[type] = (this.widgetRenderVersions[type] || 0) + 1;
-              this.invalidateWidgetCache(type);
-              this.scheduleDesktopWidgetEnhancement();
-            }
-            return this.widgetRenderers[type] || null;
-          })
-          .finally(() => {
-            delete this.widgetRendererPromises[type];
-          });
-      }
-
-      return this.widgetRendererPromises[type];
+    onWidgetRendererReady(widgetType) {
+      this.invalidateWidgetCache(widgetType);
+      this.scheduleDesktopWidgetEnhancement();
     },
 
     async beginWidgetDrag(widget, event) {
@@ -597,6 +535,81 @@ export function registerDesktopSurface(Alpine) {
       return true;
     },
 
+    hasPendingWidgetCenterOpen() {
+      if (this.widgetCenterOpenPending) return true;
+      try {
+        return window.sessionStorage.getItem(WIDGET_CENTER_PENDING_STORAGE_KEY) === '1';
+      } catch (_error) {
+        return false;
+      }
+    },
+
+    clearPendingWidgetCenterOpen() {
+      this.widgetCenterOpenPending = false;
+      try {
+        window.sessionStorage.removeItem(WIDGET_CENTER_PENDING_STORAGE_KEY);
+      } catch (_error) {
+        // Storage can be unavailable in privacy-restricted browser contexts.
+      }
+    },
+
+    async consumePendingWidgetCenterOpen() {
+      if (!this.isHome || !this.hasPendingWidgetCenterOpen()) return false;
+      this.clearPendingWidgetCenterOpen();
+      return this.ensureDesktopEditingForAction('add');
+    },
+
+    async openWidgetCenterFromGlobalRequest(event) {
+      if (event?.detail?.targetSurface && event.detail.targetSurface !== 'desktop') return false;
+      window.dispatchEvent(new CustomEvent('theme-menubar-close'));
+      if (!this.enabled || !this.editEnabled) return false;
+
+      this.isHome = window.location.pathname === '/';
+      if (this.isHome) {
+        return this.ensureDesktopEditingForAction('add');
+      }
+
+      this.widgetCenterOpenPending = true;
+      try {
+        window.sessionStorage.setItem(WIDGET_CENTER_PENDING_STORAGE_KEY, '1');
+      } catch (_error) {
+        // The in-memory flag still covers PJAX navigation in this tab.
+      }
+
+      if (window.pjax?.loadUrl) {
+        window.pjax.loadUrl('/');
+      } else {
+        window.location.assign('/');
+      }
+      return true;
+    },
+
+    handleDesktopBeforePjaxNavigation(event) {
+      const hasUnsavedChanges = this.serverLayoutMutationVersion !== this.serverLayoutSavedMutationVersion;
+      if (!hasUnsavedChanges) return;
+      if (this.serverLayoutSaving) {
+        this.serverLayoutSaveState = 'saving';
+        this.serverLayoutSaveMessage = '布局正在保存，请稍候再离开';
+        event.preventDefault();
+        return;
+      }
+      const confirmed = window.confirm('桌面布局有未保存修改。确定放弃这些修改并继续吗？');
+      if (!confirmed) {
+        this.serverLayoutSaveState = 'dirty';
+        this.serverLayoutSaveMessage = '已取消离开，请先保存或退出时放弃修改';
+        event.preventDefault();
+        return;
+      }
+      this.discardDesktopEditingChanges?.();
+      void this.exitEditMode?.({ force: true });
+    },
+
+    handleDesktopBeforeUnload(event) {
+      if (this.serverLayoutMutationVersion === this.serverLayoutSavedMutationVersion) return;
+      event.preventDefault();
+      event.returnValue = '';
+    },
+
     /* ═══ Init ═══ */
 
     async init() {
@@ -677,11 +690,14 @@ export function registerDesktopSurface(Alpine) {
           this.widgetConfigOptionsAbortController = null;
           this.widgetConfigOptionsPromise = null;
           if (this.isEditing && typeof this.exitEditMode === 'function') {
-            await this.exitEditMode();
+            await this.exitEditMode({ force: true });
           }
         } else if (this.hasVisibleWeatherWidget() && !this.weatherState.loading && !this.weatherState.data) {
           // Defer weather load to avoid blocking content navigation
           (typeof requestIdleCallback === 'function' ? requestIdleCallback : (fn) => setTimeout(fn, 1200))(() => this.loadWeather());
+        }
+        if (this.isHome) {
+          await this.consumePendingWidgetCenterOpen();
         }
         this.syncDesktopBodyState();
         this.scheduleDesktopRenderCheck();
@@ -702,6 +718,15 @@ export function registerDesktopSurface(Alpine) {
       this.handleWidgetContextMenu = (event) => {
         void this.openWidgetContextMenuFromEvent(event.detail || {});
       };
+      this.handleOpenWidgetCenter = (event) => {
+        void this.openWidgetCenterFromGlobalRequest(event);
+      };
+      this.handleBeforePjaxNavigation = (event) => {
+        this.handleDesktopBeforePjaxNavigation(event);
+      };
+      this.handleBeforeUnload = (event) => {
+        this.handleDesktopBeforeUnload(event);
+      };
 
       window.addEventListener(DESKTOP_WIDGET_PROTOCOL_EVENT, this.protocolHydrationHandler);
       window.addEventListener('pjax:complete', this.routeSyncHandler);
@@ -709,6 +734,9 @@ export function registerDesktopSurface(Alpine) {
       window.addEventListener('resize', this.resizeHandler);
       window.addEventListener('theme-notification-widget-drag-start', this.handleNotificationWidgetDragStart);
       window.addEventListener('theme-widget-context-menu', this.handleWidgetContextMenu);
+      window.addEventListener('theme-open-widget-center', this.handleOpenWidgetCenter);
+      window.addEventListener(DESKTOP_BEFORE_PJAX_NAVIGATION_EVENT, this.handleBeforePjaxNavigation);
+      window.addEventListener('beforeunload', this.handleBeforeUnload);
 
       this.$nextTick(async () => {
         if (!this.ensureDesktopShellMounted()) {
@@ -743,6 +771,7 @@ export function registerDesktopSurface(Alpine) {
 
         // Install widget click delegate (one-time)
         this.installWidgetClickDelegate();
+        await this.consumePendingWidgetCenterOpen();
       });
     },
 
@@ -1315,7 +1344,11 @@ export function registerDesktopSurface(Alpine) {
       document.body.classList.toggle('desktop-editing', this.isEditing);
     },
 
-    syncLayoutSnapshotAsDefaults(widgets = this.widgets, icons = this.icons) {
+    syncLayoutSnapshotAsDefaults(
+      widgets = this.widgets,
+      icons = this.icons,
+      tombstones = this.iconTombstones
+    ) {
       this.defaultWidgets = (cloneJsonValue(widgets) || []).map((widget) => ({
         ...widget,
         baseX: widget.baseX ?? widget.x,
@@ -1326,6 +1359,7 @@ export function registerDesktopSurface(Alpine) {
         baseX: icon.baseX ?? icon.x,
         baseY: icon.baseY ?? icon.y
       }));
+      this.defaultIconTombstones = cloneJsonValue(tombstones) || [];
     },
 
     dispatchNotificationWidgetsChange() {
@@ -1410,6 +1444,7 @@ export function registerDesktopSurface(Alpine) {
         mutationVersion: this.serverLayoutMutationVersion,
         widgets: cloneJsonValue(this.widgets) || [],
         icons: cloneJsonValue(this.icons) || [],
+        tombstones: cloneJsonValue(this.iconTombstones) || [],
         requiresDataReload: desktopLayoutNeedsDataReload(this.widgets, this.serverLoadedWidgetTypes)
       };
 
@@ -1465,7 +1500,11 @@ export function registerDesktopSurface(Alpine) {
         this.serverLayoutJson = layoutJson;
         this.serverLayoutPayload = parseDesktopLayoutPayload(layoutJson, this.layoutVersion, 'saved-server');
         this.serverLayoutSavedMutationVersion = savedSnapshot.mutationVersion;
-        this.syncLayoutSnapshotAsDefaults(savedSnapshot.widgets, savedSnapshot.icons);
+        this.syncLayoutSnapshotAsDefaults(
+          savedSnapshot.widgets,
+          savedSnapshot.icons,
+          savedSnapshot.tombstones
+        );
         const hasNewerChanges = this.serverLayoutMutationVersion !== savedSnapshot.mutationVersion;
         this.serverLayoutReloadRequired = !hasNewerChanges && savedSnapshot.requiresDataReload === true;
         this.serverLayoutSaveState = hasNewerChanges ? 'dirty' : 'saved';
@@ -1647,6 +1686,11 @@ export function registerDesktopSurface(Alpine) {
     },
 
     bootstrapDesktopIcons(serverLayout = null) {
+      const savedTombstones = Array.isArray(serverLayout?.icons)
+        ? serverLayout.icons
+          .filter((icon) => icon?.deleted === true && icon?.key)
+          .map((icon) => serializeDeletedIconTombstone(icon.key))
+        : [];
       const bootstrapIcons = readDesktopIconsBootstrap();
       const defaultIcons = bootstrapIcons.map((icon, index) => {
         const defaultPlacement = computeDefaultDesktopIconPlacement(index, this.currentColumns || this.columns || 12, this.maxVisibleRows || 8);
@@ -1691,6 +1735,8 @@ export function registerDesktopSurface(Alpine) {
       });
 
       this.defaultIcons = serverDefaultIcons.map((icon) => ({ ...icon }));
+      this.defaultIconTombstones = savedTombstones.map((tombstone) => ({ ...tombstone }));
+      this.iconTombstones = savedTombstones.map((tombstone) => ({ ...tombstone }));
       this.icons = serverDefaultIcons.map((icon) => {
         const sourceIcon = serverDefaultIcons.find((item) => item.key === icon.key);
         return {
@@ -2083,35 +2129,13 @@ export function registerDesktopSurface(Alpine) {
     /* ═══ Widget body rendering ═══ */
 
     renderWidgetBody(widget, options = {}) {
-      const wType = widget?.widget || '';
       const renderOptions = {
         ...options,
+        surface: options.surface || widget?.surface || 'desktop',
         mode: options.mode || (options.preview === true ? 'preview' : 'live'),
         compact: options.preview === true ? false : (!this.isMobileViewport && this.cellSize <= 60)
       };
-
-      const renderer = this.widgetRenderers[wType];
-
-      if (!renderer) {
-        void this.ensureWidgetRendererRuntime(wType);
-        return renderWidgetLoadingMarkup();
-      }
-
-      // Tick-sensitive widgets always re-render
-      if (TICK_SENSITIVE_WIDGETS.has(wType)) {
-        return renderer(createWidgetRendererContext(this, renderOptions), widget, renderOptions);
-      }
-
-      // For non-tick widgets, cache and reuse HTML to prevent img flicker
-      if (!this._widgetHtmlCache) this._widgetHtmlCache = new Map();
-      const renderVersion = this.widgetRenderVersions[wType] || 0;
-      const cKey = `${widgetCacheKey(widget, renderOptions)}:v=${renderVersion}`;
-      const cached = this._widgetHtmlCache.get(cKey);
-      if (cached !== undefined) return cached;
-
-      const html = renderer(createWidgetRendererContext(this, renderOptions), widget, renderOptions);
-      this._widgetHtmlCache.set(cKey, html);
-      return html;
+      return renderWidgetBodyWithHost(this, widget, renderOptions);
     },
 
     /** Invalidate widget render cache (call after data/layout changes) */

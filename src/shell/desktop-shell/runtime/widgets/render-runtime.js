@@ -2,8 +2,6 @@ import { loadWidgetRenderer } from '../../../../widgets/loaders.js';
 import { escapeHtml } from '../shared/utils.js';
 import { normalizeMomentRecord } from '../shared/moments.js';
 
-export const TICK_SENSITIVE_WIDGETS = new Set(['system.clock']);
-
 export function createWidgetRendererContext(state, options = {}) {
   return {
     now: state.now,
@@ -68,10 +66,6 @@ export function renderWidgetBodyWithHost(host, widget, options = {}) {
   if (!renderer) {
     void ensureWidgetRendererRuntime(host, widgetType);
     return renderWidgetLoadingMarkup();
-  }
-
-  if (TICK_SENSITIVE_WIDGETS.has(widgetType)) {
-    return renderer(createWidgetRendererContext(host, renderOptions), widget, renderOptions);
   }
 
   if (!host._widgetHtmlCache) host._widgetHtmlCache = new Map();

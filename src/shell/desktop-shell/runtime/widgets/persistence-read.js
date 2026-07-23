@@ -7,6 +7,34 @@ import { desktopDebugWarn, DESKTOP_LAYOUT_STORAGE_SCHEMA_VERSION } from './debug
 import { isKnownWidgetType, normalizeWidgetInstance } from './catalog-core.js';
 import { normalizeDesktopWidgetProtocol } from './protocol.js';
 
+const LEGACY_WIDGET_TYPE_MIGRATIONS = Object.freeze({
+  // Layout ID migration only: data and rendering continue to use PluginLinks.
+  'plugin-friends.recent': 'plugin-links.feed'
+});
+
+export function migrateLegacyWidgetType(widgetType) {
+  const normalized = String(widgetType || '').trim();
+  return LEGACY_WIDGET_TYPE_MIGRATIONS[normalized] || normalized;
+}
+
+export function migrateLegacyWidgetInstance(instance) {
+  if (!instance || typeof instance !== 'object') return instance;
+  if (instance.realNode && typeof instance.realNode === 'object') {
+    const widget = migrateLegacyWidgetType(instance.realNode.widget);
+    if (widget === instance.realNode.widget) return instance;
+    return {
+      ...instance,
+      realNode: {
+        ...instance.realNode,
+        widget
+      }
+    };
+  }
+
+  const widget = migrateLegacyWidgetType(instance.widget);
+  return widget === instance.widget ? instance : { ...instance, widget };
+}
+
 export function readDesktopWidgetsBootstrap() {
   const bootstrap = window.__THEME_DESKTOP_PROTOCOL__?.widgets || window.__THEME_WIDGETS__;
   return normalizeDesktopWidgetProtocol(bootstrap);
@@ -120,6 +148,7 @@ export function mergeDesktopWidgetLayout(defaultWidgets, savedLayout) {
 
   if (Array.isArray(savedLayout.instances)) {
     return savedLayout.instances
+      .map((instance) => migrateLegacyWidgetInstance(instance))
       .filter((instance) => isKnownWidgetType(instance?.realNode?.widget ?? instance?.widget))
       .map((instance, index) => normalizeWidgetInstance(instance, index));
   }

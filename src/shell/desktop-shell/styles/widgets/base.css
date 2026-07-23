@@ -328,6 +328,13 @@
 
 .desktop-widget-clock-hand {
   stroke-linecap: round;
+  transform-box: view-box;
+  transform-origin: 50px 50px;
+  animation-name: desktop-widget-clock-rotate;
+  animation-duration: var(--desktop-clock-duration);
+  animation-delay: var(--desktop-clock-delay);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
 }
 
 .desktop-widget-clock-hand.is-hour {
@@ -343,6 +350,12 @@
 .desktop-widget-clock-hand.is-second {
   stroke: var(--widget-clock-second);
   stroke-width: 0.6;
+  animation-timing-function: steps(60, end);
+}
+
+@keyframes desktop-widget-clock-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .desktop-widget-clock-center {
