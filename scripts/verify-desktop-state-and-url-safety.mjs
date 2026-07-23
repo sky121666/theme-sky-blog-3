@@ -13,6 +13,9 @@ import {
   serverLoadedWidgetTypes
 } from '../src/shell/desktop-shell/runtime/desktop/surface/data-reload.js';
 import {
+  buildUserNotificationUrl,
+  formatNotificationTime,
+  isNotificationPjaxHref,
   normalizeNotificationHref,
   registerWindowManager
 } from '../src/shell/desktop-shell/runtime/desktop/window-manager.js';
@@ -56,6 +59,29 @@ for (const unsafeHref of [
 
 assert.equal(normalizeNotificationHref('/moments/example', origin), '/moments/example');
 assert.equal(normalizeNotificationHref('https://outside.example.test/notice', origin), 'https://outside.example.test/notice');
+assert.equal(
+  normalizeNotificationHref('https://www.5ee.net/archives/example', 'http://localhost:8090', 'https://www.5ee.net'),
+  '/archives/example',
+  'configured-site absolute links must stay on the active Halo instance'
+);
+assert.equal(
+  normalizeNotificationHref('http://www.5ee.net/console/backup?tab=synchronization', 'http://localhost:8090', 'https://www.5ee.net'),
+  '/console/backup?tab=synchronization',
+  'historic protocol variants of the configured site must stay on the active Halo instance'
+);
+assert.equal(isNotificationPjaxHref('/archives/example', origin), true);
+assert.equal(isNotificationPjaxHref('/console/backup', origin), false);
+assert.equal(isNotificationPjaxHref('https://outside.example.test/notice', origin), false);
+const notificationNow = Date.parse('2026-07-23T10:00:00+08:00');
+assert.equal(
+  formatNotificationTime('2026-07-23T09:55:00+08:00', notificationNow),
+  '5分钟前'
+);
+assert.equal(
+  formatNotificationTime('2025-12-30T10:00:00+08:00', notificationNow),
+  '2025年12月30日',
+  'notifications from another year must keep the year visible'
+);
 
 assert.deepEqual(serverLoadedWidgetTypes({
   instances: [
@@ -139,6 +165,15 @@ try {
     value: { title: 'Test', cookie: '', body: { dataset: {}, style: {} } }
   });
 
+  const notificationPageUrl = buildUserNotificationUrl('sky user', {
+    unreadOnly: true,
+    page: 3,
+    pageSize: 25
+  });
+  assert.equal(notificationPageUrl.searchParams.get('page'), '3');
+  assert.equal(notificationPageUrl.searchParams.get('size'), '25');
+  assert.equal(notificationPageUrl.searchParams.get('fieldSelector'), 'spec.unread=true');
+
   registerWindowManager({
     store() {},
     data(name, factory) {
@@ -151,6 +186,20 @@ try {
   const secondMark = deferred();
   let notificationCloseCount = 0;
   const menuBar = menuBarFactory();
+  const groupItems = Array.from({ length: 13 }, (_, index) => ({
+    key: `group-item-${index}`,
+    unread: index < 3,
+    dismissed: false
+  }));
+  const notificationGroup = { key: 'comments', items: groupItems };
+  menuBar.notificationShowRead = true;
+  assert.equal(menuBar.notificationExpandedItems(notificationGroup).length, 10);
+  assert.equal(menuBar.notificationGroupRemainingCount(notificationGroup), 3);
+  menuBar.showMoreNotificationGroupItems(notificationGroup);
+  assert.equal(menuBar.notificationExpandedItems(notificationGroup).length, 13);
+  assert.equal(menuBar.notificationItemActionLabel(groupItems[0]), '标为已读');
+  assert.equal(menuBar.notificationItemActionLabel(groupItems[4]), '删除此通知');
+
   menuBar.notificationShowRead = true;
   menuBar.markNotificationAsRead = (item) => (
     item.id === 'first' ? firstMark.promise : secondMark.promise
@@ -167,6 +216,21 @@ try {
   await firstOpen;
   assert.deepEqual(notificationNavigations, ['/new'], 'a late mark-as-read response must not overwrite the latest navigation');
   assert.equal(notificationCloseCount, 1, 'a stale notification click must not close the center again');
+
+  menuBar.markNotificationAsRead = async () => true;
+  await menuBar.openNotificationItem({ id: 'console', href: '/console/backup', unread: false });
+  assert.deepEqual(
+    notificationNavigations,
+    ['/new', `${origin}/console/backup`],
+    'Halo console notifications must use a full navigation instead of PJAX'
+  );
+  const navigationCountBeforeNoHref = notificationNavigations.length;
+  await menuBar.openNotificationItem({ id: 'account', href: '', unread: true });
+  assert.equal(
+    notificationNavigations.length,
+    navigationCountBeforeNoHref,
+    'notifications without a real target must remain non-actionable'
+  );
 
   const desktop = desktopFactory();
   desktop.themeJsonConfigEndpoint = '/apis/theme/config';

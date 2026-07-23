@@ -1,3 +1,332 @@
+# 通知中心数据完整性、操作语义与响应式细节 QA
+
+## 对照目标
+
+- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-beeb37d9-306c-453c-903e-9b0a6d918e36.png`
+- Before implementation: `/private/tmp/theme-sky-blog-3-notification-fix-20260723/01-before-desktop-dark.png`
+- Final desktop dark collapsed: `/private/tmp/theme-sky-blog-3-notification-fix-20260723/02-after-desktop-dark-collapsed.png`
+- Final desktop dark expanded: `/private/tmp/theme-sky-blog-3-notification-fix-20260723/03-after-desktop-dark-expanded.png`
+- Final desktop light: `/private/tmp/theme-sky-blog-3-notification-fix-20260723/05-after-desktop-light-collapsed.png`
+- Final mobile light: `/private/tmp/theme-sky-blog-3-notification-fix-20260723/07-after-mobile-390-light-expanded.png`
+- Final mobile dark: `/private/tmp/theme-sky-blog-3-notification-fix-20260723/08-after-mobile-390-dark-collapsed.png`
+- Final 320px single-column layout: `/private/tmp/theme-sky-blog-3-notification-fix-20260723/10-after-mobile-320-dark-single-column.png`
+- Source/final material comparison: `/private/tmp/theme-sky-blog-3-notification-fix-20260723/11-reference-vs-after.png`
+- Same-viewport before/final comparison: `/private/tmp/theme-sky-blog-3-notification-fix-20260723/12-before-vs-after-same-viewport.png`
+- Route: `http://localhost:8090/?_qa=notification-details-final`
+- State: 登录通知可见；分别复核未读/全部、折叠/展开、继续加载、组菜单、关闭/重开、亮色/暗色以及 `390px`、`320px`。
+- Viewports: 桌面 CSS `1250 × 1169px`；移动端 CSS `390 × 844px` 与 `320 × 740px`。修复前后同视口裁图均来自桌面右侧 `420 × 520px` 区域。
+
+## Findings
+
+- No actionable P0/P1/P2 findings remain in the notification data, interaction semantics, focus, motion and responsive scope.
+- Data completeness: Halo 通知列表不再永久固定在第一页。真页首批加载 `50 / 52`，点击后补齐到 `52 / 52` 并隐藏入口；未读总数通过独立的小页统计请求获取，不再用当前页样本冒充全量。
+- Long-list control: 通知组展开默认只显示 10 条，当前账号组真页显示「继续显示 20 条」；每次再增量显示 10 条，避免 30 张卡一次占满通知中心并把小组件推到不可预期的位置。
+- Operation semantics: 单条未读操作明确为「标为已读」，已读操作明确为「删除此通知」；组头只保留折叠和省略号操作，组内「清除已读通知」增加二次确认，不再用同一个 `x` 同时表达已读、删除和整组清理。
+- Accessibility: 对话框补齐 `aria-modal`、Tab 焦点约束和关闭后回焦；真页关闭后焦点回到「打开通知中心」，重新打开后焦点进入关闭按钮。通知卡主链接与操作按钮改为兄弟节点，不再形成嵌套交互控件。
+- Open state: 通知中心每次重新打开都会收起通知组、关闭组菜单并回到 `scrollTop: 0`；异步通知返回期间关闭滚动锚定，避免打开后被后加载内容带离顶部。
+- Time and readability: 七天后的通知继续显示月日，跨年通知补全年份；真实 `<time>` 同时保留机器可读时间和完整日期提示。已读通知只通过轻微字重/文本对比降低辨识，不增加装饰线或彩色底。
+- Light/dark material: 保留用户确认的中性图标壳与低饱和语义色，面板仍由带遮罩的柔和虚化承担边界；亮暗色均没有重新引入贯穿页面的硬直线。面板空气层从 `28px` 收敛到 `32px` 柔化，透明度只做小幅提升。
+- Responsive: `390px` 下通知内容无横向溢出，展开态卡片间距稳定；`320px` 下通知栏小组件改为单列，实测 `bodyScrollWidth: 320px`、内容区 `236.8px`，站点统计不再被双列压缩成碎片。
+- Motion: 打开/关闭只对前 10 个主要内容节点做分层动画，其余内容随面板整体过渡；最终自动化动效审计为 `10/10`，8 个场景均无超阈值 findings。审计同时修正了游客态误跑和页面常驻动画被计入通知动画的基线误差。
+- Safety: 真页只执行读取、分页、筛选、展开/收起和焦点检查，没有删除或标记真实通知；PUT/DELETE 分流由隔离的动效审计路由验证。
+
+## Comparison history
+
+- Pass 1: 真页确认总数为 52、DOM 只加载 50；账号组一次展开 30 张未读卡，重开仍保留展开状态；组头「更少内容 + x」和单卡 `x` 的语义不明确，卡片链接内部还嵌套按钮。
+- Fix 1: 增加通知分页、全量未读统计、组内 10 条增量显示、重开状态复位、焦点恢复与有效对话框语义；拆分主链接和操作按钮。
+- Pass 2: 桌面明暗色、`390px`、`320px` 真页确认分页、折叠、组菜单和回焦有效；发现 `320px` 下双列小组件被压缩。
+- Fix 2: `350px` 以下切换为单列小组件；优化触控按钮、安全区、通知/小组件节奏与面板空气层。
+- Pass 3: 同视口修复前后与用户参考图均已放入合并输入复核；最终 `320px` 无横向溢出，Reload、Playwright smoke、完整 check 与通知动效审计全部通过。
+
+## Verification
+
+- [x] `node scripts/verify-desktop-state-and-url-safety.mjs`
+- [x] `pnpm run check`
+- [x] `pnpm run verify:reload`
+- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
+- [x] `pnpm run audit:notification-motion`：`10/10`，0 findings
+- [x] 真页 `50 → 52` 分页、默认 10 条展开、折叠/重开/回焦、组菜单
+- [x] 桌面亮色/暗色、`390 × 844px`、`320 × 740px` 与横向溢出检查
+
+final result: passed
+
+---
+
+# 通知中心背景边界柔化 QA
+
+## 对照目标
+
+- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-69cb0ea8-ec60-49ca-8c70-68e7a5b80f0e.png`
+- Before implementation: `/private/tmp/theme-sky-blog-3-notification-edge-20260723/01-before.png`
+- Final desktop light implementation: `/private/tmp/theme-sky-blog-3-notification-edge-20260723/06-final-desktop-light.png`
+- Final desktop dark implementation: `/private/tmp/theme-sky-blog-3-notification-edge-20260723/07-final-desktop-dark.png`
+- Final narrow implementation: `/private/tmp/theme-sky-blog-3-notification-edge-20260723/05-final-narrow.png`
+- Focused final implementation: `/private/tmp/theme-sky-blog-3-notification-edge-20260723/08-final-edge-crop.png`
+- Same-input comparison: `/private/tmp/theme-sky-blog-3-notification-edge-20260723/09-source-vs-final.png`
+- Route: `http://localhost:8090/?_qa=notification-boundary-edge-final`
+- State: 通知中心打开；分别复核亮色、暗色和 `390px` 窄屏。
+- Viewports and normalization: 桌面真页为 CSS `1280 × 720px`、窄屏为 CSS `390 × 844px`，`devicePixelRatio: 1`。用户问题图为 `317 × 596px`；最终暗色真页按通知面板左边界等高裁出 `318 × 596px`，横向合并为 `635 × 596px`，专门比较桌面与通知中心之间的竖向过渡。
+
+## Findings
+
+- No actionable P0/P1/P2 findings remain in the notification-center background edge scope.
+- Root cause: 通知中心根容器原来对完整 `516px` 宽矩形应用 `blur(10px) saturate(108%)`，该滤镜没有遮罩，因此在面板左侧 `x=764px` 形成贯穿页面的硬直线；已有 `::before` 渐变蒙层虽然带遮罩，但无法覆盖根容器自身的滤镜边界。
+- Colors and visual tokens: 根容器现在保持透明且不再承担背景滤镜；明暗色原有面板空气色、卡片材质、语义色与阴影完全保留，虚化只由既有 `28px` 渐变蒙层提供。
+- Spacing and layout rhythm: 没有修改通知卡、标题、控件、小组件或面板内容的宽高、间距和定位；桌面面板仍为 `516px`，内容区与 `120px` 过渡带尺寸不变。
+- Responsive: 窄屏原有遮罩停靠点会出现 `60px > 42.9px` 的逆序计算；现调整为 `10 / 20 / 28 / 42.9px` 单调递进，`390 × 844px` 下抽屉仍为 `x=8px / 382px`，左缘没有硬带或横向溢出。
+- Fonts and typography: 没有修改字体、字号、字重、行高和截断规则。
+- Image quality and assets: 没有新增或替换图像、图标与小组件资源；背景虚化仍作用于真实桌面内容，没有使用静态图片伪造。
+- Copy and content: 没有改写任何通知或小组件文案。
+- Accessibility and interaction: 通知中心打开、关闭、筛选和卡片行为均未修改；亮暗色通过真实关闭通知中心、切换外观、重新打开的路径复核，最终浏览器 `console.error` 为 `0`。
+
+## Comparison history
+
+- Pass 1: 来源问题图和修复前真页都能看到与 `.notification-center` 左边界完全对齐的竖线；计算样式确认根容器为 `backdrop-filter: blur(10px) saturate(1.08)`，而带渐变遮罩的 `::before` 为独立的 `blur(28px)`。
+- Fix 1: 将根容器改为透明并移除矩形 `backdrop-filter`，让唯一的背景虚化来源回到带透明遮罩的 `::before`。
+- Pass 2: 桌面明暗色真页中，根容器计算样式均为 `background: transparent / backdrop-filter: none`，来源与最终聚焦区域同屏后不再出现贯穿页面的直线。
+- Fix 2: 将窄屏遮罩停靠点收敛为 `10 / 20 / 28px`，确保任何 `32–52px` 过渡带宽度下都按透明到不透明的顺序递进。
+- Pass 3: `390 × 844px` 真页计算为 `0 / 10 / 20 / 28 / 42.9px`，桌面亮色、暗色及窄屏均无新的 P0/P1/P2。
+
+## Verification
+
+- [x] `pnpm run check`
+- [x] `pnpm run verify:reload`
+- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
+- [x] 桌面亮色/暗色、`1280 × 720px`、`390 × 844px`
+- [x] 根容器与伪元素计算样式、遮罩停靠顺序、来源/最终同屏比较及 `console.error: 0`
+
+final result: passed
+
+---
+
+# 通知中心折叠卡间距与内容收纳 QA
+
+## 对照目标
+
+- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-ac1d0209-1713-48dc-b575-685ceaf23ccf.png`
+- Before implementation: `/private/tmp/theme-sky-blog-3-notification-spacing-20260723/01-before-all.png`
+- Final implementation: `/private/tmp/theme-sky-blog-3-notification-spacing-20260723/02-after-all.png`
+- Final expanded implementation: `/private/tmp/theme-sky-blog-3-notification-spacing-20260723/03-after-expanded.png`
+- Final dark implementation: `/private/tmp/theme-sky-blog-3-notification-spacing-20260723/04-after-dark-all.png`
+- Final narrow implementation: `/private/tmp/theme-sky-blog-3-notification-spacing-20260723/05-after-narrow.png`
+- Focused implementation: `/private/tmp/theme-sky-blog-3-notification-spacing-20260723/06-after-focused.png`
+- Same-input comparison: `/private/tmp/theme-sky-blog-3-notification-spacing-20260723/07-source-after-comparison.png`
+- Route: `http://localhost:8090/?_qa=notification-spacing-round`
+- State: 登录数据可见、「全部」筛选、四组通知折叠；另行复核「未读」、瞬间互动展开/收起、明暗色和窄屏。
+- Viewports and normalization: 真页全图为 CSS `1280 × 720px`、`devicePixelRatio: 1`；窄屏为 CSS `390 × 844px`。用户问题图为 `424 × 380px`，最终实现从同一右上区域裁出 `420 × 380px`，并与来源等高横向合并为 `844 × 380px`，聚焦比较卡片内容收纳、叠层尾部和相邻组节奏。
+
+## Findings
+
+- No actionable P0/P1/P2 findings remain in the collapsed notification-card spacing and content-containment scope.
+- Root cause: 折叠卡片固定为 `64px`，但允许两行摘要后卡片 `scrollHeight` 达到 `72px`，两行内容底部几乎贴住卡片边缘；「全部」状态又把包装高度压到 `68px`，最底层叠卡与下一张主卡之间只剩约 `0.3px`，共同造成视觉挤压。
+- Spacing and layout rhythm: 折叠卡摘要改为单行省略，四张可见卡片现在均为 `clientHeight: 64px / scrollHeight: 64px`；「全部」状态包装高度恢复到 `72px`，主卡之间为 `12px`，最底层叠卡与下一张主卡之间保留约 `4.3px` 的可见空气。
+- Expanded state: 展开态不继承单行限制，真实两行摘要保持 `white-space: normal`；两张样本卡高度约 `79.6px`，卡间距 `7px`，内容完整且无覆盖。收起后恢复四组折叠列表。
+- Responsive: `390 × 844px` 下四组顶部位置依次为 `64.84 / 140.84 / 216.84 / 292.84px`，节奏稳定；通知面板宽 `382px`、左右边距 `8px`，页面横向溢出为 `0px`。
+- Fonts and typography: 保留原有字体、标题字号、正文层级和截断样式；只把折叠预览的摘要从两行改为单行省略，展开态仍提供更多上下文。
+- Colors and visual tokens: 未修改明暗材质、语义色、阴影和图标壳。明色与暗色真页中卡片高度和间距计算一致。
+- Image quality and assets: 没有新增、替换或压缩任何头像、图标和小组件图像；现有真实图标资源保持不变。
+- Copy and content: 没有改写通知标题或正文；折叠态只改变可见截断，展开后仍能读取原摘要。
+- Accessibility and interaction: 卡片按钮/链接语义、键盘入口、筛选与展开/收起行为均保留；本轮真页 `console.error` 为 `0`。截图不能单独证明完整辅助技术兼容，本轮仅确认现有语义未被间距修复改变。
+
+## Comparison history
+
+- Pass 1: 来源和修复前真页都显示中间通知的两行摘要贴近底边，叠卡尾部几乎触碰下一张主卡；实测长摘要卡 `scrollHeight: 72px` 大于固定 `64px`，叠卡尾部间距约 `0.3px`，记录为 P2 内容收纳与垂直节奏问题。
+- Fix 1: 折叠态摘要改为单行省略；「全部」状态叠卡包装高度由 `68px` 调整为 `72px`。展开态规则保持不变。
+- Pass 2: 来源与最终聚焦区域已放入同一视觉输入。最终四张卡均为 `scrollHeight: 64px`，叠层尾部间距约 `4.3px`；明暗色、展开/收起与 `390px` 窄屏无新的 P0/P1/P2。
+
+## Verification
+
+- [x] `pnpm run check`
+- [x] `pnpm run verify:reload`
+- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
+- [x] 「全部 / 未读」、四组折叠、瞬间互动展开/收起
+- [x] 明色/暗色、`1280 × 720px`、`390 × 844px`
+- [x] 卡片 `clientHeight / scrollHeight`、叠层尾部距离、横向溢出与 `console.error: 0`
+
+final result: passed
+
+---
+
+# 通知中心跳转、明暗材质与可逆开关动效 QA
+
+## 对照目标
+
+- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-beeb37d9-306c-453c-903e-9b0a6d918e36.png`
+- Before light implementation: `/private/tmp/theme-sky-blog-3-notification-audit-20260723/01-before-light-open.png`
+- Before dark implementation: `/private/tmp/theme-sky-blog-3-notification-audit-20260723/02-before-dark-open.png`
+- Final light implementation: `/private/tmp/theme-sky-blog-3-notification-audit-20260723/03-after-light-open.jpg`
+- Final dark implementation: `/private/tmp/theme-sky-blog-3-notification-audit-20260723/04-after-dark-open.jpg`
+- Final narrow implementation: `/private/tmp/theme-sky-blog-3-notification-audit-20260723/06-after-narrow.jpg`
+- Same-input comparison: `/private/tmp/theme-sky-blog-3-notification-audit-20260723/07-reference-vs-implementation.jpg`
+- Route: `http://localhost:8090/?_qa=notification-navigation-theme-motion`
+- State: 登录态；明色与暗色分别复核账号通知展开；「全部」状态复核真实通知跳转；另行复核无目标通知、关闭后重开、关闭途中反向打开及减少动态效果。
+- Viewports: 桌面 CSS `1250 × 1169px`、窄屏 CSS `390 × 844px`，`devicePixelRatio: 1`。来源是 `884 × 1778px` 的概念级近景，合并比较时等高缩放；只比较材质、图标壳、语义色、层级与动效方向，不把来源的放大比例套到真实通知密度。
+
+## Findings
+
+- No actionable P0/P1/P2 findings remain in the notification navigation, light/dark material and reversible center motion scope.
+- Navigation semantics: 只有存在真实 `targetUrl` 的通知卡才暴露 `link` 角色、键盘焦点及点击行为；无目标的账号通知保持 `article` 且点击不关闭、不跳转。真页已点击瞬间通知进入本地 `/moments/moment-9roi1c7n`，并用浏览器后退/前进复核历史记录。
+- URL routing: 主题站点配置中的绝对同站链接会重定位到当前 Halo 主机，避免本地验证被带到 `www.5ee.net`；主题内容路由继续使用 PJAX，`/console` 等管理路径改为整页跳转。真页系统通知已进入 `http://localhost:8090/console/backup?tab=synchronization`。
+- Light/dark material: 明色卡片使用 `rgba(244, 247, 252, 0.76)` 的浅玻璃、深色正文与柔和中性阴影；暗色卡片使用 `rgba(24, 25, 28, 0.60)` 的石墨玻璃、浅色正文与低亮阴影。图标壳随明暗材质切换，类型色仍是固定、低饱和的语义色，不继承主题强调色。
+- Open/close motion: 通知中心由单段显隐改为面板、背景和内容的分层过渡；打开使用较长减速，关闭使用更短收束。关闭途中在 `90ms` 反向打开可从当前视觉状态连续接管，不再被 `notificationCenterVisible` 阻断。
+- Motion root cause: Web Animations 的关闭动画使用 `fill: forwards`，完成后仍覆盖新的内联打开状态，造成下一次打开短暂保持 `opacity: 0` 与关闭位移。关闭完成时现在显式固化最终样式并取消已结束动画，真页重开后计算样式为 `opacity: 1`、`transform: none`，无遗留动画。
+- Reduced motion and responsive: `prefers-reduced-motion: reduce` 下打开/关闭即时完成且无动画实例；`390 × 844px` 下抽屉 `x=8px`、宽 `382px`，无横向溢出。
+- Visual comparison: 来源近景与最终暗色真页已放入同一视觉输入。两者都采用中性深色图标壳、单一语义色图形、低边界对比和透明黑玻璃；真页保留了真实 `344px` 级紧凑信息密度，没有机械复制概念图的夸张放大比例。
+- Runtime evidence: 当前真页 `console.error` 为 `0`。
+
+## Comparison history
+
+- Pass 1: 明暗状态沿用近似相同的深色卡片；无目标通知仍表现为链接；配置域名绝对地址会离开当前 Halo；控制台路径被当作 PJAX；快速关闭后重开会发生状态竞争。
+- Fix 1: 补齐通知卡语义、同站 URL 归一化与主题路由/管理路由分流；建立明色与暗色独立材质；将通知中心改为可从当前视觉状态反向接管的分层动画。
+- Pass 2: 真页正常关闭后重开仍出现透明状态，定位为关闭动画的 `fill: forwards` 持续覆盖新状态。
+- Fix 2: 关闭完成时写入最终样式并取消已完成动画，消除 Web Animations 样式泄漏。
+- Pass 3: 真页正常开关、`90ms` 反向开关、真实 PJAX 跳转、控制台整页跳转、无目标通知、后退/前进、明暗切换、减少动态效果与窄屏均通过。
+
+## Verification
+
+- [x] `node scripts/verify-desktop-state-and-url-safety.mjs`
+- [x] `node --check src/shell/desktop-shell/runtime/desktop/notification-center-motion.js`
+- [x] `node --check src/shell/desktop-shell/runtime/desktop/window-manager.js`
+- [x] `pnpm run check`
+- [x] `pnpm run verify:reload`
+- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
+- [x] 真页真实目标跳转、无目标通知、浏览器后退/前进、正常开关与 `90ms` 反向开关
+- [x] 明色/暗色计算样式、`390 × 844px` 窄屏、减少动态效果与 `console.error: 0`
+
+final result: passed
+
+---
+
+# 通知中心第五阶段语义色图形与柔和玻璃 QA
+
+## 对照目标
+
+- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-beeb37d9-306c-453c-903e-9b0a6d918e36.png`
+- Browser-rendered implementation: `/private/tmp/theme-sky-blog-3-notification-semantic-glyph/01-implementation-desktop.jpg`
+- Focused implementation: `/private/tmp/theme-sky-blog-3-notification-semantic-glyph/02-implementation-focus.jpg`
+- Same-input comparison: `/private/tmp/theme-sky-blog-3-notification-semantic-glyph/03-source-implementation-comparison.jpg`
+- Route: `http://localhost:8090/?_qa=notification-semantic-glyph-final`
+- State: 登录态、「全部」筛选、账号/瞬间互动/评论回复/系统通知四组折叠；另行复核账号组展开与收起。
+- Viewport: 实现为 CSS `1280 × 720px`、`devicePixelRatio: 1`。来源为 `884 × 1778px` 聚焦图；比较时裁去顶部空白为 `884 × 1640px`，等比缩放至约 `226 × 420px`，实现聚焦区域为 `400 × 420px`。两者只比较通知卡材质、图标底座、语义色分配和列表节奏，不对不同真实数据文本逐像素判定。
+
+## Findings
+
+- No actionable P0/P1/P2 findings remain in the selected semantic-glyph and soft-glass scope.
+- Colors and visual tokens: 图标底座统一为 `rgba(31, 32, 35, 0.72)` 的中性石墨色，类型色只作用于真实 Lucide 图形。账号为 `#88abf4`、瞬间互动为 `#67d38a`、评论回复为 `#a779ee`、内容与系统通知为 `#eda04c`、插件通知为 `#62bcc5`，未知类型回退到银灰 `#a7adb6`；没有彩色底、彩色投影或主题强调色继承。
+- Card material: 通知卡改为 `rgba(24, 25, 28, 0.58)` 的柔和局部玻璃，未读仅轻微增加到 `0.60`。卡片与叠层均取消硬描边、顶部亮线和内高光，边界由 `24px` 背景虚化及两层短而散的中性阴影形成；计算样式为 `border: 0`，`::after` 为 `none`。
+- Icon material: 图标壳保留所选视觉中的 `30px` 中性深色方块与低对比半像素边界，移除双层高光、彩色渐变和染色阴影；类型辨识完全来自图形形状与单一语义色。
+- Spacing and layout rhythm: 「全部」状态四张主卡可见间距实测均为 `8px`，与上一阶段确认的紧凑节奏一致；页面横向溢出为 `0px`。
+- Interaction: 真页已执行「未读 → 全部」、账号组展开、收起；收起后恢复四组，展开动画结束后没有遗留 `opacity / transform / clip-path / overflow` 内联样式。
+- Typography, images and copy: 没有改变通知字体、字重、截断、真实通知文本、桌面小组件或图像资源。来源图为概念级放大稿，实际真页继续遵循既有 `11 / 12 / 13px` 信息层级和真实数据密度。
+- Runtime evidence: 当前浏览器日志 `console.error` 为 `0`；仍存在既有 `[desktop] repaired corrupt node placements Object` warning，与本轮通知视觉修改无关。
+
+## Comparison history
+
+- Pass 1: 上一阶段真页使用彩色图标底与顶部高光，类型色承担了大面积装饰；卡片还存在 `0.5px` 外框、顶部 `::after` 亮线和内高光，记录为 P2 语义色使用过量与玻璃材质硬边。
+- Fix 1: 用户从三套方向中选定“中性图标底 + 彩色语义图形”；将类型色从图标底迁移到 Lucide 图形，统一中性底座；同时移除卡片和叠层硬边、顶线及内高光，恢复淡透明背景和软阴影。
+- Pass 2: 来源与真页聚焦区域已放入同一视觉输入复核。四类语义色可快速识别，图标底保持一致，卡片边缘不再出现硬线；展开/收起、间距、横向溢出和日志均无新的 P0/P1/P2。
+
+## Verification
+
+- [x] `pnpm exec vite build`
+- [x] `pnpm run check`
+- [x] `pnpm run verify:reload`
+- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
+- [x] 当前真页「未读 / 全部」、四种类型色、展开/收起、动画样式清理、横向溢出与浏览器日志
+
+final result: passed
+
+---
+
+# 通知中心第四阶段固定类型色与「全部」间距 QA
+
+## 对照目标
+
+- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-c1e3b0a3-5d8e-4643-822a-618bd93f4832.png`
+- Before implementation: `/private/tmp/theme-sky-blog-3-notification-colors-spacing-round4/01-before-all.png`
+- Final desktop implementation: `/private/tmp/theme-sky-blog-3-notification-colors-spacing-round4/02-after-all.png`
+- Focused final implementation: `/private/tmp/theme-sky-blog-3-notification-colors-spacing-round4/03-after-all-focus.png`
+- Same-input comparison: `/private/tmp/theme-sky-blog-3-notification-colors-spacing-round4/04-before-after-focus.png`
+- Final mobile implementation: `/private/tmp/theme-sky-blog-3-notification-colors-spacing-round4/05-after-mobile-all.png`
+- Route: `http://localhost:8090/?_qa=notification-colors-spacing-round4-after`
+- State: 登录态、「全部」筛选、账号/瞬间互动/评论回复/系统通知四组折叠；另行复核账号组展开/收起。
+- Viewports: 桌面 `1280 × 720px`、移动 `430 × 820px`。
+
+## Findings
+
+- No actionable P0/P1/P2 findings remain in the fixed notification-type color and collapsed-list spacing scope.
+- Fixed semantic colors: 类型色改为通知中心内部的固定常量，不读取主题强调色。账号为蓝色、瞬间为绿色、评论为紫色、内容为橙色、系统为石墨灰、插件为青色；未知类型回退到石墨灰。真页四种已出现类型的计算渐变分别为蓝 `#5c9df5 → #2964c8`、绿 `#48c77a → #1c8a4c`、紫 `#9c7bdc → #6543aa`、灰 `#7b8796 → #464e59`。
+- Root cause: `data-notification-type` 一直正确，但默认色变量原先定义在图标壳自身，覆盖了通知卡父级的类型变量，导致所有图标都显示为蓝色；默认值已上移到通知卡，类型选择器现在能正常继承。
+- Icon material: 保留真实 Lucide 类型图标，将 `32px` 的强高光厚阴影壳收敛为 `30px`、`7.5px` 圆角的轻量渐变图标；移除顶部亮斑胶囊，仅保留半像素边界、短阴影和细内描边。
+- All-filter spacing: 「全部」折叠列表单独采用 `4px` 组间距和 `68px` 包装高度，主卡之间的可见间距由 `15px` 降为 `8px`；未读筛选及展开列表继续使用原有节奏，避免全局压缩。
+- Responsive and interaction: 桌面与 `430px` 窄屏均无横向溢出；账号组展开后只显示该组，收起后恢复四组及 `8px` 间距，动画结束没有残留 `opacity / transform / clip-path / overflow` 内联样式。
+
+## Comparison history
+
+- Pass 1: 真页确认四组 `data-notification-type` 正确，但四个图标的计算背景完全相同；「全部」主卡间距实测均为 `15px`。
+- Fix 1: 将默认图标色 token 上移到通知卡，加入六类固定颜色；收敛图标高光和阴影；仅为「全部」折叠状态增加紧凑几何。
+- Pass 2: 参考与实现同屏复核，四类真实通知颜色可清楚区分，主卡间距实测均为 `8px`；移动端、展开/收起和动画清理没有回归。
+
+## Verification
+
+- [x] `pnpm exec vite build`
+- [x] `pnpm run check`
+- [x] `pnpm run verify:reload`
+- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
+- [x] 真实通知数据、四类计算色、桌面/移动无横向溢出、展开/收起与动画样式清理
+
+final result: passed
+
+---
+
+# 通知中心第三阶段图标材质与分组动效 QA
+
+## 对照目标
+
+- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-1e545883-1b19-4e4a-83d4-c7bea11f5b31.png`
+- Rejected collapsed baseline: `/private/tmp/theme-sky-blog-3-notification-motion-round3/01-before-collapsed.png`
+- Rejected expanded baseline: `/private/tmp/theme-sky-blog-3-notification-motion-round3/02-before-expanded.png`
+- Final collapsed implementation: `/private/tmp/theme-sky-blog-3-notification-motion-round3/03-after-collapsed.png`
+- Expand keyframes: `/private/tmp/theme-sky-blog-3-notification-motion-round3/04-expand-mid-a.png`、`/private/tmp/theme-sky-blog-3-notification-motion-round3/05-expand-mid-b.png`
+- Final expanded implementation: `/private/tmp/theme-sky-blog-3-notification-motion-round3/06-after-expanded.png`
+- Collapse keyframes: `/private/tmp/theme-sky-blog-3-notification-motion-round3/07-collapse-mid-a.png`、`/private/tmp/theme-sky-blog-3-notification-motion-round3/08-collapse-mid-b.png`
+- Final mobile implementation: `/private/tmp/theme-sky-blog-3-notification-motion-round3/14-mobile-expanded.png`
+- Focused icon detail: `/private/tmp/theme-sky-blog-3-notification-motion-round3/12-icon-detail.png`
+- Same-input comparison: `/private/tmp/theme-sky-blog-3-notification-motion-round3/11-reference-after-comparison.png`
+- Route: `http://localhost:8090/?_qa=notification-motion-round3-after`
+- State: 登录态、账号通知折叠/展开、重复快速展开、减少动态效果分支；桌面 `1280 × 720px` 与移动 `430 × 820px`。
+
+## Findings
+
+- No actionable P0/P1/P2 findings remain in the icon material and notification-group transition scope.
+- Icon material: 保留真实 Lucide 通知类型图形，不新增伪造图标；图标壳由单层纯色块改为分类型上下色阶、顶部局部高光、双层内描边、底部压暗和短距离染色阴影。账号、瞬间、评论、内容、系统和插件拥有独立语义色，透明抽屉上的边缘仍清楚。
+- Motion continuity: 修复 `expandStack()` 与 `collapseExpandedGroup()` 原先直接返回空 Promise 的问题。展开现在依次执行“叠层收拢 → 第一张卡接续 → 列表遮罩向下释放 → 前 12 张可见卡片短错峰落位”；收起按相反方向合拢，再恢复两层卡片背板。
+- Interaction rhythm: 进入使用 `cubic-bezier(0.16, 1, 0.3, 1)` 的 Apple 式减速曲线，退出使用 `cubic-bezier(0.32, 0, 0.67, 0)` 的短促加速曲线；展开主遮罩为 430ms，收起主遮罩为 250ms，收起后的叠层回弹为 280ms。
+- Race safety: 分组切换新增独立 motion token；重复快速点击、筛选切换和关闭通知中心都会取消旧动画，避免旧 Promise 在新状态上继续写入。真页双击展开后稳定停在展开态，列表、卡片和叠层没有残留 `opacity / transform / clip-path / overflow` 内联样式。
+- Responsive: `430 × 820px` 下通知卡宽约 `335px`，页面无横向溢出；展开后首屏可见 10 张真实账号通知，控制按钮、卡片和滚动区域没有遮挡。
+- Reduced motion: 四个分组动画入口均在 `prefers-reduced-motion: reduce` 下直接完成状态切换且不访问动画 DOM，专项 Node 分支验证通过。
+
+## Comparison history
+
+- Pass 1: 当前源码和真页确认图标仅为单层蓝色圆角底；`expandStack()`、`collapseExpandedGroup()` 是空实现，DOM 先瞬间换态，再补 120–140ms 淡入，记录为 P2 图标材质不足和 P1 状态连续性缺失。
+- Fix 1: 重做图标材质 token；补齐叠卡离场、列表遮罩展开、卡片错峰、反向收拢与叠层回弹；在窗口管理器加入分组动效 token 和筛选/关闭取消逻辑。
+- Pass 2: 桌面、移动、展开中段、收起中段和最终状态同屏复核；快速重复展开能稳定收敛，减少动态效果分支不创建动画，无剩余 P0/P1/P2。
+
+## Verification
+
+- [x] `node --check src/shell/desktop-shell/runtime/desktop/notification-center-motion.js`
+- [x] `node --check src/shell/desktop-shell/runtime/desktop/window-manager.js`
+- [x] `pnpm exec vite build`
+- [x] `pnpm run check`
+- [x] `pnpm run verify:reload`
+- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
+- [x] 真实通知数据、展开/收起关键帧、快速重复展开、动画样式清理、移动端无横向溢出
+- [x] 减少动态效果四个分组动效入口专项验证
+
+final result: passed
+
+---
+
 # PluginLinks 留言板提交评论按钮配色 QA
 
 ## 对照目标
@@ -39,6 +368,103 @@
 - [x] 390px 手机真页、桌面真页、计算样式、无横向溢出与 console error 复核
 
 final result: passed
+
+---
+
+# 通知中心第二阶段 macOS 精细化设计 QA
+
+## 对照目标
+
+- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-1e545883-1b19-4e4a-83d4-c7bea11f5b31.png`
+- Rejected baseline: `/private/tmp/theme-sky-blog-3-notification-macos-round2-audit/01-before-expanded.png`
+- Final mobile implementation: `/private/tmp/theme-sky-blog-3-notification-macos-round2-audit/05-final-compact-expanded.png`
+- Final desktop implementation: `/private/tmp/theme-sky-blog-3-notification-macos-round2-audit/07-final-desktop-expanded.png`
+- Alternate widget appearance: `/private/tmp/theme-sky-blog-3-notification-macos-round2-audit/08-final-dark-expanded.png`
+- Same-input comparison: `/private/tmp/theme-sky-blog-3-notification-macos-round2-audit/06-reference-before-after.png`
+- Route: `http://localhost:8090/?_qa=notification-macos-round2-audit`
+- State: 登录态、全部通知、账号通知展开；复核折叠预览、未读/全部筛选、关闭后重开、两种小组件外观。
+- Viewports: 移动窄窗 `441 × 571px`；桌面 `1280 × 900px`。
+
+## 对照结论
+
+- Cards: 从偏灰、厚描边、宽泛投影的 `307px` 卡片，调整为 `344 × 66px` 的局部深色玻璃；采用 `18px` 圆角、半像素弱边、短距离阴影和顶部局部高光，不再出现塑料胶囊感。
+- Information hierarchy: 账号通知不再重复显示两遍完整标题；正文压缩为 `浏览器 · 月/日 时间 · IP`，应用类型、时间、标题和详情形成四级但低噪声的信息层级。
+- Background depth: 抽屉仍透明，小组件和桌面继续透出；内容区只增加轻量背景虚化与色彩收敛，没有恢复整块黑色面板。
+- Responsive density: `441px` 窄窗下缩短左侧渐隐区，卡片恢复到与 macOS 参考一致的 `344px` 内容宽度；桌面端保持右对齐且无横向溢出。
+- Theme surfaces: 深色通知卡不跟随小组件底色切换，两种外观下均保持稳定对比度，符合真实 macOS 通知卡在不同壁纸上的表现。
+
+## Findings
+
+- No actionable P0/P1/P2 visual findings remain in the agreed notification material, density, responsive and information-hierarchy scope.
+- `pnpm run verify:notification-center` 的访客专项脚本仍被既有桌面布局修复警告 `[desktop] repaired corrupt node placements {}` 拦截；该警告来自桌面节点完整性检查，不由本轮通知卡改动引入，已单独保留为验证说明，没有通过修改断言掩盖。
+
+## Comparison history
+
+- Pass 1: 用户真页证明第一阶段仍存在灰塑料材质、重边重影、重复正文、统一蓝色图标壳和窄窗内容宽度不足，第一阶段结论作废。
+- Fix 1: 收紧描边、阴影、高光和控制按钮；加入通知类型色调、展开卡片自适应高度、账号通知详情摘要及空正文隐藏。
+- Pass 2: `441 × 571px` 真页显示材质改善，但卡片仅约 `307px`，账号摘要仍折成两行。
+- Fix 2: 将窄窗渐隐区改为 `clamp(32px, 11vw, 52px)`，恢复 `344px` 卡片；日期压缩为 `MM/DD HH:mm`，账号详情稳定为一行。
+- Pass 3: 参考、被拒基线和最终真页同屏复核；移动与桌面均无内容溢出，展开列表、折叠预览及两种小组件外观可用。
+
+## Verification
+
+- [x] `pnpm run check`
+- [x] `pnpm run verify:reload`
+- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
+- [x] 登录态真实通知数据、未读/全部筛选、折叠/展开、关闭/重开
+- [x] `441 × 571px` 与 `1280 × 900px`，两种小组件外观，无横向溢出
+- [ ] `pnpm run verify:notification-center`（被既有桌面布局修复 warning 拦截，非本轮回归）
+
+final result: passed
+
+---
+
+# 通知中心第一阶段局部玻璃质感设计 QA（已由第二阶段取代）
+
+## 对照目标
+
+- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-1e545883-1b19-4e4a-83d4-c7bea11f5b31.png`
+- Restored baseline: `/private/tmp/theme-sky-blog-3-notification-macos-audit/01-restored-current.jpg`
+- Browser-rendered implementation: `/private/tmp/theme-sky-blog-3-notification-macos-stage1/05-final-preview.jpg`
+- Expanded-list evidence: `/private/tmp/theme-sky-blog-3-notification-macos-stage1/03-expanded.jpg`
+- Light-surface evidence: `/private/tmp/theme-sky-blog-3-notification-macos-stage1/04-dark.jpg`
+- Same-input focused comparison: `/private/tmp/theme-sky-blog-3-notification-macos-stage1/02-reference-before-after.png`
+- Route: `http://localhost:8090/?_qa=notification-macos-stage1`
+- State: 通知中心打开、暗色桌面小组件、未读筛选、账号通知折叠；另外复核全部通知展开和亮色小组件背景。
+- Viewport: CSS `1280 × 900px`，`devicePixelRatio: 1`；实现截图为 `1280 × 900px`。
+- Pixel normalization: 参考图为 `652 × 1386px` 的 macOS 通知中心长截图；聚焦比较将参考通知区域 `358 × 138px` 等比缩放为 `378 × 146px`，与修复前、修复后的 `378 × 146px` 真页裁切水平并排。只判断本阶段约定的卡片材质、边缘、阴影和叠层，不把参考图中不同的数据高度误判为像素偏差。
+
+## 对照证据
+
+- Full-view comparison: `05-final-preview.jpg` 与 `03-expanded.jpg` 证明右侧抽屉仍保持透明，壁纸、桌面图标和小组件可透出；局部对比不依赖整块深色遮罩。
+- Focused comparison: `02-reference-before-after.png` 从左到右依次为 macOS 参考、恢复后的基线、本次实现；卡片底色、顶部高光、短阴影和后层玻璃唇均在同一输入中清晰可辨。
+
+## Findings
+
+- No actionable P0/P1/P2 findings remain within the agreed stage-one material scope.
+- Fonts and typography: 本阶段没有修改应用名、时间、标题、正文的字体、字重、截断或行高；真页仍为 `11 / 13 / 13px` 的现有层级，避免把质感修复扩成内容重排。
+- Spacing and layout rhythm: 卡片继续保持 `344 × 70px`、`22px` 圆角和既有列表间距，展开/折叠几何没有回归。参考图的自适应内容高度属于已明确留给第二阶段的内容结构优化，不是本阶段未完成的视觉缺陷。
+- Colors and visual tokens: 抽屉空气层仍为原有 `rgba(0,0,0,.15)` 与 `34px` 背景虚化；卡片局部底色调整为 `rgba(26,27,30,.58)`，使用 `30px` 模糊、`145%` 饱和度、`104%` 对比度、较清晰的半像素边缘和短距离双层阴影。未读蓝只保留为轻微语义染色。
+- Image quality and assets: 没有修改、替换或伪造通知图标及桌面资源；原有图标仅增加局部高光、细边和更短的投影。
+- Copy and content: 通知标题、正文、来源、时间和所有真实数据均原样保留。
+- Interaction and accessibility: 已验证未读/全部切换、通知组展开和关闭/重新打开；31 张可见通知卡均保持 `344 × 70px`，页面无横向溢出，浏览器日志中没有 `console.error`。
+- Responsive and theme surfaces: 暗色小组件背景与亮色小组件背景下卡片均保持可读，面板没有变为整块黑底；本阶段没有改变移动端断点或触控行为。
+
+## Comparison history
+
+- Pass 1: 参考图与恢复基线的同屏对照显示，基线卡片底色偏灰、背景穿透过强，边缘与叠层深度不足，记录为 P2 材质漂移。
+- Fix 1: 只调整通知卡、后层玻璃唇和图标壳的局部材质；收紧阴影，增加顶部高光与内外细边，降低过强的 `42px` 卡片模糊，同时完全保留抽屉透明空气层和小组件。
+- Pass 2: 参考、基线、修复后聚焦图再次同屏比较；修复后卡片的局部黑玻璃、边缘分离和叠层关系已接近参考，本阶段无剩余 P0/P1/P2。
+
+## Verification
+
+- [x] `pnpm run check`
+- [x] `pnpm run verify:reload`
+- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
+- [x] 1280 × 900 暗/亮背景、折叠/展开、筛选交互、横向溢出与浏览器错误复核
+- [x] macOS 参考、恢复基线和真页实现同一视觉输入复核
+
+final result: superseded
 
 ---
 

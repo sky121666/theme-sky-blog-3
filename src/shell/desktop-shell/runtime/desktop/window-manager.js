@@ -90,6 +90,7 @@ function notificationWeatherEntryKey(cityName) {
 }
 
 const NOTIFICATION_PAGE_SIZE = 50;
+const NOTIFICATION_GROUP_PAGE_SIZE = 10;
 const HALO_ANONYMOUS_USERNAME = 'anonymousUser';
 const USER_ENDPOINT = '/apis/api.console.halo.run/v1alpha1/users/-';
 const NOTIFICATION_ENDPOINT = '/apis/api.notification.halo.run/v1alpha1/userspaces/{username}/notifications';
@@ -108,24 +109,54 @@ function firstLinkFromHtml(value = '') {
   return template.content.querySelector('a[href]')?.getAttribute('href') || '';
 }
 
-export function normalizeNotificationHref(value = '', baseOrigin = '') {
+export function normalizeNotificationHref(value = '', baseOrigin = '', siteOrigin = '') {
   const raw = String(value || '').trim();
-  if (!raw) return '';
+  if (!raw || /[\u0000-\u001f\u007f]/.test(raw)) return '';
   try {
     const origin = new URL(baseOrigin || window.location.origin).origin;
     const url = new URL(raw, `${origin}/`);
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
-    return url.origin === origin ? `${url.pathname}${url.search}${url.hash}` : url.href;
+    let siteHost = '';
+    try {
+      siteHost = siteOrigin ? new URL(siteOrigin, `${origin}/`).host : '';
+    } catch (_error) {
+      siteHost = '';
+    }
+    const belongsToCurrentSite = url.origin === origin || (siteHost && url.host === siteHost);
+    return belongsToCurrentSite ? `${url.pathname}${url.search}${url.hash}` : url.href;
   } catch (_error) {
     return '';
   }
 }
 
-function timeAgo(value) {
+export function isNotificationPjaxHref(value = '', baseOrigin = '') {
+  try {
+    const origin = new URL(baseOrigin || window.location.origin).origin;
+    const url = new URL(value, `${origin}/`);
+    if (url.origin !== origin) return false;
+    const hardNavigationPrefixes = [
+      '/apis',
+      '/console',
+      '/login',
+      '/logout',
+      '/oauth2',
+      '/system',
+      '/uc'
+    ];
+    return !hardNavigationPrefixes.some((prefix) => (
+      url.pathname === prefix || url.pathname.startsWith(`${prefix}/`)
+    ));
+  } catch (_error) {
+    return false;
+  }
+}
+
+export function formatNotificationTime(value, nowValue = Date.now()) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
 
-  const diffMs = Math.max(0, Date.now() - date.getTime());
+  const now = new Date(nowValue);
+  const diffMs = Math.max(0, now.getTime() - date.getTime());
   const minute = 60 * 1000;
   const hour = 60 * minute;
   const day = 24 * hour;
@@ -135,7 +166,18 @@ function timeAgo(value) {
   if (diffMs < day) return `${Math.floor(diffMs / hour)}小时前`;
   if (diffMs < 7 * day) return `${Math.floor(diffMs / day)}天前`;
 
+  if (date.getFullYear() !== now.getFullYear()) {
+    return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+  }
   return `${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
+function formatNotificationTimeTitle(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${hours}:${minutes}`;
 }
 
 function isJsonResponse(response) {
@@ -164,10 +206,14 @@ async function resolveCurrentUsername(signal) {
   return { status: 'authenticated', username };
 }
 
-function buildUserNotificationUrl(username, { unreadOnly = false, pageSize = NOTIFICATION_PAGE_SIZE } = {}) {
+export function buildUserNotificationUrl(username, {
+  unreadOnly = false,
+  page = 1,
+  pageSize = NOTIFICATION_PAGE_SIZE
+} = {}) {
   const path = NOTIFICATION_ENDPOINT.replace('{username}', encodeURIComponent(username));
   const url = new URL(path, window.location.origin);
-  url.searchParams.set('page', '1');
+  url.searchParams.set('page', String(Math.max(1, Number(page) || 1)));
   url.searchParams.set('size', String(pageSize));
   if (unreadOnly) {
     url.searchParams.set('fieldSelector', 'spec.unread=true');
@@ -208,14 +254,42 @@ function normalizeNotificationType(item = {}) {
   return { key: 'other', label: '其他通知', icon: 'icon-[lucide--inbox]' };
 }
 
-function compactNotificationBody(text, title = '') {
+function compactAccountNotificationBody(text, title) {
+  const titleStem = String(title || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\s*上登录[。.]?$/u, '');
+  let detail = String(text || '').replace(/\s+/g, ' ').trim();
+
+  if (titleStem && detail.startsWith(titleStem)) {
+    detail = detail.slice(titleStem.length).replace(/^\s*的\s*/u, '').trim();
+  }
+
+  const client = detail.match(/^(.+?)\s*上登录(?:[：:。.]|\s|$)/u)?.[1]?.trim() || '';
+  const timeText = detail.match(/时间\s*[：:]\s*(.+?)(?=\s+IP\s*地址\s*[：:]|$)/iu)?.[1]?.trim() || '';
+  const compactTimeMatch = timeText.match(/\d{4}-(\d{2})-(\d{2})\s+(\d{2}:\d{2})/u);
+  const compactTime = compactTimeMatch
+    ? `${compactTimeMatch[1]}/${compactTimeMatch[2]} ${compactTimeMatch[3]}`
+    : timeText;
+  const ipAddress = detail.match(/IP\s*地址\s*[：:]\s*([^\s，,。]+)/iu)?.[1]?.trim() || '';
+  const summary = [client, compactTime, ipAddress].filter(Boolean);
+
+  return summary.length > 0 ? summary.join(' · ') : detail;
+}
+
+function compactNotificationBody(text, title = '', typeKey = '') {
   let normalized = String(text || '').replace(/\s+/g, ' ').trim();
   normalized = normalized.replace(/^@?\S+\s*你好[：:]\s*/u, '').trim();
   const normalizedTitle = String(title || '').replace(/\s+/g, ' ').trim();
+
+  if (typeKey === 'account') {
+    normalized = compactAccountNotificationBody(normalized, normalizedTitle);
+  }
+
   if (normalizedTitle && normalized.startsWith(normalizedTitle)) {
     normalized = normalized.slice(normalizedTitle.length).replace(/^[，,。.\s：:]+/, '').trim();
   }
-  return normalized || normalizedTitle || '通知';
+  return normalized === normalizedTitle ? '' : normalized;
 }
 
 function normalizeNotification(item = {}) {
@@ -225,7 +299,8 @@ function normalizeNotification(item = {}) {
   const type = normalizeNotificationType(item);
   const text = stripHtml(html) || stripHtml(raw) || spec.title || '通知';
   const title = spec.title || type.label;
-  const createdAtMs = Date.parse(item.metadata?.creationTimestamp || '') || 0;
+  const createdAt = item.metadata?.creationTimestamp || '';
+  const createdAtMs = Date.parse(createdAt) || 0;
   return {
     id: item.metadata?.name || '',
     key: item.metadata?.name || `notification-${Math.random().toString(36).slice(2)}`,
@@ -233,12 +308,18 @@ function normalizeNotification(item = {}) {
     typeLabel: type.label,
     icon: type.icon,
     title,
-    body: compactNotificationBody(text, title),
-    href: normalizeNotificationHref(firstLinkFromHtml(html)),
+    body: compactNotificationBody(text, title, type.key),
+    href: normalizeNotificationHref(
+      firstLinkFromHtml(html),
+      window.location.origin,
+      getDesktopWidgetProtocol().siteUrl
+    ),
     unread: spec.unread === true,
     dismissed: false,
+    createdAt,
     createdAtMs,
-    time: timeAgo(item.metadata?.creationTimestamp)
+    time: formatNotificationTime(createdAt),
+    timeTitle: formatNotificationTimeTitle(createdAt)
   };
 }
 
@@ -372,16 +453,31 @@ export function registerWindowManager(Alpine) {
     notificationLoadingStatusTimer: null,
     notificationLoaded: false,
     notificationController: null,
+    notificationMoreController: null,
     notificationUsername: '',
+    notificationItems: [],
     notificationGroups: [],
     notificationExpandedGroupKey: '',
+    notificationGroupDisplayLimits: {},
+    notificationGroupMenuKey: '',
+    notificationGroupConfirmKey: '',
+    notificationGroupActionBusyKey: '',
+    notificationLoadedCount: 0,
+    notificationHasMore: false,
+    notificationNextPage: 2,
+    notificationLoadingMore: false,
+    notificationLoadMoreError: '',
     notificationUnreadCount: 0,
     notificationTotalCount: 0,
     notificationShowRead: false,
     notificationFilterSwitching: false,
     notificationFilterMotionToken: 0,
+    notificationGroupMotionToken: 0,
     notificationMarkingAllRead: false,
     notificationOpenGeneration: 0,
+    notificationOpenScrollPending: false,
+    notificationCenterRestoreFocusEl: null,
+    notificationNavigationClosePromise: null,
     notificationWidgets: [],
     draggingWidgetKey: null,
     notificationWidgetDraftWidgets: null,
@@ -484,6 +580,10 @@ export function registerWindowManager(Alpine) {
       this.handleEscape = (event) => {
         if (event.key === 'Escape') {
           this.closeMobileMenu();
+          if (this.notificationGroupMenuKey) {
+            this.closeNotificationGroupMenu();
+            return;
+          }
           this.closeNotificationCenter();
         }
       };
@@ -529,6 +629,7 @@ export function registerWindowManager(Alpine) {
         window.cancelAnimationFrame(this.notificationWidgetEnhanceRafId);
       }
       this.notificationController?.abort();
+      this.notificationMoreController?.abort();
       this.notificationWidgetDataController?.abort();
       this.notificationMotion?.destroy();
       document.body.classList.remove('notification-center-open');
@@ -546,11 +647,27 @@ export function registerWindowManager(Alpine) {
       this.mobileMenuOpen = false;
     },
     toggleNotificationCenter() {
-      if (this.notificationCenterOpen || this.notificationCenterVisible) {
+      if (this.notificationCenterOpen) {
         void this.closeNotificationCenter();
         return;
       }
       void this.openNotificationCenter();
+    },
+    resetNotificationCollection() {
+      this.notificationMoreController?.abort();
+      this.notificationItems = [];
+      this.notificationGroups = [];
+      this.notificationExpandedGroupKey = '';
+      this.notificationGroupDisplayLimits = {};
+      this.notificationGroupMenuKey = '';
+      this.notificationGroupConfirmKey = '';
+      this.notificationLoadedCount = 0;
+      this.notificationHasMore = false;
+      this.notificationNextPage = 2;
+      this.notificationLoadingMore = false;
+      this.notificationLoadMoreError = '';
+      this.notificationUnreadCount = 0;
+      this.notificationTotalCount = 0;
     },
     async openNotificationCenter(_options = {}) {
       this.closeMobileMenu();
@@ -562,7 +679,16 @@ export function registerWindowManager(Alpine) {
         }
         return;
       }
+      const activeElement = document.activeElement;
+      this.notificationCenterRestoreFocusEl = activeElement && activeElement !== document.body
+        ? activeElement
+        : this.$refs.notificationCenterTrigger || null;
       const token = ++this.notificationMotionToken;
+      this.notificationExpandedGroupKey = '';
+      this.notificationGroupDisplayLimits = {};
+      this.notificationGroupMenuKey = '';
+      this.notificationGroupConfirmKey = '';
+      this.notificationOpenScrollPending = true;
       this.notificationCenterOpen = true;
       this.notificationCenterVisible = true;
       this.notificationCenterAnimating = true;
@@ -574,13 +700,11 @@ export function registerWindowManager(Alpine) {
       } else if (this.$refs.notificationCenterPanel) {
         this.$refs.notificationCenterPanel.scrollTop = 0;
       }
+      this.$refs.notificationCenterClose?.focus?.({ preventScroll: true });
       if (this.notificationCenterAuthenticated || !this.notificationCenterAuthResolved) {
         void this.loadNotifications();
       } else {
-        this.notificationGroups = [];
-        this.notificationExpandedGroupKey = '';
-        this.notificationUnreadCount = 0;
-        this.notificationTotalCount = 0;
+        this.resetNotificationCollection();
         this.notificationLoaded = true;
         this.notificationUsername = '';
         this.setNotificationState('guest', '');
@@ -593,6 +717,10 @@ export function registerWindowManager(Alpine) {
     async closeNotificationCenter() {
       if (!this.notificationCenterVisible && !this.notificationCenterOpen) return;
       const token = ++this.notificationMotionToken;
+      this.notificationGroupMotionToken += 1;
+      this.notificationOpenScrollPending = false;
+      this.notificationGroupMenuKey = '';
+      this.notificationGroupConfirmKey = '';
       this.notificationCenterOpen = false;
       this.notificationCenterAnimating = true;
       this.notificationCenterMotionPhase = 'closing';
@@ -607,6 +735,50 @@ export function registerWindowManager(Alpine) {
         this.notificationLoadingStatusTimer = null;
       }
       document.body.classList.remove('notification-center-open');
+      const restoreTarget = this.notificationCenterRestoreFocusEl;
+      this.notificationCenterRestoreFocusEl = null;
+      if (restoreTarget?.isConnected && typeof restoreTarget.focus === 'function') {
+        restoreTarget.focus({ preventScroll: true });
+      }
+    },
+    handleNotificationScroll() {
+      const scrollEl = this.$refs.notificationCenterScroll;
+      if (this.notificationOpenScrollPending && scrollEl?.scrollTop > 1) {
+        this.notificationOpenScrollPending = false;
+      }
+    },
+    notificationFocusableElements() {
+      const panel = this.$refs.notificationCenterPanel;
+      if (!panel) return [];
+      return Array.from(panel.querySelectorAll([
+        'button:not([disabled])',
+        'a[href]',
+        '[role="link"][tabindex="0"]',
+        '[role="button"][tabindex="0"]',
+        '[tabindex]:not([tabindex="-1"])'
+      ].join(','))).filter((element) => (
+        element.getAttribute('aria-hidden') !== 'true'
+        && element.getClientRects().length > 0
+      ));
+    },
+    handleNotificationFocusTrap(event) {
+      if (event.key !== 'Tab' || !this.notificationCenterVisible) return;
+      const focusable = this.notificationFocusableElements();
+      if (focusable.length === 0) {
+        event.preventDefault();
+        this.$refs.notificationCenterPanel?.focus?.({ preventScroll: true });
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !this.$refs.notificationCenterPanel?.contains(active))) {
+        event.preventDefault();
+        last.focus({ preventScroll: true });
+      } else if (!event.shiftKey && (active === last || !this.$refs.notificationCenterPanel?.contains(active))) {
+        event.preventDefault();
+        first.focus({ preventScroll: true });
+      }
     },
     setNotificationState(status, text = '') {
       this.notificationStatus = status;
@@ -630,6 +802,50 @@ export function registerWindowManager(Alpine) {
     notificationGroupItems(group) {
       return group.items.filter((item) => !item.dismissed && (this.notificationShowRead || item.unread));
     },
+    notificationExpandedItems(group) {
+      const limit = this.notificationGroupDisplayLimits[group?.key] || NOTIFICATION_GROUP_PAGE_SIZE;
+      return this.notificationGroupItems(group).slice(0, limit);
+    },
+    notificationGroupRemainingCount(group) {
+      return Math.max(0, this.notificationGroupItems(group).length - this.notificationExpandedItems(group).length);
+    },
+    showMoreNotificationGroupItems(group) {
+      if (!group?.key) return;
+      const current = this.notificationGroupDisplayLimits[group.key] || NOTIFICATION_GROUP_PAGE_SIZE;
+      this.notificationGroupDisplayLimits = {
+        ...this.notificationGroupDisplayLimits,
+        [group.key]: current + NOTIFICATION_GROUP_PAGE_SIZE
+      };
+    },
+    notificationGroupUnreadCount(group) {
+      return group?.items?.filter((item) => !item.dismissed && item.unread).length || 0;
+    },
+    notificationGroupReadCount(group) {
+      return group?.items?.filter((item) => !item.dismissed && !item.unread).length || 0;
+    },
+    notificationItemActionLabel(item) {
+      return item?.unread ? '标为已读' : '删除此通知';
+    },
+    isNotificationGroupMenuOpen(group) {
+      return !!group?.key && this.notificationGroupMenuKey === group.key;
+    },
+    toggleNotificationGroupMenu(group) {
+      if (!group?.key) return;
+      const nextKey = this.notificationGroupMenuKey === group.key ? '' : group.key;
+      this.notificationGroupMenuKey = nextKey;
+      this.notificationGroupConfirmKey = '';
+    },
+    closeNotificationGroupMenu() {
+      this.notificationGroupMenuKey = '';
+      this.notificationGroupConfirmKey = '';
+    },
+    requestNotificationGroupClear(group) {
+      if (!group?.key || this.notificationGroupReadCount(group) <= 0) return;
+      this.notificationGroupConfirmKey = group.key;
+    },
+    cancelNotificationGroupClear() {
+      this.notificationGroupConfirmKey = '';
+    },
     notificationSummaryText() {
       if (this.notificationTotalCount <= 0 && this.notificationUnreadCount <= 0) return '';
       if (this.notificationUnreadCount > 0) {
@@ -648,9 +864,13 @@ export function registerWindowManager(Alpine) {
       const nextValue = showRead === true;
       if (this.notificationShowRead === nextValue) return;
       const token = ++this.notificationFilterMotionToken;
+      this.notificationGroupMotionToken += 1;
+      this.notificationMotion?.prepareFilterSwitch(this.$refs.notificationCenterPanel);
       this.notificationFilterSwitching = true;
       this.notificationShowRead = nextValue;
       this.notificationExpandedGroupKey = '';
+      this.notificationGroupDisplayLimits = {};
+      this.closeNotificationGroupMenu();
       await this.$nextTick();
       if (token !== this.notificationFilterMotionToken) return;
       this.notificationMotion?.finishFilterSwitch(this.$refs.notificationCenterPanel, nextValue ? 'all' : 'unread');
@@ -668,21 +888,48 @@ export function registerWindowManager(Alpine) {
     },
     async openNotificationGroup(group) {
       if (!group?.key) return;
+      if (this.notificationExpandedGroupKey === group.key) return;
+      const token = ++this.notificationGroupMotionToken;
+      this.notificationGroupDisplayLimits = {
+        ...this.notificationGroupDisplayLimits,
+        [group.key]: NOTIFICATION_GROUP_PAGE_SIZE
+      };
+      this.closeNotificationGroupMenu();
+      const escapedKey = window.CSS?.escape ? CSS.escape(group.key) : group.key;
+      const collapsedEl = this.$refs.notificationCenterPanel?.querySelector(
+        `[data-notification-group-key="${escapedKey}"]`
+      );
+      await this.notificationMotion?.expandStack(collapsedEl);
+      if (token !== this.notificationGroupMotionToken) return;
       this.notificationExpandedGroupKey = group.key;
-      this.$nextTick(() => {
-        const expandedEl = this.$refs.notificationCenterPanel?.querySelector(`[data-notification-group-key="${window.CSS?.escape ? CSS.escape(group.key) : group.key}"]`);
-        this.notificationMotion?.revealExpandedGroup(expandedEl);
-      });
+      await this.$nextTick();
+      if (token !== this.notificationGroupMotionToken) return;
+      const expandedEl = this.$refs.notificationCenterPanel?.querySelector(
+        `[data-notification-group-key="${escapedKey}"]`
+      );
+      await this.notificationMotion?.revealExpandedGroup(expandedEl);
     },
     async collapseNotificationGroup() {
       const activeKey = this.notificationExpandedGroupKey;
+      if (!activeKey) return;
+      const token = ++this.notificationGroupMotionToken;
+      this.closeNotificationGroupMenu();
+      const escapedKey = window.CSS?.escape ? CSS.escape(activeKey) : activeKey;
+      const expandedEl = this.$refs.notificationCenterPanel?.querySelector(
+        `[data-notification-group-key="${escapedKey}"]`
+      );
+      await this.notificationMotion?.collapseExpandedGroup(expandedEl);
+      if (token !== this.notificationGroupMotionToken) return;
       this.notificationExpandedGroupKey = '';
-      this.$nextTick(() => {
-        if (activeKey) {
-          const collapsedEl = this.$refs.notificationCenterPanel?.querySelector(`[data-notification-group-key="${window.CSS?.escape ? CSS.escape(activeKey) : activeKey}"]`);
-          this.notificationMotion?.revealCollapsedGroup(collapsedEl);
-        }
-      });
+      const nextLimits = { ...this.notificationGroupDisplayLimits };
+      delete nextLimits[activeKey];
+      this.notificationGroupDisplayLimits = nextLimits;
+      await this.$nextTick();
+      if (token !== this.notificationGroupMotionToken) return;
+      const collapsedEl = this.$refs.notificationCenterPanel?.querySelector(
+        `[data-notification-group-key="${escapedKey}"]`
+      );
+      await this.notificationMotion?.revealCollapsedGroup(collapsedEl);
     },
     toggleNotificationGroup(group) {
       if (this.isNotificationGroupExpanded(group)) {
@@ -691,23 +938,40 @@ export function registerWindowManager(Alpine) {
       }
       void this.openNotificationGroup(group);
     },
+    syncNotificationGroups() {
+      this.notificationGroups = groupNotifications(
+        this.notificationItems.filter((item) => !item.dismissed)
+      );
+      if (!this.notificationExpandedGroupKey) return;
+      const activeGroup = this.notificationGroups.find(
+        (group) => group.key === this.notificationExpandedGroupKey
+      );
+      if (!activeGroup || this.notificationGroupItems(activeGroup).length === 0) {
+        this.notificationExpandedGroupKey = '';
+        this.closeNotificationGroupMenu();
+      }
+    },
     async loadNotifications({ force = false, animate = false } = {}) {
       if (!this.notificationCenterAuthenticated && this.notificationCenterAuthResolved) {
         this.notificationController?.abort();
         this.notificationLoading = false;
-        this.notificationGroups = [];
-        this.notificationExpandedGroupKey = '';
-        this.notificationUnreadCount = 0;
-        this.notificationTotalCount = 0;
+        this.resetNotificationCollection();
         this.notificationLoaded = true;
         this.notificationUsername = '';
         this.setNotificationState('guest', '');
         return;
       }
 
-      if (this.notificationLoading || (this.notificationLoaded && !force)) return;
+      if (this.notificationLoading) return;
+      if (this.notificationLoaded && !force) {
+        this.notificationOpenScrollPending = false;
+        return;
+      }
 
       this.notificationLoading = true;
+      this.notificationMoreController?.abort();
+      this.notificationLoadingMore = false;
+      this.notificationLoadMoreError = '';
       this.notificationController?.abort();
       this.notificationController = new AbortController();
       if (this.notificationLoadingStatusTimer) {
@@ -730,11 +994,9 @@ export function registerWindowManager(Alpine) {
           if (this.$el?.dataset) {
             this.$el.dataset.notificationCenterAuthenticated = 'false';
           }
-          this.notificationGroups = [];
-          this.notificationExpandedGroupKey = '';
-          this.notificationUnreadCount = 0;
-          this.notificationTotalCount = 0;
+          this.resetNotificationCollection();
           this.notificationLoaded = true;
+          this.notificationUsername = '';
           this.setNotificationState('unauthenticated', '登录后查看通知');
           return;
         }
@@ -744,11 +1006,9 @@ export function registerWindowManager(Alpine) {
           if (this.$el?.dataset) {
             this.$el.dataset.notificationCenterAuthenticated = 'false';
           }
-          this.notificationGroups = [];
-          this.notificationExpandedGroupKey = '';
-          this.notificationUnreadCount = 0;
-          this.notificationTotalCount = 0;
+          this.resetNotificationCollection();
           this.notificationLoaded = true;
+          this.notificationUsername = '';
           this.setNotificationState('unsupported', '当前 Halo 未开放用户通知接口');
           return;
         }
@@ -762,11 +1022,23 @@ export function registerWindowManager(Alpine) {
           this.$el.dataset.notificationCenterAuthenticated = 'true';
         }
         this.notificationUsername = user.username;
-        const response = await fetch(buildUserNotificationUrl(user.username, { unreadOnly: false }), {
+        const requestOptions = {
           credentials: 'same-origin',
           headers: { Accept: 'application/json' },
           signal: this.notificationController.signal
-        });
+        };
+        const [response, unreadResponse] = await Promise.all([
+          fetch(buildUserNotificationUrl(user.username, {
+            unreadOnly: false,
+            page: 1,
+            pageSize: NOTIFICATION_PAGE_SIZE
+          }), requestOptions),
+          fetch(buildUserNotificationUrl(user.username, {
+            unreadOnly: true,
+            page: 1,
+            pageSize: 1
+          }), requestOptions).catch(() => null)
+        ]);
 
         if (response.status === 401 || response.status === 403 || response.redirected) {
           this.notificationCenterAuthenticated = false;
@@ -774,11 +1046,9 @@ export function registerWindowManager(Alpine) {
           if (this.$el?.dataset) {
             this.$el.dataset.notificationCenterAuthenticated = 'false';
           }
-          this.notificationGroups = [];
-          this.notificationExpandedGroupKey = '';
-          this.notificationUnreadCount = 0;
-          this.notificationTotalCount = 0;
+          this.resetNotificationCollection();
           this.notificationLoaded = true;
+          this.notificationUsername = '';
           this.setNotificationState('unauthenticated', '登录后查看通知');
           return;
         }
@@ -788,11 +1058,9 @@ export function registerWindowManager(Alpine) {
           if (this.$el?.dataset) {
             this.$el.dataset.notificationCenterAuthenticated = 'false';
           }
-          this.notificationGroups = [];
-          this.notificationExpandedGroupKey = '';
-          this.notificationUnreadCount = 0;
-          this.notificationTotalCount = 0;
+          this.resetNotificationCollection();
           this.notificationLoaded = true;
+          this.notificationUsername = '';
           this.setNotificationState('unsupported', '当前 Halo 未开放用户通知接口');
           return;
         }
@@ -802,12 +1070,26 @@ export function registerWindowManager(Alpine) {
 
         const data = await response.json();
         const items = Array.isArray(data.items) ? data.items.map(normalizeNotification) : [];
-        const totalCount = Number(data.total) || items.length;
-        this.notificationGroups = groupNotifications(items);
-        if (this.notificationExpandedGroupKey && !this.notificationGroups.some((group) => group.key === this.notificationExpandedGroupKey)) {
-          this.notificationExpandedGroupKey = '';
+        const parsedTotalCount = Number(data.total);
+        const totalCount = Number.isFinite(parsedTotalCount)
+          ? Math.max(items.length, parsedTotalCount)
+          : items.length;
+        let unreadCount = items.filter((item) => item.unread).length;
+        if (unreadResponse?.ok && isJsonResponse(unreadResponse)) {
+          const unreadData = await unreadResponse.json();
+          const parsedUnreadCount = Number(unreadData.total);
+          if (Number.isFinite(parsedUnreadCount)) {
+            unreadCount = Math.max(0, parsedUnreadCount);
+          }
         }
-        this.notificationUnreadCount = items.filter((item) => item.unread).length;
+
+        this.notificationItems = items;
+        this.notificationLoadedCount = items.length;
+        this.notificationHasMore = items.length < totalCount;
+        this.notificationNextPage = 2;
+        this.notificationLoadMoreError = '';
+        this.syncNotificationGroups();
+        this.notificationUnreadCount = unreadCount;
         this.notificationTotalCount = totalCount;
         this.notificationLoaded = true;
         this.setNotificationState(items.length ? 'ready' : 'empty', '');
@@ -824,21 +1106,79 @@ export function registerWindowManager(Alpine) {
         this.notificationLoading = false;
         if (this.notificationCenterVisible) {
           await this.$nextTick();
+          const scrollEl = this.$refs.notificationCenterScroll;
+          if (this.notificationOpenScrollPending && (!scrollEl || scrollEl.scrollTop <= 1)) {
+            if (scrollEl) scrollEl.scrollTop = 0;
+            this.notificationOpenScrollPending = false;
+          }
           if (animate) {
             this.notificationMotion?.refreshContent(this.$refs.notificationCenterPanel);
           }
         }
       }
     },
+    async loadMoreNotifications() {
+      if (
+        this.notificationLoading
+        || this.notificationLoadingMore
+        || !this.notificationHasMore
+        || !this.notificationUsername
+      ) return;
+
+      const page = this.notificationNextPage;
+      this.notificationLoadingMore = true;
+      this.notificationLoadMoreError = '';
+      this.notificationMoreController?.abort();
+      this.notificationMoreController = new AbortController();
+
+      try {
+        const response = await fetch(buildUserNotificationUrl(this.notificationUsername, {
+          unreadOnly: false,
+          page,
+          pageSize: NOTIFICATION_PAGE_SIZE
+        }), {
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' },
+          signal: this.notificationMoreController.signal
+        });
+        if (!response.ok || !isJsonResponse(response)) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        const nextItems = Array.isArray(data.items) ? data.items.map(normalizeNotification) : [];
+        const mergedItems = new Map(this.notificationItems.map((item) => [item.key, item]));
+        nextItems.forEach((item) => mergedItems.set(item.key, item));
+        this.notificationItems = Array.from(mergedItems.values());
+        this.notificationLoadedCount = this.notificationItems.length;
+        const parsedTotalCount = Number(data.total);
+        if (Number.isFinite(parsedTotalCount)) {
+          this.notificationTotalCount = Math.max(this.notificationLoadedCount, parsedTotalCount);
+        }
+        this.notificationNextPage = page + 1;
+        this.notificationHasMore = (
+          nextItems.length > 0
+          && this.notificationLoadedCount < this.notificationTotalCount
+        );
+        this.syncNotificationGroups();
+        await this.$nextTick();
+        this.notificationMotion?.refreshContent(this.$refs.notificationCenterPanel);
+      } catch (error) {
+        if (error?.name !== 'AbortError') {
+          this.notificationLoadMoreError = '更多通知加载失败，请重试';
+          wmLog('notification center load-more failed', error?.message || String(error || ''));
+        }
+      } finally {
+        this.notificationLoadingMore = false;
+      }
+    },
     async markNotificationAsRead(item) {
       if (!item?.id || !item.unread) return true;
       item.unread = false;
       this.notificationUnreadCount = Math.max(0, this.notificationUnreadCount - 1);
-      const group = this.notificationGroups.find((entry) => entry.key === item.typeKey);
-      if (group) group.unreadCount = Math.max(0, group.unreadCount - 1);
+      this.syncNotificationGroups();
       if (!this.notificationUsername) {
-        if (!this.notificationShowRead && this.notificationUnreadCount <= 0) {
-          this.notificationExpandedGroupKey = '';
+        if (!this.notificationShowRead && this.notificationVisibleGroups().length === 0) {
           this.setNotificationState('empty', '暂无未读通知');
         }
         return true;
@@ -853,12 +1193,15 @@ export function registerWindowManager(Alpine) {
         if (!response.ok && response.status !== 404) {
           throw new Error(`HTTP ${response.status}`);
         }
-        if (!this.notificationShowRead && this.notificationUnreadCount <= 0) {
-          this.notificationExpandedGroupKey = '';
+        if (!this.notificationShowRead && this.notificationVisibleGroups().length === 0) {
           this.setNotificationState('empty', '暂无未读通知');
         }
         return true;
       } catch (error) {
+        item.unread = true;
+        this.notificationUnreadCount += 1;
+        this.syncNotificationGroups();
+        this.setNotificationState('ready', '');
         wmLog('notification mark-as-read failed', error?.message || String(error || ''));
         return false;
       }
@@ -866,7 +1209,14 @@ export function registerWindowManager(Alpine) {
     async deleteNotification(item) {
       if (!item) return false;
       item.dismissed = true;
-      if (!this.notificationUsername || !item.id) return true;
+      this.syncNotificationGroups();
+      if (!this.notificationUsername || !item.id) {
+        this.notificationItems = this.notificationItems.filter((entry) => entry !== item);
+        this.notificationLoadedCount = Math.max(0, this.notificationLoadedCount - 1);
+        this.notificationTotalCount = Math.max(0, this.notificationTotalCount - 1);
+        this.notificationHasMore = this.notificationLoadedCount < this.notificationTotalCount;
+        return true;
+      }
 
       try {
         const response = await fetch(buildDeleteNotificationUrl(this.notificationUsername, item.id), {
@@ -877,10 +1227,16 @@ export function registerWindowManager(Alpine) {
         if (!response.ok && response.status !== 404) {
           throw new Error(`HTTP ${response.status}`);
         }
+        this.notificationItems = this.notificationItems.filter((entry) => entry !== item);
+        this.notificationLoadedCount = Math.max(0, this.notificationLoadedCount - 1);
+        this.notificationTotalCount = Math.max(0, this.notificationTotalCount - 1);
+        this.notificationHasMore = this.notificationLoadedCount < this.notificationTotalCount;
+        this.syncNotificationGroups();
         return true;
       } catch (error) {
         wmLog('notification delete failed', error?.message || String(error || ''));
         item.dismissed = false;
+        this.syncNotificationGroups();
         return false;
       }
     },
@@ -892,7 +1248,11 @@ export function registerWindowManager(Alpine) {
         if (!this.notificationShowRead && card) {
           await this.notificationMotion?.dismissCard(card);
         }
-        await this.markNotificationAsRead(item);
+        const marked = await this.markNotificationAsRead(item);
+        if (!marked) {
+          await this.$nextTick();
+          this.notificationMotion?.refreshContent(this.$refs.notificationCenterPanel);
+        }
         return;
       }
 
@@ -900,39 +1260,72 @@ export function registerWindowManager(Alpine) {
         await this.notificationMotion?.dismissCard(card);
       }
 
-      await this.deleteNotification(item);
+      const deleted = await this.deleteNotification(item);
+      if (deleted && this.notificationHasMore) {
+        await this.loadNotifications({ force: true });
+      }
     },
-    async clearNotificationGroup(group, event) {
-      if (!group) return;
+    async markNotificationGroupAsRead(group, event) {
+      if (!group?.key || this.notificationGroupActionBusyKey) return;
+      const unreadItems = group.items.filter((item) => !item.dismissed && item.unread);
+      if (unreadItems.length === 0) {
+        this.closeNotificationGroupMenu();
+        return;
+      }
+      this.notificationGroupActionBusyKey = group.key;
       const groupEl = event?.currentTarget?.closest('.notification-center-group');
-      const itemsToClear = this.notificationGroupItems(group);
-      const unreadItems = itemsToClear.filter((item) => item.unread);
-      const readItems = itemsToClear.filter((item) => !item.unread);
-      const hiddenAfterActionKeys = new Set([
-        ...readItems.map((item) => item.key),
-        ...(!this.notificationShowRead ? unreadItems.map((item) => item.key) : [])
-      ]);
-      const cards = groupEl
+      const unreadKeys = new Set(unreadItems.map((item) => item.key));
+      const cards = !this.notificationShowRead && groupEl
         ? Array.from(groupEl.querySelectorAll('.notification-center-card'))
-          .filter((card) => hiddenAfterActionKeys.has(card.dataset.notificationItemKey))
+          .filter((card) => unreadKeys.has(card.dataset.notificationItemKey))
         : [];
 
-      if (cards.length > 0) {
-        await this.notificationMotion?.dismissCards(cards);
+      try {
+        this.closeNotificationGroupMenu();
+        if (cards.length > 0) {
+          await this.notificationMotion?.dismissCards(cards);
+        }
+        await Promise.allSettled(unreadItems.map((item) => this.markNotificationAsRead(item)));
+        this.syncNotificationGroups();
+        if (!this.notificationShowRead && this.notificationVisibleGroups().length === 0) {
+          this.setNotificationState('empty', '暂无未读通知');
+        }
+      } finally {
+        this.notificationGroupActionBusyKey = '';
       }
+    },
+    async clearReadNotificationGroup(group, event) {
+      if (
+        !group?.key
+        || this.notificationGroupConfirmKey !== group.key
+        || this.notificationGroupActionBusyKey
+      ) return;
 
-      await Promise.allSettled([
-        ...unreadItems.map((item) => this.markNotificationAsRead(item)),
-        ...readItems.map((item) => this.deleteNotification(item))
-      ]);
-
-      if (!this.notificationShowRead && this.notificationExpandedGroupKey === group.key) {
-        this.notificationExpandedGroupKey = '';
+      const readItems = group.items.filter((item) => !item.dismissed && !item.unread);
+      if (readItems.length === 0) {
+        this.closeNotificationGroupMenu();
+        return;
       }
+      this.notificationGroupActionBusyKey = group.key;
+      const groupEl = event?.currentTarget?.closest('.notification-center-group');
+      const readKeys = new Set(readItems.map((item) => item.key));
+      const cards = this.notificationShowRead && groupEl
+        ? Array.from(groupEl.querySelectorAll('.notification-center-card'))
+          .filter((card) => readKeys.has(card.dataset.notificationItemKey))
+        : [];
 
-      if (!this.notificationShowRead && this.notificationUnreadCount <= 0) {
-        this.notificationExpandedGroupKey = '';
-        this.setNotificationState('empty', '暂无未读通知');
+      try {
+        this.closeNotificationGroupMenu();
+        if (cards.length > 0) {
+          await this.notificationMotion?.dismissCards(cards);
+        }
+        const results = await Promise.all(readItems.map((item) => this.deleteNotification(item)));
+        if (results.some(Boolean) && this.notificationHasMore) {
+          await this.loadNotifications({ force: true });
+        }
+        this.syncNotificationGroups();
+      } finally {
+        this.notificationGroupActionBusyKey = '';
       }
     },
     async markAllNotificationsAsRead() {
@@ -950,55 +1343,42 @@ export function registerWindowManager(Alpine) {
       const unreadItems = this.notificationGroups.flatMap((group) => group.items).filter((item) => item.unread);
 
       try {
-        await Promise.allSettled(unreadItems.map((item) => {
-          if (!this.notificationShowRead) {
-            item.dismissed = true;
-          }
-          item.unread = false;
-          return this.notificationUsername && item.id
-            ? fetch(buildMarkNotificationReadUrl(this.notificationUsername, item.id), {
-                method: 'PUT',
-                credentials: 'same-origin',
-                headers: { Accept: 'application/json' }
-              })
-            : Promise.resolve();
-        }));
-
-        this.notificationGroups.forEach((group) => {
-          group.items.forEach((item) => {
-            if (!this.notificationShowRead) {
-              item.dismissed = true;
-            }
-            item.unread = false;
-          });
-          group.unreadCount = 0;
-        });
-        this.notificationUnreadCount = 0;
-        this.setNotificationState('empty', '暂无未读通知');
+        await Promise.allSettled(unreadItems.map((item) => this.markNotificationAsRead(item)));
+        this.syncNotificationGroups();
+        if (!this.notificationShowRead && this.notificationVisibleGroups().length === 0) {
+          this.setNotificationState('empty', '暂无未读通知');
+        }
       } finally {
         this.notificationMarkingAllRead = false;
       }
     },
-    async openNotificationItem(item, event) {
+    async openNotificationItem(item, _event) {
+      const href = normalizeNotificationHref(
+        item?.href,
+        window.location.origin,
+        getDesktopWidgetProtocol().siteUrl
+      );
+      if (!href) return;
       const generation = ++this.notificationOpenGeneration;
-      const href = normalizeNotificationHref(item?.href, window.location.origin);
-      if (!this.notificationShowRead && item.unread) {
-        const card = event?.currentTarget?.closest('.notification-center-card');
-        if (card) {
-          await this.notificationMotion?.dismissCard(card);
-        }
+      const markReadPromise = this.markNotificationAsRead(item);
+      if (!this.notificationNavigationClosePromise) {
+        const closePromise = Promise.resolve(this.closeNotificationCenter());
+        const navigationClosePromise = closePromise.finally(() => {
+          if (this.notificationNavigationClosePromise === navigationClosePromise) {
+            this.notificationNavigationClosePromise = null;
+          }
+        });
+        this.notificationNavigationClosePromise = navigationClosePromise;
       }
-      await this.markNotificationAsRead(item);
+      const closePromise = this.notificationNavigationClosePromise;
+      await Promise.allSettled([markReadPromise, closePromise]);
       if (generation !== this.notificationOpenGeneration) return;
-      this.closeNotificationCenter();
-      if (href) {
-        const url = new URL(href, window.location.origin);
-        if (url.origin === window.location.origin && window.pjax?.loadUrl) {
-          window.pjax.loadUrl(`${url.pathname}${url.search}${url.hash}`);
-          return;
-        }
-        window.location.assign(url.href);
+      const url = new URL(href, window.location.origin);
+      if (isNotificationPjaxHref(url.href, window.location.origin) && window.pjax?.loadUrl) {
+        window.pjax.loadUrl(`${url.pathname}${url.search}${url.hash}`);
+        return;
       }
+      window.location.assign(url.href);
     },
     captureNotificationWidgetRects() {
       const panel = this.$refs?.notificationCenterPanel || document.getElementById('notification-center-panel');

@@ -141,7 +141,8 @@ async function installPageInstrumentation(page) {
       running: false,
       rafId: 0,
       scenario: '',
-      startedAt: 0
+      startedAt: 0,
+      animationBaseline: 0
     };
 
     const originalDispatchEvent = window.dispatchEvent.bind(window);
@@ -197,7 +198,11 @@ async function installPageInstrumentation(page) {
       const animations = document.getAnimations?.() || [];
       audit.frames.push({
         t: performance.now(),
-        animations: animations.filter((animation) => animation.playState === 'running').length,
+        animations: Math.max(
+          0,
+          animations.filter((animation) => animation.playState === 'running').length
+            - audit.animationBaseline
+        ),
         bodyClass: document.body.className,
         panel: rectFor('#notification-center-panel'),
         ghost: rectFor('.desktop-widget-drag-ghost'),
@@ -216,6 +221,8 @@ async function installPageInstrumentation(page) {
       audit.longTasks = [];
       audit.events = Object.fromEntries(events.map((eventName) => [eventName, 0]));
       audit.pointerMoves = 0;
+      audit.animationBaseline = document.getAnimations?.()
+        .filter((animation) => animation.playState === 'running').length || 0;
       audit.running = true;
       audit.scenario = scenario;
       audit.startedAt = performance.now();
@@ -236,7 +243,11 @@ async function installPageInstrumentation(page) {
         longTasks: audit.longTasks,
         events: audit.events,
         pointerMoves: audit.pointerMoves,
-        animationsAfterSettle: document.getAnimations?.().filter((animation) => animation.playState === 'running').length || 0
+        animationsAfterSettle: Math.max(
+          0,
+          (document.getAnimations?.().filter((animation) => animation.playState === 'running').length || 0)
+            - audit.animationBaseline
+        )
       };
     };
   }, { events: watchedEvents });
@@ -363,10 +374,39 @@ async function waitForShell(page) {
   await page.waitForFunction(() => window.Alpine && document.querySelector('[x-data="menuBar"]')?._x_dataStack?.[0], null, { timeout: 12_000 });
 }
 
+async function authenticateNotificationCenterForAudit(page) {
+  await page.evaluate(() => {
+    const root = document.querySelector('[x-data="menuBar"]');
+    const menu = root?._x_dataStack?.[0];
+    if (!menu) throw new Error('menuBar Alpine state not found');
+    menu.notificationCenterAuthenticated = true;
+    menu.notificationCenterAuthResolved = true;
+    menu.notificationLoaded = false;
+    if (root.dataset) {
+      root.dataset.notificationCenterAuthenticated = 'true';
+    }
+  });
+}
+
+async function waitForPanelState(page, open) {
+  await page.waitForFunction((expectedOpen) => {
+    const menu = document.querySelector('[x-data="menuBar"]')?._x_dataStack?.[0];
+    if (!menu) return false;
+    if (expectedOpen) {
+      return menu.notificationCenterOpen === true
+        && menu.notificationCenterVisible === true
+        && menu.notificationCenterMotionPhase === 'idle';
+    }
+    return menu.notificationCenterOpen === false
+      && menu.notificationCenterVisible === false
+      && menu.notificationCenterMotionPhase === 'idle';
+  }, open, { timeout: 5_000 });
+}
+
 async function openPanel(page) {
   await page.locator('.menubar-time').click();
   await page.waitForSelector('#notification-center-panel', { state: 'visible', timeout: 8_000 });
-  await page.waitForTimeout(520);
+  await waitForPanelState(page, true);
 }
 
 async function closePanel(page) {
@@ -375,7 +415,7 @@ async function closePanel(page) {
     const close = page.locator('.notification-center-close').first();
     if (await close.isVisible().catch(() => false)) {
       await close.click();
-      await page.waitForTimeout(300);
+      await waitForPanelState(page, false);
     }
   }
 }
@@ -419,6 +459,7 @@ async function injectNotificationState(page, { read = false } = {}) {
     menu.notificationLoaded = true;
     menu.notificationLoading = false;
     menu.notificationExpandedGroupKey = 'comments';
+    menu.notificationItems = [item];
     menu.notificationGroups = [{
       key: 'comments',
       label: '评论回复',
@@ -429,6 +470,8 @@ async function injectNotificationState(page, { read = false } = {}) {
     }];
     menu.notificationUnreadCount = read ? 0 : 1;
     menu.notificationTotalCount = 1;
+    menu.notificationLoadedCount = 1;
+    menu.notificationHasMore = false;
     menu.setNotificationState?.('ready', '');
   }, { read });
   await page.waitForTimeout(160);
@@ -462,6 +505,7 @@ async function injectStackedNotificationState(page) {
     menu.notificationLoaded = true;
     menu.notificationLoading = false;
     menu.notificationExpandedGroupKey = '';
+    menu.notificationItems = items;
     menu.notificationGroups = [{
       key: 'comments',
       label: '评论回复',
@@ -472,6 +516,8 @@ async function injectStackedNotificationState(page) {
     }];
     menu.notificationUnreadCount = items.length;
     menu.notificationTotalCount = items.length;
+    menu.notificationLoadedCount = items.length;
+    menu.notificationHasMore = false;
     menu.setNotificationState?.('ready', '');
   });
   await page.waitForTimeout(180);
@@ -843,7 +889,7 @@ async function main() {
         const preview = page.locator('.notification-center-stack-preview').first();
         await preview.click();
         await page.waitForTimeout(320);
-        await page.locator('.notification-center-group-less').first().click();
+        await page.locator('.notification-center-group-collapse').first().click();
         await page.waitForTimeout(260);
       }
     },
@@ -910,6 +956,7 @@ async function main() {
   });
   await page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => {});
   await waitForShell(page);
+  await authenticateNotificationCenterForAudit(page);
   await page.waitForTimeout(800);
   await openPanel(page);
   await closePanel(page);

@@ -122,12 +122,13 @@
                timeDesktopPreset == 'weekday-date-time' ? desktopWeekdayText + ' ' + desktopDateText + ' ' + desktopTimeText :
                timeDesktopPreset == 'month-day-weekday-time' ? desktopDateText + ' ' + desktopWeekdayText + ' ' + desktopTimeText :
                desktopTimeText
-             }"
+              }"
               class="menubar-time"
+              x-ref="notificationCenterTrigger"
               @click.stop="toggleNotificationCenter()"
-              :aria-expanded="(notificationCenterOpen || notificationCenterVisible).toString()"
+              :aria-expanded="notificationCenterOpen.toString()"
               aria-controls="notification-center-panel"
-              :aria-label="`打开${notificationCenterTitle}`"
+              :aria-label="`${notificationCenterOpen ? '关闭' : '打开'}${notificationCenterTitle}`"
               :title="notificationCenterTitle"
               x-text="timeStr"
               th:text="${initialTimeText}"></button>
@@ -156,11 +157,14 @@
            data-notification-widget-drop-target
            x-ref="notificationCenterPanel"
            x-show="notificationCenterVisible"
+           tabindex="-1"
+           aria-modal="true"
            :class="{
              'is-animating': notificationCenterAnimating,
              'is-opening': notificationCenterMotionPhase === 'opening',
              'is-closing': notificationCenterMotionPhase === 'closing'
            }"
+           @keydown.tab="handleNotificationFocusTrap($event)"
            @click.outside="!isNotificationWidgetEditingActive() && closeNotificationCenter()"
            style="display: none;"
            role="dialog"
@@ -195,6 +199,7 @@
           </div>
           <button type="button"
                   class="notification-center-close"
+                  x-ref="notificationCenterClose"
                   @click="closeNotificationCenter()"
                   aria-label="关闭通知中心">
             <span class="icon-[lucide--x]" aria-hidden="true"></span>
@@ -202,10 +207,16 @@
         </div>
       </header>
 
-      <div class="notification-panel-scroll" x-ref="notificationCenterScroll">
+      <div class="notification-panel-scroll"
+           x-ref="notificationCenterScroll"
+           :class="{ 'is-hydrating': notificationOpenScrollPending }"
+           @scroll.passive="handleNotificationScroll()">
         <section class="notification-center-section notification-center-feed"
                  x-show="notificationCenterAuthenticated"
-                 :class="{ 'is-filter-switching': notificationFilterSwitching }">
+                 :class="{
+                   'is-filter-switching': notificationFilterSwitching,
+                   'is-showing-all': notificationShowRead
+                 }">
           <template x-if="notificationStatusText">
             <div class="notification-center-status" :data-state="notificationStatus">
               <span class="icon-[lucide--bell]" aria-hidden="true"></span>
@@ -227,19 +238,64 @@
                             aria-expanded="true">
                       <strong x-text="group.label"></strong>
                     </button>
-                    <button type="button"
-                            class="notification-center-group-less"
-                            @click.stop="collapseNotificationGroup()"
-                            aria-label="折叠该类型通知">
-                      <span>更少内容</span>
-                    </button>
-                    <button type="button"
-                            class="notification-center-group-clear"
-                            @click.stop="clearNotificationGroup(group, $event)"
-                            aria-label="删除所有该类型通知"
-                            title="删除所有该类型通知">
-                      <span class="icon-[lucide--x]" aria-hidden="true"></span>
-                    </button>
+                    <div class="notification-center-group-actions">
+                      <button type="button"
+                              class="notification-center-group-collapse"
+                              @click.stop="collapseNotificationGroup()"
+                              aria-label="折叠该类型通知"
+                              title="折叠">
+                        <span class="icon-[lucide--chevron-up]" aria-hidden="true"></span>
+                      </button>
+                      <div class="notification-center-group-menu-shell"
+                           @click.outside="isNotificationGroupMenuOpen(group) && closeNotificationGroupMenu()">
+                        <button type="button"
+                                class="notification-center-group-more"
+                                :aria-expanded="isNotificationGroupMenuOpen(group).toString()"
+                                @click.stop="toggleNotificationGroupMenu(group)"
+                                aria-label="更多通知操作"
+                                title="更多">
+                          <span class="icon-[lucide--ellipsis]" aria-hidden="true"></span>
+                        </button>
+                        <div class="notification-center-group-menu"
+                             x-show="isNotificationGroupMenuOpen(group)"
+                             x-transition.opacity.duration.120ms
+                             style="display: none;"
+                             role="menu">
+                          <button type="button"
+                                  class="notification-center-group-menu-item"
+                                  x-show="notificationGroupUnreadCount(group) > 0"
+                                  :disabled="notificationGroupActionBusyKey === group.key"
+                                  @click.stop="markNotificationGroupAsRead(group, $event)"
+                                  role="menuitem">
+                            <span class="icon-[lucide--check-check]" aria-hidden="true"></span>
+                            <span>本组标为已读</span>
+                            <small x-text="notificationGroupUnreadCount(group)"></small>
+                          </button>
+                          <button type="button"
+                                  class="notification-center-group-menu-item"
+                                  x-show="notificationGroupReadCount(group) > 0 && notificationGroupConfirmKey !== group.key"
+                                  :disabled="notificationGroupActionBusyKey === group.key"
+                                  @click.stop="requestNotificationGroupClear(group)"
+                                  role="menuitem">
+                            <span class="icon-[lucide--trash-2]" aria-hidden="true"></span>
+                            <span>清除已读通知</span>
+                            <small x-text="notificationGroupReadCount(group)"></small>
+                          </button>
+                          <div class="notification-center-group-confirm"
+                               x-show="notificationGroupConfirmKey === group.key">
+                            <span x-text="`清除 ${notificationGroupReadCount(group)} 条已读通知？`"></span>
+                            <div>
+                              <button type="button"
+                                      @click.stop="cancelNotificationGroupClear()">取消</button>
+                              <button type="button"
+                                      class="is-danger"
+                                      :disabled="notificationGroupActionBusyKey === group.key"
+                                      @click.stop="clearReadNotificationGroup(group, $event)">清除</button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <div class="notification-center-stack-preview"
@@ -260,22 +316,30 @@
 
                         <article class="notification-center-card"
                                  :class="{ 'is-unread': notificationGroupItems(group)[0].unread }"
+                                 :data-notification-type="notificationGroupItems(group)[0].typeKey"
                                  :data-notification-item-key="notificationGroupItems(group)[0].key"
                                  role="presentation">
-                          <div class="notification-center-card-header">
-                            <div class="notification-center-card-header-left">
-                              <span class="notification-center-card-icon-shell" aria-hidden="true">
-                                <span class="notification-center-card-icon-small" :class="notificationGroupItems(group)[0].icon"></span>
-                              </span>
-                              <span class="notification-center-card-app-name" x-text="notificationGroupItems(group)[0].typeLabel || group.label"></span>
-                              <span class="notification-center-card-header-sep" aria-hidden="true">•</span>
+                          <div class="notification-center-card-main">
+                            <div class="notification-center-card-header">
+                              <div class="notification-center-card-header-left">
+                                <span class="notification-center-card-icon-shell" aria-hidden="true">
+                                  <span class="notification-center-card-icon-small" :class="notificationGroupItems(group)[0].icon"></span>
+                                </span>
+                                <span class="notification-center-card-app-name" x-text="notificationGroupItems(group)[0].typeLabel || group.label"></span>
+                                <span class="notification-center-card-header-sep" aria-hidden="true">•</span>
+                              </div>
+                              <time class="notification-center-card-time"
+                                    :datetime="notificationGroupItems(group)[0].createdAt"
+                                    :title="notificationGroupItems(group)[0].timeTitle"
+                                    x-text="notificationGroupItems(group)[0].time"></time>
                             </div>
-                            <time class="notification-center-card-time" x-text="notificationGroupItems(group)[0].time"></time>
-                          </div>
 
-                          <div class="notification-center-card-content">
-                            <strong class="notification-center-card-title" x-text="notificationGroupItems(group)[0].title"></strong>
-                            <div class="notification-center-card-body" x-text="notificationGroupItems(group)[0].body"></div>
+                            <div class="notification-center-card-content">
+                              <strong class="notification-center-card-title" x-text="notificationGroupItems(group)[0].title"></strong>
+                              <div class="notification-center-card-body"
+                                   x-show="notificationGroupItems(group)[0].body"
+                                   x-text="notificationGroupItems(group)[0].body"></div>
+                            </div>
                           </div>
                         </article>
                       </div>
@@ -284,47 +348,80 @@
 
                   <div class="notification-center-list"
                        x-show="isNotificationGroupExpanded(group)">
-                    <template x-for="item in notificationGroupItems(group)" :key="item.key">
+                    <template x-for="item in notificationExpandedItems(group)" :key="item.key">
                       <article class="notification-center-card"
-                               :class="{ 'is-unread': item.unread }"
-                               :data-notification-item-key="item.key"
-                               role="link"
-                               tabindex="0"
-                               @click="openNotificationItem(item, $event)"
-                               @keydown.enter.prevent="openNotificationItem(item, $event)">
-                        <!-- macOS 1:1 Top Row: Icon, App Name, Separator, and Time -->
-                        <div class="notification-center-card-header">
-                          <div class="notification-center-card-header-left">
-                            <span class="notification-center-card-icon-shell" aria-hidden="true">
-                              <span class="notification-center-card-icon-small" :class="item.icon"></span>
-                            </span>
-                            <span class="notification-center-card-app-name" x-text="item.typeLabel || group.label"></span>
-                            <span class="notification-center-card-header-sep" aria-hidden="true">•</span>
+                               :class="{
+                                 'is-unread': item.unread,
+                                 'is-actionable': !!item.href
+                               }"
+                               :data-notification-type="item.typeKey"
+                               :data-notification-item-key="item.key">
+                        <div class="notification-center-card-main"
+                             :role="item.href ? 'link' : null"
+                             :tabindex="item.href ? '0' : null"
+                             @click="item.href && openNotificationItem(item, $event)"
+                             @keydown.enter.prevent="item.href && openNotificationItem(item, $event)">
+                          <!-- macOS 1:1 Top Row: Icon, App Name, Separator, and Time -->
+                          <div class="notification-center-card-header">
+                            <div class="notification-center-card-header-left">
+                              <span class="notification-center-card-icon-shell" aria-hidden="true">
+                                <span class="notification-center-card-icon-small" :class="item.icon"></span>
+                              </span>
+                              <span class="notification-center-card-app-name" x-text="item.typeLabel || group.label"></span>
+                              <span class="notification-center-card-header-sep" aria-hidden="true">•</span>
+                            </div>
+                            <time class="notification-center-card-time"
+                                  :datetime="item.createdAt"
+                                  :title="item.timeTitle"
+                                  x-text="item.time"></time>
                           </div>
-                          <time class="notification-center-card-time" x-text="item.time"></time>
+
+                          <!-- macOS 1:1 Content Section: Title & Body stacked with 24px indent -->
+                          <div class="notification-center-card-content">
+                            <strong class="notification-center-card-title" x-text="item.title"></strong>
+                            <div class="notification-center-card-body"
+                                 x-show="item.body"
+                                 x-text="item.body"></div>
+                          </div>
                         </div>
 
-                        <!-- macOS 1:1 Content Section: Title & Body stacked with 24px indent -->
-                        <div class="notification-center-card-content">
-                          <strong class="notification-center-card-title" x-text="item.title"></strong>
-                          <div class="notification-center-card-body" x-text="item.body"></div>
-                        </div>
-
-                        <!-- macOS 1:1 Floating Close Button -->
+                        <!-- Separate sibling control: avoids nested interactive semantics. -->
                         <button type="button"
                                 class="notification-center-card-read"
                                 @click.stop="dismissNotification(item, $event)"
-                                aria-label="清除此通知"
-                                title="清除此通知">
-                          <span class="icon-[lucide--x]" aria-hidden="true"></span>
+                                :aria-label="notificationItemActionLabel(item)"
+                                :title="notificationItemActionLabel(item)">
+                          <span :class="item.unread ? 'icon-[lucide--check]' : 'icon-[lucide--trash-2]'"
+                                aria-hidden="true"></span>
                         </button>
                       </article>
                     </template>
+                    <button type="button"
+                            class="notification-center-group-load-more"
+                            x-show="notificationGroupRemainingCount(group) > 0"
+                            @click="showMoreNotificationGroupItems(group)">
+                      <span>继续显示</span>
+                      <small x-text="`${notificationGroupRemainingCount(group)} 条`"></small>
+                    </button>
                   </div>
                 </section>
               </template>
             </div>
           </template>
+
+          <div class="notification-center-pagination"
+               x-show="notificationHasMore || notificationLoadMoreError">
+            <button type="button"
+                    :disabled="notificationLoadingMore"
+                    @click="loadMoreNotifications()">
+              <span x-text="notificationLoadingMore ? '正在加载…' : '继续加载通知'"></span>
+              <small x-show="!notificationLoadingMore"
+                     x-text="`${notificationLoadedCount} / ${notificationTotalCount}`"></small>
+            </button>
+            <span role="status"
+                  x-show="notificationLoadMoreError"
+                  x-text="notificationLoadMoreError"></span>
+          </div>
 
           <template x-if="notificationEmptyText()">
             <div class="notification-center-empty">
