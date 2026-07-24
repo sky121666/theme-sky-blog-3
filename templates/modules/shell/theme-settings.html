@@ -1,0 +1,957 @@
+<th:block xmlns:th="https://www.thymeleaf.org"
+          th:fragment="window (authenticated, themeName, configEndpoint)">
+  <span hidden
+        data-theme-settings-protocol
+        th:data-authenticated="${authenticated}"
+        th:data-theme-name="${themeName}"
+        th:data-config-endpoint="${configEndpoint}"></span>
+
+  <div class="theme-settings-layer"
+       x-data
+       x-cloak
+       x-show="$store.themeSettings.visible"
+       :class="{ 'is-open': $store.themeSettings.open }"
+       aria-live="polite">
+    <div class="theme-settings-backdrop" aria-hidden="true"></div>
+
+    <section class="theme-settings-window"
+             data-theme-settings-window
+             tabindex="-1"
+             role="dialog"
+             aria-modal="true"
+             @keydown.tab="$store.themeSettings.handleFocusTrap($event)"
+             aria-labelledby="theme-settings-title">
+      <header class="theme-settings-titlebar">
+        <div class="theme-settings-traffic" aria-label="窗口控制">
+          <button type="button"
+                  class="theme-settings-traffic-button is-close"
+                  title="关闭"
+                  aria-label="关闭系统设置"
+                  @click="$store.themeSettings.close()">
+            <span class="icon-[lucide--x]" aria-hidden="true"></span>
+          </button>
+          <span class="theme-settings-traffic-button is-minimize" aria-hidden="true"></span>
+          <span class="theme-settings-traffic-button is-zoom" aria-hidden="true"></span>
+        </div>
+
+        <h1 id="theme-settings-title"
+            x-text="({
+              appearance: '外观',
+              'desktop-dock': '桌面与 Dock',
+              widgets: '小组件',
+              'menu-control': '菜单栏与控制中心',
+              notifications: '通知'
+            })[$store.themeSettings.activePane] || '系统设置'">外观</h1>
+
+        <button type="button"
+                class="theme-settings-sidebar-toggle"
+                :aria-expanded="$store.themeSettings.mobileSidebarOpen.toString()"
+                aria-controls="theme-settings-sidebar"
+                aria-label="展开设置分类"
+                @click="$store.themeSettings.toggleMobileSidebar()">
+          <span class="icon-[lucide--panel-left-open]" aria-hidden="true"></span>
+        </button>
+      </header>
+
+      <div class="theme-settings-shell">
+        <button type="button"
+                class="theme-settings-sidebar-backdrop"
+                :class="{ 'is-open': $store.themeSettings.mobileSidebarOpen }"
+                aria-label="收起设置分类"
+                @click="$store.themeSettings.closeMobileSidebar()"></button>
+
+        <aside id="theme-settings-sidebar"
+               class="theme-settings-sidebar"
+               :class="{ 'is-open': $store.themeSettings.mobileSidebarOpen }"
+               aria-label="设置分类">
+          <label class="theme-settings-search">
+            <span class="icon-[lucide--search]" aria-hidden="true"></span>
+            <input type="search"
+                   autocomplete="off"
+                   placeholder="搜索"
+                   aria-label="搜索设置分类"
+                   x-model="$store.themeSettings.query" />
+          </label>
+
+          <nav class="theme-settings-navigation">
+            <p class="theme-settings-navigation-label">主题</p>
+
+            <button type="button"
+                    x-show="$store.themeSettings.navItemVisible({ label: '外观', detail: '显示模式 强调色 桌面背景' })"
+                    :class="{ 'is-active': $store.themeSettings.activePane === 'appearance' }"
+                    @click="$store.themeSettings.switchPane('appearance')">
+              <span class="theme-settings-navigation-icon is-appearance">
+                <span class="icon-[lucide--palette]" aria-hidden="true"></span>
+              </span>
+              <strong>外观</strong>
+            </button>
+
+            <button type="button"
+                    x-show="$store.themeSettings.navItemVisible({ label: '桌面与 Dock', detail: '图标 尺寸 间距 显示' })"
+                    :class="{ 'is-active': $store.themeSettings.activePane === 'desktop-dock' }"
+                    @click="$store.themeSettings.switchPane('desktop-dock')">
+              <span class="theme-settings-navigation-icon is-dock">
+                <span class="icon-[lucide--panel-bottom]" aria-hidden="true"></span>
+              </span>
+              <strong>桌面与 Dock</strong>
+            </button>
+
+            <button type="button"
+                    x-show="$store.themeSettings.navItemVisible({ label: '小组件', detail: '天气 布局 编辑 手机端' })"
+                    :class="{ 'is-active': $store.themeSettings.activePane === 'widgets' }"
+                    @click="$store.themeSettings.switchPane('widgets')">
+              <span class="theme-settings-navigation-icon is-widgets">
+                <span class="icon-[lucide--layout-grid]" aria-hidden="true"></span>
+              </span>
+              <strong>小组件</strong>
+            </button>
+
+            <button type="button"
+                    x-show="$store.themeSettings.navItemVisible({ label: '菜单栏与控制中心', detail: '名称 搜索 登录 菜单 时间' })"
+                    :class="{ 'is-active': $store.themeSettings.activePane === 'menu-control' }"
+                    @click="$store.themeSettings.switchPane('menu-control')">
+              <span class="theme-settings-navigation-icon is-menu-control">
+                <span class="icon-[lucide--panel-top]" aria-hidden="true"></span>
+              </span>
+              <strong>菜单栏与控制中心</strong>
+            </button>
+
+            <button type="button"
+                    x-show="$store.themeSettings.navItemVisible({ label: '通知', detail: '通知中心 标题 默认展开 访客' })"
+                    :class="{ 'is-active': $store.themeSettings.activePane === 'notifications' }"
+                    @click="$store.themeSettings.switchPane('notifications')">
+              <span class="theme-settings-navigation-icon is-notifications">
+                <span class="icon-[lucide--bell]" aria-hidden="true"></span>
+              </span>
+              <strong>通知</strong>
+            </button>
+
+            <p class="theme-settings-navigation-label is-secondary">稍后提供</p>
+            <div class="theme-settings-navigation-placeholder" aria-disabled="true">
+              <span class="icon-[lucide--settings-2]" aria-hidden="true"></span>
+              <span>高级</span>
+            </div>
+          </nav>
+
+          <div class="theme-settings-sidebar-foot">
+            <span class="icon-[lucide--database]" aria-hidden="true"></span>
+            <span>Halo 配置是唯一数据源</span>
+          </div>
+        </aside>
+
+        <div class="theme-settings-main">
+          <main class="theme-settings-content"
+                data-theme-settings-content>
+            <section class="theme-settings-pane"
+                     x-show="$store.themeSettings.activePane === 'appearance'">
+              <div class="theme-settings-page-heading">
+                <div>
+                  <p>显示</p>
+                  <h2>外观</h2>
+                  <span>调整主题模式、强调色与桌面背景。</span>
+                </div>
+                <span class="theme-settings-page-icon is-appearance">
+                  <span class="icon-[lucide--palette]" aria-hidden="true"></span>
+                </span>
+              </div>
+
+              <section class="theme-settings-card">
+                <header>
+                  <div>
+                    <h3>默认显示模式</h3>
+                    <p>仅决定访客尚未保存偏好时的初始外观。</p>
+                  </div>
+                </header>
+
+                <div class="theme-settings-mode-grid" role="radiogroup" aria-label="默认显示模式">
+                  <button type="button"
+                          :class="{ 'is-selected': $store.themeSettings.value('header.theme.default_mode') === 'system' }"
+                          :aria-checked="($store.themeSettings.value('header.theme.default_mode') === 'system').toString()"
+                          role="radio"
+                          @click="$store.themeSettings.setThemeMode('system')">
+                    <span class="theme-settings-mode-preview is-system">
+                      <i></i><i></i>
+                      <span class="icon-[lucide--monitor-cog]" aria-hidden="true"></span>
+                    </span>
+                    <strong>自动</strong>
+                    <small>跟随系统</small>
+                  </button>
+
+                  <button type="button"
+                          :class="{ 'is-selected': $store.themeSettings.value('header.theme.default_mode') === 'light' }"
+                          :aria-checked="($store.themeSettings.value('header.theme.default_mode') === 'light').toString()"
+                          role="radio"
+                          @click="$store.themeSettings.setThemeMode('light')">
+                    <span class="theme-settings-mode-preview is-light">
+                      <span class="icon-[lucide--sun]" aria-hidden="true"></span>
+                    </span>
+                    <strong>浅色</strong>
+                    <small>明亮表面</small>
+                  </button>
+
+                  <button type="button"
+                          :class="{ 'is-selected': $store.themeSettings.value('header.theme.default_mode') === 'dark' }"
+                          :aria-checked="($store.themeSettings.value('header.theme.default_mode') === 'dark').toString()"
+                          role="radio"
+                          @click="$store.themeSettings.setThemeMode('dark')">
+                    <span class="theme-settings-mode-preview is-dark">
+                      <span class="icon-[lucide--moon]" aria-hidden="true"></span>
+                    </span>
+                    <strong>深色</strong>
+                    <small>深色表面</small>
+                  </button>
+                </div>
+
+                <label class="theme-settings-setting-row">
+                  <span>
+                    <strong>允许访客切换外观</strong>
+                    <small>在菜单栏保留浅色/深色切换按钮。</small>
+                  </span>
+                  <input type="checkbox"
+                         class="theme-settings-switch-input"
+                         :checked="$store.themeSettings.value('header.theme.enable_frontend_setting')"
+                         @change="$store.themeSettings.update('header.theme.enable_frontend_setting', $event.target.checked)" />
+                  <span class="theme-settings-switch" aria-hidden="true"></span>
+                </label>
+              </section>
+
+              <section class="theme-settings-card">
+                <header>
+                  <div>
+                    <h3>强调色</h3>
+                    <p>用于菜单高亮、选中态和主要交互。</p>
+                  </div>
+                  <button type="button"
+                          class="theme-settings-text-button"
+                          :class="{ 'is-active': $store.themeSettings.value('desktop.appearance.mode') === 'custom' }"
+                          @click="$store.themeSettings.useCustomAppearance()">
+                    自定义
+                  </button>
+                </header>
+
+                <div class="theme-settings-swatches" role="radiogroup" aria-label="主题强调色">
+                  <button type="button" class="is-blue"
+                          :class="{ 'is-selected': $store.themeSettings.value('desktop.appearance.mode') === 'preset' && $store.themeSettings.value('desktop.appearance.preset') === 'blue' }"
+                          aria-label="海蓝"
+                          @click="$store.themeSettings.setAppearancePreset('blue')"><span></span></button>
+                  <button type="button" class="is-purple"
+                          :class="{ 'is-selected': $store.themeSettings.value('desktop.appearance.mode') === 'preset' && $store.themeSettings.value('desktop.appearance.preset') === 'purple' }"
+                          aria-label="紫藤"
+                          @click="$store.themeSettings.setAppearancePreset('purple')"><span></span></button>
+                  <button type="button" class="is-pink"
+                          :class="{ 'is-selected': $store.themeSettings.value('desktop.appearance.mode') === 'preset' && $store.themeSettings.value('desktop.appearance.preset') === 'pink' }"
+                          aria-label="玫粉"
+                          @click="$store.themeSettings.setAppearancePreset('pink')"><span></span></button>
+                  <button type="button" class="is-red"
+                          :class="{ 'is-selected': $store.themeSettings.value('desktop.appearance.mode') === 'preset' && $store.themeSettings.value('desktop.appearance.preset') === 'red' }"
+                          aria-label="樱红"
+                          @click="$store.themeSettings.setAppearancePreset('red')"><span></span></button>
+                  <button type="button" class="is-orange"
+                          :class="{ 'is-selected': $store.themeSettings.value('desktop.appearance.mode') === 'preset' && $store.themeSettings.value('desktop.appearance.preset') === 'orange' }"
+                          aria-label="琥珀"
+                          @click="$store.themeSettings.setAppearancePreset('orange')"><span></span></button>
+                  <button type="button" class="is-yellow"
+                          :class="{ 'is-selected': $store.themeSettings.value('desktop.appearance.mode') === 'preset' && $store.themeSettings.value('desktop.appearance.preset') === 'yellow' }"
+                          aria-label="麦黄"
+                          @click="$store.themeSettings.setAppearancePreset('yellow')"><span></span></button>
+                  <button type="button" class="is-green"
+                          :class="{ 'is-selected': $store.themeSettings.value('desktop.appearance.mode') === 'preset' && $store.themeSettings.value('desktop.appearance.preset') === 'green' }"
+                          aria-label="森绿"
+                          @click="$store.themeSettings.setAppearancePreset('green')"><span></span></button>
+                  <button type="button" class="is-graphite"
+                          :class="{ 'is-selected': $store.themeSettings.value('desktop.appearance.mode') === 'preset' && $store.themeSettings.value('desktop.appearance.preset') === 'graphite' }"
+                          aria-label="石墨"
+                          @click="$store.themeSettings.setAppearancePreset('graphite')"><span></span></button>
+                </div>
+
+                <div class="theme-settings-custom-colors"
+                     x-show="$store.themeSettings.value('desktop.appearance.mode') === 'custom'">
+                  <label>
+                    <span>强调色</span>
+                    <input type="color"
+                           :value="$store.themeSettings.value('desktop.appearance.accent_color')"
+                           @input="$store.themeSettings.update('desktop.appearance.accent_color', $event.target.value)" />
+                  </label>
+                  <label>
+                    <span>选中态</span>
+                    <input type="color"
+                           :value="$store.themeSettings.value('desktop.appearance.selection_color')"
+                           @input="$store.themeSettings.update('desktop.appearance.selection_color', $event.target.value)" />
+                  </label>
+                  <label>
+                    <span>文件夹主色</span>
+                    <input type="color"
+                           :value="$store.themeSettings.value('desktop.appearance.folder_color1')"
+                           @input="$store.themeSettings.update('desktop.appearance.folder_color1', $event.target.value)" />
+                  </label>
+                  <label>
+                    <span>阴影层</span>
+                    <input type="color"
+                           :value="$store.themeSettings.value('desktop.appearance.folder_color2')"
+                           @input="$store.themeSettings.update('desktop.appearance.folder_color2', $event.target.value)" />
+                  </label>
+                  <label>
+                    <span>亮部层</span>
+                    <input type="color"
+                           :value="$store.themeSettings.value('desktop.appearance.folder_color3')"
+                           @input="$store.themeSettings.update('desktop.appearance.folder_color3', $event.target.value)" />
+                  </label>
+                </div>
+              </section>
+
+              <section class="theme-settings-card">
+                <header>
+                  <div>
+                    <h3>桌面背景</h3>
+                    <p>选择内置背景或使用安静的纯色桌面。</p>
+                  </div>
+                  <div class="theme-settings-segmented" aria-label="背景来源">
+                    <button type="button"
+                            :class="{ 'is-selected': $store.themeSettings.value('desktop.background.mode') === 'preset' }"
+                            @click="$store.themeSettings.setBackgroundMode('preset')">内置</button>
+                    <button type="button"
+                            :class="{ 'is-selected': $store.themeSettings.value('desktop.background.mode') === 'solid' }"
+                            @click="$store.themeSettings.setBackgroundMode('solid')">纯色</button>
+                    <button type="button"
+                            :disabled="!$store.themeSettings.draft.desktop.background.image_url"
+                            :class="{ 'is-selected': $store.themeSettings.value('desktop.background.mode') === 'image' }"
+                            @click="$store.themeSettings.draft.desktop.background.image_url && $store.themeSettings.setBackgroundMode('image')">上传图</button>
+                  </div>
+                </header>
+
+                <div class="theme-settings-wallpapers"
+                     x-show="$store.themeSettings.value('desktop.background.mode') === 'preset'">
+                  <button type="button"
+                          :class="{ 'is-selected': $store.themeSettings.value('desktop.background.preset') === 'tahoe-dawn' }"
+                          @click="$store.themeSettings.setBackgroundPreset('tahoe-dawn')">
+                    <img th:src="${#theme.assets('/images/wallpaper-presets/tahoe-dawn.svg')}" alt="" />
+                    <span>晨雾</span>
+                  </button>
+                  <button type="button"
+                          :class="{ 'is-selected': $store.themeSettings.value('desktop.background.preset') === 'tahoe-blue' }"
+                          @click="$store.themeSettings.setBackgroundPreset('tahoe-blue')">
+                    <img th:src="${#theme.assets('/images/wallpaper-presets/tahoe-blue.svg')}" alt="" />
+                    <span>湖蓝</span>
+                  </button>
+                  <button type="button"
+                          :class="{ 'is-selected': $store.themeSettings.value('desktop.background.preset') === 'sequoia-mist' }"
+                          @click="$store.themeSettings.setBackgroundPreset('sequoia-mist')">
+                    <img th:src="${#theme.assets('/images/wallpaper-presets/sequoia-mist.svg')}" alt="" />
+                    <span>松雾</span>
+                  </button>
+                  <button type="button"
+                          :class="{ 'is-selected': $store.themeSettings.value('desktop.background.preset') === 'graphite-night' }"
+                          @click="$store.themeSettings.setBackgroundPreset('graphite-night')">
+                    <img th:src="${#theme.assets('/images/wallpaper-presets/graphite-night.svg')}" alt="" />
+                    <span>石墨夜</span>
+                  </button>
+                  <button type="button"
+                          :class="{ 'is-selected': $store.themeSettings.value('desktop.background.preset') === 'sonoma-sunset' }"
+                          @click="$store.themeSettings.setBackgroundPreset('sonoma-sunset')">
+                    <img th:src="${#theme.assets('/images/wallpaper-presets/sonoma-sunset.svg')}" alt="" />
+                    <span>霞粉</span>
+                  </button>
+                  <button type="button"
+                          :class="{ 'is-selected': $store.themeSettings.value('desktop.background.preset') === 'aurora-mint' }"
+                          @click="$store.themeSettings.setBackgroundPreset('aurora-mint')">
+                    <img th:src="${#theme.assets('/images/wallpaper-presets/aurora-mint.svg')}" alt="" />
+                    <span>薄荷</span>
+                  </button>
+                  <button type="button"
+                          :class="{ 'is-selected': $store.themeSettings.value('desktop.background.preset') === 'alpine-lilac' }"
+                          @click="$store.themeSettings.setBackgroundPreset('alpine-lilac')">
+                    <img th:src="${#theme.assets('/images/wallpaper-presets/alpine-lilac.svg')}" alt="" />
+                    <span>淡紫</span>
+                  </button>
+                  <button type="button"
+                          :class="{ 'is-selected': $store.themeSettings.value('desktop.background.preset') === 'coral-haze' }"
+                          @click="$store.themeSettings.setBackgroundPreset('coral-haze')">
+                    <img th:src="${#theme.assets('/images/wallpaper-presets/coral-haze.svg')}" alt="" />
+                    <span>珊瑚</span>
+                  </button>
+                  <button type="button"
+                          :class="{ 'is-selected': $store.themeSettings.value('desktop.background.preset') === 'arctic-pearl' }"
+                          @click="$store.themeSettings.setBackgroundPreset('arctic-pearl')">
+                    <img th:src="${#theme.assets('/images/wallpaper-presets/arctic-pearl.svg')}" alt="" />
+                    <span>银霜</span>
+                  </button>
+                  <button type="button"
+                          :class="{ 'is-selected': $store.themeSettings.value('desktop.background.preset') === 'midnight-indigo' }"
+                          @click="$store.themeSettings.setBackgroundPreset('midnight-indigo')">
+                    <img th:src="${#theme.assets('/images/wallpaper-presets/midnight-indigo.svg')}" alt="" />
+                    <span>靛夜</span>
+                  </button>
+                  <button type="button"
+                          :class="{ 'is-selected': $store.themeSettings.value('desktop.background.preset') === 'golden-amber' }"
+                          @click="$store.themeSettings.setBackgroundPreset('golden-amber')">
+                    <img th:src="${#theme.assets('/images/wallpaper-presets/golden-amber.svg')}" alt="" />
+                    <span>金砂</span>
+                  </button>
+                  <button type="button"
+                          :class="{ 'is-selected': $store.themeSettings.value('desktop.background.preset') === 'deep-sea' }"
+                          @click="$store.themeSettings.setBackgroundPreset('deep-sea')">
+                    <img th:src="${#theme.assets('/images/wallpaper-presets/deep-sea.svg')}" alt="" />
+                    <span>深海</span>
+                  </button>
+                </div>
+
+                <label class="theme-settings-color-row"
+                       x-show="$store.themeSettings.value('desktop.background.mode') === 'solid'">
+                  <span>
+                    <strong>桌面纯色</strong>
+                    <small>适合更克制、更低噪点的桌面。</small>
+                  </span>
+                  <input type="color"
+                         :value="$store.themeSettings.value('desktop.background.solid_color')"
+                         @input="$store.themeSettings.update('desktop.background.solid_color', $event.target.value)" />
+                </label>
+
+                <div class="theme-settings-info-row"
+                     x-show="$store.themeSettings.value('desktop.background.mode') === 'image'">
+                  <span class="icon-[lucide--image]" aria-hidden="true"></span>
+                  <span>
+                    <strong>使用后台已上传的桌面图片</strong>
+                    <small>文件上传仍由 Halo 附件组件处理，前端不会另建上传链路。</small>
+                  </span>
+                </div>
+              </section>
+            </section>
+
+            <section class="theme-settings-pane"
+                     x-show="$store.themeSettings.activePane === 'desktop-dock'">
+              <div class="theme-settings-page-heading">
+                <div>
+                  <p>桌面</p>
+                  <h2>桌面与 Dock</h2>
+                  <span>精调图标尺寸、间距与玻璃材质。</span>
+                </div>
+                <span class="theme-settings-page-icon is-dock">
+                  <span class="icon-[lucide--panel-bottom]" aria-hidden="true"></span>
+                </span>
+              </div>
+
+              <section class="theme-settings-card">
+                <label class="theme-settings-setting-row">
+                  <span>
+                    <strong>显示名称标签</strong>
+                    <small>鼠标靠近 Dock 图标时显示名称。</small>
+                  </span>
+                  <input type="checkbox"
+                         class="theme-settings-switch-input"
+                         :checked="$store.themeSettings.value('dock.appearance.show_labels')"
+                         @change="$store.themeSettings.update('dock.appearance.show_labels', $event.target.checked)" />
+                  <span class="theme-settings-switch" aria-hidden="true"></span>
+                </label>
+                <label class="theme-settings-setting-row">
+                  <span>
+                    <strong>启用放大效果</strong>
+                    <small>保留 macOS 风格的高斯放大动画。</small>
+                  </span>
+                  <input type="checkbox"
+                         class="theme-settings-switch-input"
+                         :checked="$store.themeSettings.value('dock.appearance.magnification')"
+                         @change="$store.themeSettings.update('dock.appearance.magnification', $event.target.checked)" />
+                  <span class="theme-settings-switch" aria-hidden="true"></span>
+                </label>
+              </section>
+
+              <section class="theme-settings-card">
+                <header>
+                  <div>
+                    <h3>尺寸与间距</h3>
+                    <p>保持图标清晰，同时控制桌面占用空间。</p>
+                  </div>
+                </header>
+
+                <label class="theme-settings-range-row">
+                  <span>
+                    <strong>图标大小</strong>
+                    <small>36–64 px</small>
+                  </span>
+                  <input type="range" min="36" max="64" step="2"
+                         :value="$store.themeSettings.value('dock.appearance.icon_size')"
+                         @input="$store.themeSettings.update('dock.appearance.icon_size', $event.target.value)" />
+                  <output x-text="`${$store.themeSettings.value('dock.appearance.icon_size')} px`"></output>
+                </label>
+
+                <label class="theme-settings-range-row">
+                  <span>
+                    <strong>图标间距</strong>
+                    <small>2–12 px</small>
+                  </span>
+                  <input type="range" min="2" max="12" step="1"
+                         :value="$store.themeSettings.value('dock.appearance.icon_gap')"
+                         @input="$store.themeSettings.update('dock.appearance.icon_gap', $event.target.value)" />
+                  <output x-text="`${$store.themeSettings.value('dock.appearance.icon_gap')} px`"></output>
+                </label>
+
+                <label class="theme-settings-range-row">
+                  <span>
+                    <strong>面板内边距</strong>
+                    <small>4–16 px</small>
+                  </span>
+                  <input type="range" min="4" max="16" step="1"
+                         :value="$store.themeSettings.value('dock.appearance.dock_padding')"
+                         @input="$store.themeSettings.update('dock.appearance.dock_padding', $event.target.value)" />
+                  <output x-text="`${$store.themeSettings.value('dock.appearance.dock_padding')} px`"></output>
+                </label>
+
+                <label class="theme-settings-range-row"
+                       :class="{ 'is-disabled': !$store.themeSettings.value('dock.appearance.magnification') }">
+                  <span>
+                    <strong>放大倍率</strong>
+                    <small>1.0–2.0 倍</small>
+                  </span>
+                  <input type="range" min="1" max="2" step="0.1"
+                         :disabled="!$store.themeSettings.value('dock.appearance.magnification')"
+                         :value="$store.themeSettings.value('dock.appearance.magnification_scale')"
+                         @input="$store.themeSettings.update('dock.appearance.magnification_scale', $event.target.value)" />
+                  <output x-text="`${$store.themeSettings.value('dock.appearance.magnification_scale')}×`"></output>
+                </label>
+              </section>
+
+              <section class="theme-settings-card">
+                <header>
+                  <div>
+                    <h3>玻璃材质</h3>
+                    <p>低透明度与适度虚化更接近系统 Dock。</p>
+                  </div>
+                </header>
+
+                <label class="theme-settings-range-row">
+                  <span>
+                    <strong>背景虚化</strong>
+                    <small>20–100 px</small>
+                  </span>
+                  <input type="range" min="20" max="100" step="5"
+                         :value="$store.themeSettings.value('dock.appearance.glass_blur')"
+                         @input="$store.themeSettings.update('dock.appearance.glass_blur', $event.target.value)" />
+                  <output x-text="`${$store.themeSettings.value('dock.appearance.glass_blur')} px`"></output>
+                </label>
+
+                <label class="theme-settings-range-row">
+                  <span>
+                    <strong>背景不透明度</strong>
+                    <small>10–80%</small>
+                  </span>
+                  <input type="range" min="10" max="80" step="2"
+                         :value="$store.themeSettings.value('dock.appearance.glass_opacity')"
+                         @input="$store.themeSettings.update('dock.appearance.glass_opacity', $event.target.value)" />
+                  <output x-text="`${$store.themeSettings.value('dock.appearance.glass_opacity')}%`"></output>
+                </label>
+              </section>
+
+              <section class="theme-settings-card theme-settings-readonly-card">
+                <span class="theme-settings-readonly-icon">
+                  <span class="icon-[lucide--files]" aria-hidden="true"></span>
+                </span>
+                <span>
+                  <strong>桌面项目仍由 Halo 后台选择</strong>
+                  <small>文章、分类、标签和独立页面涉及内容选择器，本阶段不在前端复制，以免形成两套数据管理。</small>
+                </span>
+              </section>
+            </section>
+
+            <section class="theme-settings-pane"
+                     x-show="$store.themeSettings.activePane === 'widgets'">
+              <div class="theme-settings-page-heading">
+                <div>
+                  <p>桌面</p>
+                  <h2>小组件</h2>
+                  <span>控制小组件显示、编辑权限与天气参数。</span>
+                </div>
+                <span class="theme-settings-page-icon is-widgets">
+                  <span class="icon-[lucide--layout-grid]" aria-hidden="true"></span>
+                </span>
+              </div>
+
+              <section class="theme-settings-card">
+                <label class="theme-settings-setting-row">
+                  <span>
+                    <strong>启用桌面小组件</strong>
+                    <small>小组件固定在桌面层，不随 PJAX 页面切换消失。</small>
+                  </span>
+                  <input type="checkbox"
+                         class="theme-settings-switch-input"
+                         :checked="$store.themeSettings.value('widgets.behavior.enabled')"
+                         @change="$store.themeSettings.update('widgets.behavior.enabled', $event.target.checked)" />
+                  <span class="theme-settings-switch" aria-hidden="true"></span>
+                </label>
+                <label class="theme-settings-setting-row"
+                       :class="{ 'is-disabled': !$store.themeSettings.value('widgets.behavior.enabled') }">
+                  <span>
+                    <strong>允许管理员编辑布局</strong>
+                    <small>显示拖拽、添加和保存默认布局功能。</small>
+                  </span>
+                  <input type="checkbox"
+                         class="theme-settings-switch-input"
+                         :disabled="!$store.themeSettings.value('widgets.behavior.enabled')"
+                         :checked="$store.themeSettings.value('widgets.behavior.edit_enabled')"
+                         @change="$store.themeSettings.update('widgets.behavior.edit_enabled', $event.target.checked)" />
+                  <span class="theme-settings-switch" aria-hidden="true"></span>
+                </label>
+                <label class="theme-settings-setting-row"
+                       :class="{ 'is-disabled': !$store.themeSettings.value('widgets.behavior.enabled') }">
+                  <span>
+                    <strong>手机端隐藏小组件</strong>
+                    <small>小屏幕仅保留桌面图标与 Dock。</small>
+                  </span>
+                  <input type="checkbox"
+                         class="theme-settings-switch-input"
+                         :disabled="!$store.themeSettings.value('widgets.behavior.enabled')"
+                         :checked="$store.themeSettings.value('widgets.behavior.hide_on_mobile')"
+                         @change="$store.themeSettings.update('widgets.behavior.hide_on_mobile', $event.target.checked)" />
+                  <span class="theme-settings-switch" aria-hidden="true"></span>
+                </label>
+              </section>
+
+              <section class="theme-settings-card">
+                <header>
+                  <div>
+                    <h3>天气组件</h3>
+                    <p>更新默认城市与数据刷新节奏。</p>
+                  </div>
+                </header>
+
+                <div class="theme-settings-widget-preview">
+                  <div>
+                    <span class="icon-[lucide--cloud-sun]" aria-hidden="true"></span>
+                    <strong x-text="$store.themeSettings.value('widgets.modules.weather.city_name') || '北京'"></strong>
+                    <small x-text="`每 ${$store.themeSettings.value('widgets.modules.weather.refresh_minutes')} 分钟刷新`"></small>
+                  </div>
+                  <span>24°</span>
+                </div>
+
+                <label class="theme-settings-input-row">
+                  <span>
+                    <strong>默认城市</strong>
+                    <small>例如：北京、杭州、Shanghai。</small>
+                  </span>
+                  <input type="text"
+                         maxlength="40"
+                         :value="$store.themeSettings.value('widgets.modules.weather.city_name')"
+                         @change="$store.themeSettings.update('widgets.modules.weather.city_name', $event.target.value)" />
+                </label>
+
+                <label class="theme-settings-range-row">
+                  <span>
+                    <strong>刷新间隔</strong>
+                    <small>10–180 分钟</small>
+                  </span>
+                  <input type="range" min="10" max="180" step="5"
+                         :value="$store.themeSettings.value('widgets.modules.weather.refresh_minutes')"
+                         @input="$store.themeSettings.update('widgets.modules.weather.refresh_minutes', $event.target.value)" />
+                  <output x-text="`${$store.themeSettings.value('widgets.modules.weather.refresh_minutes')} 分钟`"></output>
+                </label>
+              </section>
+
+              <section class="theme-settings-card theme-settings-readonly-card">
+                <span class="theme-settings-readonly-icon">
+                  <span class="icon-[lucide--image]" aria-hidden="true"></span>
+                </span>
+                <span>
+                  <strong>回退封面沿用 Halo 附件组件</strong>
+                  <small x-text="$store.themeSettings.draft.widgets.behavior.fallback_cover ? '当前已配置回退封面；如需更换，请在后台使用附件选择器。' : '当前未配置回退封面；上传仍在后台完成。'"></small>
+                </span>
+              </section>
+            </section>
+
+            <section class="theme-settings-pane"
+                     x-show="$store.themeSettings.activePane === 'menu-control'">
+              <div class="theme-settings-page-heading">
+                <div>
+                  <p>系统</p>
+                  <h2>菜单栏与控制中心</h2>
+                  <span>控制菜单栏名称、功能入口与时间显示。</span>
+                </div>
+                <span class="theme-settings-page-icon is-menu-control">
+                  <span class="icon-[lucide--panel-top]" aria-hidden="true"></span>
+                </span>
+              </div>
+
+              <section class="theme-settings-card">
+                <header>
+                  <div>
+                    <h3>菜单栏</h3>
+                    <p>这些修改会直接同步到当前桌面顶部。</p>
+                  </div>
+                </header>
+
+                <label class="theme-settings-input-row">
+                  <span>
+                    <strong>应用名称</strong>
+                    <small>留空时继续使用 Halo 站点标题。</small>
+                  </span>
+                  <input type="text"
+                         maxlength="80"
+                         placeholder="使用站点标题"
+                         :value="$store.themeSettings.value('header.logo.title')"
+                         @input="$store.themeSettings.update('header.logo.title', $event.target.value)" />
+                </label>
+              </section>
+
+              <section class="theme-settings-card">
+                <label class="theme-settings-setting-row">
+                  <span>
+                    <strong>显示搜索</strong>
+                    <small x-text="$store.themeSettings.searchAvailable ? '同时控制 Cmd/Ctrl + K 搜索入口。' : '未检测到搜索插件，保存后将在插件可用时生效。'"></small>
+                  </span>
+                  <input type="checkbox"
+                         class="theme-settings-switch-input"
+                         :checked="$store.themeSettings.value('header.actions.search_enabled')"
+                         @change="$store.themeSettings.update('header.actions.search_enabled', $event.target.checked)" />
+                  <span class="theme-settings-switch" aria-hidden="true"></span>
+                </label>
+
+                <label class="theme-settings-setting-row">
+                  <span>
+                    <strong>显示登录入口</strong>
+                    <small>仅控制菜单栏中的登录按钮。</small>
+                  </span>
+                  <input type="checkbox"
+                         class="theme-settings-switch-input"
+                         :checked="$store.themeSettings.value('header.actions.auth_enabled')"
+                         @change="$store.themeSettings.update('header.actions.auth_enabled', $event.target.checked)" />
+                  <span class="theme-settings-switch" aria-hidden="true"></span>
+                </label>
+
+                <label class="theme-settings-input-row"
+                       :class="{ 'is-disabled': !$store.themeSettings.value('header.actions.auth_enabled') }">
+                  <span>
+                    <strong>登录文案</strong>
+                    <small>用于按钮提示和无障碍名称。</small>
+                  </span>
+                  <input type="text"
+                         maxlength="20"
+                         :disabled="!$store.themeSettings.value('header.actions.auth_enabled')"
+                         :value="$store.themeSettings.value('header.auth.login_label')"
+                         @input="$store.themeSettings.update('header.auth.login_label', $event.target.value)" />
+                </label>
+
+                <label class="theme-settings-setting-row">
+                  <span>
+                    <strong>显示手机端菜单</strong>
+                    <small x-text="$store.themeSettings.mobileMenuAvailable ? '小屏幕保留一级导航入口。' : '当前没有可用菜单，保存后将在菜单配置完成时生效。'"></small>
+                  </span>
+                  <input type="checkbox"
+                         class="theme-settings-switch-input"
+                         :checked="$store.themeSettings.value('header.actions.mobile_menu_enabled')"
+                         @change="$store.themeSettings.update('header.actions.mobile_menu_enabled', $event.target.checked)" />
+                  <span class="theme-settings-switch" aria-hidden="true"></span>
+                </label>
+              </section>
+
+              <section class="theme-settings-card">
+                <header>
+                  <div>
+                    <h3>日期与时间</h3>
+                    <p>隐藏时间后会保留独立的通知中心按钮。</p>
+                  </div>
+                </header>
+
+                <label class="theme-settings-setting-row">
+                  <span>
+                    <strong>显示日期与时间</strong>
+                    <small>显示在菜单栏右侧，并作为通知中心入口。</small>
+                  </span>
+                  <input type="checkbox"
+                         class="theme-settings-switch-input"
+                         :checked="$store.themeSettings.value('header.time.enabled')"
+                         @change="$store.themeSettings.update('header.time.enabled', $event.target.checked)" />
+                  <span class="theme-settings-switch" aria-hidden="true"></span>
+                </label>
+
+                <label class="theme-settings-input-row theme-settings-select-row"
+                       :class="{ 'is-disabled': !$store.themeSettings.value('header.time.enabled') }">
+                  <span>
+                    <strong>桌面端格式</strong>
+                    <small>适用于宽屏菜单栏。</small>
+                  </span>
+                  <select :disabled="!$store.themeSettings.value('header.time.enabled')"
+                          :value="$store.themeSettings.value('header.time.desktop_preset')"
+                          @change="$store.themeSettings.update('header.time.desktop_preset', $event.target.value)">
+                    <option value="time-only">仅时间</option>
+                    <option value="time-seconds">时间含秒</option>
+                    <option value="date-time">日期 + 时间</option>
+                    <option value="weekday-date-time">星期 + 日期 + 时间</option>
+                    <option value="month-day-weekday-time">月日 + 星期 + 时间</option>
+                  </select>
+                </label>
+
+                <label class="theme-settings-input-row theme-settings-select-row"
+                       :class="{ 'is-disabled': !$store.themeSettings.value('header.time.enabled') }">
+                  <span>
+                    <strong>手机端格式</strong>
+                    <small>窄屏建议只显示时间。</small>
+                  </span>
+                  <select :disabled="!$store.themeSettings.value('header.time.enabled')"
+                          :value="$store.themeSettings.value('header.time.mobile_preset')"
+                          @change="$store.themeSettings.update('header.time.mobile_preset', $event.target.value)">
+                    <option value="time-only">仅时间</option>
+                    <option value="time-seconds">时间含秒</option>
+                    <option value="date-time">日期 + 时间</option>
+                    <option value="weekday-date-time">星期 + 日期 + 时间</option>
+                    <option value="month-day-weekday-time">月日 + 星期 + 时间</option>
+                  </select>
+                </label>
+
+                <label class="theme-settings-input-row theme-settings-select-row"
+                       :class="{ 'is-disabled': !$store.themeSettings.value('header.time.enabled') }">
+                  <span>
+                    <strong>小时制</strong>
+                    <small>选择 12 小时或 24 小时显示。</small>
+                  </span>
+                  <select :disabled="!$store.themeSettings.value('header.time.enabled')"
+                          :value="String($store.themeSettings.value('header.time.hour_cycle'))"
+                          @change="$store.themeSettings.update('header.time.hour_cycle', $event.target.value)">
+                    <option value="12">12 小时</option>
+                    <option value="24">24 小时</option>
+                  </select>
+                </label>
+              </section>
+
+              <section class="theme-settings-card">
+                <header>
+                  <div>
+                    <h3>二级菜单表面</h3>
+                    <p>沿用后台已有的 CSS 颜色值，不改变主题强调色。</p>
+                  </div>
+                </header>
+
+                <label class="theme-settings-input-row theme-settings-color-value-row">
+                  <span>
+                    <strong>浅色背景</strong>
+                    <small>支持 hex、rgb 和 rgba。</small>
+                  </span>
+                  <span class="theme-settings-color-value-control">
+                    <i :style="{ backgroundColor: $store.themeSettings.value('header.dropdown.light_bg') }"
+                       aria-hidden="true"></i>
+                    <input type="text"
+                           maxlength="64"
+                           :value="$store.themeSettings.value('header.dropdown.light_bg')"
+                           @change="$store.themeSettings.update('header.dropdown.light_bg', $event.target.value)" />
+                  </span>
+                </label>
+
+                <label class="theme-settings-input-row theme-settings-color-value-row">
+                  <span>
+                    <strong>深色背景</strong>
+                    <small>支持 hex、rgb 和 rgba。</small>
+                  </span>
+                  <span class="theme-settings-color-value-control">
+                    <i :style="{ backgroundColor: $store.themeSettings.value('header.dropdown.dark_bg') }"
+                       aria-hidden="true"></i>
+                    <input type="text"
+                           maxlength="64"
+                           :value="$store.themeSettings.value('header.dropdown.dark_bg')"
+                           @change="$store.themeSettings.update('header.dropdown.dark_bg', $event.target.value)" />
+                  </span>
+                </label>
+              </section>
+            </section>
+
+            <section class="theme-settings-pane"
+                     x-show="$store.themeSettings.activePane === 'notifications'">
+              <div class="theme-settings-page-heading">
+                <div>
+                  <p>系统</p>
+                  <h2>通知</h2>
+                  <span>配置通知中心在登录和访客状态下的显示。</span>
+                </div>
+                <span class="theme-settings-page-icon is-notifications">
+                  <span class="icon-[lucide--bell]" aria-hidden="true"></span>
+                </span>
+              </div>
+
+              <section class="theme-settings-card">
+                <label class="theme-settings-input-row">
+                  <span>
+                    <strong>通知中心名称</strong>
+                    <small>登录用户打开侧边栏时显示。</small>
+                  </span>
+                  <input type="text"
+                         maxlength="40"
+                         :value="$store.themeSettings.value('sidebar.notification_center.title')"
+                         @input="$store.themeSettings.update('sidebar.notification_center.title', $event.target.value)" />
+                </label>
+
+                <label class="theme-settings-input-row">
+                  <span>
+                    <strong>访客名称</strong>
+                    <small>访客侧边栏只展示可公开的小组件。</small>
+                  </span>
+                  <input type="text"
+                         maxlength="40"
+                         :value="$store.themeSettings.value('sidebar.notification_center.guest_title')"
+                         @input="$store.themeSettings.update('sidebar.notification_center.guest_title', $event.target.value)" />
+                </label>
+
+                <label class="theme-settings-setting-row">
+                  <span>
+                    <strong>进入桌面时默认展开</strong>
+                    <small>仅在页面首次载入时展开一次，PJAX 切换不会重复触发。</small>
+                  </span>
+                  <input type="checkbox"
+                         class="theme-settings-switch-input"
+                         :checked="$store.themeSettings.value('sidebar.notification_center.default_open')"
+                         @change="$store.themeSettings.update('sidebar.notification_center.default_open', $event.target.checked)" />
+                  <span class="theme-settings-switch" aria-hidden="true"></span>
+                </label>
+              </section>
+
+              <section class="theme-settings-card theme-settings-readonly-card">
+                <span class="theme-settings-readonly-icon">
+                  <span class="icon-[lucide--shield-check]" aria-hidden="true"></span>
+                </span>
+                <span>
+                  <strong>通知内容与权限保持不变</strong>
+                  <small>这里仅管理主题显示设置；通知读取、已读和删除仍由 Halo 权限控制。</small>
+                </span>
+              </section>
+            </section>
+          </main>
+
+          <footer class="theme-settings-actions">
+            <button type="button"
+                    class="theme-settings-secondary-button"
+                    :disabled="!$store.themeSettings.hasDirtyChanges() || $store.themeSettings.saving"
+                    @click="$store.themeSettings.restoreDraft()">
+              还原
+            </button>
+
+            <div class="theme-settings-save-status"
+                 role="status"
+                 :data-tone="$store.themeSettings.statusTone">
+              <span :class="{
+                      'icon-[lucide--circle-check]': $store.themeSettings.statusTone === 'success',
+                      'icon-[lucide--triangle-alert]': $store.themeSettings.statusTone === 'warning' || $store.themeSettings.statusTone === 'error',
+                      'icon-[lucide--info]': $store.themeSettings.statusTone === 'muted'
+                    }"
+                    aria-hidden="true"></span>
+              <span x-text="$store.themeSettings.statusMessage"></span>
+            </div>
+
+            <div class="theme-settings-action-end">
+              <button type="button"
+                      class="theme-settings-secondary-button"
+                      x-show="$store.themeSettings.reloadRequired"
+                      :disabled="$store.themeSettings.hasDirtyChanges() || $store.themeSettings.saving"
+                      @click="$store.themeSettings.reloadPage()">
+                刷新页面
+              </button>
+              <button type="button"
+                      class="theme-settings-primary-button"
+                      :disabled="!$store.themeSettings.hasDirtyChanges() || $store.themeSettings.saving"
+                      @click="$store.themeSettings.save()">
+                <span class="theme-settings-button-spinner"
+                      x-show="$store.themeSettings.saving"
+                      aria-hidden="true"></span>
+                <span x-text="$store.themeSettings.saving ? '正在应用…' : '应用'"></span>
+              </button>
+            </div>
+          </footer>
+        </div>
+      </div>
+    </section>
+  </div>
+</th:block>

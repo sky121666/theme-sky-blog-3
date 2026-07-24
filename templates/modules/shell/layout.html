@@ -367,6 +367,7 @@
 
     <th:block th:replace="~{modules/shell/header :: bar(
       siteTitle=${headerAppName},
+      siteFallbackTitle=${site.title ?: ''},
       logoIcon=${headerLogoIcon},
       headerMenu=${headerMenu},
       enableThemeSetting=${enableThemeSetting},
@@ -388,6 +389,12 @@
       iconAuth=${headerIconAuth},
       iconThemeLight=${headerIconThemeLight},
       iconThemeDark=${headerIconThemeDark}
+    )}"></th:block>
+
+    <th:block th:replace="~{modules/shell/theme-settings :: window(
+      authenticated=${notificationCenterAuthenticated},
+      themeName=${desktopThemeName},
+      configEndpoint=@{/apis/api.console.halo.run/v1alpha1/themes/{name}/json-config(name=${desktopThemeName})}
     )}"></th:block>
 
     <script th:inline="javascript">

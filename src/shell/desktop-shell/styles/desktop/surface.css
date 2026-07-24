@@ -154,6 +154,9 @@ body {
   --content-body-bg: var(--mac-window-light);
   --theme-accent: var(--mac-accent, #2e5fbd);
   --theme-selection: var(--mac-selection, #244d9b);
+  --theme-accent-strong: var(--theme-selection);
+  --theme-accent-soft: color-mix(in srgb, var(--theme-accent) 14%, transparent);
+  --theme-accent-ring: color-mix(in srgb, var(--theme-accent) 24%, transparent);
   --theme-folder1: var(--mac-folder1, #4a90e2);
   --theme-folder2: var(--mac-folder2, #64b5f6);
   --theme-folder3: var(--mac-folder3, #90caf9);

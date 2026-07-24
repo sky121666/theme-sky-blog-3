@@ -7,6 +7,7 @@
 import { initPjax } from './pjax/index.js';
 import { initPrefetch } from './pjax/prefetch.js';
 import { openSearchWidget } from './search.js';
+import { registerThemeSettings } from './theme-settings.js';
 import { registerWindowManager } from './window-manager.js';
 import { registerWindowComponents } from './window.js';
 
@@ -333,6 +334,7 @@ export function initFloatingScrollbars() {
 export function registerShellComponents(Alpine) {
   // 1. Stores 必须最先注册（其它组件依赖 $store.windowManager / $store.theme）
   registerWindowManager(Alpine);
+  registerThemeSettings(Alpine);
 
   initFloatingScrollbars();
 

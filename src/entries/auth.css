@@ -14,11 +14,11 @@ html.auth-gateway-html body {
 }
 
 body.auth-gateway-page {
-  --auth-theme-accent: var(--mac-accent, #0a66ff);
+  --auth-theme-accent: var(--theme-accent, var(--mac-accent, #2e5fbd));
   --auth-theme-accent-dark: color-mix(
     in srgb,
-    var(--auth-theme-accent) 58%,
-    #0a3d78
+    var(--auth-theme-accent) 76%,
+    black
   );
   --auth-window-bg: rgba(255, 255, 255, 0.45);
   --auth-window-border: rgba(255, 255, 255, 0.6);
@@ -123,11 +123,11 @@ body.auth-gateway-page {
 }
 
 html.dark body.auth-gateway-page {
-  --auth-theme-accent: color-mix(in srgb, var(--mac-accent, #0a84ff) 100%, white);
+  --auth-theme-accent: var(--theme-accent, var(--mac-accent, #2e5fbd));
   --auth-theme-accent-dark: color-mix(
     in srgb,
-    var(--auth-theme-accent) 64%,
-    #003c7a
+    var(--auth-theme-accent) 76%,
+    black
   );
   --auth-window-bg: rgba(30, 30, 32, 0.55);
   --auth-window-border: rgba(255, 255, 255, 0.12);
@@ -196,11 +196,11 @@ html.dark body.auth-gateway-page {
 
 @media (prefers-color-scheme: dark) {
   html.system body.auth-gateway-page {
-    --auth-theme-accent: color-mix(in srgb, var(--mac-accent, #0a84ff) 100%, white);
+    --auth-theme-accent: var(--theme-accent, var(--mac-accent, #2e5fbd));
     --auth-theme-accent-dark: color-mix(
       in srgb,
-      var(--auth-theme-accent) 64%,
-      #003c7a
+      var(--auth-theme-accent) 76%,
+      black
     );
     --auth-window-bg: rgba(30, 30, 32, 0.55);
     --auth-window-border: rgba(255, 255, 255, 0.12);
@@ -572,7 +572,11 @@ html.dark body.auth-gateway-page .auth-titlebar-back:hover {
 
 .auth-gateway-avatar {
   align-items: center;
-  background: linear-gradient(135deg, var(--auth-theme-accent), #4f46e5);
+  background: linear-gradient(
+    135deg,
+    var(--auth-theme-accent),
+    color-mix(in srgb, var(--auth-theme-accent) 76%, black)
+  );
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 14px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
@@ -747,7 +751,7 @@ html.dark body.auth-gateway-page .auth-gateway-avatar {
 
 .auth-inline-link,
 .auth-footer-link a {
-  color: color-mix(in srgb, var(--auth-theme-accent) 70%, #ff4d79 30%);
+  color: var(--auth-theme-accent);
   text-decoration: none;
   transition: color 0.2s ease;
 }
@@ -765,7 +769,7 @@ html.dark body.auth-gateway-page .auth-gateway-avatar {
 .auth-footer-link a:hover {
   color: color-mix(
     in srgb,
-    color-mix(in srgb, var(--auth-theme-accent) 70%, #ff4d79 30%) 78%,
+    var(--auth-theme-accent) 78%,
     var(--auth-text-primary) 22%
   );
 }

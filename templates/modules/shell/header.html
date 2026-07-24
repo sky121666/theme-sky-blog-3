@@ -1,9 +1,15 @@
 <th:block xmlns:th="https://www.thymeleaf.org">
-  <div th:fragment="bar (siteTitle, logoIcon, headerMenu, enableThemeSetting, searchWidgetAvailable, searchEnabled, authEnabled, mobileMenuEnabled, loginLabel, timeEnabled, timeDesktopPreset, timeMobilePreset, timeHourCycle, notificationCenterTitle, notificationCenterGuestTitle, notificationCenterDefaultOpen, notificationCenterAuthenticated, iconMobileMenu, iconSearch, iconAuth, iconThemeLight, iconThemeDark)"
+  <div th:fragment="bar (siteTitle, siteFallbackTitle, logoIcon, headerMenu, enableThemeSetting, searchWidgetAvailable, searchEnabled, authEnabled, mobileMenuEnabled, loginLabel, timeEnabled, timeDesktopPreset, timeMobilePreset, timeHourCycle, notificationCenterTitle, notificationCenterGuestTitle, notificationCenterDefaultOpen, notificationCenterAuthenticated, iconMobileMenu, iconSearch, iconAuth, iconThemeLight, iconThemeDark)"
        class="menubar"
        x-data="menuBar"
        th:data-site-title="${siteTitle}"
+       th:data-site-fallback-title="${siteFallbackTitle}"
+       th:data-theme-setting-enabled="${enableThemeSetting}"
+       th:data-search-available="${searchWidgetAvailable}"
        th:data-search-enabled="${searchEnabled}"
+       th:data-auth-enabled="${authEnabled}"
+       th:data-login-label="${loginLabel}"
+       th:data-has-menu="${headerMenu != null and !#lists.isEmpty(headerMenu.menuItems)}"
        th:data-mobile-menu-enabled="${mobileMenuEnabled}"
        th:data-time-enabled="${timeEnabled}"
        th:data-time-desktop-preset="${timeDesktopPreset}"
@@ -23,8 +29,9 @@
         </th:block>
       </a>
 
-      <span th:if="${!#strings.isEmpty(siteTitle)}"
-            class="menubar-app-name"
+      <span class="menubar-app-name"
+            x-cloak
+            x-show="appName"
             x-text="appName"
             th:text="${siteTitle}"></span>
 
@@ -53,7 +60,8 @@
     <div class="menubar-right">
       <button type="button"
               class="menubar-icon-btn menubar-mobile-trigger"
-              th:if="${mobileMenuEnabled and headerMenu != null and !#lists.isEmpty(headerMenu.menuItems)}"
+              x-cloak
+              x-show="mobileMenuAvailable && mobileMenuEnabled"
               @click="toggleMobileMenu()"
               :aria-expanded="mobileMenuOpen.toString()"
               aria-label="打开菜单"
@@ -67,7 +75,9 @@
       <!-- plugin-contract: PluginSearchWidget; contract-version: 1.7.1; tested-version: 1.7.1; status: confirmed; source: docs/插件适配契约.md -->
       <button type="button"
               class="menubar-icon-btn menubar-search-btn"
-              th:if="${searchWidgetAvailable and searchEnabled}"
+              th:if="${searchWidgetAvailable}"
+              x-cloak
+              x-show="searchEnabled"
               @click="openSearch()"
               title="聚焦搜索 (Cmd+K)">
         <th:block th:if="${!#strings.isEmpty(iconSearch)}" th:utext="${iconSearch}" />
@@ -76,10 +86,13 @@
         </th:block>
       </button>
 
-      <a th:if="${authEnabled}"
-         href="/login"
+      <a href="/login"
          class="menubar-auth-btn menubar-auth-btn--icon"
+         x-cloak
+         x-show="authEnabled"
          @click="closeMobileMenu()"
+         :title="loginLabel"
+         :aria-label="loginLabel"
          th:attr="title=${loginLabel},aria-label=${loginLabel}">
         <th:block th:if="${!#strings.isEmpty(iconAuth)}" th:utext="${iconAuth}" />
         <th:block th:unless="${!#strings.isEmpty(iconAuth)}">
@@ -87,9 +100,10 @@
         </th:block>
       </a>
 
-      <button th:if="${enableThemeSetting}"
-              @click="$store.theme.setMode($store.theme.isDark ? 'light' : 'dark')"
+      <button @click="$store.theme.setMode($store.theme.isDark ? 'light' : 'dark')"
               class="menubar-icon-btn menubar-theme-btn"
+              x-cloak
+              x-show="themeSettingEnabled"
               title="切换外观">
         <span class="menubar-theme-icon-slot" x-show="!$store.theme.isDark">
           <th:block th:if="${!#strings.isEmpty(iconThemeLight)}" th:utext="${iconThemeLight}" />
@@ -105,8 +119,17 @@
         </span>
       </button>
 
-      <button th:if="${timeEnabled}"
-              type="button"
+      <button type="button"
+              class="menubar-icon-btn menubar-control-center-btn"
+              :class="{ 'is-available': $store.themeSettings.canOpen }"
+              :data-theme-settings-capability="$store.themeSettings.accessStatus"
+              @click.stop="$store.themeSettings.requestOpen()"
+              aria-label="打开系统设置"
+              title="系统设置">
+        <span class="menubar-control-center-glyph icon-[lucide--settings]" aria-hidden="true"></span>
+      </button>
+
+      <button type="button"
               th:with="
              headerNow=${#dates.createNow()},
              isHeaderTime24Hour=${#strings.toString(timeHourCycle) == '24'},
@@ -124,6 +147,8 @@
                desktopTimeText
               }"
               class="menubar-time"
+              x-cloak
+              x-show="timeEnabled"
               x-ref="notificationCenterTrigger"
               @click.stop="toggleNotificationCenter()"
               :aria-expanded="notificationCenterOpen.toString()"
@@ -132,6 +157,19 @@
               :title="notificationCenterTitle"
               x-text="timeStr"
               th:text="${initialTimeText}"></button>
+
+      <button type="button"
+              class="menubar-icon-btn menubar-notification-trigger"
+              x-cloak
+              x-show="!timeEnabled"
+              x-ref="notificationCenterFallbackTrigger"
+              @click.stop="toggleNotificationCenter()"
+              :aria-expanded="notificationCenterOpen.toString()"
+              aria-controls="notification-center-panel"
+              :aria-label="`${notificationCenterOpen ? '关闭' : '打开'}${notificationCenterTitle}`"
+              :title="notificationCenterTitle">
+        <span class="icon-[lucide--bell]" aria-hidden="true"></span>
+      </button>
     </div>
 
     <th:block th:replace="~{modules/shell/header :: mobile_dropdown(
@@ -544,8 +582,8 @@
   </div>
 
   <div th:fragment="mobile_dropdown (headerMenu, searchWidgetAvailable, searchEnabled, authEnabled, mobileMenuEnabled)"
-       th:if="${mobileMenuEnabled}"
-       x-show="mobileMenuOpen"
+       th:if="${headerMenu != null and !#lists.isEmpty(headerMenu.menuItems)}"
+       x-show="mobileMenuOpen && mobileMenuEnabled"
        x-transition.opacity.duration.100ms
        @click.outside="closeMobileMenu()"
        style="display: none;"

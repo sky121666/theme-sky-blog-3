@@ -19,6 +19,7 @@ import { enhanceDoubanShowcaseWidgets } from '../../../../widgets/plugin/douban-
 
 const { log: wmLog } = createLogger('window');
 const HEADER_MOBILE_BREAKPOINT = 640;
+const MENUBAR_RUNTIME_SYNC_EVENT = 'theme:menubar-settings-change';
 const LOCAL_NOTIFICATION_WIDGETS = new Set(['system.clock', 'system.calendar', 'system.weather']);
 const HEADER_TIME_PRESETS = new Set([
   'time-only',
@@ -428,7 +429,12 @@ export function registerWindowManager(Alpine) {
   Alpine.data('menuBar', () => ({
     timeStr: '',
     appName: '',
+    themeSettingEnabled: true,
+    searchAvailable: false,
     searchEnabled: true,
+    authEnabled: true,
+    loginLabel: '登录',
+    mobileMenuAvailable: false,
     mobileMenuEnabled: true,
     mobileMenuOpen: false,
     timeEnabled: true,
@@ -509,7 +515,12 @@ export function registerWindowManager(Alpine) {
     init() {
       const dataset = this.$el?.dataset || {};
       this.appName = dataset.siteTitle || '';
+      this.themeSettingEnabled = parseBooleanData(dataset.themeSettingEnabled, true);
+      this.searchAvailable = parseBooleanData(dataset.searchAvailable, false);
       this.searchEnabled = parseBooleanData(dataset.searchEnabled, true);
+      this.authEnabled = parseBooleanData(dataset.authEnabled, true);
+      this.loginLabel = String(dataset.loginLabel || '').trim() || '登录';
+      this.mobileMenuAvailable = parseBooleanData(dataset.hasMenu, false);
       this.mobileMenuEnabled = parseBooleanData(dataset.mobileMenuEnabled, true);
       this.timeEnabled = parseBooleanData(dataset.timeEnabled, true);
       this.timeDesktopPreset = normalizeTimePreset(dataset.timeDesktopPreset, 'month-day-weekday-time');
@@ -559,6 +570,32 @@ export function registerWindowManager(Alpine) {
       this.handleNotificationCenterOpen = () => {
         this.openNotificationCenter();
       };
+      this.handleMenubarSettingsChange = (event) => {
+        const detail = event.detail || {};
+        this.appName = String(detail.appName || '').trim();
+        this.themeSettingEnabled = detail.themeSettingEnabled !== false;
+        this.searchEnabled = detail.searchEnabled !== false;
+        this.authEnabled = detail.authEnabled !== false;
+        this.loginLabel = String(detail.loginLabel || '').trim() || '登录';
+        this.mobileMenuEnabled = detail.mobileMenuEnabled !== false;
+        this.timeEnabled = detail.timeEnabled !== false;
+        this.timeDesktopPreset = normalizeTimePreset(
+          detail.timeDesktopPreset,
+          this.timeDesktopPreset
+        );
+        this.timeMobilePreset = normalizeTimePreset(
+          detail.timeMobilePreset,
+          this.timeMobilePreset
+        );
+        this.timeHourCycle = normalizeHourCycle(detail.timeHourCycle);
+        this.notificationCenterTitle = String(detail.notificationCenterTitle || '').trim() || '通知中心';
+        this.notificationCenterGuestTitle = String(detail.notificationCenterGuestTitle || '').trim() || '小组件';
+        this.notificationCenterDefaultOpen = detail.notificationCenterDefaultOpen === true;
+        if (!this.mobileMenuEnabled) {
+          this.closeMobileMenu();
+        }
+        this.tick();
+      };
       this.handleNotificationDropState = (event) => {
         const active = event.detail?.active === true;
         this.notificationWidgetDropPreview = {
@@ -598,6 +635,7 @@ export function registerWindowManager(Alpine) {
       window.addEventListener('theme-menubar-close', this.handleMenubarClose);
       window.addEventListener('theme-notification-widgets-change', this.handleNotificationWidgetsChange);
       window.addEventListener('theme-notification-center-open', this.handleNotificationCenterOpen);
+      window.addEventListener(MENUBAR_RUNTIME_SYNC_EVENT, this.handleMenubarSettingsChange);
       window.addEventListener('theme-notification-widget-drop-state', this.handleNotificationDropState);
       window.addEventListener('theme-notification-widget-drag-start', this.handleNotificationWidgetDragStart);
       window.addEventListener('theme-notification-widget-drag-end', this.handleNotificationWidgetDragEnd);
@@ -617,6 +655,7 @@ export function registerWindowManager(Alpine) {
       window.removeEventListener('theme-menubar-close', this.handleMenubarClose);
       window.removeEventListener('theme-notification-widgets-change', this.handleNotificationWidgetsChange);
       window.removeEventListener('theme-notification-center-open', this.handleNotificationCenterOpen);
+      window.removeEventListener(MENUBAR_RUNTIME_SYNC_EVENT, this.handleMenubarSettingsChange);
       window.removeEventListener('theme-notification-widget-drop-state', this.handleNotificationDropState);
       window.removeEventListener('theme-notification-widget-drag-start', this.handleNotificationWidgetDragStart);
       window.removeEventListener('theme-notification-widget-drag-end', this.handleNotificationWidgetDragEnd);
@@ -2086,36 +2125,59 @@ export function registerWindowManager(Alpine) {
       const dockBar = this.$refs.dockBar;
       if (!dockBar) return;
       const el = this.$el;
-      const ds = el.dataset;
+      const runtimeSyncEvent = 'theme:dock-settings-change';
 
-      /* ── 从后台设置读取参数 ── */
-      const enableMagnification = ds.magnification !== 'false';
-      const showLabels = ds.showLabels === 'true';
-      const baseSize = Math.max(36, Math.min(64, parseInt(ds.dockIconSize, 10) || 48));
-      const iconGap = Math.max(2, Math.min(12, parseInt(ds.dockIconGap, 10) || 4));
-      const dockPadding = Math.max(4, Math.min(16, parseInt(ds.dockPadding, 10) || 6));
-      const magScale = Math.max(1, Math.min(2, parseFloat(ds.dockMagScale) || 1.4));
-      const glassBlur = Math.max(20, Math.min(100, parseInt(ds.dockGlassBlur, 10) || 60));
-      const glassOpacity = Math.max(10, Math.min(80, parseInt(ds.dockGlassOpacity, 10) || 28));
+      const readSettings = () => {
+        const ds = el.dataset;
+        const enableMagnification = ds.magnification !== 'false';
+        const baseSize = Math.max(36, Math.min(64, parseInt(ds.dockIconSize, 10) || 48));
+        const iconGap = Math.max(2, Math.min(12, parseInt(ds.dockIconGap, 10) || 4));
+        const dockPadding = Math.max(4, Math.min(16, parseInt(ds.dockPadding, 10) || 6));
+        const magScale = Math.max(1, Math.min(2, parseFloat(ds.dockMagScale) || 1.4));
+        const glassBlur = Math.max(20, Math.min(100, parseInt(ds.dockGlassBlur, 10) || 60));
+        const glassOpacity = Math.max(10, Math.min(80, parseInt(ds.dockGlassOpacity, 10) || 28));
+        const maxSize = Math.round(baseSize * magScale);
+        const maxLift = enableMagnification ? Math.round(baseSize * 0.10) : 0;
+        const glassHeight = baseSize + dockPadding * 2;
 
-      /* ── 计算派生参数 ── */
-      const maxSize = Math.round(baseSize * magScale);
-      const range = Math.round(baseSize * 2.9);
-      const maxLift = enableMagnification ? Math.round(baseSize * 0.10) : 0;
-      const maxScale = maxSize / baseSize;
-      const glassHeight = baseSize + dockPadding * 2;
-      const barHeadroom = enableMagnification ? Math.max(14, maxLift + 8) : 0;
-      const barHeight = glassHeight + barHeadroom;
+        return {
+          enableMagnification,
+          showLabels: ds.showLabels === 'true',
+          baseSize,
+          iconGap,
+          dockPadding,
+          magScale,
+          glassBlur,
+          glassOpacity,
+          range: Math.round(baseSize * 2.9),
+          maxLift,
+          maxScale: maxSize / baseSize,
+          glassHeight,
+          barHeight: glassHeight + (enableMagnification ? Math.max(14, maxLift + 8) : 0)
+        };
+      };
 
-      /* ── 将参数注入 CSS 变量 ── */
-      el.style.setProperty('--dock-icon-size', `${baseSize}px`);
-      el.style.setProperty('--dock-gap', `${iconGap}px`);
-      el.style.setProperty('--dock-padding', `${dockPadding}px`);
-      el.style.setProperty('--dock-glass-height', `${glassHeight}px`);
-      el.style.setProperty('--dock-bar-height', `${barHeight}px`);
-      el.style.setProperty('--dock-blur', `${glassBlur}px`);
-      el.style.setProperty('--dock-opacity', `${glassOpacity / 100}`);
-      el.style.setProperty('--dock-icon-radius', `${Math.round(baseSize * 0.25)}px`);
+      const applySettings = () => {
+        const nextSettings = readSettings();
+        el.style.setProperty('--dock-icon-size', `${nextSettings.baseSize}px`);
+        el.style.setProperty('--dock-gap', `${nextSettings.iconGap}px`);
+        el.style.setProperty('--dock-padding', `${nextSettings.dockPadding}px`);
+        el.style.setProperty('--dock-glass-height', `${nextSettings.glassHeight}px`);
+        el.style.setProperty('--dock-bar-height', `${nextSettings.barHeight}px`);
+        el.style.setProperty('--dock-blur', `${nextSettings.glassBlur}px`);
+        el.style.setProperty('--dock-opacity', `${nextSettings.glassOpacity / 100}`);
+        el.style.setProperty('--dock-icon-radius', `${Math.round(nextSettings.baseSize * 0.25)}px`);
+        el.querySelectorAll('.dock-tooltip').forEach((tooltip) => {
+          tooltip.hidden = !nextSettings.showLabels;
+          tooltip.classList.remove('dock-tooltip-visible');
+          if (nextSettings.showLabels) {
+            tooltip.style.removeProperty('display');
+          }
+        });
+        return nextSettings;
+      };
+
+      let settings = applySettings();
 
       let rafId = null;
       let lastMouseX = null;
@@ -2130,14 +2192,21 @@ export function registerWindowManager(Alpine) {
         getIcons().forEach((icon) => {
           icon.classList.add('dock-animating');
           icon.classList.remove('dock-tooltip-visible');
-          icon.style.width = `${baseSize}px`;
-          icon.style.height = `${baseSize}px`;
+          icon.style.width = `${settings.baseSize}px`;
+          icon.style.height = `${settings.baseSize}px`;
           icon.style.transform = 'translateY(0px)';
           icon.style.zIndex = '';
         });
       };
 
       const updateDock = (mouseX) => {
+        const {
+          baseSize,
+          range,
+          maxScale,
+          maxLift,
+          showLabels
+        } = settings;
         const icons = getIcons();
         let tooltipTarget = null;
         let nearestDistance = Infinity;
@@ -2177,14 +2246,11 @@ export function registerWindowManager(Alpine) {
 
       /* 初始化图标基础尺寸 */
       requestAnimationFrame(() => {
-        getIcons().forEach((icon) => {
-          icon.style.width = `${baseSize}px`;
-          icon.style.height = `${baseSize}px`;
-        });
+        resetIcons();
       });
 
       el.addEventListener('mousemove', (e) => {
-        if (!enableMagnification) return;
+        if (!settings.enableMagnification) return;
         lastMouseX = e.clientX;
         cancelAnimationFrame(rafId);
         rafId = requestAnimationFrame(() => {
@@ -2195,6 +2261,12 @@ export function registerWindowManager(Alpine) {
       el.addEventListener('mouseleave', () => {
         cancelAnimationFrame(rafId);
         requestAnimationFrame(resetIcons);
+      }, { signal });
+
+      el.addEventListener(runtimeSyncEvent, () => {
+        cancelAnimationFrame(rafId);
+        settings = applySettings();
+        rafId = requestAnimationFrame(resetIcons);
       }, { signal });
 
       /* destroy 清理 */

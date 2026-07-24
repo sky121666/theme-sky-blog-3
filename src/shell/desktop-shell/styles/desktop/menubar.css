@@ -137,6 +137,18 @@ button.menubar-mobile-trigger {
   line-height: 1;
 }
 
+.menubar-control-center-glyph {
+  display: inline-flex;
+  width: 15px;
+  height: 15px;
+  color: currentColor;
+  flex: none !important;
+}
+
+.menubar-control-center-btn:active .menubar-control-center-glyph {
+  opacity: 0.72;
+}
+
 .menubar-icon-btn svg,
 .menubar-icon-btn [class*="icon-["],
 .menubar-theme-btn svg,
@@ -360,7 +372,7 @@ button.menubar-mobile-trigger {
 /* ── hover / focus / active ── */
 .menubar-dropdown-item:hover {
   color: #ffffff;
-  background: color-mix(in srgb, var(--theme-accent) 72%, #2e7cf6);
+  background: var(--theme-accent);
   box-shadow: none;
 }
 
@@ -375,7 +387,7 @@ button.menubar-mobile-trigger {
 
 .menubar-dropdown-item:focus-visible {
   color: #ffffff;
-  background: color-mix(in srgb, var(--theme-accent) 72%, #2e7cf6);
+  background: var(--theme-accent);
   box-shadow: none;
   outline: 1.5px solid rgba(255, 255, 255, 0.32);
   outline-offset: -1px;

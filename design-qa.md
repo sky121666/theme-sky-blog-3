@@ -1,3 +1,92 @@
+# 主题强调色覆盖与品牌固定色隔离 QA
+
+## 对照目标
+
+- Source visual truth（系统设置）: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-5ad3deb7-012b-4928-ae53-bc6869cad705.png`
+- Source visual truth（菜单与图库）: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-9a486992-6cbe-46c7-95c6-8a7e55299d31.png`
+- Final system-settings implementation: `/private/tmp/theme-sky-blog-3-accent-settings-final.png`
+- Same-input full comparison: `/private/tmp/theme-sky-blog-3-accent-settings-comparison.png`
+- Route: `http://localhost:8090/docs`
+- State: 绿色主题方案、暗色外观、系统设置「外观」页打开；另行复核浅色外观、图库根视图和品牌插件页面。
+- Viewport: 来源与实现均约为 CSS `1183 × 805px`，实现 `devicePixelRatio: 1`。系统设置来源与实现已按原始密度横向合并，主要交互控件可直接辨认，无需放大裁切。
+
+## Findings
+
+- No actionable P0/P1/P2 findings remain in the generic accent-color and branded-template isolation scope.
+- Generic token coverage: 通用交互统一从 `--theme-accent` 派生 `--theme-accent-strong / --theme-accent-soft / --theme-accent-ring`；菜单悬停/键盘焦点、系统设置侧栏选中态、显示模式边框、开关、自定义按钮、壁纸选中框、应用按钮、图库选中态、小组件配置焦点与拖放提示，以及登录/注册页的主操作、文本链接和头像底色不再依赖固定蓝紫色。
+- System Settings visual evidence: 当前绿色方案计算值为 `#427e59`。真实页面中的外观侧栏、自动模式边框、外观切换开关、自定义按钮、壁纸选中框和应用按钮均随该强调色显示；最终截图没有出现原固定蓝色残留。
+- Menu behavior: 顶部菜单项目的 `:hover` 与 `:focus-visible` 都直接使用 `var(--theme-accent)`，不再把主题色与固定 `#2e7cf6` 混合；因此绿色主题不会再得到截图中的偏青色选中态。
+- Light/dark behavior: 图库暗色选中背景为强调色 `88%` 透明混合，浅色为强调色约 `14%` 的柔和底；实测暗色和浅色均保持 `#427e59` 根强调色，文字对比与现有 Finder 风格一致。
+- Brand isolation: PluginLinks 微信绿保持 `#07c160`，追番保持 `#fb7299`，Steam 保持 `#66c0f4`，微信朋友圈交互绿保持 `#07c160`。这些品牌/产品皮肤没有改接主题强调色。
+- Semantic and data colors: 通知类型图形、成功/警告/错误/信息状态、天气插画、统计图数据系列和交通灯继续使用固定语义色；避免强调色覆盖真实状态含义。
+- Runtime evidence: `/links?view=friends`、`/bangumis`、`/steam`、`/moments` 真页均能读取对应固定品牌 token；最终浏览器 `console.error` 为 `0`。
+
+## Comparison history
+
+- Pass 1: 系统设置和顶部菜单仍存在 `#0a84ff / #007aff / #0077ed / #409cff / #2e7cf6` 等固定蓝色或蓝色混合；图库暗色选中态固定为 `#2d7ff9`；登录/注册页还把主题色与固定靛蓝、粉色混合。
+- Fix 1: 建立通用强调色派生 token，并把通用导航、选择、开关、主按钮、焦点环和图库选择迁移到主题 token。
+- Pass 2: 同屏比较确认绿色主题已覆盖系统设置的主要交互状态；明暗色图库计算样式、品牌页面固定 token、Reload、PJAX smoke 与完整检查均通过。
+
+## Verification
+
+- [x] `pnpm run build-only`
+- [x] `pnpm run check`
+- [x] `node scripts/verify-theme-settings.mjs`
+- [x] `node scripts/verify-links-adaptation.mjs`
+- [x] `node scripts/verify-steam-adaptation.mjs`
+- [x] `node scripts/verify-widget-bangumis.mjs`
+- [x] `pnpm run verify:reload`
+- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
+- [x] 真页暗色/浅色图库、系统设置强调色计算样式、四类品牌模板固定 token 与 `console.error: 0`
+
+final result: passed
+
+---
+
+# Dock 真实桌面联动 Design QA
+
+## 对照目标
+
+- Source visual truth:
+  - `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-edfda4ef-b24d-4d04-bc40-efd11e96fe2a.png`
+- Implementation URL: `http://localhost:8090/docs`
+- Browser-rendered implementation:
+  - `/private/tmp/theme-settings-dock-live-965.png`
+- Desktop viewport / pixels: `965 × 965 CSS px` / `965 × 965 px`。
+- State: 管理员打开“桌面与 Dock”；Halo 当前配置保持 `46px / 12px / 10px / 1.4× / 100px / 10%`，未执行“应用”。
+
+## 对照证据
+
+- Full-view comparison: `/private/tmp/theme-settings-dock-comparison.png`
+  - 用户参考与实现按 `965 × 965` 画布归一后横向拼接，结果 `1930 × 965 px`。
+
+## Findings
+
+- No actionable P0/P1/P2 findings remain.
+- 重复的“Dock 预览”卡片已删除，设置内容直接从显示标签和放大开关开始，真实桌面 Dock 始终保留在窗口下方作为唯一预览对象。
+- 图标大小、图标间距、面板内边距、放大倍率、背景虚化和背景不透明度均直接写入真实 `.dock-container`；Dock 放大引擎会即时重读参数，不再用初始化时的旧尺寸覆盖预览。
+- Dock 玻璃表面已真正消费 `--dock-blur` 与 `--dock-opacity`，不再出现滑块数值变化但视觉材质不变的假联动。
+- `390 × 844` 下设置内容没有横向溢出，侧栏默认隐藏并可正常展开；移动端不额外创建重复 Dock 预览。
+
+## Primary interactions tested
+
+- 将图标大小由 `46px` 改为 `64px`，真实 Dock 的 dataset、CSS 变量、图标内联宽度和计算宽度均同步为 `64px`。
+- 将间距、内边距、放大倍率、虚化和不透明度调整到边界值后，真实 Dock 分别同步为 `2px / 16px / 2× / 20px / 80%`。
+- 关闭名称标签和放大效果后，真实 Dock dataset、提示标签可见性及面板高度即时同步。
+- 有未应用修改时连续关闭，全部运行时参数恢复为打开设置前的 Halo 配置。
+- 未点击“应用”，本轮浏览器验证没有写入 Halo 主题配置。
+- `node scripts/verify-theme-settings.mjs`、架构 lint、协议 typecheck、Vite build、`pnpm run verify:reload` 与 `pnpm run smoke:playwright` 均通过。
+
+## Runtime notes
+
+- 页面没有新增控制台 error。
+- 观察到既有的 `[desktop] repaired corrupt node placements` warning；来源为桌面节点布局自修复，与本轮 Dock 设置联动无关。
+- 本机 Node 为 `v26.0.0`，高于项目声明的 `>=24.18.0 <25`；本轮 pnpm 脚本均完成，但正式发布仍应使用项目声明的 Node 24。
+
+final result: passed
+
+---
+
 # 通知中心数据完整性、操作语义与响应式细节 QA
 
 ## 对照目标
@@ -911,5 +1000,157 @@ final result: passed
 - [x] Default preview and real document links
 - [x] Desktop, tablet and mobile breakpoint coverage
 - [x] Static contracts, full check, Halo reload and live browser validation
+
+final result: passed
+
+---
+
+# 主题设置初版 Design QA
+
+## 对照目标
+
+- Source visual truth: `https://www.figma.com/design/VqifaKK2P49jUtiWMT6vbG`
+- Implementation URL: `http://localhost:8090/`
+- Desktop screenshots:
+  - `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/theme-settings-appearance-desktop.png`
+  - `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/theme-settings-dock-desktop.png`
+  - `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/theme-settings-widgets-desktop.png`
+  - `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/theme-settings-appearance-dark.png`
+- Mobile screenshot: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/theme-settings-mobile-final.png`
+- Desktop viewport / pixels: `1060 × 749 CSS px` / `1060 × 749 px`，deviceScaleFactor `1`
+- Mobile viewport / pixels: `390 × 820 CSS px` / `390 × 820 px`，deviceScaleFactor `1`
+- Source dimensions / density normalization: unavailable；Figma 源截图无法抓取，因为连接端调用额度已耗尽且浏览器会话未登录。
+- State: 设置窗口的外观、桌面与 Dock、小组件三页；浅色、深色与 `390px` 手机布局。
+
+## Full-view comparison evidence
+
+本地实现已在真实 Halo 页面捕获桌面浅色、桌面深色和手机宽度状态，窗口层级、三栏结构、底部操作区、低饱和表面、背景图预览与移动端折叠均可见。由于本轮无法取得 Figma 源图，不能把源设计与实现放入同一比较输入，因此不作像素级相似度结论。
+
+## Focused region comparison evidence
+
+未执行源图与实现的局部对照。实现侧已单独检查标题栏、侧边导航、模式卡片、滑杆、开关、壁纸缩略图、底部按钮和移动端底部区域，但这些检查不能替代与源图的同屏对照。
+
+## Findings
+
+- [P1] 缺少可验证的 Figma 源图对照
+  - Location: 整个主题设置窗口。
+  - Evidence: 本地实现截图完整，但 Figma 源截图不可用。
+  - Impact: 无法确认字体、精确间距、色值、阴影、圆角和图标比例是否达到源设计级保真。
+  - Fix: Figma 调用额度恢复或登录后，按相同桌面与移动端状态抓取源图，并与上述实现截图组成同一比较输入重新执行 QA。
+
+## Required fidelity surfaces
+
+- Fonts and typography: 实现使用系统字体栈，层级、行高与截断在本地截图中正常；与源图的字重和字号精确匹配未验证。
+- Spacing and layout rhythm: 桌面三栏、卡片间距、底部操作区和手机折叠均无重叠或横向溢出；源图精确间距未验证。
+- Colors and visual tokens: 浅色与深色均使用低饱和 macOS 风格表面，主题设置未受站点强调色污染；源图色值与透明度未验证。
+- Image quality and asset fidelity: 使用项目真实壁纸资产，缩略图清晰，无占位图或自绘替代；源图裁切一致性未验证。
+- Copy and content: 三个设置分区及操作文案清晰，保存、恢复默认与未保存关闭提示均有明确含义。
+- Icons: 使用项目既有 Iconify/Lucide 图标体系，未引入自绘 SVG；与源图图标尺寸和光学位置未验证。
+- Accessibility: 支持键盘焦点约束、Escape、明确标签、移动端可点击区域和 `prefers-reduced-motion`；仍需在源图可用后复核视觉焦点一致性。
+
+## Primary interactions tested
+
+- 未登录访客点击品牌按钮不会请求受保护接口，也不会打开设置。
+- 权限允许时首次点击才请求配置；保存前重新读取最新配置，并只合并白名单内的脏字段。
+- 保存模拟验证保留未编辑的 header、桌面文章、小组件网格及调试配置。
+- 有未保存修改时第一次关闭给出确认状态，第二次关闭丢弃并恢复主题与 Dock 预览。
+- PJAX 从首页切换到分类页后，设置 store、挂载层和协议保持唯一且可用。
+- `390px` 手机布局无横向溢出，设置底部操作区不被 Dock 覆盖。
+
+## Console and runtime evidence
+
+- 最终新开真页控制台错误：`0`。
+- `pnpm run check`、`pnpm run verify:reload`、`SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright` 均通过。
+
+## Comparison history
+
+- Pass 1: 实现侧桌面浅色、桌面深色、三分区与手机状态均已捕获；源图捕获失败，因此未形成有效的设计对照迭代。
+
+## Implementation checklist
+
+- [x] 管理员权限探测与访客零受保护请求。
+- [x] 配置增量合并、保存前刷新和白名单限制。
+- [x] 外观、桌面与 Dock、小组件三页。
+- [x] 浅色、深色、响应式、PJAX 与键盘交互。
+- [x] 构建、重载、路由和真实页面验证。
+- [ ] 恢复 Figma 源图后完成同视口同状态的视觉对照。
+
+## Follow-up polish
+
+- 在源图可用后，仅针对可见差异调整字体光学重量、控件间距、阴影扩散和图标基线，避免在缺少视觉证据时继续主观微调。
+
+final result: blocked
+
+---
+
+# 主题设置原生 macOS 材质与移动侧栏 Design QA
+
+## 对照目标
+
+- Source visual truth:
+  - `/private/tmp/macos-system-settings-reference.png`（Apple 官方 macOS“外观”设置参考）
+  - `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-d9fd2bdd-0077-4c57-ad93-f5444b731b09.png`（用户指定的控制中心入口图标）
+  - `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-a01971c0-19ef-477d-bb2b-bf61552dcea5.png`（本轮修正前的材质基线）
+- Implementation URL: `http://localhost:8090/`
+- Browser-rendered implementation:
+  - `/private/tmp/theme-settings-native-desktop-final.png`
+  - `/private/tmp/theme-settings-native-desktop-light-final.png`
+  - `/private/tmp/theme-settings-native-mobile-final.png`
+  - `/private/tmp/theme-settings-native-mobile-drawer.png`
+- Desktop viewport / pixels: `1250 × 1169 CSS px` / `1250 × 1169 px`，deviceScaleFactor `1`。
+- Mobile viewport / pixels: `390 × 844 CSS px` / `390 × 844 px`，deviceScaleFactor `1`。
+- Source pixels: Apple 参考图 `1144 × 1224 px`；图标参考 `42 × 30 px`。Apple 图像未声明 CSS 尺寸，因此只按可见窗口材质、结构和控件语言比较，不作伪精确像素结论。
+- State: 管理员打开主题设置；外观页；桌面浅色、桌面深色；手机侧栏收起与展开。
+
+## 对照证据
+
+- Full-view comparison: `/private/tmp/theme-settings-design-comparison.png`
+  - Apple 参考窗口裁切为 `1144 × 1065 px`，实现窗口裁切为 `1062 × 748 px`，分别等比归一到 `900 px` 高后横向拼接，结果 `2244 × 900 px`。
+- Focused icon comparison: `/private/tmp/theme-settings-icon-comparison.png`
+  - 用户图标与实现菜单栏区域分别等比归一到 `240 px` 高后拼接，结果 `1402 × 240 px`。
+- Responsive state comparison: `/private/tmp/theme-settings-mobile-comparison.png`
+  - 同一 `390 × 844` 视口下的默认收起和抽屉展开状态直接拼接，结果 `780 × 844 px`。
+
+## Findings
+
+- No actionable P0/P1/P2 findings remain.
+- Fonts and typography: 使用 `-apple-system / BlinkMacSystemFont / SF Pro / PingFang SC` 系统字体栈；标题、分组标题、说明和状态文本形成清楚的 macOS 层级。侧栏已删除二级说明，只保留“外观 / 桌面与 Dock / 小组件”标题，不再出现拥挤的双行导航。
+- Spacing and layout rhythm: 桌面窗口保留 48px 标题栏、236px 侧栏、安静的 0.5px 分隔线和 11px 分组圆角；内容卡片取消边框与装饰阴影。手机端不再常驻三项横栏，默认使用完整内容宽度，侧栏以 286px 抽屉展开，选择后自动收起；`390 × 844` 未出现横向溢出、底部操作区遮挡或文字碰撞。
+- Colors and visual tokens: 浅色使用 `#F5F5F6 / #EDEDEE / #E9E9EA / #FFFFFF`，深色使用 `#242426 / #2B2B2D / #2D2D2F / #2C2C2E`。设置窗口、标题栏、侧栏、内容卡片和页面背景均为纯色；没有 `linear-gradient`，没有全屏、窗口或侧栏 `backdrop-filter`，背景桌面也不再被模糊或压暗。
+- Image quality and asset fidelity: 壁纸缩略图继续使用主题真实 SVG 资源；界面图标统一复用既有 Iconify/Lucide 管线，没有新增手绘 SVG、Emoji 或占位资源。右上角控制中心入口由两个同族 toggle 图标组合，尺寸、线宽和上下排列与用户参考图一致。
+- Copy and content: 导航只保留功能名；设置项说明仍位于对应内容组内，不把后端字段名、权限实现或版本信息暴露给用户。标题栏始终显示当前分区名称。
+- States and interactions: 桌面导航、深浅色预览、选中、禁用和焦点态均可见；系统原生琥珀焦点外圈已被统一为设置窗口的 macOS 蓝焦点。手机右上角按钮提供 `aria-expanded / aria-controls`，抽屉有独立关闭遮罩，选择项目和 Escape 均先收起抽屉。
+- Accessibility and motion: 焦点约束会排除 `visibility: hidden` 的抽屉控件；窗口、抽屉、遮罩均支持减少动态效果。最终真页切换三个分区后 `Runtime.exceptionThrown` 与 `Log.entryAdded` 均为 `0`。
+
+## Comparison history
+
+- Pass 1: 用户基线图显示入口位于错误区域，窗口大量使用泛白渐变、背景虚化、强边线和双行侧栏说明，形成明显 P1 视觉偏差。
+- Fix 1: 入口移到菜单栏右侧并使用用户指定的控制中心图标；窗口改成浅/深两套固定纯色层级，移除设置界面的渐变、背景虚化、卡片边框与装饰阴影；侧栏删除说明文本。
+- Pass 2: `390 × 844` 真页复核发现侧栏仍作为顶部三项横栏常驻，占用首屏并削弱 macOS 窗口层级，记为 P2 响应式偏差。
+- Fix 2: 手机端改为默认隐藏的左侧抽屉；标题栏右侧使用图标库中的 panel 控件展开，遮罩点击、Escape 和分类选择均可收起，同时从焦点循环中排除隐藏侧栏。
+- Pass 3: Apple 参考与桌面实现同屏对照、用户图标与实现局部对照、手机收起/展开同视口对照均未发现剩余 P0/P1/P2。功能范围少于系统设置、内容文案为主题自身配置，属于明确产品约束。
+
+## Primary interactions tested
+
+- 管理员通过菜单栏右侧控制中心图标打开主题设置。
+- 外观、桌面与 Dock、小组件三分区切换，并在切换后回到内容顶部。
+- 深色、浅色、自动三种预览；测试结束后恢复原有 `dark` 本地偏好且未保存 Halo 配置。
+- 手机端默认隐藏侧栏、展开抽屉、点击遮罩收起、选择分类后自动收起。
+- 有未保存修改时双重关闭确认，并恢复运行时预览。
+- 桌面与手机真页无控制台异常；`pnpm run check`、`pnpm run verify:reload`、`SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright` 均通过。
+
+## Implementation checklist
+
+- [x] 右上角控制中心入口
+- [x] 固定浅色/深色 macOS 表面
+- [x] 无窗口背景虚化、无泛白渐变
+- [x] 侧栏仅保留标题
+- [x] 手机侧栏默认隐藏、可展开和自动收起
+- [x] 键盘、焦点、Escape 与 reduced-motion
+- [x] 构建、Halo Reload、全路由 Smoke、控制台与同屏 Design QA
+
+## Follow-up polish
+
+- P3：如果未来增加更多前端可编辑分区，可按 Apple 参考补充分组搜索结果和更细的键盘方向键导航；当前只有三项，不应提前增加视觉噪点。
 
 final result: passed

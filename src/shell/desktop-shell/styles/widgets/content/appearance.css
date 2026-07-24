@@ -11,8 +11,8 @@
   --widget-news-divider: rgba(15, 23, 42, 0.08);
   --widget-news-row-divider: rgba(15, 23, 42, 0.05);
   --widget-news-indicator: rgba(15, 23, 42, 0.08);
-  --widget-news-accent: color-mix(in srgb, var(--theme-accent) 78%, #1d4ed8);
-  --widget-news-accent-strong: color-mix(in srgb, var(--theme-accent) 84%, #2563eb);
+  --widget-news-accent: var(--theme-accent);
+  --widget-news-accent-strong: var(--theme-accent-strong, var(--theme-selection));
   --widget-card-border: transparent;
   --widget-card-inner: transparent;
   --widget-card-outline: transparent;
