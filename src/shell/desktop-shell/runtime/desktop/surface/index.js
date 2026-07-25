@@ -59,6 +59,7 @@ import { placementMethods } from './placement.js';
 const { log: widgetPjaxLog } = createLogger('desktop-widget-pjax');
 const DESKTOP_BEFORE_PJAX_NAVIGATION_EVENT = 'theme:before-pjax-navigation';
 const WIDGET_CENTER_PENDING_STORAGE_KEY = 'theme-widget-center-open-pending';
+const THEME_SETTINGS_WIDGET_SYNC_EVENT = 'theme:widget-settings-change';
 
 /* ── Helpers ── */
 const DEFAULT_WIDGET_CENTER_CATEGORIES = [{ id: 'all', label: '所有小组件' }];
@@ -247,6 +248,8 @@ export function registerDesktopSurface(Alpine) {
     widgetCenterOpenPending: false,
     routeSyncHandler: null,
     protocolHydrationHandler: null,
+    themeSettingsWidgetSyncHandler: null,
+    themeSettingsWeatherTimer: null,
     resizeHandler: null,
     resizeVisibilityTimer: null,
     dragMoveHandler: null,
@@ -676,6 +679,41 @@ export function registerDesktopSurface(Alpine) {
       this.protocolHydrationHandler = (event) => {
         this.applyHomeWidgetProtocol(event.detail?.protocol);
       };
+      this.themeSettingsWidgetSyncHandler = (event) => {
+        const detail = event.detail || {};
+        const weather = detail.weather || {};
+        const previousCityName = this.modules.weather.cityName;
+        const previousRefreshMinutes = this.modules.weather.refreshMinutes;
+
+        this.enabled = detail.enabled === true;
+        this.hideOnMobile = detail.hideOnMobile === true;
+        this.editEnabled = detail.editEnabled === true;
+        this.modules = {
+          ...this.modules,
+          weather: {
+            cityName: String(weather.cityName || '').trim(),
+            refreshMinutes: toPositiveInt(weather.refreshMinutes, 30)
+          }
+        };
+        this.syncViewportState();
+        this.syncDesktopBodyState();
+        this.syncWidgetRuntimes();
+        this.invalidateWidgetCache();
+        this.scheduleDesktopRenderCheck();
+
+        const weatherChanged = !detail.changedPath
+          || previousCityName !== this.modules.weather.cityName
+          || previousRefreshMinutes !== this.modules.weather.refreshMinutes;
+        if (!weatherChanged || !this.enabled || !this.hasVisibleWeatherWidget()) return;
+
+        if (this.themeSettingsWeatherTimer) {
+          window.clearTimeout(this.themeSettingsWeatherTimer);
+        }
+        this.themeSettingsWeatherTimer = window.setTimeout(() => {
+          this.themeSettingsWeatherTimer = null;
+          void this.loadWeather(true);
+        }, 600);
+      };
       this.routeSyncHandler = async () => {
         this.syncViewportState();
         this.isHome = window.location.pathname === '/';
@@ -729,6 +767,7 @@ export function registerDesktopSurface(Alpine) {
       };
 
       window.addEventListener(DESKTOP_WIDGET_PROTOCOL_EVENT, this.protocolHydrationHandler);
+      window.addEventListener(THEME_SETTINGS_WIDGET_SYNC_EVENT, this.themeSettingsWidgetSyncHandler);
       window.addEventListener('pjax:complete', this.routeSyncHandler);
       window.addEventListener('pageshow', this.routeSyncHandler);
       window.addEventListener('resize', this.resizeHandler);
@@ -773,6 +812,14 @@ export function registerDesktopSurface(Alpine) {
         this.installWidgetClickDelegate();
         await this.consumePendingWidgetCenterOpen();
       });
+    },
+
+    destroy() {
+      window.removeEventListener(THEME_SETTINGS_WIDGET_SYNC_EVENT, this.themeSettingsWidgetSyncHandler);
+      if (this.themeSettingsWeatherTimer) {
+        window.clearTimeout(this.themeSettingsWeatherTimer);
+        this.themeSettingsWeatherTimer = null;
+      }
     },
 
     /* ═══ Computed getters ═══ */

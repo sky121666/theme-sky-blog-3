@@ -43,6 +43,105 @@ final result: passed
 
 ---
 
+# 静态主题设置五分区落地与真实桌面联动 Design QA
+
+## 对照目标
+
+- Source visual truth:
+  - `/private/tmp/theme-settings-redesign/shots/01-appearance-dark.png`
+  - `/private/tmp/theme-settings-redesign/shots/02-appearance-light.png`
+  - `/private/tmp/theme-settings-redesign/shots/03-dock-dark.png`
+  - `/private/tmp/theme-settings-redesign/shots/04-widgets-dark.png`
+  - `/private/tmp/theme-settings-redesign/shots/05-menubar-dark.png`
+  - `/private/tmp/theme-settings-redesign/shots/06-notifications-dark.png`
+  - `/private/tmp/theme-settings-redesign/shots/07-mobile-notifications.png`
+  - `/private/tmp/theme-settings-redesign/shots/08-mobile-drawer.png`
+- Implementation URL: `http://localhost:8090/`
+- Browser-rendered implementation:
+  - `/private/tmp/theme-settings-redesign/qa/implementation-appearance-dark-full.png`
+  - `/private/tmp/theme-settings-redesign/qa/implementation-appearance-light-full.png`
+  - `/private/tmp/theme-settings-redesign/qa/implementation-dock-dark.png`
+  - `/private/tmp/theme-settings-redesign/qa/implementation-widgets-dark.png`
+  - `/private/tmp/theme-settings-redesign/qa/implementation-menubar-dark-v2.png`
+  - `/private/tmp/theme-settings-redesign/qa/implementation-notifications-dark.png`
+  - `/private/tmp/theme-settings-redesign/qa/implementation-mobile-notifications-v2.jpg`
+  - `/private/tmp/theme-settings-redesign/qa/implementation-mobile-drawer.png`
+- Desktop normalization: 来源图片为 `2880 × 1800px @2x`，归一为 `1440 × 900 CSS px`；实现为 `1440 × 900px`、`devicePixelRatio: 1`。设置窗口目标与实现均为 `1060 × 748 CSS px`，侧栏均为 `232px`。
+- Mobile normalization: 来源图片为 `780 × 1688px @2x`，归一为 `390 × 844 CSS px`；实现为 `390 × 844px`、`devicePixelRatio: 1`。
+- States: 桌面深色外观、浅色未保存预览、Dock、小组件、菜单栏、通知；手机通知与分类抽屉展开。浏览器操作结束前均恢复到 Halo 当前配置，没有点击“应用”。
+
+## 对照证据
+
+- Full-view comparisons:
+  - `/private/tmp/theme-settings-redesign/qa/compare-appearance-dark.jpg`
+  - `/private/tmp/theme-settings-redesign/qa/compare-appearance-light.jpg`
+  - `/private/tmp/theme-settings-redesign/qa/compare-dock-dark.jpg`
+  - `/private/tmp/theme-settings-redesign/qa/compare-widgets-dark.jpg`
+  - `/private/tmp/theme-settings-redesign/qa/compare-menubar-dark.jpg`
+  - `/private/tmp/theme-settings-redesign/qa/compare-notifications-dark.jpg`
+  - `/private/tmp/theme-settings-redesign/qa/compare-mobile-notifications-v2.jpg`
+  - `/private/tmp/theme-settings-redesign/qa/compare-mobile-drawer.jpg`
+- Focused comparisons:
+  - `/private/tmp/theme-settings-redesign/qa/focus-appearance-controls.jpg`：外观模式、强调色、自定义颜色和壁纸控件。
+  - `/private/tmp/theme-settings-redesign/qa/focus-menubar-controls.jpg`：菜单开关、文案、日期格式和 12/24 小时语义控件。
+  - `/private/tmp/theme-settings-redesign/qa/focus-mobile-notifications-v2.jpg`：手机通知字段、开关、权限行与行高。
+- 所有对照图均为左侧来源、右侧真实实现；桌面来源先降采样至 CSS 尺寸，手机来源先降采样至 `390 × 844px`，避免把像素密度差异误判为设计偏差。
+
+## Findings
+
+- No actionable P0/P1/P2 findings remain.
+- Fonts and typography: 窗口统一使用 `-apple-system / BlinkMacSystemFont / SF Pro / PingFang SC` 系统栈；五个分区的标题、分组标题、主标签、辅助说明和只读值保持来源中的字号、字重与行高层级。桌面长文案不碰撞，手机简单文本字段隐藏重复说明后与来源密度一致。
+- Spacing and layout rhythm: 桌面固定 `1060 × 748px` 窗口、`48px` 标题栏和 `232px` 侧栏；分组圆角、行高、分隔线、内容边距和分区间距与静态设计对齐。手机窗口无横向溢出，`304px` 抽屉默认隐藏，展开、遮罩、选择后收起和关闭过渡均完整。
+- Colors and visual tokens: 浅色、深色均使用固定的 macOS 中性表面层级，不使用窗口渐变和背景虚化；强调色继续从主题 `--theme-accent` 派生选中、开关、焦点和主操作状态。Steam、追番、微信朋友圈等固定品牌色模板不在本轮通用设置样式作用域内。
+- Image quality and asset fidelity: 壁纸缩略图复用主题已有真实 SVG 背景资源；导航和控件图标复用项目既有 Iconify/Lucide 管线，没有新增 Emoji、CSS 绘图、手绘 SVG 或占位图片。真实桌面 Dock 与小组件继续显示当前站点数据和图标，不用静态稿中的假数据替代。
+- Copy and content: 现有 `39` 个可写主题配置路径全部有对应的语义控件；没有新增后台字段。通知默认展开说明收敛为“首次进入桌面时展开一次，页面切换不会重复”，与真实 PJAX 行为一致；权限项继续明确由 Halo 用户权限控制。
+- States and interactions: 自动/浅色/深色、强调色、壁纸、开关、单选、下拉、文本、颜色和滑块均使用原生语义输入。草稿只做增量合并，保留管理员鉴权、CSRF、保存前刷新、还原、关闭确认、成功/错误状态和需要刷新提示。
+- Actual Dock linkage: 删除重复的 Dock 预览块；图标大小、间距、内边距、放大倍率、虚化和不透明度直接写入真实 Dock。实测图标大小 `46px → 64px` 时，真实 Dock 的 dataset、CSS 变量、图标宽度和面板尺寸同步变化，随后恢复原值。
+- Actual widgets linkage: 删除重复的小组件预览块；启用、手机隐藏、编辑能力、天气城市和刷新频率通过专用运行时事件直接同步到真实小组件层，天气刷新带 `600ms` 防抖。实测关闭后真实 `.desktop-widgets-layer` 立即隐藏，恢复后重新显示。
+- Menu and notification behavior: 菜单分区最终内容高度与可视区域只剩 `7px` 的亚像素/底部留白差，没有控件被裁切；12/24 小时改为真实 radio 分段控件。通知分区桌面无滚动溢出，手机字段和开关没有挤压或横向滚动。
+- Accessibility and motion: 对话框、标题、导航、radio group、checkbox、label、只读值和按钮均保留可访问名称；键盘焦点使用强调色环，隐藏抽屉不会进入焦点循环，Escape 和遮罩均可关闭；窗口、抽屉、遮罩和控件支持 `prefers-reduced-motion`。
+
+## Comparison history
+
+- Pass 1: 真页首次对照发现“菜单栏与控制中心”内容比可视区域多约 `42px`，底部说明和双重小时制控件造成密度漂移；手机通知的两个简单文本字段仍显示桌面说明，行高明显大于来源，记为 P2。
+- Fix 1: 删除菜单分区重复说明，把小时制改成 12/24 小时语义分段 radio；为通知分区增加独立作用域，手机端隐藏两个简单文本字段的重复说明，并缩短默认展开说明。
+- Pass 2: `/private/tmp/theme-settings-redesign/qa/implementation-menubar-dark-v2.png` 的内容高度为 `707px`、可视高度为 `700px`，无控件裁切；`/private/tmp/theme-settings-redesign/qa/focus-mobile-notifications-v2.jpg` 显示两行文本字段恢复为与来源一致的单行节奏。最终同屏对照未发现新的 P0/P1/P2。
+
+## Primary interactions tested
+
+- 通过真实菜单栏“打开系统设置”进入窗口，并切换五个分区。
+- 深色、浅色和自动外观预览；强调色与壁纸选择；未应用时关闭并恢复运行时状态。
+- Dock 开关、六个参数滑块与真实 Dock 尺寸/材质联动。
+- 小组件启用状态与真实桌面层联动；天气参数进入运行时同步通道。
+- 手机 `390 × 844px` 下展开抽屉、切换通知分区、自动收起、无横向溢出。
+- Halo reload 后关键页面协议、插件页面、RSS、PJAX 与浏览器控制台错误检查。
+
+## Runtime notes
+
+- 首次最终 Smoke 遇到外部 `PluginCommentWidget` 动态资源瞬时 `HTTP 500`；紧接着直接请求该资源恢复 `200 text/javascript`，原命令完整重跑通过。该瞬时插件资源错误未由本轮主题设置代码引入。
+- 本机 Node 为 `v26.0.0`，高于项目声明的 `>=24.18.0 <25`；所有本轮 pnpm 门禁均通过，正式发布仍应使用 Node 24。
+- 手机来源含独立设备状态栏和 Home Indicator；真实主题保留站点菜单栏与窗口关闭按钮，没有在网页中伪造系统状态栏。浅色对照中的实现处于未保存预览态，因此显示真实操作栏，未写入 Halo 配置。
+
+## Verification
+
+- [x] `git diff --check`
+- [x] `pnpm run verify:theme-settings`
+- [x] `pnpm run lint`
+- [x] `pnpm run typecheck`
+- [x] `pnpm run build-only`
+- [x] `pnpm run verify:reload`
+- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
+- [x] 桌面深/浅色、五个分区、`390 × 844px` 手机通知与抽屉、真实 Dock/小组件联动、同屏完整与局部设计对照
+
+## Follow-up polish
+
+- P3：浏览器原生 range 拇指比静态稿中的装饰滑块略小，但保留了真实键盘、读屏和拖动语义，不建议为像素仿真换成伪控件。
+- P3：真实 Dock、小组件位置和内容来自当前用户桌面，必然与静态稿示例数据不同；这是用户明确要求的真实联动，不属于设计漂移。
+
+final result: passed
+
+---
+
 # Dock 真实桌面联动 Design QA
 
 ## 对照目标

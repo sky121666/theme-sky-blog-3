@@ -12,6 +12,7 @@ const SETTINGS_CLOSE_DELAY = 240;
 const CLOSE_CONFIRM_TIMEOUT = 3200;
 const DOCK_RUNTIME_SYNC_EVENT = 'theme:dock-settings-change';
 const MENUBAR_RUNTIME_SYNC_EVENT = 'theme:menubar-settings-change';
+const WIDGET_RUNTIME_SYNC_EVENT = 'theme:widget-settings-change';
 
 const BODY_CUSTOM_PROPERTIES = [
   '--mac-accent',
@@ -330,6 +331,25 @@ function applyMenubarPreview(draft) {
   }));
 }
 
+function applyWidgetPreview(draft, changedPath = '') {
+  const behavior = draft?.widgets?.behavior;
+  const weather = draft?.widgets?.modules?.weather;
+  if (!behavior || !weather) return;
+
+  window.dispatchEvent(new CustomEvent(WIDGET_RUNTIME_SYNC_EVENT, {
+    detail: {
+      changedPath,
+      enabled: behavior.enabled,
+      hideOnMobile: behavior.hide_on_mobile,
+      editEnabled: behavior.edit_enabled,
+      weather: {
+        cityName: weather.city_name,
+        refreshMinutes: weather.refresh_minutes
+      }
+    }
+  }));
+}
+
 function normalizeSearchValue(value) {
   return String(value || '').trim().toLocaleLowerCase('zh-CN');
 }
@@ -629,6 +649,7 @@ export function registerThemeSettings(Alpine) {
       applyBodyPreview(this.draft);
       applyDockPreview(this.draft);
       applyMenubarPreview(this.draft);
+      applyWidgetPreview(this.draft, changedPath);
       if (!changedPath || changedPath === 'header.theme.default_mode') {
         Alpine.store('theme')?.setMode?.(this.draft.header.theme.default_mode);
       }
@@ -640,6 +661,7 @@ export function registerThemeSettings(Alpine) {
       restoreDockRuntime(this.runtimeSnapshot.dock);
       restoreStoredTheme(this.runtimeSnapshot, Alpine);
       applyMenubarPreview(this.baseline);
+      applyWidgetPreview(this.baseline);
       this.runtimeSnapshot = null;
     },
 
@@ -713,14 +735,16 @@ export function registerThemeSettings(Alpine) {
 
     switchPane(pane) {
       if (!SETTINGS_NAV_ITEMS.some((item) => item.id === pane)) return;
+      const content = document.querySelector('[data-theme-settings-content]');
+      if (content) {
+        content.scrollTop = 0;
+        content.scrollLeft = 0;
+      }
       this.activePane = pane;
       this.mobileSidebarOpen = false;
-      window.setTimeout(() => {
-        document.querySelector('[data-theme-settings-content]')?.scrollTo?.({
-          top: 0,
-          behavior: 'smooth'
-        });
-      }, 0);
+      window.requestAnimationFrame(() => {
+        content?.scrollTo?.({ top: 0, left: 0, behavior: 'auto' });
+      });
     },
 
     toggleMobileSidebar() {
