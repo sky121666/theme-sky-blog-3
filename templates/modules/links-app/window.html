@@ -1,9 +1,9 @@
-<th:block th:fragment="frame (titleText, subtitleText, contentFragment, windowResizable, metricsKey)">
+<th:block th:fragment="frame (titleText, subtitleText, contentFragment, windowResizable, windowMaximizable, metricsKey)">
   <th:block th:replace="~{modules/shell/window-frame :: shell(
       variant='links',
       metricsKey=${metricsKey},
       resizable=${windowResizable != null ? windowResizable : 'true'},
-      maximizable='true',
+      maximizable=${windowMaximizable != null ? windowMaximizable : 'true'},
       widthAttr='500',
       extraClasses='links-window md:min-h-[560px]',
       inlineStyle='',

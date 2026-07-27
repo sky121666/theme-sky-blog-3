@@ -205,6 +205,17 @@ export function activateCurrentPageApp(root = document, extra = {}) {
   return activatePageApp(appId, root, extra);
 }
 
+export function ensureCurrentPageAppActive(root = document, extra = {}) {
+  const registry = getPageAppRegistry();
+  const appId = document.body?.dataset.appId || document.body?.dataset.pageApp || '';
+  const activeApp = registry.activeApp;
+  const activeRootConnected = activeApp?.root === document || activeApp?.root?.isConnected !== false;
+  if (activeApp && activeApp.appId === appId && activeRootConnected) {
+    return activeApp;
+  }
+  return activatePageApp(appId, root, extra);
+}
+
 export function getActivePageAppDocumentState() {
   return getPageAppRegistry().activeApp?.documentState || null;
 }

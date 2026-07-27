@@ -38,7 +38,10 @@ export function initPostOutline(root = document) {
   const mobileList = document.querySelector('[data-post-outline-mobile-list]');
   const mobileHandle = document.querySelector('[data-post-outline-mobile-handle]');
 
-  if (!frame || !article || !outline || !list) return;
+  if (!frame || !article || !outline || !list) {
+    if (mobileTrigger) mobileTrigger.hidden = true;
+    return;
+  }
 
   const mobileManaged = !!(mobileTrigger && mobileSheet && mobileBackdrop && mobileList && mobileHandle);
 
@@ -139,7 +142,8 @@ export function initPostOutline(root = document) {
     const target = article.querySelector(`#${CSS.escape(button.dataset.targetId || '')}`);
     if (!target) return;
 
-    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+    target.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
     setActive(button.dataset.targetId || '');
     history.replaceState(history.state, '', `#${button.dataset.targetId}`);
     closeMobileOutline();
@@ -210,6 +214,7 @@ export function initPostOutline(root = document) {
     mobileList.addEventListener('click', handleClick);
     mobileTrigger.addEventListener('click', openMobileOutline);
     mobileBackdrop.addEventListener('click', closeMobileOutline);
+    mobileHandle.addEventListener('click', closeMobileOutline);
     mobileHandle.addEventListener('pointerdown', handleMobileDragStart);
     window.addEventListener('pointermove', handleMobileDragMove);
     window.addEventListener('pointerup', handleMobileDragEnd);
@@ -254,6 +259,7 @@ export function initPostOutline(root = document) {
       mobileList.removeEventListener('click', handleClick);
       mobileTrigger.removeEventListener('click', openMobileOutline);
       mobileBackdrop.removeEventListener('click', closeMobileOutline);
+      mobileHandle.removeEventListener('click', closeMobileOutline);
       mobileHandle.removeEventListener('pointerdown', handleMobileDragStart);
       window.removeEventListener('pointermove', handleMobileDragMove);
       window.removeEventListener('pointerup', handleMobileDragEnd);

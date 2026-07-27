@@ -20,6 +20,10 @@ import { inferPageAppFromUrl } from '../../../../../shell-core/runtime/route-man
 import { initLazyImages } from '../../shared/lazy-media.js';
 import { initLazyComments } from '../../shared/lazy-comment.js';
 import { createLogger } from '../../shared/debug.js';
+import {
+  mutateThemeConfig,
+  readThemeConfig
+} from '../../shared/theme-config-client.js';
 import { enhanceDoubanShowcaseWidgets } from '../../../../../widgets/plugin/douban-showcase/runtime.js';
 import {
   ensureWidgetRendererRuntime as ensureWidgetRendererRuntimeWithHost,
@@ -101,6 +105,7 @@ export function registerDesktopSurface(Alpine) {
     serverLayoutSaveMessage: '',
     serverLayoutMutationVersion: 0,
     serverLayoutSavedMutationVersion: 0,
+    layoutIntegrityRepaired: false,
     serverLoadedWidgetTypes: [],
     serverLayoutReloadRequired: false,
     modules: {
@@ -165,6 +170,7 @@ export function registerDesktopSurface(Alpine) {
       subtype: 'folder',
       error: ''
     },
+    desktopModalRestoreFocusElement: null,
     widgetConfigForm: {
       open: false,
       mode: 'create',
@@ -250,6 +256,7 @@ export function registerDesktopSurface(Alpine) {
     protocolHydrationHandler: null,
     themeSettingsWidgetSyncHandler: null,
     themeSettingsWeatherTimer: null,
+    weatherRefreshTimer: null,
     resizeHandler: null,
     resizeVisibilityTimer: null,
     dragMoveHandler: null,
@@ -270,6 +277,7 @@ export function registerDesktopSurface(Alpine) {
     widgetRenderers: {},
     widgetRendererPromises: {},
     widgetRenderVersions: {},
+    widgetRendererErrors: {},
 
     /* ═══ Mixin methods ═══ */
     ...gridMethods,
@@ -311,7 +319,12 @@ export function registerDesktopSurface(Alpine) {
     },
 
     syncWidgetRuntimes() {
-      if (this.hasVisibleWeatherWidget()) return;
+      if (this.hasVisibleWeatherWidget()) {
+        this.scheduleWeatherRefresh();
+        return;
+      }
+
+      this.clearWeatherRefreshTimer();
 
       this.weatherRequestId += 1;
       this.weatherState = {
@@ -321,6 +334,24 @@ export function registerDesktopSurface(Alpine) {
         entries: {}
       };
       this.invalidateWidgetCache();
+    },
+
+    clearWeatherRefreshTimer() {
+      if (!this.weatherRefreshTimer) return;
+      window.clearTimeout(this.weatherRefreshTimer);
+      this.weatherRefreshTimer = null;
+    },
+
+    scheduleWeatherRefresh() {
+      this.clearWeatherRefreshTimer();
+      if (!this.enabled || !this.isHome || !this.hasVisibleWeatherWidget()) return;
+      const targets = this.resolveWeatherLoadTargets();
+      if (!targets.length) return;
+      const refreshMinutes = Math.min(...targets.map((target) => target.refreshMinutes));
+      this.weatherRefreshTimer = window.setTimeout(() => {
+        this.weatherRefreshTimer = null;
+        void this.loadWeather(true);
+      }, Math.max(10, refreshMinutes) * 60 * 1000);
     },
 
     setWidgetCenterCategory(categoryId) {
@@ -422,6 +453,11 @@ export function registerDesktopSurface(Alpine) {
     },
 
     onWidgetRendererReady(widgetType) {
+      this.invalidateWidgetCache(widgetType);
+      this.scheduleDesktopWidgetEnhancement();
+    },
+
+    onWidgetRendererError(widgetType) {
       this.invalidateWidgetCache(widgetType);
       this.scheduleDesktopWidgetEnhancement();
     },
@@ -698,6 +734,7 @@ export function registerDesktopSurface(Alpine) {
         this.syncViewportState();
         this.syncDesktopBodyState();
         this.syncWidgetRuntimes();
+        this.dispatchNotificationWidgetsChange();
         this.invalidateWidgetCache();
         this.scheduleDesktopRenderCheck();
 
@@ -820,6 +857,7 @@ export function registerDesktopSurface(Alpine) {
         window.clearTimeout(this.themeSettingsWeatherTimer);
         this.themeSettingsWeatherTimer = null;
       }
+      this.clearWeatherRefreshTimer();
     },
 
     /* ═══ Computed getters ═══ */
@@ -907,7 +945,12 @@ export function registerDesktopSurface(Alpine) {
     },
 
     get gridStyle() {
-      return `--desktop-widget-columns:${this.currentColumns};--desktop-widget-gap:${this.gap}px;--desktop-widget-cell-size:${this.cellSize}px;width:${this.gridWidth}px;`;
+      const contentRows = this.placedDesktopNodes.reduce(
+        (maximum, node) => Math.max(maximum, Number(node.y || 1) + Number(node.h || 1) - 1),
+        this.maxVisibleRows
+      );
+      const contentHeight = contentRows * this.cellSize + Math.max(0, contentRows - 1) * this.gap;
+      return `--desktop-widget-columns:${this.currentColumns};--desktop-widget-gap:${this.gap}px;--desktop-widget-cell-size:${this.cellSize}px;width:${this.gridWidth}px;min-height:${contentHeight}px;`;
     },
 
     get previewStyle() {
@@ -1237,6 +1280,8 @@ export function registerDesktopSurface(Alpine) {
         : await this.probeServerLayoutConfigAccess();
       if (!canManage) return false;
 
+      this.markRepairedLayoutForSave();
+
       if (!this.isEditing) {
         this.enterEditMode(stage);
       } else if (stage) {
@@ -1383,6 +1428,7 @@ export function registerDesktopSurface(Alpine) {
         ? this.canManageDefaultDesktopLayout
         : await this.probeServerLayoutConfigAccess();
       if (!canManage) return;
+      this.markRepairedLayoutForSave();
       this.enterEditMode('decorate');
     },
 
@@ -1411,7 +1457,10 @@ export function registerDesktopSurface(Alpine) {
 
     dispatchNotificationWidgetsChange() {
       window.dispatchEvent(new CustomEvent('theme-notification-widgets-change', {
-        detail: { widgets: this.widgets.map((widget) => ({ ...widget })) }
+        detail: {
+          widgets: this.widgets.map((widget) => ({ ...widget })),
+          modules: this.modules
+        }
       }));
     },
 
@@ -1421,6 +1470,12 @@ export function registerDesktopSurface(Alpine) {
       this.serverLayoutSaveMessage = this.serverLayoutSaving
         ? '保存中；新的修改仍需再次保存'
         : message;
+    },
+
+    markRepairedLayoutForSave() {
+      if (!this.layoutIntegrityRepaired) return;
+      if (this.serverLayoutMutationVersion !== this.serverLayoutSavedMutationVersion) return;
+      this.markDesktopLayoutDirty('旧布局位置已自动修正，保存后将永久生效');
     },
 
     desktopLayoutSaveButtonLabel() {
@@ -1442,14 +1497,8 @@ export function registerDesktopSurface(Alpine) {
       }
 
       try {
-        const response = await fetch(this.themeJsonConfigEndpoint, {
-          credentials: 'include',
-          headers: {
-            Accept: 'application/json'
-          }
-        });
-        const contentType = response.headers.get('content-type') || '';
-        this.canManageDefaultDesktopLayout = response.ok && contentType.includes('json');
+        const { response } = await readThemeConfig(this.themeJsonConfigEndpoint);
+        this.canManageDefaultDesktopLayout = true;
         setDesktopDebugAccess(this.editEnabled && this.canManageDefaultDesktopLayout);
         desktopDebug('desktop default-layout capability checked', {
           endpoint: this.themeJsonConfigEndpoint,
@@ -1505,48 +1554,16 @@ export function registerDesktopSurface(Alpine) {
       });
 
       try {
-        const getResponse = await fetch(this.themeJsonConfigEndpoint, {
-          credentials: 'include',
-          headers: {
-            Accept: 'application/json'
-          }
-        });
-
-        if (!getResponse.ok) {
-          const body = await getResponse.text().catch(() => '');
-          throw new Error(`GET theme json-config failed: ${getResponse.status} ${body.slice(0, 160)}`.trim());
-        }
-
-        const currentConfig = await getResponse.json();
         const { applyDesktopLayoutJsonToThemeConfig } = await this.ensurePersistenceWriteRuntime();
-        const nextConfig = applyDesktopLayoutJsonToThemeConfig(currentConfig, layoutJson);
-
-        // Halo 2.x CSRF：从 cookie 中读取 XSRF-TOKEN 并作为 header 回传
-        const csrfToken = document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '';
-        const putHeaders = {
-          'Content-Type': 'application/json',
-          Accept: 'application/json'
-        };
-        if (csrfToken) {
-          putHeaders['X-XSRF-TOKEN'] = decodeURIComponent(csrfToken);
-        }
-
-        const putResponse = await fetch(this.themeJsonConfigEndpoint, {
-          method: 'PUT',
-          credentials: 'include',
-          headers: putHeaders,
-          body: JSON.stringify(nextConfig)
-        });
-
-        if (!putResponse.ok) {
-          const body = await putResponse.text().catch(() => '');
-          desktopDebugWarn('PUT json-config failed', { status: putResponse.status, body: body.slice(0, 160) });
-          throw new Error(`PUT theme json-config failed: ${putResponse.status} ${body.slice(0, 160)}`.trim());
-        }
+        await mutateThemeConfig(
+          this.themeJsonConfigEndpoint,
+          (currentConfig) => applyDesktopLayoutJsonToThemeConfig(currentConfig, layoutJson)
+        );
 
         this.serverLayoutJson = layoutJson;
         this.serverLayoutPayload = parseDesktopLayoutPayload(layoutJson, this.layoutVersion, 'saved-server');
         this.serverLayoutSavedMutationVersion = savedSnapshot.mutationVersion;
+        this.layoutIntegrityRepaired = false;
         this.syncLayoutSnapshotAsDefaults(
           savedSnapshot.widgets,
           savedSnapshot.icons,
@@ -1566,7 +1583,9 @@ export function registerDesktopSurface(Alpine) {
         return !hasNewerChanges;
       } catch (error) {
         this.serverLayoutSaveState = 'failed';
-        this.serverLayoutSaveMessage = '保存失败，请检查登录状态或后台权限';
+        this.serverLayoutSaveMessage = error?.code === 'conflict'
+          ? '配置已在其他窗口更新，请重新打开编辑模式后再保存'
+          : (error?.message || '保存失败，请检查登录状态或后台权限');
         desktopDebugWarn('desktop default layout save failed', {
           endpoint: this.themeJsonConfigEndpoint,
           themeName: this.themeName,
@@ -1603,10 +1622,76 @@ export function registerDesktopSurface(Alpine) {
 
     openAddIconForm() {
       this.addIconForm = { open: true, title: '', href: '', subtype: 'folder', error: '' };
+      this.focusDesktopModal('add-icon');
     },
 
     closeAddIconForm() {
       this.addIconForm = { open: false, title: '', href: '', subtype: 'folder', error: '' };
+      this.restoreDesktopModalFocus();
+    },
+
+    focusDesktopModal(kind) {
+      this.desktopModalRestoreFocusElement = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+      this.$nextTick?.(() => {
+        window.requestAnimationFrame(() => {
+          const dialog = document.querySelector(`[data-desktop-modal="${kind}"]`);
+          const target = dialog?.querySelector('[autofocus]')
+            || dialog?.querySelector([
+              '.desktop-add-icon-form input:not([disabled])',
+              '.desktop-add-icon-form select:not([disabled])',
+              '.desktop-add-icon-form textarea:not([disabled])',
+              '.desktop-add-icon-form button:not([disabled])'
+            ].join(','))
+            || dialog;
+          target?.focus?.({ preventScroll: true });
+        });
+      });
+    },
+
+    restoreDesktopModalFocus() {
+      const target = this.desktopModalRestoreFocusElement;
+      this.desktopModalRestoreFocusElement = null;
+      if (target?.isConnected) {
+        window.requestAnimationFrame(() => target.focus?.({ preventScroll: true }));
+      }
+    },
+
+    handleDesktopModalKeydown(event, kind) {
+      const close = kind === 'widget-config'
+        ? () => this.closeWidgetConfigForm()
+        : () => this.closeAddIconForm();
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        close();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const dialog = event.currentTarget;
+      const focusable = Array.from(dialog.querySelectorAll([
+        'button:not([disabled])',
+        'input:not([disabled])',
+        'select:not([disabled])',
+        'textarea:not([disabled])',
+        'a[href]',
+        '[tabindex]:not([tabindex="-1"])'
+      ].join(','))).filter((element) => !element.hidden && element.getClientRects().length > 0);
+      if (!focusable.length) {
+        event.preventDefault();
+        dialog.focus({ preventScroll: true });
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus({ preventScroll: true });
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus({ preventScroll: true });
+      }
     },
 
     submitAddIconForm() {
@@ -1907,7 +1992,7 @@ export function registerDesktopSurface(Alpine) {
       });
 
       if (changed) {
-        desktopDebugWarn('repaired corrupt node placements', {});
+        desktopDebug('repaired corrupt node placements');
       }
 
       this.normalizeVisibleLayout();
@@ -1919,9 +2004,14 @@ export function registerDesktopSurface(Alpine) {
         this.normalizeVisibleLayout();
         this.syncResponsiveVisibility();
         changed = true;
-        desktopDebugWarn('repaired desktop layout to defaults', {
+        desktopDebug('repaired desktop layout to defaults', {
           reason: 'no visible desktop nodes after normalization'
         });
+      }
+
+      if (changed) {
+        this.layoutIntegrityRepaired = true;
+        this.syncLayoutSnapshotAsDefaults();
       }
 
       return changed;
@@ -2050,6 +2140,7 @@ export function registerDesktopSurface(Alpine) {
 
     async loadWeather(forceRefresh = false) {
       if (!this.hasVisibleWeatherWidget()) {
+        this.clearWeatherRefreshTimer();
         return;
       }
       // Dedup: skip if already in-flight (pageshow + $nextTick can race)
@@ -2065,6 +2156,7 @@ export function registerDesktopSurface(Alpine) {
           data: null,
           entries: {}
         };
+        this.clearWeatherRefreshTimer();
         return;
       }
 
@@ -2107,6 +2199,7 @@ export function registerDesktopSurface(Alpine) {
           entries: nextEntries
         };
         this.invalidateWidgetCache();
+        this.scheduleWeatherRefresh();
         return;
       }
 
@@ -2156,6 +2249,7 @@ export function registerDesktopSurface(Alpine) {
           entries: resolvedEntries
         };
         this.invalidateWidgetCache();
+        this.scheduleWeatherRefresh();
       } catch (_error) {
         if (requestId !== this.weatherRequestId) return;
 
@@ -2170,6 +2264,7 @@ export function registerDesktopSurface(Alpine) {
           }]))
         };
         this.invalidateWidgetCache();
+        this.scheduleWeatherRefresh();
       }
     },
 

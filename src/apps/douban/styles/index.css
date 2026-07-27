@@ -734,6 +734,33 @@
   font-size: 12px;
 }
 
+.douban-empty-retry {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 16px;
+  padding: 0 15px;
+  border: 1px solid var(--douban-border);
+  border-radius: 10px;
+  background: var(--douban-card-bg);
+  color: var(--douban-text-soft);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.douban-empty-retry:hover,
+.douban-empty-retry:focus-visible {
+  border-color: color-mix(in srgb, var(--douban-accent) 42%, var(--douban-border));
+  color: var(--douban-accent);
+}
+
+.douban-empty-retry > span:first-child {
+  width: 14px;
+  height: 14px;
+}
+
 .douban-loading-grid {
   width: 100%;
   display: grid;

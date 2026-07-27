@@ -199,6 +199,14 @@
                          th:attr="hidden=${authorMoments != null and !#lists.isEmpty(authorMoments.items) ? 'hidden' : null}">
                   <p>这个作者还没有公开瞬间。</p>
                 </section>
+
+                <section class="author-moment-error"
+                         x-show="momentLoadError"
+                         x-cloak
+                         role="alert">
+                  <p x-text="momentLoadError">瞬间暂时无法加载，请稍后重试。</p>
+                  <button type="button" @click="retryMomentPage()">重新加载</button>
+                </section>
               </div>
             </div>
 

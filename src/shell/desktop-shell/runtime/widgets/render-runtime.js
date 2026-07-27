@@ -27,6 +27,10 @@ export function renderWidgetLoadingMarkup() {
   return '<div class="desktop-widget-loading" role="status" aria-live="polite"><span class="sr-only">组件加载中</span><span class="desktop-widget-loading-bar"></span><span class="desktop-widget-loading-bar desktop-widget-loading-bar--short"></span></div>';
 }
 
+export function renderWidgetErrorMarkup() {
+  return '<div class="desktop-widget-empty desktop-widget-render-error" role="alert"><strong>组件加载失败</strong><span>资源暂时不可用，请刷新页面后重试。</span></div>';
+}
+
 export async function ensureWidgetRendererRuntime(host, widgetType) {
   const type = String(widgetType || '').trim();
   if (!type) return null;
@@ -39,11 +43,19 @@ export async function ensureWidgetRendererRuntime(host, widgetType) {
     host.widgetRendererPromises[type] = loadWidgetRenderer(type)
       .then((renderer) => {
         if (typeof renderer === 'function') {
+          if (host.widgetRendererErrors) delete host.widgetRendererErrors[type];
           host.widgetRenderers[type] = renderer;
           host.widgetRenderVersions[type] = (host.widgetRenderVersions[type] || 0) + 1;
           host.onWidgetRendererReady?.(type);
         }
         return host.widgetRenderers[type] || null;
+      })
+      .catch((error) => {
+        if (!host.widgetRendererErrors) host.widgetRendererErrors = {};
+        host.widgetRendererErrors[type] = error?.message || 'renderer-load-failed';
+        host.widgetRenderVersions[type] = (host.widgetRenderVersions[type] || 0) + 1;
+        host.onWidgetRendererError?.(type, error);
+        return null;
       })
       .finally(() => {
         delete host.widgetRendererPromises[type];
@@ -64,6 +76,7 @@ export function renderWidgetBodyWithHost(host, widget, options = {}) {
   const renderer = host.widgetRenderers[widgetType];
 
   if (!renderer) {
+    if (host.widgetRendererErrors?.[widgetType]) return renderWidgetErrorMarkup();
     void ensureWidgetRendererRuntime(host, widgetType);
     return renderWidgetLoadingMarkup();
   }

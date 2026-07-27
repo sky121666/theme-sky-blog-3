@@ -30,6 +30,7 @@ function assertWaterfallContract(source, marker, appId) {
   const required = [
     'requestController: null',
     'generation: 0',
+    'resumePaginationAfterNavigationError: false',
     'new AbortController()',
     'signal: controller.signal',
     'if (!res.ok)',
@@ -58,6 +59,10 @@ function assertWaterfallContract(source, marker, appId) {
   required.forEach((contract) => {
     assert.ok(expression.includes(contract), `${appId} missing lifecycle contract: ${contract}`);
   });
+  assert.ok(
+    expression.includes("this.loadError = '加载已中断，点击重试'"),
+    `${appId} must expose a retry only when navigation interrupted active pagination`
+  );
 
   assert.ok(
     expression.split('this.cancelPending();').length >= 3,
@@ -158,7 +163,9 @@ async function verifyWaterfallRuntime(expression, appId) {
     const model = new Function('$el', `return (${expression});`)(trigger);
     model.$el = trigger;
     model.init();
-    assert.equal(eventDocument.listenerCount('pjax:error'), 1, `${appId} should listen for failed navigation recovery`);
+    assert.equal(eventDocument.listenerCount('pjax:error'), 1, `${appId} must recover pagination interrupted by a failed navigation`);
+    assert.equal(eventDocument.listenerCount('pjax:complete'), 1, `${appId} must clear its recovery marker after full PJAX success`);
+    assert.equal(eventDocument.listenerCount('pjax:same-variant-complete'), 1, `${appId} must clear its recovery marker after same-variant success`);
 
     const pendingLoad = model.loadNext();
     assert.equal(model.loading, true, `${appId} should enter a loading state before navigation`);
@@ -168,15 +175,13 @@ async function verifyWaterfallRuntime(expression, appId) {
     await pendingLoad;
 
     eventDocument.emit('pjax:error');
-    assert.equal(model.loadError, '加载失败，点击重试', `${appId} should expose retry after PJAX leaves the page in place`);
+    assert.equal(model.loadError, '加载已中断，点击重试', `${appId} must make interrupted pagination retryable after navigation failure`);
     assert.equal(model.hasMore, true, `${appId} navigation failure must not masquerade as end-of-list`);
+    assert.equal(model.resumePaginationAfterNavigationError, false, `${appId} must consume the recovery marker once`);
 
-    model.resumeAfterNavigationError = true;
-    eventDocument.emit('pjax:complete');
-    assert.equal(model.resumeAfterNavigationError, false, `${appId} successful PJAX completion should clear deferred recovery`);
-    model.resumeAfterNavigationError = true;
-    eventDocument.emit('pjax:same-variant-complete');
-    assert.equal(model.resumeAfterNavigationError, false, `${appId} successful same-variant completion should clear deferred recovery`);
+    model.loadError = '';
+    eventDocument.emit('pjax:error');
+    assert.equal(model.loadError, '', `${appId} must ignore unrelated navigation failures when no pagination request was interrupted`);
 
     globalThis.fetch = async () => ({
       ok: true,
@@ -197,7 +202,7 @@ async function verifyWaterfallRuntime(expression, appId) {
       }
     };
     await model.loadNext();
-    assert.equal(model.loadError, '', `${appId} retry should clear the navigation error`);
+    assert.equal(model.loadError, '', `${appId} terminal pagination success should keep the error state clear`);
     assert.equal(model.hasMore, false, `${appId} retry should accept a valid terminal page`);
 
     model.destroy();

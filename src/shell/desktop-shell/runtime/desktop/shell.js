@@ -27,6 +27,7 @@ const FLOATING_SCROLLBAR_SELECTOR = [
   '.categories-preview-scroll',
   '.category-posts-scroll',
   '.category-preview-scroll',
+  '.desktop-widgets-grid-shell',
   '.desktop-widget-center-grid'
 ].join(', ');
 

@@ -1237,4 +1237,207 @@
   pointer-events: none;
 }
 
-/* 注：对话框背景永远是暗色，无需亮色覆盖 */
+/* 组件中心属于桌面壳层，跟随系统亮暗色；品牌化组件预览仍保留自身固定配色。 */
+:root:not(.dark) .desktop-widget-center-frame {
+  color: #1d1d1f;
+  background: rgba(246, 246, 248, 0.96);
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.78);
+}
+
+:root:not(.dark) .desktop-widget-center-header {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+:root:not(.dark) .desktop-widget-center-grabber {
+  background: rgba(60, 60, 67, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+:root:not(.dark) .desktop-widget-center-grabber:hover {
+  background: rgba(60, 60, 67, 0.34);
+}
+
+:root:not(.dark) .desktop-widget-center-heading h2,
+:root:not(.dark) .desktop-widget-center-content-header h3,
+:root:not(.dark) .desktop-widget-center-section-title,
+:root:not(.dark) .desktop-widget-center-item-title {
+  color: rgba(29, 29, 31, 0.94);
+}
+
+:root:not(.dark) .desktop-widget-center-save-feedback,
+:root:not(.dark) .desktop-widget-center-step-chip,
+:root:not(.dark) .desktop-widget-center-content-count,
+:root:not(.dark) .desktop-widget-center-section-desc,
+:root:not(.dark) .desktop-widget-center-item-meta,
+:root:not(.dark) .desktop-widget-center-size-badge,
+:root:not(.dark) .desktop-widget-center-sidebar-label {
+  color: rgba(60, 60, 67, 0.62);
+}
+
+:root:not(.dark) .desktop-widget-center-save-feedback,
+:root:not(.dark) .desktop-widget-center-step-chip,
+:root:not(.dark) .desktop-widget-center-segmented,
+:root:not(.dark) .desktop-widget-center-empty,
+:root:not(.dark) .desktop-widget-center-item,
+:root:not(.dark) .desktop-widget-center-appearance-picker {
+  background: rgba(118, 118, 128, 0.08);
+  border-color: rgba(0, 0, 0, 0.09);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62);
+}
+
+:root:not(.dark) .desktop-widget-center-save-feedback.is-saving,
+:root:not(.dark) .desktop-widget-center-save-feedback.is-saved,
+:root:not(.dark) .desktop-widget-center-added-badge {
+  color: color-mix(in srgb, var(--theme-accent, var(--mac-accent, #2e5fbd)) 76%, #1d1d1f);
+  background: color-mix(in srgb, var(--theme-accent, var(--mac-accent, #2e5fbd)) 12%, white);
+  border-color: color-mix(in srgb, var(--theme-accent, var(--mac-accent, #2e5fbd)) 24%, rgba(0, 0, 0, 0.08));
+}
+
+:root:not(.dark) .desktop-widget-center-head-action,
+:root:not(.dark) .desktop-widget-center-appearance-option,
+:root:not(.dark) .desktop-widget-center-segment,
+:root:not(.dark) .desktop-widget-center-nav-item {
+  color: rgba(60, 60, 67, 0.72);
+}
+
+:root:not(.dark) .desktop-widget-center-head-action {
+  background: rgba(118, 118, 128, 0.08);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+:root:not(.dark) .desktop-widget-center-head-action:hover,
+:root:not(.dark) .desktop-widget-center-nav-item:hover,
+:root:not(.dark) .desktop-widget-center-appearance-option:hover {
+  color: #1d1d1f;
+  background: rgba(118, 118, 128, 0.13);
+}
+
+:root:not(.dark) .desktop-widget-center-nav-item.is-active,
+:root:not(.dark) .desktop-widget-center-segment.is-active,
+:root:not(.dark) .desktop-widget-center-appearance-option.is-active {
+  color: #1d1d1f;
+  background: #fff;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.12),
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+}
+
+:root:not(.dark) .desktop-widget-center-search {
+  background: rgba(118, 118, 128, 0.1);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+:root:not(.dark) .desktop-widget-center-search input {
+  color: #1d1d1f;
+}
+
+:root:not(.dark) .desktop-widget-center-search input::placeholder,
+:root:not(.dark) .desktop-widget-center-search svg,
+:root:not(.dark) .desktop-widget-center-search span {
+  color: rgba(60, 60, 67, 0.48);
+}
+
+:root:not(.dark) .desktop-widget-center-grid {
+  --floating-scrollbar-thumb: rgba(60, 60, 67, 0.22);
+  --floating-scrollbar-thumb-hover: rgba(60, 60, 67, 0.36);
+}
+
+:root:not(.dark) .desktop-widget-center-empty {
+  color: rgba(60, 60, 67, 0.72);
+}
+
+:root:not(.dark) .desktop-add-icon-backdrop {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+:root:not(.dark) .desktop-add-icon-dialog {
+  color: #1d1d1f;
+  background: rgba(246, 246, 248, 0.98);
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow:
+    0 24px 56px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.84);
+}
+
+:root:not(.dark) .desktop-add-icon-dialog-header,
+:root:not(.dark) .desktop-add-icon-dialog-footer {
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+:root:not(.dark) .desktop-add-icon-dialog-header h2,
+:root:not(.dark) .desktop-widget-config-group-name {
+  color: rgba(29, 29, 31, 0.94);
+}
+
+:root:not(.dark) .desktop-add-icon-close,
+:root:not(.dark) .desktop-add-icon-field > span,
+:root:not(.dark) .desktop-widget-config-help,
+:root:not(.dark) .desktop-widget-config-group-count,
+:root:not(.dark) .desktop-widget-config-empty,
+:root:not(.dark) .desktop-widget-config-preview-label {
+  color: rgba(60, 60, 67, 0.62);
+}
+
+:root:not(.dark) .desktop-add-icon-close:hover {
+  color: #1d1d1f;
+}
+
+:root:not(.dark) .desktop-add-icon-field input,
+:root:not(.dark) .desktop-add-icon-type-btn,
+:root:not(.dark) .desktop-add-icon-btn,
+:root:not(.dark) .desktop-widget-config-select,
+:root:not(.dark) .desktop-widget-config-input,
+:root:not(.dark) .desktop-widget-config-toggle,
+:root:not(.dark) .desktop-widget-config-category-btn {
+  color: rgba(29, 29, 31, 0.86);
+  background: rgba(118, 118, 128, 0.1);
+  border-color: rgba(0, 0, 0, 0.11);
+}
+
+:root:not(.dark) .desktop-add-icon-field input::placeholder {
+  color: rgba(60, 60, 67, 0.44);
+}
+
+:root:not(.dark) .desktop-add-icon-field input:focus,
+:root:not(.dark) .desktop-widget-config-select:focus,
+:root:not(.dark) .desktop-widget-config-input:focus {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+:root:not(.dark) .desktop-add-icon-type-btn:hover,
+:root:not(.dark) .desktop-add-icon-btn:hover,
+:root:not(.dark) .desktop-widget-config-group-btn:hover,
+:root:not(.dark) .desktop-widget-config-category-btn:hover {
+  color: #1d1d1f;
+  background: rgba(118, 118, 128, 0.16);
+}
+
+:root:not(.dark) .desktop-add-icon-type-btn.is-active,
+:root:not(.dark) .desktop-widget-config-category-btn.is-active,
+:root:not(.dark) .desktop-widget-config-toggle.is-active {
+  color: #1d1d1f;
+  background: color-mix(in srgb, var(--theme-accent, var(--mac-accent, #2e5fbd)) 12%, white);
+}
+
+:root:not(.dark) .desktop-widget-config-group-btn {
+  color: rgba(29, 29, 31, 0.86);
+}
+
+:root:not(.dark) .desktop-widget-config-group-btn.is-active .desktop-widget-config-group-name {
+  color: color-mix(in srgb, var(--theme-accent, var(--mac-accent, #2e5fbd)) 78%, #1d1d1f);
+}
+
+:root:not(.dark) .desktop-widget-config-toggle-track {
+  background: rgba(120, 120, 128, 0.24);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.06),
+    inset 0 1px 2px rgba(0, 0, 0, 0.14);
+}
+
+:root:not(.dark) .desktop-add-icon-btn--primary {
+  color: var(--theme-accent-contrast, #fff);
+  background: var(--theme-accent, var(--mac-accent, #2e5fbd));
+}

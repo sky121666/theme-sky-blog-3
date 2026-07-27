@@ -14,6 +14,7 @@
 /* ---------- 字体与平滑 ---------- */
 @theme {
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  --breakpoint-md: 48.0625rem;
 }
 
 html, body {
@@ -163,9 +164,9 @@ body {
   --theme-shell-light: var(--mac-shell-light, #ffffff);
   --theme-shell-dark: var(--mac-shell-dark, #141414);
   --shell-text-primary: #ffffff;
-  --shell-menubar-bg: rgba(255, 255, 255, 0.14);
+  --shell-menubar-bg: rgba(28, 31, 38, 0.38);
   --shell-menubar-border: transparent;
-  --shell-menubar-hover-bg: rgba(255, 255, 255, 0.08);
+  --shell-menubar-hover-bg: rgba(255, 255, 255, 0.13);
   --shell-dock-glass-border: rgba(255, 255, 255, 0.22);
   --shell-dock-glass-border-bottom: rgba(0, 0, 0, 0.06);
   --shell-dock-icon-bg: rgba(255, 255, 255, 0.25);

@@ -3,8 +3,6 @@
  * desktop protocol. If an editor adds one that was absent from that initial
  * layout, a successful save must reload once so the new Finder data is present.
  */
-import { migrateLegacyWidgetType } from '../../widgets/persistence-read.js';
-
 const SERVER_DATA_WIDGET_TYPES = new Set([
   'halo.author_card',
   'halo.latest_posts',
@@ -21,7 +19,7 @@ const SERVER_DATA_WIDGET_TYPES = new Set([
 ]);
 
 function widgetTypeOf(instance) {
-  return migrateLegacyWidgetType(instance?.realNode?.widget || instance?.widget);
+  return String(instance?.realNode?.widget || instance?.widget || '').trim();
 }
 
 export function serverLoadedWidgetTypes(serverLayout) {

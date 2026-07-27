@@ -12,8 +12,9 @@
          x-data="draggableWindow"
          :class="{ 'window-resizable': isDesktop && !isMaximized && $el.dataset.windowResizable !== 'false' && $el.dataset.windowResizable !== '' }"
          @theme-window-drag-start.window="if (!$event.detail?.surface || $event.detail.surface === $el) onDragStart($event.detail?.sourceEvent || $event)"
-         @mousemove.window="onPointerMove"
-         @mouseup.window="onPointerEnd"
+         @pointermove.window="onPointerMove"
+         @pointerup.window="onPointerEnd"
+         @pointercancel.window="onPointerEnd"
          x-transition:enter="transition ease-out duration-200"
          x-transition:enter-start="opacity-0 md:scale-95"
          x-transition:enter-end="opacity-100 md:scale-100"
@@ -26,16 +27,16 @@
 
   <th:block th:fragment="resizeHandles (mode, enabled)">
     <th:block th:if="${enabled}">
-      <div class="window-resize-handle window-resize-handle--n" @mousedown.stop.prevent="startResize('n', $event)"></div>
-      <div class="window-resize-handle window-resize-handle--s" @mousedown.stop.prevent="startResize('s', $event)"></div>
+      <div class="window-resize-handle window-resize-handle--n" @pointerdown.stop.prevent="startResize('n', $event)"></div>
+      <div class="window-resize-handle window-resize-handle--s" @pointerdown.stop.prevent="startResize('s', $event)"></div>
 
       <th:block th:if="${mode == 'full'}">
-        <div class="window-resize-handle window-resize-handle--e" @mousedown.stop.prevent="startResize('e', $event)"></div>
-        <div class="window-resize-handle window-resize-handle--w" @mousedown.stop.prevent="startResize('w', $event)"></div>
-        <div class="window-resize-handle window-resize-handle--ne" @mousedown.stop.prevent="startResize('ne', $event)"></div>
-        <div class="window-resize-handle window-resize-handle--nw" @mousedown.stop.prevent="startResize('nw', $event)"></div>
-        <div class="window-resize-handle window-resize-handle--se" @mousedown.stop.prevent="startResize('se', $event)"></div>
-        <div class="window-resize-handle window-resize-handle--sw" @mousedown.stop.prevent="startResize('sw', $event)"></div>
+        <div class="window-resize-handle window-resize-handle--e" @pointerdown.stop.prevent="startResize('e', $event)"></div>
+        <div class="window-resize-handle window-resize-handle--w" @pointerdown.stop.prevent="startResize('w', $event)"></div>
+        <div class="window-resize-handle window-resize-handle--ne" @pointerdown.stop.prevent="startResize('ne', $event)"></div>
+        <div class="window-resize-handle window-resize-handle--nw" @pointerdown.stop.prevent="startResize('nw', $event)"></div>
+        <div class="window-resize-handle window-resize-handle--se" @pointerdown.stop.prevent="startResize('se', $event)"></div>
+        <div class="window-resize-handle window-resize-handle--sw" @pointerdown.stop.prevent="startResize('sw', $event)"></div>
       </th:block>
     </th:block>
   </th:block>

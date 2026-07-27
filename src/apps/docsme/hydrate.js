@@ -23,9 +23,14 @@ registerPageAppLifecycle('docsme', {
     const chromeTitle = app?.dataset.docsmeChromeTitle || '';
     const chromeSubtitle = app?.dataset.docsmeChromeSubtitle || '';
     const siteTitle = app?.dataset.docsmeSiteTitle || '';
-    const resolvedTitle = chromeTitle
-      ? (siteTitle && !chromeTitle.includes(siteTitle) ? `${chromeTitle} - ${siteTitle}` : chromeTitle)
-      : (context.documentTitle || document.title);
+    const scene = app?.dataset.docsmeScene || '';
+    const titleParts = scene === 'document'
+      ? [chromeSubtitle, chromeTitle, siteTitle]
+      : [chromeTitle, siteTitle];
+    const resolvedTitle = titleParts
+      .map((part) => String(part || '').trim())
+      .filter((part, index, parts) => part && parts.indexOf(part) === index)
+      .join(' - ') || context.documentTitle || document.title;
 
     return {
       title: resolvedTitle,

@@ -68,6 +68,14 @@
                    decoding="async"
                    draggable="false"
                    :style="'transform: translate(calc(-50% + ' + panX + 'px), calc(-50% + ' + panY + 'px)) scale(' + zoomLevel + ')'" />
+              <div class="photos-detail-image-error"
+                   data-photos-detail-image-error
+                   role="alert"
+                   hidden>
+                <span class="icon-[lucide--image-off]" aria-hidden="true"></span>
+                <strong>图片加载失败</strong>
+                <button type="button" onclick="window.location.reload()">重新加载</button>
+              </div>
               <figcaption th:if="${!#strings.isEmpty(photoDescription)}" th:text="${photoDescription}">图片描述</figcaption>
             </figure>
 
@@ -113,6 +121,7 @@
           </nav>
 
           <section class="photos-detail-popover"
+                   x-cloak
                    x-show="infoOpen"
                    x-transition:enter="photos-popover-enter"
                    x-transition:enter-start="photos-popover-enter-start"
@@ -153,6 +162,7 @@
         </main>
 
         <aside class="photos-detail-comment-drawer"
+               x-cloak
                x-show="commentsOpen"
                x-transition:enter="photos-drawer-enter"
                x-transition:enter-start="photos-drawer-enter-start"

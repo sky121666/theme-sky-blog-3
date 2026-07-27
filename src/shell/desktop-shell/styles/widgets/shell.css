@@ -1,12 +1,44 @@
 .desktop-widgets-grid-shell {
+  --desktop-canvas-scrollbar-thumb: rgba(60, 60, 67, 0.28);
   position: relative;
   height: 100%;
   padding-top: 0;
-  overflow: hidden;
-  overflow-x: auto; /* 窄屏时允许水平滚动，而非压缩组件 */
+  overflow: auto;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
   transition: transform 0.24s ease, opacity 0.24s ease, filter 0.24s ease;
   pointer-events: none;
+}
+
+.dark .desktop-widgets-grid-shell {
+  --desktop-canvas-scrollbar-thumb: rgba(255, 255, 255, 0.28);
+}
+
+.desktop-widgets-grid-shell[data-scrollbar-active="true"] {
+  scrollbar-color: var(--desktop-canvas-scrollbar-thumb) transparent;
+}
+
+.desktop-widgets-grid-shell::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.desktop-widgets-grid-shell::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.desktop-widgets-grid-shell::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  background-clip: padding-box;
+}
+
+.desktop-widgets-grid-shell[data-scrollbar-active="true"]::-webkit-scrollbar-thumb {
+  background: var(--desktop-canvas-scrollbar-thumb);
+  background-clip: padding-box;
 }
 
 .desktop-widgets-grid {

@@ -549,7 +549,7 @@ function getPhotoViewer(root = document.body) {
     };
   }
 
-  function resetView() {
+  function prepareView() {
     state.scale = 1;
     state.pointX = 0;
     state.pointY = 0;
@@ -562,6 +562,28 @@ function getPhotoViewer(root = document.body) {
     overlay.classList.remove('is-image-error');
     overlay.classList.add('is-loading');
     liveToggle?.classList.remove('is-active');
+    updateTransform();
+  }
+
+  function resetView() {
+    state.scale = 1;
+    state.pointX = 0;
+    state.pointY = 0;
+    state.live = false;
+    live.pause();
+    live.hidden = true;
+    liveToggle?.classList.remove('is-active');
+    error.hidden = true;
+    overlay.classList.remove('is-image-error');
+    if (image.complete && image.naturalWidth > 0) {
+      loading.hidden = true;
+      image.hidden = false;
+      overlay.classList.remove('is-loading');
+    } else {
+      loading.hidden = false;
+      image.hidden = true;
+      overlay.classList.add('is-loading');
+    }
     updateTransform();
   }
 
@@ -588,7 +610,7 @@ function getPhotoViewer(root = document.body) {
   function render() {
     const item = current();
     if (!item) return;
-    resetView();
+    prepareView();
     image.src = item.url;
     image.dataset.originType = item.type;
     if (image.complete && image.naturalWidth > 0) {

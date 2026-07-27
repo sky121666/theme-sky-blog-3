@@ -92,6 +92,7 @@ function notificationWeatherEntryKey(cityName) {
 
 const NOTIFICATION_PAGE_SIZE = 50;
 const NOTIFICATION_GROUP_PAGE_SIZE = 10;
+const NOTIFICATION_REQUEST_TIMEOUT_MS = 10_000;
 const HALO_ANONYMOUS_USERNAME = 'anonymousUser';
 const USER_ENDPOINT = '/apis/api.console.halo.run/v1alpha1/users/-';
 const NOTIFICATION_ENDPOINT = '/apis/api.notification.halo.run/v1alpha1/userspaces/{username}/notifications';
@@ -182,11 +183,63 @@ function formatNotificationTimeTitle(value) {
 }
 
 function isJsonResponse(response) {
-  return (response.headers.get('content-type') || '').includes('application/json');
+  return (response.headers.get('content-type') || '').toLowerCase().includes('json');
+}
+
+async function fetchNotificationWithTimeout(input, init = {}, timeoutMs = NOTIFICATION_REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const upstreamSignal = init.signal;
+  const abortFromUpstream = () => controller.abort(upstreamSignal.reason);
+  if (upstreamSignal?.aborted) abortFromUpstream();
+  else upstreamSignal?.addEventListener?.('abort', abortFromUpstream, { once: true });
+  const timeoutId = globalThis.setTimeout(() => {
+    controller.abort(new DOMException('通知请求超时', 'TimeoutError'));
+  }, timeoutMs);
+
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (controller.signal.reason?.name === 'TimeoutError') throw controller.signal.reason;
+    throw error;
+  } finally {
+    globalThis.clearTimeout(timeoutId);
+    upstreamSignal?.removeEventListener?.('abort', abortFromUpstream);
+  }
+}
+
+function assertNotificationMutationResponse(response) {
+  if (response.redirected || response.status === 401 || response.status === 403) {
+    const error = new Error('notification-auth-required');
+    error.code = 'auth';
+    error.status = response.status;
+    throw error;
+  }
+  if (response.status === 404) return;
+  if (!response.ok && response.status !== 404) {
+    const error = new Error(`HTTP ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  const contentType = response.headers.get('content-type') || '';
+  if (response.status !== 204 && contentType && !isJsonResponse(response)) {
+    const error = new Error('notification-mutation-non-json');
+    error.code = 'invalid-response';
+    error.status = response.status;
+    throw error;
+  }
+}
+
+export function formatNotificationActionFailure(error, action = '更新通知') {
+  if (error?.name === 'TimeoutError') return `${action}超时，请稍后重试`;
+  if (error?.code === 'auth' || error?.status === 401 || error?.status === 403) {
+    return '登录状态已失效，请重新登录后再操作';
+  }
+  if (Number(error?.status || 0) >= 500) return `${action}失败，通知服务暂时不可用`;
+  return `${action}失败，请稍后重试`;
 }
 
 async function resolveCurrentUsername(signal) {
-  const response = await fetch(new URL(USER_ENDPOINT, window.location.origin), {
+  const response = await fetchNotificationWithTimeout(new URL(USER_ENDPOINT, window.location.origin), {
     credentials: 'same-origin',
     headers: { Accept: 'application/json' },
     signal
@@ -455,6 +508,8 @@ export function registerWindowManager(Alpine) {
     notificationMotion: null,
     notificationStatus: 'idle',
     notificationStatusText: '',
+    notificationActionMessage: '',
+    notificationActionMessageTimer: null,
     notificationLoading: false,
     notificationLoadingStatusTimer: null,
     notificationLoaded: false,
@@ -490,6 +545,7 @@ export function registerWindowManager(Alpine) {
     notificationWidgetRenderers: {},
     notificationWidgetRendererPromises: {},
     notificationWidgetRenderVersions: {},
+    notificationWidgetRendererErrors: {},
     notificationWidgetHtmlCache: new Map(),
     notificationWidgetRenderTick: 0,
     notificationWidgetDataStatus: 'idle',
@@ -505,6 +561,8 @@ export function registerWindowManager(Alpine) {
       height: 0
     },
     notificationWeatherRuntimePromise: null,
+    notificationWeatherDefaults: null,
+    notificationWeatherRefreshTimer: null,
     notificationWeatherRequestId: 0,
     notificationWeatherState: {
       loading: false,
@@ -562,6 +620,7 @@ export function registerWindowManager(Alpine) {
         // replacing all Finder/plugin data, so the old markup is not reusable.
         this.notificationWidgetHtmlCache.clear();
         this.notificationWidgetRenderTick += 1;
+        this.notificationWeatherDefaults = event.detail?.modules?.weather || null;
         if (getDesktopWidgetProtocol().isHome === true) {
           this.notificationWidgetDataStatus = 'ready';
         }
@@ -667,6 +726,12 @@ export function registerWindowManager(Alpine) {
       if (this.notificationWidgetEnhanceRafId) {
         window.cancelAnimationFrame(this.notificationWidgetEnhanceRafId);
       }
+      if (this.notificationActionMessageTimer) {
+        window.clearTimeout(this.notificationActionMessageTimer);
+      }
+      if (this.notificationWeatherRefreshTimer) {
+        window.clearTimeout(this.notificationWeatherRefreshTimer);
+      }
       this.notificationController?.abort();
       this.notificationMoreController?.abort();
       this.notificationWidgetDataController?.abort();
@@ -730,6 +795,7 @@ export function registerWindowManager(Alpine) {
       this.notificationOpenScrollPending = true;
       this.notificationCenterOpen = true;
       this.notificationCenterVisible = true;
+      this.scheduleNotificationWeatherRefresh();
       this.notificationCenterAnimating = true;
       this.notificationCenterMotionPhase = 'opening';
       document.body.classList.add('notification-center-open');
@@ -767,6 +833,7 @@ export function registerWindowManager(Alpine) {
       await this.notificationMotion?.close(this.$refs.notificationCenterPanel);
       if (token !== this.notificationMotionToken) return;
       this.notificationCenterVisible = false;
+      this.clearNotificationWeatherRefreshTimer();
       this.notificationCenterAnimating = false;
       this.notificationCenterMotionPhase = 'idle';
       if (this.notificationLoadingStatusTimer) {
@@ -822,6 +889,18 @@ export function registerWindowManager(Alpine) {
     setNotificationState(status, text = '') {
       this.notificationStatus = status;
       this.notificationStatusText = text;
+    },
+    setNotificationActionMessage(message = '') {
+      this.notificationActionMessage = message;
+      if (this.notificationActionMessageTimer) {
+        window.clearTimeout(this.notificationActionMessageTimer);
+      }
+      this.notificationActionMessageTimer = message
+        ? window.setTimeout(() => {
+          this.notificationActionMessage = '';
+          this.notificationActionMessageTimer = null;
+        }, 4_500)
+        : null;
     },
     notificationCenterDisplayTitle() {
       if (!this.notificationCenterAuthResolved || this.notificationCenterAuthenticated) {
@@ -1067,12 +1146,12 @@ export function registerWindowManager(Alpine) {
           signal: this.notificationController.signal
         };
         const [response, unreadResponse] = await Promise.all([
-          fetch(buildUserNotificationUrl(user.username, {
+          fetchNotificationWithTimeout(buildUserNotificationUrl(user.username, {
             unreadOnly: false,
             page: 1,
             pageSize: NOTIFICATION_PAGE_SIZE
           }), requestOptions),
-          fetch(buildUserNotificationUrl(user.username, {
+          fetchNotificationWithTimeout(buildUserNotificationUrl(user.username, {
             unreadOnly: true,
             page: 1,
             pageSize: 1
@@ -1171,7 +1250,7 @@ export function registerWindowManager(Alpine) {
       this.notificationMoreController = new AbortController();
 
       try {
-        const response = await fetch(buildUserNotificationUrl(this.notificationUsername, {
+        const response = await fetchNotificationWithTimeout(buildUserNotificationUrl(this.notificationUsername, {
           unreadOnly: false,
           page,
           pageSize: NOTIFICATION_PAGE_SIZE
@@ -1224,14 +1303,12 @@ export function registerWindowManager(Alpine) {
       }
 
       try {
-        const response = await fetch(buildMarkNotificationReadUrl(this.notificationUsername, item.id), {
+        const response = await fetchNotificationWithTimeout(buildMarkNotificationReadUrl(this.notificationUsername, item.id), {
           method: 'PUT',
           credentials: 'same-origin',
           headers: { Accept: 'application/json' }
         });
-        if (!response.ok && response.status !== 404) {
-          throw new Error(`HTTP ${response.status}`);
-        }
+        assertNotificationMutationResponse(response);
         if (!this.notificationShowRead && this.notificationVisibleGroups().length === 0) {
           this.setNotificationState('empty', '暂无未读通知');
         }
@@ -1241,6 +1318,7 @@ export function registerWindowManager(Alpine) {
         this.notificationUnreadCount += 1;
         this.syncNotificationGroups();
         this.setNotificationState('ready', '');
+        this.setNotificationActionMessage(formatNotificationActionFailure(error, '标记已读'));
         wmLog('notification mark-as-read failed', error?.message || String(error || ''));
         return false;
       }
@@ -1258,14 +1336,12 @@ export function registerWindowManager(Alpine) {
       }
 
       try {
-        const response = await fetch(buildDeleteNotificationUrl(this.notificationUsername, item.id), {
+        const response = await fetchNotificationWithTimeout(buildDeleteNotificationUrl(this.notificationUsername, item.id), {
           method: 'DELETE',
           credentials: 'same-origin',
           headers: { Accept: 'application/json' }
         });
-        if (!response.ok && response.status !== 404) {
-          throw new Error(`HTTP ${response.status}`);
-        }
+        assertNotificationMutationResponse(response);
         this.notificationItems = this.notificationItems.filter((entry) => entry !== item);
         this.notificationLoadedCount = Math.max(0, this.notificationLoadedCount - 1);
         this.notificationTotalCount = Math.max(0, this.notificationTotalCount - 1);
@@ -1276,6 +1352,7 @@ export function registerWindowManager(Alpine) {
         wmLog('notification delete failed', error?.message || String(error || ''));
         item.dismissed = false;
         this.syncNotificationGroups();
+        this.setNotificationActionMessage(formatNotificationActionFailure(error, '删除通知'));
         return false;
       }
     },
@@ -1410,7 +1487,8 @@ export function registerWindowManager(Alpine) {
         this.notificationNavigationClosePromise = navigationClosePromise;
       }
       const closePromise = this.notificationNavigationClosePromise;
-      await Promise.allSettled([markReadPromise, closePromise]);
+      void markReadPromise;
+      await closePromise;
       if (generation !== this.notificationOpenGeneration) return;
       const url = new URL(href, window.location.origin);
       if (isNotificationPjaxHref(url.href, window.location.origin) && window.pjax?.loadUrl) {
@@ -1525,6 +1603,7 @@ export function registerWindowManager(Alpine) {
       if (this.hasNotificationWeatherWidget()) {
         void this.loadNotificationWeather();
       } else {
+        this.clearNotificationWeatherRefreshTimer();
         this.notificationWeatherRequestId += 1;
         this.notificationWeatherState = {
           loading: false,
@@ -1570,7 +1649,7 @@ export function registerWindowManager(Alpine) {
     },
     resolveNotificationWeatherWidgetConfig(widget) {
       const protocol = getDesktopWidgetProtocol();
-      const weatherModule = protocol.modules?.weather || {};
+      const weatherModule = this.notificationWeatherDefaults || protocol.modules?.weather || {};
       const meta = widget?.meta && typeof widget.meta === 'object' ? widget.meta : {};
       const cityName = normalizeWeatherCityName(meta.cityName) || normalizeWeatherCityName(weatherModule.cityName);
       const refreshMinutes = Number.parseInt(meta.refreshMinutes ?? weatherModule.refreshMinutes ?? 30, 10);
@@ -1592,9 +1671,29 @@ export function registerWindowManager(Alpine) {
         });
       return Array.from(targets.values());
     },
+    clearNotificationWeatherRefreshTimer() {
+      if (!this.notificationWeatherRefreshTimer) return;
+      window.clearTimeout(this.notificationWeatherRefreshTimer);
+      this.notificationWeatherRefreshTimer = null;
+    },
+    scheduleNotificationWeatherRefresh() {
+      this.clearNotificationWeatherRefreshTimer();
+      if (!this.notificationCenterVisible || !this.hasNotificationWeatherWidget()) return;
+      const targets = this.resolveNotificationWeatherLoadTargets();
+      if (!targets.length) return;
+      const refreshMinutes = Math.min(...targets.map((target) => target.refreshMinutes));
+      this.notificationWeatherRefreshTimer = window.setTimeout(() => {
+        this.notificationWeatherRefreshTimer = null;
+        void this.loadNotificationWeather(true);
+      }, Math.max(10, refreshMinutes) * 60 * 1000);
+    },
     async loadNotificationWeather(forceRefresh = false) {
-      if (!this.hasNotificationWeatherWidget()) return;
+      if (!this.hasNotificationWeatherWidget()) {
+        this.clearNotificationWeatherRefreshTimer();
+        return;
+      }
       if (this.notificationWeatherState.loading && !forceRefresh) return;
+      this.clearNotificationWeatherRefreshTimer();
 
       const targets = this.resolveNotificationWeatherLoadTargets();
       if (!targets.length) {
@@ -1606,6 +1705,7 @@ export function registerWindowManager(Alpine) {
         };
         this.notificationWidgetHtmlCache.clear();
         this.notificationWidgetRenderTick += 1;
+        this.scheduleNotificationWeatherRefresh();
         return;
       }
 
@@ -1707,6 +1807,7 @@ export function registerWindowManager(Alpine) {
         if (requestId === this.notificationWeatherRequestId) {
           this.notificationWidgetHtmlCache.clear();
           this.notificationWidgetRenderTick += 1;
+          this.scheduleNotificationWeatherRefresh();
           this.$nextTick(() => this.scheduleNotificationWidgetEnhancement());
         }
       }
@@ -1740,7 +1841,12 @@ export function registerWindowManager(Alpine) {
         widgetRenderers: this.notificationWidgetRenderers,
         widgetRendererPromises: this.notificationWidgetRendererPromises,
         widgetRenderVersions: this.notificationWidgetRenderVersions,
+        widgetRendererErrors: this.notificationWidgetRendererErrors,
         onWidgetRendererReady: () => {
+          this.notificationWidgetHtmlCache.clear();
+          this.notificationWidgetRenderTick += 1;
+        },
+        onWidgetRendererError: () => {
           this.notificationWidgetHtmlCache.clear();
           this.notificationWidgetRenderTick += 1;
         }
@@ -1780,8 +1886,13 @@ export function registerWindowManager(Alpine) {
         widgetRenderers: this.notificationWidgetRenderers,
         widgetRendererPromises: this.notificationWidgetRendererPromises,
         widgetRenderVersions: this.notificationWidgetRenderVersions,
+        widgetRendererErrors: this.notificationWidgetRendererErrors,
         _widgetHtmlCache: this.notificationWidgetHtmlCache,
         onWidgetRendererReady: () => {
+          this.notificationWidgetHtmlCache.clear();
+          this.notificationWidgetRenderTick += 1;
+        },
+        onWidgetRendererError: () => {
           this.notificationWidgetHtmlCache.clear();
           this.notificationWidgetRenderTick += 1;
         }
@@ -2129,7 +2240,8 @@ export function registerWindowManager(Alpine) {
 
       const readSettings = () => {
         const ds = el.dataset;
-        const enableMagnification = ds.magnification !== 'false';
+        const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+        const enableMagnification = ds.magnification !== 'false' && !reduceMotion;
         const baseSize = Math.max(36, Math.min(64, parseInt(ds.dockIconSize, 10) || 48));
         const iconGap = Math.max(2, Math.min(12, parseInt(ds.dockIconGap, 10) || 4));
         const dockPadding = Math.max(4, Math.min(16, parseInt(ds.dockPadding, 10) || 6));
@@ -2187,6 +2299,17 @@ export function registerWindowManager(Alpine) {
 
       const getIcons = () => Array.from(dockBar.querySelectorAll('.dock-icon'));
 
+      const syncDockFit = () => {
+        const availableWidth = Math.max(240, window.innerWidth - 16);
+        const naturalWidth = Math.max(1, dockBar.scrollWidth);
+        const magnificationHeadroom = settings.enableMagnification
+          ? settings.baseSize * Math.max(0, settings.maxScale - 1) * 2 + 16
+          : 0;
+        const fitScale = Math.min(1, availableWidth / (naturalWidth + magnificationHeadroom));
+        el.style.setProperty('--dock-fit-scale', fitScale.toFixed(4));
+        el.dataset.dockCompacted = String(fitScale < 0.999);
+      };
+
       const resetIcons = () => {
         lastMouseX = null;
         getIcons().forEach((icon) => {
@@ -2197,6 +2320,7 @@ export function registerWindowManager(Alpine) {
           icon.style.transform = 'translateY(0px)';
           icon.style.zIndex = '';
         });
+        syncDockFit();
       };
 
       const updateDock = (mouseX) => {
@@ -2211,11 +2335,16 @@ export function registerWindowManager(Alpine) {
         let tooltipTarget = null;
         let nearestDistance = Infinity;
 
-        icons.forEach((icon) => {
-          icon.classList.remove('dock-animating', 'dock-tooltip-visible');
-
+        const iconMeasurements = icons.map((icon) => {
           const rect = icon.getBoundingClientRect();
-          const centerX = rect.left + rect.width / 2;
+          return {
+            icon,
+            centerX: rect.left + rect.width / 2
+          };
+        });
+
+        iconMeasurements.forEach(({ icon, centerX }) => {
+          icon.classList.remove('dock-animating', 'dock-tooltip-visible');
           const distance = Math.abs(mouseX - centerX);
 
           let scale = 1;
@@ -2266,6 +2395,11 @@ export function registerWindowManager(Alpine) {
       el.addEventListener(runtimeSyncEvent, () => {
         cancelAnimationFrame(rafId);
         settings = applySettings();
+        rafId = requestAnimationFrame(resetIcons);
+      }, { signal });
+
+      window.addEventListener('resize', () => {
+        cancelAnimationFrame(rafId);
         rafId = requestAnimationFrame(resetIcons);
       }, { signal });
 

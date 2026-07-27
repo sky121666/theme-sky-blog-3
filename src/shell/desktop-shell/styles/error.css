@@ -5,7 +5,7 @@
   display: grid;
   place-items: center;
   padding: max(56px, calc(28px + 20px)) 16px calc(104px + env(safe-area-inset-bottom, 0px));
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .error-desktop-layer::before {
@@ -253,9 +253,11 @@
   border-radius: 7px;
   text-decoration: none;
   font-size: 12px;
+  font-family: inherit;
   font-weight: 520;
   white-space: nowrap;
   transition: background-color 0.16s ease, border-color 0.16s ease, transform 0.12s ease;
+  cursor: pointer;
 }
 
 .error-modal-action:active {

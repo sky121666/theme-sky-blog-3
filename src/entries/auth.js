@@ -40,6 +40,7 @@ function applyTheme(theme, root = document.documentElement) {
 export function initAuthThemeToggle(root = document) {
   const buttons = root.querySelectorAll('[data-auth-theme-toggle]');
   if (!buttons.length) return null;
+  const systemThemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
   const onClick = () => {
     const current = resolveTheme(document.documentElement);
@@ -54,9 +55,24 @@ export function initAuthThemeToggle(root = document) {
     button.addEventListener('click', onClick);
   });
 
+  const onSystemThemeChange = () => {
+    if (resolveTheme(document.documentElement) !== 'system') return;
+    applyTheme('system', document.documentElement);
+  };
+  if (typeof systemThemeQuery.addEventListener === 'function') {
+    systemThemeQuery.addEventListener('change', onSystemThemeChange);
+  } else {
+    systemThemeQuery.addListener?.(onSystemThemeChange);
+  }
+
   applyTheme(resolveTheme(document.documentElement), document.documentElement);
 
   return () => {
+    if (typeof systemThemeQuery.removeEventListener === 'function') {
+      systemThemeQuery.removeEventListener('change', onSystemThemeChange);
+    } else {
+      systemThemeQuery.removeListener?.(onSystemThemeChange);
+    }
     buttons.forEach((button) => {
       if (button.dataset.themeToggleBound !== 'true') return;
       button.dataset.themeToggleBound = 'false';
@@ -108,6 +124,135 @@ export function initAuthToasts(root = document) {
 
   return () => {
     timers.forEach((timer) => window.clearTimeout(timer));
+  };
+}
+
+function setAuthLockscreenStepState(step, active) {
+  if (!step) return;
+  step.setAttribute('aria-hidden', active ? 'false' : 'true');
+  if (active) {
+    step.removeAttribute('inert');
+    step.inert = false;
+    return;
+  }
+  step.setAttribute('inert', '');
+  step.inert = true;
+}
+
+export function initAuthLockscreenFlow(root = document) {
+  const form = root.querySelector('#login-form');
+  const nativeFields = form?.querySelector('[data-auth-lockscreen-native]');
+  if (!form || !nativeFields || form.dataset.authLockscreenBound === 'true') return null;
+
+  const identityStep = nativeFields.querySelector('[data-auth-lockscreen-step="identity"]');
+  const passwordStep = nativeFields.querySelector('[data-auth-lockscreen-step="password"]');
+  const usernameInput = form.querySelector('#username');
+  const passwordInput = form.querySelector('#password');
+  const advanceButton = form.querySelector('[data-auth-lockscreen-advance]');
+  const backButton = form.querySelector('[data-auth-lockscreen-back]');
+  const passwordSubmit = form.querySelector('[data-auth-lockscreen-submit]');
+  const accountLabel = form.querySelector('[data-auth-lockscreen-account-label]');
+  const status = form.querySelector('[data-auth-lockscreen-status]');
+
+  if (!identityStep || !passwordStep || !usernameInput || !passwordInput || !advanceButton || !passwordSubmit) {
+    return null;
+  }
+
+  const originalPasswordRequired = passwordInput.required;
+  const originalSubmitDisabled = passwordSubmit.disabled;
+  let currentStep = 'identity';
+  let focusTimer = 0;
+
+  const announce = (message) => {
+    if (!status) return;
+    status.textContent = '';
+    window.requestAnimationFrame(() => {
+      status.textContent = message;
+    });
+  };
+
+  const syncAccountLabel = () => {
+    if (!accountLabel) return;
+    accountLabel.textContent = usernameInput.value.trim() || '账户';
+  };
+
+  const setStep = (nextStep, { focus = true, message = '' } = {}) => {
+    const passwordActive = nextStep === 'password';
+    currentStep = passwordActive ? 'password' : 'identity';
+    form.dataset.authLockscreenStep = currentStep;
+    passwordInput.required = passwordActive && originalPasswordRequired;
+    passwordSubmit.disabled = !passwordActive;
+    setAuthLockscreenStepState(identityStep, !passwordActive);
+    setAuthLockscreenStepState(passwordStep, passwordActive);
+    syncAccountLabel();
+
+    if (message) announce(message);
+    if (!focus) return;
+
+    window.clearTimeout(focusTimer);
+    const focusDelay = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 160;
+    focusTimer = window.setTimeout(() => {
+      const target = passwordActive ? passwordInput : usernameInput;
+      target.focus({ preventScroll: true });
+    }, focusDelay);
+  };
+
+  const advance = () => {
+    if (!usernameInput.reportValidity()) {
+      usernameInput.focus({ preventScroll: true });
+      return false;
+    }
+    setStep('password', { message: '请输入密码' });
+    return true;
+  };
+
+  const onAdvance = (event) => {
+    event.preventDefault();
+    advance();
+  };
+
+  const onBack = (event) => {
+    event.preventDefault();
+    setStep('identity', { message: '请修改用户名或邮箱' });
+  };
+
+  const onIdentityKeydown = (event) => {
+    if (event.key !== 'Enter' || event.isComposing) return;
+    event.preventDefault();
+    advance();
+  };
+
+  const onSubmit = (event) => {
+    if (currentStep !== 'identity') return;
+    event.preventDefault();
+    advance();
+  };
+
+  form.dataset.authLockscreenBound = 'true';
+  form.dataset.authLockscreenReady = 'true';
+  advanceButton.addEventListener('click', onAdvance);
+  backButton?.addEventListener('click', onBack);
+  usernameInput.addEventListener('keydown', onIdentityKeydown);
+  usernameInput.addEventListener('input', syncAccountLabel);
+  form.addEventListener('submit', onSubmit, true);
+  setStep('identity', { focus: false });
+
+  return () => {
+    window.clearTimeout(focusTimer);
+    advanceButton.removeEventListener('click', onAdvance);
+    backButton?.removeEventListener('click', onBack);
+    usernameInput.removeEventListener('keydown', onIdentityKeydown);
+    usernameInput.removeEventListener('input', syncAccountLabel);
+    form.removeEventListener('submit', onSubmit, true);
+    passwordInput.required = originalPasswordRequired;
+    passwordSubmit.disabled = originalSubmitDisabled;
+    identityStep.removeAttribute('inert');
+    passwordStep.removeAttribute('inert');
+    identityStep.removeAttribute('aria-hidden');
+    passwordStep.setAttribute('aria-hidden', 'true');
+    delete form.dataset.authLockscreenBound;
+    delete form.dataset.authLockscreenReady;
+    delete form.dataset.authLockscreenStep;
   };
 }
 
@@ -208,12 +353,6 @@ export function initAuthScrollbars(root = document) {
   };
   window.addEventListener('resize', onResize, { passive: true });
   addCleanup(() => window.removeEventListener('resize', onResize));
-
-  const onPointerProbe = () => {
-    syncAuthScrollbar();
-  };
-  document.addEventListener('pointermove', onPointerProbe, { passive: true });
-  addCleanup(() => document.removeEventListener('pointermove', onPointerProbe));
 
   const onFocusIn = () => {
     syncAuthScrollbar();

@@ -151,7 +151,8 @@
 <!--    社交账号登录                            -->
 <!-- ========================================== -->
 <div th:remove="tag" th:fragment="socialAuthProviders">
-    <th:block th:unless="${#lists.isEmpty(socialAuthProviders)}">
+    <!-- 登录页已由 loginProviderSection 合并渲染社交与表单提供方，避免重复入口。 -->
+    <th:block th:unless="${#lists.isEmpty(socialAuthProviders) or fragmentTemplateName != null}">
         <div class="auth-divider">
             <hr /><span>其他登录方式</span><hr />
         </div>
@@ -161,7 +162,8 @@
                 <form class="social-auth-provider-form auth-provider-icon-form"
                     th:action="|/login/social/${provider.metadata.name}?remember-me=false|" method="post">
                     <button type="submit" class="auth-provider-btn auth-provider-icon-btn"
-                        th:title="${provider.spec.displayName}">
+                        th:title="${provider.spec.displayName}"
+                        th:aria-label="|使用 ${provider.spec.displayName} 登录|">
                         <span class="auth-provider-icon-shell">
                             <img th:src="${provider.spec.logo}" th:alt="|${provider.spec.displayName}'s icon|" />
                         </span>
@@ -220,22 +222,29 @@
 <div th:remove="tag" th:fragment="loginProviderSection">
     <th:block th:with="
         hasSocial = ${socialAuthProviders != null and !#lists.isEmpty(socialAuthProviders)},
-        hasForm = ${formAuthProviders != null and !#lists.isEmpty(formAuthProviders)}">
+        hasForm = ${formAuthProviders != null and !#lists.isEmpty(formAuthProviders)},
+        providerCount = ${(socialAuthProviders == null ? 0 : #lists.size(socialAuthProviders)) + (formAuthProviders == null ? 0 : #lists.size(formAuthProviders))}">
         <th:block th:if="${hasSocial or hasForm}">
             <div class="auth-provider-section">
                 <div class="auth-divider">
-                    <hr /><span>其他方式登录</span><hr />
+                    <hr />
+                    <span class="auth-footer-default">其他方式登录</span>
+                    <span class="auth-lockscreen-only">其他登录</span>
+                    <hr />
                 </div>
 
-                <div class="auth-provider-grid auth-provider-grid-icons">
+                <div class="auth-provider-grid auth-provider-grid-icons"
+                     th:classappend="${providerCount > 1} ? 'auth-provider-grid-multiple' : ''">
                     <th:block th:if="${hasSocial}" th:each="provider : ${socialAuthProviders}">
                         <form class="social-auth-provider-form auth-provider-icon-form"
                             th:action="|/login/social/${provider.metadata.name}?remember-me=false|" method="post">
                             <button type="submit" class="auth-provider-btn auth-provider-icon-btn"
-                                th:title="${provider.spec.displayName}">
+                                th:title="${provider.spec.displayName}"
+                                th:aria-label="|使用 ${provider.spec.displayName} 登录|">
                                 <span class="auth-provider-icon-shell">
                                     <img th:src="${provider.spec.logo}" th:alt="|${provider.spec.displayName}'s icon|" />
                                 </span>
+                                <span class="auth-provider-name" th:text="${provider.spec.displayName}">登录方式</span>
                             </button>
                         </form>
                     </th:block>
@@ -243,10 +252,13 @@
                     <th:block th:if="${hasForm}" th:each="provider : ${formAuthProviders}">
                         <a th:href="'/login?method=' + ${provider.metadata.name}"
                            class="auth-provider-btn auth-provider-icon-btn"
-                           th:title="${provider.spec.displayName}">
+                           th:title="${provider.spec.displayName}"
+                           th:aria-label="|使用 ${provider.spec.displayName} 登录|">
                             <span class="auth-provider-icon-shell">
                                 <img th:src="${provider.spec.logo}" th:alt="|${provider.spec.displayName}'s icon|" />
                             </span>
+                            <span class="auth-provider-name"
+                                th:text="${provider.metadata.name == 'passkey' ? '使用通行密钥' : (provider.metadata.name == 'local' ? '密码登录' : provider.spec.displayName)}">登录方式</span>
                         </a>
                     </th:block>
                 </div>
@@ -277,9 +289,16 @@
 <!--    注册提示（登录页显示）                   -->
 <!-- ========================================== -->
 <div th:remove="tag" th:fragment="signupNoticeContent">
-    <div th:if="${globalInfo.allowRegistration}" class="auth-footer-link auth-footer-link-inline">
-        <span>还没有账户？</span>
-        <a th:href="@{/signup}">立即注册</a>
+    <div th:if="${globalInfo.allowRegistration or fragmentTemplateName != null}"
+        class="auth-footer-link auth-footer-link-inline">
+        <span class="auth-footer-default" th:if="${globalInfo.allowRegistration}">还没有账户？</span>
+        <a class="auth-footer-default" th:if="${globalInfo.allowRegistration}" th:href="@{/signup}">立即注册</a>
+
+        <span class="auth-lockscreen-only auth-lockscreen-footer-actions">
+            <a th:href="@{/password-reset/email}">忘记密码</a>
+            <span class="auth-lockscreen-footer-separator" aria-hidden="true"></span>
+            <a th:if="${globalInfo.allowRegistration}" th:href="@{/signup}">创建账户</a>
+        </span>
     </div>
 </div>
 

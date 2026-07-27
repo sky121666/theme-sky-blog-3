@@ -150,6 +150,9 @@ export class DoubanApp {
     this.paginationController = null;
     this.requestGeneration = 0;
     this.reloadPending = false;
+    this.loadError = false;
+    this.quickLookPreviousFocus = null;
+    this.quickLookInertTargets = [];
     this.searchTimer = null;
     this.state = {
       viewMode: 'grid',
@@ -196,6 +199,7 @@ export class DoubanApp {
     this.requestGeneration += 1;
     this.reloadPending = false;
     clearTimeout(this.searchTimer);
+    this.closePreview({ restoreFocus: false });
     this.root?.removeEventListener('click', this.onClick);
     this.root?.removeEventListener('input', this.onInput);
     document.removeEventListener('keydown', this.onKeydown);
@@ -270,6 +274,11 @@ export class DoubanApp {
       return;
     }
 
+    if (event.target.closest('[data-douban-retry]')) {
+      this.reload();
+      return;
+    }
+
     if (event.target.closest('[data-douban-load-more]')) {
       this.loadMore();
       return;
@@ -277,7 +286,7 @@ export class DoubanApp {
 
     const item = event.target.closest('[data-douban-item-id]');
     if (item) {
-      this.openPreview(item.dataset.doubanItemId);
+      this.openPreview(item.dataset.doubanItemId, item);
       return;
     }
 
@@ -325,7 +334,26 @@ export class DoubanApp {
         this.closePreview();
       } else {
         event.preventDefault();
-        this.openPreview(this.state.focusedId);
+        const trigger = this.queryAll('[data-douban-item-id]')
+          .find((item) => item.dataset.doubanItemId === this.state.focusedId);
+        this.openPreview(this.state.focusedId, trigger || null);
+      }
+      return;
+    }
+
+    if (event.key === 'Tab') {
+      const quicklook = this.query('[data-douban-quicklook].is-open');
+      if (!quicklook) return;
+      const focusable = Array.from(quicklook.querySelectorAll('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'));
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
       return;
     }
@@ -405,6 +433,7 @@ export class DoubanApp {
   }
 
   setError(message = '') {
+    this.loadError = true;
     const error = this.query('[data-douban-error]');
     const text = this.query('[data-douban-error-text]');
     if (text && message) text.textContent = message;
@@ -412,6 +441,7 @@ export class DoubanApp {
   }
 
   clearError() {
+    this.loadError = false;
     this.query('[data-douban-error]')?.toggleAttribute('hidden', true);
   }
 
@@ -443,8 +473,13 @@ export class DoubanApp {
     const requestKey = this.requestKey();
 
     this.reloadPending = true;
+    this.state.items = [];
+    this.state.visibleItems = [];
+    this.state.hasMore = false;
+    this.state.focusedId = '';
     this.setLoading(true);
     this.clearError();
+    this.renderItems();
 
     try {
       const [genres, list] = await Promise.all([
@@ -481,6 +516,7 @@ export class DoubanApp {
       if (this.isRequestCurrent(generation, requestKey, signal)) {
         this.reloadPending = false;
         this.setLoading(false);
+        this.renderItems();
       }
     }
   }
@@ -643,8 +679,8 @@ export class DoubanApp {
     this.state.visibleItems = this.state.items.slice();
 
     const hasItems = this.state.visibleItems.length > 0;
-    this.query('[data-douban-empty]')?.toggleAttribute('hidden', hasItems);
-    this.query('[data-douban-load-more]')?.toggleAttribute('hidden', !this.state.hasMore);
+    this.query('[data-douban-empty]')?.toggleAttribute('hidden', hasItems || this.reloadPending || this.loadError);
+    this.query('[data-douban-load-more]')?.toggleAttribute('hidden', !this.state.hasMore || this.reloadPending || this.loadError);
 
     const grid = this.query('[data-douban-grid]');
     const list = this.query('[data-douban-list-body]');
@@ -726,7 +762,7 @@ export class DoubanApp {
       || this.state.items.find((item) => itemId(item) === id);
   }
 
-  openPreview(id) {
+  openPreview(id, trigger = null) {
     const item = this.findItem(id);
     if (!item) return;
     this.state.focusedId = id;
@@ -752,14 +788,26 @@ export class DoubanApp {
     if (link) link.href = spec.link || '#';
 
     const quicklook = this.query('[data-douban-quicklook]');
+    this.quickLookPreviousFocus = trigger instanceof HTMLElement ? trigger : document.activeElement;
+    this.quickLookInertTargets = Array.from(this.root.children).filter((child) => child !== quicklook);
+    this.quickLookInertTargets.forEach((child) => { child.inert = true; });
     quicklook?.classList.add('is-open');
     quicklook?.setAttribute('aria-hidden', 'false');
+    quicklook?.removeAttribute('inert');
+    requestAnimationFrame(() => quicklook?.querySelector('[data-douban-close-preview]')?.focus({ preventScroll: true }));
   }
 
-  closePreview() {
+  closePreview({ restoreFocus = true } = {}) {
     const quicklook = this.query('[data-douban-quicklook]');
     quicklook?.classList.remove('is-open');
     quicklook?.setAttribute('aria-hidden', 'true');
+    quicklook?.setAttribute('inert', '');
+    this.quickLookInertTargets.forEach((child) => { child.inert = false; });
+    this.quickLookInertTargets = [];
+    if (restoreFocus && this.quickLookPreviousFocus?.isConnected) {
+      this.quickLookPreviousFocus.focus({ preventScroll: true });
+    }
+    this.quickLookPreviousFocus = null;
   }
 
   setText(selector, value) {

@@ -99,6 +99,11 @@ button.menubar-mobile-trigger {
   height: 22px;
   padding: 0 7px;
   border-radius: 5px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
   transition: background-color 0.1s ease, box-shadow 0.1s ease;
 }
 
@@ -243,7 +248,24 @@ button.menubar-mobile-trigger {
   text-overflow: ellipsis;
   white-space: nowrap;
   line-height: 1;
-  cursor: default;
+  cursor: pointer;
+}
+
+.menubar-settings-feedback {
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 8px;
+  z-index: 40;
+  max-width: min(300px, calc(100vw - 24px));
+  padding: 7px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(36, 37, 40, 0.9);
+  color: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.24);
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: normal;
 }
 
 .dark .menubar {
@@ -504,7 +526,7 @@ button.menubar-mobile-trigger {
 @media (max-width: 640px) {
   .menubar {
     gap: 8px;
-    height: 32px;
+    height: 44px;
     padding: 0 10px;
   }
 
@@ -536,14 +558,19 @@ button.menubar-mobile-trigger {
 
   .menubar-icon-btn,
   .menubar-auth-btn--icon {
-    width: 22px;
-    height: 22px;
+    width: 36px;
+    height: 36px;
   }
 
   .menubar-time {
     min-width: 0;
     max-width: 68px;
+    height: 36px;
     padding: 0 0 0 6px;
     font-size: 12px;
+  }
+
+  .menubar-mobile-dropdown {
+    top: 48px;
   }
 }

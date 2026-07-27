@@ -320,6 +320,7 @@ async function verifyNavigationHelpers() {
   const {
     createBrowserNavigationOwnership,
     createNavigationCoordinator,
+    createTimedNavigationSignal,
     isFullNavigationCompletionCurrent,
     isCurrentNavigationIntent,
     isPlainPrimaryNavigationEvent,
@@ -352,6 +353,21 @@ async function verifyNavigationHelpers() {
   assert.equal(coordinator.isCurrent(second), true);
   assert.equal(coordinator.finish(first), false, '旧导航不得完成或覆盖新导航');
   assert.equal(coordinator.finish(second), true);
+
+  const timeoutSignal = createTimedNavigationSignal(null, 5);
+  await new Promise((resolve) => setTimeout(resolve, 12));
+  assert.equal(timeoutSignal.signal.aborted, true, '导航请求超过截止时间后必须中断');
+  assert.equal(timeoutSignal.signal.reason?.name, 'TimeoutError', '超时必须与用户取消导航区分');
+  assert.equal(timeoutSignal.didTimeout(), true);
+  timeoutSignal.cleanup();
+
+  const parentController = new AbortController();
+  const linkedSignal = createTimedNavigationSignal(parentController.signal, 1_000);
+  parentController.abort(new DOMException('superseded', 'AbortError'));
+  assert.equal(linkedSignal.signal.aborted, true, '新导航必须继续取消旧请求');
+  assert.equal(linkedSignal.signal.reason?.name, 'AbortError');
+  assert.equal(linkedSignal.didTimeout(), false, '导航抢占不得被误判为超时');
+  linkedSignal.cleanup();
 
   const redirectedRequest = {
     responseURL: 'https://example.test/final',
@@ -552,7 +568,32 @@ try {
   );
   assert.match(pjaxSource, /document\.addEventListener\("pjax:complete", async \(event\) => \{[\s\S]*?try \{[\s\S]*?catch \(error\)[\s\S]*?finally \{/);
   assert.match(pjaxSource, /hardNavigate\(fallbackHref\)/, 'PJAX 完成阶段失败必须硬导航兜底');
+  assert.match(
+    pjaxSource,
+    /timeout:\s*PJAX_REQUEST_TIMEOUT/,
+    'full PJAX 的 XHR 必须设置有界超时'
+  );
+  assert.match(
+    pjaxSource,
+    /createTimedNavigationSignal\(navigation\.signal, PJAX_REQUEST_TIMEOUT\)[\s\S]*?signal:\s*requestSignal\.signal[\s\S]*?requestSignal\.cleanup\(\)/,
+    'same-variant fetch 必须使用可清理的有界请求信号'
+  );
   assert.match(pjaxSource, /discardStagedOnlineMonitorHistoryState\(\)/, 'PJAX 错误必须清理待写入的 Online history 状态');
+  assert.match(
+    pjaxSource,
+    /pjax\.loadUrl = function\(url, options = \{\}\) \{\s*if \(options\?\.history !== false\) \{\s*clearPendingWindowScrollRestore\(\);\s*snapshotCurrentBrowserEntry\(\);/,
+    '新的 full PJAX 前进导航必须清除失败后遗留的 popstate 窗口滚动位置'
+  );
+  assert.match(
+    pjaxSource,
+    /async function navigateWithinVariant\(targetUrl, triggerElement = null\) \{\s*clearPendingWindowScrollRestore\(\);\s*snapshotCurrentBrowserEntry\(\);/,
+    'same-variant 前进导航必须清除失败后遗留的 popstate 窗口滚动位置'
+  );
+  assert.match(
+    pjaxSource,
+    /document\.addEventListener\("pjax:error", \(event\) => \{[\s\S]*?clearPendingWindowScrollRestore\(\);/,
+    '当前 PJAX 失败时必须立即丢弃未消费的窗口滚动恢复目标'
+  );
   assert.match(
     pjaxSource,
     /let contentSwapped = false;[\s\S]*?contentSwapped = true;[\s\S]*?if \(!contentSwapped\)/,
@@ -591,9 +632,20 @@ try {
   const fullSendStart = pjaxSource.indexOf('document.addEventListener("pjax:send"');
   const fullSendEnd = pjaxSource.indexOf('document.addEventListener("pjax:complete"', fullSendStart);
   const fullSendSource = pjaxSource.slice(fullSendStart, fullSendEnd);
-  assert.ok(
-    fullSendSource.indexOf('const currentApp =') < fullSendSource.indexOf('deactivateCurrentPageApp();'),
-    'full PJAX 必须在停用当前应用前保存 currentApp，确保 popstate 可选择正确加载策略'
+  assert.doesNotMatch(
+    fullSendSource,
+    /deactivateCurrentPageApp\(\)/,
+    'full PJAX 请求发送时不得提前销毁仍在显示的当前应用'
+  );
+  assert.match(
+    pjaxSource,
+    /function switchPjaxWindowFrame\(oldElement, newElement\) \{\s*deactivateCurrentPageApp\(\);\s*oldElement\.outerHTML = newElement\.outerHTML;/,
+    'full PJAX 只能在确定替换窗口 DOM 时销毁当前应用'
+  );
+  assert.match(
+    pjaxSource,
+    /ensureCurrentPageAppActive\(document, \{ reason: 'pjax-error-recover' \}\)/,
+    '网络失败时必须保留仍处于活动状态的原应用，缺失时才重新激活'
   );
   assert.match(
     fullSendSource,

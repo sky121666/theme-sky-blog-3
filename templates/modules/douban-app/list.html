@@ -18,7 +18,7 @@
 
     <section class="douban-app-shell">
       <header class="douban-titlebar"
-              @mousedown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
+              @pointerdown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
         <div class="douban-titlebar-left">
           <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=true)}"></th:block>
           <div class="douban-titlebar-divider" aria-hidden="true"></div>
@@ -147,6 +147,10 @@
           <span class="douban-empty-icon icon-[lucide--circle-alert]" aria-hidden="true"></span>
           <h2>豆瓣数据暂时无法加载</h2>
           <p data-douban-error-text>请确认 plugin-douban 已安装并完成同步。</p>
+          <button class="douban-empty-retry" type="button" data-douban-retry>
+            <span class="icon-[lucide--refresh-cw]" aria-hidden="true"></span>
+            <span>重新加载</span>
+          </button>
         </section>
       </main>
 
@@ -160,7 +164,8 @@
 
     <div class="douban-quicklook"
          data-douban-quicklook
-         aria-hidden="true">
+         aria-hidden="true"
+         inert>
       <button class="douban-quicklook-backdrop" type="button" data-douban-close-preview aria-label="关闭预览"></button>
       <article class="douban-quicklook-card" role="dialog" aria-modal="true" aria-labelledby="douban-preview-title">
         <div class="douban-quicklook-poster">

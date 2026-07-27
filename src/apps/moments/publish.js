@@ -52,6 +52,11 @@ async function readJson(response) {
   return response.json();
 }
 
+function readXsrfToken() {
+  const match = String(document.cookie || '').match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+  return match?.[1] ? decodeURIComponent(match[1]) : '';
+}
+
 function throwIfAborted(signal) {
   if (!signal?.aborted) return;
   throw signal.reason instanceof Error
@@ -160,7 +165,7 @@ function validateFile(file, enabled) {
   return { valid: true, category };
 }
 
-async function uploadFile(file, category, endpoint, signal) {
+async function uploadFile(file, category, endpoint, signal, onAttachmentCreated = null) {
   throwIfAborted(signal);
   const form = new FormData();
   form.append('file', file);
@@ -179,12 +184,14 @@ async function uploadFile(file, category, endpoint, signal) {
   }
 
   const attachment = await response.json();
+  const attachmentName = String(attachment?.metadata?.name || '');
+  if (attachmentName) onAttachmentCreated?.(attachmentName);
   let url = attachment?.status?.permalink || attachment?.spec?.permalink || '';
 
-  if (!url && attachment?.metadata?.name) {
+  if (!url && attachmentName) {
     for (let index = 0; index < 5; index += 1) {
       await abortableDelay(450, signal);
-      const check = await fetch(`/api/v1alpha1/attachments/${encodeURIComponent(attachment.metadata.name)}`, {
+      const check = await fetch(`/api/v1alpha1/attachments/${encodeURIComponent(attachmentName)}`, {
         credentials: 'same-origin',
         headers: { Accept: 'application/json' },
         signal
@@ -205,8 +212,28 @@ async function uploadFile(file, category, endpoint, signal) {
     type: MEDIA_TYPE_MAP[category],
     url,
     originType: file.type,
-    fileName: file.name
+    fileName: file.name,
+    attachmentName
   };
+}
+
+async function deleteDraftAttachment(name) {
+  if (!name) return true;
+  const headers = { Accept: 'application/json' };
+  const token = readXsrfToken();
+  if (token) headers['X-XSRF-TOKEN'] = token;
+  const timed = createTimedSignal(null, 10000);
+  try {
+    const response = await fetch(`/apis/storage.halo.run/v1alpha1/attachments/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+      credentials: 'same-origin',
+      headers,
+      signal: timed.signal
+    });
+    return response.ok || response.status === 404;
+  } finally {
+    timed.cleanup();
+  }
 }
 
 function mediaPreviewHtml(media, index) {
@@ -347,6 +374,8 @@ export function setupMomentPublish(root = document) {
     let activeOperation = null;
     let redirectTimer = null;
     let closingAfterSuccess = false;
+    const stagedAttachmentNames = new Set();
+    const deletingAttachmentNames = new Set();
     const lifecycleController = new AbortController();
 
     function abortActiveOperation() {
@@ -423,6 +452,32 @@ export function setupMomentPublish(root = document) {
       updateSubmitState();
     }
 
+    async function cleanupDraftAttachment(name, { report = false } = {}) {
+      if (!name || !stagedAttachmentNames.has(name) || deletingAttachmentNames.has(name)) return true;
+      deletingAttachmentNames.add(name);
+      try {
+        const deleted = await deleteDraftAttachment(name);
+        if (deleted) stagedAttachmentNames.delete(name);
+        if (!deleted && report && dialog.open) {
+          setStatus('媒体已从草稿移除，但附件清理失败，请到附件库检查。', 'error');
+        }
+        return deleted;
+      } catch (_error) {
+        if (report && dialog.open) {
+          setStatus('媒体已从草稿移除，但附件清理失败，请到附件库检查。', 'error');
+        }
+        return false;
+      } finally {
+        deletingAttachmentNames.delete(name);
+      }
+    }
+
+    function cleanupAllDraftAttachments() {
+      return Promise.allSettled(
+        Array.from(stagedAttachmentNames, (name) => cleanupDraftAttachment(name))
+      );
+    }
+
     async function ensureUser(signal = lifecycleController.signal) {
       throwIfAborted(signal);
       if (currentUser) return currentUser;
@@ -488,7 +543,12 @@ export function setupMomentPublish(root = document) {
     function onDialogClose() {
       const completedSuccessfully = closingAfterSuccess;
       closingAfterSuccess = false;
-      if (!completedSuccessfully) abortActiveOperation();
+      if (!completedSuccessfully) {
+        abortActiveOperation();
+        void cleanupAllDraftAttachments();
+      } else {
+        stagedAttachmentNames.clear();
+      }
       setBusy(false);
       reset();
     }
@@ -519,7 +579,8 @@ export function setupMomentPublish(root = document) {
             file,
             validation.category || uploadCategory,
             endpoints.upload,
-            operation.controller.signal
+            operation.controller.signal,
+            (attachmentName) => stagedAttachmentNames.add(attachmentName)
           );
           if (!isCurrentOperation(operation)) return;
           media.push(uploaded);
@@ -560,7 +621,10 @@ export function setupMomentPublish(root = document) {
       }
       const removeMedia = event.target.closest?.('[data-moments-publish-remove]');
       if (removeMedia) {
-        media.splice(Number(removeMedia.dataset.momentsPublishRemove), 1);
+        const [removed] = media.splice(Number(removeMedia.dataset.momentsPublishRemove), 1);
+        if (removed?.attachmentName) {
+          void cleanupDraftAttachment(removed.attachmentName, { report: true });
+        }
         renderMedia(preview, media);
         updateSubmitState();
         return;
@@ -625,6 +689,7 @@ export function setupMomentPublish(root = document) {
         });
         if (!isCurrentOperation(operation)) return;
         finishOperation(operation);
+        stagedAttachmentNames.clear();
         setStatus('发布成功，正在刷新列表...');
         reset();
         closeDialog({ afterSuccess: true });
@@ -675,6 +740,7 @@ export function setupMomentPublish(root = document) {
       disposed = true;
       lifecycleController.abort(new DOMException('组件已销毁', 'AbortError'));
       abortActiveOperation();
+      void cleanupAllDraftAttachments();
       if (redirectTimer !== null) {
         window.clearTimeout(redirectTimer);
         redirectTimer = null;

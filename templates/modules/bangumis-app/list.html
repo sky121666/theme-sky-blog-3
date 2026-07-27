@@ -22,7 +22,7 @@
          th:attr="data-bangumis-site-title=${site.title},data-bangumis-chrome-title=${headerTitle},data-bangumis-chrome-subtitle=${headerSubtitle}">
       <aside class="bangumis-sidebar">
         <div class="bangumis-window-dragbar"
-             @mousedown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
+             @pointerdown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
           <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=true)}"></th:block>
         </div>
 

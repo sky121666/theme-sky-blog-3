@@ -10,3 +10,30 @@
   border-top-color: var(--mac-accent) !important;
   border-left-color: var(--mac-accent) !important;
 }
+
+.pjax-navigation-status {
+  position: fixed;
+  left: 50%;
+  bottom: max(88px, calc(72px + env(safe-area-inset-bottom, 0px)));
+  z-index: 120;
+  width: max-content;
+  max-width: min(420px, calc(100vw - 28px));
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  background: rgba(34, 35, 38, 0.9);
+  color: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(20px) saturate(130%);
+  -webkit-backdrop-filter: blur(20px) saturate(130%);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+@media (max-width: 768px) {
+  .pjax-navigation-status {
+    bottom: max(18px, env(safe-area-inset-bottom, 0px));
+  }
+}

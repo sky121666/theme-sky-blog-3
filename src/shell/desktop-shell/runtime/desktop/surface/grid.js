@@ -37,7 +37,7 @@ export const gridMethods = {
 
   syncResponsiveVisibility() {
     this.visibleDesktopNodeKeys = this.placedDesktopNodes
-      .filter((node) => this.isNodeWithinVisibleArea(node))
+      .filter((node) => node.kind !== 'widget' || !node.hidden)
       .map((node) => node.key);
     const signature = this.visibleDesktopNodeKeys.join('|');
     if (signature !== this.lastVisibleNodeSignature) {
@@ -51,7 +51,7 @@ export const gridMethods = {
 
   isNodeWithinVisibleArea(node) {
     if (node.kind === 'widget' && node.hidden) return false;
-    return node.y + node.h - 1 <= this.maxVisibleRows;
+    return true;
   },
 
   syncGridMetrics(options = {}) {

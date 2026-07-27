@@ -9,9 +9,9 @@
 import Pjax from 'pjax';
 import NProgress from 'nprogress';
 import {
-  activateCurrentPageApp,
   activatePageApp,
   deactivateCurrentPageApp,
+  ensureCurrentPageAppActive,
   getActivePageAppDocumentState
 } from '../../shared/page-app.js';
 import { createLogger } from '../../shared/debug.js';
@@ -61,6 +61,7 @@ import { syncHomeDesktopWidgetProtocolFromResponse } from '../../widgets/protoco
 import {
   createBrowserNavigationOwnership,
   createNavigationCoordinator,
+  createTimedNavigationSignal,
   isFullNavigationCompletionCurrent,
   isCurrentNavigationIntent,
   isNavigationAbort,
@@ -78,6 +79,13 @@ const PHOTOS_TRANSITION_OWNER_ATTR = 'data-photos-view-transition-owner';
 const PHOTOS_TRANSITION_KIND_ATTR = 'data-photos-view-transition-kind';
 const PHOTOS_TRANSITION_DIRECTION_ATTR = 'data-photos-view-transition-direction';
 const PHOTOS_SHARED_TRANSITION_NAME = 'photos-active-photo';
+const PJAX_REQUEST_TIMEOUT = 15_000;
+
+function switchPjaxWindowFrame(oldElement, newElement) {
+  deactivateCurrentPageApp();
+  oldElement.outerHTML = newElement.outerHTML;
+  this.onSwitch();
+}
 const PHOTOS_DETAIL_STEP_KIND = 'detail-step';
 const PHOTOS_TRANSITION_IMAGE_TIMEOUT_MS = 200;
 let photosViewTransitionSequence = 0;
@@ -418,6 +426,8 @@ function syncWindowTitlebarCopyFromDocument(targetDoc, overrides = {}) {
 const BROWSER_NAV_DEPTH_KEY = 'sky_browser_nav_depth';
 const BROWSER_NAV_INDEX_KEY = '__browserNavIndex';
 const BROWSER_NAV_CHROME_KEY = '__browserNavChrome';
+const BROWSER_NAV_WINDOW_SCROLL_KEY = '__browserWindowScroll';
+let pendingWindowScrollRestore = null;
 
 function createBrowserNavUid() {
   return `pjax${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -457,6 +467,74 @@ function getCurrentScrollPos() {
   ];
 }
 
+function getCurrentWindowScrollPos() {
+  const scroller = document.querySelector('[data-window-content-root][data-window-scroll]');
+  return scroller
+    ? [Math.max(0, scroller.scrollLeft || 0), Math.max(0, scroller.scrollTop || 0)]
+    : [0, 0];
+}
+
+function snapshotCurrentBrowserEntry() {
+  const state = window.history.state;
+  if (!state || typeof state !== 'object') return;
+  try {
+    const nextState = {
+      ...state,
+      scrollPos: getCurrentScrollPos(),
+      [BROWSER_NAV_WINDOW_SCROLL_KEY]: getCurrentWindowScrollPos()
+    };
+    window.history.replaceState(nextState, nextState.title || document.title, nextState.url || window.location.href);
+  } catch (_error) {}
+}
+
+function restorePendingWindowScroll() {
+  if (!pendingWindowScrollRestore) return;
+  const target = pendingWindowScrollRestore;
+  pendingWindowScrollRestore = null;
+  requestAnimationFrame(() => {
+    const scroller = document.querySelector('[data-window-content-root][data-window-scroll]');
+    if (!scroller) return;
+    scroller.scrollLeft = Math.max(0, Number(target[0]) || 0);
+    scroller.scrollTop = Math.max(0, Number(target[1]) || 0);
+  });
+}
+
+function clearPendingWindowScrollRestore() {
+  pendingWindowScrollRestore = null;
+}
+
+function focusNavigatedContent(root = document) {
+  const candidates = Array.from(root.querySelectorAll?.(
+    '[data-window-content-variant] h1, [data-app-root] h1, [data-window-content-variant]'
+  ) || []);
+  const target = candidates.find((element) => (
+    element.getClientRects?.().length > 0 && getComputedStyle(element).visibility !== 'hidden'
+  ));
+  if (!target) return;
+  if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+  target.focus({ preventScroll: true });
+}
+
+function showNavigationStatus(message = '', tone = 'error') {
+  let status = document.querySelector('[data-pjax-navigation-status]');
+  if (!message) {
+    status?.remove();
+    return;
+  }
+  if (!status) {
+    status = document.createElement('div');
+    status.dataset.pjaxNavigationStatus = '';
+    status.className = 'pjax-navigation-status';
+    status.setAttribute('role', 'alert');
+    status.setAttribute('aria-live', 'assertive');
+    document.body.appendChild(status);
+  }
+  status.dataset.tone = tone;
+  status.textContent = message;
+  window.clearTimeout(status._dismissTimer);
+  status._dismissTimer = window.setTimeout(() => status.remove(), 5200);
+}
+
 function readBrowserNavChromeSnapshot(overrides = {}) {
   const titleEl = document.querySelector('[data-window-title]');
   const subtitleEl = document.querySelector('[data-window-subtitle]');
@@ -491,7 +569,8 @@ function buildBrowserNavState(index, title = document.title, url = window.locati
   const {
     baseState = (window.history.state && typeof window.history.state === 'object') ? window.history.state : {},
     uid = baseState.uid || createBrowserNavUid(),
-    scrollPos = baseState.scrollPos || getCurrentScrollPos()
+    scrollPos = baseState.scrollPos || getCurrentScrollPos(),
+    windowScroll = baseState[BROWSER_NAV_WINDOW_SCROLL_KEY] || getCurrentWindowScrollPos()
   } = options;
 
   return {
@@ -500,6 +579,7 @@ function buildBrowserNavState(index, title = document.title, url = window.locati
     title: title || baseState.title || document.title,
     uid,
     scrollPos,
+    [BROWSER_NAV_WINDOW_SCROLL_KEY]: windowScroll,
     [BROWSER_NAV_INDEX_KEY]: index,
     [BROWSER_NAV_CHROME_KEY]: readBrowserNavChromeSnapshot(chromeOverrides)
   };
@@ -518,7 +598,8 @@ function pushBrowserNavState(index, title, url, chromeOverrides = {}) {
   const uid = createBrowserNavUid();
   const nextState = buildBrowserNavState(index, title, url, chromeOverrides, {
     uid,
-    scrollPos: [0, 0]
+    scrollPos: [0, 0],
+    windowScroll: [0, 0]
   });
   window.history.pushState(nextState, nextState.title, nextState.url);
   try {
@@ -829,7 +910,11 @@ export function initPjax(Alpine) {
     const pjax = new Pjax({
       selectors: ["title", "#window-frame-root"],
       cacheBust: false,
-      elements: PJAX_LINK_SELECTOR
+      elements: PJAX_LINK_SELECTOR,
+      timeout: PJAX_REQUEST_TIMEOUT,
+      switches: {
+        '#window-frame-root': switchPjaxWindowFrame
+      }
     });
 
     // Non-200 responses: full-page redirect to show dedicated error page.
@@ -885,6 +970,11 @@ export function initPjax(Alpine) {
 
     const _origLoadUrl = pjax.loadUrl.bind(pjax);
     pjax.loadUrl = function(url, options = {}) {
+      if (options?.history !== false) {
+        clearPendingWindowScrollRestore();
+        snapshotCurrentBrowserEntry();
+      }
+      showNavigationStatus('');
       const beforeNavigation = new CustomEvent(BEFORE_PJAX_NAVIGATION_EVENT, {
         cancelable: true,
         detail: { url: String(url || '') }
@@ -951,6 +1041,9 @@ export function initPjax(Alpine) {
       const stateIndex = readBrowserNavIndexFromState(event.state);
       syncBrowserNavDepth(stateIndex ?? 0);
       applyBrowserNavChromeState(event.state);
+      pendingWindowScrollRestore = Array.isArray(event.state?.[BROWSER_NAV_WINDOW_SCROLL_KEY])
+        ? event.state[BROWSER_NAV_WINDOW_SCROLL_KEY]
+        : [0, 0];
     });
 
     // ── Dynamic link attachment (using shared link-attach.js) ──
@@ -961,9 +1054,9 @@ export function initPjax(Alpine) {
       attachDynamicLinks(desktopSurface);
     }
 
-    // ── MutationObserver for pjax container only ──
-    const pjaxContainer = document.getElementById('window-frame-root');
-    if (pjaxContainer) {
+    // ── Stable dynamic-link observer. body survives window-frame replacement. ──
+    const dynamicLinkRoot = document.body;
+    if (dynamicLinkRoot) {
       const observer = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
           for (const node of mutation.addedNodes) {
@@ -974,8 +1067,8 @@ export function initPjax(Alpine) {
           }
         }
       });
-      observer.observe(pjaxContainer, { childList: true, subtree: true });
-      pjaxLog('observer: watching #window-frame-root');
+      observer.observe(dynamicLinkRoot, { childList: true, subtree: true });
+      pjaxLog('observer: watching document.body');
     }
 
     // ── Same-variant content-level navigation ──
@@ -985,6 +1078,9 @@ export function initPjax(Alpine) {
      * keep the window frame (titlebar, traffic lights, toolbar) intact.
      */
     async function navigateWithinVariant(targetUrl, triggerElement = null) {
+      clearPendingWindowScrollRestore();
+      snapshotCurrentBrowserEntry();
+      showNavigationStatus('');
       const intentGeneration = ++navigationIntentGeneration;
       const previousPhotosTransitionSettled = cancelActivePhotosViewTransition();
       browserNavigationOwnership.begin(intentGeneration);
@@ -1028,6 +1124,7 @@ export function initPjax(Alpine) {
       let shouldFallback = false;
       let finalizedCurrentNavigation = false;
       let completionDetail = null;
+      const requestSignal = createTimedNavigationSignal(navigation.signal, PJAX_REQUEST_TIMEOUT);
       perfMark('overlayVisible');
       if (useTopProgress) {
         startTopProgress();
@@ -1041,7 +1138,7 @@ export function initPjax(Alpine) {
         const [resp] = await Promise.all([
           fetch(targetUrl, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            signal: navigation.signal
+            signal: requestSignal.signal
           }),
           ensureAppAssetsLoaded(targetApp)
         ]);
@@ -1275,6 +1372,7 @@ export function initPjax(Alpine) {
 
         // Scroll content to top
         contentRoot.scrollTop = 0;
+        focusNavigatedContent(contentContainer);
 
         // Reinstall moments scroll listener for feed/detail scene change
         if (typeof window.__momentsScrollSetup === 'function') {
@@ -1310,6 +1408,7 @@ export function initPjax(Alpine) {
           shouldFallback = true;
         }
       } finally {
+        requestSignal.cleanup();
         if (isCurrentNavigation()) {
           await hideOverlay(contentRoot, loadingController, {
             immediate: !navigationSucceeded
@@ -1377,7 +1476,6 @@ export function initPjax(Alpine) {
       _pjaxLoadingController?.finish({ immediate: true });
       _pjaxLoadingController = null;
       closeTransientNavigationUi();
-      deactivateCurrentPageApp();
       startTopProgress();
       let targetVariant = '';
       try {
@@ -1437,6 +1535,10 @@ export function initPjax(Alpine) {
       const loadingController = _pjaxLoadingController;
       const container = document.getElementById('window-frame-root');
       const responseText = event?.request?.responseText;
+      if (typeof responseText !== 'string') {
+        pjaxLog('event:complete skipped for failed response');
+        return;
+      }
       const fallbackHref = resolveNavigationHref(
         event?.request,
         event?.requestOptions?.requestUrl
@@ -1467,6 +1569,8 @@ export function initPjax(Alpine) {
             reason: 'pjax-complete',
             documentTitle: document.title
           });
+          focusNavigatedContent(container);
+          restorePendingWindowScroll();
 
           // Deferred re-scan: desktop widgets re-render after pjax swap,
           // stripping data-pjax-attached. Catch them once after settle.
@@ -1545,6 +1649,7 @@ export function initPjax(Alpine) {
       const errorIntent = Number(errorIntentValue) > 0
         ? Number(errorIntentValue)
         : navigationIntentGeneration;
+      clearPendingWindowScrollRestore();
       _fullPjaxGeneration += 1;
       sameVariantCoordinator.cancel();
       discardStagedOnlineMonitorHistoryState();
@@ -1562,7 +1667,8 @@ export function initPjax(Alpine) {
       _pjaxLoadingController?.finish({ immediate: true });
       _pjaxLoadingController = null;
       clearBusyState(container);
-      activateCurrentPageApp(document, { reason: 'pjax-error-recover' });
+      ensureCurrentPageAppActive(document, { reason: 'pjax-error-recover' });
+      showNavigationStatus('页面加载失败，已保留当前内容。请检查网络后重试。');
       clearTransientNavigationUi();
     });
 

@@ -27,6 +27,7 @@
                data-links-initial-feed-link=${currentFeedLink},
                data-links-all-title=${allLinksTitle},
                data-links-chrome-title=${allLinksTitle},
+               data-links-site-title=${site.title ?: ''},
                data-feed-public-sources=${feedPublicSources},
                data-feed-initial-count=${feedPageData != null and feedPageData.items != null ? #lists.size(feedPageData.items) : 0},
                data-feed-has-next=${feedPageData != null and feedPageData.hasNext},
@@ -35,8 +36,8 @@
 
       <aside class="links-rail" aria-label="链接应用功能">
         <div class="links-rail-drag"
-          @mousedown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
-          <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=true)}"></th:block>
+          @pointerdown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
+          <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=false)}"></th:block>
         </div>
 
         <div class="links-rail-avatar" aria-hidden="true">
@@ -268,7 +269,9 @@
         </div>
       </section>
 
-      <section class="links-detail-pane" :aria-hidden="!detailOpen()">
+      <section class="links-detail-pane"
+        :inert="!detailOpen()"
+        :aria-hidden="(!detailOpen()).toString()">
         <header class="links-detail-header"
           :class="{ 'is-feed-source': activeView === 'friends' && !selectedFeedItem && feedLinkName && activeFeedSource() }">
           <button type="button" class="links-detail-back" @click="collapseDetail()" aria-label="返回列表">
@@ -538,7 +541,14 @@
               :class="{ 'is-success': result.success, 'is-warning': result.warning, 'is-error': !result.success && !result.warning }"
               role="status" aria-live="polite" x-text="result.message"></div>
             <div class="links-submit-actions">
-              <span x-text="primaryActionNote()"></span>
+              <span>
+                <span x-text="primaryActionNote()"></span>
+                <small class="links-submit-validation"
+                  x-show="formValidationMessage()"
+                  x-text="formValidationMessage()"
+                  role="status"
+                  aria-live="polite"></small>
+              </span>
               <button id="copyBtn" type="button" class="links-primary-action"
                 :disabled="isDirectCreateMode() ? !canCreateDirect() : !canCopyDraft()"
                 @click="isDirectCreateMode() ? createLink() : copyAndGotoBoard()">
@@ -564,7 +574,7 @@
             <section class="links-detail-empty" th:if="${!pluginFinder.available('PluginCommentWidget')}">
               <span class="icon-[lucide--message-circle-off]" aria-hidden="true"></span>
               <strong>留言组件未启用</strong>
-              <p>管理员仍可直接添加友链，访客可复制申请内容后通过其他联系方式提交。</p>
+              <p>管理员仍可直接添加友链；访客可先复制并保存申请内容，待站点启用留言组件后再提交。</p>
             </section>
           </div>
         </div>

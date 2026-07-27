@@ -21,7 +21,7 @@
   <th:block th:fragment="content">
     <div class="post-reader-shell" data-app-root="reader">
       <script type="application/json" data-app-props="reader">{"version":1,"appId":"reader","data":{"contentType":"page"}}</script>
-      <div class="post-reader-frame">
+      <div class="post-reader-frame post-reader-frame--page">
         <header class="post-header">
           <div class="post-kicker">Page</div>
           <h1 class="post-title" th:text="${singlePage.spec.title}"></h1>
@@ -40,6 +40,12 @@
                 th:attr="name=${singlePage.metadata.name}"
             />
           </div>
+        </section>
+        <section class="post-comments post-comments-unavailable"
+                 th:unless="${pluginFinder.available('PluginCommentWidget')}"
+                 role="status">
+          <h2 class="post-comments-title">评论</h2>
+          <p>评论组件当前未启用。</p>
         </section>
       </div>
     </div>

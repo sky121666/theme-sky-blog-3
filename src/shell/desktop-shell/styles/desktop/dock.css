@@ -1,9 +1,11 @@
 /* ---------- 多任务程序坞 (Dock) ---------- */
 .dock-container {
+  --dock-fit-scale: 1;
   position: fixed;
   bottom: 12px;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(-50%) scale(var(--dock-fit-scale));
+  transform-origin: bottom center;
   z-index: 9998;
   display: flex;
   justify-content: center;
@@ -301,5 +303,14 @@
 
   .dock-glass {
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.10), inset 0 0.5px 0 rgba(255, 255, 255, 0.15);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dock-container,
+  .dock-icon,
+  .dock-icon.dock-animating,
+  .dock-tooltip {
+    transition-duration: 0.01ms !important;
   }
 }

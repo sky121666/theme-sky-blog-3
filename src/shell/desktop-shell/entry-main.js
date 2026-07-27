@@ -24,6 +24,7 @@ import { registerComponents } from './runtime/desktop.js';
 import { activateCurrentPageApp } from './runtime/shared/page-app.js';
 import { initLazyImages } from './runtime/shared/lazy-media.js';
 import { initPluginCompatibility } from './runtime/shared/plugin-compat.js';
+import { initErrorDialog } from './runtime/shared/error-dialog.js';
 import { getCurrentThemeAssetVersion, getLatestThemeBuildVersion } from '../../shell-core/runtime/resource-registry.js';
 
 const CURRENT_THEME_BUILD_VERSION = getCurrentThemeAssetVersion()
@@ -126,6 +127,7 @@ if (!window.__THEME_MAIN_LOADED__) {
 
   Alpine.start();
   window.__THEME_ALPINE_STARTED__ = true;
+  initErrorDialog(document);
   initPluginCompatibility();
   activateCurrentPageApp(document, { reason: 'initial-load' });
 

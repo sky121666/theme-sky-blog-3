@@ -255,8 +255,8 @@
                routeKey: '',
                generation: 0,
                requestController: null,
+               resumePaginationAfterNavigationError: false,
                destroyed: false,
-               resumeAfterNavigationError: false,
                currentPath() {
                    return location.pathname + location.search;
                },
@@ -340,6 +340,8 @@
                    
                    // 2. 监听下一次离开（仅在 PJAX 跳转时保存状态）
                    this._onPjaxSend = () => {
+                       this.resumePaginationAfterNavigationError = this.resumePaginationAfterNavigationError
+                           || Boolean(this.loading && this.hasMore && this.nextUrl);
                        const targetList = this.feedList();
                        const scroller = this.$el.closest('.moments-body');
                        const injected = targetList
@@ -358,19 +360,18 @@
                            }));
                            this.debugLog('saved state before leaving', { scrollY: currentScroll, extraCards: injected.length });
                        }
-                       this.resumeAfterNavigationError = this.hasMore && Boolean(this.nextUrl);
                        this.cancelPending();
                    };
                    this._onPjaxError = () => {
-                       if (!this.resumeAfterNavigationError) return;
-                       this.resumeAfterNavigationError = false;
-                       if (this.destroyed || this.currentPath() !== this.routeKey || !this.$el.isConnected) return;
-                       if (this.hasMore && this.nextUrl && !this.loading) {
-                           this.loadError = '加载失败，点击重试';
-                       }
+                       if (!this.resumePaginationAfterNavigationError) return;
+                       this.resumePaginationAfterNavigationError = false;
+                       if (this.destroyed
+                           || this.currentPath() !== this.routeKey
+                           || !this.$el.isConnected) return;
+                       this.loadError = '加载已中断，点击重试';
                    };
                    this._onPjaxComplete = () => {
-                       this.resumeAfterNavigationError = false;
+                       this.resumePaginationAfterNavigationError = false;
                    };
                    document.addEventListener('pjax:send', this._onPjaxSend);
                    document.addEventListener('pjax:same-variant-send', this._onPjaxSend);
@@ -380,7 +381,7 @@
                },
                destroy() {
                    this.destroyed = true;
-                   this.resumeAfterNavigationError = false;
+                   this.resumePaginationAfterNavigationError = false;
                    this.cancelPending();
                    document.removeEventListener('pjax:send', this._onPjaxSend);
                    document.removeEventListener('pjax:same-variant-send', this._onPjaxSend);
@@ -390,6 +391,7 @@
                },
                async loadNext() {
                    if (!this.hasMore || this.loading || !this.nextUrl) return;
+                   this.resumePaginationAfterNavigationError = false;
                    const appRoot = this.appRoot();
                    const targetList = this.feedList();
                    const requestUrl = this.nextUrl;
@@ -402,7 +404,6 @@
                    this.requestController?.abort();
                    this.requestController = controller;
                    this.loading = true;
-                   this.resumeAfterNavigationError = false;
                    this.loadError = '';
                    this.debugLog('loading next page', { url: requestUrl });
                    try {

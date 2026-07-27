@@ -7,9 +7,7 @@ import {
   syncHomeDesktopWidgetProtocolFromResponse
 } from '../src/shell/desktop-shell/runtime/widgets/protocol.js';
 import {
-  mergeDesktopWidgetLayout,
-  migrateLegacyWidgetInstance,
-  migrateLegacyWidgetType
+  mergeDesktopWidgetLayout
 } from '../src/shell/desktop-shell/runtime/widgets/persistence-read.js';
 import { registerDesktopSurface } from '../src/shell/desktop-shell/runtime/desktop/surface/index.js';
 
@@ -114,20 +112,10 @@ for (const contract of dataQueryContracts) {
 const activeWidgetContract = [widgetRegistry, widgetLoaders, widgetCatalog, widgetDataReload].join('\n');
 assert.match(activeWidgetContract, /plugin-links\.feed/, 'PluginLinks RSS 小组件必须使用当前契约 ID');
 assert.doesNotMatch(activeWidgetContract, /plugin-friends\.recent|friendFinder|friends-recent/, '旧朋友圈插件契约不得重新进入主题运行时');
-assert.match(
-  layout,
-  /widgetsLegacyLinksFeedLayout = \$\{#strings\.contains\(desktopLayoutJson, 'plugin-friends\.recent'\)\}/,
-  '旧布局 ID 只允许作为 PluginLinks 数据迁移触发器'
-);
-assert.match(
-  widgetPersistenceRead,
-  /'plugin-friends\.recent': 'plugin-links\.feed'/,
-  '旧布局实例必须迁移为当前 PluginLinks 小组件 ID'
-);
 assert.doesNotMatch(
   [layout, widgetPersistenceRead].join('\n'),
-  /friendFinder|friends-recent/,
-  '布局迁移不得恢复旧朋友圈 Finder 或渲染器'
+  /plugin-friends\.recent|friendFinder|friends-recent/,
+  '已退出的朋友圈插件 ID、Finder 和渲染器不得留在活动布局代码'
 );
 
 assert.doesNotMatch(
@@ -139,6 +127,8 @@ assert.match(editMode, /const PHOTO_GROUPS_API = '\/apis\/api\.photo\.halo\.run\
 assert.match(editMode, /async ensureWidgetConfigOptions\(widgetType\)[\s\S]*?fetch\(PHOTO_GROUPS_API,[\s\S]*?signal: controller\.signal/);
 assert.match(editMode, /requestId !== this\.widgetConfigOptionsRequestId \|\| controller\.signal\.aborted \|\| !this\.isHome/);
 assert.match(desktopTemplate, /type="application\/json"[\s\S]*?data-theme-desktop-widget-protocol/);
+assert.match(desktopTemplate, /"hydrated": \[\[\$\{isHome\}\]\]/, 'widget source protocol must distinguish loaded home data from deferred non-home data');
+assert.match(layout, /widgetsFriendsAvailable = \$\{pluginFinder\.available\('PluginLinks', '>=2\.2\.1'\)\}/, 'PluginLinks availability must not be falsified on direct non-home loads');
 assert.match(desktopTemplate, /JSON\.parse\(payloadNode\.textContent \|\| '\{\}'\)/);
 assert.doesNotMatch(desktopTemplate, /\b(?:eval|Function)\s*\(/, 'desktop protocol bootstrap must stay non-executable');
 assert.doesNotMatch(widgetProtocolRuntime, /\b(?:eval|Function)\s*\(/, 'PJAX protocol parsing must use JSON.parse only');
@@ -220,13 +210,7 @@ assert.match(
   'confirmed discard must restore the last saved widgets, icons, and tombstones'
 );
 
-assert.equal(migrateLegacyWidgetType('plugin-friends.recent'), 'plugin-links.feed');
-assert.equal(migrateLegacyWidgetType('system.clock'), 'system.clock');
-assert.equal(
-  migrateLegacyWidgetInstance({ key: 'legacy', widget: 'plugin-friends.recent' }).widget,
-  'plugin-links.feed'
-);
-const migratedLegacyLayout = mergeDesktopWidgetLayout([], {
+const droppedLegacyLayout = mergeDesktopWidgetLayout([], {
   instances: [{
     key: 'legacy-feed',
     title: '朋友圈',
@@ -235,8 +219,7 @@ const migratedLegacyLayout = mergeDesktopWidgetLayout([], {
     surface: 'notification-center'
   }]
 });
-assert.equal(migratedLegacyLayout[0]?.widget, 'plugin-links.feed');
-assert.equal(migratedLegacyLayout[0]?.surface, 'notification-center');
+assert.equal(droppedLegacyLayout.length, 0, '旧朋友圈小组件实例必须退出活动布局，不得静默迁移');
 
 const normalizedSources = normalizeDesktopWidgetSources({
   latestPosts: [{ metadata: { name: 'post-a' } }],
@@ -264,6 +247,7 @@ const homePayload = {
   siteUrl: 'https://blog.example.test',
   modules: { weather: { cityName: '上海', refreshMinutes: 15 } },
   sources: {
+    hydrated: true,
     latestPosts: [{ metadata: { name: 'hydrated-post' } }],
     momentsAvailable: true,
     recentMoments: [{ metadata: { name: 'hydrated-moment' } }]
@@ -271,6 +255,7 @@ const homePayload = {
 };
 const parsedHomePayload = parseDesktopWidgetProtocolFromResponse(protocolResponse(homePayload));
 assert.equal(parsedHomePayload?.isHome, true);
+assert.equal(parsedHomePayload?.sources.hydrated, true);
 assert.equal(parsedHomePayload?.sources.latestPosts[0]?.metadata?.name, 'hydrated-post');
 const parsedAfterDecoy = parseDesktopWidgetProtocolFromResponse(
   `<script>window.note = '${DESKTOP_WIDGET_PROTOCOL_EVENT} data-theme-desktop-widget-protocol';</script>`
@@ -288,6 +273,28 @@ registerDesktopSurface({
   }
 });
 assert.equal(typeof desktopFactory, 'function');
+
+const repairSurface = desktopFactory();
+repairSurface.serverLayoutPayload = { columns: 4 };
+repairSurface.columns = 4;
+repairSurface.currentColumns = 4;
+repairSurface.widgets = [{ key: 'broken', widget: 'system.clock', baseX: 9, baseY: 1, x: 9, y: 1, w: 2, h: 2 }];
+repairSurface.icons = [];
+repairSurface.iconTombstones = [];
+repairSurface.defaultWidgets = [];
+repairSurface.defaultIcons = [];
+repairSurface.defaultIconTombstones = [];
+repairSurface.visibleDesktopNodeKeys = ['broken'];
+repairSurface.normalizeVisibleLayout = () => {};
+repairSurface.syncResponsiveVisibility = () => {};
+assert.equal(repairSurface.ensureDesktopLayoutIntegrity(), true);
+assert.equal(repairSurface.widgets[0].baseX, 3);
+assert.equal(repairSurface.layoutIntegrityRepaired, true);
+assert.equal(repairSurface.defaultWidgets[0].baseX, 3, 'runtime repair must also update the discard baseline');
+repairSurface.markRepairedLayoutForSave();
+assert.equal(repairSurface.serverLayoutMutationVersion, 1, 'an authorized editor must be prompted to persist repaired placement data');
+assert.equal(repairSurface.serverLayoutSaveState, 'dirty');
+assert.doesNotMatch(desktopSurface, /desktopDebugWarn\('repaired (?:corrupt node placements|desktop layout to defaults)'/, 'expected placement repair must not emit recurring warning noise');
 
 const hydrationSurface = desktopFactory();
 let cacheInvalidations = 0;

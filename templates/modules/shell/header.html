@@ -36,23 +36,38 @@
             th:text="${siteTitle}"></span>
 
       <nav class="menubar-nav" th:if="${headerMenu != null}">
-        <div th:each="menuItem : ${headerMenu.menuItems}"
+        <div th:each="menuItem, menuItemStat : ${headerMenu.menuItems}"
              th:with="
-               menuItemHref = ${menuItem.status.href != null ? menuItem.status.href.toString() : ''}"
+               menuItemHref = ${menuItem.status.href != null ? menuItem.status.href.toString() : ''},
+               menuDropdownId = ${'menubar-submenu-' + menuItemStat.index}"
              class="menubar-menu-group"
              x-data="{ open: false }"
              @mouseenter="open = true"
              @mouseleave="open = false"
+             @focusout="if (!$el.contains($event.relatedTarget)) open = false"
+             @keydown.escape.stop.prevent="open = false; $refs.trigger?.focus()"
              @click.away="open = false"
              @theme-menubar-close.window="open = false">
-          <a th:href="${#lists.isEmpty(menuItem.children) ? menuItem.status.href : 'javascript:void(0)'}"
+          <a th:if="${#lists.isEmpty(menuItem.children)}"
+             th:href="${menuItem.status.href}"
              th:target="${menuItem.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
              class="menubar-item menubar-item--desktop"
-             :class="{ 'is-open': open }"
              th:classappend="${#lists.isEmpty(menuItem.children) and menuItem.spec.target?.name() != 'BLANK' ? 'pjax-link' : ''}"
              th:text="${menuItem.status.displayName}"></a>
 
-          <th:block th:replace="~{modules/shell/header :: submenu(menuItem=${menuItem})}"></th:block>
+          <button th:unless="${#lists.isEmpty(menuItem.children)}"
+                  type="button"
+                  x-ref="trigger"
+                  class="menubar-item menubar-item--desktop"
+                  :class="{ 'is-open': open }"
+                  :aria-expanded="open.toString()"
+                  th:attr="aria-controls=${menuDropdownId}"
+                  aria-haspopup="menu"
+                  @click="open = !open"
+                  @keydown.arrow-down.prevent="open = true; $nextTick(() => $el.parentElement.querySelector('.menubar-dropdown-item')?.focus())"
+                  th:text="${menuItem.status.displayName}"></button>
+
+          <th:block th:replace="~{modules/shell/header :: submenu(menuItem=${menuItem}, dropdownId=${menuDropdownId})}"></th:block>
         </div>
       </nav>
     </div>
@@ -123,11 +138,17 @@
               class="menubar-icon-btn menubar-control-center-btn"
               :class="{ 'is-available': $store.themeSettings.canOpen }"
               :data-theme-settings-capability="$store.themeSettings.accessStatus"
+              :disabled="$store.themeSettings.accessStatus === 'checking'"
               @click.stop="$store.themeSettings.requestOpen()"
-              aria-label="打开系统设置"
-              title="系统设置">
+              :aria-label="$store.themeSettings.accessStatus === 'checking' ? '正在检查系统设置权限' : '打开系统设置'"
+              :title="$store.themeSettings.accessStatus === 'checking' ? '正在检查权限…' : '系统设置'">
         <span class="menubar-control-center-glyph icon-[lucide--settings]" aria-hidden="true"></span>
       </button>
+      <span class="menubar-settings-feedback"
+            x-cloak
+            x-show="$store.themeSettings.entryStatusMessage"
+            x-text="$store.themeSettings.entryStatusMessage"
+            role="status"></span>
 
       <button type="button"
               th:with="
@@ -256,11 +277,21 @@
                    'is-showing-all': notificationShowRead
                  }">
           <template x-if="notificationStatusText">
-            <div class="notification-center-status" :data-state="notificationStatus">
+            <div class="notification-center-status"
+                 :data-state="notificationStatus"
+                 role="status"
+                 aria-live="polite">
               <span class="icon-[lucide--bell]" aria-hidden="true"></span>
               <span x-text="notificationStatusText"></span>
             </div>
           </template>
+
+          <div class="notification-center-action-message"
+               x-show="notificationActionMessage"
+               x-text="notificationActionMessage"
+               role="alert"
+               aria-live="assertive"
+               style="display: none;"></div>
 
           <template x-if="notificationVisibleGroups().length > 0">
             <div class="notification-center-groups">
@@ -340,6 +371,7 @@
                        x-show="!isNotificationGroupExpanded(group) && notificationGroupItems(group).length > 0"
                        @click="openNotificationGroup(group)"
                        @keydown.enter.prevent="openNotificationGroup(group)"
+                       @keydown.space.prevent="openNotificationGroup(group)"
                        role="button"
                        tabindex="0"
                        :aria-label="`展开${group.label}通知`">
@@ -529,12 +561,14 @@
     </aside>
   </div>
 
-  <div th:fragment="submenu (menuItem)"
+  <div th:fragment="submenu (menuItem, dropdownId)"
        th:if="${!#lists.isEmpty(menuItem.children)}"
+       th:id="${dropdownId}"
        x-show="open"
        x-transition.opacity.duration.75ms
        style="display: none;"
-       class="menubar-dropdown">
+       class="menubar-dropdown"
+       role="menu">
     <th:block th:each="child, childStat : ${menuItem.children}"
               th:with="
                 childIconType = ${#annotations.getOrDefault(child, 'icon_type', 'iconify')},
@@ -553,6 +587,7 @@
       <a th:href="${child.status.href}"
          th:target="${child.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
          class="menubar-dropdown-item"
+         role="menuitem"
          th:classappend="${child.spec.target?.name() == 'BLANK' ? '' : 'pjax-link'}"
          @click="open = false; $dispatch('theme-menubar-close')">
         <span class="menubar-dropdown-leading">

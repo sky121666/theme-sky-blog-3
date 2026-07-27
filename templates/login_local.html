@@ -4,35 +4,42 @@
 <!-- ========================================== -->
 
 <div th:remove="tag" th:fragment="form">
+    <!-- 保留 Halo 原生字段名、自动填充语义和 RSA 提交流程；锁屏切步只增强视觉与交互。 -->
+    <div class="auth-lockscreen-native-fields" data-auth-lockscreen-native>
+        <div class="auth-lockscreen-step auth-lockscreen-step-identity" data-auth-lockscreen-step="identity">
+            <div class="auth-field auth-field-compact auth-lockscreen-field">
+                <label for="username">用户名 / 邮箱</label>
+                <input id="username" name="username" type="text" placeholder="用户名或邮箱" autocomplete="username"
+                    spellcheck="false" autocorrect="off" autocapitalize="off" required
+                    class="auth-input auth-lockscreen-input" />
+                <button type="button" class="auth-lockscreen-submit" data-auth-lockscreen-advance
+                    aria-label="继续输入密码" title="继续">
+                    <span class="icon-[lucide--arrow-right]" aria-hidden="true"></span>
+                </button>
+            </div>
+        </div>
 
-    <!-- 用户名 -->
-    <div class="auth-field auth-field-compact">
-        <label for="username">用户名 / 邮箱</label>
-        <input id="username" name="username" type="text" placeholder="用户名或邮箱" autocomplete="username" spellcheck="false"
-            autocorrect="off" autocapitalize="off" required autofocus class="auth-input" />
+        <div class="auth-lockscreen-step auth-lockscreen-step-password" data-auth-lockscreen-step="password"
+            aria-hidden="true">
+            <div class="auth-lockscreen-account-row">
+                <button type="button" class="auth-lockscreen-account-back" data-auth-lockscreen-back
+                    aria-label="返回修改用户名" title="修改用户名">
+                    <span class="icon-[lucide--chevron-left]" aria-hidden="true"></span>
+                </button>
+                <span data-auth-lockscreen-account-label>账户</span>
+            </div>
+            <div class="auth-field auth-field-compact auth-lockscreen-field">
+                <label for="password">密码</label>
+                <input id="password" name="password" type="password" placeholder="输入密码"
+                    autocomplete="current-password" required maxlength="257"
+                    class="auth-input auth-lockscreen-input" />
+                <button type="submit" class="auth-lockscreen-submit" data-auth-lockscreen-submit
+                    aria-label="登录" title="登录">
+                    <span class="icon-[lucide--arrow-right]" aria-hidden="true"></span>
+                </button>
+            </div>
+        </div>
     </div>
 
-    <!-- =========================================
-         密码：两种模式
-         1. 有 RSA publicKey：使用隐藏 password 字段接收加密值 + plainPassword 明文输入
-         2. 没有 RSA publicKey：直接用 name="password" 字段输入，无需单独 JS 处理
-         ========================================= -->
-    <th:block th:if="${not #strings.isEmpty(publicKey)}">
-        <!-- RSA 模式 -->
-        <div class="auth-field auth-field-compact">
-            <label for="password">密码</label>
-            <input id="password" name="password" type="password" placeholder="密码" autocomplete="current-password"
-                required maxlength="257" class="auth-input" />
-        </div>
-    </th:block>
-
-    <th:block th:unless="${not #strings.isEmpty(publicKey)}">
-        <!-- 普通模式：直接提交 name="password" -->
-        <div class="auth-field auth-field-compact">
-            <label for="password">密码</label>
-            <input id="password" name="password" type="password" placeholder="密码" autocomplete="current-password"
-                required maxlength="257" class="auth-input" />
-        </div>
-    </th:block>
-
+    <p class="auth-visually-hidden" data-auth-lockscreen-status aria-live="polite"></p>
 </div>

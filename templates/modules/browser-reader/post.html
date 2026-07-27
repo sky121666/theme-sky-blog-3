@@ -143,6 +143,12 @@
                 <halo:comment group="content.halo.run" kind="Post" th:attr="name=${post.metadata.name}"/>
               </div>
             </section>
+            <section class="post-comments post-comments-unavailable"
+                     th:unless="${pluginFinder.available('PluginCommentWidget')}"
+                     role="status">
+              <h2 class="post-comments-title">评论</h2>
+              <p>评论组件当前未启用。</p>
+            </section>
           </div>
 
           <aside class="post-outline" data-post-outline hidden>

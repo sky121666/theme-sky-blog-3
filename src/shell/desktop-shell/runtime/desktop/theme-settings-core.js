@@ -257,6 +257,10 @@ function normalizeCssColor(value, fallback) {
   return `${functionalMatch[1].toLowerCase()}(${channels.join(', ')})`;
 }
 
+export function isValidThemeCssColor(value) {
+  return normalizeCssColor(value, null) !== null;
+}
+
 function normalizeEnum(value, allowed, fallback) {
   const candidate = String(value || '').trim();
   return allowed.has(candidate) ? candidate : fallback;
@@ -378,6 +382,19 @@ export function updateThemeSettingsDraft(draft, path, value) {
   const fallback = getPathValue(next, path, getPathValue(DEFAULT_DRAFT, path));
   setPathValue(next, path, normalizeThemeSettingValue(path, value, fallback));
   return next;
+}
+
+export function rebaseThemeSettingsDraftAfterSave(savedBaseline, currentDraft, candidatePaths = []) {
+  const baseline = cloneThemeSettingsValue(savedBaseline || DEFAULT_DRAFT);
+  const current = cloneThemeSettingsValue(currentDraft || baseline);
+  const dirtyPaths = Array.from(new Set(candidatePaths))
+    .filter((path) => WRITABLE_PATHS.has(path))
+    .filter((path) => JSON.stringify(getPathValue(current, path)) !== JSON.stringify(getPathValue(baseline, path)));
+  let draft = cloneThemeSettingsValue(baseline);
+  dirtyPaths.forEach((path) => {
+    draft = updateThemeSettingsDraft(draft, path, getPathValue(current, path));
+  });
+  return { draft, dirtyPaths };
 }
 
 export function applyThemeSettingsDraftToConfig(config, draft, changedPaths = []) {

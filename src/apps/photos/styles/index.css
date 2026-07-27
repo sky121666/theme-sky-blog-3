@@ -4288,8 +4288,7 @@ html.photos-shared-view-transition {
 @container windowframe (max-width: 600px) {
   .photos-detail-shell > .photos-sidebar,
   .photos-detail-shell.is-comments-open > .photos-sidebar {
-    width: 152px;
-    flex-basis: 152px;
+    display: none;
   }
 
   .photos-detail-shell > .photos-sidebar .photos-sidebar-badge {
@@ -4323,4 +4322,43 @@ html.photos-shared-view-transition {
     height: 40px;
     flex-basis: 46px;
   }
+}
+
+.photos-detail-image-error {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  z-index: 3;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  min-width: 180px;
+  padding: 20px;
+  border: 1px solid var(--photos-detail-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--photos-detail-stage-bg) 88%, transparent);
+  color: var(--photos-text);
+  box-shadow: 0 18px 48px color-mix(in srgb, var(--photos-detail-border) 78%, transparent);
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.photos-detail-image-error[hidden] {
+  display: none;
+}
+
+.photos-detail-image-error > span {
+  width: 28px;
+  height: 28px;
+  color: var(--photos-text-muted);
+}
+
+.photos-detail-image-error button {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--photos-detail-border);
+  border-radius: 8px;
+  background: var(--photos-control-bg);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
 }

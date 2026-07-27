@@ -19,8 +19,7 @@
              data-theme-settings-window
              tabindex="-1"
              role="dialog"
-             aria-modal="true"
-             @keydown.tab="$store.themeSettings.handleFocusTrap($event)"
+             aria-modal="false"
              aria-labelledby="theme-settings-title">
       <header class="theme-settings-titlebar">
         <div class="theme-settings-traffic" aria-label="窗口控制">
@@ -46,6 +45,7 @@
 
         <button type="button"
                 class="theme-settings-sidebar-toggle"
+                data-theme-settings-sidebar-toggle
                 :aria-expanded="$store.themeSettings.mobileSidebarOpen.toString()"
                 aria-controls="theme-settings-sidebar"
                 aria-label="展开设置分类"
@@ -65,12 +65,17 @@
         <button type="button"
                 class="theme-settings-sidebar-backdrop"
                 :class="{ 'is-open': $store.themeSettings.mobileSidebarOpen }"
+                tabindex="-1"
+                aria-hidden="true"
                 aria-label="收起设置分类"
                 @click="$store.themeSettings.closeMobileSidebar()"></button>
 
         <aside id="theme-settings-sidebar"
                class="theme-settings-sidebar"
                :class="{ 'is-open': $store.themeSettings.mobileSidebarOpen }"
+               :inert="$store.themeSettings.isMobileViewport && !$store.themeSettings.mobileSidebarOpen"
+               :aria-hidden="($store.themeSettings.isMobileViewport && !$store.themeSettings.mobileSidebarOpen).toString()"
+               @keydown.tab="$store.themeSettings.handleMobileSidebarFocusTrap($event)"
                aria-label="设置分类">
           <h2 class="theme-settings-sidebar-title">设置</h2>
 
@@ -122,7 +127,9 @@
           </nav>
         </aside>
 
-        <div class="theme-settings-main">
+        <div class="theme-settings-main"
+             :inert="$store.themeSettings.mobileSidebarOpen"
+             :aria-hidden="$store.themeSettings.mobileSidebarOpen.toString()">
           <main class="theme-settings-content"
                 data-theme-settings-content>
             <section class="theme-settings-pane"
@@ -648,6 +655,7 @@
                     <input type="text"
                            maxlength="40"
                            :value="$store.themeSettings.value('widgets.modules.weather.city_name')"
+                           @input.debounce.350ms="$store.themeSettings.previewWeatherCity($event.target.value)"
                            @change="$store.themeSettings.update('widgets.modules.weather.city_name', $event.target.value)" />
                   </label>
                   <label class="theme-settings-range-row">
@@ -695,7 +703,7 @@
                            maxlength="80"
                            placeholder="使用站点标题"
                            :value="$store.themeSettings.value('header.logo.title')"
-                           @input="$store.themeSettings.update('header.logo.title', $event.target.value)" />
+                           @change="$store.themeSettings.update('header.logo.title', $event.target.value)" />
                   </label>
                 </div>
               </section>
@@ -732,7 +740,7 @@
                            maxlength="20"
                            :disabled="!$store.themeSettings.value('header.actions.auth_enabled')"
                            :value="$store.themeSettings.value('header.auth.login_label')"
-                           @input="$store.themeSettings.update('header.auth.login_label', $event.target.value)" />
+                           @change="$store.themeSettings.update('header.auth.login_label', $event.target.value)" />
                   </label>
                   <label class="theme-settings-group-row">
                     <span class="theme-settings-copy">
@@ -822,7 +830,8 @@
               <section class="theme-settings-section">
                 <h3 class="theme-settings-section-title">二级菜单</h3>
                 <div class="theme-settings-group">
-                  <label class="theme-settings-input-row">
+                  <label class="theme-settings-input-row theme-settings-color-input-row"
+                         :class="{ 'is-invalid': $store.themeSettings.validationError('header.dropdown.light_bg') }">
                     <span class="theme-settings-copy">
                       <strong>浅色背景</strong>
                     </span>
@@ -831,11 +840,19 @@
                          aria-hidden="true"></i>
                       <input type="text"
                              maxlength="64"
+                             :aria-invalid="Boolean($store.themeSettings.validationError('header.dropdown.light_bg')).toString()"
+                             aria-describedby="theme-settings-light-bg-error"
                              :value="$store.themeSettings.value('header.dropdown.light_bg')"
-                             @change="$store.themeSettings.update('header.dropdown.light_bg', $event.target.value)" />
+                             @change="$store.themeSettings.updateCssColor('header.dropdown.light_bg', $event.target.value)" />
                     </span>
+                    <small id="theme-settings-light-bg-error"
+                           class="theme-settings-field-error"
+                           x-show="$store.themeSettings.validationError('header.dropdown.light_bg')"
+                           x-text="$store.themeSettings.validationError('header.dropdown.light_bg')"
+                           role="alert"></small>
                   </label>
-                  <label class="theme-settings-input-row">
+                  <label class="theme-settings-input-row theme-settings-color-input-row"
+                         :class="{ 'is-invalid': $store.themeSettings.validationError('header.dropdown.dark_bg') }">
                     <span class="theme-settings-copy">
                       <strong>深色背景</strong>
                     </span>
@@ -844,9 +861,16 @@
                          aria-hidden="true"></i>
                       <input type="text"
                              maxlength="64"
+                             :aria-invalid="Boolean($store.themeSettings.validationError('header.dropdown.dark_bg')).toString()"
+                             aria-describedby="theme-settings-dark-bg-error"
                              :value="$store.themeSettings.value('header.dropdown.dark_bg')"
-                             @change="$store.themeSettings.update('header.dropdown.dark_bg', $event.target.value)" />
+                             @change="$store.themeSettings.updateCssColor('header.dropdown.dark_bg', $event.target.value)" />
                     </span>
+                    <small id="theme-settings-dark-bg-error"
+                           class="theme-settings-field-error"
+                           x-show="$store.themeSettings.validationError('header.dropdown.dark_bg')"
+                           x-text="$store.themeSettings.validationError('header.dropdown.dark_bg')"
+                           role="alert"></small>
                   </label>
                 </div>
                 <p class="theme-settings-section-note">以上修改由窗口上方的真实菜单栏实时呈现。</p>
@@ -868,7 +892,7 @@
                     <input type="text"
                            maxlength="40"
                            :value="$store.themeSettings.value('sidebar.notification_center.title')"
-                           @input="$store.themeSettings.update('sidebar.notification_center.title', $event.target.value)" />
+                           @change="$store.themeSettings.update('sidebar.notification_center.title', $event.target.value)" />
                   </label>
                   <label class="theme-settings-input-row">
                     <span class="theme-settings-copy">
@@ -878,7 +902,7 @@
                     <input type="text"
                            maxlength="40"
                            :value="$store.themeSettings.value('sidebar.notification_center.guest_title')"
-                           @input="$store.themeSettings.update('sidebar.notification_center.guest_title', $event.target.value)" />
+                           @change="$store.themeSettings.update('sidebar.notification_center.guest_title', $event.target.value)" />
                   </label>
                   <label class="theme-settings-group-row">
                     <span class="theme-settings-copy">
@@ -951,7 +975,7 @@
               </button>
               <button type="button"
                       class="theme-settings-primary-button"
-                      :disabled="!$store.themeSettings.hasDirtyChanges() || $store.themeSettings.saving"
+                      :disabled="!$store.themeSettings.hasDirtyChanges() || $store.themeSettings.saving || $store.themeSettings.hasValidationErrors()"
                       @click="$store.themeSettings.save()">
                 <span class="theme-settings-button-spinner"
                       x-show="$store.themeSettings.saving"

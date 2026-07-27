@@ -64,6 +64,7 @@ export const editModeMethods = {
     this.icons = cloneJsonValue(this.defaultIcons) || [];
     this.iconTombstones = cloneJsonValue(this.defaultIconTombstones) || [];
     this.serverLayoutMutationVersion = this.serverLayoutSavedMutationVersion;
+    this.layoutIntegrityRepaired = false;
     this.serverLayoutReloadRequired = false;
     this.serverLayoutSaveState = 'idle';
     this.serverLayoutSaveMessage = '已放弃未保存更改';
@@ -650,6 +651,7 @@ export const editModeMethods = {
       previewWidget: null
     };
     this.refreshWidgetConfigPreview();
+    this.focusDesktopModal?.('widget-config');
   },
 
   openWidgetConfigFormForExisting(widget) {
@@ -693,6 +695,7 @@ export const editModeMethods = {
       meta: {},
       previewWidget: null
     };
+    this.restoreDesktopModalFocus?.();
   },
 
   async submitWidgetConfigForm() {

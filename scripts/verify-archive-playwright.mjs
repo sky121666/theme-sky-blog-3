@@ -26,6 +26,7 @@ async function waitForArchive(page, expected = {}) {
   await page.waitForFunction(({ year, monthKey }) => {
     const root = document.querySelector('[data-app-root="explorer-archives"] .archive-workspace');
     if (!root || !root._x_dataStack?.length) return false;
+    if (root.dataset.archiveIndexComplete !== 'true') return false;
     if (year && root.dataset.activeYear !== year) return false;
     if (monthKey && root.dataset.activeMonthKey !== monthKey) return false;
     return true;
@@ -190,12 +191,15 @@ try {
 
   const archivePreviewAction = page.locator('.archive-preview-action');
   assert.equal(await archivePreviewAction.count(), 1, '归档必须提供唯一预览打开入口');
-  const archivePostHref = await archivePreviewAction.getAttribute('href');
+  const archivePostAction = await archivePreviewAction.isVisible()
+    ? archivePreviewAction
+    : page.locator('[data-archive-post-option]').first();
+  const archivePostHref = await archivePostAction.getAttribute('href');
   assert.ok(archivePostHref, '归档预览必须提供真实文章地址');
   await verifyPendingPjaxLoading({
     page,
     targetUrl: absoluteUrl(archivePostHref),
-    action: () => archivePreviewAction.click(),
+    action: () => archivePostAction.click(),
     preservedSelector: '[data-app-root="explorer-archives"] .archive-workspace',
     expectWindowOverlay: true,
     label: '归档进入正文'

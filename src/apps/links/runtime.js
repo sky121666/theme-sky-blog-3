@@ -796,6 +796,7 @@ export function registerLinksExplorer(Alpine) {
     feedGroups: [],
     feedSources: [],
     allLinksTitle: '全部友链',
+    siteTitle: '',
     capabilityStatus: 'idle',
     canReadFeed: false,
     canManageLinks: false,
@@ -873,6 +874,7 @@ export function registerLinksExplorer(Alpine) {
       const feedGroupNodes = Array.from(this.$root.querySelectorAll('[data-feed-group]'));
       const feedSourceNodes = Array.from(this.$root.querySelectorAll('[data-feed-source]'));
       this.allLinksTitle = this.$root.dataset.linksAllTitle || '全部友链';
+      this.siteTitle = sanitizePlainText(this.$root.dataset.linksSiteTitle || '');
 
       this.groups = groupNodes.map((node) => ({
         key: node.dataset.groupKey || '',
@@ -1159,6 +1161,7 @@ export function registerLinksExplorer(Alpine) {
     commitNavigation({ historyMode = 'push', scrollToTop = true } = {}) {
       this.mobileDetailOpen = this.detailOpen();
       this.syncUrl(historyMode);
+      this.syncDocumentChrome();
       if (scrollToTop) this.scrollActivePaneToTop();
       this.$nextTick(() => this.syncWindowLayout());
     },
@@ -1272,6 +1275,7 @@ export function registerLinksExplorer(Alpine) {
 
       this.mobileDetailOpen = this.detailOpen();
       if (canonicalize && needsCanonicalUrl) this.syncUrl('replace');
+      this.syncDocumentChrome();
       if (!canonicalize && this.activeView === 'friends' && this.detailOpen()) {
         const nextFeedKey = currentFilterKey(
           this.feedGroupName,
@@ -1313,6 +1317,14 @@ export function registerLinksExplorer(Alpine) {
       if (target === current) return;
       const method = mode === 'replace' ? 'replaceState' : 'pushState';
       window.history[method](window.history.state, '', target);
+    },
+
+    syncDocumentChrome() {
+      if (typeof document === 'undefined') return;
+      const title = this.activeHeaderTitle() || this.allLinksTitle || '链接';
+      document.title = this.siteTitle ? `${title} - ${this.siteTitle}` : title;
+      const titleElement = document.querySelector('[data-window-title]');
+      if (titleElement) titleElement.textContent = title;
     },
 
     cancelFeedRequest() {
@@ -1796,8 +1808,9 @@ async function resolveCurrentUser(signal) {
     headers: { Accept: 'application/json' },
     signal
   });
-  if (response.status === 401 || response.status === 403 || response.redirected || !isJsonResponse(response)) return null;
+  if (response.status === 401 || response.status === 403 || response.redirected) return null;
   if (!response.ok) throw statusError(response, await readErrorMessage(response));
+  if (!isJsonResponse(response)) throw statusError(response, '当前用户接口没有返回 JSON');
   const payload = await response.json();
   const user = payload?.user || payload;
   const username = String(user?.metadata?.name || '').trim();
@@ -2179,6 +2192,19 @@ export function registerLinkSubmitForm(Alpine) {
       if (!String(this.form.description || '').trim()) return false;
       if (this.isUpdateMode() && !String(this.form.updateDescription || '').trim()) return false;
       return true;
+    },
+
+    formValidationMessage() {
+      if (this.fetchingMeta) return '正在识别网站信息，请稍候。';
+      if (this.submitting) return '正在提交，请勿重复操作。';
+      if (this.submitted) return '';
+      if (!normalizeUrl(this.form.url)) return '请填写有效的 HTTP 或 HTTPS 网站地址。';
+      if (!String(this.form.displayName || '').trim()) return '请填写网站名称。';
+      if (!String(this.form.description || '').trim()) return '请填写网站描述。';
+      if (this.form.logo && !normalizeUrl(this.form.logo)) return 'Logo 必须是有效的 HTTP 或 HTTPS 地址。';
+      if (this.form.rssUrl && !normalizeUrl(this.form.rssUrl)) return 'RSS 必须是有效的 HTTP 或 HTTPS 地址。';
+      if (this.isUpdateMode() && !String(this.form.updateDescription || '').trim()) return '修改申请需要填写修改说明。';
+      return '';
     },
 
     primaryActionLabel() {

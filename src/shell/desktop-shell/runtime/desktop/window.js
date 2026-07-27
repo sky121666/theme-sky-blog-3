@@ -81,32 +81,13 @@ async function copyTextFallback(text) {
   return copied;
 }
 
-function stripClonedIdsAndAlpine(node) {
-  if (!node || !node.querySelectorAll) return;
-  
-  const elements = [node, ...node.querySelectorAll('*')];
-  elements.forEach(el => {
-    el.removeAttribute('id');
-    Array.from(el.attributes).forEach(attr => {
-      if (
-        attr.name.startsWith('x-')
-        || attr.name.startsWith('@')
-        || attr.name.startsWith(':')
-      ) {
-        el.removeAttribute(attr.name);
-      }
-    });
-  });
-}
-
 function createGenieGhost(sourceWindowEl) {
   const ghostWrapper = document.createElement('div');
-  const ghostInner = sourceWindowEl.cloneNode(true);
-
-  stripClonedIdsAndAlpine(ghostInner);
+  const ghostInner = document.createElement('div');
+  const sourceStyle = window.getComputedStyle(sourceWindowEl);
 
   ghostWrapper.className = 'genie-ghost-wrapper';
-  ghostInner.classList.add('genie-ghost-window');
+  ghostInner.className = 'genie-ghost-window';
 
   Object.assign(ghostWrapper.style, {
     position: 'fixed',
@@ -129,7 +110,12 @@ function createGenieGhost(sourceWindowEl) {
     resize: 'none',
     pointerEvents: 'none',
     visibility: 'visible',
-    overflow: 'hidden'
+    overflow: 'hidden',
+    backgroundColor: sourceStyle.backgroundColor,
+    backgroundImage: sourceStyle.backgroundImage,
+    border: sourceStyle.border,
+    borderRadius: sourceStyle.borderRadius,
+    boxShadow: sourceStyle.boxShadow
   });
 
   ghostWrapper.appendChild(ghostInner);
@@ -140,6 +126,10 @@ function createGenieGhost(sourceWindowEl) {
 
 export function runGenieAnimation({ windowEl, dockEl, action, duration = 480, onBeforeFinish }) {
   if (!windowEl || !dockEl) return Promise.resolve(false);
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) {
+    onBeforeFinish?.();
+    return Promise.resolve(true);
+  }
 
   const windowRect = windowEl.getBoundingClientRect();
   const targetGraphic = dockEl.querySelector('svg') || dockEl;
@@ -452,6 +442,8 @@ export function registerWindowComponents(Alpine) {
     _viewportModeHandler: null,
     _viewportResizing: false,
     _lifecycleInstalled: false,
+    naturalMinWidth: 0,
+    naturalMinHeight: 0,
 
     applyResizeMode() {
       if (!this.windowEl) return;
@@ -481,6 +473,63 @@ export function registerWindowComponents(Alpine) {
       if (!this.windowEl) return 400;
       const computed = Number.parseFloat(window.getComputedStyle(this.windowEl).minHeight);
       return Number.isFinite(computed) && computed > 0 ? computed : 400;
+    },
+
+    desktopViewportBounds({ maximized = false } = {}) {
+      const top = 24;
+      const side = maximized ? 0 : 16;
+      const dock = document.querySelector?.('.dock-container') || null;
+      const dockStyle = dock ? window.getComputedStyle(dock) : null;
+      const dockRect = dock && dockStyle?.display !== 'none' && dockStyle?.visibility !== 'hidden'
+        ? dock.getBoundingClientRect()
+        : null;
+      const dockInset = dockRect?.height > 0
+        ? Math.max(16, window.innerHeight - dockRect.top + 12)
+        : 16;
+      return {
+        left: side,
+        top,
+        width: Math.max(240, window.innerWidth - side * 2),
+        height: Math.max(240, window.innerHeight - top - dockInset)
+      };
+    },
+
+    applyDesktopMinimumConstraints(bounds = this.desktopViewportBounds()) {
+      if (!this.windowEl) return;
+      const naturalMinWidth = this.naturalMinWidth || 400;
+      const naturalMinHeight = this.naturalMinHeight || 400;
+      this.windowEl.style.minWidth = `${Math.min(naturalMinWidth, bounds.width)}px`;
+      this.windowEl.style.minHeight = `${Math.min(naturalMinHeight, bounds.height)}px`;
+    },
+
+    constrainWindowRectToViewport() {
+      if (!this.isDesktop || !this.windowEl || this.isMaximized) return;
+      const bounds = this.desktopViewportBounds();
+      this.applyDesktopMinimumConstraints(bounds);
+      const minWidth = Math.min(this.getMinWidth(), bounds.width);
+      const minHeight = Math.min(this.getMinHeight(), bounds.height);
+      this.width = Math.min(bounds.width, Math.max(minWidth, Number(this.width) || minWidth));
+      this.height = Math.min(bounds.height, Math.max(minHeight, Number(this.height) || minHeight));
+      this.x = Math.min(
+        bounds.left + bounds.width - this.width,
+        Math.max(bounds.left, Number.isFinite(this.x) ? this.x : bounds.left)
+      );
+      this.y = Math.min(
+        bounds.top + bounds.height - this.height,
+        Math.max(bounds.top, Number.isFinite(this.y) ? this.y : bounds.top)
+      );
+    },
+
+    applyMaximizedRect() {
+      if (!this.isDesktop || !this.windowEl) return;
+      const bounds = this.desktopViewportBounds({ maximized: true });
+      this.applyDesktopMinimumConstraints(bounds);
+      this.setWindowRect({
+        x: bounds.left,
+        y: bounds.top,
+        width: bounds.width,
+        height: bounds.height
+      });
     },
 
     getResizeCursor(direction) {
@@ -539,6 +588,9 @@ export function registerWindowComponents(Alpine) {
 
       this.windowEl = this.$el;
       this.metricsKey = this.windowEl.dataset.windowMetricsKey || 'none';
+      const initialStyle = window.getComputedStyle(this.windowEl);
+      this.naturalMinWidth = Number.parseFloat(initialStyle.minWidth) || 400;
+      this.naturalMinHeight = Number.parseFloat(initialStyle.minHeight) || 400;
       
       try {
         if (this.metricsKey !== 'none') {
@@ -575,9 +627,12 @@ export function registerWindowComponents(Alpine) {
 
       if (this.width === 0) this.updateMeasurements();
       else if (this.isDesktop) {
-         this.windowEl.style.width = `${this.width}px`;
-         this.windowEl.style.height = `${this.height}px`;
-         this.applyTransform();
+         if (this.isMaximized) {
+           this.applyMaximizedRect();
+         } else {
+           this.constrainWindowRectToViewport();
+           this.applyTransform();
+         }
       }
 
       this.syncNarrowState();
@@ -612,14 +667,11 @@ export function registerWindowComponents(Alpine) {
           this._viewportResizing = false;
           /* maximized 窗口跟随视口 */
           if (this.isDesktop && this.isMaximized) {
-            this.width = window.innerWidth;
-            this.height = window.innerHeight - 25;
-            this.windowEl.style.width = `${this.width}px`;
-            this.windowEl.style.height = `${this.height}px`;
+            this.applyMaximizedRect();
             this.syncState();
           }
-          if (this.isDesktop) {
-            this.clampPositions();
+          if (this.isDesktop && !this.isMaximized) {
+            this.constrainWindowRectToViewport();
             this.applyTransform();
           }
           this.applyResizeMode();
@@ -643,30 +695,24 @@ export function registerWindowComponents(Alpine) {
           this.windowEl.style.top = '';
           this.windowEl.style.width = '100%';
           this.windowEl.style.height = '100%';
+          this.windowEl.style.minWidth = '0px';
+          this.windowEl.style.minHeight = '0px';
         } else {
           /* → desktop: 从未被污染的 this.width/height 恢复 */
           if (this.width === 0) {
             this.updateMeasurements();
           } else {
             if (this.isMaximized) {
-              this.width = window.innerWidth;
-              this.height = window.innerHeight - 25;
+              this.applyMaximizedRect();
             } else {
-              const maxW = window.innerWidth - 40;
-              const maxH = window.innerHeight - 68;
+              const bounds = this.desktopViewportBounds();
+              const maxW = bounds.width;
               const forcedW = parseInt(this.windowEl.dataset.windowWidth, 10);
               if (forcedW > 0 && (this.windowEl.dataset.windowResizable === 'y' || this.windowEl.dataset.windowResizable === 'false')) {
                 this.width = Math.min(forcedW, maxW);
               }
-              if (this.width > maxW) this.width = maxW;
-              if (this.height > maxH) this.height = maxH;
-              if (this.x < 0 || this.x + this.width > window.innerWidth) {
-                this.x = Math.max(0, (window.innerWidth - this.width) / 2);
-              }
+              this.constrainWindowRectToViewport();
             }
-            this.windowEl.style.width = `${this.width}px`;
-            this.windowEl.style.height = `${this.height}px`;
-            this.clampPositions();
             this.applyTransform();
             this.syncState();
           }
@@ -725,21 +771,23 @@ export function registerWindowComponents(Alpine) {
 
     updateMeasurements() {
        if (this.isDesktop) {
-         let width = Math.min(1200, window.innerWidth * 0.85);
-         let height = Math.min(900, Math.max(500, window.innerHeight * 0.85));
+         const bounds = this.desktopViewportBounds();
+         this.applyDesktopMinimumConstraints(bounds);
+         let width = Math.min(1200, bounds.width, window.innerWidth * 0.85);
+         let height = Math.min(900, bounds.height, Math.max(320, bounds.height * 0.9));
          
          if (this.windowEl.dataset.windowWidth) {
             const w = parseInt(this.windowEl.dataset.windowWidth, 10);
-            if (!isNaN(w) && w > 0) width = Math.min(w, window.innerWidth);
+            if (!isNaN(w) && w > 0) width = Math.min(w, bounds.width);
          }
          
          if (this.windowEl.dataset.windowHeight) {
             const h = parseInt(this.windowEl.dataset.windowHeight, 10);
-            if (!isNaN(h) && h > 0) height = Math.min(h, window.innerHeight - 25);
+            if (!isNaN(h) && h > 0) height = Math.min(h, bounds.height);
          }
 
-         const x = (window.innerWidth - width) / 2;
-         const y = Math.max(25, (window.innerHeight - height) / 2);
+         const x = bounds.left + (bounds.width - width) / 2;
+         const y = bounds.top + (bounds.height - height) / 2;
 
          this.setWindowRect({ x, y, width, height });
          this.applyResizeMode();
@@ -770,38 +818,33 @@ export function registerWindowComponents(Alpine) {
       if (this.windowEl.dataset.windowMaximizable === 'false') return;
       
       const winEl = this.windowEl;
-      winEl.style.transition = 'all 0.3s cubic-bezier(0.25, 1, 0.5, 1)';
+      const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+      winEl.style.transition = reduceMotion
+        ? 'none'
+        : 'left 220ms cubic-bezier(0.25, 1, 0.5, 1), top 220ms cubic-bezier(0.25, 1, 0.5, 1), width 220ms cubic-bezier(0.25, 1, 0.5, 1), height 220ms cubic-bezier(0.25, 1, 0.5, 1), border-radius 180ms ease';
       if (this.isMaximized) {
         this.width = this.preMaxWidth;
         this.height = this.preMaxHeight;
         this.x = this.preMaxX;
         this.y = this.preMaxY;
-        winEl.style.width = `${this.width}px`;
-        winEl.style.height = `${this.height}px`;
-        this.applyTransform();
         this.isMaximized = false;
+        this.constrainWindowRectToViewport();
+        this.applyTransform();
       } else {
         this.preMaxWidth = winEl.offsetWidth;
         this.preMaxHeight = winEl.offsetHeight;
         this.preMaxX = this.x;
         this.preMaxY = this.y;
         
-        this.width = window.innerWidth;
-        this.height = window.innerHeight - 25;
-        this.x = 0;
-        this.y = 25;
-        
-        winEl.style.width = `${this.width}px`;
-        winEl.style.height = `${this.height}px`;
-        this.applyTransform();
         this.isMaximized = true;
+        this.applyMaximizedRect();
       }
       this.applyResizeMode();
       this.syncState();
       
       setTimeout(() => {
         if (!this.isDragging) winEl.style.transition = '';
-      }, 300);
+      }, reduceMotion ? 0 : 230);
     },
 
     onDragStart(e) {
@@ -876,15 +919,32 @@ export function registerWindowComponents(Alpine) {
           nextHeight = minHeight;
         }
 
-        const maxHeight = window.innerHeight - 41; // 25(menubar) + 16(padding)
+        const bounds = this.desktopViewportBounds();
+        const maxWidth = bounds.width;
+        const maxHeight = bounds.height;
+        if (nextWidth > maxWidth) {
+          if (direction.includes('w')) nextX += nextWidth - maxWidth;
+          nextWidth = maxWidth;
+        }
         if (nextHeight > maxHeight) {
           if (direction.includes('n')) nextY += nextHeight - maxHeight;
           nextHeight = maxHeight;
         }
 
-        if (direction.includes('n') && nextY < 25) {
-          nextHeight += nextY - 25;
-          nextY = 25;
+        if (direction.includes('w') && nextX < bounds.left) {
+          nextWidth += nextX - bounds.left;
+          nextX = bounds.left;
+        }
+        if (direction.includes('e') && nextX + nextWidth > bounds.left + bounds.width) {
+          nextWidth = bounds.left + bounds.width - nextX;
+        }
+        if (direction.includes('s') && nextY + nextHeight > bounds.top + bounds.height) {
+          nextHeight = bounds.top + bounds.height - nextY;
+        }
+
+        if (direction.includes('n') && nextY < bounds.top) {
+          nextHeight += nextY - bounds.top;
+          nextY = bounds.top;
           if (nextHeight < minHeight) nextHeight = minHeight;
         }
 

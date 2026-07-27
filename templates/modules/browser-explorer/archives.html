@@ -20,26 +20,26 @@
       )}">
   <th:block th:fragment="content"
             th:with="archiveBase=${!#strings.isEmpty(site.routes?.archivesUri) ? site.routes.archivesUri : '/archives'},
-                     archiveStats=${siteStatsFinder.getStats()},
-                     archiveIndexSize=${archiveStats != null and archiveStats.post > 0 ? archiveStats.post : 1},
-                     archiveIndex=${postFinder.archives(1, archiveIndexSize)},
+                     archivePageSize=${site.post?.archivePageSize ?: 10},
+                     archiveIndex=${archives},
                      activeArchive=${archives != null and !#lists.isEmpty(archives.items) ? archives.items[0] : null},
                      activeMonth=${activeArchive != null and !#lists.isEmpty(activeArchive.months) ? activeArchive.months[0] : null},
-                     archivePageSize=${site.post?.archivePageSize ?: 10}">
+                     activeMonthPage=${activeArchive != null and activeMonth != null ? postFinder.archives(1, archivePageSize * archives.page, activeArchive.year, activeMonth.month) : null}">
     <div class="archive-shell" data-app-root="explorer-archives">
       <h1 class="sr-only">文章归档</h1>
       <script type="application/json" data-app-props="explorer-archives">{"version":1,"appId":"explorer-archives","data":{"view":"archives"}}</script>
 
       <div class="archive-workspace"
            th:if="${archiveIndex != null and !#lists.isEmpty(archiveIndex.items) and activeArchive != null and activeMonth != null}"
+           data-archive-index-complete="false"
            th:attr="data-archive-base-url=${archiveBase},
+                    data-archive-catalog-url=@{/apis/api.content.halo.run/v1alpha1/posts},
                     data-active-year=${activeArchive.year},
                     data-active-year-label=${activeArchive.year + ' 年'},
                     data-active-month-key=${activeArchive.year + '-' + activeMonth.month},
                     data-active-month-label=${activeArchive.year + ' 年 ' + activeMonth.month + ' 月'},
                     data-current-page=${archives.page},
-                    data-page-size=${archivePageSize},
-                    data-archive-index-complete=${!archiveIndex.hasNext()}"
+                    data-page-size=${archivePageSize}"
            x-data="archiveExplorer">
         <aside class="archive-sidebar">
           <p class="archive-sidebar-title">年份</p>
@@ -57,6 +57,14 @@
               <span class="archive-sidebar-label" th:text="${archive.year} + ' 年'">2026 年</span>
             </a>
           </nav>
+          <p class="archive-catalog-status" x-show="catalogLoading" x-cloak role="status">正在整理全部年份…</p>
+          <div class="archive-catalog-status archive-catalog-status--error"
+               x-show="catalogError"
+               x-cloak
+               role="alert">
+            <span>年份索引暂时不完整。</span>
+            <button type="button" @click="loadArchiveCatalog({ force: true })">重试</button>
+          </div>
         </aside>
 
         <section class="archive-columns">
@@ -106,13 +114,12 @@
             <div class="archive-pane-scroll archive-pane-scroll--posts"
                  :aria-busy="loading ? 'true' : 'false'">
               <div id="archive-post-list" data-archive-post-list>
-                <th:block th:each="catalogArchive : ${archiveIndex.items}">
+                <th:block th:each="catalogArchive : ${activeMonthPage != null ? activeMonthPage.items : {}}">
                   <th:block th:each="catalogMonth : ${catalogArchive.months}"
                             th:if="${catalogArchive.year == activeArchive.year and catalogMonth.month == activeMonth.month}">
                     <a class="archive-entry archive-entry--file pjax-link"
                        data-pjax-app="reader"
-                       th:each="post, postStat : ${catalogMonth.posts}"
-                       th:if="${postStat.index < archives.page * archivePageSize}"
+                       th:each="post : ${catalogMonth.posts}"
                        th:href="${post.status.permalink}"
                        data-archive-post-option
                        th:attr="data-parent-month-key=${catalogArchive.year + '-' + catalogMonth.month},
@@ -151,7 +158,8 @@
                     <a class="archive-load-more"
                        th:if="${catalogArchive.year == activeArchive.year
                                 and catalogMonth.month == activeMonth.month
-                                and #lists.size(catalogMonth.posts) > archives.page * archivePageSize}"
+                                and activeMonthPage != null
+                                and activeMonthPage.hasNext()}"
                        th:with="nextArchiveUrl=${archiveBase + '/' + activeArchive.year + '/' + activeMonth.month + '/page/' + (archives.page + 1)}"
                        th:href="${nextArchiveUrl}"
                        th:attr="data-next-url=${nextArchiveUrl}"
@@ -231,7 +239,10 @@
       <div class="archive-empty"
            th:if="${archiveIndex == null or #lists.isEmpty(archiveIndex.items) or activeArchive == null or activeMonth == null}">
         <h2 class="archive-empty-title">没有任何归档内容</h2>
-        <p class="archive-empty-text">当前条件下没有任何文章被记录入档。稍后再来查看吧。</p>
+        <p class="archive-empty-text">当前地址没有可显示的归档内容。</p>
+        <a class="archive-empty-action pjax-link"
+           data-pjax-app="explorer-archives"
+           th:href="${archiveBase}">返回最新归档</a>
       </div>
     </div>
   </th:block>

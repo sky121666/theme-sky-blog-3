@@ -5,14 +5,31 @@ import { pathToFileURL } from 'node:url';
 
 const root = process.cwd();
 const template = fs.readFileSync(path.join(root, 'templates/modules/browser-explorer/archives.html'), 'utf8');
+const runtimeSource = fs.readFileSync(path.join(root, 'src/apps/explorer/archives/runtime.js'), 'utf8');
 
-assert.match(template, /archiveIndex=\$\{postFinder\.archives\(1, archiveIndexSize\)\}/, '归档年月索引必须独立于路由分页结果');
-assert.match(template, /data-archive-index-complete=\$\{!archiveIndex\.hasNext\(\)\}/, '完整年月索引必须暴露未截断断言');
+assert.match(runtimeSource, /let catalogTimedOut = false;/, '归档目录请求必须区分主动取消和超时');
+assert.match(
+  runtimeSource,
+  /catalogTimedOut = true;\s*controller\.abort\(\);/,
+  '归档目录超时必须留下可识别原因后再取消请求'
+);
+assert.match(
+  runtimeSource,
+  /if \(error\?\.name === 'AbortError' && !catalogTimedOut\) return;/,
+  '只有主动取消可以静默结束，超时必须进入可见错误态'
+);
+
+assert.doesNotMatch(template, /siteStatsFinder\.getStats\(\)/, '归档 SSR 不得再按文章总数一次性查询完整文章树');
+assert.match(template, /archiveIndex=\$\{archives\}/, '首屏年月索引必须复用路由已有的有限分页结果');
+assert.match(template, /activeMonthPage=\$\{[^}]*postFinder\.archives\(1, archivePageSize \* archives\.page, activeArchive\.year, activeMonth\.month\)/, '文章栏必须按当前深链页码使用有界的累计月归档查询');
+assert.match(template, /data-archive-catalog-url=@\{\/apis\/api\.content\.halo\.run\/v1alpha1\/posts\}/, '完整年月索引必须异步使用公开内容 API');
+assert.match(template, /data-archive-index-complete="false"/, '完整年月索引加载状态必须显式暴露给页面与验证工具');
 assert.match(template, /data-month-count/, '月份索引必须提供完整月文章数量');
 assert.match(template, /data-archive-post-list/, '文章分页必须使用独立文章列表容器');
 assert.match(template, /data-archive-loadmore/, '文章栏必须提供月内继续加载入口');
 assert.match(template, /\/page\//, '继续加载必须输出 Halo 原生 path 分页路由');
-assert.match(template, /postStat\.index < archives\.page \* archivePageSize/, '月分页深链必须累计渲染第 1 页到当前页');
+assert.doesNotMatch(template, /postStat\.index < archives\.page \* archivePageSize/, '月分页深链不得依赖完整文章树累计切片');
+assert.match(template, /th:each="post : \$\{catalogMonth\.posts\}"/, '月分页深链必须渲染累计查询返回的文章');
 assert.match(template, /x-show="hasMore && !loading && !loadError"/, '失败时只能显示一个重试入口');
 assert.match(template, /aria-live="polite"/, '追加状态必须向辅助技术播报');
 assert.match(template, /:aria-busy="loading \? 'true' : 'false'"/, '加载期间文章栏必须暴露 busy 状态');
@@ -21,6 +38,7 @@ assert.match(template, /nextArchiveUrl=\$\{archiveBase \+ '\/'/, '月分页链�
 assert.ok(!template.includes('class="archive-pagination"'), '不得保留归档工作区外层全局分页');
 assert.ok(!template.includes('archives.prevUrl'), '不得继续输出全局归档上一页');
 assert.ok(!template.includes('archives.nextUrl'), '不得继续输出全局归档下一页');
+assert.match(template, />返回最新归档<\/a>/, '空归档或越界页必须提供返回有效归档的恢复入口');
 
 const postsColumnIndex = template.indexOf('archive-column archive-column--posts');
 const loadMoreIndex = template.indexOf('data-archive-loadmore');
@@ -47,7 +65,17 @@ globalThis.window = {
 globalThis.document = { body: { dataset: {} } };
 
 const runtimeUrl = pathToFileURL(path.join(root, 'src/apps/explorer/archives/runtime.js')).href;
-const { registerArchiveExplorer } = await import(runtimeUrl);
+const { buildArchiveCatalog, registerArchiveExplorer } = await import(runtimeUrl);
+
+assert.deepEqual(buildArchiveCatalog([
+  { metadata: { name: 'post-a', labels: { 'content.halo.run/archive-year': '2026', 'content.halo.run/archive-month': '02' } } },
+  { metadata: { name: 'post-b', labels: { 'content.halo.run/archive-year': '2025', 'content.halo.run/archive-month': '12' } } },
+  { metadata: { name: 'post-c', labels: { 'content.halo.run/archive-year': '2026', 'content.halo.run/archive-month': '02' } } },
+  { metadata: { name: 'post-c', labels: { 'content.halo.run/archive-year': '2026', 'content.halo.run/archive-month': '02' } } },
+]), [
+  { year: '2026', months: [{ month: '02', count: 2 }] },
+  { year: '2025', months: [{ month: '12', count: 1 }] },
+], '客户端目录必须按 Halo 归档标签生成完整、有序且去重的年月计数');
 
 let factory = null;
 registerArchiveExplorer({

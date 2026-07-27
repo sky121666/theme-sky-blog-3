@@ -27,6 +27,7 @@
         },
 
         "sources": {
+          "hydrated": [[${isHome}]],
           "siteProfile": {
             "title": [[${siteTitle}]],
             "subtitle": [[${siteSubtitle}]],
@@ -311,6 +312,12 @@
            x-transition:leave-end="opacity-0"
            style="display: none;">
         <div class="desktop-add-icon-dialog"
+             data-desktop-modal="add-icon"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="desktop-add-icon-title"
+             tabindex="-1"
+             @keydown="handleDesktopModalKeydown($event, 'add-icon')"
              x-transition:enter="transition ease-out duration-200"
              x-transition:enter-start="opacity-0 scale-95 translate-y-2"
              x-transition:enter-end="opacity-100 scale-100 translate-y-0"
@@ -318,7 +325,7 @@
              x-transition:leave-start="opacity-100 scale-100 translate-y-0"
              x-transition:leave-end="opacity-0 scale-95 translate-y-2">
           <header class="desktop-add-icon-dialog-header">
-            <h2>添加图标</h2>
+            <h2 id="desktop-add-icon-title">添加图标</h2>
             <button type="button" class="desktop-add-icon-close" @click="closeAddIconForm()" aria-label="关闭">
               <span class="icon-[lucide--x]" aria-hidden="true"></span>
             </button>
@@ -375,6 +382,12 @@
            x-transition:leave-end="opacity-0"
            style="display: none;">
         <div class="desktop-add-icon-dialog desktop-widget-config-dialog"
+             data-desktop-modal="widget-config"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="desktop-widget-config-title"
+             tabindex="-1"
+             @keydown="handleDesktopModalKeydown($event, 'widget-config')"
              x-transition:enter="transition ease-out duration-200"
              x-transition:enter-start="opacity-0 scale-95 translate-y-2"
              x-transition:enter-end="opacity-100 scale-100 translate-y-0"
@@ -382,7 +395,7 @@
              x-transition:leave-start="opacity-100 scale-100 translate-y-0"
              x-transition:leave-end="opacity-0 scale-95 translate-y-2">
           <header class="desktop-add-icon-dialog-header">
-            <h2 x-text="widgetConfigForm.title ? `配置${widgetConfigForm.title}` : '配置组件'">配置组件</h2>
+            <h2 id="desktop-widget-config-title" x-text="widgetConfigForm.title ? `配置${widgetConfigForm.title}` : '配置组件'">配置组件</h2>
             <button type="button" class="desktop-add-icon-close" @click="closeWidgetConfigForm()" aria-label="关闭">
               <span class="icon-[lucide--x]" aria-hidden="true"></span>
             </button>
@@ -686,7 +699,7 @@
             <div :class="desktopNodeSlotClassName(node)"
                  :style="getDesktopNodeStyle(node)"
                  :data-desktop-key="node.key"
-                 @contextmenu.prevent="openDesktopNodeContextMenu(node, $event)">
+                 @contextmenu="openDesktopNodeContextMenu(node, $event)">
               <template x-if="isWidgetNode(node)">
                 <article class="desktop-widget-card"
                          :data-widget-appearance="widgetAppearanceValue(node)"
@@ -706,7 +719,7 @@
               <!-- 悬浮删除按钮（放在 slot 层，不受 card overflow:hidden 影响） -->
               <button type="button"
                       class="desktop-widget-remove-btn"
-                      x-show="false"
+                      x-show="isEditing && isWidgetNode(node)"
                       @click.stop="hideWidget(node.key)"
                       style="display: none;"
                       aria-label="移除组件"
@@ -732,7 +745,7 @@
               <!-- 图标删除按钮（编辑态可见，放在 slot 层避免被 icon overflow 裁剪） -->
               <button type="button"
                       class="desktop-widget-remove-btn"
-                      x-show="false"
+                      x-show="isEditing && isIconNode(node)"
                       @click.stop="removeIcon(node.key)"
                       style="display: none;"
                       aria-label="移除图标"

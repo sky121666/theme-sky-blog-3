@@ -21,7 +21,7 @@
          th:attr="data-equipments-site-title=${site.title},data-equipments-chrome-title=${defaultEquipmentTitle},data-equipments-chrome-subtitle=${'共 ' + totalCount + ' 件装备'}">
       <aside class="equipments-sidebar">
         <div class="equipments-window-dragbar"
-             @mousedown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
+             @pointerdown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
           <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=true)}"></th:block>
         </div>
 

@@ -128,6 +128,39 @@ export function runNonFatalNavigationHook(hook, onError) {
   }
 }
 
+export function createTimedNavigationSignal(parentSignal, timeoutMs = 15_000) {
+  const controller = new AbortController();
+  const duration = Number.isFinite(Number(timeoutMs)) && Number(timeoutMs) > 0
+    ? Number(timeoutMs)
+    : 15_000;
+  let timedOut = false;
+
+  const abortFromParent = () => {
+    controller.abort(
+      parentSignal?.reason || new DOMException('Navigation superseded', 'AbortError')
+    );
+  };
+  if (parentSignal?.aborted) {
+    abortFromParent();
+  } else {
+    parentSignal?.addEventListener?.('abort', abortFromParent, { once: true });
+  }
+
+  const timer = globalThis.setTimeout(() => {
+    timedOut = true;
+    controller.abort(new DOMException('Navigation request timed out', 'TimeoutError'));
+  }, duration);
+
+  return {
+    signal: controller.signal,
+    didTimeout: () => timedOut,
+    cleanup() {
+      globalThis.clearTimeout(timer);
+      parentSignal?.removeEventListener?.('abort', abortFromParent);
+    }
+  };
+}
+
 /**
  * Latest-navigation-wins coordinator for async content switches.
  * Starting a navigation aborts the previous fetch and invalidates all of its

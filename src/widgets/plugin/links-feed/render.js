@@ -159,14 +159,22 @@ function renderOpenFriendsLink(escapeHtml, mode, label = '朋友圈') {
   });
 }
 
-function renderEmpty({ escapeHtml, mode, installed }) {
+function renderEmpty({ escapeHtml, mode, installed, hydrated = true }) {
+  const title = !installed
+    ? '未安装链接管理插件'
+    : hydrated ? '暂无友链动态' : '朋友圈动态待同步';
+  const description = !installed
+    ? '安装 PluginLinks 2.2.1 后可使用朋友圈小组件。'
+    : hydrated
+      ? '在 PluginLinks 中启用并公开 RSS 动态后，这里会显示最近更新。'
+      : '当前页面未加载桌面数据；返回首页后会自动同步最近更新。';
   return `
     <div class="wg-friends wg-friends--empty">
       <span class="wg-friends-empty-icon">
         <span class="icon-[lucide--rss]" aria-hidden="true"></span>
       </span>
-      <strong>${installed ? '暂无友链动态' : '未安装链接管理插件'}</strong>
-      <p>${installed ? '在 PluginLinks 中启用并公开 RSS 动态后，这里会显示最近更新。' : '安装 PluginLinks 2.2.1 后可使用朋友圈小组件。'}</p>
+      <strong>${title}</strong>
+      <p>${description}</p>
       ${installed ? renderOpenFriendsLink(escapeHtml, mode, '打开') : ''}
     </div>
   `;
@@ -213,6 +221,10 @@ function renderLarge({ items, escapeHtml, mode }) {
 export function renderWidget({ sources, escapeHtml, mode }, widget) {
   if (!sources.friendsAvailable) {
     return renderEmpty({ escapeHtml, mode, installed: false });
+  }
+
+  if (!sources.hydrated) {
+    return renderEmpty({ escapeHtml, mode, installed: true, hydrated: false });
   }
 
   const size = widget?.size || 'medium';

@@ -193,6 +193,37 @@ try {
   assert.equal(retryFixture.next.removed, true, 'the final successful page should remove the next URL');
   assert.equal(retryFixture.noMore.classList.contains('hidden'), false, 'the final successful page should show the end marker');
 
+  const redirectedFixture = createFixture();
+  const redirectedExplorer = createExplorer(redirectedFixture);
+  globalThis.fetch = async () => ({
+    ok: true,
+    redirected: true,
+    status: 200,
+    text: async () => '<html></html>'
+  });
+  await redirectedExplorer._paginationLoadMore();
+  assert.equal(redirectedFixture.error.classList.contains('hidden'), false, 'a redirected page response must remain retryable');
+  assert.equal(redirectedFixture.noMore.classList.contains('hidden'), true, 'a redirected page response must not be treated as end of data');
+  assert.equal(redirectedFixture.next.removed, false, 'a redirected page response must retain the next-page URL');
+
+  const malformedFixture = createFixture();
+  const malformedExplorer = createExplorer(malformedFixture);
+  globalThis.fetch = async () => ({
+    ok: true,
+    redirected: false,
+    status: 200,
+    text: async () => '<html></html>'
+  });
+  globalThis.DOMParser = class {
+    parseFromString() {
+      return { querySelector: () => null };
+    }
+  };
+  await malformedExplorer._paginationLoadMore();
+  assert.equal(malformedFixture.error.classList.contains('hidden'), false, 'a response without the Photos app root must remain retryable');
+  assert.equal(malformedFixture.noMore.classList.contains('hidden'), true, 'a malformed page response must not be treated as end of data');
+  assert.equal(malformedFixture.next.removed, false, 'a malformed page response must retain the next-page URL');
+
   const repeatedFixture = createFixture();
   const repeatedExplorer = createExplorer(repeatedFixture);
   let repeatedAppend = 0;

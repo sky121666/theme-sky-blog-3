@@ -475,6 +475,7 @@ export function registerPhotosExplorer(Alpine) {
       const stage = this._getDetailStage();
       const image = this._getDetailImage();
       if (!stage || !image) return;
+      const imageError = stage.querySelector('[data-photos-detail-image-error]');
 
       const shell = this.$el;
       const windowSurface = this._getWindowSurface() || shell;
@@ -621,7 +622,18 @@ export function registerPhotosExplorer(Alpine) {
         event.stopPropagation();
         this.resetPhotoZoom();
       };
-      const onImageLoad = () => this.updatePhotoPanAvailability();
+      const onImageLoad = () => {
+        stage.classList.remove('is-image-error');
+        imageError?.setAttribute('hidden', '');
+        image.removeAttribute('aria-hidden');
+        this.updatePhotoPanAvailability();
+      };
+      const onImageError = () => {
+        this.resetPhotoZoom();
+        stage.classList.add('is-image-error');
+        imageError?.removeAttribute('hidden');
+        image.setAttribute('aria-hidden', 'true');
+      };
       const currentFilmstripItem = this.$el?.querySelector('.photos-detail-neighbor.is-current');
       const onKeyDown = (event) => {
         wakeFilmstrip({ force: true });
@@ -642,6 +654,11 @@ export function registerPhotosExplorer(Alpine) {
       stage.addEventListener('auxclick', onAuxClick);
       stage.addEventListener('dblclick', onDblClick);
       image.addEventListener('load', onImageLoad);
+      image.addEventListener('error', onImageError);
+      if (image.complete) {
+        if (image.naturalWidth > 0) onImageLoad();
+        else onImageError();
+      }
       window.addEventListener('keydown', onKeyDown);
       if (filmstrip) {
         shell.dataset.photosFilmstripIdleDelay = String(DETAIL_FILMSTRIP_IDLE_DELAY_MS);
@@ -684,6 +701,7 @@ export function registerPhotosExplorer(Alpine) {
         stage.removeEventListener('auxclick', onAuxClick);
         stage.removeEventListener('dblclick', onDblClick);
         image.removeEventListener('load', onImageLoad);
+        image.removeEventListener('error', onImageError);
         window.removeEventListener('keydown', onKeyDown);
         if (filmstrip) {
           activitySurface?.removeEventListener('pointermove', onPointerMoveActivity);
@@ -1225,16 +1243,24 @@ export function registerPhotosExplorer(Alpine) {
             headers: { Accept: 'text/html' },
             signal: controller.signal
           });
-          if (!response.ok) {
+          if (!response.ok || response.redirected) {
             throw new Error(`HTTP ${response.status}`);
           }
           const html = await response.text();
           if (!isCurrent()) return;
           const doc = new DOMParser().parseFromString(html, 'text/html');
-          const responseRoot = doc.querySelector('[data-app-root="photos"]') || doc;
+          const responseRoot = doc.querySelector('[data-app-root="photos"]');
+          if (!responseRoot) {
+            throw new Error('图库分页响应缺少 Photos 应用根节点');
+          }
           const cards = Array.from(responseRoot.querySelectorAll('.photo-card'));
           if (cards.length === 0) {
-            throw new Error('分页响应中没有可追加的 .photo-card');
+            loadedPageUrls.add(requestUrl);
+            nextUrlEl.remove();
+            nextUrlEl = null;
+            this._observer?.disconnect();
+            noMore?.classList.remove('hidden');
+            return;
           }
 
           const newNext = responseRoot.querySelector('#next-page-url');

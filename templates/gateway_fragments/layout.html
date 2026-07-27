@@ -26,6 +26,7 @@
     headerLogoIcon = ${theme.config.header?.logo?.icon?.value ?: ''},
     headerAppName = ${!#strings.isEmpty(theme.config.header?.logo?.title) ? theme.config.header?.logo?.title : (site.title ?: '')},
     authBrandImage = ${site.logo != null ? site.logo.toString() : ''},
+    isLoginGateway = ${fragmentTemplateName != null},
     themeAssetVersion = ${theme.spec.version ?: '0.9.0'},
     themeAssetRevision = ${theme.metadata.version ?: themeAssetVersion},
     themeFallbackIcon = ${#theme.assets('/favicon.svg')}">
@@ -63,7 +64,8 @@
     data-page-app="auth"
     data-page-mode="auth"
     data-window-variant="none"
-    th:classappend="${#strings.isEmpty(wallpaperClass) ? schemeClass : wallpaperClass + ' ' + schemeClass}"
+    th:classappend="${(isLoginGateway ? 'auth-gateway-page--lockscreen ' : '') + (#strings.isEmpty(wallpaperClass) ? schemeClass : wallpaperClass + ' ' + schemeClass)}"
+    th:data-auth-scene="${isLoginGateway ? 'login' : 'gateway'}"
     th:style="${(schemeMode == 'custom' ? '--mac-accent:' + macAccent + ';--mac-selection:' + macSelection + ';--mac-folder1:' + macFolder1 + ';--mac-folder2:' + macFolder2 + ';--mac-folder3:' + macFolder3 + ';--mac-shell-light:' + macShellLight + ';--mac-shell-dark:' + macShellDark + ';' : '')}"
     th:styleappend="${bgMode == 'image' and bgImageUrl != null ? 'background:url(' + bgImageUrl + ') center/cover no-repeat; background-color:#0f172a;' : (bgMode == 'solid' ? 'background-image:none; background-color:' + (bgConf?.solid_color ?: '#0f172a') + ';' : '')}">
     <main class="auth-gateway-shell" data-app-root="auth">
@@ -88,7 +90,7 @@
             </div>
 
             <button type="button" class="auth-titlebar-back" data-auth-go-back aria-label="返回上一页" title="返回上一页">
-              <span class="auth-back-link-icon icon-[lucide--chevron-left]" aria-hidden="true"></span>
+              <span class="auth-back-link-icon icon-[lucide--arrow-left]" aria-hidden="true"></span>
             </button>
           </div>
           <div class="auth-titlebar-actions">

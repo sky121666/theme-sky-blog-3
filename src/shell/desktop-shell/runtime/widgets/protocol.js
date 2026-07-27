@@ -42,6 +42,7 @@ export function normalizeDesktopWidgetSources(rawSources, siteUrl = '') {
   const steamStats = asRecord(sources.steamStats);
 
   return {
+    hydrated: sources.hydrated === true,
     siteProfile: {
       title: asString(siteProfile.title),
       subtitle: asString(siteProfile.subtitle),

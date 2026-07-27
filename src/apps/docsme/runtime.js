@@ -2,6 +2,22 @@ function getDocsmeRoot(root) {
   return root?.querySelector?.('.docsme-app') || root?.closest?.('.docsme-app') || null;
 }
 
+function isCompactDocsmeToc() {
+  return window.matchMedia?.('(max-width: 1080px)').matches === true;
+}
+
+function syncDocsmeTocState(app) {
+  if (!app) return;
+  const toc = app.querySelector('[data-docsme-toc]');
+  if (!toc) return;
+  const hidden = app.classList.contains('is-toc-empty')
+    || (isCompactDocsmeToc()
+      ? !app.classList.contains('is-mobile-toc-open')
+      : app.classList.contains('is-toc-collapsed'));
+  toc.inert = hidden;
+  toc.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+}
+
 function isInternalDocsmeLink(anchor) {
   if (!anchor?.href) return false;
 
@@ -63,6 +79,7 @@ function bindMobileSidebar(root) {
       app.querySelectorAll('[data-docsme-toggle-toc]').forEach((button) => {
         button.setAttribute('aria-expanded', 'false');
       });
+      syncDocsmeTocState(app);
     });
   }
 
@@ -77,6 +94,7 @@ function bindMobileSidebar(root) {
         tocButton.setAttribute('aria-expanded', 'false');
       });
       app.classList.toggle('is-sidebar-open');
+      syncDocsmeTocState(app);
     });
   });
 
@@ -132,21 +150,21 @@ function bindTreeToggles(root) {
 function bindTocToggles(root) {
   const app = getDocsmeRoot(root);
   if (!app) return;
-  const isCompactToc = () => window.matchMedia?.('(max-width: 1080px)').matches;
 
   const syncTocButtons = () => {
     const isCollapsed = app.classList.contains('is-toc-collapsed');
     const isMobileOpen = app.classList.contains('is-mobile-toc-open');
     app.querySelectorAll('[data-docsme-toggle-toc]').forEach((button) => {
-      button.setAttribute('aria-expanded', isCompactToc() ? (isMobileOpen ? 'true' : 'false') : (isCollapsed ? 'false' : 'true'));
+      button.setAttribute('aria-expanded', isCompactDocsmeToc() ? (isMobileOpen ? 'true' : 'false') : (isCollapsed ? 'false' : 'true'));
     });
+    syncDocsmeTocState(app);
   };
 
   app.querySelectorAll('[data-docsme-toggle-toc]').forEach((button) => {
     if (button.dataset.docsmeTocToggleBound === 'true') return;
     button.dataset.docsmeTocToggleBound = 'true';
     button.addEventListener('click', () => {
-      if (isCompactToc()) {
+      if (isCompactDocsmeToc()) {
         app.classList.remove('is-sidebar-open');
         app.classList.remove('is-toc-collapsed');
         app.classList.toggle('is-mobile-toc-open');
@@ -158,6 +176,11 @@ function bindTocToggles(root) {
     });
   });
 
+  if (!app._docsmeTocMediaQuery) {
+    app._docsmeTocMediaQuery = window.matchMedia?.('(max-width: 1080px)') || null;
+    app._docsmeTocMediaHandler = () => syncTocButtons();
+    app._docsmeTocMediaQuery?.addEventListener?.('change', app._docsmeTocMediaHandler);
+  }
   syncTocButtons();
 }
 
@@ -182,7 +205,9 @@ function renderToc(root) {
   list.innerHTML = '';
   if (headings.length === 0) {
     list.closest('[data-docsme-toc]')?.classList.add('is-empty');
-    getDocsmeRoot(root)?.classList.add('is-toc-empty');
+    const app = getDocsmeRoot(root);
+    app?.classList.add('is-toc-empty');
+    syncDocsmeTocState(app);
     return;
   }
 
@@ -206,8 +231,19 @@ function renderToc(root) {
       event.preventDefault();
       list.querySelectorAll('.is-active').forEach((item) => item.classList.remove('is-active'));
       link.classList.add('is-active');
-      heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      heading.scrollIntoView({
+        behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        block: 'start'
+      });
       history.replaceState(history.state, '', `#${heading.id}`);
+      const app = getDocsmeRoot(root);
+      if (app && isCompactDocsmeToc()) {
+        app.classList.remove('is-mobile-toc-open');
+        app.querySelectorAll('[data-docsme-toggle-toc]').forEach((button) => {
+          button.setAttribute('aria-expanded', 'false');
+        });
+        syncDocsmeTocState(app);
+      }
     });
     tocLinks.set(heading.id, link);
     list.append(link);
@@ -216,6 +252,7 @@ function renderToc(root) {
   if (tocLinks.size > 0) {
     list.querySelector('.docsme-toc__link')?.classList.add('is-active');
   }
+  syncDocsmeTocState(getDocsmeRoot(root));
 
   root._docsmeTocObserver?.disconnect?.();
   if ('IntersectionObserver' in window && tocLinks.size > 0) {
@@ -691,13 +728,29 @@ function disposeDocsmeEnhancements(root) {
   app._docsmeRichContentGeneration = Number(app._docsmeRichContentGeneration || 0) + 1;
   app._docsmeThemeObserver?.disconnect?.();
   app._docsmeTocObserver?.disconnect?.();
+  app._docsmeTocMediaQuery?.removeEventListener?.('change', app._docsmeTocMediaHandler);
   app._docsmeThemeObserver = null;
   app._docsmeTocObserver = null;
+  app._docsmeTocMediaQuery = null;
+  app._docsmeTocMediaHandler = null;
 }
 
 function setPjaxLoading(loading) {
   document.querySelectorAll('[data-app-root="docsme"]').forEach((root) => {
     root.classList.toggle('is-pjax-loading', loading);
+  });
+}
+
+function wrapDocsmeTables(root) {
+  root.querySelectorAll('.docsme-article table').forEach((table) => {
+    if (table.parentElement?.classList.contains('docsme-table-scroll')) return;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'docsme-table-scroll';
+    wrapper.setAttribute('role', 'region');
+    wrapper.setAttribute('aria-label', '可横向滚动的数据表格');
+    wrapper.tabIndex = 0;
+    table.before(wrapper);
+    wrapper.appendChild(table);
   });
 }
 
@@ -713,6 +766,7 @@ function enhanceDocsmeApp(root) {
   bindTocToggles(app);
   bindRichContentTheme(app);
   renderToc(app);
+  wrapDocsmeTables(app);
   renderDocsmeRichContent(app).catch((error) => {
     warnDocsmeRender('Docsme 富内容增强失败。', {
       message: error?.message || String(error || '')
@@ -730,11 +784,13 @@ export function registerDocsmeApp(Alpine) {
         setPjaxLoading(false);
         enhanceDocsmeApp(document);
       };
+      this._onPjaxError = () => setPjaxLoading(false);
 
       document.addEventListener('pjax:send', this._onPjaxSend);
       document.addEventListener('pjax:same-variant-send', this._onPjaxSend);
       document.addEventListener('pjax:complete', this._onPjaxComplete);
       document.addEventListener('pjax:same-variant-complete', this._onPjaxComplete);
+      document.addEventListener('pjax:error', this._onPjaxError);
     },
 
     destroy() {
@@ -742,6 +798,8 @@ export function registerDocsmeApp(Alpine) {
       document.removeEventListener('pjax:same-variant-send', this._onPjaxSend);
       document.removeEventListener('pjax:complete', this._onPjaxComplete);
       document.removeEventListener('pjax:same-variant-complete', this._onPjaxComplete);
+      document.removeEventListener('pjax:error', this._onPjaxError);
+      setPjaxLoading(false);
       disposeDocsmeEnhancements(this._docsmeAppRoot || this.$root);
     }
   }));

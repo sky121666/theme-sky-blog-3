@@ -16,46 +16,7 @@
       "reason": "仅作为 Tailwind/Vite 构建工具及平台二进制使用，不修改或分发其源文件。"
     }
   },
-  "minimumReleaseAgeExceptions": [
-    {
-      "packages": ["@iconify-json/lucide"],
-      "version": "1.2.118",
-      "reason": "v0.9.42 按目标升级到当前稳定版；该版本锁定且完成许可证、构建和回归审查，但发布未满默认 7 天等待期。",
-      "owner": "theme-sky-blog-3 maintainers",
-      "expires": "2026-07-27T00:00:00Z"
-    },
-    {
-      "packages": [
-        "@tailwindcss/node",
-        "@tailwindcss/oxide",
-        "@tailwindcss/oxide-android-arm64",
-        "@tailwindcss/oxide-darwin-arm64",
-        "@tailwindcss/oxide-darwin-x64",
-        "@tailwindcss/oxide-freebsd-x64",
-        "@tailwindcss/oxide-linux-arm-gnueabihf",
-        "@tailwindcss/oxide-linux-arm64-gnu",
-        "@tailwindcss/oxide-linux-arm64-musl",
-        "@tailwindcss/oxide-linux-x64-gnu",
-        "@tailwindcss/oxide-linux-x64-musl",
-        "@tailwindcss/oxide-wasm32-wasi",
-        "@tailwindcss/oxide-win32-arm64-msvc",
-        "@tailwindcss/oxide-win32-x64-msvc",
-        "@tailwindcss/vite",
-        "tailwindcss"
-      ],
-      "version": "4.3.3",
-      "reason": "v0.9.42 统一升级 Tailwind 官方 4.3.3 工具链；精确版本和平台包已锁定并完成双构建可复现验证，但发布未满默认 7 天等待期。",
-      "owner": "theme-sky-blog-3 maintainers",
-      "expires": "2026-07-27T00:00:00Z"
-    },
-    {
-      "packages": ["vite"],
-      "version": "8.1.5",
-      "reason": "v0.9.42 按目标升级到当前稳定版；精确版本已锁定并完成静态检查、构建与最新稳定版 Halo 2.25.4 回归，但发布未满默认 7 天等待期。",
-      "owner": "theme-sky-blog-3 maintainers",
-      "expires": "2026-07-27T00:00:00Z"
-    }
-  ],
+  "minimumReleaseAgeExceptions": [],
   "deniedLicenses": [
     "AGPL-3.0-only",
     "AGPL-3.0-or-later",

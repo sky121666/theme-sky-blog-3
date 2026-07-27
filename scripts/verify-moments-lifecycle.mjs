@@ -261,6 +261,7 @@ async function verifyPublishCancellation(browser) {
       pollAborted: 0,
       publishStarted: 0,
       publishAborted: 0,
+      attachmentDeletes: 0,
       navigations: [],
       publishMode: 'pending'
     };
@@ -301,6 +302,10 @@ async function verifyPublishCancellation(browser) {
             reject(init.signal.reason || new DOMException('Aborted', 'AbortError'));
           }, { once: true });
         });
+      }
+      if (url.pathname === '/apis/storage.halo.run/v1alpha1/attachments/attachment-pending' && init.method === 'DELETE') {
+        window.__publishProbe.attachmentDeletes += 1;
+        return Promise.resolve(new Response(null, { status: 204 }));
       }
       if (url.pathname === '/moments') {
         window.__publishProbe.publishStarted += 1;
@@ -366,8 +371,11 @@ async function verifyPublishCancellation(browser) {
   await page.waitForFunction(() => window.__publishProbe.pollStarted === 1);
   await page.click('[data-moments-publish-close]');
   await page.waitForFunction(() => window.__publishProbe.pollAborted === 1);
+  await page.waitForFunction(() => window.__publishProbe.attachmentDeletes === 1);
   assert.equal(await page.evaluate(() => Number(document.querySelector('[data-moments-publish-preview]').dataset.count || 0)), 0,
     '关闭发布窗口后附件轮询结果不得写回草稿');
+  assert.equal(await page.evaluate(() => window.__publishProbe.attachmentDeletes), 1,
+    '取消草稿必须清理已经创建但尚未发布的附件');
 
   await page.click('[data-moments-publish-open]');
   await page.fill('[data-moments-publish-content]', 'slow publish');

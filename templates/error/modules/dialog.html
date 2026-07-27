@@ -3,7 +3,11 @@
   th:fragment="panel (variant, titleText, bodyText, statusCode, hintText)"
 >
   <section class="error-modal" th:classappend="| error-modal--${variant}|">
-    <div class="error-modal-surface" role="alertdialog" aria-modal="true" aria-labelledby="error-dialog-title">
+    <div class="error-modal-surface"
+         role="alertdialog"
+         aria-modal="true"
+         aria-labelledby="error-dialog-title"
+         tabindex="-1">
       <div class="error-modal-content">
         <div class="error-modal-icon" aria-hidden="true">
           <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" th:if="${variant == 'missing'}">
@@ -73,7 +77,13 @@
           class="error-modal-action error-modal-action--secondary pjax-link"
           onclick="if (window.history.length > 1) { event.preventDefault(); window.history.back(); }"
         >返回</a>
-        <a href="/" class="error-modal-action error-modal-action--primary pjax-link">返回首页</a>
+        <a href="/"
+           class="error-modal-action pjax-link"
+           th:classappend="${variant == 'server'} ? ' error-modal-action--secondary' : ' error-modal-action--primary'">返回首页</a>
+        <button th:if="${variant == 'server'}"
+                type="button"
+                class="error-modal-action error-modal-action--primary"
+                onclick="window.location.reload()">重试</button>
       </div>
     </div>
   </section>

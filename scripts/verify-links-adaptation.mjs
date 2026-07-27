@@ -36,12 +36,14 @@ assert.match(linksPage, /feedPublicSources=\$\{feedGroups != null and !#lists\.i
 assert.match(linksPage, /initialFeedPage=\$\{feedPublicSources and currentView == 'friends'/);
 assert.match(linksPage, /linkFeedFinder\.list\(\{limit: 20/);
 assert.match(linksPage, /windowMetricsKey = 'links-wechat-v1'/);
+assert.match(linksPage, /windowMaximizable = false/);
 assert.match(linksTemplate, /plugin-contract: PluginLinks; contract-version: 2\.2\.1; tested-version: 2\.2\.1/);
 assert.match(linksTemplate, /class="links-rail"/);
 assert.match(linksTemplate, /class="links-list-pane"/);
 assert.match(linksTemplate, /class="links-detail-pane"/);
 assert.match(linksTemplate, /data-links-initial-link=\$\{currentLink\}/);
 assert.match(linksTemplate, /data-links-initial-feed-scope=\$\{currentFeedScope\}/);
+assert.match(linksTemplate, /data-links-site-title=\$\{site\.title \?: ''\}/);
 assert.match(linksTemplate, /id="view-friends"/);
 assert.match(linksTemplate, /id="view-apply"/);
 assert.match(linksTemplate, /id="links-apply-title"/);
@@ -66,12 +68,19 @@ assert.match(linksTemplate, /class="links-detail-source-meta"/);
 assert.match(linksTemplate, /class="links-detail-source-link"/);
 assert.match(linksTemplate, /th:attr="name=\$\{pluginName\}"/);
 assert.match(linksWindow, /widthAttr='500'/);
+assert.match(linksWindow, /maximizable=\$\{windowMaximizable != null \? windowMaximizable : 'true'\}/);
+assert.match(linksTemplate, /trafficLights\(maximizable=false\)/);
+assert.match(linksTemplate, /:inert="!detailOpen\(\)"/);
+assert.match(linksTemplate, /formValidationMessage\(\)/);
 assert.match(linksRuntime, /showAllFeed\(\)/);
 assert.match(linksRuntime, /showSavedFeed\(scope\)/);
 assert.match(linksRuntime, /consumeFeedItem\(item\)/);
 assert.match(linksRuntime, /selectLink\(key\)/);
 assert.match(linksRuntime, /activeFeedSource\(\)/);
 assert.match(linksRuntime, /syncWindowLayout\(\)/);
+assert.match(linksRuntime, /syncDocumentChrome\(\)/);
+assert.match(linksRuntime, /document\.title = this\.siteTitle/);
+assert.match(linksRuntime, /当前用户接口没有返回 JSON/);
 assert.match(linksStyles, /--wx-green: #07c160/);
 assert.match(linksStyles, /--wx-green-soft: #95ec69/);
 assert.match(linksStyles, /--wx-green-pale: #dff7e8/);
@@ -404,6 +413,12 @@ try {
   assert.equal(guestModel.capabilityStatus, 'guest');
   assert.equal(guestRequests.length, 1, 'guest must not probe protected PluginLinks APIs');
 
+  globalThis.fetch = async () => fakeResponse(500, '<html>upstream error</html>');
+  const failedCapabilityModel = createModel();
+  assert.equal(await failedCapabilityModel.ensureCapability(), false);
+  assert.equal(failedCapabilityModel.capabilityStatus, 'error', 'non-auth server failures must not be downgraded to guest');
+  assert.match(failedCapabilityModel.result.message, /HTTP 500/);
+
   const managerRequests = [];
   globalThis.fetch = async (url, options = {}) => {
     const requestUrl = String(url);
@@ -494,6 +509,10 @@ try {
   messageModel.form.email = 'hello@example.test';
   messageModel.form.rssUrl = 'https://example.test/rss.xml';
   assert.equal(messageModel.canCopyDraft(), true);
+  assert.equal(messageModel.formValidationMessage(), '');
+  messageModel.form.displayName = '';
+  assert.match(messageModel.formValidationMessage(), /网站名称/);
+  messageModel.form.displayName = '示例站点';
   await messageModel.copyAndGotoBoard();
   assert.match(copiedDrafts.at(-1), /^申请交换友链：/);
   assert.match(copiedDrafts.at(-1), /- 联系邮箱：hello@example\.test/);

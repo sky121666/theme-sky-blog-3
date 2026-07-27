@@ -43,7 +43,7 @@
     <div class="steam-app-shell"
          th:attr="data-steam-site-title=${site.title},data-steam-chrome-title=${pageTitleText},data-steam-chrome-subtitle=${'共 ' + totalGames + ' 款游戏'}">
       <header class="steam-client-header"
-              @mousedown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
+              @pointerdown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
         <div class="steam-client-statusbar">
           <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=true)}"></th:block>
           <div class="steam-client-status">
@@ -145,12 +145,12 @@
                                 gameFallbackImage=${!#strings.isEmpty(gameHeaderImage) and !#strings.isEmpty(gameRealImage) and gameHeaderImage != gameRealImage ? gameRealImage : ''},
                                 gameRecentPlaytime=${!#strings.isEmpty(game.playtime2WeeksFormatted) ? game.playtime2WeeksFormatted : (game.playtime2Weeks != null ? (game.playtime2Weeks < 60 ? (game.playtime2Weeks + 'm') : (((game.playtime2Weeks - (game.playtime2Weeks % 60)) / 60) + 'h ' + (game.playtime2Weeks % 60) + 'm')) : '')},
                                 gameTotalPlaytime=${!#strings.isEmpty(game.playtimeFormatted) ? game.playtimeFormatted : (game.playtimeForever != null ? (game.playtimeForever < 60 ? (game.playtimeForever + 'm') : (((game.playtimeForever - (game.playtimeForever % 60)) / 60) + 'h ' + (game.playtimeForever % 60) + 'm')) : '')}"
-                       th:classappend="${game.delisted == true ? ' is-unavailable' : ''}"
-                       th:href="${game.delisted == true ? null : (enableGameLink ? ('https://store.steampowered.com/app/' + game.appId) : '#')}"
+                       th:classappend="${game.delisted == true ? ' is-unavailable' : (!enableGameLink ? ' is-static' : '')}"
+                       th:href="${game.delisted == true or !enableGameLink ? null : ('https://store.steampowered.com/app/' + game.appId)}"
                        th:target="${enableGameLink and game.delisted != true ? '_blank' : ''}"
                        th:rel="${enableGameLink and game.delisted != true ? 'noopener noreferrer' : ''}"
-                       th:attr="aria-disabled=${game.delisted == true ? 'true' : null},
-                                tabindex=${game.delisted == true ? '-1' : null}">
+                       th:attr="aria-disabled=${game.delisted == true or !enableGameLink ? 'true' : null},
+                                tabindex=${game.delisted == true or !enableGameLink ? '-1' : null}">
                       <img th:if="${!#strings.isEmpty(gameImage)}"
                            th:src="${gameImage}"
                            th:alt="${game.name}"
@@ -285,8 +285,8 @@
                           gameImage=${game.delisted == true ? '' : (!#strings.isEmpty(gameHeaderImage) ? gameHeaderImage : gameRealImage)},
                           gameFallbackImage=${!#strings.isEmpty(gameHeaderImage) and !#strings.isEmpty(gameRealImage) and gameHeaderImage != gameRealImage ? gameRealImage : ''},
                           gamePlaytime=${!#strings.isEmpty(game.playtimeFormatted) ? game.playtimeFormatted : (game.playtimeForever != null ? (game.playtimeForever < 60 ? (game.playtimeForever + 'm') : (((game.playtimeForever - (game.playtimeForever % 60)) / 60) + 'h ' + (game.playtimeForever % 60) + 'm')) : '')}"
-                 th:classappend="${game.delisted == true ? ' is-unavailable' : ''}"
-                 th:href="${game.delisted == true ? null : (enableGameLink ? ('https://store.steampowered.com/app/' + game.appId) : '#')}"
+                 th:classappend="${game.delisted == true ? ' is-unavailable' : (!enableGameLink ? ' is-static' : '')}"
+                 th:href="${game.delisted == true or !enableGameLink ? null : ('https://store.steampowered.com/app/' + game.appId)}"
                  th:target="${enableGameLink and game.delisted != true ? '_blank' : ''}"
                  th:rel="${enableGameLink and game.delisted != true ? 'noopener noreferrer' : ''}"
                  data-steam-game-card
@@ -299,8 +299,8 @@
                           data-steam-recent=${game.rtimeLastPlayed != null ? game.rtimeLastPlayed : 0},
                           data-steam-last-played=${game.lastPlayedFormatted},
                           data-steam-delisted=${game.delisted == true ? 'true' : 'false'},
-                          aria-disabled=${game.delisted == true ? 'true' : null},
-                          tabindex=${game.delisted == true ? '-1' : null}">
+                          aria-disabled=${game.delisted == true or !enableGameLink ? 'true' : null},
+                          tabindex=${game.delisted == true or !enableGameLink ? '-1' : null}">
                 <div class="steam-game-art">
                   <img th:if="${!#strings.isEmpty(gameImage)}"
                        th:src="${gameImage}"

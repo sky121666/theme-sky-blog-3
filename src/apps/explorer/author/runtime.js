@@ -2,6 +2,8 @@ import { escapeHtml, toPositiveInt } from '../../../shared/utils.js';
 import { normalizeMomentRecord, renderMomentRow, renderMomentPreview } from '../../../shared/moments.js';
 import { renderBatch } from '../shared/render-batch.js';
 
+const MOMENT_REQUEST_TIMEOUT_MS = 10000;
+
 export function registerAuthorPostsExplorer(Alpine) {
   Alpine.data('authorPostsExplorer', () => ({
     activeSource: 'posts',
@@ -18,6 +20,8 @@ export function registerAuthorPostsExplorer(Alpine) {
     momentPageSize: 10,
     momentTotal: 0,
     momentTotalPages: 0,
+    momentLoadError: '',
+    momentRetryPage: 1,
     momentListEl: null,
     momentPreviewEl: null,
     momentPaginationEl: null,
@@ -257,7 +261,18 @@ export function registerAuthorPostsExplorer(Alpine) {
     selectMoment(momentKey, title) {
       this.activeMomentKey = momentKey || '';
       this.activeMomentTitle = title || '';
+      this.syncMomentSelectionState();
       this.syncMomentPanelVisibility();
+    },
+
+    syncMomentSelectionState() {
+      if (!this.momentListEl?.querySelectorAll) return;
+      this.momentListEl.querySelectorAll('[data-author-moment-option]').forEach((option) => {
+        const selected = option.dataset.momentKey === this.activeMomentKey;
+        option.classList.toggle('is-active', selected);
+        if (selected) option.setAttribute('aria-current', 'true');
+        else option.removeAttribute('aria-current');
+      });
     },
 
     syncMomentPanelVisibility() {
@@ -278,6 +293,8 @@ export function registerAuthorPostsExplorer(Alpine) {
 
     async goToMomentPage(page, { preserveSelection = false, updateUrl = true } = {}) {
       const nextPage = Math.max(1, Math.min(page, this.momentTotalPages || 1));
+      this.momentLoadError = '';
+      this.momentRetryPage = nextPage;
       this._cancelMomentFetch();
       const generation = ++this._momentPageGeneration;
       this.momentPage = nextPage;
@@ -330,6 +347,13 @@ export function registerAuthorPostsExplorer(Alpine) {
       if (updateUrl) this.writeUrlState();
     },
 
+    retryMomentPage() {
+      return this.goToMomentPage(this.momentRetryPage || this.momentPage || 1, {
+        preserveSelection: false,
+        updateUrl: true
+      });
+    },
+
     _cancelMomentFetch() {
       this.momentFetchController?.abort();
       this.momentFetchController = null;
@@ -349,6 +373,11 @@ export function registerAuthorPostsExplorer(Alpine) {
 
       const controller = new AbortController();
       this.momentFetchController = controller;
+      let requestTimedOut = false;
+      const timeoutId = setTimeout(() => {
+        requestTimedOut = true;
+        controller.abort();
+      }, MOMENT_REQUEST_TIMEOUT_MS);
 
       const cacheKey = `author-moments-${this.authorName}-page-${page}`;
       try {
@@ -359,6 +388,8 @@ export function registerAuthorPostsExplorer(Alpine) {
             const cachedData = generation === this._momentPageGeneration && !controller.signal.aborted
               ? entry.data
               : null;
+            if (cachedData) this.momentLoadError = '';
+            clearTimeout(timeoutId);
             if (this.momentFetchController === controller) this.momentFetchController = null;
             return cachedData;
           }
@@ -366,9 +397,13 @@ export function registerAuthorPostsExplorer(Alpine) {
       } catch (_error) {}
 
       try {
-        const url = `/apis/api.moment.halo.run/v1alpha1/moments?page=${page}&size=${this.momentPageSize}&sort=metadata.creationTimestamp%2Cdesc&ownerName=${encodeURIComponent(this.authorName)}`;
+        const url = `/apis/api.moment.halo.run/v1alpha1/moments?page=${page}&size=${this.momentPageSize}&sort=spec.releaseTime%2Cdesc&ownerName=${encodeURIComponent(this.authorName)}`;
         const response = await fetch(url, { signal: controller.signal });
-        if (!response.ok) return null;
+        if (!response.ok) {
+          const error = new Error(`Moments request failed with status ${response.status}`);
+          error.status = response.status;
+          throw error;
+        }
 
         const json = await response.json();
         const items = Array.isArray(json?.items) ? json.items : [];
@@ -381,6 +416,7 @@ export function registerAuthorPostsExplorer(Alpine) {
         }
 
         const data = items.map((item) => normalizeMomentRecord(item));
+        this.momentLoadError = '';
 
         if (typeof window !== 'undefined') {
           window.sessionStorage.setItem(cacheKey, JSON.stringify({
@@ -391,9 +427,15 @@ export function registerAuthorPostsExplorer(Alpine) {
 
         return data;
       } catch (error) {
-        if (error?.name === 'AbortError') return null;
+        const requestIsCurrent = generation === this._momentPageGeneration;
+        if (requestIsCurrent && (requestTimedOut || error?.name !== 'AbortError')) {
+          this.momentLoadError = requestTimedOut
+            ? '瞬间加载超时，请检查网络后重试。'
+            : '瞬间暂时无法加载，请稍后重试。';
+        }
         return null;
       } finally {
+        clearTimeout(timeoutId);
         if (this.momentFetchController === controller) this.momentFetchController = null;
       }
     },
@@ -412,6 +454,7 @@ export function registerAuthorPostsExplorer(Alpine) {
           onComplete: () => {
             if (listRenderGeneration !== this._momentListRenderGeneration) return;
             if (this._momentListRenderJob === renderJob) this._momentListRenderJob = null;
+            this.syncMomentSelectionState();
             this.syncMomentPanelVisibility();
             if (window.pjax) {
               this.momentListEl.querySelectorAll('a.pjax-link:not([data-pjax-attached])').forEach((link) => {

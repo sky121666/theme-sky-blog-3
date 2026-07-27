@@ -9,7 +9,7 @@
     <div class="docsme-shell">
       <aside class="docsme-sidebar">
         <div class="docsme-window-dragbar"
-             @mousedown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
+             @pointerdown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
           <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=true)}"></th:block>
         </div>
         <div class="docsme-sidebar-head">
@@ -94,7 +94,7 @@
     <div class="docsme-shell docsme-shell--reading">
       <aside class="docsme-sidebar docsme-sidebar--tree">
         <div class="docsme-window-dragbar"
-             @mousedown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
+             @pointerdown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
           <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=true)}"></th:block>
         </div>
         <th:block th:replace="~{modules/docsme-app/content :: sidebarHeader}" />
@@ -155,7 +155,7 @@
     <div class="docsme-shell docsme-shell--catalog">
       <aside class="docsme-sidebar docsme-sidebar--tree">
         <div class="docsme-window-dragbar"
-             @mousedown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
+             @pointerdown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
           <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=true)}"></th:block>
         </div>
         <th:block th:replace="~{modules/docsme-app/content :: sidebarHeader}" />

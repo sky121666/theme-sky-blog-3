@@ -291,8 +291,7 @@
       widgetsNeedsRandomTags = ${widgetsEnabled and isDesktopHome and #strings.contains(desktopLayoutJson, 'halo.random_tags')},
       widgetsNeedsMoments = ${widgetsEnabled and isDesktopHome and #strings.contains(desktopLayoutJson, 'plugin-moments.recent')},
       widgetsNeedsBangumis = ${widgetsEnabled and isDesktopHome and #strings.contains(desktopLayoutJson, 'plugin-bangumis.recent')},
-      widgetsLegacyLinksFeedLayout = ${#strings.contains(desktopLayoutJson, 'plugin-friends.recent')},
-      widgetsNeedsLinksFeed = ${widgetsEnabled and isDesktopHome and (#strings.contains(desktopLayoutJson, 'plugin-links.feed') or widgetsLegacyLinksFeedLayout)},
+      widgetsNeedsLinksFeed = ${widgetsEnabled and isDesktopHome and #strings.contains(desktopLayoutJson, 'plugin-links.feed')},
       widgetsNeedsDocsme = ${widgetsEnabled and isDesktopHome and #strings.contains(desktopLayoutJson, 'plugin-docsme.quick')},
       widgetsNeedsPhotos = ${widgetsEnabled and isDesktopHome and #strings.contains(desktopLayoutJson, 'plugin-photos.gallery')},
       widgetsNeedsDouban = ${widgetsEnabled and isDesktopHome and #strings.contains(desktopLayoutJson, 'plugin-douban.showcase')},
@@ -329,7 +328,7 @@
       widgetsBangumiDramaWishCount = ${widgetsBangumisDramaWish != null ? widgetsBangumisDramaWish.total : 0},
       widgetsBangumiDramaWatchingCount = ${widgetsBangumisDramaWatching != null ? widgetsBangumisDramaWatching.total : 0},
       widgetsBangumiDramaDoneCount = ${widgetsBangumisDramaDone != null ? widgetsBangumisDramaDone.total : 0},
-      widgetsFriendsAvailable = ${(widgetsNeedsLinksFeed or widgetsCatalogOptionsNeeded) and pluginFinder.available('PluginLinks', '>=2.2.1')},
+      widgetsFriendsAvailable = ${pluginFinder.available('PluginLinks', '>=2.2.1')},
       widgetsRecentFriendsPage = ${widgetsNeedsLinksFeed and widgetsFriendsAvailable ? linkFeedFinder.list({limit: 5}) : null},
       widgetsRecentFriends = ${widgetsRecentFriendsPage},
       widgetsDocsmeAvailable = ${(widgetsNeedsDocsme or widgetsCatalogOptionsNeeded) and pluginFinder.available('plugin-docsme', '>=1.4.0')},
@@ -488,7 +487,7 @@
          x-data="desktopWidgets"
          x-ref="surface"
          @click.window="handleDesktopSurfaceOutsideClick($event)"
-         @contextmenu.prevent="handleDesktopSurfaceContextMenu($event)"
+         @contextmenu="handleDesktopSurfaceContextMenu($event)"
          @keydown.window="handleDesktopKeydown($event)">
 
     <th:block th:replace="~{modules/shell/desktop-widgets :: layer(
@@ -586,6 +585,7 @@
                       subtitleText='',
                       contentFragment=${ssrContent},
                       windowResizable=${windowResizable != null ? windowResizable : 'y'},
+                      windowMaximizable=${windowMaximizable != null ? windowMaximizable : 'true'},
                       metricsKey=${windowMetricsKey != null ? windowMetricsKey : 'links'}
                     )}" />
         </th:block>

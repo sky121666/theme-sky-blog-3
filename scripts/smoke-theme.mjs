@@ -295,19 +295,19 @@ for (const [rel, patterns] of tagWidgetChecks) {
 const authStructureChecks = [
   [
     'templates/gateway_fragments/layout.html',
-    ['class="auth-gateway-card mac-window"', 'class="mac-titlebar"', 'class="auth-titlebar-leading"', 'class="mac-traffic-lights"', 'class="mac-traffic-light close auth-traffic-link"', 'th:href="@{/}"', 'class="auth-titlebar-back"', 'data-auth-go-back', 'class="auth-titlebar-actions"', 'data-auth-theme-toggle', 'auth-toast-stack', 'data-auth-toast-host', 'gateway_fragments/login::toast']
+    ['class="auth-gateway-card mac-window"', 'class="mac-titlebar"', 'class="auth-titlebar-leading"', 'class="mac-traffic-lights"', 'class="mac-traffic-light close auth-traffic-link"', 'th:href="@{/}"', 'class="auth-titlebar-back"', 'data-auth-go-back', 'class="auth-titlebar-actions"', 'data-auth-theme-toggle', 'auth-gateway-page--lockscreen', 'th:data-auth-scene', 'auth-toast-stack', 'data-auth-toast-host', 'gateway_fragments/login::toast']
   ],
   [
     'templates/gateway_fragments/login.html',
-    ['th:text="${!#strings.isEmpty(headerAppName) ? headerAppName : site.title}"', 'data-auth-toast', 'id="login-form" autocomplete="on"']
+    ['th:text="${!#strings.isEmpty(headerAppName) ? headerAppName : site.title}"', 'data-auth-toast', 'id="login-form" autocomplete="on"', 'auth-form-lockscreen', 'auth-form-provider']
   ],
   [
     'templates/login_local.html',
-    ['id="password" name="password"', 'autocomplete="current-password"']
+    ['id="password" name="password"', 'autocomplete="current-password"', 'data-auth-lockscreen-native', 'data-auth-lockscreen-advance', 'data-auth-lockscreen-submit', 'data-auth-lockscreen-back']
   ],
   [
     'templates/gateway_fragments/common.html',
-    ['th:fragment="loginProviderSection"', 'auth-provider-section', 'auth-provider-grid auth-provider-grid-icons', 'th:fragment="returnToSiteContent"', '留空，不再显示底部返回首页', 'loginForm.addEventListener("formdata"', 'event.formData.set("password", encrypted);', 'document.createElement("input")']
+    ['th:fragment="loginProviderSection"', 'auth-provider-section', 'auth-provider-grid auth-provider-grid-icons', 'auth-provider-name', 'auth-lockscreen-footer-actions', '使用通行密钥', '密码登录', 'th:fragment="returnToSiteContent"', '留空，不再显示底部返回首页', 'loginForm.addEventListener("formdata"', 'event.formData.set("password", encrypted);', 'document.createElement("input")']
   ],
   [
     'templates/gateway_fragments/password_reset_email_send.html',
@@ -319,11 +319,11 @@ const authStructureChecks = [
   ],
   [
     'src/entries/auth.css',
-    ['.auth-login-badge', '.auth-view-title', '.auth-view-subtitle', '.auth-status-orb', '.auth-logout-flow', '.auth-logout-hero', '.auth-logout-actions', '.auth-logout-avatar-orb', '.auth-toast-stack', '.auth-alert-toast', 'padding-left: 52px !important', 'padding-right: 48px !important', 'left: -9999px', '.auth-titlebar-actions', '.auth-theme-toggle', '.auth-titlebar-leading', '.auth-titlebar-back', 'background: none;', 'box-shadow: none;', '.auth-login-badge img', 'border-radius: 18px;', '.auth-traffic-link', '--auth-brand-box-size:', 'aspect-ratio: 1 / 1;', 'min-height: var(--auth-brand-lock-height);']
+    ['.auth-login-badge', '.auth-view-title', '.auth-view-subtitle', '.auth-status-orb', '.auth-logout-flow', '.auth-logout-hero', '.auth-logout-actions', '.auth-logout-avatar-orb', '.auth-toast-stack', '.auth-alert-toast', '.auth-gateway-page--lockscreen', '.auth-lockscreen-native-fields', '.auth-lockscreen-input', '.auth-lockscreen-footer-actions', 'padding-left: 52px !important', 'padding-right: 48px !important', 'left: -9999px', '.auth-titlebar-actions', '.auth-theme-toggle', '.auth-titlebar-leading', '.auth-titlebar-back', 'background: none;', 'box-shadow: none;', '.auth-login-badge img', 'border-radius: 18px;', '.auth-traffic-link', '--auth-brand-box-size:', 'aspect-ratio: 1 / 1;', 'min-height: var(--auth-brand-lock-height);']
   ],
   [
     'src/entries/auth.js',
-    ['initAuthThemeToggle', 'initAuthBackLink', 'initAuthToasts', 'data-auth-theme-toggle', 'data-auth-go-back', 'data-auth-toast', "window.history.length > 1", "localStorage.setItem('theme'"]
+    ['initAuthThemeToggle', 'initAuthBackLink', 'initAuthToasts', 'initAuthLockscreenFlow', 'data-auth-theme-toggle', 'data-auth-go-back', 'data-auth-toast', 'data-auth-lockscreen-native', "window.history.length > 1", "localStorage.setItem('theme'"]
   ],
   [
     'src/entries/auth.css',

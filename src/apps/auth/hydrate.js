@@ -1,4 +1,10 @@
-import { initAuthBackLink, initAuthScrollbars, initAuthThemeToggle, initAuthToasts } from '../../entries/auth.js';
+import {
+  initAuthBackLink,
+  initAuthLockscreenFlow,
+  initAuthScrollbars,
+  initAuthThemeToggle,
+  initAuthToasts
+} from '../../entries/auth.js';
 import { resolveAuthAppProtocol } from './protocol.js';
 
 function syncAuthDocumentState(root, context) {
@@ -26,6 +32,7 @@ export function hydrateAuthApp(root = document, extra = {}) {
   const themeCleanup = initAuthThemeToggle(root);
   const backCleanup = initAuthBackLink(root);
   const toastCleanup = initAuthToasts(root);
+  const lockscreenCleanup = initAuthLockscreenFlow(root);
   const context = {
     appId: 'auth',
     documentTitle: extra.documentTitle || document.title,
@@ -45,6 +52,7 @@ export function hydrateAuthApp(root = document, extra = {}) {
       if (typeof themeCleanup === 'function') themeCleanup();
       if (typeof backCleanup === 'function') backCleanup();
       if (typeof toastCleanup === 'function') toastCleanup();
+      if (typeof lockscreenCleanup === 'function') lockscreenCleanup();
     },
     documentState
   };

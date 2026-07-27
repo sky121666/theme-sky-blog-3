@@ -1164,13 +1164,33 @@
 
 .docsme-article table {
   width: 100%;
-  overflow: hidden;
   border-collapse: separate;
   border-spacing: 0;
   border: 1px solid var(--docsme-border);
   border-radius: 12px;
   background: color-mix(in srgb, var(--docsme-surface) 54%, transparent);
   box-shadow: inset 0 1px color-mix(in srgb, var(--docsme-surface-strong) 60%, transparent);
+}
+
+.docsme-table-scroll {
+  width: 100%;
+  max-width: 100%;
+  margin-block: 18px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  border-radius: 12px;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+
+.docsme-table-scroll:focus-visible {
+  outline: 2px solid var(--docsme-accent);
+  outline-offset: 3px;
+}
+
+.docsme-table-scroll > table {
+  min-width: 100%;
+  margin-block: 0;
 }
 
 .docsme-article th,
@@ -1680,6 +1700,13 @@
       linear-gradient(180deg, color-mix(in srgb, var(--docsme-accent) 14%, transparent), transparent),
       color-mix(in srgb, var(--docsme-surface-strong) 70%, transparent);
     color: var(--docsme-accent-strong);
+  }
+}
+
+@media (min-width: 769px) {
+  .docsme-window {
+    min-width: min(960px, calc(100vw - 32px));
+    min-height: min(640px, calc(100dvh - 132px));
   }
 }
 

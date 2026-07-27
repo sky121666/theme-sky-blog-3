@@ -128,8 +128,16 @@ assert.match(
   'template raw-minute fallback should calculate whole hours before rendering'
 );
 assert.match(template, /game\.playtimeForever < 60/, 'template should render sub-hour playtime as minutes only');
-assert.match(template, /game\.delisted == true \? null/, 'delisted cards should remove their href');
-assert.match(template, /tabindex=\$\{game\.delisted == true \? '-1' : null\}/, 'delisted cards should leave keyboard navigation');
+assert.match(
+  template,
+  /game\.delisted == true or !enableGameLink \? null/,
+  'delisted or administratively disabled cards should remove their href'
+);
+assert.match(
+  template,
+  /tabindex=\$\{game\.delisted == true or !enableGameLink \? '-1' : null\}/,
+  'non-interactive cards should leave keyboard navigation'
+);
 assert.match(pageTemplate, /#strings\.endsWith\(rawWindowTitle, windowTitleSuffix\)/, 'server title should only detect a trailing site suffix');
 assert.match(pageTemplate, /#strings\.substring\(rawWindowTitle, 0, #strings\.length\(rawWindowTitle\) - #strings\.length\(windowTitleSuffix\)\)/, 'server title should remove only the detected trailing suffix');
 assert.match(hydrateSource, /stripSteamSiteTitleSuffix\(chromeTitle, siteTitle\)/, 'PJAX title hydration should use the exact-suffix helper');

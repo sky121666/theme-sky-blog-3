@@ -186,10 +186,33 @@ const wrappedMerged = core.applyThemeSettingsDraftToConfig(wrappedConfig, update
 assert(wrappedMerged.spec.value.dock.appearance.icon_size === 64, '应兼容 spec.value 配置外壳');
 assert(wrappedMerged.metadata.name === 'theme-sky-blog-3', '不得破坏配置外壳元数据');
 
+const savedBaseline = core.buildThemeSettingsDraft(merged);
+let editedDuringSave = core.updateThemeSettingsDraft(savedBaseline, 'dock.appearance.icon_size', 48);
+editedDuringSave = core.updateThemeSettingsDraft(editedDuringSave, 'header.logo.title', '保存期间的新标题');
+const rebasedAfterSave = core.rebaseThemeSettingsDraftAfterSave(
+  savedBaseline,
+  editedDuringSave,
+  ['dock.appearance.icon_size', 'header.logo.title']
+);
+assert(
+  JSON.stringify(rebasedAfterSave.dirtyPaths.sort())
+    === JSON.stringify(['dock.appearance.icon_size', 'header.logo.title'].sort()),
+  '保存期间产生的新修改必须继续保持 dirty'
+);
+assert(rebasedAfterSave.draft.dock.appearance.icon_size === 48, '同一路径保存后的再次修改不得丢失');
+assert(rebasedAfterSave.draft.header.logo.title === '保存期间的新标题', '保存期间新增路径必须保留');
+const cleanRebase = core.rebaseThemeSettingsDraftAfterSave(
+  savedBaseline,
+  savedBaseline,
+  ['dock.appearance.icon_size']
+);
+assert(cleanRebase.dirtyPaths.length === 0, '与新基线一致的值不得残留 dirty 状态');
+
 const layoutTemplate = read('templates/modules/shell/layout.html');
 const headerTemplate = read('templates/modules/shell/header.html');
 const settingsTemplate = read('templates/modules/shell/theme-settings.html');
 const settingsRuntime = read('src/shell/desktop-shell/runtime/desktop/theme-settings.js');
+const themeConfigClient = read('src/shell/desktop-shell/runtime/shared/theme-config-client.js');
 const desktopSurfaceRuntime = read('src/shell/desktop-shell/runtime/desktop/surface/index.js');
 const settingsStyles = read('src/shell/desktop-shell/styles/desktop/theme-settings.css');
 const dockStyles = read('src/shell/desktop-shell/styles/desktop/dock.css');
@@ -207,6 +230,9 @@ assert(settingsTemplate.includes('data-theme-settings-protocol'), '系统设置�
 assert(settingsTemplate.includes('Halo 配置是唯一数据源'), '设置窗口必须明确唯一配置源');
 assert(settingsTemplate.includes('theme-settings-sidebar-toggle'), '手机端必须提供侧栏展开按钮');
 assert(settingsTemplate.includes('theme-settings-sidebar-backdrop'), '手机端侧栏必须提供可关闭遮罩');
+assert(settingsTemplate.includes('aria-modal="false"'), '系统设置必须声明为可与菜单栏和 Dock 共存的非模态窗口');
+assert(settingsTemplate.includes(':inert="$store.themeSettings.mobileSidebarOpen"'), '手机侧栏打开时必须隔离后方设置内容');
+assert(settingsTemplate.includes(':inert="$store.themeSettings.isMobileViewport && !$store.themeSettings.mobileSidebarOpen"'), '手机侧栏关闭时不得保留隐藏焦点');
 assert(settingsTemplate.includes("activePane === 'menu-control'"), '系统设置必须提供菜单栏与控制中心页面');
 assert(settingsTemplate.includes("activePane === 'notifications'"), '系统设置必须提供通知页面');
 assert(settingsTemplate.includes("header.actions.search_enabled"), '菜单栏页面必须接入后台搜索开关');
@@ -239,11 +265,21 @@ assert(authStyles.includes('--auth-theme-accent: var(--theme-accent'), '登录�
 assert(!/#(?:0a66ff|0a84ff|4f46e5|ff4d79)/i.test(authStyles), '登录注册页不得混入固定蓝紫或粉色装饰色');
 assert(settingsStyles.includes('.theme-settings-sidebar.is-open'), '手机端侧栏必须具备展开状态');
 assert(settingsStyles.includes('transform: translate3d(-102%, 0, 0);'), '手机端侧栏默认必须隐藏在视口外');
+assert(settingsStyles.includes('inset: 24px 0 calc(92px + env(safe-area-inset-bottom, 0px));'), '手机设置窗口必须为真实 Dock 预留空间');
 assert(settingsRuntime.includes('if (!this.authenticated || !this.endpoint)'), '访客不得探测受保护配置接口');
 assert(settingsRuntime.includes('mobileSidebarOpen: false'), '系统设置 Store 必须维护手机侧栏状态');
+assert(settingsRuntime.includes('handleMobileSidebarFocusTrap(event)'), '手机设置抽屉必须具备独立焦点循环');
+assert(settingsRuntime.includes("sidebar?.querySelector('button.is-active')"), '打开手机设置抽屉后焦点必须进入当前分类');
 assert(settingsRuntime.includes('this.mobileSidebarOpen = false;'), '切换分类与关闭窗口必须收起手机侧栏');
 assert(settingsRuntime.includes('applyThemeSettingsDraftToConfig(latestConfig, saveDraft, savePaths)'), '保存前必须重新读取并增量合并');
-assert(settingsRuntime.includes("headers['X-XSRF-TOKEN'] = csrfToken"), '写入配置必须回传 Halo CSRF 令牌');
+assert(settingsRuntime.includes('mutateThemeConfig('), '系统设置必须通过共享主题配置写入器保存');
+assert(desktopSurfaceRuntime.includes('mutateThemeConfig('), '桌面布局必须通过共享主题配置写入器保存');
+assert(themeConfigClient.includes("headers['X-XSRF-TOKEN'] = csrfToken"), '共享写入器必须回传 Halo CSRF 令牌');
+assert(themeConfigClient.includes("headers['If-Match'] = etag"), '服务端提供 ETag 时必须执行条件写入');
+assert(themeConfigClient.includes("locks.request(lockNameForEndpoint(endpoint), { mode: 'exclusive' }"), '共享写入器必须使用跨标签页独占锁');
+assert(themeConfigClient.includes('Theme config request timed out'), '主题配置读取和写入必须有截止时间');
+assert(themeConfigClient.includes('response.redirected'), '共享写入器必须拒绝登录重定向假成功');
+assert(settingsRuntime.includes('rebaseThemeSettingsDraftAfterSave('), '保存期间的新编辑必须重放到新基线');
 assert(settingsRuntime.includes("document.querySelector('.dock-container')"), 'Dock 草稿必须应用到真实桌面 Dock');
 assert(settingsRuntime.includes("new CustomEvent(DOCK_RUNTIME_SYNC_EVENT)"), 'Dock 草稿与恢复必须通知运行时重新同步');
 assert(settingsRuntime.includes("new CustomEvent(MENUBAR_RUNTIME_SYNC_EVENT"), '菜单栏草稿必须通知运行时同步');

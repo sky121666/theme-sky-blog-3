@@ -318,8 +318,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   color: var(--nc-muted);
   cursor: pointer;
@@ -536,8 +536,8 @@
   align-items: center;
   justify-content: center;
   flex: none;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   color: rgba(255, 255, 255, 0.58);
   cursor: pointer;
@@ -1034,8 +1034,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   color: rgba(255, 255, 255, 0.65);
   cursor: pointer;
@@ -1135,11 +1135,11 @@
   font-size: 10px;
 }
 
-@media (hover: none) {
+@media (hover: none), (pointer: coarse) {
   /* Persistent on touch screens */
   .notification-center-card-read {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     top: 6px;
     right: 7px;
     opacity: 1;
@@ -1154,6 +1154,18 @@
   .notification-center-card.is-actionable .notification-center-card-main {
     padding-right: 44px;
   }
+}
+
+.notification-center-action-message {
+  margin: 0 4px 10px;
+  padding: 9px 11px;
+  color: rgba(255, 226, 226, 0.96);
+  font-size: 11px;
+  line-height: 1.45;
+  border: 0.5px solid rgba(255, 120, 120, 0.18);
+  border-radius: 10px;
+  background: rgba(92, 34, 38, 0.48);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 /* ─── Status card ─── */

@@ -7,7 +7,7 @@
          x-data="windowTitlebar"
          @pjax:complete.window="closeSharePanel(); sync()"
          @reader:outline-open.window="closeSharePanel()"
-         @mousedown="onDragStart">
+         @pointerdown="onDragStart">
       <th:block th:replace="${contentFragment}"></th:block>
     </div>
   </th:block>
@@ -20,7 +20,7 @@
          x-data="windowTitlebar"
          @pjax:complete.window="closeSharePanel(); sync()"
          @reader:outline-open.window="closeSharePanel()"
-         @mousedown="onDragStart">
+         @pointerdown="onDragStart">
       <div class="window-titlebar-leading"
            data-window-titlebar-leading
            th:classappend="${leadingClasses != null ? leadingClasses : 'flex items-center gap-3 md:gap-4 w-[120px] md:w-[180px]'}">

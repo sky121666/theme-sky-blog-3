@@ -33,6 +33,20 @@ assert.match(
   'notification widget drag relay must preserve the originating pointerId'
 );
 
+let widgetConfigFocusCount = 0;
+const widgetConfigFixture = {
+  widgetConfigForm: { meta: { count: 1 } },
+  refreshWidgetConfigPreview() {},
+  focusDesktopModal() { widgetConfigFocusCount += 1; }
+};
+editModeMethods.updateWidgetConfigMeta.call(widgetConfigFixture, 'count', 2);
+assert.deepEqual(widgetConfigFixture.widgetConfigForm.meta, { count: 2 });
+assert.equal(
+  widgetConfigFocusCount,
+  0,
+  'editing a widget field must not move focus back to the modal entry control'
+);
+
 assert.deepEqual(normalizeDesktopIconHref('/posts/example?from=desktop#top', origin), {
   valid: true,
   href: '/posts/example?from=desktop#top',
@@ -126,6 +140,14 @@ function response(payload = {}, status = 200) {
   return {
     ok: status >= 200 && status < 300,
     status,
+    redirected: false,
+    headers: {
+      get(name) {
+        return String(name || '').toLowerCase() === 'content-type'
+          ? 'application/json'
+          : null;
+      }
+    },
     async json() { return payload; },
     async text() { return ''; }
   };

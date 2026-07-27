@@ -524,18 +524,27 @@
 
 /* ---------- 交通灯 ---------- */
 .traffic-btn {
-  width: 12px !important;
-  height: 12px !important;
+  width: 24px !important;
+  height: 24px !important;
   border-radius: 50%;
   display: flex !important;
   align-items: center;
   justify-content: center;
   border: none !important;
   position: relative;
-  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.12), inset 0 0.5px 0 rgba(255, 255, 255, 0.2);
-  transition: background-color 0.15s ease;
+  background: transparent !important;
+  box-shadow: none;
   padding: 0;
   cursor: pointer;
+}
+
+.traffic-btn::before {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  content: "";
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.12), inset 0 0.5px 0 rgba(255, 255, 255, 0.2);
 }
 
 .traffic-btn svg,
@@ -545,6 +554,8 @@
   height: 7px;
   transition: opacity 0.15s ease;
   pointer-events: none;
+  position: relative;
+  z-index: 1;
 }
 
 .traffic-lights:hover .traffic-btn svg,
@@ -552,17 +563,24 @@
   opacity: 1;
 }
 
-.traffic-btn.close { background-color: #ff5f56; }
-.traffic-btn.minimize { background-color: #ffbd2e; }
-.traffic-btn.maximize { background-color: #27c93f; }
+.traffic-btn.close::before { background-color: #ff5f56; }
+.traffic-btn.minimize::before { background-color: #ffbd2e; }
+.traffic-btn.maximize::before { background-color: #27c93f; }
 
-.dark .traffic-btn.close { background-color: #ff5f57; }
-.dark .traffic-btn.minimize { background-color: #febc2e; }
-.dark .traffic-btn.maximize { background-color: #28c840; }
+.dark .traffic-btn.close::before { background-color: #ff5f57; }
+.dark .traffic-btn.minimize::before { background-color: #febc2e; }
+.dark .traffic-btn.maximize::before { background-color: #28c840; }
 
 .traffic-btn.close span { color: #4d0000; }
 .traffic-btn.minimize span { color: #995700; }
 .traffic-btn.maximize span { color: #004d09; }
+
+[data-window-titlebar],
+.window-resize-handle,
+.links-rail-drag,
+.docsme-window-dragbar {
+  touch-action: none;
+}
 
 /* ---------- Loading Overlay & Skeleton ---------- */
 :root {
