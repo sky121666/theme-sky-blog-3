@@ -1875,7 +1875,7 @@ export function registerWindowManager(Alpine) {
         if (this.notificationWidgetDataStatus === 'error') {
           return '<div class="desktop-widget-empty" role="status">小组件数据暂时无法加载，请关闭后重试。</div>';
         }
-        return renderWidgetLoadingMarkup();
+        return renderWidgetLoadingMarkup(widget, { pending: true });
       }
       return renderWidgetBodyWithHost({
         surface: 'notification-center',

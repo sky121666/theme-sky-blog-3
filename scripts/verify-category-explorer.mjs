@@ -26,7 +26,11 @@ assert.match(collectionTemplate, /category :: previewPane/, '分类根页必须�
 assert.match(collectionTemplate, /data-category-all-link/, '分类根页必须提供唯一的“全部分类”入口');
 assert.match(collectionTemplate, /data-category-all-prev/, '分类根页必须提供全部文档上一页契约');
 assert.match(collectionTemplate, /data-category-all-next/, '分类根页必须提供全部文档下一页契约');
-assert.match(collectionTemplate, /categoriesRootUri \+ '\?page='/, '分类根页必须使用查询参数分页');
+assert.match(collectionTemplate, /param\.p/, '分类根页必须读取 SEO Tools 保留的 p 查询参数');
+assert.match(collectionTemplate, /categoriesRootUri \+ '\?p='/, '分类根页必须使用 SEO Tools 可保留的 p 查询参数分页');
+assert.doesNotMatch(collectionTemplate, /param\.page|categoriesRootUri \+ '\?page='/, '分类根页不得继续生成 canonical 会丢失的 page 查询参数');
+assert.match(collectionTemplate, /canonical = \$\{categoriesRootUri \+ \(allPosts/, '分类分页必须输出与 Finder 页码一致的 self-canonical');
+assert.match(collectionTemplate, /noindex,follow/, '分类越界分页必须输出 noindex,follow');
 assert.match(collectionTemplate, /data-category-current-page/, '分类根页必须暴露当前页码供真页验证');
 assert.match(collectionTemplate, /data-category-total-pages/, '分类根页必须暴露总页数供真页验证');
 assert.equal(
@@ -55,6 +59,8 @@ assert.match(detailTemplate, /data-category-current-page/, '分类详情必须�
 assert.match(detailTemplate, /data-category-total-pages/, '分类详情必须暴露总页数供真页验证');
 assert.match(detailTemplate, /posts\.prevUrl/, '分类详情必须沿用 Halo 上一页地址');
 assert.match(detailTemplate, /posts\.nextUrl/, '分类详情必须沿用 Halo 下一页地址');
+assert.match(detailTemplate, /canonical = \$\{category\.status\.permalink \+ \(posts/, '分类详情分页必须输出 self-canonical');
+assert.match(detailTemplate, /serverSocialIdentity = true/, '分类详情精确 canonical 必须用于服务端 Open Graph URL');
 assert.match(detailTemplate, /data-category-empty/, '分类详情必须提供可恢复的空页状态');
 assert.match(detailTemplate, /data-category-return-root/, '分类空页必须可返回全部分类');
 assert.match(detailTemplate, /data-category-return-first/, '越界分页必须可返回第一页');

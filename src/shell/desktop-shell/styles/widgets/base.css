@@ -254,18 +254,90 @@
   flex-direction: column;
   justify-content: center;
   gap: 8px;
+  width: 100%;
   min-height: 100%;
-  padding: 10px 0;
+  padding: 14px;
+  box-sizing: border-box;
+  overflow: hidden;
+  color: var(--widget-card-muted, rgba(255, 255, 255, 0.66));
+}
+
+.desktop-widget-loading.is-small {
+  position: relative;
+  padding: 12px;
+}
+
+.desktop-widget-loading.is-medium {
+  display: grid;
+  grid-template-columns: minmax(76px, 0.86fr) minmax(0, 1.14fr);
+  align-items: stretch;
+  gap: 14px;
+}
+
+.desktop-widget-loading.is-large {
+  display: grid;
+  grid-template-rows: minmax(84px, 0.9fr) minmax(0, 1.1fr);
+  align-items: stretch;
+  gap: 14px;
+}
+
+.desktop-widget-loading-cover,
+.desktop-widget-loading-content,
+.desktop-widget-loading-bar {
+  display: block;
+  border-radius: 12px;
+  background: linear-gradient(110deg,
+    color-mix(in srgb, var(--widget-card-muted, rgba(255, 255, 255, 0.66)) 10%, transparent),
+    color-mix(in srgb, var(--widget-card-text, rgba(255, 255, 255, 0.96)) 18%, transparent),
+    color-mix(in srgb, var(--widget-card-muted, rgba(255, 255, 255, 0.66)) 10%, transparent));
+  background-size: 220% 100%;
+  animation: desktop-widget-loading-shimmer var(--theme-skeleton-duration, 1.6s) var(--theme-skeleton-easing, ease-in-out) infinite;
+}
+
+.desktop-widget-loading-cover {
+  min-height: 56px;
+}
+
+.desktop-widget-loading.is-small .desktop-widget-loading-cover {
+  position: absolute;
+  inset: 0;
+  min-height: 0;
+  border-radius: inherit;
+  opacity: 0.46;
+}
+
+.desktop-widget-loading-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 9px;
+  min-width: 0;
+  background: transparent;
+  animation: none;
+}
+
+.desktop-widget-loading.is-small .desktop-widget-loading-content {
+  position: relative;
+  justify-content: flex-end;
+  align-self: end;
+  min-height: 100%;
+  padding-top: 48%;
 }
 
 .desktop-widget-loading-bar {
-  display: block;
   width: 100%;
   height: 10px;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.14));
-  background-size: 220% 100%;
-  animation: desktop-widget-loading-shimmer var(--theme-skeleton-duration, 1.6s) var(--theme-skeleton-easing, ease-in-out) infinite;
+}
+
+.desktop-widget-loading-bar--label {
+  width: 30%;
+  height: 7px;
+}
+
+.desktop-widget-loading-bar--title {
+  width: 84%;
+  height: 13px;
 }
 
 .desktop-widget-loading-bar--short {

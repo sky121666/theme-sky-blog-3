@@ -32,7 +32,7 @@ async function waitForFinder(page, expected = {}) {
     if (scope && workspace.dataset.tagScope !== scope) return false;
     if (pageNumber && Number(workspace.dataset.tagCurrentPage || 0) !== pageNumber) return false;
     if (tagName && workspace.dataset.tagName !== tagName) return false;
-    if (queryPage && Number(new URLSearchParams(location.search).get('page') || 0) !== queryPage) return false;
+    if (queryPage && Number(new URLSearchParams(location.search).get('p') || 0) !== queryPage) return false;
     if (previewReady === false) return true;
 
     const firstPost = workspace.querySelector('[data-tag-post-option]');
@@ -81,6 +81,8 @@ async function finderState(page) {
     return {
       pathname: location.pathname,
       search: location.search,
+      canonical: document.querySelector("link[rel='canonical']")?.href || '',
+      robots: document.querySelector("meta[name='robots']")?.content || '',
       appId: document.body?.dataset.pageApp || '',
       scope: workspace?.dataset.tagScope || '',
       tagName: workspace?.dataset.tagName || '',
@@ -222,14 +224,14 @@ try {
   assert.equal(rootPageOne.currentPage, 1, '标签根页必须默认展示全部文章第一页');
   assert.ok(rootPageOne.totalPages >= 2, '真页样本必须至少有两页全部文章');
   assertPostsAndPreview(rootPageOne, '标签根页');
-  assert.equal(new URLSearchParams(rootPageOne.next.search).get('page'), '2', '全部文章下一页必须使用 ?page=2');
+  assert.equal(new URLSearchParams(rootPageOne.next.search).get('p'), '2', '全部文章下一页必须使用 ?p=2');
 
   const tagPaths = rootPageOne.tagLinks.map((link) => withoutTrailingSlash(link.pathname));
   const rootMarker = `tags-root-${Date.now()}`;
   await page.evaluate((value) => { document.documentElement.dataset.tagVerifyMarker = value; }, rootMarker);
   await verifyPendingPjaxLoading({
     page,
-    targetUrl: absoluteUrl(`${tagsBasePath}?page=2`),
+    targetUrl: absoluteUrl(`${tagsBasePath}?p=2`),
     action: () => page.locator('[data-tag-all-next]').click(),
     preservedSelector: '[data-app-root="explorer-tags"] .tag-workspace',
     expectWindowOverlay: false,
@@ -239,6 +241,7 @@ try {
   await assertPjaxLoadingSettled(page, '标签全部文章分页');
   const rootPageTwo = await finderState(page);
   assert.equal(rootPageTwo.marker, rootMarker, '标签根页翻页必须走 PJAX 并保留 Document');
+  assert.equal(new URL(rootPageTwo.canonical).search, '?p=2', '标签根页第二页必须输出 self-canonical');
   assert.deepEqual(rootPageTwo.postKeys.filter((key) => rootPageOne.postKeys.includes(key)), [], '全部文章第二页不得重复第一页');
   assert.deepEqual(rootPageTwo.tagLinks.map((link) => withoutTrailingSlash(link.pathname)), tagPaths, '翻页不得改变标签列表');
   assertPostsAndPreview(rootPageTwo, '全部文章第二页');
@@ -249,11 +252,12 @@ try {
   assert.equal(rootBack.marker, rootMarker, '浏览器后退必须保留同一 Document');
   assert.deepEqual(rootBack.postKeys, rootPageOne.postKeys, '浏览器后退必须恢复第一页文章');
 
-  const overflowResponse = await page.goto(absoluteUrl(`${tagsBasePath}?page=999999`), { waitUntil: 'domcontentloaded', timeout: 20_000 });
+  const overflowResponse = await page.goto(absoluteUrl(`${tagsBasePath}?p=999999`), { waitUntil: 'domcontentloaded', timeout: 20_000 });
   assert.equal(overflowResponse?.status(), 200, '全部文章越界 query 必须返回 200 空态');
   await waitForFinder(page, { pathname: tagsBasePath, scope: 'all', pageNumber: 999999, queryPage: 999999 });
   const overflow = await finderState(page);
   assert.equal(overflow.emptyVisible, true, '全部文章越界必须展示可恢复空态');
+  assert.match(overflow.robots, /\bnoindex\b/i, '全部文章越界 query 必须阻止索引');
   assert.ok(overflow.recovery.some((link) => withoutTrailingSlash(link.pathname) === tagsBasePath && !link.search), '越界空态必须可返回第一页');
 
   let candidate = null;

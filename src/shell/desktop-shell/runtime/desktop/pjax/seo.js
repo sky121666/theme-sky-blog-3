@@ -38,6 +38,14 @@ const SEO_HEAD_SELECTORS = [
 
 const CRITICAL_SEO_TAGS = [
   {
+    key: 'robots',
+    selector: "meta[name='robots']",
+    tagName: 'meta',
+    identityAttribute: 'name',
+    identityValue: 'robots',
+    fallback: () => ''
+  },
+  {
     key: 'description',
     selector: "meta[name='description']",
     tagName: 'meta',
@@ -156,6 +164,7 @@ function readFallbackConfig(doc) {
     title: normalizeValue(configNode?.dataset.title || doc.title),
     description: normalizeValue(configNode?.dataset.description),
     canonical: normalizeValue(configNode?.dataset.canonical),
+    canonicalAuthority: normalizeValue(configNode?.dataset.canonicalAuthority).toLowerCase(),
     image: normalizeValue(configNode?.dataset.image),
     pageType: normalizeValue(configNode?.dataset.pageType) || 'website',
     siteName: normalizeValue(configNode?.dataset.siteName)
@@ -166,13 +175,83 @@ function getTagValue(node, valueAttribute = 'content') {
   return normalizeValue(node.getAttribute(valueAttribute));
 }
 
-function reconcileCriticalTag(doc, definition, fallbackValue) {
+function sanitizeTwitterHandles(doc) {
+  const selectors = ["meta[name='twitter:creator']", "meta[name='twitter:site']"];
+  selectors.forEach((selector) => {
+    doc.head?.querySelectorAll(selector).forEach((node) => {
+      const handle = normalizeValue(node.getAttribute('content'));
+      const normalizedHandle = handle.toLowerCase();
+      const isPlaceholder = ['@null', '@undefined', '@none'].includes(normalizedHandle);
+      if (isPlaceholder || !/^@[A-Za-z0-9_]{1,15}$/.test(handle)) node.remove();
+    });
+  });
+}
+
+function repairPublisherName(value, siteName) {
+  if (Array.isArray(value)) {
+    return value.reduce((changed, item) => repairPublisherName(item, siteName) || changed, false);
+  }
+  if (!value || typeof value !== 'object') return false;
+
+  let changed = false;
+  const publisher = value.publisher;
+  if (publisher && typeof publisher === 'object' && !Array.isArray(publisher)) {
+    const publisherType = Array.isArray(publisher['@type'])
+      ? publisher['@type'].map(normalizeValue)
+      : [normalizeValue(publisher['@type'])];
+    if (publisherType.includes('Organization') && !normalizeValue(publisher.name) && siteName) {
+      publisher.name = siteName;
+      changed = true;
+    }
+  }
+
+  Object.values(value).forEach((item) => {
+    if (item !== publisher && repairPublisherName(item, siteName)) changed = true;
+  });
+  return changed;
+}
+
+function repairStructuredData(doc, siteName) {
+  if (!siteName) return;
+  doc.head?.querySelectorAll("script[type='application/ld+json']").forEach((node) => {
+    try {
+      const data = JSON.parse(node.textContent || '');
+      if (repairPublisherName(data, siteName)) node.textContent = JSON.stringify(data);
+    } catch (_error) {
+      // Preserve invalid third-party blocks verbatim; validation remains the provider's responsibility.
+    }
+  });
+}
+
+function reconcileCriticalTag(doc, definition, fallbackValue, preferFallback = false) {
   const head = doc.head;
   if (!head) return { added: 0, removed: 0 };
 
   const valueAttribute = definition.valueAttribute || 'content';
   const nodes = Array.from(head.querySelectorAll(definition.selector));
   const validNodes = nodes.filter((node) => getTagValue(node, valueAttribute));
+
+  if (preferFallback && fallbackValue) {
+    let preferredNode = validNodes.find((node) => getTagValue(node, valueAttribute) === fallbackValue);
+    let added = 0;
+    if (!preferredNode) {
+      preferredNode = doc.createElement(definition.tagName);
+      preferredNode.setAttribute(definition.identityAttribute, definition.identityValue);
+      preferredNode.setAttribute(valueAttribute, fallbackValue);
+      preferredNode.setAttribute(THEME_FALLBACK_ATTR, definition.key);
+      head.appendChild(preferredNode);
+      added = 1;
+    }
+
+    let removed = 0;
+    nodes.forEach((node) => {
+      if (node !== preferredNode) {
+        node.remove();
+        removed += 1;
+      }
+    });
+    return { added, removed };
+  }
 
   if (definition.allowMultiple) {
     const pluginNodes = validNodes.filter((node) => !node.hasAttribute(THEME_FALLBACK_ATTR));
@@ -224,12 +303,21 @@ export function reconcileSeoHead(doc = document) {
   if (!doc?.head) return { added: 0, removed: 0 };
 
   const config = readFallbackConfig(doc);
-  return CRITICAL_SEO_TAGS.reduce((summary, definition) => {
-    const result = reconcileCriticalTag(doc, definition, normalizeValue(definition.fallback(config)));
+  const summary = CRITICAL_SEO_TAGS.reduce((summary, definition) => {
+    const result = reconcileCriticalTag(
+      doc,
+      definition,
+      normalizeValue(definition.fallback(config)),
+      definition.key === 'canonical' && config.canonicalAuthority === 'theme'
+    );
     summary.added += result.added;
     summary.removed += result.removed;
     return summary;
   }, { added: 0, removed: 0 });
+
+  sanitizeTwitterHandles(doc);
+  repairStructuredData(doc, config.siteName);
+  return summary;
 }
 
 function resolveSeoUrl(doc) {

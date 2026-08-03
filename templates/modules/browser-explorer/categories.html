@@ -1,34 +1,44 @@
 <!DOCTYPE html>
-<html xmlns:th="https://www.thymeleaf.org"
-      th:fragment="page"
-      th:replace="~{modules/shell/layout :: html(
-        title = ${'所有分类 - ' + site.title},
-        description = ${site.seo?.description ?: site.subtitle},
-        ssrContent = ~{modules/browser-explorer/categories :: content},
-        canonical = ${!#strings.isEmpty(site.routes?.categoriesUri) ? site.routes.categoriesUri : '/categories'},
-        image = ${site.logo},
-        type = 'website',
-        seoFallback = 'meta',
-        pageMode = 'browser-list',
-        pageApp = 'explorer-categories',
-        windowVariant = 'browser',
-        windowScene = 'none',
-        windowTitle = '所有分类',
-        windowResizable = true,
-        windowMaximizable = true,
-        windowMetricsKey = 'browser'
-      )}">
-  <th:block th:fragment="content"
-            th:with="categoriesRootUri=${!#strings.isEmpty(site.routes?.categoriesUri) ? site.routes.categoriesUri : '/categories'},
-                     categoryTree=${categories},
-                     requestedPageText=${param.page != null and !#lists.isEmpty(param.page) ? param.page[0] : '1'},
-                     requestedPage=${requestedPageText matches '^[1-9][0-9]{0,8}$' ? requestedPageText : 1},
-                     categoryPageSize=${site.post?.categoryPageSize ?: 10},
-                     allPosts=${postFinder.list({
-                       page: requestedPage,
-                       size: categoryPageSize,
-                       sort: {'spec.publishTime,desc'}
-                     })}">
+<th:block xmlns:th="https://www.thymeleaf.org"
+          th:fragment="page"
+          th:with="categoriesRootUri=${!#strings.isEmpty(site.routes?.categoriesUri) ? site.routes.categoriesUri : '/categories'},
+                   requestedPageText=${param.p != null and !#lists.isEmpty(param.p) ? param.p[0] : '1'},
+                   requestedPage=${requestedPageText matches '^[1-9][0-9]{0,8}$' ? requestedPageText : 1},
+                   categoryPageSize=${site.post?.categoryPageSize ?: 10},
+                   allPosts=${postFinder.list({
+                     page: requestedPage,
+                     size: categoryPageSize,
+                     sort: {'spec.publishTime,desc'}
+                   })}">
+  <html th:replace="~{modules/shell/layout :: html(
+          title = ${'所有分类' + (allPosts != null and allPosts.page > 1 ? ' · 第 ' + allPosts.page + ' 页' : '') + ' - ' + site.title},
+          description = ${site.seo?.description ?: site.subtitle},
+          ssrContent = ~{modules/browser-explorer/categories :: content(
+            categoriesRootUri=${categoriesRootUri},
+            categoryTree=${categories},
+            categoryPageSize=${categoryPageSize},
+            allPosts=${allPosts}
+          )},
+          canonical = ${categoriesRootUri + (allPosts != null and allPosts.page > 1 ? '?p=' + allPosts.page : '')},
+          image = ${site.logo},
+          type = 'website',
+          seoFallback = 'meta',
+          robots = ${allPosts != null and allPosts.page > 1 and #lists.isEmpty(allPosts.items) ? 'noindex,follow' : ''},
+          serverDescription = true,
+          serverSocialIdentity = true,
+          pageMode = 'browser-list',
+          pageApp = 'explorer-categories',
+          windowVariant = 'browser',
+          windowScene = 'none',
+          windowTitle = '所有分类',
+          windowResizable = true,
+          windowMaximizable = true,
+          windowMetricsKey = 'browser'
+        )}"></html>
+</th:block>
+
+<th:block xmlns:th="https://www.thymeleaf.org"
+          th:fragment="content(categoriesRootUri, categoryTree, categoryPageSize, allPosts)">
     <div class="categories-shell" data-app-root="explorer-categories">
       <h1 class="sr-only">所有分类与文档</h1>
       <script type="application/json" data-app-props="explorer-categories">{"version":1,"appId":"explorer-categories","data":{"view":"collection"}}</script>
@@ -98,7 +108,7 @@
                      data-pjax-app="explorer-categories"
                      data-category-return-last
                      th:if="${allPosts != null and allPosts.page > 1 and allPosts.totalPages > 1}"
-                     th:href="${categoriesRootUri + '?page=' + allPosts.totalPages}">返回最后一页</a>
+                     th:href="${categoriesRootUri + '?p=' + allPosts.totalPages}">返回最后一页</a>
                 </nav>
               </div>
             </section>
@@ -114,7 +124,7 @@
                data-category-all-prev
                rel="prev"
                th:if="${allPosts.page > 1}"
-               th:href="${allPosts.page == 2 ? categoriesRootUri : categoriesRootUri + '?page=' + (allPosts.page - 1)}">上一页</a>
+               th:href="${allPosts.page == 2 ? categoriesRootUri : categoriesRootUri + '?p=' + (allPosts.page - 1)}">上一页</a>
             <span class="category-page-btn is-disabled" aria-disabled="true" th:unless="${allPosts.page > 1}">上一页</span>
 
             <span class="category-page-indicator"
@@ -126,7 +136,7 @@
                data-category-all-next
                rel="next"
                th:if="${allPosts.hasNext()}"
-               th:href="${categoriesRootUri + '?page=' + (allPosts.page + 1)}">下一页</a>
+               th:href="${categoriesRootUri + '?p=' + (allPosts.page + 1)}">下一页</a>
             <span class="category-page-btn is-disabled" aria-disabled="true" th:unless="${allPosts.hasNext()}">下一页</span>
           </nav>
         </section>
@@ -134,5 +144,4 @@
         <th:block th:replace="~{modules/browser-explorer/category :: previewPane}"></th:block>
       </div>
     </div>
-  </th:block>
-</html>
+</th:block>

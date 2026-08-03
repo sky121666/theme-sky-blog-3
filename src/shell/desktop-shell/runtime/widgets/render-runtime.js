@@ -2,6 +2,22 @@ import { loadWidgetRenderer } from '../../../../widgets/loaders.js';
 import { escapeHtml } from '../shared/utils.js';
 import { normalizeMomentRecord } from '../shared/moments.js';
 
+const HYDRATED_SOURCE_WIDGET_TYPES = new Set([
+  'halo.author_card',
+  'halo.latest_posts',
+  'halo.popular_posts',
+  'halo.categories',
+  'halo.site_stats',
+  'halo.random_tags',
+  'plugin-moments.recent',
+  'plugin-bangumis.recent',
+  'plugin-links.feed',
+  'plugin-docsme.quick',
+  'plugin-photos.gallery',
+  'plugin-douban.showcase',
+  'plugin-steam.summary'
+]);
+
 export function createWidgetRendererContext(state, options = {}) {
   return {
     now: state.now,
@@ -23,8 +39,40 @@ export function widgetCacheKey(widget, options = {}) {
   return `${widget.widget}:${widget.size}:${widget.key}:${widget.appearance || 'follow'}:surface=${options.surface || widget.surface || 'desktop'}:mode=${mode}:compact=${options.compact === true ? 1 : 0}:meta=${metaStr}`;
 }
 
-export function renderWidgetLoadingMarkup() {
-  return '<div class="desktop-widget-loading" role="status" aria-live="polite"><span class="sr-only">组件加载中</span><span class="desktop-widget-loading-bar"></span><span class="desktop-widget-loading-bar desktop-widget-loading-bar--short"></span></div>';
+function widgetTypeClass(widgetType) {
+  return String(widgetType || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+export function widgetNeedsHydratedSources(widget) {
+  return HYDRATED_SOURCE_WIDGET_TYPES.has(String(widget?.widget || '').trim());
+}
+
+export function renderWidgetLoadingMarkup(widget = null, options = {}) {
+  const size = String(widget?.size || 'medium').trim() || 'medium';
+  const typeClass = widgetTypeClass(widget?.widget);
+  const className = [
+    'desktop-widget-loading',
+    `is-${size}`,
+    typeClass ? `widget--${typeClass}` : ''
+  ].filter(Boolean).join(' ');
+  const label = options.pending === true ? '内容加载中' : '组件加载中';
+
+  return `
+    <div class="${className}" role="status" aria-live="polite" aria-busy="true">
+      <span class="sr-only">${label}</span>
+      <span class="desktop-widget-loading-cover" aria-hidden="true"></span>
+      <span class="desktop-widget-loading-content" aria-hidden="true">
+        <span class="desktop-widget-loading-bar desktop-widget-loading-bar--label"></span>
+        <span class="desktop-widget-loading-bar desktop-widget-loading-bar--title"></span>
+        <span class="desktop-widget-loading-bar"></span>
+        <span class="desktop-widget-loading-bar desktop-widget-loading-bar--short"></span>
+      </span>
+    </div>
+  `;
 }
 
 export function renderWidgetErrorMarkup() {
@@ -73,12 +121,17 @@ export function renderWidgetBodyWithHost(host, widget, options = {}) {
     mode: options.mode || (options.preview === true ? 'preview' : 'live'),
     compact: options.compact === true
   };
+
+  if (widgetNeedsHydratedSources(widget) && host.sources?.hydrated !== true) {
+    return renderWidgetLoadingMarkup(widget, { pending: true });
+  }
+
   const renderer = host.widgetRenderers[widgetType];
 
   if (!renderer) {
     if (host.widgetRendererErrors?.[widgetType]) return renderWidgetErrorMarkup();
     void ensureWidgetRendererRuntime(host, widgetType);
-    return renderWidgetLoadingMarkup();
+    return renderWidgetLoadingMarkup(widget);
   }
 
   if (!host._widgetHtmlCache) host._widgetHtmlCache = new Map();

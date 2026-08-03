@@ -1,10 +1,60 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
 
 const root = process.cwd();
 const entryPoint = path.join(root, 'src/shell/desktop-shell/runtime/desktop/pjax/seo.js');
+const [
+  layoutSource,
+  settingsSource,
+  momentPageSource,
+  momentDetailSource,
+  equipmentsPageSource,
+  equipmentsSource,
+  linksSource,
+  docSource,
+  docCatalogSource,
+  steamSource,
+  bangumisSource,
+  doubanSource
+] = await Promise.all([
+  readFile(path.join(root, 'templates/modules/shell/layout.html'), 'utf8'),
+  readFile(path.join(root, 'templates/modules/shell/theme-settings.html'), 'utf8'),
+  readFile(path.join(root, 'templates/moment.html'), 'utf8'),
+  readFile(path.join(root, 'templates/modules/moments-app/detail.html'), 'utf8'),
+  readFile(path.join(root, 'templates/equipments.html'), 'utf8'),
+  readFile(path.join(root, 'templates/modules/equipments-app/list.html'), 'utf8'),
+  readFile(path.join(root, 'templates/modules/links-app/list.html'), 'utf8'),
+  readFile(path.join(root, 'templates/doc.html'), 'utf8'),
+  readFile(path.join(root, 'templates/doc-catalog.html'), 'utf8'),
+  readFile(path.join(root, 'templates/steam.html'), 'utf8'),
+  readFile(path.join(root, 'templates/bangumis.html'), 'utf8'),
+  readFile(path.join(root, 'templates/douban.html'), 'utf8')
+]);
+
+assert.match(layoutSource, /th:lang="\$\{#locale != null \? #locale\.toLanguageTag\(\)/, '文档语言必须跟随 Halo 当前 Locale');
+assert.match(layoutSource, /shouldEmitSocialIdentity = \$\{serverSocialIdentity == true and !#strings\.isEmpty\(absoluteCanonical\)\}/, '服务端社交 URL 身份字段必须由精确 canonical 显式启用');
+assert.match(layoutSource, /property="og:url"[\s\S]*?th:if="\$\{shouldEmitSocialIdentity\}"/, 'og:url 不得继续依赖 SEO Tools 缺席条件');
+assert.match(layoutSource, /property="og:site_name"[\s\S]*?th:if="\$\{!#strings\.isEmpty\(site\.title\)\}"/, 'og:site_name 必须在服务端独立输出');
+assert.match(layoutSource, /th:data-canonical-authority="\$\{pageAppValue == 'docsme'/, 'Docsme 文档 permalink 必须声明主题 canonical 权威');
+assert.doesNotMatch(settingsSource, /<h1\b[^>]*id="theme-settings-title"/, '全局设置窗口不得污染页面主标题层级');
+assert.ok(momentPageSource.includes("replaceAll('(?s)```.*$'"), '瞬间 SEO 摘要必须剔除 fenced code block');
+assert.ok(momentDetailSource.includes("replaceAll('(?s)&#96;{3}.*$'"), '瞬间详情主标题必须剔除 fenced code block');
+assert.match(momentDetailSource, /<h1\b[^>]*class="sr-only"/, '瞬间详情必须提供服务端主标题');
+assert.match(equipmentsSource, /<h1\b[^>]*class="sr-only"/, '装备页必须提供服务端主标题');
+assert.equal((linksSource.match(/<h1\b/g) || []).length, 1, '链接应用只能保留一个页面级主标题');
+for (const [source, label] of [
+  [docSource, 'Docsme 文档'],
+  [docCatalogSource, 'Docsme 目录'],
+  [equipmentsPageSource, '装备'],
+  [steamSource, 'Steam'],
+  [bangumisSource, '追番'],
+  [doubanSource, '豆瓣']
+]) {
+  assert.match(source, /serverSocialIdentity = true/, `${label} 的明确 canonical 必须同步输出服务端 og:url`);
+}
 
 const bundleResult = await build({
   entryPoints: [entryPoint],
@@ -23,6 +73,7 @@ function fallbackConfig(overrides = {}) {
     title: '主题标题',
     description: '主题描述',
     canonical: 'https://example.com/posts/contract',
+    canonicalAuthority: 'plugin',
     image: 'https://example.com/cover.jpg',
     pageType: 'article',
     siteName: 'Sky Blog',
@@ -35,6 +86,7 @@ function fallbackConfig(overrides = {}) {
     data-title="${values.title}"
     data-description="${values.description}"
     data-canonical="${values.canonical}"
+    data-canonical-authority="${values.canonicalAuthority}"
     data-image="${values.image}"
     data-page-type="${values.pageType}"
     data-site-name="${values.siteName}"></script>`;
@@ -159,6 +211,58 @@ async function verifyMetaOnlyMode(page) {
   assert.equal(counts.twitterCard, 0, 'meta 模式不得擅自扩展 Twitter 标签');
 }
 
+async function verifyRobotsContract(page) {
+  await loadRuntime(page, `
+    <title>越界页</title>
+    ${fallbackConfig({ mode: 'meta' })}
+    <meta name="robots" content="noindex,follow" data-theme-seo-fallback="robots" />
+  `);
+
+  await page.evaluate(() => ThemeSeoContract.reconcileSeoHead(document));
+  assert.equal(await page.locator("meta[name='robots']").count(), 1, '主题越界 noindex 不得被误删');
+  assert.equal(await page.getAttribute("meta[name='robots']", 'content'), 'noindex,follow');
+}
+
+async function verifyInvalidProviderMetadataRepair(page) {
+  await loadRuntime(page, `
+    <title>插件元数据修复</title>
+    ${fallbackConfig({ siteName: 'Sky Blog' })}
+    <meta name="twitter:creator" content="@null" />
+    <meta name="twitter:site" content="https://example.com/profile" />
+    <meta name="twitter:creator" content="@sky_blog" />
+    <script type="application/ld+json">{"@type":"Article","publisher":{"@type":"Organization","name":""}}</script>
+  `);
+
+  await page.evaluate(() => ThemeSeoContract.reconcileSeoHead(document));
+  assert.deepEqual(
+    await page.locator("meta[name='twitter:creator']").evaluateAll((nodes) => nodes.map((node) => node.content)),
+    ['@sky_blog'],
+    '无效 Twitter 标识必须删除，合法 handle 必须保留'
+  );
+  assert.equal(await page.locator("meta[name='twitter:site']").count(), 0, 'URL 不得冒充 Twitter handle');
+  const structuredData = JSON.parse(await page.locator("script[type='application/ld+json']").textContent());
+  assert.equal(structuredData.publisher.name, 'Sky Blog', '空 publisher.name 必须使用站点名修补');
+}
+
+async function verifyThemeCanonicalAuthority(page) {
+  await loadRuntime(page, `
+    <title>Docsme 项目入口</title>
+    ${fallbackConfig({
+      canonical: 'https://example.com/docs/project/first-doc',
+      canonicalAuthority: 'theme'
+    })}
+    <link rel="canonical" href="https://example.com/docs/project" />
+  `);
+
+  await page.evaluate(() => ThemeSeoContract.reconcileSeoHead(document));
+  assert.equal(await page.locator("link[rel='canonical']").count(), 1, 'Docsme 别名页 canonical 必须唯一');
+  assert.equal(
+    await page.getAttribute("link[rel='canonical']", 'href'),
+    'https://example.com/docs/project/first-doc',
+    'Docsme 项目入口必须合并到真实文档 permalink'
+  );
+}
+
 async function verifyPjaxSyncDoesNotMultiplyBroadSelectors(page) {
   await loadRuntime(page, `
     <title>旧页面</title>
@@ -219,9 +323,12 @@ try {
   await verifyThemeFallbackOnly(page);
   await verifyPluginOutputWins(page);
   await verifyMetaOnlyMode(page);
+  await verifyRobotsContract(page);
+  await verifyInvalidProviderMetadataRepair(page);
+  await verifyThemeCanonicalAuthority(page);
   await verifyPjaxSyncDoesNotMultiplyBroadSelectors(page);
 
-  console.log('SEO Tools 1.9.5 客户端契约验证通过：配置化补齐、插件优先、多值保留、关键标签去重、PJAX 不重复克隆。');
+  console.log('SEO Tools 1.9.5 协作契约验证通过：服务端缺口策略、插件优先、无效元数据修补、Docsme canonical、多值保留与 PJAX 同步。');
 } finally {
   await browser?.close();
 }

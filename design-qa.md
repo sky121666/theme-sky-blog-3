@@ -43,6 +43,147 @@ final result: passed
 
 ---
 
+# 附件静态 HTML 到真实 Halo 登录页 Design QA
+
+## 对照目标
+
+- Source HTML: `/Users/sky/.codex/attachments/f1e25275-eb0b-44f3-b5b2-b9931b18851f/pasted-text.txt`
+- Source render:
+  - 桌面：`/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/login-reference-804x686.png`
+  - 手机：`/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/login-reference-mobile-390x844.png`
+- Implementation URL: `http://127.0.0.1:8090/login?method=local&_qa=static-html-adaptation`
+- Browser-rendered implementation:
+  - 桌面暗色：`/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/login-implementation-final-804x686.png`
+  - 桌面亮色：`/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/login-implementation-final-light-804x686.png`
+  - 手机暗色：`/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/login-implementation-mobile-final-390x844.png`
+  - 密码步骤：`/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/login-password-final-390x844.png`
+- Desktop normalization: 来源与实现均为 `804 × 686 CSS px` / `804 × 686 px`，密度 `1x`。
+- Mobile normalization: 来源与实现均为 `390 × 844 CSS px` / `390 × 844 px`，密度 `1x`。
+- State: 本地登录账号步骤、暗色；输入框为空且未被密码管理器自动填充。亮色、密码步骤和返回步骤另行验证。
+
+## 对照证据
+
+- Full-view comparison: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/login-comparison-final.png`
+  - 左侧为附件静态原型，右侧为真实 Halo 页面；两侧均保持 `804 × 686px` 原始尺寸，未缩放。
+- Focused comparison: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/login-comparison-focus.png`
+  - 对照头像、站点名、凭据框、主操作按钮、登录方式标题和提供方图标区域。
+- 手机端通过同一浏览器运行时逐项读取几何值；来源与实现的头像、输入框、提供方区域和底部链接坐标误差均小于 `0.1px`，页面 `scrollWidth = innerWidth = 390`。
+
+## Findings
+
+- No actionable P0/P1/P2 findings remain.
+- Fonts and typography: 来源与实现均使用 `-apple-system / BlinkMacSystemFont / SF Pro / PingFang SC` 系统字体链。桌面紧凑状态为头像 `108px`、标题 `28px / 33px`、输入文字 `16px`；手机为头像 `92px`、标题 `26px / 31.2px`、输入文字 `16px`，字号、行高与字重层级一致。站点名宽度差异来自真实文案“5ee博客”与原型“示例用户”，不是排版漂移。
+- Spacing and layout rhythm: 桌面来源与实现的头像、标题、输入框、登录方式区域坐标分别对齐到 `y=146.2 / 270.2 / 341.2 / 420.2`；输入框均为 `500 × 60px`、`14px` 圆角。手机来源与实现分别对齐到 `92px` 头像、`350 × 58px` 输入框、`13px` 圆角和 `y=778px` 底部链接，没有横向溢出或底部遮挡。
+- Colors and visual tokens: 页面继续消费主题真实强调色、选择色、浅/深 Shell 色和当前桌面壁纸；暗色输入框计算值与原型同为 `rgba(26, 21, 39, 0.78)`，亮色为浅色 Shell `82%` 混合。移除了渐变主按钮、过强背景去饱和和常驻自动填充焦点环，改为原型中的实色强调按钮、`0.5px` 边界和短阴影。
+- Image quality and asset fidelity: 实现保留真实站点 Logo、真实 Halo 动态登录提供方 Logo 和项目既有 Lucide/Iconify 图标；没有复制原型的示例头像、硬编码 GitHub/Google/Microsoft 提供方、手绘 SVG 或占位资源。头像与 Logo 均保持原始比例、圆形裁切和高优先级加载。
+- Copy and content: “用户名或邮箱 / 其他登录 / 忘记密码 / 创建账户”与原型一致；站点名称、提供方数量和图标来自当前 Halo 数据。密码步骤继续显示真实“保持登录”和账号回退能力，这是认证功能约束，不是静态文案漂移。
+- States and interactions: 账号→密码使用 `280–320ms` 的 opacity / translate / blur 过渡，焦点延迟 `160ms` 后落到密码框；返回会恢复账号步骤且不提交请求。深/浅色切换、账号步骤、密码步骤、移动端和 `prefers-reduced-motion` 均保留。
+- Accessibility: 输入框保留 `name`、`autocomplete`、`required`、label 和密码管理器语义；非活动步骤使用 `aria-hidden + inert`，状态区使用 `aria-live`。桌面工具按钮为 `36px`，触屏和手机为 `44px`，键盘焦点环仅在真实 `focus-visible` 状态显示。
+- Authentication contract: 表单仍为 `POST /login`，`autocomplete=on`，用户名字段为 `username`，密码字段为 `password / current-password`；RSA `jsencrypt` 脚本和 `formdata` 加密流程仍在。验证期间未输入、读取或提交真实密码，也没有把测试账号写入源码。
+- Runtime: 桌面与手机内置浏览器 `console.error` 均为 `0`；最终桌面和手机页面均无溢出。
+
+## Comparison history
+
+- Pass 1: 现有真实实现使用 `154px` 头像、`38px` 标题、`68px` 输入框、较重的长阴影与渐变按钮；`686px` 高度没有进入紧凑布局，自动填充还会常驻焦点外圈，记为 P2 视觉密度与状态偏差。
+- Fix 1: 按附件 token 重设暗/亮表面、按钮、边框和阴影；桌面恢复 `140 / 60 / 46px` 基础尺寸，增加 `max-height: 720px` 紧凑布局，移除自动填充常驻焦点环，并将切换位移收口到 `18px / blur(4px)`。
+- Pass 2: `804 × 686` 同屏量化发现表单已经对齐，但登录提供方区域比原型低约 `12px`；原因是位移只作用于表单本体，未包含其同级提供方，记为 P2 纵向节奏偏差。
+- Fix 2: 将整体位移提升到真实 `.halo-form-wrapper`，并把提供方标题行恢复为 `20px`。桌面头像、标题、输入框和提供方区域随后与来源坐标完全一致。
+- Pass 3: `390 × 844` 手机复核发现内容轴与底部链接仍有 `2–4px` 误差，记为 P2 响应式细节偏差。
+- Fix 3: 校准手机整体位移、账号步骤内部垂直对齐和底部安全区。最终手机关键坐标误差小于 `0.1px`；同屏桌面对照未发现新的 P0/P1/P2。
+
+## Primary interactions tested
+
+- 账号输入后点击箭头进入密码步骤；未提交登录表单。
+- 密码步骤在 `160ms` 后获得焦点，隐藏步骤的 `aria-hidden / inert` 状态正确。
+- 点击账号回退按钮恢复账号步骤，密码值保持为空。
+- 暗色与亮色双向切换；最终恢复暗色交付状态。
+- `804 × 686` 桌面与 `390 × 844` 手机均完成真实 Halo 截图、尺寸读取和控制台错误检查。
+
+## Verification
+
+- [x] `git diff --check`
+- [x] `pnpm run typecheck`
+- [x] `pnpm run smoke`
+- [x] `pnpm run build-only`
+- [x] `pnpm run verify:reload`
+- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
+- [x] 浏览器认证契约、账号/密码步骤、暗亮色、桌面/手机响应式与 `console.error: 0`
+
+## Follow-up polish
+
+- P3：真实提供方数量为 4，原型示例为 3；实现按 Halo 当前安装状态动态渲染，不应为了静态对称隐藏真实登录入口。
+
+final result: passed
+
+---
+
+# macOS 锁屏式 Halo 登录 Design QA
+
+## 对照目标
+
+- Source visual truth: `/Users/sky/.codex/generated_images/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/exec-fefd12db-10f8-4664-9d26-4ea58ee9f710.png`
+- Implementation URL: `http://localhost:8090/login?method=local`
+- Browser-rendered implementation:
+  - 暗色账号步骤：`/private/tmp/theme-login-redesign/qa/login-desktop-dark-final.png`
+  - 亮色账号步骤：`/private/tmp/theme-login-redesign/qa/login-desktop-light-final.png`
+  - 手机暗色：`/private/tmp/theme-login-redesign/qa/login-mobile-dark-final.png`
+  - 密码步骤：`/private/tmp/theme-login-redesign/qa/login-password-step-dark.png`
+  - 错误状态：`/private/tmp/theme-login-redesign/qa/login-error-dark.png`
+  - Passkey：`/private/tmp/theme-login-redesign/qa/login-passkey-dark-final.png`
+- Full-view comparison: `/private/tmp/theme-login-redesign/qa/login-source-implementation-comparison.png`
+- Focused comparison: `/private/tmp/theme-login-redesign/qa/login-source-implementation-focus.png`
+- Desktop normalization: 来源与实现均为 `1487 × 1058px`，CSS viewport `1487 × 1058`，device density `1x`，没有缩放或设备外框。
+- Mobile normalization: 实现为 `390 × 844px`，CSS viewport `390 × 844`，device density `1x`。
+- State: 暗色本地登录账号步骤；实现截图仅使用脱敏演示账号，真实凭据只由浏览器密码管理器用于成功登录验证，未写入源码、报告或截图。
+
+## Findings
+
+- No actionable P0/P1/P2 findings remain.
+- Fonts and typography: 使用项目现有 `SF Pro / -apple-system / PingFang SC` 字体栈；站点名、账号输入、Passkey 与底部操作的层级已按目标比例收口。真实字体受当前 macOS 字体渲染影响，属于预期差异。
+- Spacing and layout rhythm: 头像、站点名、`500 × 68px` 凭据框、Passkey 和“其他登录选项”的中心轴与目标同尺寸对照一致；底部辅助链接改为 `13vh` 锁屏式位置。页面不再出现登录窗口、标题栏卡片或额外内容容器。
+- Colors and visual tokens: 暗色使用低透明深色遮罩与玻璃凭据框，亮色使用浅色玻璃和深色文字；焦点、链接和动作状态继续从主题强调色派生。背景保留当前 Halo 配置的 `wallpaper-alpine-lilac`，没有为了设计稿写死另一张紫色壁纸。
+- Image quality and asset fidelity: 使用真实站点 Logo，圆形裁切、比例和清晰度正常；箭头与返回/主题图标来自项目既有 Iconify/Lucide 管线，没有新增手绘 SVG、CSS 图形或占位头像。
+- Copy and content: “使用通行密钥”“其他登录选项”“忘记密码？”“创建账户”与目标一致；Passkey 页面回退入口改为“密码登录”，不再暴露内部 provider 名称 `Local`。
+- States and interactions: 本地登录采用账号到密码的两步切换；支持按钮与 Enter 继续、返回修改账号、原生必填校验、错误提示、暗亮色切换和 reduced-motion。集成箭头仅增强交互，不改变 Halo 字段名、表单 action、RSA `formdata` 加密或密码管理器 autocomplete。
+- Accessibility: 两步区域使用 `aria-hidden + inert` 管理非活动步骤，状态通过 `aria-live` 通知；所有图标按钮有可读标签。`390 × 844` 下 `scrollWidth = innerWidth = 390`、`scrollHeight = innerHeight = 844`，没有横向溢出或底部遮挡。
+- Intentional differences: 设计稿没有返回和暗亮色按钮；实现为保留站点导航与主题切换，在左右上角提供弱化的圆形工具按钮。设计稿背景与当前主题壁纸不同，实装遵循用户现有主题配置。这两项均为产品约束，不是未完成视觉缺陷。
+
+## Comparison history
+
+- Pass 1: 同尺寸对照发现中心内容比例偏小、Passkey/其他选项纵向节奏过紧，底部链接比目标低约 40px，记为 P2。
+- Fix 1: 头像提升至 `154px`，站点名提升至 `38px`，凭据框提升至 `68px`；放大 provider 文本与箭头，重设 provider 两段间距，并将底部操作改为 `13vh`。
+- Pass 2: 聚焦对照发现主内容整体比目标高约 14px，Passkey 与其他选项仍提前，记为 P2。
+- Fix 2: 登录主流程下移 `14px`，provider 视觉位移收口到 `30px`；手机断点显式取消这些桌面位移。
+- Pass 3: `1487 × 1058` 全屏与 `760 × 700` 聚焦同屏比较确认头像、标题、凭据框、Passkey 和其他选项的尺寸与垂直基线一致；剩余背景与顶部工具按钮差异均为明确产品约束。
+
+## Primary interactions tested
+
+- 点击账号箭头进入密码步骤；Enter 同样可进入；返回按钮恢复账号步骤。
+- 真实 Halo 登录成功跳转 `/uc/profile`；测试凭据未被读取或输出。
+- `invalid-credential` 错误正确显示“用户名或密码错误，请重试”。
+- Passkey 插件 `1.0.4` 页面成功渲染“使用通行密钥登录”，并保留“密码登录”回退入口。
+- 暗色、亮色、`1487 × 1058` 桌面与 `390 × 844` 手机状态均完成截图复核。
+- 内置浏览器最终异常日志计数为 `0`。
+
+## Verification
+
+- [x] `git diff --check`
+- [x] `pnpm run smoke`
+- [x] `pnpm run typecheck`
+- [x] `pnpm run verify:theme-settings`
+- [x] `pnpm run build-only`
+- [x] `pnpm run verify:reload`
+- [x] Playwright 全站报告中的 `auth` 路由：HTTP 200、协议字段正确、`pageErrors / consoleErrors / requestFailures` 均为空
+- [ ] 全站 Playwright 总结果受友链页外部 `PluginCommentWidget` 静态资源 HTTP 500 阻断；认证路由本身已通过，且该失败不在本轮认证代码范围内
+
+## Follow-up polish
+
+- P3：未来若锁屏专用壁纸成为独立主题设置，可在不破坏现有桌面壁纸配置的前提下补充单独选项；本轮不新增后台字段。
+
+final result: passed
+
+---
+
 # 静态主题设置五分区落地与真实桌面联动 Design QA
 
 ## 对照目标

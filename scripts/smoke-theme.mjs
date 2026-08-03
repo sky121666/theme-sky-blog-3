@@ -94,13 +94,18 @@ const seoProtocolChecks = [
     'templates/modules/shell/layout.html',
     [
       "seoPluginAvailable = ${pluginFinder.available('seo-tools') or pluginFinder.available('plugin-seo-tools')}",
-      "shouldEmitMetaFallback = ${!seoPluginAvailable and (seoFallbackMode == 'meta' or seoFallbackMode == 'full')}",
+      "shouldEmitMetaFallback = ${serverDescription == true or (!seoPluginAvailable and (seoFallbackMode == 'meta' or seoFallbackMode == 'full'))}",
       "shouldEmitCanonicalFallback = ${!seoPluginAvailable and !#strings.isEmpty(absoluteCanonical)}",
       "shouldEmitSocialFallback = ${!seoPluginAvailable and seoFallbackMode == 'full'}",
-      '<meta name="robots" th:if="${error != null}" content="noindex,nofollow" />',
+      '<meta name="robots"',
+      'th:if="${error != null or !#strings.isEmpty(robotsDirective)}"',
+      'th:content="${error != null ? \'noindex,nofollow\' : robotsDirective}"',
       '<link rel="canonical"',
       'th:if="${shouldEmitCanonicalFallback}"',
       'data-theme-seo-fallback="canonical"',
+      '<meta property="og:url"',
+      'th:if="${shouldEmitSocialIdentity}"',
+      '<meta property="og:site_name"',
       '<meta property="og:description"',
       'th:if="${shouldEmitSocialFallback and !#strings.isEmpty(pageDescription)}"',
       '<meta name="twitter:description"',
@@ -154,13 +159,15 @@ const seoProtocolChecks = [
   [
     'templates/modules/browser-explorer/categories.html',
     [
-      "canonical = ${!#strings.isEmpty(site.routes?.categoriesUri) ? site.routes.categoriesUri : '/categories'}"
+      "categoriesRootUri=${!#strings.isEmpty(site.routes?.categoriesUri) ? site.routes.categoriesUri : '/categories'}",
+      "canonical = ${categoriesRootUri + (allPosts != null and allPosts.page > 1 ? '?p=' + allPosts.page : '')}"
     ]
   ],
   [
     'templates/modules/browser-explorer/tags.html',
     [
-      "canonical = ${!#strings.isEmpty(site.routes?.tagsUri) ? site.routes.tagsUri : '/tags'}"
+      "tagsRootUri=${!#strings.isEmpty(site.routes?.tagsUri) ? site.routes.tagsUri : '/tags'}",
+      "canonical = ${tagsRootUri + (allPosts != null and allPosts.page > 1 ? '?p=' + allPosts.page : '')}"
     ]
   ],
   [

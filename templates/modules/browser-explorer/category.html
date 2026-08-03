@@ -2,13 +2,16 @@
 <html xmlns:th="https://www.thymeleaf.org"
       th:fragment="page"
       th:replace="~{modules/shell/layout :: html(
-        title = ${category.spec.displayName + ' - ' + site.title},
+        title = ${category.spec.displayName + ' 分类' + (posts != null and posts.page > 1 ? ' · 第 ' + posts.page + ' 页' : '') + ' - ' + site.title},
         description = ${!#strings.isEmpty(category.spec.description) ? category.spec.description : category.spec.displayName + ' 下的 ' + posts.total + ' 篇文档'},
         ssrContent = ~{modules/browser-explorer/category :: content},
-        canonical = ${category.status.permalink},
+        canonical = ${category.status.permalink + (posts != null and posts.page > 1 ? '/page/' + posts.page : '')},
         image = ${!#strings.isEmpty(category.spec.cover) ? category.spec.cover : site.logo},
         type = 'website',
         seoFallback = 'full',
+        robots = ${posts != null and posts.page > 1 and #lists.isEmpty(posts.items) ? 'noindex,follow' : ''},
+        serverDescription = ${#strings.isEmpty(category.spec.description)},
+        serverSocialIdentity = true,
         pageMode = 'browser-list',
         pageApp = 'explorer-categories',
         windowVariant = 'browser',

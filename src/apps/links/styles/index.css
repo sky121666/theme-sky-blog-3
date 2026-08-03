@@ -649,7 +649,7 @@ select.links-input option {
 
 .links-profile-logo span { width: 30px; height: 30px; }
 
-.links-profile-card h1 { margin: 0 0 8px; color: var(--wx-text); font-size: 22px; font-weight: 600; line-height: 1.25; }
+.links-profile-card h2 { margin: 0 0 8px; color: var(--wx-text); font-size: 22px; font-weight: 600; line-height: 1.25; }
 .links-profile-card p { margin: 0; color: var(--wx-text-soft); font-size: 13px; line-height: 1.65; }
 
 .links-profile-meta { width: min(100%, 560px); margin: 18px 0 22px; }
@@ -1033,7 +1033,7 @@ select.links-input option {
 .links-feed-reader-source .links-feed-profile-logo { width: 48px; height: 48px; }
 .links-feed-reader-source strong { display: block; color: #576b95; font-size: 13px; font-weight: 600; }
 .links-feed-reader-source time { display: block; margin-top: 3px; color: var(--wx-text-muted); font-size: 10px; }
-.links-feed-reader h1 { margin: 0 0 16px; color: var(--wx-text); font-size: 24px; font-weight: 650; line-height: 1.38; }
+.links-feed-reader h2 { margin: 0 0 16px; color: var(--wx-text); font-size: 24px; font-weight: 650; line-height: 1.38; }
 
 .links-feed-reader-summary {
   margin: 0;
@@ -1114,8 +1114,8 @@ select.links-input option {
   background: var(--wx-green);
 }
 
-.links-panel-intro h1,
-.links-board-compose h1 { margin: 0 0 4px; color: var(--wx-text); font-size: 20px; font-weight: 600; }
+.links-panel-intro h2,
+.links-board-compose h2 { margin: 0 0 4px; color: var(--wx-text); font-size: 20px; font-weight: 600; }
 
 .links-panel-intro p,
 .links-board-compose p { margin: 0; color: var(--wx-text-muted); font-size: 12px; line-height: 1.55; }

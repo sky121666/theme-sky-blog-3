@@ -13,6 +13,8 @@
             allLinksTitle=${!#strings.isEmpty(theme.config.links?.profile?.display_name) ? theme.config.links.profile.display_name : (!#strings.isEmpty(linksTitle) ? linksTitle : '全部友链')}">
   <!-- plugin-contract: PluginLinks; contract-version: 2.2.1; tested-version: 2.2.1; status: confirmed; source: docs/插件适配契约.md -->
   <div class="links-app" data-app-root="links">
+    <h1 class="sr-only"
+        th:text="${currentView == 'friends' ? '朋友圈' : (currentView == 'apply' ? '添加友链' : (currentView == 'board' ? '留言板' : allLinksTitle))}">友链</h1>
     <script type="application/json"
       data-app-props="links">{"version":3,"appId":"links","data":{"scene":"wechat-list-detail"}}</script>
 
@@ -313,7 +315,7 @@
                 <span x-show="!selectedLink?.logo" class="icon-[lucide--globe]"></span>
               </span>
               <div>
-                <h1 x-text="selectedLink?.name || '链接详情'"></h1>
+                <h2 x-text="selectedLink?.name || '链接详情'"></h2>
                 <p x-text="selectedLink?.description || '这个站点还没有填写简介。'"></p>
               </div>
             </div>
@@ -349,7 +351,7 @@
                     x-text="feedPublishedLabel(selectedFeedItem?.publishedAt)"></time>
                 </div>
               </header>
-              <h1 x-text="selectedFeedItem?.title || '未命名动态'"></h1>
+              <h2 x-text="selectedFeedItem?.title || '未命名动态'"></h2>
               <p class="links-feed-reader-summary"
                 x-text="selectedFeedItem?.summary || '这条 RSS 动态没有提供摘要，可打开原文继续阅读。'"></p>
               <p class="links-feed-reader-hint">进入详情后自动标记为已读；来自“稍后阅读”时也会自动完成该任务。</p>
@@ -455,7 +457,7 @@
             <div class="links-panel-intro">
               <span class="links-panel-intro-icon icon-[lucide--user-round-plus]" aria-hidden="true"></span>
               <div>
-                <h1 id="links-apply-title">添加友链</h1>
+                <h2 id="links-apply-title">添加友链</h2>
                 <p>成功时安静填入或提交；失败时会说明是跨域、权限、地址还是服务问题。</p>
               </div>
             </div>
@@ -561,7 +563,7 @@
             <section class="links-board-compose">
               <span class="links-panel-intro-icon icon-[lucide--message-circle]" aria-hidden="true"></span>
               <div>
-                <h1>留言板</h1>
+                <h2>留言板</h2>
                 <p>这里用于友链申请与站点留言，申请助手可以自动生成完整内容。</p>
               </div>
               <button type="button" class="links-secondary-action" @click="showApply()">填写友链申请</button>

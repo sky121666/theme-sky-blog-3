@@ -26,7 +26,11 @@ assert.match(collectionTemplate, /tag :: previewPane/, '标签根页必须复用
 assert.match(collectionTemplate, /data-tag-all-link/, '标签根页必须提供唯一“全部标签”入口');
 assert.match(collectionTemplate, /data-tag-all-prev/, '标签根页必须提供全部文章上一页契约');
 assert.match(collectionTemplate, /data-tag-all-next/, '标签根页必须提供全部文章下一页契约');
-assert.match(collectionTemplate, /tagsRootUri \+ '\?page='/, '标签根页必须使用 query 分页');
+assert.match(collectionTemplate, /param\.p/, '标签根页必须读取 SEO Tools 保留的 p 查询参数');
+assert.match(collectionTemplate, /tagsRootUri \+ '\?p='/, '标签根页必须使用 SEO Tools 可保留的 p 查询参数分页');
+assert.doesNotMatch(collectionTemplate, /param\.page|tagsRootUri \+ '\?page='/, '标签根页不得继续生成 canonical 会丢失的 page 查询参数');
+assert.match(collectionTemplate, /canonical = \$\{tagsRootUri \+ \(allPosts/, '标签分页必须输出与 Finder 页码一致的 self-canonical');
+assert.match(collectionTemplate, /noindex,follow/, '标签越界分页必须输出 noindex,follow');
 assert.match(collectionTemplate, /data-tag-current-page/, '标签根页必须暴露当前页码');
 assert.match(collectionTemplate, /data-tag-total-pages/, '标签根页必须暴露总页数');
 assert.doesNotMatch(collectionTemplate, /tags\[0\]|data-tags-folder|selectTag\s*\(/, '标签根页不得自动选择首标签或保留按钮过滤');
@@ -48,6 +52,8 @@ assert.match(detailTemplate, /icon-\[lucide--tag\]/, '标签缺少图标元数�
 assert.doesNotMatch(detailTemplate, /tags-sidebar-icon/, '标签列表图标不得增加归档风格之外的包裹容器');
 assert.match(detailTemplate, /posts\.prevUrl/, '标签详情必须沿用 Halo 上一页地址');
 assert.match(detailTemplate, /posts\.nextUrl/, '标签详情必须沿用 Halo 下一页地址');
+assert.match(detailTemplate, /canonical = \$\{tag\.status\.permalink \+ \(posts/, '标签详情分页必须输出 self-canonical');
+assert.match(detailTemplate, /serverSocialIdentity = true/, '标签详情精确 canonical 必须用于服务端 Open Graph URL');
 assert.match(detailTemplate, /data-tag-empty/, '标签详情必须提供可恢复空页状态');
 assert.match(detailTemplate, /data-tag-return-root/, '标签空页必须可返回全部标签');
 assert.match(detailTemplate, /data-tag-return-first/, '越界分页必须可返回第一页');

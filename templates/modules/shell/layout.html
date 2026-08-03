@@ -1,8 +1,9 @@
 <!doctype html>
 <html
   lang="zh-CN"
+  th:lang="${#locale != null ? #locale.toLanguageTag() : 'zh-CN'}"
   xmlns:th="https://www.thymeleaf.org"
-  th:fragment="html (title, description, ssrContent, canonical, image, type, seoFallback, pageMode, pageApp, windowVariant, windowScene, windowTitle, windowResizable, windowMaximizable, windowMetricsKey)"
+  th:fragment="html (title, description, ssrContent, canonical, image, type, seoFallback, robots, serverDescription, serverSocialIdentity, pageMode, pageApp, windowVariant, windowScene, windowTitle, windowResizable, windowMaximizable, windowMetricsKey)"
   th:data-default-theme="${theme.config.header?.theme?.default_mode ?: 'system'}"
 >
   <head
@@ -12,8 +13,9 @@
       pageModeValue = ${pageMode != null ? pageMode.toString() : ''},
       pageAppValue = ${pageApp != null ? pageApp.toString() : ''},
       seoFallbackMode = ${seoFallback != null ? seoFallback.toString() : 'none'},
+      robotsDirective = ${robots != null ? robots.toString() : ''},
       seoPluginAvailable = ${pluginFinder.available('seo-tools') or pluginFinder.available('plugin-seo-tools')},
-      shouldEmitMetaFallback = ${!seoPluginAvailable and (seoFallbackMode == 'meta' or seoFallbackMode == 'full')},
+      shouldEmitMetaFallback = ${serverDescription == true or (!seoPluginAvailable and (seoFallbackMode == 'meta' or seoFallbackMode == 'full'))},
       faviconHref = ${site.favicon != null ? site.favicon.toString() : ''},
       touchIconHref = ${site.logo != null ? site.logo.toString() : ''},
       rawCanonical = ${canonical != null ? canonical.toString() : ''},
@@ -22,6 +24,7 @@
       absoluteCanonical = ${!#strings.isEmpty(rawCanonical) ? ((rawCanonical.startsWith('http://') or rawCanonical.startsWith('https://')) ? rawCanonical : (!#strings.isEmpty(siteBaseUrl) ? ((siteBaseUrl.endsWith('/') and rawCanonical.startsWith('/')) ? siteBaseUrl + rawCanonical.substring(1) : ((!siteBaseUrl.endsWith('/')) and (!rawCanonical.startsWith('/')) ? siteBaseUrl + '/' + rawCanonical : siteBaseUrl + rawCanonical)) : rawCanonical)) : ''},
       absoluteImage = ${!#strings.isEmpty(rawImage) ? ((rawImage.startsWith('http://') or rawImage.startsWith('https://')) ? rawImage : (!#strings.isEmpty(siteBaseUrl) ? ((siteBaseUrl.endsWith('/') and rawImage.startsWith('/')) ? siteBaseUrl + rawImage.substring(1) : ((!siteBaseUrl.endsWith('/')) and (!rawImage.startsWith('/')) ? siteBaseUrl + '/' + rawImage : siteBaseUrl + rawImage)) : rawImage)) : ''},
       shouldEmitCanonicalFallback = ${!seoPluginAvailable and !#strings.isEmpty(absoluteCanonical)},
+      shouldEmitSocialIdentity = ${serverSocialIdentity == true and !#strings.isEmpty(absoluteCanonical)},
       shouldEmitSocialFallback = ${!seoPluginAvailable and seoFallbackMode == 'full'},
       themeAssetVersion = ${theme.spec.version ?: '0.9.0'},
       themeAssetRevision = ${theme.metadata.version ?: themeAssetVersion},
@@ -32,7 +35,10 @@
     <!-- plugin-contract: seo-tools; contract-version: 1.9.5; tested-version: 1.9.5; status: confirmed; source: docs/插件适配契约.md -->
     <!-- SEO -->
     <title th:text="${title}"></title>
-    <meta name="robots" th:if="${error != null}" content="noindex,nofollow" />
+    <meta name="robots"
+          th:if="${error != null or !#strings.isEmpty(robotsDirective)}"
+          data-theme-seo-fallback="robots"
+          th:content="${error != null ? 'noindex,nofollow' : robotsDirective}" />
     <meta name="description"
           th:if="${shouldEmitMetaFallback and !#strings.isEmpty(pageDescription)}"
           data-theme-seo-fallback="description"
@@ -42,11 +48,11 @@
           data-theme-seo-fallback="canonical"
           th:href="${absoluteCanonical}" />
     <meta property="og:url"
-          th:if="${shouldEmitCanonicalFallback}"
+          th:if="${shouldEmitSocialIdentity}"
           data-theme-seo-fallback="og:url"
           th:content="${absoluteCanonical}" />
     <meta property="og:site_name"
-          th:if="${shouldEmitCanonicalFallback and !#strings.isEmpty(site.title)}"
+          th:if="${!#strings.isEmpty(site.title)}"
           data-theme-seo-fallback="og:site_name"
           th:content="${site.title}" />
 
@@ -90,6 +96,7 @@
             th:data-title="${title}"
             th:data-description="${pageDescription}"
             th:data-canonical="${absoluteCanonical}"
+            th:data-canonical-authority="${pageAppValue == 'docsme' and !#strings.isEmpty(rawCanonical) and rawCanonical != '/docs' ? 'theme' : 'plugin'}"
             th:data-image="${absoluteImage}"
             th:data-page-type="${pageType}"
             th:data-site-name="${site.title}"></script>

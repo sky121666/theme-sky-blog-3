@@ -1,5 +1,5 @@
 <th:block th:fragment="content"
-          th:with="momentText=${(moment.spec.content != null and (!#strings.isEmpty(moment.spec.content.raw) or !#strings.isEmpty(moment.spec.content.html))) ? ((!#strings.isEmpty(moment.spec.content.raw) ? moment.spec.content.raw : moment.spec.content.html).replaceAll('&lt;[^&gt;]+&gt;', ' ').replaceAll('&amp;nbsp;', ' ').replaceAll('\\\\s+', ' ').trim()) : ''},
+          th:with="momentText=${(moment.spec.content != null and (!#strings.isEmpty(moment.spec.content.raw) or !#strings.isEmpty(moment.spec.content.html))) ? ((!#strings.isEmpty(moment.spec.content.raw) ? moment.spec.content.raw : moment.spec.content.html).replaceAll('(?s)&#96;{3}.*$', ' ').replaceAll('&lt;[^&gt;]+&gt;', ' ').replaceAll('&amp;nbsp;', ' ').replaceAll('\s+', ' ').trim()) : ''},
                    momentLabel=${!#strings.isEmpty(momentText) ? #strings.abbreviate(momentText, 42) : ((moment.spec.content != null and moment.spec.content.medium != null and !#lists.isEmpty(moment.spec.content.medium)) ? '图片瞬间' : '瞬间记录')},
                    momentSummary=${!#strings.isEmpty(momentText) ? #strings.abbreviate(momentText, 140) : ''},
                    mediaCount=${(moment.spec.content != null and moment.spec.content.medium != null) ? #lists.size(moment.spec.content.medium) : 0},
@@ -9,6 +9,7 @@
                    commentCount=${moment.stats != null ? (moment.stats.approvedComment != null ? moment.stats.approvedComment : (moment.stats.totalComment != null ? moment.stats.totalComment : 0)) : 0}">
   <!-- plugin-contract: PluginMoments; contract-version: 1.16.0; tested-version: 1.16.1; status: compatible-tested; source: docs/插件适配契约.md -->
   <div class="moments-app moments-app--detail" data-app-root="moments">
+    <h1 class="sr-only" th:text="${momentLabel}">瞬间详情</h1>
     <script type="application/json" data-app-props="moments">{"version":1,"appId":"moments","data":{"scene":"detail"}}</script>
     <div class="moment-reader-shell">
       <div class="moment-reader-frame">

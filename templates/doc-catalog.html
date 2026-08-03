@@ -6,13 +6,16 @@
             resolvedDescription=${docTree != null and docTree.spec != null and !#strings.isEmpty(docTree.spec.description) ? docTree.spec.description : (project != null and project.spec != null and !#strings.isEmpty(project.spec.description) ? project.spec.description : (!#strings.isEmpty(site.seo?.description) ? site.seo.description : site.subtitle))},
             resolvedCanonical=${docTree != null and docTree.status != null and !#strings.isEmpty(docTree.status.permalink) ? docTree.status.permalink : ''}">
   <html th:replace="~{modules/shell/layout :: html(
-          title = ${resolvedCatalogTitle},
+          title = ${!#strings.isEmpty(site.title) ? resolvedCatalogTitle + ' - ' + site.title : resolvedCatalogTitle},
           description = ${resolvedDescription},
           ssrContent = ~{modules/docsme-app/content :: catalog},
           canonical = ${resolvedCanonical},
           image = ${project != null and project.spec != null and !#strings.isEmpty(project.spec.icon) ? project.spec.icon : site.logo},
           type = 'website',
           seoFallback = 'meta',
+          robots = '',
+          serverDescription = false,
+          serverSocialIdentity = true,
           pageMode = 'browser-docsme',
           pageApp = 'docsme',
           windowVariant = 'docsme',

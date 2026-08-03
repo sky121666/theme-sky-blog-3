@@ -2,13 +2,16 @@
 <html xmlns:th="https://www.thymeleaf.org"
       th:fragment="page"
       th:replace="~{modules/shell/layout :: html(
-        title = ${author.spec.displayName + ' - ' + site.title},
+        title = ${author.spec.displayName + ' - 作者' + (posts != null and posts.page > 1 ? ' · 第 ' + posts.page + ' 页' : '') + ' - ' + site.title},
         description = ${!#strings.isEmpty(author.spec.bio) ? author.spec.bio : author.spec.displayName + ' 发布的 ' + posts.total + ' 篇内容'},
         ssrContent = ~{modules/browser-explorer/author :: content},
-        canonical = ${'/authors/' + author.metadata.name},
+        canonical = ${'/authors/' + author.metadata.name + (posts != null and posts.page > 1 ? '/page/' + posts.page : '')},
         image = ${!#strings.isEmpty(author.spec.avatar) ? author.spec.avatar : site.logo},
         type = 'website',
         seoFallback = 'meta',
+        robots = ${posts != null and posts.page > 1 and #lists.isEmpty(posts.items) ? 'noindex,follow' : ''},
+        serverDescription = true,
+        serverSocialIdentity = true,
         pageMode = 'browser-list',
         pageApp = 'explorer-author',
         windowVariant = 'browser',

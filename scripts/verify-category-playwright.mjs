@@ -44,7 +44,7 @@ async function waitForFinder(page, expected = {}) {
     if (scope && workspace.dataset.categoryScope !== scope) return false;
     if (pageNumber && Number(workspace.dataset.categoryCurrentPage || 0) !== pageNumber) return false;
     if (categoryName && workspace.dataset.categoryName !== categoryName) return false;
-    if (queryPage && Number(new URLSearchParams(location.search).get('page') || 0) !== queryPage) return false;
+    if (queryPage && Number(new URLSearchParams(location.search).get('p') || 0) !== queryPage) return false;
 
     if (previewReady === false) return true;
 
@@ -99,6 +99,8 @@ async function finderState(page) {
     return {
       pathname: location.pathname,
       search: location.search,
+      canonical: document.querySelector("link[rel='canonical']")?.href || '',
+      robots: document.querySelector("meta[name='robots']")?.content || '',
       appId: document.body?.dataset.pageApp || '',
       scope: workspace?.dataset.categoryScope || '',
       categoryName: workspace?.dataset.categoryName || '',
@@ -261,14 +263,14 @@ try {
   assertPostsAndPreview(rootPageOne, '分类根页');
   assert.ok(rootPageOne.next, '分类根页必须提供下一页');
   assert.equal(withoutTrailingSlash(rootPageOne.next.pathname), categoriesBasePath, '全部文档下一页不得改变分类根路径');
-  assert.equal(new URLSearchParams(rootPageOne.next.search).get('page'), '2', '全部文档下一页必须使用 ?page=2');
+  assert.equal(new URLSearchParams(rootPageOne.next.search).get('p'), '2', '全部文档下一页必须使用 ?p=2');
 
   const rootTreePaths = rootPageOne.treePaths.map(withoutTrailingSlash);
   const rootMarker = `categories-root-${Date.now()}`;
   await page.evaluate((value) => { document.documentElement.dataset.categoryVerifyMarker = value; }, rootMarker);
   await verifyPendingPjaxLoading({
     page,
-    targetUrl: absoluteUrl(`${categoriesBasePath}?page=2`),
+    targetUrl: absoluteUrl(`${categoriesBasePath}?p=2`),
     action: () => page.locator('[data-category-all-next]').click(),
     preservedSelector: '[data-app-root="explorer-categories"] .category-workspace',
     expectWindowOverlay: false,
@@ -278,7 +280,8 @@ try {
   await assertPjaxLoadingSettled(page, '全部文档分页');
   const rootPageTwo = await finderState(page);
   assert.equal(rootPageTwo.marker, rootMarker, '全部文档下一页必须走 PJAX 并保留当前 Document');
-  assert.equal(rootPageTwo.search, '?page=2', '全部文档第二页地址必须明确为 /categories?page=2');
+  assert.equal(rootPageTwo.search, '?p=2', '全部文档第二页地址必须明确为 /categories?p=2');
+  assert.equal(new URL(rootPageTwo.canonical).search, '?p=2', '全部文档第二页必须输出 self-canonical');
   assert.equal(rootPageTwo.allLinks[0].current, 'page', '全部文档翻页后必须继续激活唯一“全部分类”入口');
   assert.deepEqual(rootPageTwo.treePaths.map(withoutTrailingSlash), rootTreePaths, '全部文档翻页不得改变分类树');
   assert.deepEqual(rootPageTwo.postKeys.filter((key) => rootPageOne.postKeys.includes(key)), [], '全部文档第二页不得重复第一页文档');
@@ -302,7 +305,7 @@ try {
 
   await verifyPendingPjaxLoading({
     page,
-    targetUrl: absoluteUrl(`${categoriesBasePath}?page=2`),
+    targetUrl: absoluteUrl(`${categoriesBasePath}?p=2`),
     action: () => page.evaluate(() => history.forward()),
     preservedSelector: '[data-app-root="explorer-categories"] .category-workspace',
     expectWindowOverlay: false,
@@ -314,7 +317,7 @@ try {
   assert.equal(rootForward.marker, rootMarker, '浏览器前进必须在同一 Document 中恢复全部文档第二页');
   assert.deepEqual(rootForward.postKeys, rootPageTwo.postKeys, '浏览器前进必须恢复全部文档第二页内容');
 
-  const directRootPageTwoResponse = await page.goto(absoluteUrl(`${categoriesBasePath}?page=2`), {
+  const directRootPageTwoResponse = await page.goto(absoluteUrl(`${categoriesBasePath}?p=2`), {
     waitUntil: 'domcontentloaded',
     timeout: 20_000
   });
@@ -322,7 +325,7 @@ try {
   await waitForFinder(page, { pathname: categoriesBasePath, scope: 'all', pageNumber: 2, queryPage: 2 });
   assert.deepEqual((await finderState(page)).postKeys, rootPageTwo.postKeys, '直达 query 第二页必须得到相同文档集合');
 
-  const rootOverflowResponse = await page.goto(absoluteUrl(`${categoriesBasePath}?page=999999`), {
+  const rootOverflowResponse = await page.goto(absoluteUrl(`${categoriesBasePath}?p=999999`), {
     waitUntil: 'domcontentloaded',
     timeout: 20_000
   });
@@ -331,9 +334,10 @@ try {
   const rootOverflow = await finderState(page);
   assert.equal(rootOverflow.emptyVisible, true, '全部文档越界 query 必须展示空态');
   assert.equal(rootOverflow.postKeys.length, 0, '全部文档越界 query 不得伪造文档');
+  assert.match(rootOverflow.robots, /\bnoindex\b/i, '全部文档越界 query 必须阻止索引');
   assert.ok(rootOverflow.recovery.some((link) => withoutTrailingSlash(link.pathname) === categoriesBasePath && !link.search), '全部文档越界空态必须可返回第一页');
   assert.ok(
-    rootOverflow.recovery.some((link) => new URLSearchParams(link.search).get('page') === String(rootOverflow.totalPages)),
+    rootOverflow.recovery.some((link) => new URLSearchParams(link.search).get('p') === String(rootOverflow.totalPages)),
     '全部文档越界空态必须可返回最后一个有效 query 页'
   );
 

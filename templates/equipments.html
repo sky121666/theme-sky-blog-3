@@ -13,7 +13,7 @@
             activeGroupDescription=${defaultEquipmentDescription},
             resolvedWindowTitle=${activeGroupTitle},
             resolvedWindowSubtitle=${'共 ' + totalCount + ' 件装备'},
-            resolvedDocumentTitle=${resolvedWindowTitle}">
+            resolvedDocumentTitle=${!#strings.isEmpty(site.title) ? resolvedWindowTitle + ' - ' + site.title : resolvedWindowTitle}">
   <html th:replace="~{modules/shell/layout :: html(
           title = ${resolvedDocumentTitle},
           description = ${activeGroupDescription},
@@ -22,6 +22,9 @@
           image = ${site.logo},
           type = 'website',
           seoFallback = 'meta',
+          robots = '',
+          serverDescription = true,
+          serverSocialIdentity = true,
           pageMode = 'browser-equipments',
           pageApp = 'equipments',
           windowVariant = 'equipments',

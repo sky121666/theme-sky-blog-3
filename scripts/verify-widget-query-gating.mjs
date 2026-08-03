@@ -9,6 +9,10 @@ import {
 import {
   mergeDesktopWidgetLayout
 } from '../src/shell/desktop-shell/runtime/widgets/persistence-read.js';
+import {
+  renderWidgetBodyWithHost,
+  widgetNeedsHydratedSources
+} from '../src/shell/desktop-shell/runtime/widgets/render-runtime.js';
 import { registerDesktopSurface } from '../src/shell/desktop-shell/runtime/desktop/surface/index.js';
 
 const layout = readFileSync(new URL('../templates/modules/shell/layout.html', import.meta.url), 'utf8');
@@ -27,6 +31,7 @@ const widgetDataReload = readFileSync(new URL('../src/shell/desktop-shell/runtim
 const widgetPersistenceRead = readFileSync(new URL('../src/shell/desktop-shell/runtime/widgets/persistence-read.js', import.meta.url), 'utf8');
 const notificationCenterCss = readFileSync(new URL('../src/shell/desktop-shell/styles/desktop/notification-center.css', import.meta.url), 'utf8');
 const widgetBaseCss = readFileSync(new URL('../src/shell/desktop-shell/styles/widgets/base.css', import.meta.url), 'utf8');
+const widgetRenderRuntime = readFileSync(new URL('../src/shell/desktop-shell/runtime/widgets/render-runtime.js', import.meta.url), 'utf8');
 const clockCalendarRenderer = readFileSync(new URL('../src/widgets/shared/clock-calendar.js', import.meta.url), 'utf8');
 
 const widgetFlagContracts = [
@@ -117,6 +122,43 @@ assert.doesNotMatch(
   /plugin-friends\.recent|friendFinder|friends-recent/,
   '已退出的朋友圈插件 ID、Finder 和渲染器不得留在活动布局代码'
 );
+
+assert.match(widgetRenderRuntime, /host\.sources\?\.hydrated !== true/, '数据未完成 hydration 时必须先渲染稳定占位');
+assert.match(widgetRenderRuntime, /renderWidgetLoadingMarkup\(widget, \{ pending: true \}\)/, '待同步状态必须使用带组件尺寸的占位骨架');
+assert.match(widgetBaseCss, /\.desktop-widget-loading-cover/, '占位骨架必须保留内容封面区域');
+assert.match(widgetBaseCss, /\.desktop-widget-loading-content/, '占位骨架必须保留内容文本区域');
+assert.match(widgetBaseCss, /\.desktop-widget-loading\.is-small\s*\{[\s\S]*?position:\s*relative;/, '小尺寸占位封面需要相对定位锚点');
+
+assert.equal(widgetNeedsHydratedSources({ widget: 'halo.latest_posts' }), true);
+assert.equal(widgetNeedsHydratedSources({ widget: 'system.clock' }), false);
+
+const pendingWidget = { key: 'pending-latest', widget: 'halo.latest_posts', size: 'medium' };
+const pendingHtml = renderWidgetBodyWithHost({
+  sources: { hydrated: false },
+  widgetRenderers: {
+    'halo.latest_posts': () => '<div class="real-widget-content"></div>'
+  },
+  widgetRenderVersions: {},
+  widgetRendererErrors: {},
+  widgetRendererPromises: {},
+  _widgetHtmlCache: new Map()
+}, pendingWidget);
+assert.match(pendingHtml, /desktop-widget-loading/);
+assert.match(pendingHtml, /desktop-widget-loading-cover/);
+assert.match(pendingHtml, /widget--halo-latest-posts/);
+assert.match(pendingHtml, /aria-busy="true"/);
+
+const hydratedHtml = renderWidgetBodyWithHost({
+  sources: { hydrated: true },
+  widgetRenderers: {
+    'halo.latest_posts': () => '<div class="real-widget-content"></div>'
+  },
+  widgetRenderVersions: {},
+  widgetRendererErrors: {},
+  widgetRendererPromises: {},
+  _widgetHtmlCache: new Map()
+}, pendingWidget);
+assert.match(hydratedHtml, /real-widget-content/);
 
 assert.doesNotMatch(
   layout,
