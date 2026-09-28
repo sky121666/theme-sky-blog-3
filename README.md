@@ -4,10 +4,14 @@ Sky Blog 3 是一个面向 Halo 2.x 的 macOS 桌面风格博客主题。主题�
 
 - 仓库：[sky121666/theme-sky-blog-3](https://github.com/sky121666/theme-sky-blog-3)
 - 当前版本：`v0.9.46`
-- Halo 要求：`>= 2.25.0`
+- Halo 要求：`>= 2.26.0`
 - 包管理器：`pnpm`
 
-> Halo 兼容口径：`theme.yaml` 只声明最低要求 `>=2.25.0`；实际适配与运行验证以 Halo 最新稳定版 `2.25.4` 为准。本机 `2.25.4` 已通过 `pnpm run verify:reload` 与 `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`。
+> 2026-09-28 现行本地构建 `0.9.46/584f65afd686` 的启动稳定性修复、Halo `2.26.1` 运行验证和未验边界见[现行验收](docs/2026-09-28-主题启动稳定性修复.md)。以下带旧日期的验证说明是各自构建的历史记录。
+
+> Halo 兼容口径：`theme.yaml` 已将最低要求提高至 `>=2.26.0`，与当前目标稳定插件组合的最高最低要求一致；Halo 2.25.x 不再属于本主题声明的支持范围。2026-09-26 在本机 Halo `2.26.1` 启用主题三，并核对 45 个安装项、24 个主题目标插件。当日历史结果见 [逐页适配验收](docs/2026-09-26-逐页适配验收.md)，51 个功能范围与文件标识见 [插件适配契约](docs/插件适配契约.md#当前逐-surface-权威表2026-09-26)；当前构建和未验场景以最新验收记录为准。
+
+> 2026-09-27 历史本地构建 `0.9.46 / acc35d74a2e5` 已在 Halo `2.26.1` 完成构建、重载、严格 smoke，并实测专用文章/动态的评论、点赞、投票及主题设置保存恢复；见[本地写链验收](docs/2026-09-27-Halo-本地写链验收.md)。专用内容已清理，仍残留一条动态点赞 Counter，不能写成完整回滚。用户删除 Docsme 项目后，`/docs` 不再输出旧 `/docs/123` 卡片，旧地址的 404 属预期；Docsme 复测对照（本机 `docs/evidence/docsme-after-delete-2026-09-27/README.md`）显示指定 Node 24 的完整专项两轮一败一过，有效文档间歇导航超时未排除，KaTeX 仍缺真实样本。此前 `fe9f8bf846f2` 的阅读器锚点真页结果见[只读验收与目录修复](docs/2026-09-27-主题三后续只读验收与目录修复.md)，`ea0f0025528d` 的双端逐页及逐插件验收见[支持范围与界面验收](docs/2026-09-27-Halo-2.26-支持范围与界面验收.md)，均不自动外推到新构建。其他写链和缺样本功能仍待验；下列功能状态描述实现范围，不等于所有业务流程已通过。
 
 ## 预览
 
@@ -22,6 +26,7 @@ Sky Blog 3 是一个面向 Halo 2.x 的 macOS 桌面风格博客主题。主题�
 ## 核心特性
 
 - macOS 桌面壳层：桌面、Dock、菜单栏、窗口、桌面图标和小组件统一调度。
+- Halo 2.26+ 页面布局契约：`templates/layout.html` 提供 `html(head, content)`，供调用该契约的插件自带前台页面使用；主题自有 App 页面继续使用私有桌面布局。本机 Halo 2.26.1 曾在重载后报告 `Theme.status.pageLayout=SUPPORTED`，这只确认静态签名。当前主题覆盖了瞬间等插件的同名模板，仍缺实际调用新增布局的真页渲染验收。
 - 独立 App 架构：归档、分类、标签、作者、文章、图库、瞬间、友链、追番、豆瓣、Steam、装备和 Docsme 均按 App 入口拆分。
 - PJAX 窗口体验：内容页在主窗口内切换，保留桌面上下文，并对插件脚本重放、页面协议和滚动状态做适配。
 - 桌面小组件：支持系统类、Halo 内容类和插件类小组件，按插件可用性进入组件中心。
@@ -33,7 +38,7 @@ Sky Blog 3 是一个面向 Halo 2.x 的 macOS 桌面风格博客主题。主题�
 
 ## 功能概览
 
-| 模块 | 路由 / 能力 | 状态 |
+| 模块 | 路由 / 能力 | 实现状态（运行范围见验收记录） |
 | --- | --- | --- |
 | 桌面壳层 | 首页、Dock、菜单栏、桌面图标、窗口系统 | 已完成 |
 | 前端系统设置 | 外观、桌面与 Dock、小组件、菜单栏与通知；权限感知、即时预览和增量保存 | 已完成 |
@@ -65,7 +70,7 @@ Sky Blog 3 是一个面向 Halo 2.x 的 macOS 桌面风格博客主题。主题�
 
 ## 插件兼容
 
-当前主题按以下插件版本完成适配或兼容复验。插件不是全部必装；未安装时，对应 App 或小组件会降级、隐藏或显示空状态。
+本轮 24 插件的目标、官方依据、实际修改、验证与剩余问题见 [逐插件交付表](docs/2026-09-26-逐页适配验收.md#逐插件交付表)；发布日期、最低 Halo、技能基线见 [版本核验表](docs/2026-09-25-插件适配核验.md)。下列“已验证版本”保留 2026-07-22 等历史主题代码的验收记录，不能视为当前工作区证据；本机 `PluginMoments 1.19.0`、`PluginCommentWidget 3.3.2` 和 `vote 1.1.3` 的部分真实写链已于 2026-09-27 增量验证，精确范围见[本地写链验收](docs/2026-09-27-Halo-本地写链验收.md)。插件不是全部必装；未安装时，对应 App 或小组件会降级、隐藏或显示空状态。
 
 | 插件 | 已验证版本 | 支持范围 |
 | --- | --- | --- |
@@ -96,13 +101,16 @@ Sky Blog 3 是一个面向 Halo 2.x 的 macOS 桌面风格博客主题。主题�
 | `editor-hyperlink-card` | `1.9.2` | 块级/行内卡片升级与 PJAX 往返 |
 | `lottery` | 展示能力 `1.0.2` | 抽奖卡展示与 PJAX 往返；未执行参与操作 |
 | `restricted-reading` | 资源能力 `1.8.1` | 全局组件资源兼容；未执行解锁或支付 |
-| `vote` | 展示能力 `1.1.3` | 投票块展示与 PJAX 往返；未执行投票 |
+| `vote` | 展示能力 `1.1.3` | 历史批次仅验证投票块展示与 PJAX 往返；当前专用文章的实际投票结果见上方增量报告 |
 | `ai-assistant` | 资源能力 `2.2.4` | RAG UI 资源兼容；未调用模型或生成接口 |
 
 完整适配边界见：
 
 - [插件适配状态](docs/插件适配状态.md)
 - [插件适配契约](docs/插件适配契约.md)
+- [2026-09-25 插件适配核验](docs/2026-09-25-插件适配核验.md)
+- [2026-09-27 上一构建逐插件结果](docs/2026-09-27-后续收口与验证.md)
+- [2026-09-27 Halo 2.26 支持范围与界面验收](docs/2026-09-27-Halo-2.26-支持范围与界面验收.md)
 - [插件更新跟进计划](docs/插件更新跟进计划.md)
 
 ## 安装与升级
@@ -115,16 +123,18 @@ Sky Blog 3 是一个面向 Halo 2.x 的 macOS 桌面风格博客主题。主题�
 升级时建议：
 
 - 先备份主题配置。
-- 确认 Halo 版本满足 `>= 2.25.0`。
-- 按各行的 surface 验证边界确认插件版本；`PluginLinks` 必须精确为 `2.2.1`。
+- 确认 Halo 版本满足 `>= 2.26.0`。
+- 按当日适配核验表确认插件版本。既有局部真页记录不覆盖全部功能；友链、归档、Docsme 的历史专项失败与新页面布局待验范围见修复记录及最新验收记录。
 - 升级后刷新主题缓存，并检查首页、文章页和已启用插件页面。
 
 ## 开发
 
 本项目只使用 `pnpm`。不要使用 `npm`、`npx`、`yarn` 或 `bun`。
 
+开发与构建固定使用 Node `24.21.0`（24 LTS）和 pnpm `12.5.1`。先切换到对应 Node，再用 `corepack pnpm --version` 确认项目的 `packageManager` 版本；未配置 pnpm 命令时，可用 `corepack pnpm` 代替下列命令中的 `pnpm`。依赖采用精确版本和 7 天发布等待期，禁止把较新的预发布或未满等待期版本直接装入。版本选择及本轮验证见 [稳定依赖升级记录](docs/2026-09-26-稳定依赖升级.md)。
+
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
 pnpm run build-only
 pnpm run typecheck
 pnpm run lint
@@ -138,13 +148,14 @@ SMOKE_BASE_URL="http://localhost:8090" pnpm run smoke:playwright
 | --- | --- |
 | `pnpm run build-only` | 生成 `templates/assets/**` 静态资源 |
 | `pnpm run typecheck` | 校验主题协议和资源清单 |
+| `pnpm run verify:halo-page-layout` | 检查 Halo 插件页面布局的片段、配色和基础样式契约 |
 | `pnpm run lint` | 校验架构约束 |
 | `pnpm run verify:reload` | 调用 Halo 主题 reload 并检查关键页面 |
 | `pnpm run smoke:playwright` | 使用 Playwright 验证主要页面和 PJAX 协议 |
 | `pnpm run verify:photos:view-transition` | 验证图库单图共享过渡、稳定侧栏、胶片条与清理边界 |
 | `pnpm run verify:tags` | 验证标签统一 Finder、分页路由、无骨架 PJAX 与无障碍静态契约 |
 | `SMOKE_BASE_URL="http://localhost:8090" pnpm run verify:tags:live` | 验证标签根页、详情、分页、history、越界恢复和三档响应式真页 |
-| `pnpm run verify:plugins:all` | 重新构建后严格检查 26 个已知前台插件、必达路由、真页生命周期、性能与 PJAX |
+| `pnpm run verify:plugins:all` | 重新构建后严格检查 24 个当前目标插件、必达路由、真页生命周期、性能与 PJAX；任一真页失败即停止 |
 | `pnpm run verify:performance` | 强制 HTML、gzip 与插件资源数量预算 |
 | `pnpm run verify:pjax-lifecycle` | 执行完整 PJAX 与 20 轮同 variant 往返，检查监听器、CSS 和滚动容器 registry 生命周期 |
 | `pnpm run audit:licenses` | 扫描完整依赖许可证策略 |
