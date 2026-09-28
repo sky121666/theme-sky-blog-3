@@ -17,51 +17,93 @@
         <script th:inline="javascript" type="text/javascript">
             const publicKey = /*[[${publicKey}]]*/ "";
 
-            document.addEventListener("DOMContentLoaded", function () {
+            const initEncryptedPasswordSubmit = function () {
                 const loginForm = document.getElementById("login-form");
                 const visiblePasswordInput = document.getElementById("password");
-                const supportsFormDataEvent = typeof FormDataEvent !== "undefined";
+                const encryptedPasswordInput = document.getElementById("encrypted-password");
+                const usernameInput = document.getElementById("username");
+                const errorMessage = document.querySelector("[data-auth-encryption-error]");
 
-                if (!loginForm || !visiblePasswordInput) return;
+                if (!loginForm || !visiblePasswordInput || loginForm.dataset.authPasswordEncryptionBound === "true") return;
+                loginForm.dataset.authPasswordEncryptionBound = "true";
 
-                const resolveEncryptedPassword = function () {
-                    if (!visiblePasswordInput.value) return "";
-                    try {
-                        const encrypt = new JSEncrypt();
-                        encrypt.setPublicKey(publicKey);
-                        const encrypted = encrypt.encrypt(visiblePasswordInput.value);
-                        return encrypted || visiblePasswordInput.value;
-                    } catch (e) {
-                        console.error('[Auth] RSA encrypt error:', e);
-                        return visiblePasswordInput.value;
+                const clearEncryptedPassword = function () {
+                    if (encryptedPasswordInput) encryptedPasswordInput.value = "";
+                    if (errorMessage) {
+                        errorMessage.hidden = true;
+                        errorMessage.textContent = "";
+                    }
+                    visiblePasswordInput.removeAttribute("aria-invalid");
+                };
+
+                const blockSubmission = function (event, message) {
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                    if (encryptedPasswordInput) encryptedPasswordInput.value = "";
+                    visiblePasswordInput.setAttribute("aria-invalid", "true");
+                    if (errorMessage) {
+                        errorMessage.textContent = message;
+                        errorMessage.hidden = false;
                     }
                 };
 
-                loginForm.addEventListener("formdata", function (event) {
-                    const encrypted = resolveEncryptedPassword();
-                    if (!encrypted) return;
-                    event.formData.set("password", encrypted);
-                });
+                visiblePasswordInput.addEventListener("input", clearEncryptedPassword);
+                if (usernameInput) usernameInput.addEventListener("input", clearEncryptedPassword);
+                loginForm.querySelector("[data-auth-lockscreen-back]")?.addEventListener("click", clearEncryptedPassword);
 
-                if (!supportsFormDataEvent) {
-                    loginForm.addEventListener("submit", function () {
-                        const encrypted = resolveEncryptedPassword();
-                        if (!encrypted) return;
-                        // Fallback for old browsers: submit hidden encrypted value instead of mutating
-                        // the visible field name during the normal login flow.
-                        const encryptedPasswordInput = document.createElement("input");
-                        encryptedPasswordInput.type = "hidden";
-                        encryptedPasswordInput.name = "password";
+                // Capture before Halo Pro's captcha form listener can stop the submit event.
+                document.addEventListener("submit", function (event) {
+                    if (event.target !== loginForm) return;
+                    // The lockscreen identity step cancels its first submit to reveal the password field.
+                    if (loginForm.dataset.authLockscreenStep === "identity") {
+                        clearEncryptedPassword();
+                        return;
+                    }
+                    if (event.defaultPrevented) {
+                        clearEncryptedPassword();
+                        return;
+                    }
+                    if (!visiblePasswordInput.value) {
+                        blockSubmission(event, "请输入密码");
+                        return;
+                    }
+                    if (encryptedPasswordInput) encryptedPasswordInput.value = "";
+                    try {
+                        if (!encryptedPasswordInput || typeof window.JSEncrypt !== "function") {
+                            throw new Error("RSA encryption is unavailable");
+                        }
+                        const encrypt = new window.JSEncrypt();
+                        encrypt.setPublicKey(publicKey);
+                        const keyBits = encrypt.getKey()?.n?.bitLength?.();
+                        if (!Number.isFinite(keyBits) || keyBits < 512 || typeof TextEncoder !== "function") {
+                            throw new Error("RSA key capacity is unavailable");
+                        }
+                        const maxBytes = Math.ceil(keyBits / 8) - 11;
+                        if (new TextEncoder().encode(visiblePasswordInput.value).length > maxBytes) {
+                            blockSubmission(event, "密码长度超过当前加密密钥容量，请缩短后重试");
+                            return;
+                        }
+                        const encrypted = encrypt.encrypt(visiblePasswordInput.value);
+                        if (typeof encrypted !== "string" || !encrypted || encrypted === visiblePasswordInput.value) {
+                            throw new Error("RSA encryption failed");
+                        }
                         encryptedPasswordInput.value = encrypted;
-                        encryptedPasswordInput.setAttribute("aria-hidden", "true");
-                        encryptedPasswordInput.setAttribute("data-lpignore", "true");
-                        encryptedPasswordInput.setAttribute("data-1p-ignore", "true");
-                        encryptedPasswordInput.setAttribute("data-bwignore", "true");
-                        loginForm.appendChild(encryptedPasswordInput);
-                        visiblePasswordInput.disabled = true;
-                    });
-                }
-            });
+                        if (errorMessage) {
+                            errorMessage.hidden = true;
+                            errorMessage.textContent = "";
+                        }
+                        visiblePasswordInput.removeAttribute("aria-invalid");
+                    } catch {
+                        blockSubmission(event, "密码加密失败，请刷新页面后重试");
+                    }
+                }, true);
+            };
+
+            if (document.readyState === "loading") {
+                document.addEventListener("DOMContentLoaded", initEncryptedPasswordSubmit, { once: true });
+            } else {
+                initEncryptedPasswordSubmit();
+            }
         </script>
     </th:block>
 

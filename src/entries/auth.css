@@ -1222,6 +1222,14 @@ html.dark body.auth-gateway-page .auth-gateway-avatar {
   padding: 12px 14px;
 }
 
+.auth-encryption-error {
+  margin: 12px 0 0;
+}
+
+.auth-encryption-error[hidden] {
+  display: none;
+}
+
 .auth-alert-icon {
   flex-shrink: 0;
   height: 16px;

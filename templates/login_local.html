@@ -4,7 +4,7 @@
 <!-- ========================================== -->
 
 <div th:remove="tag" th:fragment="form">
-    <!-- 保留 Halo 原生字段名、自动填充语义和 RSA 提交流程；锁屏切步只增强视觉与交互。 -->
+    <!-- 公钥登录只提交隐藏密文字段；可见密码保留自动填充语义，锁屏切步只增强视觉与交互。 -->
     <div class="auth-lockscreen-native-fields" data-auth-lockscreen-native>
         <div class="auth-lockscreen-step auth-lockscreen-step-identity" data-auth-lockscreen-step="identity">
             <div class="auth-field auth-field-compact auth-lockscreen-field">
@@ -30,9 +30,12 @@
             </div>
             <div class="auth-field auth-field-compact auth-lockscreen-field">
                 <label for="password">密码</label>
-                <input id="password" name="password" type="password" placeholder="输入密码"
-                    autocomplete="current-password" required maxlength="257"
+                <input id="password" th:name="${#strings.isEmpty(publicKey) ? 'password' : null}"
+                    type="password" placeholder="输入密码" autocomplete="current-password"
+                    aria-describedby="auth-encryption-error" required maxlength="257"
                     class="auth-input auth-lockscreen-input" />
+                <input th:if="${not #strings.isEmpty(publicKey)}" id="encrypted-password"
+                    type="hidden" name="password" value="" autocomplete="off" />
                 <button type="submit" class="auth-lockscreen-submit" data-auth-lockscreen-submit
                     aria-label="登录" title="登录">
                     <span class="icon-[lucide--arrow-right]" aria-hidden="true"></span>
@@ -41,5 +44,7 @@
         </div>
     </div>
 
+    <p id="auth-encryption-error" class="auth-alert auth-alert-error auth-encryption-error"
+        data-auth-encryption-error role="alert" hidden></p>
     <p class="auth-visually-hidden" data-auth-lockscreen-status aria-live="polite"></p>
 </div>

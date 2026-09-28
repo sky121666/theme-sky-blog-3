@@ -332,11 +332,11 @@ const authStructureChecks = [
   ],
   [
     'templates/login_local.html',
-    ['id="password" name="password"', 'autocomplete="current-password"', 'data-auth-lockscreen-native', 'data-auth-lockscreen-advance', 'data-auth-lockscreen-submit', 'data-auth-lockscreen-back']
+    ['id="password" th:name="${#strings.isEmpty(publicKey) ? \'password\' : null}"', 'id="encrypted-password"', 'type="hidden" name="password"', 'data-auth-encryption-error role="alert" hidden', 'autocomplete="current-password"', 'data-auth-lockscreen-native', 'data-auth-lockscreen-advance', 'data-auth-lockscreen-submit', 'data-auth-lockscreen-back']
   ],
   [
     'templates/gateway_fragments/common.html',
-    ['th:fragment="loginProviderSection"', 'auth-provider-section', 'auth-provider-grid auth-provider-grid-icons', 'auth-provider-name', 'auth-lockscreen-footer-actions', '使用通行密钥', '密码登录', 'th:fragment="returnToSiteContent"', '留空，不再显示底部返回首页', 'loginForm.addEventListener("formdata"', 'event.formData.set("password", encrypted);', 'document.createElement("input")']
+    ['th:fragment="loginProviderSection"', 'auth-provider-section', 'auth-provider-grid auth-provider-grid-icons', 'auth-provider-name', 'auth-lockscreen-footer-actions', '使用通行密钥', '密码登录', 'th:fragment="returnToSiteContent"', '留空，不再显示底部返回首页', 'document.addEventListener("submit"', 'event.preventDefault();', 'encryptedPasswordInput.value = encrypted;']
   ],
   [
     'templates/gateway_fragments/password_reset_email_send.html',
