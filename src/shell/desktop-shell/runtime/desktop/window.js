@@ -444,6 +444,7 @@ export function registerWindowComponents(Alpine) {
     _lifecycleInstalled: false,
     _closeHomeTimer: 0,
     _closeHomeNavigationHandler: null,
+    _closeHomeSettledHandler: null,
     _closeHomePending: false,
     _closeHomeGeneration: 0,
     naturalMinWidth: 0,
@@ -993,11 +994,17 @@ export function registerWindowComponents(Alpine) {
       this._closeHomeGeneration += 1;
       window.clearTimeout(this._closeHomeTimer);
       if (this._closeHomeNavigationHandler) {
-        window.removeEventListener('theme:before-pjax-navigation', this._closeHomeNavigationHandler);
+        document.removeEventListener('theme:navigation-accepted', this._closeHomeNavigationHandler);
       }
-      if (this._closeHomePending && !keepPreventAutoOpen) window.preventAutoOpen = false;
+      if (this._closeHomeSettledHandler) {
+        document.removeEventListener('theme:navigation-settled', this._closeHomeSettledHandler);
+      }
+      if ((this._closeHomePending || this._closeHomeSettledHandler) && !keepPreventAutoOpen) {
+        window.preventAutoOpen = false;
+      }
       this._closeHomeTimer = 0;
       this._closeHomeNavigationHandler = null;
+      this._closeHomeSettledHandler = null;
       this._closeHomePending = false;
     },
 
@@ -1020,16 +1027,38 @@ export function registerWindowComponents(Alpine) {
             isHomeNavigation = target.origin === window.location.origin && target.pathname === '/';
           } catch (_error) {}
           this.cancelCloseHomeNavigation({ keepPreventAutoOpen: isHomeNavigation });
+          if (!isHomeNavigation) return;
+          const acceptedIntentId = event?.detail?.intentId;
+          this._closeHomeSettledHandler = (settledEvent) => {
+            if (settledEvent?.detail?.intentId !== acceptedIntentId) return;
+            const completed = ['ready', 'native'].includes(settledEvent?.detail?.outcome);
+            this.cancelCloseHomeNavigation({ keepPreventAutoOpen: completed });
+          };
+          document.addEventListener('theme:navigation-settled', this._closeHomeSettledHandler);
         };
-        window.addEventListener('theme:before-pjax-navigation', this._closeHomeNavigationHandler);
+        document.addEventListener('theme:navigation-accepted', this._closeHomeNavigationHandler);
         this._closeHomeTimer = window.setTimeout(() => {
           if (!this._closeHomePending || this._closeHomeGeneration !== closeGeneration) return;
           if (window.location.pathname !== closedPath || manager.show || manager.pendingOpenRequested || window.pjax !== pjax) {
             this.cancelCloseHomeNavigation();
             return;
           }
-          this.cancelCloseHomeNavigation({ keepPreventAutoOpen: true });
-          pjax.loadUrl('/');
+          this._closeHomeTimer = 0;
+          try {
+            Promise.resolve(pjax.loadUrl('/')).then((result) => {
+              if (result === false && this._closeHomePending && this._closeHomeGeneration === closeGeneration) {
+                this.cancelCloseHomeNavigation();
+              }
+            }).catch(() => {
+              if (this._closeHomePending && this._closeHomeGeneration === closeGeneration) {
+                this.cancelCloseHomeNavigation();
+              }
+            });
+          } catch (_error) {
+            if (this._closeHomePending && this._closeHomeGeneration === closeGeneration) {
+              this.cancelCloseHomeNavigation();
+            }
+          }
         }, 180);
       }
     }

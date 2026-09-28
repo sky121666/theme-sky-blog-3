@@ -15,7 +15,7 @@ import {
   serializeDeletedIconTombstone,
 } from '../../icons/index.js';
 import { cloneJsonValue, escapeHtml, toPositiveInt } from '../../shared/utils.js';
-import { markPjaxLinks, attachDynamicLinks } from '../pjax/link-attach.js';
+import { registerNavigationGuard, isCoveredNativeBeforeUnload } from '../pjax/navigation-admission.js';
 import { inferPageAppFromUrl } from '../../../../../shell-core/runtime/route-manifest.js';
 import { initLazyImages } from '../../shared/lazy-media.js';
 import { initLazyComments } from '../../shared/lazy-comment.js';
@@ -60,7 +60,6 @@ import { gridMethods } from './grid.js';
 import { placementMethods } from './placement.js';
 
 const { log: widgetPjaxLog } = createLogger('desktop-widget-pjax');
-const DESKTOP_BEFORE_PJAX_NAVIGATION_EVENT = 'theme:before-pjax-navigation';
 const WIDGET_CENTER_PENDING_STORAGE_KEY = 'theme-widget-center-open-pending';
 const THEME_SETTINGS_WIDGET_SYNC_EVENT = 'theme:widget-settings-change';
 
@@ -662,27 +661,46 @@ export function registerDesktopSurface(Alpine) {
       return true;
     },
 
-    handleDesktopBeforePjaxNavigation(event) {
-      const hasUnsavedChanges = this.serverLayoutMutationVersion !== this.serverLayoutSavedMutationVersion;
-      if (!hasUnsavedChanges) return;
-      if (this.serverLayoutSaving) {
-        this.serverLayoutSaveState = 'saving';
-        this.serverLayoutSaveMessage = '布局正在保存，请稍候再离开';
-        event.preventDefault();
-        return;
-      }
-      const confirmed = window.confirm('桌面布局有未保存修改。确定放弃这些修改并继续吗？');
-      if (!confirmed) {
-        this.serverLayoutSaveState = 'dirty';
-        this.serverLayoutSaveMessage = '已取消离开，请先保存或退出时放弃修改';
-        event.preventDefault();
-        return;
-      }
-      this.discardDesktopEditingChanges?.();
-      void this.exitEditMode?.({ force: true });
+    captureNavigationGuardState() {
+      return {
+        mutationVersion: this.serverLayoutMutationVersion,
+        savedMutationVersion: this.serverLayoutSavedMutationVersion,
+        dirty: this.serverLayoutMutationVersion !== this.serverLayoutSavedMutationVersion,
+        saving: this.serverLayoutSaving === true,
+        editing: this.isEditing === true
+      };
+    },
+
+    installNavigationGuard() {
+      this.unregisterNavigationGuard?.();
+      this.unregisterNavigationGuard = registerNavigationGuard({
+        id: 'desktop-layout',
+        capture: () => this.captureNavigationGuardState(),
+        allow: (snapshot) => {
+          if (snapshot.saving) {
+            this.serverLayoutSaveState = 'saving';
+            this.serverLayoutSaveMessage = '布局正在保存，请稍候再离开';
+            return false;
+          }
+          if (!snapshot.dirty) return true;
+          if (window.confirm('桌面布局有未保存修改。确定放弃这些修改并继续吗？')) return true;
+          this.serverLayoutSaveState = 'dirty';
+          this.serverLayoutSaveMessage = '已取消离开，请先保存或退出时放弃修改';
+          return false;
+        },
+        isUnchanged: (snapshot) => {
+          const current = this.captureNavigationGuardState();
+          return Object.keys(snapshot).every((key) => current[key] === snapshot[key]);
+        },
+        commit: (snapshot) => {
+          if (snapshot.dirty) this.discardDesktopEditingChanges();
+          if (snapshot.editing) this.finishDesktopEditingSync();
+        }
+      });
     },
 
     handleDesktopBeforeUnload(event) {
+      if (isCoveredNativeBeforeUnload(event, 'desktop-layout')) return;
       if (this.serverLayoutMutationVersion === this.serverLayoutSavedMutationVersion) return;
       event.preventDefault();
       event.returnValue = '';
@@ -800,7 +818,7 @@ export function registerDesktopSurface(Alpine) {
         this.syncViewportState();
         this.isHome = window.location.pathname === '/';
         if (this.enabled && this.isHome && !this.homeDataHydrated) {
-          desktopDebugWarn('desktop home protocol was not hydrated before PJAX completion');
+          desktopDebugWarn('desktop home protocol was not hydrated before navigation ready');
         }
         this.closeDesktopContextMenu();
         this.invalidateWidgetCache();
@@ -841,22 +859,19 @@ export function registerDesktopSurface(Alpine) {
       this.handleOpenWidgetCenter = (event) => {
         void this.openWidgetCenterFromGlobalRequest(event);
       };
-      this.handleBeforePjaxNavigation = (event) => {
-        this.handleDesktopBeforePjaxNavigation(event);
-      };
       this.handleBeforeUnload = (event) => {
         this.handleDesktopBeforeUnload(event);
       };
 
       window.addEventListener(DESKTOP_WIDGET_PROTOCOL_EVENT, this.protocolHydrationHandler);
       window.addEventListener(THEME_SETTINGS_WIDGET_SYNC_EVENT, this.themeSettingsWidgetSyncHandler);
-      window.addEventListener('pjax:complete', this.routeSyncHandler);
+      window.addEventListener('theme:pjax-ready', this.routeSyncHandler);
       window.addEventListener('pageshow', this.routeSyncHandler);
       window.addEventListener('resize', this.resizeHandler);
       window.addEventListener('theme-notification-widget-drag-start', this.handleNotificationWidgetDragStart);
       window.addEventListener('theme-widget-context-menu', this.handleWidgetContextMenu);
       window.addEventListener('theme-open-widget-center', this.handleOpenWidgetCenter);
-      window.addEventListener(DESKTOP_BEFORE_PJAX_NAVIGATION_EVENT, this.handleBeforePjaxNavigation);
+      this.installNavigationGuard();
       window.addEventListener('beforeunload', this.handleBeforeUnload);
 
       this.$nextTick(async () => {
@@ -890,13 +905,24 @@ export function registerDesktopSurface(Alpine) {
           });
         }
 
-        // Install widget click delegate (one-time)
+        // Editing still blocks widget clicks before the document navigation controller.
         this.installWidgetClickDelegate();
         await this.consumePendingWidgetCenterOpen();
       });
     },
 
     destroy() {
+      this.unregisterNavigationGuard?.();
+      this.unregisterNavigationGuard = null;
+      window.removeEventListener(DESKTOP_WIDGET_PROTOCOL_EVENT, this.protocolHydrationHandler);
+      window.removeEventListener(THEME_SETTINGS_WIDGET_SYNC_EVENT, this.themeSettingsWidgetSyncHandler);
+      window.removeEventListener('theme:pjax-ready', this.routeSyncHandler);
+      window.removeEventListener('pageshow', this.routeSyncHandler);
+      window.removeEventListener('resize', this.resizeHandler);
+      window.removeEventListener('theme-notification-widget-drag-start', this.handleNotificationWidgetDragStart);
+      window.removeEventListener('theme-widget-context-menu', this.handleWidgetContextMenu);
+      window.removeEventListener('theme-open-widget-center', this.handleOpenWidgetCenter);
+      window.removeEventListener('beforeunload', this.handleBeforeUnload);
       this.widgetsDisposed = true;
       this.weatherRequestId += 1;
       disposeLatestPostsSources(this);
@@ -905,7 +931,6 @@ export function registerDesktopSurface(Alpine) {
         document.removeEventListener('visibilitychange', this.calendarVisibilityHandler);
         this.calendarVisibilityHandler = null;
       }
-      window.removeEventListener(THEME_SETTINGS_WIDGET_SYNC_EVENT, this.themeSettingsWidgetSyncHandler);
       if (this.themeSettingsWeatherTimer) {
         window.clearTimeout(this.themeSettingsWeatherTimer);
         this.themeSettingsWeatherTimer = null;
@@ -1840,21 +1865,6 @@ export function registerDesktopSurface(Alpine) {
         event.stopPropagation();
         return;
       }
-
-      if (!icon?.pjax || link.external || event.defaultPrevented) return;
-      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-
-      let url;
-      try {
-        url = new URL(link.href, window.location.origin);
-      } catch (_error) {
-        return;
-      }
-      if (url.origin !== window.location.origin || !window.pjax) return;
-
-      event.preventDefault();
-      desktopDebug('icon pjax fallback', { key, href: url.pathname + url.search });
-      window.pjax.loadUrl(url.pathname + url.search, { triggerElement: event.currentTarget });
     },
 
     findIconByKey(key) {
@@ -2360,10 +2370,10 @@ export function registerDesktopSurface(Alpine) {
       this.scheduleDesktopWidgetEnhancement();
     },
 
-    /* ═══ Desktop widget PJAX enhancement ═══ */
+    /* ═══ Desktop widget enhancement ═══ */
 
     /**
-     * Scan real desktop widget bodies and attach PJAX links + lazy inits.
+     * Enhance real desktop widget bodies after x-html rendering.
      * Only targets `.desktop-widgets-grid .desktop-widget-body`, never
      * the widget-center preview area.
      */
@@ -2374,22 +2384,7 @@ export function registerDesktopSurface(Alpine) {
       const bodies = grid.querySelectorAll('.desktop-widget-body');
       if (!bodies.length) return;
 
-      let totalAnchors = 0;
-      let internalLinks = 0;
-      let attachedCount = 0;
-
       bodies.forEach((body) => {
-        const anchors = body.querySelectorAll('a[href]');
-        totalAnchors += anchors.length;
-
-        markPjaxLinks(body);
-        const attached = attachDynamicLinks(body);
-        attachedCount += attached;
-
-        anchors.forEach((a) => {
-          if (a.classList.contains('pjax-link')) internalLinks++;
-        });
-
         initLazyImages(body);
         initLazyComments(body);
         enhanceDoubanShowcaseWidgets(body);
@@ -2401,7 +2396,7 @@ export function registerDesktopSurface(Alpine) {
           .catch(() => {});
       }
 
-      widgetPjaxLog('enhance:', totalAnchors, 'anchors,', internalLinks, 'internal,', attachedCount, 'attached');
+      widgetPjaxLog('enhance:', bodies.length, 'bodies');
     },
 
     /**
@@ -2428,62 +2423,24 @@ export function registerDesktopSurface(Alpine) {
     },
 
     /**
-     * One-time click delegate on `.desktop-widgets-grid` as PJAX fallback.
-     * Catches any internal link click that wasn't properly attached.
+     * Capture widget clicks only while editing. Normal links keep their
+     * native event path for the document navigation controller or browser.
      */
     installWidgetClickDelegate() {
       if (this._widgetClickDelegateInstalled) return;
-      this._widgetClickDelegateInstalled = true;
-
       const grid = this.$refs.grid;
       if (!grid) return;
+      this._widgetClickDelegateInstalled = true;
 
       grid.addEventListener('click', (e) => {
-        // [P1] Block widget navigation clicks when editing mode is enabled
-        const isWidget = e.target.closest('.desktop-widget-card');
-        if (this.isEditing && isWidget) {
-          if (!e.target.closest('.desktop-widget-remove-btn')) {
-            e.preventDefault();
-            e.stopPropagation();
-            widgetPjaxLog('navigation blocked in edit mode');
-            return;
-          }
-        }
-
-        const link = e.target.closest('.desktop-widget-body a[href]');
-        if (!link) return;
-
-        // Skip: widget-center preview, external targets, special protocols
-        if (link.closest('.desktop-widget-center')) return;
-        if (link.target === '_blank') return;
-        if (link.hasAttribute('download')) return;
-        const href = link.getAttribute('href') || '';
-        if (href.startsWith('mailto:') || href.startsWith('tel:') || href.startsWith('javascript:')) return;
-        if (href === '#' || (href.startsWith('#') && !href.startsWith('#/'))) return;
-
-        // Only intercept pjax-link that is internal
-        if (!link.classList.contains('pjax-link')) return;
-
-        try {
-          const url = new URL(link.href, window.location.origin);
-          if (url.origin !== window.location.origin) return;
-        } catch (_err) {
-          return;
-        }
-
-        // If already handled by normal pjax attach, let it through
-        if (link.hasAttribute('data-pjax-attached')) return;
-
-        // Fallback: prevent full-page navigation, use pjax.loadUrl
+        if (!this.isEditing || !e.target.closest('.desktop-widget-card')
+          || e.target.closest('.desktop-widget-remove-btn')) return;
         e.preventDefault();
         e.stopPropagation();
-        widgetPjaxLog('click-delegate fallback:', link.href);
-        if (window.pjax) {
-          window.pjax.loadUrl(link.href);
-        }
-      }, true); // capture phase — run before bubbling handlers
+        widgetPjaxLog('navigation blocked in edit mode');
+      }, true);
 
-      widgetPjaxLog('click-delegate installed on grid');
+      widgetPjaxLog('edit click guard installed on grid');
     }
   }));
 }

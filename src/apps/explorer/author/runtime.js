@@ -62,12 +62,6 @@ export function registerAuthorPostsExplorer(Alpine) {
                   if (renderGeneration !== this._momentPreviewRenderGeneration) return;
                   if (this._momentPreviewRenderJob === renderJob) this._momentPreviewRenderJob = null;
                   this.syncMomentPanelVisibility();
-                  if (window.pjax) {
-                    this.momentPreviewEl.querySelectorAll('a.pjax-link:not([data-pjax-attached])').forEach((link) => {
-                      link.setAttribute('data-pjax-managed', 'true');
-                      window.pjax.attachLink(link);
-                    });
-                  }
                 }
               });
               this._momentPreviewRenderJob = renderJob.completed ? null : renderJob;
@@ -463,12 +457,6 @@ export function registerAuthorPostsExplorer(Alpine) {
             if (this._momentListRenderJob === renderJob) this._momentListRenderJob = null;
             this.syncMomentSelectionState();
             this.syncMomentPanelVisibility();
-            if (window.pjax) {
-              this.momentListEl.querySelectorAll('a.pjax-link:not([data-pjax-attached])').forEach((link) => {
-                link.setAttribute('data-pjax-managed', 'true');
-                window.pjax.attachLink(link);
-              });
-            }
           }
         });
         this._momentListRenderJob = renderJob.completed ? null : renderJob;
@@ -481,12 +469,6 @@ export function registerAuthorPostsExplorer(Alpine) {
           onComplete: () => {
             if (previewRenderGeneration !== this._momentPreviewRenderGeneration) return;
             if (this._momentPreviewRenderJob === renderJob) this._momentPreviewRenderJob = null;
-            if (window.pjax) {
-              this.momentPreviewEl.querySelectorAll('a.pjax-link:not([data-pjax-attached])').forEach((link) => {
-                link.setAttribute('data-pjax-managed', 'true');
-                window.pjax.attachLink(link);
-              });
-            }
           }
         });
         this._momentPreviewRenderJob = renderJob.completed ? null : renderJob;

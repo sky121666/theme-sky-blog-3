@@ -93,6 +93,10 @@ export const editModeMethods = {
       this.discardDesktopEditingChanges();
     }
 
+    return this.finishDesktopEditingSync();
+  },
+
+  finishDesktopEditingSync() {
     this.closeDesktopContextMenu();
     this.endCenterSheetDrag(true);
     this.isEditing = false;

@@ -54,7 +54,7 @@
     "notices:check": "node scripts/generate-third-party-notices.mjs --check && node scripts/check-third-party-notices.mjs",
     "verify:contracts": "node scripts/verify-weather-runtime.mjs && pnpm run verify:widget-data-fixes && node scripts/verify-shell-bootstrap-contract.mjs && node scripts/verify-window-lifecycle.mjs && node scripts/verify-media-performance-contract.mjs && node scripts/verify-lazy-comment-lifecycle.mjs && node scripts/verify-shell-resource-lifecycle.mjs && pnpm run verify:theme-settings && pnpm run verify:theme-config-client && pnpm run verify:pjax-navigation && pnpm run verify:repair-contracts && pnpm run verify:core-page-regressions && pnpm run verify:auth-password-contract && node scripts/verify-pnpm-supply-chain-policy.mjs && node --test scripts/verify-pnpm-supply-chain-policy.test.mjs && node scripts/verify-widgets-config-schema.mjs && node scripts/verify-widget-bangumis.mjs && node scripts/verify-widget-photos.mjs && node scripts/verify-widget-steam.mjs && pnpm run verify:plugin-inventory && pnpm run verify:douban-adaptation && pnpm run verify:docsme-toc && pnpm run verify:docsme-links && pnpm run verify:photos-pagination && pnpm run verify:waterfall-lifecycle && pnpm run verify:steam-adaptation && pnpm run verify:links && pnpm run verify:plugin-runtime && pnpm run verify:plugin-shell-integration && pnpm run verify:comment-integration && pnpm run verify:plugin-contract-markers && pnpm run verify:reader-comment-anchor && pnpm run verify:framework-hardening",
     "verify:performance": "node scripts/verify-html-performance.mjs",
-    "verify:pjax-navigation": "node scripts/verify-pjax-navigation-contract.mjs",
+    "verify:pjax-navigation": "node --test scripts/verify-navigation-admission.test.mjs && node scripts/verify-pjax-navigation-contract.mjs && node scripts/verify-navigation-clicks.mjs",
     "verify:pjax-cold-assets": "node scripts/verify-pjax-cold-app-assets.mjs",
     "verify:pjax-lifecycle": "node scripts/verify-pjax-lifecycle.mjs",
     "verify:release-package": "node scripts/verify-release-package.mjs",
@@ -74,7 +74,9 @@
     "verify:asset-budget": "node scripts/verify-asset-budget.mjs",
     "verify:auth-password-contract": "node scripts/verify-auth-password-contract.mjs",
     "verify:auth:live": "node scripts/verify-anonymous-auth.mjs",
-    "verify:widgets:browser": "node scripts/verify-widget-browser.mjs"
+    "verify:widgets:browser": "node scripts/verify-widget-browser.mjs",
+    "verify:navigation:live": "node scripts/verify-navigation-runtime.mjs && node scripts/verify-navigation-response.mjs && node scripts/verify-navigation-readiness.mjs",
+    "verify:navigation:pages": "node scripts/verify-navigation-pages.mjs"
   },
   "devDependencies": {
     "@alpinejs/intersect": "3.17.3",

@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from 'playwright';
+import { build } from 'esbuild';
 import { collectBrowserRuntimeErrors, runtimeErrorMessages, installReadOnlyGuard } from './lib/browser-runtime-errors.mjs';
 import { readLiveBuildContext } from './lib/live-build-context.mjs';
 import { normalizeDocsPath, discoverDocsRoutes, inspectDocsCandidates, missingDocsSampleReason, DOCSME_INSPECTION_LIMIT } from './lib/docsme-sample-discovery.mjs';
@@ -336,6 +337,19 @@ async function inspectRichContentRuntime(browser) {
   const page = await browser.newPage();
   const runtimeErrors = collectBrowserRuntimeErrors(page);
   const runtimeSource = await fs.readFile(docsmeRuntimePath, 'utf8');
+  const runtimeBundle = await build({
+    stdin: {
+      contents: `${runtimeSource}\nwindow.__DOCSME_RUNTIME_FIXTURE__ = { renderDocsmeRichContent, resolveDocsmeRichContentTheme, renderToc };`,
+      resolveDir: path.dirname(docsmeRuntimePath),
+      sourcefile: 'docsme-rich-content-fixture.js',
+      loader: 'js'
+    },
+    bundle: true,
+    format: 'iife',
+    platform: 'browser',
+    write: false,
+    logLevel: 'silent'
+  });
 
   try {
     // Establish a same-origin URL without booting the full theme runtime; async
@@ -358,10 +372,7 @@ async function inspectRichContentRuntime(browser) {
           </main>
         </body>
       </html>`);
-    await page.addScriptTag({
-      type: 'module',
-      content: `${runtimeSource}\nwindow.__DOCSME_RUNTIME_FIXTURE__ = { renderDocsmeRichContent, resolveDocsmeRichContentTheme, renderToc };`
-    });
+    await page.addScriptTag({ content: runtimeBundle.outputFiles[0].text });
     await page.waitForFunction(() => Boolean(window.__DOCSME_RUNTIME_FIXTURE__));
 
     const fixtureResult = await page.evaluate(async () => {

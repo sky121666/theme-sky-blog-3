@@ -1,17 +1,31 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { build } from 'esbuild';
 
-const runtimeSource = await readFile(new URL('../src/apps/docsme/runtime.js', import.meta.url), 'utf8');
+const runtimePath = fileURLToPath(new URL('../src/apps/docsme/runtime.js', import.meta.url));
+const runtimeSource = await readFile(runtimePath, 'utf8');
+const runtimeBundle = await build({
+  stdin: {
+    contents: `${runtimeSource}\nwindow.__verifyDocsmeToc = renderToc;`,
+    resolveDir: path.dirname(runtimePath),
+    sourcefile: 'docsme-toc-fixture.js',
+    loader: 'js'
+  },
+  bundle: true,
+  format: 'iife',
+  platform: 'browser',
+  write: false,
+  logLevel: 'silent'
+});
 const browser = await chromium.launch();
 
 try {
   const page = await browser.newPage();
   await page.setContent('<!doctype html><html><body></body></html>');
-  await page.addScriptTag({
-    type: 'module',
-    content: `${runtimeSource}\nwindow.__verifyDocsmeToc = renderToc;`
-  });
+  await page.addScriptTag({ content: runtimeBundle.outputFiles[0].text });
   await page.waitForFunction(() => typeof window.__verifyDocsmeToc === 'function');
 
   async function verifyCase(label, markup, expectedIds, outsideMarkup = '') {

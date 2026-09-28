@@ -8,6 +8,7 @@ import {
   updateThemeSettingsDraft
 } from './theme-settings-core.js';
 import { loadThemeConfigClient } from '../shared/lazy-theme-config-client.js';
+import { registerNavigationGuard, isCoveredNativeBeforeUnload } from './pjax/navigation-admission.js';
 
 const SCHEME_CLASS_PREFIX = 'scheme-';
 const WALLPAPER_CLASS_PREFIX = 'wallpaper-';
@@ -431,17 +432,10 @@ export function registerThemeSettings(Alpine) {
         void this.requestOpen();
       };
       this.handleBeforeUnload = (event) => {
+        if (isCoveredNativeBeforeUnload(event, 'theme-settings')) return;
         if (!this.hasDirtyChanges() && !this.saving) return;
         event.preventDefault();
         event.returnValue = '';
-      };
-      this.handleBeforePjaxNavigation = (event) => {
-        if (!this.visible || (!this.hasDirtyChanges() && !this.saving)) return;
-        if (this.saving || !window.confirm('系统设置有未应用的修改。确定放弃并继续离开吗？')) {
-          event.preventDefault();
-          return;
-        }
-        this.close(true);
       };
       this.handleEscape = (event) => {
         if (event.key === 'Escape' && this.visible) {
@@ -472,7 +466,7 @@ export function registerThemeSettings(Alpine) {
       window.addEventListener('keydown', this.handleEscape, true);
       window.addEventListener('keydown', this.handleSettingsRadioKeydown, true);
       window.addEventListener('beforeunload', this.handleBeforeUnload);
-      window.addEventListener('theme:before-pjax-navigation', this.handleBeforePjaxNavigation);
+      this.installNavigationGuard();
     },
 
     destroy() {
@@ -480,7 +474,8 @@ export function registerThemeSettings(Alpine) {
       window.removeEventListener('keydown', this.handleEscape, true);
       window.removeEventListener('keydown', this.handleSettingsRadioKeydown, true);
       window.removeEventListener('beforeunload', this.handleBeforeUnload);
-      window.removeEventListener('theme:before-pjax-navigation', this.handleBeforePjaxNavigation);
+      this.unregisterNavigationGuard?.();
+      this.unregisterNavigationGuard = null;
       this.mobileViewportQuery?.removeEventListener?.('change', this.handleMobileViewportChange);
       if (this.closeArmTimer) {
         window.clearTimeout(this.closeArmTimer);
@@ -668,6 +663,54 @@ export function registerThemeSettings(Alpine) {
 
     hasDirtyChanges() {
       return this.dirtyPaths.length > 0;
+    },
+
+    captureNavigationGuardState() {
+      return {
+        draftMutationVersion: this.draftMutationVersion,
+        dirty: this.hasDirtyChanges(),
+        saving: this.saving === true,
+        visible: this.visible === true
+      };
+    },
+
+    installNavigationGuard() {
+      this.unregisterNavigationGuard?.();
+      this.unregisterNavigationGuard = registerNavigationGuard({
+        id: 'theme-settings',
+        capture: () => this.captureNavigationGuardState(),
+        allow: (snapshot) => {
+          if (snapshot.saving) return false;
+          if (!snapshot.visible || !snapshot.dirty) return true;
+          return window.confirm('系统设置有未应用的修改。确定放弃并继续离开吗？');
+        },
+        isUnchanged: (snapshot) => {
+          const current = this.captureNavigationGuardState();
+          return Object.keys(snapshot).every((key) => current[key] === snapshot[key]);
+        },
+        commit: (snapshot) => {
+          if (snapshot.visible) this.closeForNavigationCommit();
+        }
+      });
+    },
+
+    closeForNavigationCommit() {
+      if (!this.visible || this.saving) return;
+      if (this.closeArmTimer) window.clearTimeout(this.closeArmTimer);
+      this.closeArmTimer = null;
+      this.closeArmed = false;
+      this.restoreRuntimePreview();
+      this.open = false;
+      this.visible = false;
+      document.body.classList.remove('theme-settings-open');
+      this.query = '';
+      this.activePane = 'appearance';
+      this.mobileSidebarOpen = false;
+      this.draft = cloneThemeSettingsValue(this.baseline);
+      this.dirtyPaths = [];
+      this.validationErrors = {};
+      this.draftMutationVersion = 0;
+      this.restoreFocusElement = null;
     },
 
     hasValidationErrors() {

@@ -336,7 +336,7 @@ async function main() {
     await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
 
     const initialResponse = await page.goto(toAbsoluteUrl('/categories'), {
-      waitUntil: 'domcontentloaded',
+      waitUntil: 'commit',
       timeout: navigationTimeoutMs
     });
     assert(initialResponse?.ok(), `初始路由 /categories 加载失败：HTTP ${initialResponse?.status() || 'unknown'}`);

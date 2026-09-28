@@ -268,6 +268,7 @@
                generation: 0,
                requestController: null,
                resumePaginationAfterNavigationError: false,
+               navigationIntentId: null,
                destroyed: false,
                currentPath() {
                    return location.pathname + location.search;
@@ -315,10 +316,6 @@
                                        window.dispatchEvent(new CustomEvent('moments:feed-updated', {
                                            detail: { source: 'cache', root: targetList }
                                        }));
-                                       const pjaxLinks = Array.from(targetList.querySelectorAll('.waterfall-injected a.pjax-link'));
-                                       if (window.pjax && typeof window.pjax.attachLinks === 'function' && pjaxLinks.length > 0) {
-                                           window.pjax.attachLinks(pjaxLinks);
-                                       }
                                    }
                                }
                                this.nextUrl = typeof cache.nextUrl === 'string' ? cache.nextUrl : this.nextUrl;
@@ -350,8 +347,11 @@
                        sessionStorage.removeItem(this.cacheKey);
                    }
                    
-                   // 2. 监听下一次离开（仅在 PJAX 跳转时保存状态）
-                   this._onPjaxSend = () => {
+                   // 2. 仅在导航获准后保存状态并暂停分页
+                   this._onNavigationAccepted = (event) => {
+                       const intentId = event.detail?.intentId;
+                       if (intentId == null || this.navigationIntentId === intentId) return;
+                       this.navigationIntentId = intentId;
                        this.resumePaginationAfterNavigationError = this.resumePaginationAfterNavigationError
                            || Boolean(this.loading && this.hasMore && this.nextUrl);
                        const targetList = this.feedList();
@@ -363,18 +363,22 @@
                        
                        // 只有产生了下滚或有追加内容才值得缓存
                        if (injected.length > 0 || currentScroll > 50) {
-                           sessionStorage.setItem(this.cacheKey, JSON.stringify({
-                               path: this.routeKey,
-                               extraHtml: Array.from(injected).map(el => el.outerHTML).join(''),
-                               nextUrl: this.nextUrl,
-                               hasMore: this.hasMore,
-                               scrollY: currentScroll
-                           }));
-                           this.debugLog('saved state before leaving', { scrollY: currentScroll, extraCards: injected.length });
+                           try {
+                               sessionStorage.setItem(this.cacheKey, JSON.stringify({
+                                   path: this.routeKey,
+                                   extraHtml: Array.from(injected).map(el => el.outerHTML).join(''),
+                                   nextUrl: this.nextUrl,
+                                   hasMore: this.hasMore,
+                                   scrollY: currentScroll
+                               }));
+                               this.debugLog('saved state before leaving', { scrollY: currentScroll, extraCards: injected.length });
+                           } catch (_error) {
+                               // 缓存只是优化，写入失败也必须取消正在进行的分页请求。
+                           }
                        }
                        this.cancelPending();
                    };
-                   this._onPjaxError = () => {
+                   this._restoreAfterNavigationFailure = () => {
                        if (!this.resumePaginationAfterNavigationError) return;
                        this.resumePaginationAfterNavigationError = false;
                        if (this.destroyed
@@ -382,27 +386,34 @@
                            || !this.$el.isConnected) return;
                        this.loadError = '加载已中断，点击重试';
                    };
-                   this._onPjaxComplete = () => {
+                   this._onPjaxReady = (event) => {
+                       if (event.detail?.intentId == null
+                           || event.detail.intentId !== this.navigationIntentId) return;
+                       this.navigationIntentId = null;
                        this.resumePaginationAfterNavigationError = false;
                    };
-                   document.addEventListener('pjax:send', this._onPjaxSend);
-                   document.addEventListener('pjax:same-variant-send', this._onPjaxSend);
-                   document.addEventListener('pjax:error', this._onPjaxError);
-                   document.addEventListener('pjax:complete', this._onPjaxComplete);
-                   document.addEventListener('pjax:same-variant-complete', this._onPjaxComplete);
+                   this._onNavigationSettled = (event) => {
+                       const { intentId, outcome } = event.detail || {};
+                       if (intentId == null || intentId !== this.navigationIntentId
+                           || !['cancelled', 'failed', 'native'].includes(outcome)) return;
+                       this.navigationIntentId = null;
+                       this._restoreAfterNavigationFailure();
+                   };
+                   document.addEventListener('theme:navigation-accepted', this._onNavigationAccepted);
+                   document.addEventListener('theme:pjax-ready', this._onPjaxReady);
+                   document.addEventListener('theme:navigation-settled', this._onNavigationSettled);
                },
                destroy() {
+                   document.removeEventListener('theme:navigation-accepted', this._onNavigationAccepted);
+                   document.removeEventListener('theme:pjax-ready', this._onPjaxReady);
+                   document.removeEventListener('theme:navigation-settled', this._onNavigationSettled);
                    this.destroyed = true;
                    this.resumePaginationAfterNavigationError = false;
+                   this.navigationIntentId = null;
                    this.cancelPending();
-                   document.removeEventListener('pjax:send', this._onPjaxSend);
-                   document.removeEventListener('pjax:same-variant-send', this._onPjaxSend);
-                   document.removeEventListener('pjax:error', this._onPjaxError);
-                   document.removeEventListener('pjax:complete', this._onPjaxComplete);
-                   document.removeEventListener('pjax:same-variant-complete', this._onPjaxComplete);
                },
                async loadNext() {
-                   if (!this.hasMore || this.loading || !this.nextUrl) return;
+                   if (!this.hasMore || this.loading || !this.nextUrl || this.navigationIntentId != null) return;
                    this.resumePaginationAfterNavigationError = false;
                    const appRoot = this.appRoot();
                    const targetList = this.feedList();
@@ -452,12 +463,6 @@
                                this.debugLog('re-initialized lazy images observer');
                            }
                            
-                           // 重新挂载 PJAX 事件
-                           const pjaxLinks = Array.from(newCards).flatMap(card => Array.from(card.querySelectorAll('a.pjax-link')));
-                           if (window.pjax && typeof window.pjax.attachLinks === 'function' && pjaxLinks.length > 0) {
-                               window.pjax.attachLinks(pjaxLinks);
-                               this.debugLog(`attached pjax to ${pjaxLinks.length} new links`);
-                           }
                            window.dispatchEvent(new CustomEvent('moments:feed-updated', {
                                detail: { source: 'waterfall', root: targetList }
                            }));

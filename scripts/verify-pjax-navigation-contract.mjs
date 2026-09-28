@@ -264,57 +264,7 @@ async function verifyAppCssNavigationStaging() {
 }
 
 async function verifyTopLevelDynamicLink() {
-  let attached = 0;
-  const createAnchor = ({ target = '', download = false } = {}) => {
-    const attributes = new Map(download ? [['download', '']] : []);
-    return {
-      tagName: 'A',
-      href: 'https://example.test/posts/example',
-      target,
-      className: 'pjax-link',
-      classList: { contains: (name) => name === 'pjax-link' },
-      matches(selector) {
-        return selector.includes('a.pjax-link');
-      },
-      querySelectorAll() {
-        return [];
-      },
-      hasAttribute(name) {
-        return attributes.has(name);
-      },
-      setAttribute(name, value) {
-        attributes.set(name, String(value));
-      },
-      removeAttribute(name) {
-        attributes.delete(name);
-      }
-    };
-  };
-  const anchor = createAnchor();
-
-  setGlobal('window', {
-    location: {
-      origin: 'https://example.test',
-      protocol: 'https:',
-      host: 'example.test',
-      search: ''
-    },
-    pjax: {
-      attachLink(link) {
-        assert.equal(link.tagName, 'A');
-        attached += 1;
-      }
-    }
-  });
-  setGlobal('document', { body: { dataset: {} } });
-
-  const linkAttachUrl = pathToFileURL(
-    path.join(root, 'src/shell/desktop-shell/runtime/desktop/pjax/link-attach.js')
-  );
-  const { attachDynamicLinks } = await import(`${linkAttachUrl.href}?contract=top-level-link`);
-  assert.equal(attachDynamicLinks(anchor), 1, '新增节点本身为 a.pjax-link 时也必须绑定');
-  assert.equal(attached, 1);
-
+  const { classifyLinkClick } = await import('../src/shared/navigation-link-policy.js');
   for (const { label, target, download, managed } of [
     { label: 'default target', target: '', download: false, managed: true },
     { label: 'explicit self target', target: '_self', download: false, managed: true },
@@ -324,12 +274,13 @@ async function verifyTopLevelDynamicLink() {
     { label: 'named frame', target: 'preview-frame', download: false, managed: false },
     { label: 'empty download attribute', target: '', download: true, managed: false }
   ]) {
-    const caseAnchor = createAnchor({ target, download });
-    const before = attached;
-    assert.equal(attachDynamicLinks(caseAnchor), managed ? 1 : 0, `${label}: PJAX attachment`);
-    assert.equal(caseAnchor.hasAttribute('data-pjax-managed'), managed, `${label}: managed marker`);
-    assert.equal(attached - before, managed ? 1 : 0, `${label}: handler count`);
+    const result = classifyLinkClick({ event: { button: 0 }, currentUrl: 'https://example.test/', runtimeReady: true,
+      link: { rawHref: '/posts/example', resolvedHref: 'https://example.test/posts/example',
+        targetPresent: true, target, hasDownload: download, classOptIn: true } });
+    assert.equal(result.kind === 'managed', managed, `${label}: click-time eligibility`);
   }
+  // Real insertion, serialized cache and event counts are verified by
+  // verify-navigation-clicks.mjs in the same navigation gate.
 }
 
 async function verifyNavigationHelpers() {
@@ -343,23 +294,19 @@ async function verifyNavigationHelpers() {
     createTimedNavigationSignal,
     isFullNavigationCompletionCurrent,
     isCurrentNavigationIntent,
-    isPlainPrimaryNavigationEvent,
     resolveNavigationHref,
     runNonFatalNavigationHook
   } = await import(
     `${guardUrl.href}?contract=navigation-generation`
   );
 
-  assert.equal(isPlainPrimaryNavigationEvent({ button: 0 }), true);
-  assert.equal(isPlainPrimaryNavigationEvent({ button: 1 }), false, '中键不得被同窗口 capture 拦截');
-  assert.equal(isPlainPrimaryNavigationEvent({ button: 0, metaKey: true }), false);
-  assert.equal(isPlainPrimaryNavigationEvent({ button: 0, ctrlKey: true }), false);
-  assert.equal(isPlainPrimaryNavigationEvent({ button: 0, shiftKey: true }), false);
-  assert.equal(isPlainPrimaryNavigationEvent({ button: 0, altKey: true }), false);
   assert.equal(cancelledPopstateRollbackDelta(2, 1), 1, '取消后退应回到原 entry');
   assert.equal(cancelledPopstateRollbackDelta(1, 2), -1, '取消前进应回到原 entry');
   assert.equal(cancelledPopstateRollbackDelta(3, 1), 2, '跨多个 entry 的回退必须恢复完整距离');
-  assert.equal(cancelledPopstateRollbackDelta(null, null, { backward: true }), 1);
+  assert.equal(cancelledPopstateRollbackDelta(null, null, { backward: true }), 0,
+    '未知 history index 不得根据库的 backward 标记猜测浏览器栈距离');
+  assert.equal(cancelledPopstateRollbackDelta(null, null, { forward: true }), 0,
+    '未知 history index 不得根据库的 forward 标记猜测浏览器栈距离');
 
   assert.equal(isCurrentNavigationIntent(undefined, 4), true, '无 intent tag 的兼容事件应 fail-open');
   assert.equal(isCurrentNavigationIntent('invalid', 4), true, '非法 intent tag 应 fail-open');
@@ -637,7 +584,12 @@ try {
     'utf8'
   );
   assert.match(pjaxSource, /document\.addEventListener\("pjax:complete", async \(event\) => \{[\s\S]*?try \{[\s\S]*?catch \(error\)[\s\S]*?finally \{/);
-  assert.match(pjaxSource, /hardNavigate\(fallbackHref\)/, 'PJAX 完成阶段失败必须硬导航兜底');
+  assert.match(pjaxSource,
+    /function hardNavigate\(url, \{ replace = false \} = \{\}\)[\s\S]*?window\.location\[replace \? 'replace' : 'assign'\]\(target\)/,
+    '整页交接必须按是否已有 history entry 选择 replace 或 assign');
+  assert.match(pjaxSource,
+    /hardNavigate\(record\.url, \{ replace: replace \|\| record\.options\.history === false \|\| record\.historyCommitted \}\)/,
+    'popstate 或 full 已提交 history 后不得再 assign 生成重复 entry');
   assert.match(
     pjaxSource,
     /timeout:\s*PJAX_REQUEST_TIMEOUT/,
@@ -649,16 +601,31 @@ try {
     'same-variant fetch 必须使用可清理的有界请求信号'
   );
   assert.match(pjaxSource, /discardStagedOnlineMonitorHistoryState\(\)/, 'PJAX 错误必须清理待写入的 Online history 状态');
-  assert.match(
-    pjaxSource,
-    /pjax\.loadUrl = function\(url, options = \{\}\) \{[\s\S]*?if \(options\?\.history !== false\) \{\s*clearPendingWindowScrollRestore\(\);\s*snapshotCurrentBrowserEntry\(\);/,
-    '新的 full PJAX 前进导航必须清除失败后遗留的 popstate 窗口滚动位置'
-  );
-  assert.match(
-    pjaxSource,
-    /async function navigateWithinVariant\(targetUrl, triggerElement = null\) \{\s*clearPendingWindowScrollRestore\(\);\s*snapshotCurrentBrowserEntry\(\);/,
-    'same-variant 前进导航必须清除失败后遗留的 popstate 窗口滚动位置'
-  );
+  const beginStart = pjaxSource.indexOf('function beginNavigation(url, options = {}, mode = \'full\')');
+  const voteIndex = pjaxSource.indexOf('prepareNavigation({ url, source })', beginStart);
+  const snapshotIndex = pjaxSource.indexOf('snapshotCurrentBrowserEntry()', voteIndex);
+  const beginEnd = pjaxSource.indexOf('function finishNavigationUi(', beginStart);
+  assert.ok(beginStart >= 0 && voteIndex > beginStart && snapshotIndex > voteIndex && snapshotIndex < beginEnd,
+    'full/same 必须先完成离页投票，再快照前进导航的 history/滚动状态');
+  assert.match(pjaxSource,
+    /pjax\.loadUrl = function\(url, options = \{\}\)[\s\S]*?beginNavigation\(url, options\)[\s\S]*?executeFullNavigation\(/,
+    '公开 full 入口必须共用准入并继续执行原请求');
+  assert.match(pjaxSource,
+    /async function navigateWithinVariant\(targetUrl, triggerElement = null, acceptedRecord = null\) \{\s*const record = acceptedRecord \|\| beginNavigation\(targetUrl, \{ triggerElement \}, 'same'\);\s*if \(!record\) return false;/,
+    'same-variant 被否决时必须在发请求和清理旧页面前退出');
+  const responseStart = pjaxSource.indexOf('pjax.handleResponse = async function');
+  const fullCommitIndex = pjaxSource.indexOf('commitAcceptedNavigation(record)', responseStart);
+  const protocolIndex = pjaxSource.indexOf('syncHomeDesktopWidgetProtocolFromResponse(responseText)', responseStart);
+  const pluginIndex = pjaxSource.indexOf('preparePluginCompatibilityFromResponse(responseText', responseStart);
+  const switchIndex = pjaxSource.indexOf('_origHandleResponse(responseText', responseStart);
+  assert.ok(fullCommitIndex > responseStart && fullCommitIndex < protocolIndex
+    && protocolIndex < pluginIndex && pluginIndex < switchIndex,
+  'full 必须先复核并提交许可，再修改持久桌面协议、插件状态与窗口 DOM');
+  const sameSwapIndex = pjaxSource.indexOf('const performContentSwap = async () =>');
+  const sameCommitIndex = pjaxSource.indexOf('commitAcceptedNavigation(record)', sameSwapIndex);
+  const sameTitlebarIndex = pjaxSource.indexOf('syncWindowTitlebarFromDocument(targetDoc)', sameSwapIndex);
+  assert.ok(sameSwapIndex >= 0 && sameCommitIndex > sameSwapIndex && sameCommitIndex < sameTitlebarIndex,
+    'same-variant 必须在首次标题栏和正文变更前复核许可');
   assert.match(
     pjaxSource,
     /document\.addEventListener\("pjax:error", \(event\) => \{[\s\S]*?clearPendingWindowScrollRestore\(\);/,
@@ -728,6 +695,9 @@ try {
   assert.ok(tailHookIndex > sameVariantStart, 'same-variant 尾部 hook 必须显式隔离异常');
   assert.ok(historyCommitIndex > tailHookIndex, '所有可抛尾部 hook 必须在 same-variant history commit 前完成');
 
+  const historyAdmission = pjaxSource.indexOf("window.addEventListener('popstate', (event) => {\n      const targetState = event.state;");
+  assert.ok(historyAdmission > 0 && historyAdmission < pjaxSource.indexOf('const pjax = new Pjax('),
+    'theme popstate admission must register before the library listener on the same window target');
   console.log('pjax navigation offline contract passed');
 } finally {
   restoreGlobal('window', previousWindow);

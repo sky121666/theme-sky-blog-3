@@ -5,7 +5,7 @@
          th:style="${inlineStyle != null ? inlineStyle : ''}"
          data-window-titlebar
          x-data="windowTitlebar"
-         @pjax:complete.window="closeSharePanel(); sync()"
+         @theme:pjax-ready.window="closeSharePanel(); sync()"
          @reader:outline-open.window="closeSharePanel()"
          @pointerdown="onDragStart">
       <th:block th:replace="${contentFragment}"></th:block>
@@ -18,7 +18,7 @@
          th:style="${inlineStyle != null ? inlineStyle : ''}"
          data-window-titlebar
          x-data="windowTitlebar"
-         @pjax:complete.window="closeSharePanel(); sync()"
+         @theme:pjax-ready.window="closeSharePanel(); sync()"
          @reader:outline-open.window="closeSharePanel()"
          @pointerdown="onDragStart">
       <div class="window-titlebar-leading"

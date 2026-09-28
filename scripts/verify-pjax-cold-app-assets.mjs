@@ -80,8 +80,25 @@ function collectAlpineUndefinedErrors(page) {
   return errors;
 }
 
+// Plugin scripts can delay DOMContentLoaded without blocking this theme.
+// Wait for the actual shell used by these tests, retaining a bounded deadline.
+async function openThemePage(page, url, options = {}) {
+  const response = await page.goto(url, { ...options, waitUntil: 'commit' });
+  await page.waitForFunction(() => document.readyState !== 'loading'
+    && window.pjax?.loadUrl && window.__THEME_SHELL_CORE_LOADED__, null, { timeout: navigationTimeoutMs })
+    .catch(async (error) => {
+      error.message += `; shell readiness ${JSON.stringify(await page.evaluate(() => ({
+        url: location.href, readyState: document.readyState,
+        shellLoaded: window.__THEME_SHELL_CORE_LOADED__, alpineStarted: window.__THEME_ALPINE_STARTED__,
+        bootstrapCancelled: window.__THEME_BOOTSTRAP_CANCELLED__, pjax: typeof window.pjax?.loadUrl
+      })).catch(() => null))}`;
+      throw error;
+    });
+  return response;
+}
+
 async function openHome(page) {
-  const response = await page.goto(absoluteUrl('/'), {
+  const response = await openThemePage(page, absoluteUrl('/'), {
     waitUntil: 'domcontentloaded',
     timeout: navigationTimeoutMs
   });
@@ -212,7 +229,7 @@ async function clickHeaderSameVariantRoute(page, targetPath) {
 async function verifyHeaderLinksSameVariant(browser) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
   try {
-    const response = await page.goto(absoluteUrl('/links'), {
+    const response = await openThemePage(page, absoluteUrl('/links'), {
       waitUntil: 'domcontentloaded',
       timeout: navigationTimeoutMs
     });
@@ -273,7 +290,7 @@ async function verifyWarmExplorerCssHandoff(browser) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
 
   try {
-    const response = await page.goto(absoluteUrl('/categories'), {
+    const response = await openThemePage(page, absoluteUrl('/categories'), {
       waitUntil: 'domcontentloaded',
       timeout: navigationTimeoutMs
     });
@@ -546,7 +563,7 @@ async function verifySameVariantNavigationWins(browser) {
   let detailRequestGate = null;
 
   try {
-    const response = await page.goto(absoluteUrl('/moments'), {
+    const response = await openThemePage(page, absoluteUrl('/moments'), {
       waitUntil: 'domcontentloaded',
       timeout: navigationTimeoutMs
     });
@@ -659,7 +676,7 @@ async function verifyDelayedViewTransitionLatestWins(browser) {
   const errors = collectAlpineUndefinedErrors(page);
 
   try {
-    const response = await page.goto(absoluteUrl('/photos'), {
+    const response = await openThemePage(page, absoluteUrl('/photos'), {
       waitUntil: 'domcontentloaded',
       timeout: navigationTimeoutMs
     });
@@ -783,7 +800,7 @@ async function verifyRapidDetailViewTransitionLatestWins(browser) {
   const errors = collectAlpineUndefinedErrors(page);
 
   try {
-    const response = await page.goto(absoluteUrl('/photos'), {
+    const response = await openThemePage(page, absoluteUrl('/photos'), {
       waitUntil: 'networkidle',
       timeout: navigationTimeoutMs
     });
@@ -795,7 +812,7 @@ async function verifyRapidDetailViewTransitionLatestWins(browser) {
     );
 
     const detail = await findVisiblePhotoDetail(page);
-    const detailResponse = await page.goto(detail.url.toString(), {
+    const detailResponse = await openThemePage(page, detail.url.toString(), {
       waitUntil: 'networkidle',
       timeout: navigationTimeoutMs
     });
@@ -903,6 +920,9 @@ async function verifyRapidDetailViewTransitionLatestWins(browser) {
       };
     });
 
+    // The filmstrip deliberately auto-hides during idle/image preloading.
+    // Wake it through the viewer's real pointer interaction before clicking.
+    await page.locator('.photos-detail-main').hover({ position: { x: 20, y: 20 } });
     await page.locator(`.photos-detail-neighbor[href="${targets[0].href}"]`).click();
     const firstUrl = new URL(targets[0].href, `${baseUrl}/`);
     await page.waitForFunction(
@@ -924,6 +944,7 @@ async function verifyRapidDetailViewTransitionLatestWins(browser) {
     assert.equal(firstState.skipCount, 0, 'first transition must remain active before rapid input');
     assert.ok(firstState.owner, 'first transition owner must remain active until its animation settles');
 
+    await page.locator('.photos-detail-main').hover({ position: { x: 25, y: 25 } });
     await page.locator(`.photos-detail-neighbor[href="${targets[1].href}"]`).click();
     await page.waitForFunction(
       () => window.__PJAX_RAPID_DETAIL_STATE__?.skipCount === 1,
@@ -1005,13 +1026,13 @@ async function verifySupersededLiveDecodeDoesNotDispatch(browser) {
   const errors = collectAlpineUndefinedErrors(page);
 
   try {
-    const response = await page.goto(absoluteUrl('/photos'), {
+    const response = await openThemePage(page, absoluteUrl('/photos'), {
       waitUntil: 'networkidle',
       timeout: navigationTimeoutMs
     });
     assert.equal(response?.status(), 200, 'photos route must return 200');
     const detail = await findVisiblePhotoDetail(page);
-    const detailResponse = await page.goto(detail.url.toString(), {
+    const detailResponse = await openThemePage(page, detail.url.toString(), {
       waitUntil: 'networkidle',
       timeout: navigationTimeoutMs
     });
@@ -1155,7 +1176,7 @@ async function verifySkippedViewTransitionFallsBack(browser) {
   const errors = collectAlpineUndefinedErrors(page);
 
   try {
-    const response = await page.goto(absoluteUrl('/photos'), {
+    const response = await openThemePage(page, absoluteUrl('/photos'), {
       waitUntil: 'domcontentloaded',
       timeout: navigationTimeoutMs
     });

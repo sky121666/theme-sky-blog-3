@@ -373,6 +373,11 @@ function cancelScheduledLightGalleryRefresh() {
   cancelRefreshFrame = null;
 }
 
+export function disposePluginUiBeforeNavigationCommit() {
+  cancelScheduledLightGalleryRefresh();
+  return disposeLightGallery(document);
+}
+
 function scheduleLightGalleryRefresh(root = document) {
   if (refreshFrame) return;
 
@@ -402,10 +407,6 @@ export function initPluginCompatibility() {
   window[PLUGIN_COMPAT_GUARD] = true;
   installOnlineMonitorHistoryBridge();
 
-  const disposeBeforeNavigation = () => {
-    cancelScheduledLightGalleryRefresh();
-    disposeLightGallery(document);
-  };
   const refreshAfterNavigation = (event) => {
     scheduleLightGalleryRefresh(event?.detail?.root || document);
   };
@@ -414,12 +415,13 @@ export function initPluginCompatibility() {
     refreshAfterNavigation(event);
   };
 
-  document.addEventListener('pjax:send', disposeBeforeNavigation);
-  document.addEventListener('pjax:same-variant-send', disposeBeforeNavigation);
-  document.addEventListener('theme:content-swapped', refreshAfterNavigation);
-  document.addEventListener('pjax:complete', refreshAfterNavigation);
-  document.addEventListener('pjax:same-variant-complete', refreshAfterNavigation);
-  document.addEventListener('pjax:error', recoverAfterNavigationError);
+  const recoverAfterSettledNavigation = (event) => {
+    if (!['cancelled', 'failed', 'native'].includes(event?.detail?.outcome)) return;
+    recoverAfterNavigationError(event);
+  };
+
+  document.addEventListener('theme:navigation-settled', recoverAfterSettledNavigation);
+  document.addEventListener('theme:pjax-ready', refreshAfterNavigation);
   window.addEventListener('pageshow', refreshAfterNavigation);
 
   if (document.readyState === 'loading') {

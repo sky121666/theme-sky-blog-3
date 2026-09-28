@@ -457,7 +457,7 @@ export function registerWindowManager(Alpine) {
         }
       });
 
-      document.addEventListener('pjax:complete', () => {
+      document.addEventListener('theme:pjax-ready', () => {
         this.refresh();
       });
     },
@@ -606,7 +606,7 @@ export function registerWindowManager(Alpine) {
           this.closeMobileMenu();
         }
       };
-      this.handlePjaxComplete = () => {
+      this.handlePjaxReady = () => {
         this.closeMobileMenu();
         if (getDesktopWidgetProtocol().isHome === true) {
           this.notificationWidgetDataStatus = 'ready';
@@ -695,7 +695,7 @@ export function registerWindowManager(Alpine) {
         this.draggingWidgetKey = null;
       };
       window.addEventListener('resize', this.handleResize);
-      document.addEventListener('pjax:complete', this.handlePjaxComplete);
+      document.addEventListener('theme:pjax-ready', this.handlePjaxReady);
       window.addEventListener('theme-menubar-close', this.handleMenubarClose);
       window.addEventListener('theme-notification-widgets-change', this.handleNotificationWidgetsChange);
       window.addEventListener('theme-notification-center-open', this.handleNotificationCenterOpen);
@@ -718,7 +718,7 @@ export function registerWindowManager(Alpine) {
       disposeLatestPostsSources({ widgetRenderVersions: this.notificationWidgetRenderVersions });
       this.notificationOpenGeneration += 1;
       window.removeEventListener('resize', this.handleResize);
-      document.removeEventListener('pjax:complete', this.handlePjaxComplete);
+      document.removeEventListener('theme:pjax-ready', this.handlePjaxReady);
       window.removeEventListener('theme-menubar-close', this.handleMenubarClose);
       window.removeEventListener('theme-notification-widgets-change', this.handleNotificationWidgetsChange);
       window.removeEventListener('theme-notification-center-open', this.handleNotificationCenterOpen);

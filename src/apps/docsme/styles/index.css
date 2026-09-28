@@ -1748,7 +1748,8 @@
   .docsme-sidebar {
     position: absolute;
     inset: 0 auto 0 0;
-    z-index: 18;
+    /* Keep the drawer and its backdrop above the compact toolbar (20). */
+    z-index: 22;
     width: min(84vw, 320px);
     border-right: 1px solid var(--docsme-border);
     border-bottom: 0;
@@ -1771,7 +1772,7 @@
   .docsme-app.is-sidebar-open::before {
     position: absolute;
     inset: 0;
-    z-index: 17;
+    z-index: 21;
     background: rgba(0, 0, 0, 0.32);
     content: "";
   }

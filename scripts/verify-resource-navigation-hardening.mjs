@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { getAppAssetSegment } from '../src/shell-core/runtime/app-manifests.js';
+import { createNavigationAdmission } from '../src/shell/desktop-shell/runtime/desktop/pjax/navigation-admission.js';
 
 // Execute production functions with in-memory network/DOM fixtures. No server,
 // generated assets or file writes are needed for these failure-path tests.
@@ -224,11 +225,31 @@ async function verifyPrefetchFailure() {
 
 async function verifyFullPjaxAssetGate() {
   const source = read('src/shell/desktop-shell/runtime/desktop/pjax/index.js');
-  const responseCode = source.slice(source.indexOf('pjax.handleResponse = async function'), source.indexOf('// Patch attachLink'));
-  const loadCode = source.slice(source.indexOf('pjax.loadUrl = function'), source.indexOf('    initializeBrowserNavDepth();'));
-  const events = [], gates = new Map(), ready = new Set();
-  let requestCssState;
+  const responseStart = source.indexOf('pjax.handleResponse = async function');
+  const responseEnd = source.indexOf('\n    };', responseStart) + '\n    };'.length;
+  const loadStart = source.indexOf('const rollbackPopstateToCommittedEntry =');
+  const loadEnd = source.indexOf('    initializeBrowserNavDepth();', loadStart);
+  const sameStart = source.indexOf('async function navigateWithinVariant(');
+  const sameEnd = source.indexOf('    // ── Pjax events ──', sameStart);
+  assert.ok(responseStart >= 0 && responseEnd > responseStart && loadStart > responseEnd && loadEnd > loadStart,
+    '必须抽取当前真实 full response、准入与 loadUrl 执行器，而不是测试脚本的复制实现');
+  assert.ok(sameStart > loadEnd && sameEnd > sameStart, '必须抽取当前真实 same-variant 执行器');
+  const responseCode = source.slice(responseStart, responseEnd);
+  const loadCode = source.slice(loadStart, loadEnd);
+  const sameCode = source.slice(sameStart, sameEnd);
+  const events = [], gates = new Map(), ready = new Set(), requests = new Map();
+  let requestCssState, currentApp = 'categories', aborts = 0, snapshots = 0;
+  let historyWrites = 0, votes = 0, sameNavigation = null;
   const noOp = () => {};
+  const draft = { version: 0, saving: false, allowed: false, cleanups: 0 };
+  const admission = createNavigationAdmission({ eventTarget: new EventTarget() });
+  admission.registerNavigationGuard({
+    id: 'desktop-layout',
+    capture: () => ({ version: draft.version, saving: draft.saving }),
+    allow: () => { votes++; return draft.allowed && !draft.saving; },
+    isUnchanged: (snapshot) => snapshot.version === draft.version && snapshot.saving === draft.saving,
+    commit: () => { draft.cleanups++; events.push('draft-commit'); }
+  });
   const { context } = registryFixture(async () => response(manifest()));
   vm.runInContext(loaderSource, context);
   const stageCss = vm.runInContext('stageAppCssForNavigation', context);
@@ -238,37 +259,84 @@ async function verifyFullPjaxAssetGate() {
   context.document.head.appendChild(warmStyle);
   const currentStyle = context.document.createElement('link');
   Object.assign(currentStyle, { href: '/assets/css/apps/categories/index.css?v=0.9.46&r=old', disabled: false });
+  Object.assign(currentStyle.dataset, { appCss: 'categories', appCssState: 'ready' });
   context.document.head.appendChild(currentStyle);
   context.document.getElementById = () => null;
+  const queryAll = context.document.querySelectorAll;
+  context.document.querySelectorAll = (selector) => ['title', '#window-frame-root'].includes(selector) ? [{}] : queryAll(selector);
   context.document.body = { dataset: {} };
-  context.window.dispatchEvent = () => true;
-  context.window.history = { state: null };
+  context.document.dispatchEvent = (event) => { events.push(event.type); return true; };
+  context.window.location.href = 'https://example.test/categories';
+  context.window.history = {
+    state: null,
+    pushState: () => { historyWrites++; },
+    replaceState: () => { historyWrites++; }
+  };
+  context.window.clearTimeout = clearTimeout;
+  context.window.setTimeout = setTimeout;
+  context.window.pjax = null;
+  const syncCss = (app) => {
+    events.push(`css-restore:${app}`);
+    for (const style of [warmStyle, currentStyle]) style.disabled = style.dataset.appCss !== app;
+  };
   Object.assign(context, {
     AbortController, DOMException, Promise,
-    CustomEvent: class { constructor(type, options) { this.type = type; Object.assign(this, options); } },
-    pjax: { abortRequest: noOp },
+    CustomEvent,
+    DOMParser: class { parseFromString() { return { querySelectorAll: (selector) =>
+      selector === '#window-frame-root' || selector === 'title' ? [{}] : [] }; } },
+    pjax: {
+      abortRequest: () => { aborts++; },
+      loadUrl(url, options) {
+        requests.set(url, options);
+        events.push(`html-start:${url}`);
+        if (url === '/reader') {
+          requestCssState = { targetDisabled: warmStyle.disabled, currentDisabled: currentStyle.disabled };
+        }
+      }
+    },
     navigationIntentGeneration: 0, _fullPjaxGeneration: 0, _fullAssetGate: null,
     cancelledPopstateUid: '', rollbackPopstateUid: '', rollbackTimer: 0, committedBrowserEntry: null,
+    activeNavigation: null, pendingPopstateNavigation: null,
     _sameVariantLoadingController: null, _pjaxLoadingController: null,
-    NAVIGATION_INTENT_OPTION: '__themeNavigationIntent', BEFORE_PJAX_NAVIGATION_EVENT: 'before',
-    sameVariantCoordinator: { cancel: noOp }, browserNavigationOwnership: { begin: noOp, release: noOp },
-    clearPendingWindowScrollRestore: noOp, snapshotCurrentBrowserEntry: noOp, showNavigationStatus: noOp,
+    NAVIGATION_INTENT_OPTION: '__themeNavigationIntent',
+    sameVariantCoordinator: {
+      begin() { sameNavigation = {}; return sameNavigation; },
+      isCurrent(navigation) { return navigation === sameNavigation; },
+      finish(navigation) {
+        if (navigation !== sameNavigation) return false;
+        sameNavigation = null;
+        return true;
+      },
+      cancel() { sameNavigation = null; }
+    },
+    browserNavigationOwnership: { begin: noOp, release: noOp },
+    clearPendingWindowScrollRestore: noOp,
+    snapshotCurrentBrowserEntry: () => { snapshots++; events.push('snapshot'); },
+    showNavigationStatus: noOp,
     restoreRememberedBrowserNavState: noOp,
-    cancelActivePhotosViewTransition: noOp, clearBusyState: noOp, closeTransientNavigationUi: noOp,
-    startTopProgress: noOp, stopTopProgress: noOp, pjaxLog: noOp, pjaxWarn: noOp, syncAppCss: noOp,
-    getCurrentPageApp: () => 'reader', inferPageAppForNavigation: (url) => url.slice(1),
+    cancelActivePhotosViewTransition: noOp, clearBusyState: noOp,
+    closeTransientNavigationUi: noOp, clearTransientNavigationUi: noOp,
+    startTopProgress: noOp, stopTopProgress: noOp, perfMark: noOp,
+    pjaxLog: noOp, pjaxWarn: noOp, syncAppCss: syncCss,
+    getCurrentPageApp: () => currentApp, inferPageAppForNavigation: (url) => url.slice(1),
     parsePageAppFromResponse: (html) => html, resolveNavigationHref: (_request, href) => href,
     isCurrentNavigationIntent: (intent, current) => intent === current,
     stageAppCssForNavigation: (app) => { stageCss(app); events.push(`css-stage:${app}`); },
-    syncHomeDesktopWidgetProtocolFromResponse: noOp, preparePluginCompatibilityFromResponse: noOp,
+    syncHomeDesktopWidgetProtocolFromResponse: () => events.push('protocol'),
+    preparePluginCompatibilityFromResponse: () => events.push('plugin-stage'),
+    disposePluginUiBeforeNavigationCommit: () => events.push('plugin-dispose'),
+    ensureCurrentPageAppActive: noOp, discardStagedOnlineMonitorHistoryState: noOp,
+    prepareNavigation: admission.prepareNavigation,
+    commitNavigation: admission.commitNavigation,
+    abandonNavigation: admission.abandonNavigation,
+    prepareNativeHandoff: admission.prepareNativeHandoff,
+    revokeNativeHandoff: admission.revokeNativeHandoff,
     hardNavigate: (url) => events.push(`hard:${url}`),
-    _origLoadUrl: (url) => {
-      if (url === '/reader') {
-        requestCssState = { targetDisabled: warmStyle.disabled, currentDisabled: currentStyle.disabled };
-      }
-      events.push(`html-start:${url}`);
+    _origHandleResponse: (html) => {
+      currentApp = html;
+      context.window.history.pushState({ url: `/${html}` }, '', `/${html}`);
+      events.push(`swap:${html}`);
     },
-    _origHandleResponse: (html) => events.push(`swap:${html}`),
     ensureAppAssetsLoaded(app, { signal } = {}) {
       events.push(`assets:${app}`);
       if (ready.has(app)) return Promise.resolve();
@@ -277,32 +345,110 @@ async function verifyFullPjaxAssetGate() {
       return gate.promise.then(() => ready.add(app));
     }
   });
-  vm.runInContext(responseCode + '\n' + loadCode, context);
+  vm.runInContext(responseCode + '\n' + loadCode + '\n' + sameCode, context);
+  const vetoResult = await context.pjax.loadUrl('/reader');
+  assert.equal(vetoResult, false, '离页否决应保持 loadUrl 原有的 false 返回语义');
+  assert.equal(requests.size, 0, '离页否决不得发送 HTML 请求');
+  assert.equal(context.navigationIntentGeneration, 0, '否决尝试不得取得导航 intent');
+  assert.equal(aborts, 0, '否决尝试不得取消旧请求');
+  assert.equal(snapshots, 0, '离页否决不得先改写源 history/滚动快照');
+  assert.equal(historyWrites, 0, '否决尝试不得写入 history');
+  assert.equal(draft.cleanups, 0, '离页否决不得丢弃草稿');
+
+  draft.allowed = true;
   await context.pjax.loadUrl('/reader');
+  const readerOptions = requests.get('/reader');
+  assert.equal(readerOptions.__themeNavigationIntent, 1, 'full 请求必须携带已接受的逻辑 intent');
+  assert.equal(readerOptions.requestOptions.requestUrl, '/reader');
+  assert.equal(events.filter((event) => event === 'theme:navigation-accepted').length, 1,
+    '通过守卫后才发送一次 accepted');
   assert.equal(requestCssState.targetDisabled, false, 'HTML 请求及同步 pjax:send 前必须启用 warm 目标 CSS');
   assert.equal(requestCssState.currentDisabled, false, '请求期间旧页面 CSS 必须保持启用');
   assert.ok(events.includes('html-start:/reader'), 'CSS/JS 未完成也必须已经开始 HTML 请求');
   assert.ok(events.indexOf('css-stage:reader') < events.indexOf('html-start:/reader'));
-  const first = context.pjax.handleResponse('reader', { status: 200 }, '/reader', { __themeNavigationIntent: 1 });
+  const first = context.pjax.handleResponse('reader', { status: 200 }, '/reader', readerOptions);
   await flush();
   assert.ok(!events.includes('swap:reader'));
   gates.get('reader').resolve();
   await first;
+  assert.equal(draft.cleanups, 1, '有效响应在首次 DOM 变更前只清理一次草稿');
+  assert.equal(historyWrites, 1, '有效 full 响应才写一次 history');
+  assert.ok(events.indexOf('draft-commit') < events.indexOf('plugin-dispose')
+    && events.indexOf('plugin-dispose') < events.indexOf('protocol')
+    && events.indexOf('protocol') < events.indexOf('plugin-stage')
+    && events.indexOf('plugin-stage') < events.indexOf('swap:reader'),
+  'full 提交许可必须早于插件销毁、持久协议和 DOM 切换');
   assert.equal(events.filter((event) => event === 'css-stage:reader').length, 2, '响应资源就绪后仍须在 DOM 替换前再次 staging');
   assert.ok(events.lastIndexOf('css-stage:reader') < events.indexOf('swap:reader'));
   await context.pjax.loadUrl('/photos');
+  const photosOptions = requests.get('/photos');
+  assert.equal(photosOptions.__themeNavigationIntent, 2);
   assert.ok(events.includes('html-start:/photos'), '没有缓存 CSS/JS 的冷页面也必须立即开始 HTML 请求');
-  const stale = context.pjax.handleResponse('photos', { status: 200 }, '/photos', { __themeNavigationIntent: 2 });
+  const stale = context.pjax.handleResponse('photos', { status: 200 }, '/photos', photosOptions);
   await flush();
   assert.ok(!events.includes('swap:photos'), '冷页面 HTML 已返回仍须等待资产后才能替换 DOM');
   await context.pjax.loadUrl('/links');
+  assert.equal(requests.get('/links').__themeNavigationIntent, 3);
   await stale;
   assert.ok(!events.includes('swap:photos'), '较旧导航取消后不得替换 DOM');
   assert.ok(!events.includes('hard:/photos'), '取消不能触发旧导航的硬刷新');
+  const cleanupsBeforeFailure = draft.cleanups;
+  const linksGateResult = context._fullAssetGate.promise;
   gates.get('links').reject(new Error('module download failed'));
-  await flush();
-  assert.ok(events.includes('hard:/links'), '当前资产失败必须回退且不能替换 DOM');
+  assert.equal(await linksGateResult, false, '当前资源失败必须可控地结束 asset gate');
+  assert.ok(!events.includes('hard:/links'), '尚未替换 DOM 的资源失败必须保留源页与草稿');
   assert.ok(!events.includes('swap:links'));
+  assert.equal(draft.cleanups, cleanupsBeforeFailure, '资源失败不得额外清理草稿');
+  assert.equal(events.at(-1), 'theme:navigation-settled', '资源失败必须结束已接受的 intent');
+  assert.equal(warmStyle.disabled, false, '资源失败必须恢复当前 reader 页的 CSS');
+  assert.equal(currentStyle.disabled, true, '资源失败不能重新启用旧 categories 页的 CSS');
+  assert.equal(historyWrites, 1, '旧请求及当前资产失败均不得新增 history entry');
+
+  await context.pjax.loadUrl('/docs');
+  const docsOptions = requests.get('/docs');
+  const waitingResponse = context.pjax.handleResponse('docs', { status: 200 }, '/docs', docsOptions);
+  await flush();
+  const protocolCount = events.filter((event) => event === 'protocol').length;
+  const swapCount = events.filter((event) => event.startsWith('swap:')).length;
+  const cleanupsBeforeChange = draft.cleanups;
+  draft.version++;
+  gates.get('docs').resolve();
+  await waitingResponse;
+  assert.equal(events.filter((event) => event === 'protocol').length, protocolCount,
+    '等待资源期间草稿变化后不得覆盖持久桌面协议');
+  assert.equal(events.filter((event) => event.startsWith('swap:')).length, swapCount,
+    '等待资源期间草稿变化后不得切换 DOM');
+  assert.equal(draft.cleanups, cleanupsBeforeChange, '等待期间新草稿不得被旧许可清理');
+  assert.equal(warmStyle.disabled, false, '许可撤回后必须恢复源页 CSS');
+  assert.equal(historyWrites, 1, '资源失败与许可撤回均不得写入额外 history entry');
+
+  const sameTarget = '/photos';
+  const previousSameRequest = requests.get(sameTarget);
+  const votesBeforeSame = votes;
+  const acceptedBeforeSame = events.filter((event) => event === 'theme:navigation-accepted').length;
+  const intentBeforeSame = context.navigationIntentGeneration;
+  draft.allowed = false;
+  assert.equal(await vm.runInContext(`navigateWithinVariant('${sameTarget}')`, context), false,
+    'same-variant 否决应保持当前内容');
+  assert.equal(votes, votesBeforeSame + 1, 'same-variant 必须只投票一次');
+  assert.equal(context.navigationIntentGeneration, intentBeforeSame, 'same-variant 否决不得占用 intent');
+  assert.equal(events.filter((event) => event === 'theme:navigation-accepted').length, acceptedBeforeSame);
+  assert.equal(requests.get(sameTarget), previousSameRequest,
+    'same-variant 否决不得重发先前目标的 full 请求');
+
+  draft.allowed = true;
+  ready.add('photos');
+  await vm.runInContext(`navigateWithinVariant('${sameTarget}')`, context);
+  assert.equal(votes, votesBeforeSame + 2,
+    'same-variant 缺少内容根节点回退 full 时不得再次投票');
+  assert.equal(events.filter((event) => event === 'theme:navigation-accepted').length, acceptedBeforeSame + 1,
+    'same→full 是一个逻辑导航，只能发送一次 accepted');
+  assert.notEqual(requests.get(sameTarget), previousSameRequest,
+    'same→full 回退仍必须发起实际 full 请求');
+  assert.equal(requests.get(sameTarget).__themeNavigationIntent, context.activeNavigation.intentId,
+    'same→full 必须把原 intent 注入 full 请求，不能新建第二个逻辑 intent');
+  assert.equal(context.activeNavigation.mode, 'full');
+  assert.equal(historyWrites, 1, '尚未收到回退 full 响应时不得提前提交 history');
 }
 
 await verifyBuildIdentity();

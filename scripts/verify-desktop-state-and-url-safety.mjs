@@ -187,6 +187,72 @@ try {
     value: { title: 'Test', cookie: '', body: { dataset: {}, style: {} } }
   });
 
+  const makeClick = (target) => {
+    let prevented = 0;
+    let stopped = 0;
+    return {
+      target,
+      currentTarget: { href: `${origin}/docs` },
+      get defaultPrevented() { return prevented > 0; },
+      get prevented() { return prevented; },
+      get stopped() { return stopped; },
+      preventDefault() { prevented += 1; },
+      stopPropagation() { stopped += 1; }
+    };
+  };
+  const iconClicks = desktopFactory();
+  iconClicks.icons = [{ key: 'docs-icon', href: '/docs', pjax: true }];
+  const normalIconClick = makeClick({ tagName: 'A' });
+  const navigationCountBeforeIcon = notificationNavigations.length;
+  iconClicks.handleDesktopIconClick(normalIconClick, 'docs-icon');
+  assert.equal(normalIconClick.prevented, 0, 'normal desktop icon clicks must remain available to the document router or browser');
+  assert.equal(normalIconClick.stopped, 0);
+  assert.equal(notificationNavigations.length, navigationCountBeforeIcon, 'surface must not call pjax.loadUrl for a normal icon click');
+  iconClicks.isEditing = true;
+  const editingIconClick = makeClick({ tagName: 'A' });
+  iconClicks.handleDesktopIconClick(editingIconClick, 'docs-icon');
+  assert.equal(editingIconClick.prevented, 1, 'editing must block icon navigation');
+  assert.equal(editingIconClick.stopped, 1);
+  assert.equal(iconClicks.selectedDesktopKey, 'docs-icon', 'editing an icon should select it');
+
+  const widgetClicks = desktopFactory();
+  const gridListeners = [];
+  widgetClicks.$refs = {
+    grid: {
+      addEventListener(type, listener, capture) { gridListeners.push({ type, listener, capture }); }
+    }
+  };
+  widgetClicks.installWidgetClickDelegate();
+  assert.equal(gridListeners.length, 1);
+  assert.equal(gridListeners[0].type, 'click');
+  assert.equal(gridListeners[0].capture, true, 'editing must block widget clicks before document bubbling');
+  const widgetLink = {
+    href: `${origin}/docs`,
+    target: '',
+    classList: { contains(name) { return name === 'pjax-link'; } },
+    closest() { return null; },
+    hasAttribute() { return false; },
+    getAttribute(name) { return name === 'href' ? '/docs' : null; }
+  };
+  const widgetTarget = {
+    closest(selector) {
+      if (selector === '.desktop-widget-card') return {};
+      if (selector === '.desktop-widget-body a[href]') return widgetLink;
+      return null;
+    }
+  };
+  const normalWidgetClick = makeClick(widgetTarget);
+  const navigationCountBeforeWidget = notificationNavigations.length;
+  gridListeners[0].listener(normalWidgetClick);
+  assert.equal(normalWidgetClick.prevented, 0, 'normal widget links must reach the document router or browser');
+  assert.equal(normalWidgetClick.stopped, 0);
+  assert.equal(notificationNavigations.length, navigationCountBeforeWidget, 'surface must not call pjax.loadUrl for a normal widget link');
+  widgetClicks.isEditing = true;
+  const editingWidgetClick = makeClick(widgetTarget);
+  gridListeners[0].listener(editingWidgetClick);
+  assert.equal(editingWidgetClick.prevented, 1, 'editing must block widget links');
+  assert.equal(editingWidgetClick.stopped, 1);
+
   const notificationPageUrl = buildUserNotificationUrl('sky user', {
     unreadOnly: true,
     page: 3,

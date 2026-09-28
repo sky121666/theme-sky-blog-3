@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { chromium } from 'playwright';
 
 const root = process.cwd();
 const momentsPath = path.join(root, 'templates/modules/moments-app/list.html');
@@ -40,16 +41,13 @@ function assertWaterfallContract(source, marker, appId) {
     'this.appRoot() !== appRoot',
     'this.feedList() !== targetList',
     'this.requestController?.abort()',
-    "document.addEventListener('pjax:send', this._onPjaxSend)",
-    "document.addEventListener('pjax:same-variant-send', this._onPjaxSend)",
-    "document.addEventListener('pjax:error', this._onPjaxError)",
-    "document.addEventListener('pjax:complete', this._onPjaxComplete)",
-    "document.addEventListener('pjax:same-variant-complete', this._onPjaxComplete)",
-    "document.removeEventListener('pjax:send', this._onPjaxSend)",
-    "document.removeEventListener('pjax:same-variant-send', this._onPjaxSend)",
-    "document.removeEventListener('pjax:error', this._onPjaxError)",
-    "document.removeEventListener('pjax:complete', this._onPjaxComplete)",
-    "document.removeEventListener('pjax:same-variant-complete', this._onPjaxComplete)",
+    'navigationIntentId: null',
+    "document.addEventListener('theme:navigation-accepted', this._onNavigationAccepted)",
+    "document.addEventListener('theme:pjax-ready', this._onPjaxReady)",
+    "document.addEventListener('theme:navigation-settled', this._onNavigationSettled)",
+    "document.removeEventListener('theme:navigation-accepted', this._onNavigationAccepted)",
+    "document.removeEventListener('theme:pjax-ready', this._onPjaxReady)",
+    "document.removeEventListener('theme:navigation-settled', this._onNavigationSettled)",
     "this.$el.closest('[data-app-root]')",
     `root.dataset.appRoot === '${appId}'`,
     'const targetList = this.feedList()',
@@ -66,7 +64,7 @@ function assertWaterfallContract(source, marker, appId) {
 
   assert.ok(
     expression.split('this.cancelPending();').length >= 3,
-    `${appId} must abort from both PJAX send and destroy`
+    `${appId} must abort from both accepted navigation and destroy`
   );
   assert.equal(
     source.includes(`document.querySelector('.${appId}-feed-list')`),
@@ -89,8 +87,8 @@ function createEventDocument() {
     removeEventListener(type, listener) {
       listeners.get(type)?.delete(listener);
     },
-    emit(type) {
-      Array.from(listeners.get(type) || []).forEach((listener) => listener({ type }));
+    emit(type, detail = {}) {
+      Array.from(listeners.get(type) || []).forEach((listener) => listener({ type, detail }));
     },
     listenerCount(type) {
       return listeners.get(type)?.size || 0;
@@ -163,25 +161,54 @@ async function verifyWaterfallRuntime(expression, appId) {
     const model = new Function('$el', `return (${expression});`)(trigger);
     model.$el = trigger;
     model.init();
-    assert.equal(eventDocument.listenerCount('pjax:error'), 1, `${appId} must recover pagination interrupted by a failed navigation`);
-    assert.equal(eventDocument.listenerCount('pjax:complete'), 1, `${appId} must clear its recovery marker after full PJAX success`);
-    assert.equal(eventDocument.listenerCount('pjax:same-variant-complete'), 1, `${appId} must clear its recovery marker after same-variant success`);
+    for (const type of ['theme:navigation-accepted', 'theme:pjax-ready', 'theme:navigation-settled']) {
+      assert.equal(eventDocument.listenerCount(type), 1, `${appId} must subscribe once to ${type}`);
+    }
+    for (const type of ['pjax:send', 'pjax:same-variant-send', 'pjax:error', 'pjax:complete', 'pjax:same-variant-complete']) {
+      assert.equal(eventDocument.listenerCount(type), 0, `${appId} must not retain duplicate library event subscriptions`);
+    }
 
     const pendingLoad = model.loadNext();
     assert.equal(model.loading, true, `${appId} should enter a loading state before navigation`);
-    eventDocument.emit('pjax:send');
-    assert.equal(abortedSignal?.aborted, true, `${appId} should abort pagination on PJAX send`);
+    eventDocument.emit('theme:navigation-accepted', { intentId: 1, url: `/${appId}?next=1` });
+    assert.equal(abortedSignal?.aborted, true, `${appId} should abort pagination on accepted navigation`);
     assert.equal(model.loading, false, `${appId} should release loading when navigation takes ownership`);
+    const acceptedGeneration = model.generation;
+    eventDocument.emit('theme:navigation-accepted', { intentId: 1, url: `/${appId}?next=1` });
+    assert.equal(model.generation, acceptedGeneration, `${appId} duplicate accepted intent must not cancel twice`);
     await pendingLoad;
 
-    eventDocument.emit('pjax:error');
+    eventDocument.emit('theme:navigation-accepted', { intentId: 2, url: `/${appId}?next=2` });
+    eventDocument.emit('theme:navigation-settled', { intentId: 1, outcome: 'failed' });
+    assert.equal(model.loadError, '', `${appId} stale failure must not change the active navigation`);
+    assert.equal(model.navigationIntentId, 2, `${appId} stale failure must not clear the newer intent`);
+    eventDocument.emit('theme:pjax-ready', { intentId: 1, appId });
+    assert.equal(model.navigationIntentId, 2, `${appId} stale ready must not clear the newer intent`);
+    eventDocument.emit('theme:navigation-settled', { intentId: 2, outcome: 'superseded' });
+    assert.equal(model.navigationIntentId, 2, `${appId} superseded must not restore old pagination`);
+    eventDocument.emit('theme:navigation-settled', { intentId: 2, outcome: 'failed' });
     assert.equal(model.loadError, '加载已中断，点击重试', `${appId} must make interrupted pagination retryable after navigation failure`);
     assert.equal(model.hasMore, true, `${appId} navigation failure must not masquerade as end-of-list`);
     assert.equal(model.resumePaginationAfterNavigationError, false, `${appId} must consume the recovery marker once`);
+    assert.equal(model.navigationIntentId, null, `${appId} settled failure must clear its active intent`);
 
     model.loadError = '';
-    eventDocument.emit('pjax:error');
+    eventDocument.emit('theme:navigation-settled', { intentId: 2, outcome: 'failed' });
     assert.equal(model.loadError, '', `${appId} must ignore unrelated navigation failures when no pagination request was interrupted`);
+    eventDocument.emit('theme:navigation-accepted', { intentId: 3, url: `/${appId}?next=3` });
+    eventDocument.emit('theme:pjax-ready', { intentId: 3, appId });
+    eventDocument.emit('theme:navigation-settled', { intentId: 3, outcome: 'ready' });
+    assert.equal(model.navigationIntentId, null, `${appId} ready must clear its current intent`);
+    assert.equal(model.loadError, '', `${appId} ready must not show a retry error`);
+    eventDocument.emit('theme:navigation-accepted', { intentId: 4, url: `/${appId}?next=4` });
+    eventDocument.emit('theme:pjax-ready', {});
+    eventDocument.emit('theme:navigation-settled', { outcome: 'failed' });
+    assert.equal(model.navigationIntentId, 4, `${appId} events without an intent must not release active navigation`);
+    eventDocument.emit('theme:navigation-settled', { intentId: 4, outcome: 'cancelled' });
+    assert.equal(model.navigationIntentId, null, `${appId} cancelled intent must release navigation ownership`);
+    eventDocument.emit('theme:navigation-accepted', { intentId: 5, url: `/${appId}?next=5` });
+    eventDocument.emit('theme:navigation-settled', { intentId: 5, outcome: 'native' });
+    assert.equal(model.navigationIntentId, null, `${appId} native handoff must release navigation ownership`);
 
     globalThis.fetch = async () => ({
       ok: true,
@@ -206,15 +233,67 @@ async function verifyWaterfallRuntime(expression, appId) {
     assert.equal(model.hasMore, false, `${appId} retry should accept a valid terminal page`);
 
     model.destroy();
-    assert.equal(eventDocument.listenerCount('pjax:send'), 0, `${appId} destroy should remove the PJAX send listener`);
-    assert.equal(eventDocument.listenerCount('pjax:error'), 0, `${appId} destroy should remove the PJAX error listener`);
-    assert.equal(eventDocument.listenerCount('pjax:complete'), 0, `${appId} destroy should remove the PJAX complete listener`);
-    assert.equal(eventDocument.listenerCount('pjax:same-variant-complete'), 0, `${appId} destroy should remove the same-variant complete listener`);
+    for (const type of ['theme:navigation-accepted', 'theme:pjax-ready', 'theme:navigation-settled']) {
+      assert.equal(eventDocument.listenerCount(type), 0, `${appId} destroy should remove ${type}`);
+    }
   } finally {
     previousGlobals.forEach((descriptor, key) => {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
       else delete globalThis[key];
     });
+  }
+}
+
+async function verifyCacheQuotaFailureInBrowser(expression) {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    const errors = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    await page.route('https://moments.test/**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'text/html',
+      body: `<!doctype html><html><body>
+        <main data-app-root="moments"><div class="moments-body">
+          <div class="moments-feed-list"><article class="waterfall-injected">cached card</article></div>
+          <div class="moments-feed-pagination" data-next-url="/moments?page=2"></div>
+        </div></main></body></html>`
+    }));
+    await page.goto('https://moments.test/moments');
+    const result = await page.evaluate((realExpression) => {
+      const trigger = document.querySelector('.moments-feed-pagination');
+      const model = new Function('$el', `return (${realExpression});`)(trigger);
+      model.$el = trigger;
+      model.init();
+      const scroller = document.querySelector('.moments-body');
+      scroller.scrollTop = 100;
+      const pending = new AbortController();
+      model.requestController = pending;
+      model.loading = true;
+      const originalSetItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = () => { throw new DOMException('fixture quota full', 'QuotaExceededError'); };
+      try {
+        document.dispatchEvent(new CustomEvent('theme:navigation-accepted', {
+          detail: { intentId: 91, url: '/links' }
+        }));
+      } finally {
+        Storage.prototype.setItem = originalSetItem;
+      }
+      const snapshot = {
+        aborted: pending.signal.aborted,
+        loading: model.loading,
+        intentId: model.navigationIntentId,
+        retryFlag: model.resumePaginationAfterNavigationError
+      };
+      model.destroy();
+      return snapshot;
+    }, expression);
+    await page.waitForTimeout(0);
+    assert.deepEqual(result, { aborted: true, loading: false, intentId: 91, retryFlag: true },
+      'a failed optional cache write must still cancel the in-flight pagination request');
+    assert.deepEqual(errors, [], 'optional cache failure must not escape as a browser page error');
+  } finally {
+    await browser.close();
   }
 }
 
@@ -334,4 +413,5 @@ assert.doesNotMatch(pjaxSource, /github-(?:light|dark)|one-(?:light|dark)/, 'Shi
 
 verifyShikiBridgeBehavior();
 await verifyWaterfallRuntime(momentsExpression, 'moments');
+await verifyCacheQuotaFailureInBrowser(momentsExpression);
 console.log('Moments waterfall lifecycle and incremental Shiki contracts passed.');

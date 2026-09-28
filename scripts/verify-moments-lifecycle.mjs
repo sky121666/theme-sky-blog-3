@@ -78,9 +78,6 @@ async function createNotificationHarness(browser, href, { markReadMode = 'succes
       readMode
     };
     window.pjax = {
-      attachLink(anchor) {
-        anchor.dataset.pjaxAttached = 'true';
-      },
       loadUrl(url) {
         window.__notificationProbe.navigations.push(url);
       }
@@ -168,13 +165,13 @@ async function verifyNotificationNavigationAndCleanup(browser) {
   const internalAnchor = await internalPage.locator('.moments-notification-item').evaluate((anchor) => ({
     href: anchor.dataset.notificationHref,
     pjaxClass: anchor.classList.contains('pjax-link'),
-    pjaxAttached: anchor.dataset.pjaxAttached === 'true'
+    pjaxApp: anchor.dataset.pjaxApp
   }));
   assert.deepEqual(internalAnchor, {
     href: '/moments/example?from=notification#reply',
     pjaxClass: true,
-    pjaxAttached: true
-  }, '同源 Moments 通知必须交给 PJAX');
+    pjaxApp: 'moments'
+  }, '同源 Moments 通知必须保留 PJAX 路由标识');
   await internalPage.click('.moments-notification-item');
   await internalPage.waitForFunction(() => window.__notificationProbe.navigations.length === 1);
   assert.deepEqual(await internalPage.evaluate(() => window.__notificationProbe.navigations), [

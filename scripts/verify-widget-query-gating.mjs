@@ -21,6 +21,7 @@ const randomTags = readFileSync(new URL('../src/widgets/halo/random-tags/render.
 const editMode = readFileSync(new URL('../src/shell/desktop-shell/runtime/desktop/surface/edit-mode.js', import.meta.url), 'utf8');
 const desktopSurface = readFileSync(new URL('../src/shell/desktop-shell/runtime/desktop/surface/index.js', import.meta.url), 'utf8');
 const desktopTemplate = readFileSync(new URL('../templates/modules/shell/desktop-widgets.html', import.meta.url), 'utf8');
+const titlebarTemplate = readFileSync(new URL('../templates/modules/shell/window-titlebar.html', import.meta.url), 'utf8');
 const pjaxRuntime = readFileSync(new URL('../src/shell/desktop-shell/runtime/desktop/pjax/index.js', import.meta.url), 'utf8');
 const widgetProtocolRuntime = readFileSync(new URL('../src/shell/desktop-shell/runtime/widgets/protocol.js', import.meta.url), 'utf8');
 const windowManager = readFileSync(new URL('../src/shell/desktop-shell/runtime/desktop/window-manager.js', import.meta.url), 'utf8');
@@ -180,6 +181,17 @@ const routeSyncContract = desktopSurface.slice(
   desktopSurface.indexOf('this.resizeHandler = () => {')
 );
 assert.doesNotMatch(routeSyncContract, /window\.location\.reload\(\)/, 'home route sync must not hard reload');
+assert.match(desktopSurface, /window\.addEventListener\('theme:pjax-ready', this\.routeSyncHandler\);/);
+assert.match(desktopSurface, /window\.removeEventListener\('theme:pjax-ready', this\.routeSyncHandler\);/);
+assert.match(desktopSurface, /window\.addEventListener\('pageshow', this\.routeSyncHandler\);/);
+assert.match(desktopSurface, /window\.removeEventListener\('pageshow', this\.routeSyncHandler\);/);
+assert.doesNotMatch(desktopSurface, /window\.addEventListener\('pjax:complete', this\.routeSyncHandler\);/);
+assert.match(windowManager, /document\.addEventListener\('theme:pjax-ready', \(\) => \{\s*this\.refresh\(\);/);
+assert.match(windowManager, /document\.addEventListener\('theme:pjax-ready', this\.handlePjaxReady\);/);
+assert.match(windowManager, /document\.removeEventListener\('theme:pjax-ready', this\.handlePjaxReady\);/);
+assert.doesNotMatch(windowManager, /document\.addEventListener\('pjax:complete'/);
+assert.equal((titlebarTemplate.match(/@theme:pjax-ready\.window="closeSharePanel\(\); sync\(\)"/g) || []).length, 2);
+assert.doesNotMatch(titlebarTemplate, /@pjax:complete\.window=/);
 
 assert.match(signup, /if \(!response\.ok\) \{[\s\S]*?throw new Error\(errorMessage \|\| `验证码发送失败（HTTP \$\{response\.status\}）`\);/);
 assert.doesNotMatch(
@@ -229,8 +241,13 @@ assert.match(
 );
 assert.match(
   pjaxRuntime,
-  /new CustomEvent\(BEFORE_PJAX_NAVIGATION_EVENT,[\s\S]*?cancelable: true[\s\S]*?!window\.dispatchEvent\(beforeNavigation\)/,
-  'PJAX must expose a cancelable guard before discarding a dirty desktop layout'
+  /const result = prepareNavigation\(\{ url, source \}\);[\s\S]*?if \(result\.kind !== 'accepted'\)/,
+  'PJAX must reject a navigation denied by the shared admission guard'
+);
+assert.match(
+  desktopSurface,
+  /registerNavigationGuard\(\{\s*id: 'desktop-layout',[\s\S]*?commit: \(snapshot\) =>/,
+  'desktop layout discard must happen only in the shared guard commit phase'
 );
 assert.match(
   desktopSurface,
@@ -373,7 +390,7 @@ hydrationSurface.dispatchNotificationWidgetsChange = () => { notificationSyncs +
 const protocolListeners = new Map();
 let reloadCount = 0;
 let protocolWasInstalledBeforeSurfaceHydration = false;
-let hydratedAtPjaxComplete = false;
+let hydratedAtNavigationReady = false;
 const protocolWindow = {
   __THEME_DESKTOP_PROTOCOL__: {
     widgets: {
@@ -402,8 +419,8 @@ protocolWindow.addEventListener(DESKTOP_WIDGET_PROTOCOL_EVENT, (event) => {
   protocolWasInstalledBeforeSurfaceHydration = protocolWindow.__THEME_WIDGETS__ === event.detail.protocol;
   hydrationSurface.applyHomeWidgetProtocol(event.detail.protocol);
 });
-protocolWindow.addEventListener('pjax:complete', () => {
-  hydratedAtPjaxComplete = hydrationSurface.homeDataHydrated;
+protocolWindow.addEventListener('theme:pjax-ready', () => {
+  hydratedAtNavigationReady = hydrationSurface.homeDataHydrated;
 });
 
 const previousHydratedProtocol = protocolWindow.__THEME_DESKTOP_PROTOCOL__.widgets;
@@ -439,8 +456,8 @@ assert.deepEqual({
 assert.equal(cacheInvalidations, 1);
 assert.equal(runtimeSyncs, 1);
 assert.equal(notificationSyncs, 1);
-protocolWindow.dispatchEvent(new protocolWindow.CustomEvent('pjax:complete'));
-assert.equal(hydratedAtPjaxComplete, true, 'pjax:complete must observe hydrated home data');
+protocolWindow.dispatchEvent(new protocolWindow.CustomEvent('theme:pjax-ready'));
+assert.equal(hydratedAtNavigationReady, true, 'theme:pjax-ready must observe hydrated home data');
 assert.equal(reloadCount, 0, 'dynamic home hydration must not trigger a document reload');
 
 const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
@@ -525,6 +542,50 @@ try {
   assert.equal(ensureTagFocusRotation(document), true, 'a single-item stage may schedule one connectivity check');
   timers.shift()?.callback();
   assert.equal(timers.length, 0, 'a non-rotatable stage must not keep an idle timer alive');
+} finally {
+  if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow);
+  else delete globalThis.window;
+  if (previousDocument) Object.defineProperty(globalThis, 'document', previousDocument);
+  else delete globalThis.document;
+}
+
+const removedWindowListeners = [];
+const removedDocumentListeners = [];
+try {
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: {
+      removeEventListener(type, handler) { removedWindowListeners.push([type, handler]); }
+    }
+  });
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: {
+      removeEventListener(type, handler) { removedDocumentListeners.push([type, handler]); }
+    }
+  });
+  const disposedSurface = desktopFactory();
+  const handler = () => {};
+  for (const name of [
+    'protocolHydrationHandler', 'themeSettingsWidgetSyncHandler', 'routeSyncHandler',
+    'resizeHandler', 'handleNotificationWidgetDragStart', 'handleWidgetContextMenu',
+    'handleOpenWidgetCenter', 'handleBeforeUnload', 'calendarVisibilityHandler'
+  ]) disposedSurface[name] = handler;
+  disposedSurface.stopCalendarRollover = () => {};
+  disposedSurface.clearWeatherRefreshTimer = () => {};
+  disposedSurface.destroy();
+  assert.deepEqual(removedWindowListeners.map(([type]) => type), [
+    DESKTOP_WIDGET_PROTOCOL_EVENT,
+    'theme:widget-settings-change',
+    'theme:pjax-ready',
+    'pageshow',
+    'resize',
+    'theme-notification-widget-drag-start',
+    'theme-widget-context-menu',
+    'theme-open-widget-center',
+    'beforeunload'
+  ], 'destroy must release every surface-owned global window listener');
+  assert.deepEqual(removedDocumentListeners, [['visibilitychange', handler]]);
 } finally {
   if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow);
   else delete globalThis.window;

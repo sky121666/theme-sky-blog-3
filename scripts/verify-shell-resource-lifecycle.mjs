@@ -285,8 +285,9 @@ async function verifyFloatingScrollbarPruneLifecycle() {
   initFloatingScrollbars();
   initFloatingScrollbars();
 
-  assert.equal(documentListeners.get('pjax:complete')?.length, 1, '重复初始化不得注册第二个 PJAX handler');
-  assert.equal(documentListeners.get('theme:content-swapped')?.length, 1, '重复初始化不得注册第二个内容替换 handler');
+  assert.equal(documentListeners.get('theme:pjax-ready')?.length, 1, '重复初始化不得注册第二个 ready handler');
+  assert.equal(documentListeners.has('pjax:complete'), false, '完整 PJAX 不得提前刷新滚动条');
+  assert.equal(documentListeners.has('theme:content-swapped'), false, '同 variant 不得重复刷新滚动条');
   assert.equal(oldContainer.classList.contains('floating-scrollbar-host'), true);
   assert.deepEqual(fakeWindow.__THEME_FLOATING_SCROLLBAR_DEBUG__.snapshot(), {
     initialized: 1,
@@ -315,7 +316,7 @@ async function verifyFloatingScrollbarPruneLifecycle() {
   oldContainer.isConnected = false;
   currentContainers = [newContainer];
   lifecycleEvents.length = 0;
-  documentListeners.get('theme:content-swapped')[0]();
+  documentListeners.get('theme:pjax-ready')[0]();
 
   assert.equal(timers.has(activeTimerId), false, '同 variant 内容替换必须清理旧容器 timer');
   assert.equal(oldContainer.dataset.scrollbarActive, undefined);
@@ -338,7 +339,7 @@ async function verifyFloatingScrollbarPruneLifecycle() {
   assert.ok(newContainer.styleWrites > newWritesBeforeResize, '新容器仍需正常同步滚动条');
 
   lifecycleEvents.length = 0;
-  documentListeners.get('pjax:complete')[0]();
+  documentListeners.get('theme:pjax-ready')[0]();
   assert.equal(lifecycleEvents.some((event) => event.startsWith('clear:')), false, '重复 PJAX prune 必须幂等');
   assert.deepEqual(fakeWindow.__THEME_FLOATING_SCROLLBAR_DEBUG__.snapshot(), {
     initialized: 1,
@@ -363,14 +364,10 @@ try {
   );
   assert.match(
     shellSource,
-    /document\.addEventListener\('theme:content-swapped', refreshFloatingScrollbars\);/,
-    '同 variant 内容替换必须触发浮动滚动条刷新'
+    /document\.addEventListener\('theme:pjax-ready', refreshFloatingScrollbars\);/,
+    '导航 ready 后必须触发浮动滚动条刷新'
   );
-  assert.match(
-    shellSource,
-    /document\.addEventListener\('pjax:complete', refreshFloatingScrollbars\);/,
-    '完整 PJAX 仍必须触发浮动滚动条刷新'
-  );
+  assert.doesNotMatch(shellSource, /document\.addEventListener\('(?:pjax:complete|theme:content-swapped)', refreshFloatingScrollbars\);/);
 
   const pjaxSource = fs.readFileSync(
     path.join(root, 'src/shell/desktop-shell/runtime/desktop/pjax/index.js'),

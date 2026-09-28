@@ -444,12 +444,6 @@ function setupMomentNotifications(root = document) {
           renderNotificationItems(list, items);
           setNotificationState(node, 'ready', '');
           syncUnreadDot();
-          if (window.pjax?.attachLink) {
-            list.querySelectorAll('a.pjax-link:not([data-pjax-attached])').forEach((anchor) => {
-              anchor.setAttribute('data-pjax-managed', 'true');
-              window.pjax.attachLink(anchor);
-            });
-          }
         }
         loaded = true;
       } catch (error) {

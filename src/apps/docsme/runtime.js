@@ -1,3 +1,5 @@
+import { classifyLinkClick } from '../../shared/navigation-link-policy.js';
+
 function getDocsmeRoot(root) {
   return root?.querySelector?.('.docsme-app') || root?.closest?.('.docsme-app') || null;
 }
@@ -19,28 +21,29 @@ function syncDocsmeTocState(app) {
 }
 
 function isInternalDocsmeLink(anchor) {
-  if (!anchor?.href || (anchor.target && anchor.target.toLowerCase() !== '_self')
-      || anchor.hasAttribute('download')) return false;
-
-  try {
-    const url = new URL(anchor.href, window.location.href);
-    return url.origin === window.location.origin && /^\/docs(?:\/|$)/.test(url.pathname);
-  } catch {
-    return false;
-  }
+  if (!anchor?.hasAttribute('href')) return false;
+  const eligibility = classifyLinkClick({
+    event: { button: 0 },
+    link: {
+      rawHref: anchor.getAttribute('href'),
+      resolvedHref: anchor.href,
+      classOptIn: true,
+      targetPresent: anchor.hasAttribute('target'),
+      target: anchor.getAttribute('target') || '',
+      hasDownload: anchor.hasAttribute('download')
+    },
+    currentUrl: window.location.href,
+    baseTarget: anchor.ownerDocument.querySelector('base[target]')?.getAttribute('target') || '',
+    runtimeReady: true
+  });
+  return eligibility.kind === 'managed' && /^\/docs(?:\/|$)/.test(new URL(eligibility.href).pathname);
 }
 
 function enhanceDocsmeLinks(root) {
-  const pjax = window.pjax;
   root.querySelectorAll('a[href]').forEach((anchor) => {
     if (!isInternalDocsmeLink(anchor)) return;
     anchor.classList.add('pjax-link');
     anchor.dataset.pjaxApp = 'docsme';
-    anchor.setAttribute('data-pjax-managed', 'true');
-    if (typeof pjax?.attachLink !== 'function'
-        || anchor.hasAttribute('data-pjax-state')
-        || anchor.hasAttribute('data-pjax-attached')) return;
-    pjax.attachLink(anchor);
   });
 }
 
@@ -840,10 +843,8 @@ function disposeDocsmeEnhancements(root) {
   app._docsmeTocMediaHandler = null;
 }
 
-function setPjaxLoading(loading) {
-  document.querySelectorAll('[data-app-root="docsme"]').forEach((root) => {
-    root.classList.toggle('is-pjax-loading', loading);
-  });
+function setPjaxLoading(root, loading) {
+  root?.classList.toggle('is-pjax-loading', loading);
 }
 
 function wrapDocsmeTables(root) {
@@ -885,37 +886,48 @@ export function registerDocsmeApp(Alpine) {
   Alpine.data('docsmeApp', () => ({
     init() {
       this._docsmeAppRoot = getDocsmeRoot(this.$root);
+      this._docsmeNavigationIntentId = null;
       enhanceDocsmeApp(this.$root);
-      this._onPjaxSend = () => {
-        setPjaxLoading(true);
-        if (this._docsmeAppRoot) {
-          this._docsmeAppRoot._docsmeRichContentSuspended = true;
-          cancelDocsmeRichContent(this._docsmeAppRoot);
+      this._onNavigationAccepted = (event) => {
+        const intentId = event.detail?.intentId;
+        if (intentId == null || this._docsmeNavigationIntentId === intentId) return;
+        this._docsmeNavigationIntentId = intentId;
+        setPjaxLoading(this._docsmeAppRoot, true);
+        if (!this._docsmeAppRoot || this._docsmeAppRoot._docsmeRichContentSuspended) return;
+        this._docsmeAppRoot._docsmeRichContentSuspended = true;
+        cancelDocsmeRichContent(this._docsmeAppRoot);
+      };
+      this._onPjaxReady = (event) => {
+        if (event.detail?.intentId == null
+          || event.detail.intentId !== this._docsmeNavigationIntentId) return;
+        this._docsmeNavigationIntentId = null;
+        setPjaxLoading(this._docsmeAppRoot, false);
+        // The destination root runs enhanceDocsmeApp from its own init.
+        if (this._docsmeAppRoot) this._docsmeAppRoot._docsmeRichContentSuspended = false;
+      };
+      this._onNavigationSettled = (event) => {
+        const { intentId, outcome } = event.detail || {};
+        if (intentId == null || intentId !== this._docsmeNavigationIntentId
+          || !['cancelled', 'failed', 'native'].includes(outcome)) return;
+        this._docsmeNavigationIntentId = null;
+        setPjaxLoading(this._docsmeAppRoot, false);
+        if (this._docsmeAppRoot?.isConnected
+          && !this._docsmeAppRoot._docsmeDisposed) {
+          enhanceDocsmeApp(this._docsmeAppRoot);
         }
       };
-      this._onPjaxComplete = () => {
-        setPjaxLoading(false);
-        enhanceDocsmeApp(document);
-      };
-      this._onPjaxError = () => {
-        setPjaxLoading(false);
-        if (!this._docsmeAppRoot?._docsmeDisposed) enhanceDocsmeApp(this._docsmeAppRoot);
-      };
 
-      document.addEventListener('pjax:send', this._onPjaxSend);
-      document.addEventListener('pjax:same-variant-send', this._onPjaxSend);
-      document.addEventListener('pjax:complete', this._onPjaxComplete);
-      document.addEventListener('pjax:same-variant-complete', this._onPjaxComplete);
-      document.addEventListener('pjax:error', this._onPjaxError);
+      document.addEventListener('theme:navigation-accepted', this._onNavigationAccepted);
+      document.addEventListener('theme:pjax-ready', this._onPjaxReady);
+      document.addEventListener('theme:navigation-settled', this._onNavigationSettled);
     },
 
     destroy() {
-      document.removeEventListener('pjax:send', this._onPjaxSend);
-      document.removeEventListener('pjax:same-variant-send', this._onPjaxSend);
-      document.removeEventListener('pjax:complete', this._onPjaxComplete);
-      document.removeEventListener('pjax:same-variant-complete', this._onPjaxComplete);
-      document.removeEventListener('pjax:error', this._onPjaxError);
-      setPjaxLoading(false);
+      document.removeEventListener('theme:navigation-accepted', this._onNavigationAccepted);
+      document.removeEventListener('theme:pjax-ready', this._onPjaxReady);
+      document.removeEventListener('theme:navigation-settled', this._onNavigationSettled);
+      this._docsmeNavigationIntentId = null;
+      setPjaxLoading(this._docsmeAppRoot, false);
       disposeDocsmeEnhancements(this._docsmeAppRoot || this.$root);
     }
   }));

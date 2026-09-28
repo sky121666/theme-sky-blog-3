@@ -267,8 +267,7 @@ export function initFloatingScrollbars() {
     registerContainer(resolveScrollContainer(event.target));
   }, { capture: true, passive: true });
 
-  document.addEventListener('theme:content-swapped', refreshFloatingScrollbars);
-  document.addEventListener('pjax:complete', refreshFloatingScrollbars);
+  document.addEventListener('theme:pjax-ready', refreshFloatingScrollbars);
 
   document.addEventListener('pointerdown', (event) => {
     const thumb = event.target instanceof Element

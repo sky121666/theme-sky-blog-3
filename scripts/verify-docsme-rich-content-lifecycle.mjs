@@ -1,8 +1,25 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
+import { build } from 'esbuild';
 
-const source = fs.readFileSync(new URL('../src/apps/docsme/runtime.js', import.meta.url), 'utf8');
+const runtimePath = fileURLToPath(new URL('../src/apps/docsme/runtime.js', import.meta.url));
+const source = fs.readFileSync(runtimePath, 'utf8');
+const runtimeBundle = await build({
+  stdin: {
+    contents: `${source}\nglobalThis.__docsmeRichContentFixture = { renderDocsmeRichContent, renderMermaidNodes, hasUsableMermaidSvg, waitForDocsmeLayout, disposeDocsmeEnhancements, cancelDocsmeRichContent, bindDocsmeSearch, loadPluginRuntime };`,
+    resolveDir: path.dirname(runtimePath),
+    sourcefile: 'docsme-rich-content-lifecycle-fixture.js',
+    loader: 'js'
+  },
+  bundle: true,
+  format: 'iife',
+  platform: 'browser',
+  write: false,
+  logLevel: 'silent'
+});
 const template = fs.readFileSync(new URL('../templates/modules/docsme-app/content.html', import.meta.url), 'utf8');
 const checks = [];
 function harness() {
@@ -25,7 +42,8 @@ function harness() {
     location: { origin: 'https://example.test' } };
   const context = vm.createContext({ window: win, document: doc, AbortController, URL,
     console: { warn: (...args) => warnings.push(args) } });
-  const api = vm.runInContext(source.replace(/\bexport /g, '') + '\n({ renderDocsmeRichContent, renderMermaidNodes, hasUsableMermaidSvg, waitForDocsmeLayout, disposeDocsmeEnhancements, cancelDocsmeRichContent, bindDocsmeSearch, loadPluginRuntime })', context);
+  vm.runInContext(runtimeBundle.outputFiles[0].text, context);
+  const api = context.__docsmeRichContentFixture;
   const flush = async () => { for (let i = 0; i < 16; i++) await Promise.resolve(); };
   const advance = async (ms) => {
     const end = now + ms;

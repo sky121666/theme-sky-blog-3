@@ -200,13 +200,6 @@ export function registerArchiveExplorer(Alpine) {
         }));
       });
       monthList.replaceChildren(monthNav);
-
-      [yearNav, monthList].forEach((root) => {
-        root.querySelectorAll('a.pjax-link:not([data-pjax-attached])').forEach((link) => {
-          link.setAttribute('data-pjax-managed', 'true');
-          window.pjax?.attachLink?.(link);
-        });
-      });
       this.$root.dataset.archiveIndexComplete = 'true';
     },
 

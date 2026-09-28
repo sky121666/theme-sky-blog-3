@@ -1,20 +1,8 @@
-/**
- * Return whether a click should be handled as an in-place navigation.
- * Modified clicks must retain the browser's native new-tab/new-window behavior.
- */
-export function isPlainPrimaryNavigationEvent(event) {
-  if (!event || event.defaultPrevented) return false;
-  if (typeof event.button === 'number' && event.button !== 0) return false;
-  return !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
-}
-
 /** Reverse a popstate that was rejected after the browser changed entries. */
-export function cancelledPopstateRollbackDelta(sourceIndex, targetIndex, options = {}) {
+export function cancelledPopstateRollbackDelta(sourceIndex, targetIndex) {
   if (Number.isFinite(sourceIndex) && Number.isFinite(targetIndex) && sourceIndex !== targetIndex) {
     return sourceIndex - targetIndex;
   }
-  if (options.backward) return 1;
-  if (options.forward) return -1;
   return 0;
 }
 

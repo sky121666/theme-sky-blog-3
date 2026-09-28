@@ -266,6 +266,7 @@ try {
   );
   const {
     disposeLightGallery,
+    disposePluginUiBeforeNavigationCommit,
     discardStagedOnlineMonitorHistoryState,
     initPluginCompatibility,
     mountLightGallery,
@@ -301,11 +302,11 @@ try {
 
   initPluginCompatibility();
   initPluginCompatibility();
-  assert.equal(fixture.documentListeners.get('pjax:send')?.length, 1, '兼容层只能注册一次');
-  assert.equal(fixture.documentListeners.get('pjax:same-variant-send')?.length, 1);
-  assert.equal(fixture.documentListeners.get('pjax:complete')?.length, 1);
-  assert.equal(fixture.documentListeners.get('pjax:same-variant-complete')?.length, 1);
-  assert.equal(fixture.documentListeners.get('pjax:error')?.length, 1);
+  assert.equal(fixture.documentListeners.get('theme:pjax-ready')?.length, 1);
+  assert.equal(fixture.documentListeners.get('theme:navigation-settled')?.length, 1);
+  for (const type of ['pjax:complete', 'pjax:same-variant-complete', 'pjax:error', 'theme:content-swapped']) {
+    assert.equal(fixture.documentListeners.get(type)?.length || 0, 0, `${type} must not duplicate theme lifecycle work`);
+  }
   assert.equal(fixture.windowListeners.get('pageshow')?.length, 1);
   assert.equal(fixture.windowListeners.get('popstate')?.length, 1, '应注册 Online history 恢复监听');
   assert.equal(fixture.windowListenerOptions.get('popstate')?.[0]?.capture, true, 'history 恢复必须在捕获阶段执行');
@@ -338,13 +339,26 @@ try {
     });</script>
   `);
 
-  fixture.documentListeners.get('pjax:send')[0]();
   await fixture.animationFrames.shift()?.();
-  assert.equal(fixture.gallery.hasAttribute('lg-uid'), false, '导航开始后已取消的刷新不得重新挂载旧灯箱');
+  assert.equal(fixture.gallery.hasAttribute('lg-uid'), true, '源页灯箱应能在等待响应期间使用');
+  fixture.documentListeners.get('pjax:send')?.forEach((listener) => listener());
+  fixture.documentListeners.get('pjax:same-variant-send')?.forEach((listener) => listener());
+  assert.equal(fixture.gallery.hasAttribute('lg-uid'), true, '请求开始不得提前销毁源页灯箱');
+  disposePluginUiBeforeNavigationCommit();
+  assert.equal(fixture.gallery.hasAttribute('lg-uid'), false, '许可提交后才销毁源页灯箱');
+  fixture.documentListeners.get('theme:navigation-settled')?.[0]({ detail: {
+    intentId: 1, outcome: 'failed'
+  } });
+  await fixture.animationFrames.shift()?.();
+  assert.equal(fixture.gallery.hasAttribute('lg-uid'), true, '未离页的失败必须恢复源页灯箱');
 
-  fixture.documentListeners.get('theme:content-swapped')[0]({ detail: { root: fixture.document } });
-  fixture.documentListeners.get('pjax:complete')[0]({ detail: { root: fixture.document } });
-  assert.equal(fixture.animationFrames.length, 1, '同一帧的多个完成事件必须合并');
+  disposePluginUiBeforeNavigationCommit();
+  for (const type of ['theme:content-swapped', 'pjax:complete', 'pjax:error']) {
+    fixture.documentListeners.get(type)?.forEach((handler) => handler({ detail: { root: fixture.document } }));
+  }
+  assert.equal(fixture.animationFrames.length, 0, '库传输事件不得提前重新初始化插件 UI');
+  fixture.documentListeners.get('theme:pjax-ready')[0]({ detail: { root: fixture.document } });
+  assert.equal(fixture.animationFrames.length, 1, '主题就绪只调度一次插件 UI 增强');
   await fixture.animationFrames.shift()?.();
   assert.equal(fixture.gallery.hasAttribute('lg-uid'), true, '内容替换后必须重新挂载灯箱');
 
@@ -418,7 +432,7 @@ try {
     loadingFixture.scripts[3].dispatch('error');
     await failedRejection;
     assert.equal(loadingFixture.scripts[3].isConnected, false, '加载错误应清除旧节点');
-    loadingFixture.documentListeners.get('theme:content-swapped')[0]({ detail: { root: loadingFixture.document } });
+    loadingFixture.documentListeners.get('theme:pjax-ready')[0]({ detail: { root: loadingFixture.document } });
     await loadingFixture.animationFrames.shift()?.();
     assert.equal(loadingFixture.mounts, 0, '当前版本脚本失败后不能用旧全局运行时挂载');
     const retry = prepareScripts(response('three'));
@@ -427,7 +441,7 @@ try {
     loadingFixture.scripts[4].dispatch('load');
     await retry;
     assert.equal(loadingFixture.timers.size, 0);
-    loadingFixture.documentListeners.get('theme:content-swapped')[0]({ detail: { root: loadingFixture.document } });
+    loadingFixture.documentListeners.get('theme:pjax-ready')[0]({ detail: { root: loadingFixture.document } });
     await loadingFixture.animationFrames.shift()?.();
     assert.equal(loadingFixture.mounts, 1, '重试完成后应恢复挂载');
     assert.equal(warnings.length, 2, '超时和加载错误应留下可见诊断');
@@ -455,7 +469,7 @@ try {
     await tick();
     assert.equal(externalFixture.scripts.length, 1, '已有同 URL 脚本加载中时不得再次注入');
     assert.equal(externalFixture.timers.size, 1, '等待外部脚本也必须保留 15 秒截止');
-    externalFixture.documentListeners.get('theme:content-swapped')[0]({ detail: { root: externalFixture.document } });
+    externalFixture.documentListeners.get('theme:pjax-ready')[0]({ detail: { root: externalFixture.document } });
     const pendingRefresh = externalFixture.animationFrames.shift()?.();
     await tick();
     assert.equal(loaded, false, '外部脚本 load 前准备流程不得完成');
@@ -471,7 +485,7 @@ try {
     const failed = prepareExternal(response('failed'));
     const failedRejection = assert.rejects(failed, /LightGallery asset failed:/);
     await tick();
-    externalFixture.documentListeners.get('theme:content-swapped')[0]({ detail: { root: externalFixture.document } });
+    externalFixture.documentListeners.get('theme:pjax-ready')[0]({ detail: { root: externalFixture.document } });
     const failedRefresh = externalFixture.animationFrames.shift()?.();
     failedExternal.dispatch('error');
     await failedRejection;
@@ -488,7 +502,7 @@ try {
     const timedOut = prepareExternal(response('slow'));
     const timeoutRejection = assert.rejects(timedOut, /LightGallery asset timed out:/);
     await tick();
-    externalFixture.documentListeners.get('theme:content-swapped')[0]({ detail: { root: externalFixture.document } });
+    externalFixture.documentListeners.get('theme:pjax-ready')[0]({ detail: { root: externalFixture.document } });
     const timeoutRefresh = externalFixture.animationFrames.shift()?.();
     externalFixture.fireDeadline();
     await timeoutRejection;
