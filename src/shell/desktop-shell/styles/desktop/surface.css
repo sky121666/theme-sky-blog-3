@@ -2,12 +2,11 @@
 /*  macOS Desktop Theme Styles    */
 /* ============================== */
 
-@import "tailwindcss";
+@import "tailwindcss" source(none);
 @plugin "@iconify/tailwind4";
+/* Build classes from runtime sources only; reports and fixtures are not UI. */
 @source "../../../../../templates/**/*.html";
-@source "../../../../apps/**/*.js";
-@source "../../../../shared/**/*.js";
-@source "../../../../widgets/**/*.js";
+@source "../../../../";
 
 @custom-variant dark (&:where(.dark, .dark *));
 

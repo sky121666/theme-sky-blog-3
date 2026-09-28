@@ -1,12 +1,19 @@
-nodeVersion: 24.18.0
+nodeVersion: 24.21.0
 engineStrict: true
+strictPeerDependencies: true
+pmOnFail: error
 savePrefix: ''
 
 verifyDepsBeforeRun: error
 enableGlobalVirtualStore: false
 strictDepBuilds: true
-onlyBuiltDependencies:
-  - 'esbuild'
+allowBuilds:
+  esbuild: true
+
+overrides:
+  archiver: 8.0.0
+patchedDependencies:
+  '@halo-dev/theme-package-cli@1.1.1': patches/@halo-dev__theme-package-cli@1.1.1.patch
 
 minimumReleaseAge: 10080
 minimumReleaseAgeStrict: true

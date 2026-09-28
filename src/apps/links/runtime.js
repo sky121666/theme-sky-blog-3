@@ -7,6 +7,7 @@ export const LINK_DETAIL_API = '/apis/console.api.link.halo.run/v1alpha1/links/-
 export const LINK_FEED_DISCOVERY_API = '/apis/console.api.link.halo.run/v1alpha1/rss/discovery';
 export const LINK_MANAGE_API = '/apis/console.api.link.halo.run/v1alpha1/links';
 export const LINK_CORE_API = '/apis/core.halo.run/v1alpha1/links';
+export const LINK_APPLICATION_API = '/apis/api.link.halo.run/v1alpha1/link-applications';
 export const CURRENT_USER_API = '/apis/api.console.halo.run/v1alpha1/users/-';
 export const USER_PERMISSIONS_API = '/apis/api.console.halo.run/v1alpha1/users';
 
@@ -33,6 +34,20 @@ export function normalizeUrl(value) {
   } catch {
     return '';
   }
+}
+
+export function buildLinkApplicationPayload(form, challengeId, captchaCode) {
+  const rssUrl = normalizeUrl(form.rssUrl);
+  return {
+    url: normalizeUrl(form.url),
+    displayName: String(form.displayName || '').trim(),
+    logo: normalizeUrl(form.logo),
+    description: String(form.description || '').trim(),
+    email: String(form.email || '').trim(),
+    feedUrls: rssUrl ? [rssUrl] : [],
+    challengeId,
+    captchaCode: String(captchaCode || '').trim()
+  };
 }
 
 export function buildCsrfHeaders(cookie = globalThis.document?.cookie || '') {
@@ -821,6 +836,8 @@ export function registerLinksExplorer(Alpine) {
     destroyed: false,
     _showBoardHandler: null,
     _popstateHandler: null,
+    _sameVariantCompleteHandler: null,
+    _pendingCanonicalUrl: false,
     _windowResizeHandler: null,
     _documentClickHandler: null,
     _documentKeydownHandler: null,
@@ -832,6 +849,11 @@ export function registerLinksExplorer(Alpine) {
       this.applyLocationState(true);
       this._showBoardHandler = () => this.showBoard(true);
       this._popstateHandler = () => this.applyLocationState(false);
+      this._sameVariantCompleteHandler = () => {
+        if (!this._pendingCanonicalUrl) return;
+        this._pendingCanonicalUrl = false;
+        this.syncUrl('replace');
+      };
       this._windowResizeHandler = () => this.syncWindowLayout();
       this._documentClickHandler = (event) => {
         if (!event.target?.closest?.('[data-feed-overflow]')) this.closeFeedMenus();
@@ -841,6 +863,7 @@ export function registerLinksExplorer(Alpine) {
       };
       window.addEventListener('links:show-board', this._showBoardHandler);
       window.addEventListener('popstate', this._popstateHandler);
+      document.addEventListener('pjax:same-variant-complete', this._sameVariantCompleteHandler);
       window.addEventListener('resize', this._windowResizeHandler);
       document.addEventListener('click', this._documentClickHandler);
       document.addEventListener('keydown', this._documentKeydownHandler);
@@ -858,6 +881,9 @@ export function registerLinksExplorer(Alpine) {
       this.capabilityController = null;
       if (this._showBoardHandler) window.removeEventListener('links:show-board', this._showBoardHandler);
       if (this._popstateHandler) window.removeEventListener('popstate', this._popstateHandler);
+      if (this._sameVariantCompleteHandler) {
+        document.removeEventListener('pjax:same-variant-complete', this._sameVariantCompleteHandler);
+      }
       if (this._windowResizeHandler) window.removeEventListener('resize', this._windowResizeHandler);
       if (this._documentClickHandler) document.removeEventListener('click', this._documentClickHandler);
       if (this._documentKeydownHandler) document.removeEventListener('keydown', this._documentKeydownHandler);
@@ -1217,7 +1243,8 @@ export function registerLinksExplorer(Alpine) {
         this.feedScope,
         this.canReadFeed
       );
-      const url = new URL(window.location.href);
+      const pendingTargetUrl = this.$root.closest('[data-pjax-target-url]')?.dataset.pjaxTargetUrl || '';
+      const url = new URL(pendingTargetUrl || window.location.href, window.location.origin);
       const requestedView = url.searchParams.get('view') || '';
       const requestedGroup = url.searchParams.get('group') || '';
       const requestedLink = url.searchParams.get('link') || '';
@@ -1274,7 +1301,10 @@ export function registerLinksExplorer(Alpine) {
       }
 
       this.mobileDetailOpen = this.detailOpen();
-      if (canonicalize && needsCanonicalUrl) this.syncUrl('replace');
+      if (canonicalize && needsCanonicalUrl) {
+        if (pendingTargetUrl) this._pendingCanonicalUrl = true;
+        else this.syncUrl('replace');
+      }
       this.syncDocumentChrome();
       if (!canonicalize && this.activeView === 'friends' && this.detailOpen()) {
         const nextFeedKey = currentFilterKey(
@@ -1315,8 +1345,40 @@ export function registerLinksExplorer(Alpine) {
       const target = `${url.pathname}${url.search}${url.hash}`;
       const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
       if (target === current) return;
+      const windowTitle = this.activeHeaderTitle() || this.allLinksTitle || '链接';
+      const title = this.siteTitle ? `${windowTitle} - ${this.siteTitle}` : windowTitle;
+      const chrome = { windowTitle, windowSubtitle: '' };
+      if (typeof window.__browserSyncUiHistoryState === 'function') {
+        const handled = window.__browserSyncUiHistoryState({ url: url.href, title, mode, chrome });
+        if (handled !== false) return;
+      }
       const method = mode === 'replace' ? 'replaceState' : 'pushState';
-      window.history[method](window.history.state, '', target);
+      const currentState = window.history.state;
+      const nextState = {
+        ...(currentState && typeof currentState === 'object' ? currentState : {}),
+        url: url.href,
+        title,
+        __browserNavChrome: chrome
+      };
+      if (method === 'pushState') {
+        nextState.uid = `pjax${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const currentIndex = Number.isFinite(currentState?.__browserNavIndex)
+          ? currentState.__browserNavIndex
+          : 0;
+        nextState.__browserNavIndex = Math.max(0, currentIndex) + 1;
+      }
+      window.history[method](nextState, title, target);
+      if (method === 'pushState') {
+        try {
+          window.sessionStorage?.setItem('sky_browser_nav_depth', String(nextState.__browserNavIndex));
+        } catch {
+          // History still works when storage is unavailable.
+        }
+        if (window.pjax) {
+          window.pjax.lastUid = nextState.uid;
+          window.pjax.maxUid = nextState.uid;
+        }
+      }
     },
 
     syncDocumentChrome() {
@@ -1347,8 +1409,10 @@ export function registerLinksExplorer(Alpine) {
       return this.fetchFeedPage({ replace: true });
     },
 
-    loadNextFeed() {
-      if (!this.feedHasNext || this.feedLoading) return Promise.resolve(false);
+    loadNextFeed({ automatic = false } = {}) {
+      if (!this.feedHasNext || this.feedLoading || automatic && this.feedStatus === 'error') {
+        return Promise.resolve(false);
+      }
       return this.fetchFeedPage({ replace: false });
     },
 
@@ -1455,7 +1519,7 @@ export function registerLinksExplorer(Alpine) {
             ? '检查当前用户 plugin:links:view 权限与 PluginLinks RSS 缓存。'
             : '检查链接插件的公开 RSS 设置与游标参数。'
         });
-        if (replace) {
+        if (replace && (this.feedItemCount === 0 || this.feedLoadedKey !== filterKey)) {
           this.$root.querySelector('[data-feed-list]')?.replaceChildren();
           this.feedItemCount = 0;
           this.feedHasNext = false;
@@ -1878,10 +1942,20 @@ export function registerLinkSubmitForm(Alpine) {
     submitGroups: [],
     capabilityStatus: 'idle',
     canManage: false,
+    applicationEnabled: false,
+    applicationUnavailable: false,
+    captchaLoading: false,
+    captchaImage: '',
+    challengeId: '',
+    captchaCode: '',
+    captchaController: null,
+    applicationSubmitController: null,
     capabilityController: null,
     capabilityPromise: null,
     submitting: false,
     submitted: false,
+    formRevision: 0,
+    opened: false,
     markdown: '',
     previewVisible: false,
     fetchingMeta: false,
@@ -1901,6 +1975,8 @@ export function registerLinkSubmitForm(Alpine) {
 
     init() {
       this.destroyed = false;
+      this.applicationEnabled = this.$root.dataset.linkApplicationEnabled === 'true';
+      this.$watch('form', () => this.onFormChange());
       this.submitGroups = Array.from(this.$root.querySelectorAll('[data-submit-group-option]'), (option) => ({
         groupName: option.value,
         displayName: option.textContent?.trim() || option.value
@@ -1909,27 +1985,97 @@ export function registerLinkSubmitForm(Alpine) {
       this._capabilitiesHandler = (event) => this.applyCapabilitySnapshot(event.detail || {});
       window.addEventListener('links:submit-open', this._openHandler);
       window.addEventListener('links:capabilities', this._capabilitiesHandler);
+      if (this.$root.closest('[data-links-initial-view]')?.dataset.linksInitialView === 'apply') {
+        this.prepareOpen();
+      }
     },
 
     destroy() {
       this.destroyed = true;
       this.cancelAutofill();
       this.capabilityController?.abort();
+      this.captchaController?.abort();
+      this.applicationSubmitController?.abort();
       this.capabilityController = null;
       this.capabilityPromise = null;
       if (this._openHandler) window.removeEventListener('links:submit-open', this._openHandler);
       if (this._capabilitiesHandler) window.removeEventListener('links:capabilities', this._capabilitiesHandler);
     },
 
-    prepareOpen() {
+    async prepareOpen() {
+      this.opened = true;
       this.result.show = false;
+      this.applicationUnavailable = false;
+      await this.ensureCapability();
+      await this.ensureApplicationCaptcha();
+    },
+
+    onFormChange() {
+      if (this.destroyed) return;
+      this.formRevision += 1;
+      this.submitted = false;
+      this.copied = false;
+      if (this.result.success) this.result.show = false;
+      return this.ensureApplicationCaptcha();
+    },
+
+    async ensureApplicationCaptcha() {
+      if (this.destroyed || this.submitting || this.submitted || this.captchaLoading
+        || this.challengeId || !this.isApplicationMode()) return;
+      await this.refreshCaptcha();
+    },
+
+    async refreshCaptcha() {
+      if (this.destroyed || !this.isApplicationMode()) return;
+      this.captchaController?.abort();
+      const controller = new AbortController();
+      this.captchaController = controller;
+      this.captchaLoading = true;
+      this.challengeId = '';
+      this.captchaImage = '';
+      this.captchaCode = '';
+      try {
+        const response = await fetch(`${LINK_APPLICATION_API}/captcha`, {
+          method: 'POST',
+          credentials: 'omit',
+          cache: 'no-store',
+          headers: { Accept: 'application/json' },
+          signal: controller.signal
+        });
+        if (!response.ok) throw statusError(response, await readErrorMessage(response));
+        const payload = await response.json();
+        if (!payload?.challengeId || !/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(payload.image || '')) {
+          throw new Error('验证码响应格式不符合 PluginLinks 2.3.0 契约');
+        }
+        if (controller.signal.aborted || this.destroyed) return;
+        this.challengeId = payload.challengeId;
+        this.captchaImage = payload.image;
+      } catch (error) {
+        if (controller.signal.aborted || this.destroyed) return;
+        this.applicationUnavailable = true;
+        this.result = {
+          show: true,
+          success: false,
+          warning: true,
+          message: `友链申请验证码暂不可用（${error?.message || '网络错误'}），已切换为留言申请。`
+        };
+      } finally {
+        if (this.captchaController === controller) {
+          this.captchaController = null;
+          this.captchaLoading = false;
+        }
+      }
     },
 
     applyCapabilitySnapshot(capabilities) {
+      if (this.destroyed) return;
       this.canManage = capabilities?.canManage === true;
       this.capabilityStatus = !capabilities?.authenticated
         ? 'guest'
         : this.canManage ? 'manager' : capabilities?.error ? 'error' : 'denied';
+      if (this.opened) {
+        this.ensureApplicationCaptcha();
+      }
     },
 
     async ensureCapability(force = false) {
@@ -1961,8 +2107,8 @@ export function registerLinkSubmitForm(Alpine) {
             success: false,
             warning: true,
             message: status === 403
-              ? '当前账号没有链接管理权限，已切换为留言申请。'
-              : `官方权限检查失败（${status ? `HTTP ${status}` : '网络或服务异常'}），已切换为留言申请。`
+              ? `当前账号没有链接管理权限，${this.applicationEnabled ? '将使用官方访客申请。' : '已切换为留言申请。'}`
+              : `官方权限检查失败（${status ? `HTTP ${status}` : '网络或服务异常'}），${this.applicationEnabled ? '将使用官方访客申请。' : '已切换为留言申请。'}`
           };
           return false;
         } finally {
@@ -1985,6 +2131,7 @@ export function registerLinkSubmitForm(Alpine) {
       if (this.capabilityStatus === 'checking') return '正在确认提交方式';
       if (this.canManage && this.form.type === 'add') return '管理员直连';
       if (this.canManage) return '修改申请 · 留言确认';
+      if (this.isApplicationMode()) return '官方访客申请';
       if (this.capabilityStatus === 'denied') return '已登录 · 无链接管理权限';
       if (this.capabilityStatus === 'error') return '权限检查失败 · 安全降级';
       return '访客申请';
@@ -1994,6 +2141,7 @@ export function registerLinkSubmitForm(Alpine) {
       if (this.capabilityStatus === 'checking') return '只检查当前 Halo 会话，不会请求目标站点。';
       if (this.canManage && this.form.type === 'add') return '识别和创建均通过站点受保护接口完成。';
       if (this.canManage) return '修改已有链接仍生成申请内容，避免直接覆盖。';
+      if (this.isApplicationMode()) return '通过 PluginLinks 官方申请接口提交，审核后才会加入友链。';
       if (this.capabilityStatus === 'denied') return '不会尝试受保护写入，只生成可复制的申请内容。';
       if (this.capabilityStatus === 'error') return '为避免误用后台能力，本次只使用访客申请流程。';
       return '浏览器识别目标站点，确认后复制申请到留言板。';
@@ -2019,6 +2167,7 @@ export function registerLinkSubmitForm(Alpine) {
       this.previewVisible = true;
       this.applyManualDraft(normalized);
       this.result.show = false;
+      await this.ensureApplicationCaptcha();
     },
 
     async autofillFromUrl() {
@@ -2032,6 +2181,8 @@ export function registerLinkSubmitForm(Alpine) {
       }
 
       await this.ensureCapability();
+      if (this.destroyed) return;
+      await this.ensureApplicationCaptcha();
       if (this.destroyed) return;
       this.clearStaleAutofill(normalized);
       this.fetchingMeta = true;
@@ -2065,6 +2216,7 @@ export function registerLinkSubmitForm(Alpine) {
             if (status === 401 || status === 403) {
               this.canManage = false;
               this.capabilityStatus = status === 401 ? 'guest' : 'denied';
+              await this.ensureApplicationCaptcha();
             }
           }
         }
@@ -2161,6 +2313,7 @@ export function registerLinkSubmitForm(Alpine) {
       this.submitted = false;
       this.copied = false;
       this.markdown = this.buildMarkdown(this.form.url);
+      return this.ensureApplicationCaptcha();
     },
 
     isUpdateMode() {
@@ -2171,8 +2324,19 @@ export function registerLinkSubmitForm(Alpine) {
       return this.canManage && !this.isUpdateMode();
     },
 
+    isApplicationMode() {
+      return this.applicationEnabled && !this.applicationUnavailable
+        && !this.canManage && !this.isUpdateMode();
+    },
+
     isMessageMode() {
-      return !this.isDirectCreateMode();
+      return !this.isDirectCreateMode() && !this.isApplicationMode();
+    },
+
+    canSubmitApplication() {
+      return !this.submitting && !this.submitted && !this.fetchingMeta
+        && this.isApplicationMode() && Boolean(this.challengeId)
+        && this.formValidationMessage() === '';
     },
 
     canCreateDirect() {
@@ -2200,10 +2364,12 @@ export function registerLinkSubmitForm(Alpine) {
       if (this.submitted) return '';
       if (!normalizeUrl(this.form.url)) return '请填写有效的 HTTP 或 HTTPS 网站地址。';
       if (!String(this.form.displayName || '').trim()) return '请填写网站名称。';
-      if (!String(this.form.description || '').trim()) return '请填写网站描述。';
+      if (!this.isApplicationMode() && !String(this.form.description || '').trim()) return '请填写网站描述。';
       if (this.form.logo && !normalizeUrl(this.form.logo)) return 'Logo 必须是有效的 HTTP 或 HTTPS 地址。';
       if (this.form.rssUrl && !normalizeUrl(this.form.rssUrl)) return 'RSS 必须是有效的 HTTP 或 HTTPS 地址。';
       if (this.isUpdateMode() && !String(this.form.updateDescription || '').trim()) return '修改申请需要填写修改说明。';
+      if (this.isApplicationMode() && !this.challengeId) return '正在获取申请验证码。';
+      if (this.isApplicationMode() && this.captchaCode.trim().length !== 5) return '请输入图片中的五位验证码。';
       return '';
     },
 
@@ -2213,6 +2379,7 @@ export function registerLinkSubmitForm(Alpine) {
         if (this.submitting) return '正在添加…';
         return '添加到链接管理';
       }
+      if (this.isApplicationMode()) return this.submitted ? '已提交审核' : this.submitting ? '正在提交…' : '提交友链申请';
       if (this.isUpdateMode()) return this.copied ? '已复制' : '复制修改申请到留言板';
       return this.copied ? '已复制' : '复制并前往留言板';
     },
@@ -2221,8 +2388,50 @@ export function registerLinkSubmitForm(Alpine) {
       if (this.isDirectCreateMode()) return this.submitted
         ? '链接已经写入 PluginLinks，刷新页面后可见。'
         : '将通过 Halo 受保护的标准 Link CRUD 接口直接创建。';
+      if (this.isApplicationMode()) return '申请将进入 PluginLinks 审核队列，不会直接展示为友链。';
       if (this.isUpdateMode()) return '修改申请不会直接覆盖现有链接，由管理员确认后处理。';
-      return '访客没有公开写入接口；复制后会切换到留言板。';
+      return '申请接口未开放时，可复制内容并前往留言板。';
+    },
+
+    async submitApplication() {
+      if (!this.canSubmitApplication()) return;
+      this.submitting = true;
+      this.result.show = false;
+      const controller = new AbortController();
+      this.applicationSubmitController = controller;
+      const formSnapshot = JSON.stringify(this.form);
+      const formRevision = this.formRevision;
+      try {
+        const response = await fetch(LINK_APPLICATION_API, {
+          method: 'POST',
+          credentials: 'omit',
+          headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+          body: JSON.stringify(buildLinkApplicationPayload(this.form, this.challengeId, this.captchaCode)),
+          signal: controller.signal
+        });
+        if (response.status !== 201) throw statusError(response, await readErrorMessage(response));
+        if (controller.signal.aborted || this.destroyed) return;
+        this.submitted = formRevision === this.formRevision && formSnapshot === JSON.stringify(this.form);
+        this.challengeId = '';
+        this.captchaImage = '';
+        this.captchaCode = '';
+        this.result = {
+          show: true, success: true, warning: false,
+          message: this.submitted
+            ? '友链申请已提交，等待管理员审核。'
+            : '上一份友链申请已提交，等待管理员审核；当前表单的修改尚未提交。'
+        };
+      } catch (error) {
+        if (controller.signal.aborted || this.destroyed) return;
+        this.result = { show: true, success: false, warning: false, message: `申请失败：${error?.message || '网络错误'}。请检查填写内容后重试。` };
+        await this.refreshCaptcha();
+      } finally {
+        if (this.applicationSubmitController === controller) {
+          this.applicationSubmitController = null;
+          this.submitting = false;
+          await this.ensureApplicationCaptcha();
+        }
+      }
     },
 
     async createLink() {
@@ -2230,6 +2439,10 @@ export function registerLinkSubmitForm(Alpine) {
       this.submitting = true;
       this.result.show = false;
       const payload = buildPluginLinkPayload(this.form);
+      const formSnapshot = JSON.stringify(this.form);
+      const formRevision = this.formRevision;
+      const controller = new AbortController();
+      this.applicationSubmitController = controller;
 
       try {
         const response = await fetch(LINK_CORE_API, {
@@ -2240,17 +2453,22 @@ export function registerLinkSubmitForm(Alpine) {
             'Content-Type': 'application/json',
             ...buildCsrfHeaders()
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
+          signal: controller.signal
         });
         if (!response.ok) throw statusError(response, await readErrorMessage(response));
-        this.submitted = true;
+        if (controller.signal.aborted || this.destroyed) return;
+        this.submitted = formRevision === this.formRevision && formSnapshot === JSON.stringify(this.form);
         this.result = {
           show: true,
           success: true,
           warning: false,
-          message: '友链已添加到 PluginLinks。'
+          message: this.submitted
+            ? '友链已添加到 PluginLinks。'
+            : '上一份友链已添加到 PluginLinks；当前表单的修改尚未提交。'
         };
       } catch (error) {
+        if (controller.signal.aborted || this.destroyed) return;
         const status = Number(error?.status || 0);
         if (status === 401 || status === 403) {
           this.canManage = false;
@@ -2266,10 +2484,14 @@ export function registerLinkSubmitForm(Alpine) {
           show: true,
           success: false,
           warning: false,
-          message: `${formatCreateFailure(error)}${status === 401 || status === 403 ? ' 已切换为留言申请。' : ''}`
+          message: `${formatCreateFailure(error)}${status === 401 || status === 403 ? (this.applicationEnabled ? ' 可改用官方访客申请。' : ' 已切换为留言申请。') : ''}`
         };
       } finally {
-        this.submitting = false;
+        if (this.applicationSubmitController === controller) {
+          this.applicationSubmitController = null;
+          this.submitting = false;
+          await this.ensureApplicationCaptcha();
+        }
       }
     },
 

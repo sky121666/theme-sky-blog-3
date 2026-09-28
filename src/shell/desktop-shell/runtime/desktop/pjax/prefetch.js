@@ -10,7 +10,7 @@
 import { ensureAppCssLoaded, inferPageAppFromUrl } from './css-router.js';
 import { createLogger } from '../../shared/debug.js';
 
-const { log: prefetchLog } = createLogger('pjax');
+const { log: prefetchLog, warn: prefetchWarn } = createLogger('pjax');
 
 const HIGH_FREQ_PATHS = new Set(['/moments', '/links', '/categories', '/tags', '/archives']);
 
@@ -45,7 +45,11 @@ function doPrefetch(url) {
   // Prefetch pageApp CSS
   const appName = inferPageAppFromUrl(u);
   if (appName) {
-    ensureAppCssLoaded(appName);
+    ensureAppCssLoaded(appName).catch((error) => {
+      _prefetchedUrls.delete(pathname);
+      link.remove();
+      prefetchWarn('prefetch failed:', pathname, error?.message || error);
+    });
   }
 
   prefetchLog('prefetch:', pathname, appName ? `+ ${appName}.css` : '');

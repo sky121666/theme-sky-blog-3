@@ -9,36 +9,36 @@ const root = process.cwd();
 // optional plugins remain optional unless --strict-theme is explicitly enabled.
 export const THEME_PLUGIN_MANIFEST = Object.freeze([
   { id: 'plugin-bilibili-bangumi', expectedVersion: '1.4.1', aliases: [] },
-  { id: 'plugin-docsme', expectedVersion: '1.7.0', aliases: [] },
+  { id: 'plugin-docsme', expectedVersion: '1.10.0', aliases: [] },
   { id: 'PluginPhotos', expectedVersion: '2.1.2', aliases: [] },
-  { id: 'PluginMoments', expectedVersion: '1.16.1', aliases: [] },
-  { id: 'PluginLinks', expectedVersion: '2.2.1', aliases: ['plugin-links'] },
+  { id: 'PluginMoments', expectedVersion: '1.19.0', aliases: [] },
+  { id: 'PluginLinks', expectedVersion: '2.3.0', aliases: ['plugin-links'] },
   { id: 'halo-plugin-steam', expectedVersion: '1.0.0', aliases: ['steam', 'PluginSteam', 'plugin-steam'] },
   { id: 'plugin-equipment', expectedVersion: '1.1.1', aliases: ['equipment'] },
-  { id: 'PluginCommentWidget', expectedVersion: '3.1.2', aliases: ['plugin-comment-widget'] },
+  { id: 'PluginCommentWidget', expectedVersion: '3.3.2', aliases: ['plugin-comment-widget'] },
   { id: 'PluginSearchWidget', expectedVersion: '1.7.1', aliases: ['plugin-search-widget'] },
   { id: 'auth-passkey', expectedVersion: '1.0.4', aliases: [] },
-  { id: 'plugin-shiki', expectedVersion: '1.4.1', aliases: ['shiki'] },
+  { id: 'plugin-shiki', expectedVersion: '1.5.1', aliases: ['shiki'] },
   { id: 'plugin-katex', expectedVersion: '3.0.0', aliases: [] },
   { id: 'text-diagram', expectedVersion: '1.5.2', aliases: [] },
-  { id: 'seo-tools', expectedVersion: '1.9.5', aliases: ['plugin-seo-tools'] },
+  { id: 'seo-tools', expectedVersion: '1.10.1', aliases: ['plugin-seo-tools'] },
   { id: 'PluginLightGallery', expectedVersion: '1.2.1', aliases: ['plugin-lightgallery'] },
   { id: 'plugin-online', expectedVersion: '1.0.5', aliases: ['online'] },
-  { id: 'plugin-douban', expectedVersion: '1.2.5', aliases: [] },
+  { id: 'plugin-douban', expectedVersion: '1.2.6', aliases: [] },
   { id: 'PluginFeed', expectedVersion: '1.5.0', aliases: ['plugin-feed'] },
   { id: 'PluginContactForm', expectedVersion: '1.6.4', aliases: ['plugin-contact-form'] },
   { id: 'editor-hyperlink-card', expectedVersion: '1.9.2', aliases: ['plugin-editor-hyperlink-card'] },
   { id: 'lottery', expectedVersion: '1.0.2', aliases: ['plugin-lottery'] },
-  { id: 'restricted-reading', expectedVersion: '1.8.1', aliases: ['plugin-restricted-reading'] },
+  { id: 'restricted-reading', expectedVersion: '1.9.1', aliases: ['plugin-restricted-reading'] },
   { id: 'vote', expectedVersion: '1.1.3', aliases: ['plugin-vote'] },
-  { id: 'ai-assistant', expectedVersion: '2.2.4', aliases: ['plugin-ai-assistant'] }
+  { id: 'ai-assistant', expectedVersion: '3.1.0', aliases: ['plugin-ai-assistant'] }
 ].map((entry) => Object.freeze({
   ...entry,
   aliases: Object.freeze([...entry.aliases])
 })));
 
 const COMPATIBILITY_PINS = new Map([
-  ['PluginLinks', '2.2.1']
+  ['PluginLinks', '2.3.0']
 ]);
 
 function nameKey(value) {

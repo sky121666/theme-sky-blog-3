@@ -10,7 +10,7 @@ const TYPE_LABELS = {
 
 const STATUS_ORDER = ['doing', 'mark', 'done'];
 const CACHE_TTL = 5 * 60 * 1000;
-const CACHE_PREFIX = 'theme:douban-showcase:v1:';
+const CACHE_PREFIX = 'theme:douban-showcase:v2:';
 const DATA_CACHE = new Map();
 const { warn: debugWarn } = createLogger('douban-widget');
 
@@ -112,11 +112,15 @@ function pageTotal(page) {
 }
 
 function itemSpec(item) {
-  return item?.spec || {};
+  return item?.spec || item || {};
 }
 
 function itemFaves(item) {
-  return item?.faves || {};
+  return item?.faves || {
+    status: item?.favesStatus,
+    score: item?.favesScore,
+    remark: item?.favesRemark
+  };
 }
 
 function itemTitle(item) {
@@ -144,7 +148,7 @@ function starText(score) {
   return `${'★'.repeat(count)}${'☆'.repeat(5 - count)}`;
 }
 
-function itemSummary(item) {
+export function itemSummary(item) {
   const spec = itemSpec(item);
   const faves = itemFaves(item);
   const genres = itemGenres(item);
@@ -208,7 +212,37 @@ async function fetchCollection(apiBase, type, configuredStatus, signal) {
   return { page, status: configuredStatus === 'auto' ? 'all' : configuredStatus };
 }
 
+function subscribeToCollection(entry, cacheKey, signal) {
+  return new Promise((resolve, reject) => {
+    const consumer = {};
+    const release = () => {
+      entry.consumers.delete(consumer);
+      signal?.removeEventListener('abort', cancel);
+    };
+    const cancel = () => {
+      release();
+      if (!entry.settled && entry.consumers.size === 0) {
+        if (DATA_CACHE.get(cacheKey) === entry) DATA_CACHE.delete(cacheKey);
+        entry.controller.abort();
+      }
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+    entry.consumers.add(consumer);
+    signal?.addEventListener('abort', cancel, { once: true });
+    entry.promise.then((data) => {
+      release();
+      if (signal?.aborted) reject(new DOMException('Aborted', 'AbortError'));
+      else resolve(data);
+    }, (error) => {
+      release();
+      reject(error);
+    });
+    if (signal?.aborted) cancel();
+  });
+}
+
 async function loadShowcaseData(apiBase, configuredType, configuredStatus, signal) {
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
   const cacheKey = [apiBase, configuredType || 'auto', configuredStatus || 'auto'].join('|');
   const cached = DATA_CACHE.get(cacheKey);
   const now = Date.now();
@@ -224,28 +258,30 @@ async function loadShowcaseData(apiBase, configuredType, configuredStatus, signa
     return stored;
   }
   if (cached?.promise) {
-    return cached.promise;
+    return subscribeToCollection(cached, cacheKey, signal);
   }
 
-  const promise = (async () => {
-    const type = await resolveType(null, apiBase, configuredType, signal);
-    const result = await fetchCollection(apiBase, type, configuredStatus, signal);
+  const entry = { consumers: new Set(), controller: new AbortController(), settled: false, time: now };
+  entry.promise = (async () => {
+    const type = await resolveType(null, apiBase, configuredType, entry.controller.signal);
+    const result = await fetchCollection(apiBase, type, configuredStatus, entry.controller.signal);
     return {
       type,
       status: result.status,
       total: pageTotal(result.page),
       items: pageItems(result.page).map(itemSummary).filter((item) => item.title)
     };
-  })();
-
-  DATA_CACHE.set(cacheKey, { promise, time: now });
-  try {
-    const data = await promise;
-    DATA_CACHE.set(cacheKey, { data, time: Date.now() });
-    writeStoredCache(cacheKey, data);
+  })().then((data) => {
+    entry.settled = true;
+    if (DATA_CACHE.get(cacheKey) === entry && !entry.controller.signal.aborted) {
+      DATA_CACHE.set(cacheKey, { data, time: Date.now() });
+      writeStoredCache(cacheKey, data);
+    }
     return data;
-  } catch (error) {
-    DATA_CACHE.delete(cacheKey);
+  }).catch((error) => {
+    entry.settled = true;
+    if (DATA_CACHE.get(cacheKey) === entry) DATA_CACHE.delete(cacheKey);
+    if (entry.controller.signal.aborted) throw error;
     debugWarn('豆瓣小组件数据加载失败', {
       cacheKey,
       message: error?.message || String(error || ''),
@@ -253,7 +289,9 @@ async function loadShowcaseData(apiBase, configuredType, configuredStatus, signa
       hint: '检查 plugin-douban 是否安装、公开 API 是否可访问，以及组件配置的类型/状态。'
     });
     throw error;
-  }
+  });
+  DATA_CACHE.set(cacheKey, entry);
+  return subscribeToCollection(entry, cacheKey, signal);
 }
 
 function setText(root, selector, value) {
@@ -419,7 +457,7 @@ function mountDoubanShowcase(root) {
   root.addEventListener('focusin', stop, { signal: eventController.signal });
   root.addEventListener('focusout', pauseThenResume, { signal: eventController.signal });
   root.addEventListener('error', handleImageError, { signal: eventController.signal, capture: true });
-  root.addEventListener('pointerover', (event) => {
+  const selectItem = (event) => {
     if (isEditingOrDragging()) return;
     const button = event.target.closest('[data-douban-index]');
     if (!button) return;
@@ -428,7 +466,10 @@ function mountDoubanShowcase(root) {
     if (next === activeIndex) return;
     activeIndex = next;
     updateActive(root, items, activeIndex, total, resolvedType, resolvedStatus, { renderRail: false });
-  }, { signal: eventController.signal });
+  };
+  root.addEventListener('pointerover', selectItem, { signal: eventController.signal });
+  root.addEventListener('click', selectItem, { signal: eventController.signal });
+  root.addEventListener('focusin', selectItem, { signal: eventController.signal });
 
   (async () => {
     try {
@@ -438,7 +479,7 @@ function mountDoubanShowcase(root) {
       total = data.total;
       items = data.items;
 
-      if (!root.isConnected) return;
+      if (!root.isConnected || abortController.signal.aborted) return;
       if (!items.length) {
         root.classList.add('is-empty');
         setText(root, '[data-douban-heading]', `${TYPE_LABELS[resolvedType] || '书影音'} · 暂无记录`);
@@ -460,7 +501,7 @@ function mountDoubanShowcase(root) {
       setText(root, '[data-douban-remark]', '组件使用插件公开 API，不读取页面 DOM。');
       root.dataset.doubanHydrated = 'true';
     } finally {
-      root.dataset.doubanLoading = 'false';
+      if (!abortController.signal.aborted) root.dataset.doubanLoading = 'false';
     }
   })();
 }

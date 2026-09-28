@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+await import('./verify-shell-config-import-boundary.mjs');
+await import('./verify-theme-config-lazy-loader.mjs');
+
 const root = process.cwd();
 const originalFetch = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
 const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
@@ -111,16 +114,18 @@ try {
   assert.equal(putHeaders[0]['X-XSRF-TOKEN'], 'test-token', '配置写入必须携带 Halo CSRF 令牌');
 
   let lockRequests = 0;
+  const lockController = new AbortController();
   setGlobal('navigator', {
     locks: {
       request(_name, options, task) {
         lockRequests += 1;
         assert.equal(options.mode, 'exclusive');
+        assert.equal(options.signal, lockController.signal, '锁等待必须使用调用方的取消信号');
         return task();
       }
     }
   });
-  await client.mutateThemeConfig('/theme/locked', (current) => ({ ...current, locked: true }));
+  await client.mutateThemeConfig('/theme/locked', (current) => ({ ...current, locked: true }), { signal: lockController.signal });
   assert.equal(lockRequests, 1, '支持 Web Locks 时必须取得跨标签页独占锁');
 
   let redirectStep = 0;
@@ -159,6 +164,62 @@ try {
     (error) => error?.code === 'timeout',
     '主题配置请求必须在截止时间后中断'
   );
+
+  // Headers can arrive immediately while the JSON body never completes.
+  // This mock deliberately does not observe abort: the outer deadline must
+  // bound the entire operation as well as cancelling the underlying fetch.
+  let bodySignal;
+  const stalledBody = () => ({
+    ...createResponse(null),
+    json: () => new Promise(() => {})
+  });
+  setGlobal('fetch', async (_url, options) => {
+    bodySignal = options.signal;
+    return stalledBody();
+  });
+  await assert.rejects(
+    client.readThemeConfig('/theme/stalled-body', { timeoutMs: 5 }),
+    (error) => error?.code === 'timeout',
+    '收到响应头后，正文读取仍必须受到超时保护'
+  );
+  assert.equal(bodySignal.aborted, true, '正文超时必须取消底层请求');
+
+  const parent = new AbortController();
+  const cancelledRead = client.readThemeConfig('/theme/cancel-body', {
+    signal: parent.signal, timeoutMs: 1000
+  });
+  await Promise.resolve();
+  parent.abort(new DOMException('user cancelled', 'AbortError'));
+  await assert.rejects(cancelledRead, (error) => error?.name === 'AbortError');
+  assert.equal(bodySignal.aborted, true, '正文读取阶段仍须传递父级取消');
+
+  let queueReads = 0;
+  const recoveredMethods = [];
+  setGlobal('fetch', async (_url, options) => {
+    const method = options.method || 'GET';
+    recoveredMethods.push(method);
+    if (method === 'GET' && ++queueReads === 1) return stalledBody();
+    return createResponse({ value: 1 });
+  });
+  const failedMutation = client.mutateThemeConfig('/theme/recover-queue',
+    (current) => ({ ...current, value: 2 }), { timeoutMs: 5 });
+  const nextMutation = client.mutateThemeConfig('/theme/recover-queue',
+    (current) => ({ ...current, value: 3 }), { timeoutMs: 1000 });
+  await assert.rejects(failedMutation, (error) => error?.code === 'timeout');
+  assert.equal((await nextMutation).config.value, 3);
+  assert.deepEqual(recoveredMethods, ['GET', 'GET', 'PUT'],
+    '首项正文超时后必须释放队列，后续保存重新读取配置再写入');
+
+  let putCount = 0;
+  setGlobal('fetch', async (_url, options) => {
+    if (options.method !== 'PUT') return createResponse({ value: 1 });
+    putCount += 1;
+    return stalledBody();
+  });
+  await assert.rejects(client.mutateThemeConfig('/theme/stalled-put',
+    (current) => ({ ...current, value: 2 }), { timeoutMs: 5 }),
+  (error) => error?.code === 'timeout' && error.message === '保存请求超时，结果尚未确认，请重新读取配置后再保存');
+  assert.equal(putCount, 1, '写入响应不确定时不得自动重试 PUT 或宣称保存成功');
 
   console.log('theme config client contract passed');
 } finally {

@@ -129,6 +129,7 @@
                     if (!input) return;
                     var isPassword = input.type === 'password';
                     input.type = isPassword ? 'text' : 'password';
+                    btn.setAttribute('aria-pressed', String(isPassword));
                     var showIcon = wrap.querySelector('.auth-icon-eye-show');
                     var hideIcon = wrap.querySelector('.auth-icon-eye-hide');
                     if (showIcon) showIcon.style.display = isPassword ? 'none' : 'block';

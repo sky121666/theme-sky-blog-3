@@ -8,6 +8,16 @@ export function isPlainPrimaryNavigationEvent(event) {
   return !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
 }
 
+/** Reverse a popstate that was rejected after the browser changed entries. */
+export function cancelledPopstateRollbackDelta(sourceIndex, targetIndex, options = {}) {
+  if (Number.isFinite(sourceIndex) && Number.isFinite(targetIndex) && sourceIndex !== targetIndex) {
+    return sourceIndex - targetIndex;
+  }
+  if (options.backward) return 1;
+  if (options.forward) return -1;
+  return 0;
+}
+
 /**
  * Pjax copies request options onto its lifecycle events. Missing or malformed
  * intent tags are treated as legacy/current events; a valid positive tag must

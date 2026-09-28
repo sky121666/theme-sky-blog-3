@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import {
   CURRENT_USER_API,
   LINK_CORE_API,
+  LINK_APPLICATION_API,
   LINK_DETAIL_API,
   LINK_FEED_API,
   LINK_FEED_CONSOLE_API,
@@ -10,6 +11,7 @@ import {
   LINK_FEED_UNREAD_SUMMARY_API,
   USER_PERMISSIONS_API,
   buildCsrfHeaders,
+  buildLinkApplicationPayload,
   buildLinkFeedApiUrl,
   buildPluginLinkPayload,
   formatBackendMetadataFailure,
@@ -20,6 +22,7 @@ import {
   normalizeLinkCapabilities,
   normalizeUrl,
   parseSiteMetadata,
+  registerLinksExplorer,
   registerLinkSubmitForm,
   resolveMetadataUrl,
   sanitizePlainText
@@ -37,7 +40,10 @@ assert.match(linksPage, /initialFeedPage=\$\{feedPublicSources and currentView =
 assert.match(linksPage, /linkFeedFinder\.list\(\{limit: 20/);
 assert.match(linksPage, /windowMetricsKey = 'links-wechat-v1'/);
 assert.match(linksPage, /windowMaximizable = false/);
-assert.match(linksTemplate, /plugin-contract: PluginLinks; contract-version: 2\.2\.1; tested-version: 2\.2\.1/);
+assert.match(linksTemplate, /plugin-contract: PluginLinks; surface: visitor-application; contract-version: 2\.3\.0/);
+assert.match(linksTemplate, /data-link-application-enabled=\$\{linkApplicationEnabled == true\}/);
+assert.match(linksTemplate, /isApplicationMode\(\) \? submitApplication\(\)/);
+assert.match(linksTemplate, /x-bind:src="captchaImage \|\| null"/);
 assert.match(linksTemplate, /class="links-rail"/);
 assert.match(linksTemplate, /class="links-list-pane"/);
 assert.match(linksTemplate, /class="links-detail-pane"/);
@@ -139,6 +145,24 @@ assert.match(linksRuntime, new RegExp(USER_PERMISSIONS_API.replaceAll('/', '\\/'
 
 assert.equal(normalizeUrl('https://example.test/path'), 'https://example.test/path');
 assert.equal(normalizeUrl('http://example.test/path'), 'http://example.test/path');
+assert.deepEqual(buildLinkApplicationPayload({
+  url: 'https://example.test/',
+  displayName: ' 示例 ',
+  description: ' 说明 ',
+  logo: '',
+  email: 'a@example.test',
+  rssUrl: 'https://example.test/rss.xml',
+  groupName: 'friends'
+}, 'challenge-1', 'aB123'), {
+  url: 'https://example.test/',
+  displayName: '示例',
+  logo: '',
+  description: '说明',
+  email: 'a@example.test',
+  feedUrls: ['https://example.test/rss.xml'],
+  challengeId: 'challenge-1',
+  captchaCode: 'aB123'
+});
 assert.equal(resolveMetadataUrl('/favicon.svg', 'https://example.test/path'), 'https://example.test/favicon.svg');
 assert.equal(resolveMetadataUrl('data:image/svg+xml,test', 'https://example.test/'), '');
 assert.equal(sanitizePlainText('测试<br><strong>友链</strong>&nbsp;&amp; 安全'), '测试 友链 & 安全');
@@ -324,6 +348,99 @@ function fakeResponse(status, payload = {}, options = {}) {
   };
 }
 
+let explorerFactory = null;
+registerLinksExplorer({
+  data(name, componentFactory) {
+    assert.equal(name, 'linksExplorer');
+    explorerFactory = componentFactory;
+  }
+});
+assert.equal(typeof explorerFactory, 'function');
+{
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const historyCalls = [];
+  const storageCalls = [];
+  const history = {
+    state: {
+      url: 'https://halo.test/links?keep=1', title: '旧标题', uid: 'existing', keep: true,
+      __browserNavIndex: 3, scrollPos: [4, 5], __browserWindowScroll: [6, 7]
+    },
+    pushState(...args) { historyCalls.push({ mode: 'push', args }); this.state = args[0]; },
+    replaceState(...args) { historyCalls.push({ mode: 'replace', args }); this.state = args[0]; }
+  };
+  const testWindow = {
+    location: new URL('https://halo.test/links?keep=1'),
+    history,
+    sessionStorage: { setItem(...args) { storageCalls.push(args); } },
+    pjax: { lastUid: 'existing', maxUid: 'existing' },
+    __browserSyncUiHistoryState(options) { historyCalls.push({ mode: 'helper', options }); }
+  };
+  try {
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: testWindow });
+    const explorer = explorerFactory();
+    explorer.allLinksTitle = '全部友链';
+    explorer.siteTitle = '示例站点';
+    explorer.groups = [{ key: 'tools', label: '工具' }];
+    explorer.selectedGroup = 'tools';
+    explorer.syncUrl('push');
+    assert.deepEqual(historyCalls, [{
+      mode: 'helper',
+      options: {
+        url: 'https://halo.test/links?keep=1&group=tools',
+        title: '工具 - 示例站点',
+        mode: 'push',
+        chrome: { windowTitle: '工具', windowSubtitle: '' }
+      }
+    }]);
+
+    const previousState = history.state;
+    testWindow.__browserSyncUiHistoryState = (options) => {
+      historyCalls.push({ mode: 'helper-rejected', options });
+      return false;
+    };
+    explorer.syncUrl('push');
+    const pushedState = historyCalls[2].args[0];
+    assert.equal(historyCalls[1].mode, 'helper-rejected');
+    assert.equal(historyCalls[2].mode, 'push');
+    assert.notEqual(pushedState, previousState);
+    assert.equal(pushedState.url, 'https://halo.test/links?keep=1&group=tools');
+    assert.equal(pushedState.title, '工具 - 示例站点');
+    assert.equal(pushedState.keep, true);
+    assert.deepEqual(pushedState.scrollPos, [4, 5]);
+    assert.deepEqual(pushedState.__browserWindowScroll, [6, 7]);
+    assert.equal(pushedState.__browserNavIndex, 4);
+    assert.match(pushedState.uid, /^pjax\d+_[a-z0-9]+$/);
+    assert.notEqual(pushedState.uid, previousState.uid);
+    assert.deepEqual(storageCalls, [['sky_browser_nav_depth', '4']]);
+    assert.equal(testWindow.pjax.lastUid, pushedState.uid);
+    assert.equal(testWindow.pjax.maxUid, pushedState.uid);
+
+    delete testWindow.__browserSyncUiHistoryState;
+    testWindow.location = new URL('https://halo.test/links?keep=1&group=stale');
+    explorer.selectedGroup = '';
+    explorer.syncUrl('replace');
+    const fallback = historyCalls[3];
+    assert.equal(fallback.mode, 'replace');
+    assert.deepEqual(fallback.args, [
+      {
+        ...pushedState,
+        url: 'https://halo.test/links?keep=1',
+        title: '全部友链 - 示例站点',
+        __browserNavChrome: { windowTitle: '全部友链', windowSubtitle: '' }
+      },
+      '全部友链 - 示例站点',
+      '/links?keep=1'
+    ]);
+    assert.notEqual(fallback.args[0], pushedState, 'fallback must not mutate the existing history entry');
+    assert.equal(fallback.args[0].uid, pushedState.uid);
+    assert.equal(fallback.args[0].__browserNavIndex, pushedState.__browserNavIndex);
+    assert.equal(storageCalls.length, 1, 'replace must not advance browser history depth');
+  } finally {
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
+    else delete globalThis.window;
+  }
+}
+
 let factory = null;
 registerLinkSubmitForm({
   data(name, componentFactory) {
@@ -335,6 +452,15 @@ assert.equal(typeof factory, 'function');
 
 function createModel() {
   const model = factory();
+  const watchers = new Map();
+  model.$watch = (name, callback) => watchers.set(name, callback);
+  model.$root = {
+    dataset: { linkApplicationEnabled: 'false' },
+    querySelectorAll: () => [],
+    closest: () => null
+  };
+  model.init();
+  model.notifyFormChange = () => watchers.get('form')();
   model.form = {
     ...model.form,
     type: 'add',
@@ -402,6 +528,45 @@ try {
     rssUrl: 'https://metadata.test/rss.xml',
     platform: 'Halo'
   });
+
+  const retainedFeedCard = { dataset: { feedId: 'feed-1' } };
+  const retainedFeedList = {
+    cards: [retainedFeedCard],
+    replaceChildren() { this.cards = []; },
+    querySelectorAll() { return this.cards; }
+  };
+  const refreshingFeed = explorerFactory();
+  refreshingFeed.$root = {
+    querySelector(selector) { return selector === '[data-feed-list]' ? retainedFeedList : null; }
+  };
+  const retainedFeedItem = { id: 'feed-1', title: '已加载动态' };
+  refreshingFeed.feedItems = [retainedFeedItem];
+  refreshingFeed.feedItemCount = 1;
+  refreshingFeed.feedHasNext = true;
+  refreshingFeed.feedNextId = 'next-id';
+  refreshingFeed.feedNextPublishedAt = '2026-07-21T00:00:00Z';
+  refreshingFeed.feedLoadedKey = 'public:all';
+  refreshingFeed.feedStatus = 'ready';
+  globalThis.fetch = async () => fakeResponse(503, { detail: '暂时不可用' });
+  await refreshingFeed.replaceFeed();
+  assert.deepEqual(retainedFeedList.cards, [retainedFeedCard], 'same-filter refresh failure must keep visible feed cards');
+  assert.deepEqual(refreshingFeed.feedItems, [retainedFeedItem], 'same-filter refresh failure must keep feed detail data');
+  assert.equal(refreshingFeed.feedItemCount, 1);
+  assert.equal(refreshingFeed.feedHasNext, true, 'same-filter refresh failure must keep the next-page cursor');
+  assert.equal(refreshingFeed.feedNextId, 'next-id');
+  assert.equal(refreshingFeed.feedStatus, 'error', 'failed refresh must still expose a retry action');
+
+  let failedPageRequests = 0;
+  globalThis.fetch = async () => {
+    failedPageRequests += 1;
+    return fakeResponse(503, { detail: '暂时不可用' });
+  };
+  await refreshingFeed.loadNextFeed({ automatic: true });
+  assert.equal(failedPageRequests, 0, 'intersection must stop retrying a failed feed cursor');
+  await refreshingFeed.loadNextFeed();
+  assert.equal(failedPageRequests, 1, 'the visible continue button must still retry the failed cursor');
+  assert.match(linksTemplate, /x-intersect\.margin\.240px="loadNextFeed\(\{ automatic: true \}\)"/,
+    'the intersection observer must use the guarded automatic path');
 
   const guestRequests = [];
   globalThis.fetch = async (url, options = {}) => {
@@ -517,6 +682,163 @@ try {
   assert.match(copiedDrafts.at(-1), /^申请交换友链：/);
   assert.match(copiedDrafts.at(-1), /- 联系邮箱：hello@example\.test/);
   assert.match(copiedDrafts.at(-1), /- RSS 链接：https:\/\/example\.test\/rss\.xml/);
+
+  const applicationRequests = [];
+  globalThis.fetch = async (url, options = {}) => {
+    applicationRequests.push({ url: String(url), options });
+    if (String(url).endsWith('/captcha')) {
+      return fakeResponse(200, { challengeId: 'challenge-1', image: 'data:image/png;base64,aGVsbG8=' });
+    }
+    return fakeResponse(201, { id: 'link-app-1', status: 'PENDING' });
+  };
+  const applicationModel = createModel();
+  applicationModel.applicationEnabled = true;
+  applicationModel.capabilityStatus = 'guest';
+  applicationModel.form.email = 'a@example.test';
+  applicationModel.form.rssUrl = 'https://example.test/rss.xml';
+  applicationModel.form.description = '';
+  await applicationModel.refreshCaptcha();
+  assert.equal(applicationModel.challengeId, 'challenge-1');
+  assert.equal(applicationModel.canSubmitApplication(), false, 'CAPTCHA code is required');
+  applicationModel.captchaCode = 'aB123';
+  assert.equal(applicationModel.canSubmitApplication(), true, 'official application permits an empty description');
+  await applicationModel.submitApplication();
+  assert.equal(applicationModel.submitted, true);
+  assert.match(applicationModel.result.message, /等待管理员审核/);
+  assert.deepEqual(applicationRequests.map(({ url }) => url), [
+    `${LINK_APPLICATION_API}/captcha`, LINK_APPLICATION_API
+  ]);
+  assert(applicationRequests.every(({ options }) => options.credentials === 'omit'));
+  assert.equal(JSON.parse(applicationRequests[1].options.body).challengeId, 'challenge-1');
+  assert.equal(applicationRequests[1].options.headers['X-XSRF-TOKEN'], undefined);
+
+  // L1: the first request may finish after the user has started a different draft.
+  const racingRequests = [];
+  let resolveFirstApplication;
+  let captchaCount = 0;
+  globalThis.fetch = async (url, options = {}) => {
+    if (String(url).endsWith('/captcha')) {
+      return fakeResponse(200, { challengeId: `challenge-${++captchaCount}`, image: 'data:image/png;base64,aGVsbG8=' });
+    }
+    assert.equal(String(url), LINK_APPLICATION_API);
+    racingRequests.push(JSON.parse(options.body));
+    if (racingRequests.length === 1) return new Promise((resolve) => { resolveFirstApplication = resolve; });
+    return fakeResponse(201, { status: 'PENDING' });
+  };
+  const racingModel = createModel();
+  racingModel.applicationEnabled = true;
+  racingModel.capabilityStatus = 'guest';
+  await racingModel.refreshCaptcha();
+  racingModel.captchaCode = 'Ab123';
+  const firstApplication = racingModel.submitApplication();
+  racingModel.form.url = 'https://second.test/';
+  await racingModel.notifyFormChange();
+  await racingModel.fillFromUrl();
+  resolveFirstApplication(fakeResponse(201, { status: 'PENDING' }));
+  await firstApplication;
+  assert.equal(racingRequests[0].url, 'https://example.test/');
+  assert.equal(racingModel.form.url, 'https://second.test/');
+  assert.equal(racingModel.submitted, false, 'the old success must not mark the edited draft as submitted');
+  assert.match(racingModel.result.message, /当前表单.*尚未提交/);
+  assert.equal(racingModel.challengeId, 'challenge-2', 'the edited draft must receive a fresh CAPTCHA');
+  racingModel.captchaCode = 'Cd456';
+  await racingModel.submitApplication();
+  assert.equal(racingRequests[1].url, 'https://second.test/');
+  assert.equal(racingModel.submitted, true, 'the second draft can be submitted independently');
+
+  // L2: plain field edits, manual fill and autofill must each start a usable next application.
+  racingModel.form.displayName = '第三个草稿';
+  await racingModel.notifyFormChange();
+  assert.equal(racingModel.submitted, false);
+  assert.equal(racingModel.challengeId, 'challenge-3');
+  assert.equal(racingModel.canSubmitApplication(), false, 'new drafts still require the new CAPTCHA code');
+  racingModel.captchaCode = 'Ef789';
+  assert.equal(racingModel.canSubmitApplication(), true);
+
+  for (const fillMethod of ['fillFromUrl', 'autofillFromUrl']) {
+    const requests = [];
+    globalThis.fetch = async (url) => {
+      requests.push(String(url));
+      if (String(url).endsWith('/captcha')) return fakeResponse(200, {
+        challengeId: 'next-draft-captcha', image: 'data:image/png;base64,aGVsbG8='
+      });
+      assert.equal(String(url), 'https://example.test/');
+      return fakeResponse(200, '<title>下一份申请</title>');
+    };
+    const nextDraft = createModel();
+    nextDraft.applicationEnabled = true;
+    nextDraft.capabilityStatus = 'guest';
+    nextDraft.submitted = true;
+    await nextDraft[fillMethod]();
+    assert.equal(nextDraft.submitted, false);
+    assert.equal(nextDraft.challengeId, 'next-draft-captcha', `${fillMethod} should obtain the next challenge`);
+    assert.equal(requests.filter((url) => url.endsWith('/captcha')).length, 1);
+  }
+
+  for (const deniedStatus of [401, 403]) {
+    for (const captchaStatus of [200, 503]) {
+      const requests = [];
+      globalThis.fetch = async (url) => {
+        requests.push(String(url));
+        if (String(url) === LINK_CORE_API) return fakeResponse(deniedStatus, { title: 'Forbidden' });
+        assert.equal(String(url), `${LINK_APPLICATION_API}/captcha`);
+        return fakeResponse(captchaStatus, captchaStatus === 200
+          ? { challengeId: 'downgrade-captcha', image: 'data:image/png;base64,aGVsbG8=' }
+          : { detail: 'captcha unavailable' });
+      };
+      const downgraded = createModel();
+      downgraded.applicationEnabled = true;
+      downgraded.canManage = true;
+      downgraded.capabilityStatus = 'manager';
+      await downgraded.createLink();
+      assert.equal(downgraded.canManage, false);
+      assert.equal(downgraded.submitting, false);
+      assert.deepEqual(requests, [LINK_CORE_API, `${LINK_APPLICATION_API}/captcha`]);
+      assert.equal(downgraded.isApplicationMode(), captchaStatus === 200);
+      assert.equal(downgraded.isMessageMode(), captchaStatus !== 200);
+      if (captchaStatus === 200) {
+        assert.equal(downgraded.challengeId, 'downgrade-captcha');
+        downgraded.captchaCode = 'Ab123';
+        assert.equal(downgraded.canSubmitApplication(), true);
+      } else {
+        assert.match(downgraded.result.message, /已切换为留言申请/);
+      }
+    }
+  }
+
+  for (const submitMethod of ['submitApplication', 'createLink']) {
+    let resolveSubmission;
+    let submissionSignal;
+    globalThis.fetch = async (_url, options) => {
+      submissionSignal = options.signal;
+      return new Promise((resolve) => { resolveSubmission = resolve; });
+    };
+    const disposed = createModel();
+    disposed.applicationEnabled = true;
+    disposed.canManage = submitMethod === 'createLink';
+    disposed.capabilityStatus = disposed.canManage ? 'manager' : 'guest';
+    disposed.challengeId = 'current-captcha';
+    disposed.captchaCode = 'Ab123';
+    const submitting = disposed[submitMethod]();
+    disposed.destroy();
+    assert.equal(submissionSignal.aborted, true);
+    resolveSubmission(fakeResponse(201, { status: 'PENDING' }));
+    await submitting;
+    assert.equal(disposed.submitted, false, 'a disposed form must ignore a late write response');
+    assert.equal(disposed.result.show, false);
+  }
+
+  globalThis.fetch = async (url) => {
+    assert.equal(String(url), `${LINK_APPLICATION_API}/captcha`);
+    return fakeResponse(503, { detail: 'captcha unavailable' });
+  };
+  const captchaFailureModel = createModel();
+  captchaFailureModel.applicationEnabled = true;
+  captchaFailureModel.capabilityStatus = 'guest';
+  await captchaFailureModel.refreshCaptcha();
+  assert.equal(captchaFailureModel.applicationUnavailable, true);
+  assert.equal(captchaFailureModel.isMessageMode(), true, 'CAPTCHA failure should preserve the message fallback');
+  assert.match(captchaFailureModel.result.message, /已切换为留言申请/);
 } finally {
   globalThis.fetch = originalFetch;
   for (const [key, descriptor] of [
@@ -531,4 +853,4 @@ try {
   }
 }
 
-console.log('PluginLinks 2.2.1 links/feed/self-submit adaptation contract passed');
+console.log('PluginLinks 2.3.0 links/feed/visitor-application adaptation contract passed');

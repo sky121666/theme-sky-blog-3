@@ -401,14 +401,6 @@ a.wg-bangumis--small:hover .wg-bangumis-small-cover {
   grid-row: 1;
 }
 
-.wg-bangumis-console-version {
-  flex: none;
-  color: rgba(203, 213, 225, 0.62);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 9px;
-  font-weight: 760;
-}
-
 .wg-bangumis-tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -808,6 +800,23 @@ a.wg-bangumis--small:hover .wg-bangumis-small-cover {
   line-height: 1.45;
 }
 
+.wg-bangumis--error [data-bangumi-widget-retry] {
+  min-height: 28px;
+  padding: 3px 12px;
+  border: 1px solid var(--wg-bangumis-line);
+  border-radius: 8px;
+  background: var(--wg-bangumis-panel-strong);
+  color: var(--wg-bangumis-text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.wg-bangumis--error [data-bangumi-widget-retry]:focus-visible {
+  outline: 2px solid var(--wg-bangumis-accent);
+  outline-offset: 2px;
+}
+
 :root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"].widget--plugin-bangumis-recent,
 .desktop-widget-card[data-widget-appearance="light"].widget--plugin-bangumis-recent {
   background:
@@ -948,12 +957,6 @@ a.wg-bangumis--small:hover .wg-bangumis-small-cover {
 
 .wg-bangumis--large .wg-bangumis-console-mark i {
   background: #ff4f7d;
-}
-
-.wg-bangumis--large .wg-bangumis-console-version {
-  color: var(--wg-bangumis-muted);
-  font-size: 8px;
-  font-weight: 700;
 }
 
 :root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"] .wg-bangumis--large .wg-bangumis-console-head,

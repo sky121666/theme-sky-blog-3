@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- plugin-contract: PluginPhotos; surface: detail; contract-version: 2.1.1; status: confirmed; source: docs/插件适配契约.md#pc-photos-detail -->
+<!-- plugin-contract: PluginCommentWidget; surface: photos-comments; contract-version: 3.1.1; status: confirmed; source: docs/插件适配契约.md#pc-comment-photos -->
 <th:block xmlns:th="https://www.thymeleaf.org"
           xmlns:halo="https://halo.run/schema/thymeleaf"
           th:with="
@@ -41,7 +43,6 @@
           windowMetricsKey = 'photos'
         )}">
     <th:block th:fragment="ssrBlock">
-      <!-- plugin-contract: PluginPhotos; surface: detail; contract-version: 2.1.1; tested-version: 2.1.2; status: compatible-tested; source: docs/插件适配契约.md -->
       <article class="photos-shell photos-detail-shell"
                data-app-root="photos"
                data-photos-view="detail"
@@ -179,11 +180,10 @@
               <span class="icon-[lucide--x]" aria-hidden="true"></span>
             </button>
           </div>
-          <!-- plugin-contract: PluginCommentWidget; contract-version: 3.1.1; tested-version: 3.1.1; status: confirmed; source: docs/插件适配契约.md -->
-          <section th:if="${pluginFinder.available('PluginCommentWidget')}">
+          <section th:if="${haloCommentEnabled}">
             <halo:comment group="core.halo.run" kind="Photo" th:attr="name=${photo.metadata.name}" />
           </section>
-          <p class="photos-detail-comment-empty" th:unless="${pluginFinder.available('PluginCommentWidget')}">评论插件未启用。</p>
+          <p class="photos-detail-comment-empty" th:unless="${haloCommentEnabled}" role="status">评论已关闭或评论组件不可用。</p>
         </aside>
       </article>
     </th:block>

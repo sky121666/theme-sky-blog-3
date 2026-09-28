@@ -9,6 +9,7 @@ const requiredEntries = [
   'LICENSE',
   'THIRD_PARTY_NOTICES.md',
   'theme.yaml',
+  'templates/layout.html',
   'templates/assets/licenses/THIRD_PARTY_NOTICES.md'
 ];
 
@@ -161,6 +162,7 @@ function main() {
   verifyRequiredEntries(entries);
   verifyEmbeddedFiles(zipPath, [
     ['theme.yaml', themePath],
+    ['templates/layout.html', path.join(root, 'templates/layout.html')],
     ['LICENSE', licensePath],
     ['THIRD_PARTY_NOTICES.md', noticePath],
     ['templates/assets/licenses/THIRD_PARTY_NOTICES.md', packagedNoticePath]

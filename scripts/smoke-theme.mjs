@@ -35,6 +35,28 @@ for (const key of requiredAssets) {
   }
 }
 
+// Reader registrars must execute before shell-core starts Alpine. Check the built
+// static dependency graph, because chunk assignment can turn an innocent source
+// helper import into an eager shell entry import.
+const assetRoot = path.join(root, 'templates/assets');
+const assetFile = (url) => path.resolve(assetRoot, url.replace(/^\/themes\/theme-sky-blog-3\/assets\//, '').split(/[?#]/)[0]);
+const shellEntries = new Set((manifest['shell-core'].js || []).map(assetFile));
+const readerDependencies = new Set();
+const visitReaderDependency = (file, chain = []) => {
+  const nextChain = [...chain, path.relative(assetRoot, file)];
+  assert(!shellEntries.has(file), `Reader 静态依赖提前执行 shell-core/Alpine: ${nextChain.join(' -> ')}`);
+  if (readerDependencies.has(file)) return;
+  readerDependencies.add(file);
+  const source = read(file);
+  const imports = /\b(?:import\s*(?:[^'";]*?\bfrom\s*)?|export\s*[^'";]*?\bfrom\s*)(['"])([^'"]+)\1/g;
+  for (const match of source.matchAll(imports)) {
+    const specifier = match[2].split(/[?#]/)[0];
+    if (!specifier.startsWith('.')) continue;
+    visitReaderDependency(path.resolve(path.dirname(file), specifier), nextChain);
+  }
+};
+for (const entry of manifest.reader.js || []) visitReaderDependency(assetFile(entry));
+
 const requiredAppSourceChecks = [
   ['src/apps/douban/entry.js', ["import './hydrate.js';", '__THEME_APP_DOUBAN_LOADED__']],
   ['src/apps/docsme/entry.js', ["import './hydrate.js';", '__THEME_APP_DOCSME_LOADED__']]
@@ -111,7 +133,7 @@ const seoProtocolChecks = [
       '<meta name="twitter:description"',
       'data-theme-seo-fallback-config="true"',
       'th:data-mode="${seoFallbackMode}"',
-      'plugin-contract: PluginFeed; contract-version: 1.5.0; tested-version: 1.5.0',
+      'plugin-contract: PluginFeed; surface: rss-discovery; contract-version: 1.5.0; status: confirmed; source: docs/插件适配契约.md#pc-feed',
       '<link rel="alternate"',
       'type="application/rss+xml"',
       'th:if="${pluginFinder.available(\'PluginFeed\')}"',

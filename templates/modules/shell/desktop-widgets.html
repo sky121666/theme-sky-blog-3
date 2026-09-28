@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="https://www.thymeleaf.org">
-  <th:block th:fragment="layer(enabled, isHome, hideOnMobile, editEnabled, columns, gap, layoutVersion, serverLayoutJson, themeName, themeJsonConfigEndpoint, weatherCityName, weatherRefreshMinutes, latestPosts, popularPosts, categoryTree, siteStats, randomTags, momentsAvailable, recentMoments, bangumisAvailable, bangumisAnimeWish, bangumisAnimeWatching, bangumisAnimeDone, bangumisDramaWish, bangumisDramaWatching, bangumisDramaDone, bangumiAnimeWishCount, bangumiAnimeWatchingCount, bangumiAnimeDoneCount, bangumiDramaWishCount, bangumiDramaWatchingCount, bangumiDramaDoneCount, friendsAvailable, recentFriends, docsmeAvailable, docsmeProjects, photosAvailable, photos, photoGroups, doubanAvailable, steamAvailable, steamPlaying, steamStatusText, steamPersonaName, steamAvatarFull, steamProfileUrl, steamLevel, steamStatsTotalGames, steamStatsRecentPlaytimeFormatted, steamStatsRecentPlaytimeMinutes, steamRecentGames, steamOwnedGames, siteUrl, siteTitle, siteSubtitle, siteLogo, authenticated, currentUserName, currentUserDisplayName, currentUserAvatar, currentUserBio, archivesUrl, fallbackCover)">
+  <th:block th:fragment="layer(enabled, isHome, hideOnMobile, editEnabled, columns, gap, layoutVersion, serverLayoutJson, themeName, themeJsonConfigEndpoint, weatherCityName, weatherRefreshMinutes, latestPosts, popularPosts, categoryTree, siteStats, randomTags, momentsAvailable, recentMoments, bangumisAvailable, friendsAvailable, recentFriends, docsmeAvailable, docsmeProjects, photosAvailable, photos, photoGroups, doubanAvailable, steamAvailable, steamPlaying, steamStatusText, steamPersonaName, steamAvatarFull, steamProfileUrl, steamLevel, steamStatsTotalGames, steamStatsRecentPlaytimeFormatted, steamStatsRecentPlaytimeMinutes, steamRecentGames, steamOwnedGames, siteUrl, siteTitle, siteSubtitle, siteLogo, authenticated, currentUserName, currentUserDisplayName, currentUserAvatar, currentUserBio, archivesUrl, fallbackCover)">
     <!-- Inert, JSON-only response contract. Thymeleaf's JavaScript serializer
          escapes embedded strings before they enter this raw-text element. -->
     <script id="theme-desktop-widget-protocol"
@@ -51,30 +51,6 @@
           "recentMoments": [[${recentMoments}]],
           "bangumisAvailable": [[${bangumisAvailable}]],
           "bangumisUrl": "/bangumis",
-          "bangumisByStatus": {
-            "anime": {
-              "wish": [[${bangumisAnimeWish}]],
-              "watching": [[${bangumisAnimeWatching}]],
-              "done": [[${bangumisAnimeDone}]]
-            },
-            "drama": {
-              "wish": [[${bangumisDramaWish}]],
-              "watching": [[${bangumisDramaWatching}]],
-              "done": [[${bangumisDramaDone}]]
-            }
-          },
-          "bangumiStatusCounts": {
-            "anime": {
-              "wish": [[${bangumiAnimeWishCount}]],
-              "watching": [[${bangumiAnimeWatchingCount}]],
-              "done": [[${bangumiAnimeDoneCount}]]
-            },
-            "drama": {
-              "wish": [[${bangumiDramaWishCount}]],
-              "watching": [[${bangumiDramaWatchingCount}]],
-              "done": [[${bangumiDramaDoneCount}]]
-            }
-          },
           "friendsAvailable": [[${friendsAvailable}]],
           "recentFriends": [[${recentFriends}]],
           "friendsUrl": "/links?view=friends",
@@ -410,7 +386,7 @@
                 <span x-text="field.label || field.key"></span>
 
                 <template x-if="field.type === 'photo-group'">
-                  <div class="desktop-widget-config-group-list">
+                  <div class="desktop-widget-config-group-list" role="group" :aria-label="field.label || field.key">
                     <template x-for="group in widgetConfigPhotoGroups()" :key="group.metadata?.name">
                       <button type="button"
                               class="desktop-widget-config-group-btn"
@@ -429,6 +405,7 @@
 
                 <template x-if="field.type === 'select'">
                   <select class="desktop-widget-config-select"
+                          :aria-label="field.label || field.key"
                           :value="widgetConfigForm.meta[field.key] || ''"
                           @change="updateWidgetConfigMeta(field.key, $event.target.value)">
                     <template x-for="option in widgetConfigSelectOptions(field)" :key="option.value">
@@ -438,7 +415,7 @@
                 </template>
 
                 <template x-if="field.type === 'category-list'">
-                  <div class="desktop-widget-config-category-list">
+                  <div class="desktop-widget-config-category-list" role="group" :aria-label="field.label || field.key">
                     <p class="desktop-widget-config-help"
                        x-text="field.emptyLabel || `最多选择 ${field.maxItems || 4} 个分类`"></p>
                     <div class="desktop-widget-config-category-grid">
@@ -460,6 +437,7 @@
                 <template x-if="field.type === 'number'">
                   <input class="desktop-widget-config-input"
                          type="number"
+                         :aria-label="field.label || field.key"
                          :min="field.min"
                          :max="field.max"
                          :step="field.step || 1"
@@ -470,6 +448,7 @@
                 <template x-if="field.type === 'text'">
                   <input class="desktop-widget-config-input"
                          type="text"
+                         :aria-label="field.label || field.key"
                          :placeholder="field.placeholder || ''"
                          :value="widgetConfigForm.meta[field.key] || ''"
                          @input="updateWidgetConfigMeta(field.key, $event.target.value)">
@@ -478,6 +457,7 @@
                 <template x-if="field.type === 'toggle'">
                   <button type="button"
                           class="desktop-widget-config-toggle"
+                          :aria-label="field.label || field.key"
                           :class="{ 'is-active': widgetConfigForm.meta[field.key] !== false }"
                           :aria-pressed="widgetConfigForm.meta[field.key] !== false"
                           @click="updateWidgetConfigMeta(field.key, widgetConfigForm.meta[field.key] === false)">
@@ -660,8 +640,12 @@
                             <template x-for="appearance in ['follow', 'light', 'dark']" :key="`${entry.catalogKey}-${appearance}`">
                               <button type="button"
                                       class="desktop-widget-center-appearance-option"
+                                      role="tab"
+                                      :aria-selected="isCatalogAppearanceSelected(entry, appearance)"
+                                      :tabindex="isCatalogAppearanceSelected(entry, appearance) ? 0 : -1"
                                       :class="{ 'is-active': isCatalogAppearanceSelected(entry, appearance) }"
                                       @click="selectCatalogAppearance(entry.catalogKey, appearance)"
+                                      @keydown="handleCatalogAppearanceKeydown(entry, appearance, $event)"
                                       x-text="widgetAppearanceLabel(appearance)"></button>
                             </template>
                           </div>
@@ -713,6 +697,7 @@
                       </header>
                       <div class="desktop-widget-body"
                            :data-widget-render-mode="widgetContentRenderMode(node)"
+                           @click="retryBangumiWidget(node, $event)"
                            x-widget-content="renderWidgetBody(node)"></div>
                       </article>
                       </template>

@@ -3,9 +3,6 @@ export const momentsAppManifest = {
   windowVariant: 'moments',
   supportsSameAppPjax: true,
   sameVariantPageModes: ['browser-moments'],
-  cachePolicy: 'app-path-search',
-  assets: {
-    js: 'moments.js',
-    css: 'moments.css'
-  }
+  entry: 'src/apps/moments/entry.js',
+  assetDirectory: 'moments'
 };

@@ -1,3 +1,4 @@
+<!-- plugin-contract: PluginSearchWidget; surface: search-entry; contract-version: 1.7.1; status: confirmed; source: docs/插件适配契约.md#pc-search -->
 <th:block xmlns:th="https://www.thymeleaf.org">
   <div th:fragment="bar (siteTitle, siteFallbackTitle, logoIcon, headerMenu, enableThemeSetting, searchWidgetAvailable, searchEnabled, authEnabled, mobileMenuEnabled, loginLabel, timeEnabled, timeDesktopPreset, timeMobilePreset, timeHourCycle, notificationCenterTitle, notificationCenterGuestTitle, notificationCenterDefaultOpen, notificationCenterAuthenticated, iconMobileMenu, iconSearch, iconAuth, iconThemeLight, iconThemeDark)"
        class="menubar"
@@ -87,7 +88,6 @@
         </th:block>
       </button>
 
-      <!-- plugin-contract: PluginSearchWidget; contract-version: 1.7.1; tested-version: 1.7.1; status: confirmed; source: docs/插件适配契约.md -->
       <button type="button"
               class="menubar-icon-btn menubar-search-btn"
               th:if="${searchWidgetAvailable}"
@@ -527,6 +527,7 @@
                     </div>
                   </header>
                   <div class="desktop-widget-body notification-widget-body"
+                       @click="retryNotificationBangumiWidget(widget, $event)"
                        x-html="renderNotificationWidget(widget, notificationWidgetRenderTick)"></div>
                 </article>
               </template>

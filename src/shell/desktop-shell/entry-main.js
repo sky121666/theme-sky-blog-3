@@ -25,10 +25,10 @@ import { activateCurrentPageApp } from './runtime/shared/page-app.js';
 import { initLazyImages } from './runtime/shared/lazy-media.js';
 import { initPluginCompatibility } from './runtime/shared/plugin-compat.js';
 import { initErrorDialog } from './runtime/shared/error-dialog.js';
-import { getCurrentThemeAssetVersion, getLatestThemeBuildVersion } from '../../shell-core/runtime/resource-registry.js';
+import { getCurrentThemeAssetIdentity, getLatestThemeAssetIdentity, isSameThemeAssetIdentity } from '../../shell-core/runtime/resource-registry.js';
 
-const CURRENT_THEME_BUILD_VERSION = getCurrentThemeAssetVersion()
-  || (typeof __THEME_BUILD_VERSION__ === 'string' ? __THEME_BUILD_VERSION__ : '');
+const CURRENT_THEME_BUILD_IDENTITY = getCurrentThemeAssetIdentity();
+const CURRENT_THEME_BUILD_VERSION = CURRENT_THEME_BUILD_IDENTITY.version;
 
 let runtimeFreshnessCheckPromise = null;
 let runtimeReloading = false;
@@ -52,15 +52,16 @@ async function verifyRuntimeFreshness(force = false) {
   if (!CURRENT_THEME_BUILD_VERSION) return false;
   if (runtimeFreshnessCheckPromise && !force) return runtimeFreshnessCheckPromise;
 
-  const promise = getLatestThemeBuildVersion({ force: true })
-    .then((latestVersion) => {
-      if (!latestVersion || latestVersion === CURRENT_THEME_BUILD_VERSION) {
+  const promise = getLatestThemeAssetIdentity({ force: true })
+    .then((latestIdentity) => {
+      if (!latestIdentity.version || !latestIdentity.revision
+        || isSameThemeAssetIdentity(CURRENT_THEME_BUILD_IDENTITY, latestIdentity)) {
         return false;
       }
 
       runtimeReloading = true;
       if (typeof window !== 'undefined') {
-        window.__THEME_RUNTIME_STALE__ = latestVersion;
+        window.__THEME_RUNTIME_STALE__ = latestIdentity;
         window.location.reload();
       }
 
@@ -68,7 +69,7 @@ async function verifyRuntimeFreshness(force = false) {
     })
     .catch(() => false)
     .finally(() => {
-      if (!runtimeReloading) {
+      if (!runtimeReloading && runtimeFreshnessCheckPromise === promise) {
         runtimeFreshnessCheckPromise = null;
       }
     });
@@ -77,7 +78,9 @@ async function verifyRuntimeFreshness(force = false) {
   return promise;
 }
 
-if (!window.__THEME_MAIN_LOADED__) {
+// import() may finish after the bootstrap deadline. Never initialize a page
+// that has already entered its visible recovery state.
+if (!window.__THEME_MAIN_LOADED__ && !window.__THEME_BOOTSTRAP_CANCELLED__) {
   window.__THEME_MAIN_LOADED__ = true;
   window.__THEME_ALPINE_STARTED__ = false;
   window.__THEME_BUILD_VERSION__ = CURRENT_THEME_BUILD_VERSION;

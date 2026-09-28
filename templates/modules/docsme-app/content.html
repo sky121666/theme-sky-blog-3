@@ -1,5 +1,12 @@
+<!-- plugin-contract: plugin-docsme; surface: projects-core; contract-version: 1.6.0; status: confirmed; source: docs/插件适配契约.md#pc-docsme-projects -->
+<!-- plugin-contract: plugin-docsme; surface: document-core; contract-version: 1.6.0; status: confirmed; source: docs/插件适配契约.md#pc-docsme-document -->
+<!-- plugin-contract: plugin-docsme; surface: catalog-core; contract-version: 1.6.0; status: confirmed; source: docs/插件适配契约.md#pc-docsme-catalog -->
+<!-- plugin-contract: plugin-docsme; surface: permissions-language-version; contract-version: 1.6.0; status: confirmed; source: docs/插件适配契约.md#pc-docsme-advanced -->
+<!-- plugin-contract: PluginCommentWidget; surface: docsme-comments; contract-version: 3.1.1; status: confirmed; source: docs/插件适配契约.md#pc-comment-docsme -->
+<!-- plugin-contract: shiki; surface: docsme-rich-content; contract-version: 1.4.1; status: confirmed; source: docs/插件适配契约.md#pc-shiki-docsme -->
+<!-- plugin-contract: plugin-katex; surface: docsme-rich-content; contract-version: 3.0.0; status: confirmed; source: docs/插件适配契约.md#pc-katex-docsme -->
+<!-- plugin-contract: text-diagram; surface: docsme-rich-content; contract-version: 1.5.2; status: confirmed; source: docs/插件适配契约.md#pc-mermaid-docsme -->
 <th:block th:fragment="projects">
-  <!-- plugin-contract: plugin-docsme; surface: projects-core; contract-version: 1.6.0; tested-version: 1.7.0; status: compatible-tested; source: docs/插件适配契约.md -->
   <div class="docsme-app docsme-app--projects"
        data-app-root="docsme"
        data-docsme-scene="projects"
@@ -79,16 +86,12 @@
 </th:block>
 
 <th:block th:fragment="document">
-  <!-- plugin-contract: plugin-docsme; surface: document-core; contract-version: 1.6.0; tested-version: 1.7.0; status: compatible-tested; source: docs/插件适配契约.md -->
-  <!-- plugin-contract: plugin-docsme; surface: permissions-language-version; contract-version: 1.6.0; tested-version: 1.6.0; status: confirmed; source: docs/插件适配契约.md -->
-  <!-- plugin-contract: plugin-katex; contract-version: 3.0.0; tested-version: 3.0.0; status: confirmed; source: docs/插件适配契约.md -->
-  <!-- plugin-contract: text-diagram; contract-version: 1.5.2; tested-version: 1.5.2; status: confirmed; source: docs/插件适配契约.md -->
-  <th:block th:replace="~{plugin:plugin-docsme:modules/plugin-scripts}" />
+  <th:block th:replace="~{modules/docsme-app/content :: pluginResources}" />
   <div class="docsme-app docsme-app--document"
        data-app-root="docsme"
        data-docsme-scene="document"
        x-data="docsmeApp"
-       th:attr="data-docsme-site-title=${site.title},data-docsme-chrome-title=${project != null and project.spec != null and !#strings.isEmpty(project.spec.displayName) ? project.spec.displayName : 'Docsme'},data-docsme-chrome-subtitle=${docTree != null and docTree.spec != null and !#strings.isEmpty(docTree.spec.title) ? docTree.spec.title : '文档'},data-docsme-project=${project != null ? project.metadata.name : ''},data-docsme-version=${currentVersion != null ? currentVersion.metadata.name : ''},data-docsme-language=${currentLanguage != null ? currentLanguage.language : ''},data-docsme-template-id=${_templateId}">
+       th:attr="data-docsme-site-title=${site.title},data-docsme-chrome-title=${project != null and project.spec != null and !#strings.isEmpty(project.spec.displayName) ? project.spec.displayName : 'Docsme'},data-docsme-chrome-subtitle=${docTree != null and docTree.spec != null and !#strings.isEmpty(docTree.spec.title) ? docTree.spec.title : '文档'},data-docsme-search-enabled=${pluginFinder.available('PluginSearchWidget')},data-docsme-project=${project != null ? project.metadata.name : ''},data-docsme-version=${currentVersion != null ? currentVersion.metadata.name : ''},data-docsme-language=${currentLanguage != null ? currentLanguage.language : ''},data-docsme-template-id=${_templateId}">
     <script type="application/json" data-app-props="docsme">{"version":1,"appId":"docsme","data":{"scene":"document"}}</script>
 
     <div class="docsme-shell docsme-shell--reading">
@@ -112,7 +115,6 @@
           </header>
           <article class="docsme-article" id="content" data-toc-content th:utext="${docInfo.content.content}"></article>
 
-          <!-- plugin-contract: PluginCommentWidget; contract-version: 3.1.1; tested-version: 3.1.1; status: confirmed; source: docs/插件适配契约.md -->
           <div th:if="${haloCommentEnabled}" id="comment" class="docsme-comment">
             <halo:comment group="doc.halo.run" kind="DocTree" th:attr="name=${docTree.metadata.name}" />
           </div>
@@ -142,14 +144,12 @@
 </th:block>
 
 <th:block th:fragment="catalog">
-  <!-- plugin-contract: plugin-docsme; surface: catalog-core; contract-version: 1.6.0; tested-version: 1.7.0; status: compatible-tested; source: docs/插件适配契约.md -->
-  <!-- plugin-contract: plugin-docsme; surface: permissions-language-version; contract-version: 1.6.0; tested-version: 1.6.0; status: confirmed; source: docs/插件适配契约.md -->
-  <th:block th:replace="~{plugin:plugin-docsme:modules/plugin-scripts}" />
+  <th:block th:replace="~{modules/docsme-app/content :: pluginResources}" />
   <div class="docsme-app docsme-app--catalog"
        data-app-root="docsme"
        data-docsme-scene="catalog"
        x-data="docsmeApp"
-       th:attr="data-docsme-site-title=${site.title},data-docsme-chrome-title=${project != null and project.spec != null and !#strings.isEmpty(project.spec.displayName) ? project.spec.displayName : 'Docsme'},data-docsme-chrome-subtitle=${docTree != null and docTree.spec != null and !#strings.isEmpty(docTree.spec.title) ? docTree.spec.title : '目录'},data-docsme-project=${project != null ? project.metadata.name : ''},data-docsme-version=${currentVersion != null ? currentVersion.metadata.name : ''},data-docsme-language=${currentLanguage != null ? currentLanguage.language : ''},data-docsme-template-id=${_templateId}">
+       th:attr="data-docsme-site-title=${site.title},data-docsme-chrome-title=${project != null and project.spec != null and !#strings.isEmpty(project.spec.displayName) ? project.spec.displayName : 'Docsme'},data-docsme-chrome-subtitle=${docTree != null and docTree.spec != null and !#strings.isEmpty(docTree.spec.title) ? docTree.spec.title : '目录'},data-docsme-search-enabled=${pluginFinder.available('PluginSearchWidget')},data-docsme-project=${project != null ? project.metadata.name : ''},data-docsme-version=${currentVersion != null ? currentVersion.metadata.name : ''},data-docsme-language=${currentLanguage != null ? currentLanguage.language : ''},data-docsme-template-id=${_templateId}">
     <script type="application/json" data-app-props="docsme">{"version":1,"appId":"docsme","data":{"scene":"catalog"}}</script>
 
     <div class="docsme-shell docsme-shell--catalog">
@@ -352,4 +352,11 @@
       <span class="icon-[lucide--arrow-right]" aria-hidden="true"></span>
     </a>
   </nav>
+</th:block>
+
+<!-- Docsme 1.10.0 plugin-scripts equivalent: preserve KaTeX CSS and scoped search
+     metadata; the app lifecycle owns both runtimes after the window is measurable. -->
+<th:block th:fragment="pluginResources">
+  <link th:if="${pluginFinder.available('plugin-katex') and docTree != null and docTree.spec.type == 'DOC'}"
+        rel="stylesheet" href="/plugins/plugin-katex/assets/static/katex.min.css" />
 </th:block>

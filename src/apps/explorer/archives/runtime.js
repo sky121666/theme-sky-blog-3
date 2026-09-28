@@ -5,40 +5,8 @@ function toPositiveInteger(value, fallback = 1) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-const ARCHIVE_CATALOG_CACHE_VERSION = 1;
-const ARCHIVE_CATALOG_CACHE_TTL_MS = 5 * 60 * 1000;
-const ARCHIVE_CATALOG_PAGE_SIZE = 100;
-const ARCHIVE_CATALOG_CONCURRENCY = 3;
-const ARCHIVE_CATALOG_TIMEOUT_MS = 30000;
-
-export function buildArchiveCatalog(posts = []) {
-  const seen = new Set();
-  const years = new Map();
-
-  posts.forEach((post) => {
-    const key = String(post?.metadata?.name || '');
-    if (key && seen.has(key)) return;
-    if (key) seen.add(key);
-
-    const labels = post?.metadata?.labels || {};
-    const year = String(labels['content.halo.run/archive-year'] || '');
-    const month = String(labels['content.halo.run/archive-month'] || '').padStart(2, '0');
-    if (!/^\d{4}$/.test(year) || !/^(0[1-9]|1[0-2])$/.test(month)) return;
-
-    if (!years.has(year)) years.set(year, new Map());
-    const months = years.get(year);
-    months.set(month, (months.get(month) || 0) + 1);
-  });
-
-  return Array.from(years.entries())
-    .sort(([left], [right]) => right.localeCompare(left))
-    .map(([year, months]) => ({
-      year,
-      months: Array.from(months.entries())
-        .sort(([left], [right]) => right.localeCompare(left))
-        .map(([month, count]) => ({ month, count }))
-    }));
-}
+export { buildArchiveCatalog } from './catalog.js';
+import { loadArchiveCatalog as loadSharedArchiveCatalog } from './catalog.js';
 
 export function initArchiveSidebar() {
   return null;
@@ -112,119 +80,35 @@ export function registerArchiveExplorer(Alpine) {
       this.loadedCount = this.$root.querySelectorAll('[data-archive-post-option]').length;
     },
 
-    archiveCatalogCacheKey() {
-      return `theme-archive-catalog-v${ARCHIVE_CATALOG_CACHE_VERSION}`;
-    },
-
-    readCachedArchiveCatalog() {
-      try {
-        const raw = window.sessionStorage?.getItem(this.archiveCatalogCacheKey());
-        if (!raw) return null;
-        const cached = JSON.parse(raw);
-        if (!Array.isArray(cached?.catalog) || Date.now() - cached.timestamp > ARCHIVE_CATALOG_CACHE_TTL_MS) {
-          return null;
-        }
-        return cached.catalog;
-      } catch (_error) {
-        return null;
-      }
-    },
-
-    writeCachedArchiveCatalog(catalog) {
-      try {
-        window.sessionStorage?.setItem(this.archiveCatalogCacheKey(), JSON.stringify({
-          timestamp: Date.now(),
-          catalog
-        }));
-      } catch (_error) {}
-    },
-
-    async fetchArchiveCatalogPage(page, controller) {
-      const url = new URL(this.archiveCatalogUrl, window.location.origin || window.location.href);
-      url.searchParams.set('page', String(page));
-      url.searchParams.set('size', String(ARCHIVE_CATALOG_PAGE_SIZE));
-      url.searchParams.set('sort', 'spec.publishTime,desc');
-      const response = await fetch(url.href, {
-        headers: { Accept: 'application/json' },
-        signal: controller.signal
-      });
-      if (!response.ok || response.redirected) throw new Error(`HTTP ${response.status}`);
-      const contentType = response.headers?.get?.('content-type') || '';
-      if (contentType && !contentType.toLowerCase().includes('application/json')) {
-        throw new Error('归档目录接口未返回 JSON');
-      }
-      return response.json();
-    },
-
     async loadArchiveCatalog({ force = false } = {}) {
       if (!this.archiveCatalogUrl || this._destroyed) return;
-
-      if (!force) {
-        const cached = this.readCachedArchiveCatalog();
-        if (cached?.length) {
-          this.renderArchiveCatalog(cached);
-          this.catalogError = false;
-          return;
-        }
-      }
-
       this._catalogController?.abort();
       const controller = new AbortController();
       this._catalogController = controller;
       const generation = ++this._catalogGeneration;
-      let catalogTimedOut = false;
-      const timeoutId = setTimeout(() => {
-        catalogTimedOut = true;
-        controller.abort();
-      }, ARCHIVE_CATALOG_TIMEOUT_MS);
       this.catalogLoading = true;
       this.catalogError = false;
       this.$root.dataset.archiveIndexComplete = 'false';
-
       const isCurrent = () => !this._destroyed
         && generation === this._catalogGeneration
         && this._catalogController === controller
         && !controller.signal.aborted;
-
       try {
-        const firstPage = await this.fetchArchiveCatalogPage(1, controller);
-        const pages = [firstPage];
-        const totalPages = toPositiveInteger(firstPage?.totalPages, 1);
-        let nextPage = 2;
-        const workers = Array.from(
-          { length: Math.min(ARCHIVE_CATALOG_CONCURRENCY, Math.max(0, totalPages - 1)) },
-          async () => {
-            while (nextPage <= totalPages) {
-              const page = nextPage;
-              nextPage += 1;
-              pages.push(await this.fetchArchiveCatalogPage(page, controller));
-            }
-          }
-        );
-        await Promise.all(workers);
-        clearTimeout(timeoutId);
+        const catalog = await loadSharedArchiveCatalog(this.archiveCatalogUrl, {
+          force, signal: controller.signal, scope: this.$root.dataset.archiveCatalogScope || ''
+        });
         if (!isCurrent()) return;
-
-        const catalog = buildArchiveCatalog(pages.flatMap((entry) => (
-          Array.isArray(entry?.items) ? entry.items : []
-        )));
-        if (!catalog.length) throw new Error('归档目录为空');
         this.renderArchiveCatalog(catalog);
-        this.writeCachedArchiveCatalog(catalog);
       } catch (error) {
-        if (generation !== this._catalogGeneration || this._destroyed) return;
-        if (error?.name === 'AbortError' && !catalogTimedOut) return;
+        if (!isCurrent() || error?.name === 'AbortError') return;
         this.catalogError = true;
         this.$root.dataset.archiveIndexComplete = 'false';
         warnApiCall('explorer-archives', '完整归档目录加载失败', {
-          message: catalogTimedOut
-            ? `归档目录加载超过 ${ARCHIVE_CATALOG_TIMEOUT_MS / 1000} 秒`
-            : (error?.message || String(error || '')),
+          message: error?.message || String(error || ''),
           action: 'keep-ssr-catalog',
           hint: '页面会保留服务端当前范围；检查公开文章内容 API。'
         });
       } finally {
-        clearTimeout(timeoutId);
         if (this._catalogController === controller) {
           this._catalogController = null;
           this.catalogLoading = false;
@@ -236,6 +120,12 @@ export function registerArchiveExplorer(Alpine) {
       const yearNav = this.$root.querySelector('.archive-sidebar-nav');
       const monthList = this.$root.querySelector('[data-archive-month-list]');
       if (!yearNav || !monthList) return;
+      if (!catalog.length) {
+        yearNav.replaceChildren();
+        monthList.replaceChildren();
+        this.$root.dataset.archiveIndexComplete = 'true';
+        return;
+      }
 
       const makeLink = ({ href, app, className, current, attributes = {}, children = [] }) => {
         const link = document.createElement('a');

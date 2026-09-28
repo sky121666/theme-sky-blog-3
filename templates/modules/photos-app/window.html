@@ -132,8 +132,10 @@
                   </button>
                   <button type="button"
                           class="photos-titlebar-btn photos-titlebar-comment-btn"
+                          th:if="${haloCommentEnabled}"
                           data-photos-detail-comments-btn
                           data-photos-control="comments-toggle"
+                          aria-label="评论"
                           title="评论">
                     <span class="icon-[lucide--message-circle] w-[16px] h-[16px]" aria-hidden="true"></span>
                   </button>

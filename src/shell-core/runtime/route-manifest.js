@@ -74,7 +74,6 @@ const ROUTE_RULES = [
     appId: '',
     windowVariant: NONE_VARIANT,
     pjaxMode: 'none',
-    cacheKeyPolicy: 'pathname',
     matches: (pathname) => pathname === '/'
   },
   {
@@ -82,7 +81,6 @@ const ROUTE_RULES = [
     appId: 'moments',
     windowVariant: 'moments',
     pjaxMode: 'same-app',
-    cacheKeyPolicy: 'app-path-search',
     matches: (pathname) => pathname === '/moments' || pathname === '/moments/' || /^\/moments\/[^/]+\/?$/.test(pathname)
   },
   {
@@ -90,7 +88,6 @@ const ROUTE_RULES = [
     appId: 'links',
     windowVariant: 'links',
     pjaxMode: 'same-app',
-    cacheKeyPolicy: 'app-path-search',
     matches: (pathname) => pathname === '/links' || pathname === '/links/'
   },
   {
@@ -98,7 +95,6 @@ const ROUTE_RULES = [
     appId: 'bangumis',
     windowVariant: 'bangumis',
     pjaxMode: 'same-app',
-    cacheKeyPolicy: 'app-path-search',
     matches: (pathname) => pathname === '/bangumis' || pathname === '/bangumis/' || /^\/bangumis\/page\/[^/]+\/?$/.test(pathname)
   },
   {
@@ -106,7 +102,6 @@ const ROUTE_RULES = [
     appId: 'douban',
     windowVariant: 'douban',
     pjaxMode: 'same-app',
-    cacheKeyPolicy: 'app-path-search',
     matches: (pathname) => pathname === '/douban' || pathname === '/douban/' || /^\/douban\/page\/[^/]+\/?$/.test(pathname)
   },
   {
@@ -114,7 +109,6 @@ const ROUTE_RULES = [
     appId: 'steam',
     windowVariant: 'steam',
     pjaxMode: 'same-app',
-    cacheKeyPolicy: 'app-path-search',
     matches: (pathname) => pathname === '/steam' || pathname === '/steam/' || /^\/steam\/page\/[^/]+\/?$/.test(pathname)
   },
   {
@@ -122,7 +116,6 @@ const ROUTE_RULES = [
     appId: 'equipments',
     windowVariant: 'equipments',
     pjaxMode: 'same-app',
-    cacheKeyPolicy: 'app-path-search',
     matches: (pathname) => pathname === '/equipments' || pathname === '/equipments/' || /^\/equipments\/page\/[^/]+\/?$/.test(pathname)
   },
   {
@@ -130,7 +123,6 @@ const ROUTE_RULES = [
     appId: 'docsme',
     windowVariant: 'docsme',
     pjaxMode: 'same-app',
-    cacheKeyPolicy: 'app-path-search',
     matches: (pathname) => pathname === '/docs' || pathname === '/docs/' || /^\/docs\/.+/.test(pathname)
   },
   {
@@ -138,7 +130,6 @@ const ROUTE_RULES = [
     appId: 'photos',
     windowVariant: 'photos',
     pjaxMode: 'same-app',
-    cacheKeyPolicy: 'app-path-search',
     matches: (pathname) => pathname === '/photos' || pathname === '/photos/' || /^\/photos\/(?:page\/)?[^/]+\/?$/.test(pathname)
   },
   {
@@ -146,7 +137,6 @@ const ROUTE_RULES = [
     appId: 'auth',
     windowVariant: NONE_VARIANT,
     pjaxMode: 'none',
-    cacheKeyPolicy: 'app-path-search',
     matches: (pathname) => /^\/(login|signup|logout)(\/|$)/.test(pathname) || /^\/password-reset(\/|$)/.test(pathname)
   },
   {
@@ -154,7 +144,6 @@ const ROUTE_RULES = [
     appId: 'explorer-archives',
     windowVariant: BROWSER_VARIANT,
     pjaxMode: 'same-app',
-    cacheKeyPolicy: 'app-path-search',
     matches: (pathname) => matchesArchiveRoute(pathname)
   },
   {
@@ -162,7 +151,6 @@ const ROUTE_RULES = [
     appId: 'explorer-tags',
     windowVariant: BROWSER_VARIANT,
     pjaxMode: 'same-app',
-    cacheKeyPolicy: 'app-path-search',
     matches: (pathname) => matchesTagRoute(pathname)
   },
   {
@@ -170,7 +158,6 @@ const ROUTE_RULES = [
     appId: 'explorer-categories',
     windowVariant: BROWSER_VARIANT,
     pjaxMode: 'same-app',
-    cacheKeyPolicy: 'app-path-search',
     matches: (pathname) => matchesCategoryRoute(pathname)
   },
   {
@@ -178,7 +165,6 @@ const ROUTE_RULES = [
     appId: 'explorer-author',
     windowVariant: BROWSER_VARIANT,
     pjaxMode: 'same-app',
-    cacheKeyPolicy: 'app-path-search',
     matches: (pathname) => /^\/(author|authors)(\/|$)/.test(pathname)
   },
   {
@@ -186,7 +172,6 @@ const ROUTE_RULES = [
     appId: 'reader',
     windowVariant: BROWSER_VARIANT,
     pjaxMode: 'none',
-    cacheKeyPolicy: 'app-path-search',
     matches: (pathname) => matchesDefaultReaderRoute(pathname)
   }
 ];

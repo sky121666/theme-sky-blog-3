@@ -2279,7 +2279,10 @@ html.dark body.auth-gateway-page--lockscreen .auth-theme-toggle {
   display: none;
 }
 
-.auth-gateway-page--lockscreen a[href*="method=local"] .auth-provider-icon-shell {
+.auth-gateway-page--lockscreen
+  .auth-provider-grid:not(.auth-provider-grid-multiple)
+  a[href*="method=local"]
+  .auth-provider-icon-shell {
   display: none;
 }
 

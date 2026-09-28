@@ -1079,6 +1079,9 @@
   flex-direction: column;
   align-items: flex-end;
   margin-bottom: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.78);
 }
 
 .moments-cover-name {
@@ -1091,7 +1094,7 @@
 }
 
 .moments-cover-subtitle {
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.96);
   font-size: 12px;
   font-weight: 400;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 1px rgba(0, 0, 0, 0.25);

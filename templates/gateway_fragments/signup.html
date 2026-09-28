@@ -92,7 +92,7 @@
             </span>
             <input id="password" name="password" type="password" placeholder="设置密码" autocomplete="new-password" required
                 minlength="5" maxlength="257" class="auth-input auth-input-with-icon" />
-            <button type="button" class="auth-toggle-password" tabindex="-1">
+            <button type="button" class="auth-toggle-password" aria-label="显示密码" aria-controls="password" aria-pressed="false">
                 <span class="auth-icon-eye-show icon-[lucide--eye]" aria-hidden="true"></span>
                 <span class="auth-icon-eye-hide icon-[lucide--eye-off]" style="display:none" aria-hidden="true"></span>
             </button>
@@ -108,7 +108,7 @@
             </span>
             <input id="confirmPassword" name="confirmPassword" type="password" placeholder="再次输入密码" autocomplete="new-password"
                 required minlength="5" maxlength="257" class="auth-input auth-input-with-icon" />
-            <button type="button" class="auth-toggle-password" tabindex="-1">
+            <button type="button" class="auth-toggle-password" aria-label="显示确认密码" aria-controls="confirmPassword" aria-pressed="false">
                 <span class="auth-icon-eye-show icon-[lucide--eye]" aria-hidden="true"></span>
                 <span class="auth-icon-eye-hide icon-[lucide--eye-off]" style="display:none" aria-hidden="true"></span>
             </button>

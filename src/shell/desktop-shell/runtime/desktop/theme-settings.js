@@ -7,10 +7,7 @@ import {
   themeSettingsValueAt,
   updateThemeSettingsDraft
 } from './theme-settings-core.js';
-import {
-  mutateThemeConfig,
-  readThemeConfig
-} from '../shared/theme-config-client.js';
+import { loadThemeConfigClient } from '../shared/lazy-theme-config-client.js';
 
 const SCHEME_CLASS_PREFIX = 'scheme-';
 const WALLPAPER_CLASS_PREFIX = 'wallpaper-';
@@ -502,6 +499,7 @@ export function registerThemeSettings(Alpine) {
     },
 
     async fetchConfig() {
+      const { readThemeConfig } = await loadThemeConfigClient();
       const { config } = await readThemeConfig(this.endpoint);
       return config;
     },
@@ -534,7 +532,9 @@ export function registerThemeSettings(Alpine) {
         this.canOpen = false;
         this.statusTone = 'error';
         this.statusMessage = error.message || '无法访问主题设置';
-        this.setEntryFeedback(denied ? '当前账号没有主题设置权限。' : '主题设置暂时无法连接，请稍后重试。');
+        this.setEntryFeedback(String(error?.code ?? '').startsWith('module-load-')
+          ? error.message
+          : (denied ? '当前账号没有主题设置权限。' : '主题设置暂时无法连接，请稍后重试。'));
         return false;
       } finally {
         this.loading = false;
@@ -837,6 +837,7 @@ export function registerThemeSettings(Alpine) {
       this.statusMessage = '正在读取最新配置并合并修改…';
 
       try {
+        const { mutateThemeConfig } = await loadThemeConfigClient();
         const result = await mutateThemeConfig(
           this.endpoint,
           (latestConfig) => applyThemeSettingsDraftToConfig(latestConfig, saveDraft, savePaths)

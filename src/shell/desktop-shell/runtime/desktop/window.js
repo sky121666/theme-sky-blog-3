@@ -442,6 +442,10 @@ export function registerWindowComponents(Alpine) {
     _viewportModeHandler: null,
     _viewportResizing: false,
     _lifecycleInstalled: false,
+    _closeHomeTimer: 0,
+    _closeHomeNavigationHandler: null,
+    _closeHomePending: false,
+    _closeHomeGeneration: 0,
     naturalMinWidth: 0,
     naturalMinHeight: 0,
 
@@ -738,6 +742,7 @@ export function registerWindowComponents(Alpine) {
     },
 
     destroy() {
+      this.cancelCloseHomeNavigation();
       if (this._viewportResizeHandler) {
         window.removeEventListener('resize', this._viewportResizeHandler);
       }
@@ -984,14 +989,48 @@ export function registerWindowComponents(Alpine) {
       this.syncState();
     },
 
+    cancelCloseHomeNavigation({ keepPreventAutoOpen = false } = {}) {
+      this._closeHomeGeneration += 1;
+      window.clearTimeout(this._closeHomeTimer);
+      if (this._closeHomeNavigationHandler) {
+        window.removeEventListener('theme:before-pjax-navigation', this._closeHomeNavigationHandler);
+      }
+      if (this._closeHomePending && !keepPreventAutoOpen) window.preventAutoOpen = false;
+      this._closeHomeTimer = 0;
+      this._closeHomeNavigationHandler = null;
+      this._closeHomePending = false;
+    },
+
     closeWindow() {
+      this.cancelCloseHomeNavigation();
       const shouldReturnHome = window.location.pathname !== '/';
+      const manager = this.$store.windowManager;
+      manager.hide();
 
-      this.$store.windowManager.hide();
-
-      if (shouldReturnHome && window.pjax) {
+      if (shouldReturnHome && window.pjax?.loadUrl) {
+        const pjax = window.pjax;
+        const closedPath = window.location.pathname;
         window.preventAutoOpen = true;
-        window.setTimeout(() => window.pjax.loadUrl('/'), 180);
+        this._closeHomePending = true;
+        const closeGeneration = this._closeHomeGeneration;
+        this._closeHomeNavigationHandler = (event) => {
+          let isHomeNavigation = false;
+          try {
+            const target = new URL(event?.detail?.url, window.location.origin);
+            isHomeNavigation = target.origin === window.location.origin && target.pathname === '/';
+          } catch (_error) {}
+          this.cancelCloseHomeNavigation({ keepPreventAutoOpen: isHomeNavigation });
+        };
+        window.addEventListener('theme:before-pjax-navigation', this._closeHomeNavigationHandler);
+        this._closeHomeTimer = window.setTimeout(() => {
+          if (!this._closeHomePending || this._closeHomeGeneration !== closeGeneration) return;
+          if (window.location.pathname !== closedPath || manager.show || manager.pendingOpenRequested || window.pjax !== pjax) {
+            this.cancelCloseHomeNavigation();
+            return;
+          }
+          this.cancelCloseHomeNavigation({ keepPreventAutoOpen: true });
+          pjax.loadUrl('/');
+        }, 180);
       }
     }
   }));

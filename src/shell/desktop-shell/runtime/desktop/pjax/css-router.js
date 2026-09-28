@@ -6,6 +6,7 @@
 
 import { createLogger } from '../../shared/debug.js';
 import { getRoutableAppIds, inferPageAppFromUrl as inferPageAppFromRouteManifest } from '../../../../../shell-core/runtime/route-manifest.js';
+import { getAppAssetSegment as assetPathSegment } from '../../../../../shell-core/runtime/app-manifests.js';
 import {
   ensureAppAssetsLoaded as ensureShellCoreAppAssetsLoaded,
   ensureAppCssLoaded as ensureShellCoreAppCssLoaded,
@@ -19,21 +20,6 @@ const { log: cssLog } = createLogger('pjax');
 
 function normalizePageApp(value) {
   return typeof value === 'string' ? value.trim() : '';
-}
-
-function assetPathSegment(appId) {
-  switch (normalizePageApp(appId)) {
-    case 'explorer-tags':
-      return 'tags';
-    case 'explorer-categories':
-      return 'categories';
-    case 'explorer-author':
-      return 'author';
-    case 'explorer-archives':
-      return 'archives';
-    default:
-      return normalizePageApp(appId);
-  }
 }
 
 function getExplicitPageAppHint(triggerElement) {
@@ -71,8 +57,8 @@ export function setCurrentPageApp(value) {
 
 const APP_CSS_NAMES = getRoutableAppIds();
 
-export function ensureAppCssLoaded(appName) {
-  return ensureShellCoreAppCssLoaded(appName).then(() => {
+export function ensureAppCssLoaded(appName, options = {}) {
+  return ensureShellCoreAppCssLoaded(appName, options).then(() => {
     if (appName) cssLog('css: ensured', appName);
   });
 }
@@ -81,8 +67,8 @@ export async function ensureAppJsLoaded(appName) {
   return ensureShellCoreAppAssetsLoaded(appName);
 }
 
-export async function ensureAppAssetsLoaded(appName) {
-  return ensureShellCoreAppAssetsLoaded(appName);
+export async function ensureAppAssetsLoaded(appName, options = {}) {
+  return ensureShellCoreAppAssetsLoaded(appName, options);
 }
 
 export function stageAppCssForNavigation(appName) {

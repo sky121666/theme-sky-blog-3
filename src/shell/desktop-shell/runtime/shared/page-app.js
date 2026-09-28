@@ -29,9 +29,15 @@ export function runPageAppRegistrars(Alpine) {
   if (!Alpine) return;
   const registry = getPageAppRegistry();
   const registrars = registry.appRegistrars.splice(0, registry.appRegistrars.length);
-  registrars.forEach((registrar) => {
-    registrar(Alpine);
+  runAllLifecycleSteps(registrars.map((registrar) => () => registrar(Alpine)), 'App registration failed');
+}
+
+function runAllLifecycleSteps(steps, message) {
+  const errors = [];
+  steps.forEach((step) => {
+    try { step(); } catch (error) { errors.push(error); }
   });
+  if (errors.length) throw new AggregateError(errors, message);
 }
 
 export function queuePageInitializer(initializer) {
@@ -116,36 +122,31 @@ function syncDocumentStateToShell(documentState) {
   }
 }
 
-function runLegacyInitializers(root = document) {
-  const registry = getPageAppRegistry();
-  registry.pageInitializers.forEach((initializer) => {
-    initializer(root);
-  });
-}
-
 export function runPageInitializers(root = document) {
-  runLegacyInitializers(root);
-  // Built-in lazy initializers (run after user-registered ones)
-  initLazyImages(root);
-  initLazyComments(root);
+  runAllLifecycleSteps([
+    ...getPageAppRegistry().pageInitializers.map((initializer) => () => initializer(root)),
+    () => initLazyImages(root),
+    () => initLazyComments(root)
+  ], 'Page initialization failed');
 }
 
 export function deactivateCurrentPageApp() {
   const registry = getPageAppRegistry();
   const activeApp = registry.activeApp;
   if (!activeApp) return;
-
+  // Release ownership before user cleanup. One broken disposer must not leave
+  // the others running, nor cause the same instance to be disposed twice.
+  registry.activeApp = null;
   try {
-    if (typeof activeApp.cleanup === 'function') {
-      activeApp.cleanup();
-    }
-    if (typeof activeApp.lifecycle?.dispose === 'function') {
-      activeApp.lifecycle.dispose(activeApp.root, activeApp.context);
-    }
-  } finally {
-    disposeLazyImages(activeApp.root || document);
-    disposeLazyComments(activeApp.root || document);
-    registry.activeApp = null;
+    runAllLifecycleSteps([
+      () => { if (typeof activeApp.cleanup === 'function') activeApp.cleanup(); },
+      () => activeApp.lifecycle?.dispose?.(activeApp.root, activeApp.context),
+      () => disposeLazyImages(activeApp.root || document),
+      () => disposeLazyComments(activeApp.root || document)
+    ], `Page cleanup failed: ${activeApp.appId}`);
+  } catch (error) {
+    // Surface every failure, while allowing the next page/fallback to recover.
+    console.error('[page-app]', error);
   }
 }
 
@@ -159,7 +160,6 @@ export function activatePageApp(appId, root = document, extra = {}) {
   }
 
   if (!normalized || !lifecycle) {
-    runPageInitializers(root);
     registry.activeApp = {
       appId: normalized,
       root,
@@ -167,6 +167,10 @@ export function activatePageApp(appId, root = document, extra = {}) {
       context: null,
       protocol: null
     };
+    try { runPageInitializers(root); } catch (error) {
+      deactivateCurrentPageApp();
+      throw error;
+    }
     return registry.activeApp;
   }
 
@@ -175,28 +179,31 @@ export function activatePageApp(appId, root = document, extra = {}) {
     : { appId: normalized, root };
   const appRoot = protocol?.root || root;
   const context = buildPageAppContext(normalized, protocol, root, extra);
-  const cleanup = typeof lifecycle.hydrate === 'function'
-    ? lifecycle.hydrate(appRoot, context) || null
-    : null;
-  const documentState = normalizeDocumentState(
-    typeof lifecycle.getDocumentState === 'function'
-      ? lifecycle.getDocumentState(appRoot, context)
-      : null,
-    context
-  );
-
-  runPageInitializers(appRoot);
-  syncDocumentStateToShell(documentState);
-
   registry.activeApp = {
     appId: normalized,
     root: appRoot,
-    cleanup,
+    cleanup: null,
     lifecycle,
     context,
     protocol,
-    documentState
+    documentState: null
   };
+  try {
+    registry.activeApp.cleanup = typeof lifecycle.hydrate === 'function'
+      ? lifecycle.hydrate(appRoot, context) || null
+      : null;
+    registry.activeApp.documentState = normalizeDocumentState(
+      typeof lifecycle.getDocumentState === 'function'
+        ? lifecycle.getDocumentState(appRoot, context)
+        : null,
+      context
+    );
+    runPageInitializers(appRoot);
+    syncDocumentStateToShell(registry.activeApp.documentState);
+  } catch (error) {
+    deactivateCurrentPageApp();
+    throw error;
+  }
   return registry.activeApp;
 }
 

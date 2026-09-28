@@ -49,8 +49,9 @@ function findGameByName(games, name) {
 }
 
 function toDisplayNumber(value) {
-  const num = Number(value || 0);
-  return Number.isFinite(num) && num > 0 ? String(num) : '--';
+  if (value === null || value === undefined || String(value).trim() === '') return '--';
+  const num = Number(value);
+  return Number.isFinite(num) && num >= 0 ? String(num) : '--';
 }
 
 function cssUrl(value) {

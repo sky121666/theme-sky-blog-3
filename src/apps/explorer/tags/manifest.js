@@ -4,9 +4,6 @@ export const explorerTagsAppManifest = {
   supportsSameAppPjax: true,
   sameAppPjaxLoading: 'progress',
   sameVariantPageModes: ['browser-list'],
-  cachePolicy: 'app-path-search',
-  assets: {
-    js: 'explorer-tags.js',
-    css: 'explorer-tags.css'
-  }
+  entry: 'src/apps/explorer/tags/entry.js',
+  assetDirectory: 'tags'
 };

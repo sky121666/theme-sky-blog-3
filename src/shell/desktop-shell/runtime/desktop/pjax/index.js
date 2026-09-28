@@ -59,6 +59,7 @@ import {
 } from '../../shared/plugin-compat.js';
 import { syncHomeDesktopWidgetProtocolFromResponse } from '../../widgets/protocol.js';
 import {
+  cancelledPopstateRollbackDelta,
   createBrowserNavigationOwnership,
   createNavigationCoordinator,
   createTimedNavigationSignal,
@@ -69,9 +70,11 @@ import {
   resolveNavigationHref,
   runNonFatalNavigationHook
 } from './navigation-guard.js';
+import { createBrowserNavStateStore } from './browser-nav-state.js';
 
 const { log: pjaxLog, warn: pjaxWarn } = createLogger('pjax');
 const NAVIGATION_INTENT_OPTION = '__themeNavigationIntent';
+const FAILED_RESPONSE_OPTION = '__themeFailedResponse';
 const BEFORE_PJAX_NAVIGATION_EVENT = 'theme:before-pjax-navigation';
 const PHOTOS_DETAIL_VIEW = 'detail';
 const PHOTOS_SHARED_TRANSITION_CLASS = 'photos-shared-view-transition';
@@ -427,7 +430,20 @@ const BROWSER_NAV_DEPTH_KEY = 'sky_browser_nav_depth';
 const BROWSER_NAV_INDEX_KEY = '__browserNavIndex';
 const BROWSER_NAV_CHROME_KEY = '__browserNavChrome';
 const BROWSER_NAV_WINDOW_SCROLL_KEY = '__browserWindowScroll';
+const browserNavStateStore = createBrowserNavStateStore();
 let pendingWindowScrollRestore = null;
+let committedBrowserEntry = null;
+
+function rememberCommittedBrowserEntry(state) {
+  // Explicit states have just been sampled or written and must win over the
+  // previous stored snapshot. Only a raw history.state needs recovery.
+  const entry = state === undefined
+    ? browserNavStateStore.recover(window.history.state)
+    : state;
+  if (!entry || typeof entry !== 'object' || entry.uid == null) return;
+  committedBrowserEntry = { ...entry };
+  browserNavStateStore.remember(entry);
+}
 
 function createBrowserNavUid() {
   return `pjax${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -456,8 +472,23 @@ function getBrowserNavDepth() {
 }
 
 function readBrowserNavIndexFromState(state = window.history.state) {
-  const value = state?.[BROWSER_NAV_INDEX_KEY];
+  const value = browserNavStateStore.recover(state)?.[BROWSER_NAV_INDEX_KEY];
   return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+function restoreRememberedBrowserNavState() {
+  const state = window.history.state;
+  const recovered = browserNavStateStore.recover(state);
+  if (!recovered) return recovered;
+  const restored = recovered.url === window.location.href
+    ? recovered
+    : { ...recovered, url: window.location.href };
+  try {
+    window.history.replaceState(restored, restored.title || document.title, window.location.href);
+  } catch (_error) {
+    // The recovered values still serve this page's back/scroll controls.
+  }
+  return restored;
 }
 
 function getCurrentScrollPos() {
@@ -475,15 +506,19 @@ function getCurrentWindowScrollPos() {
 }
 
 function snapshotCurrentBrowserEntry() {
-  const state = window.history.state;
+  const state = browserNavStateStore.recover(window.history.state);
   if (!state || typeof state !== 'object') return;
   try {
     const nextState = {
       ...state,
+      // TOC and other same-page controls can update the visible hash without
+      // updating state.url. Preserve that address when leaving this entry.
+      url: window.location.href,
       scrollPos: getCurrentScrollPos(),
       [BROWSER_NAV_WINDOW_SCROLL_KEY]: getCurrentWindowScrollPos()
     };
-    window.history.replaceState(nextState, nextState.title || document.title, nextState.url || window.location.href);
+    window.history.replaceState(nextState, nextState.title || document.title, window.location.href);
+    rememberCommittedBrowserEntry(nextState);
   } catch (_error) {}
 }
 
@@ -545,6 +580,7 @@ function readBrowserNavChromeSnapshot(overrides = {}) {
 }
 
 function applyBrowserNavChromeState(state = window.history.state) {
+  state = browserNavStateStore.recover(state);
   if (!state || typeof state !== 'object') return;
 
   if (state.title) {
@@ -567,7 +603,7 @@ function applyBrowserNavChromeState(state = window.history.state) {
 
 function buildBrowserNavState(index, title = document.title, url = window.location.href, chromeOverrides = {}, options = {}) {
   const {
-    baseState = (window.history.state && typeof window.history.state === 'object') ? window.history.state : {},
+    baseState = browserNavStateStore.recover(window.history.state) || {},
     uid = baseState.uid || createBrowserNavUid(),
     scrollPos = baseState.scrollPos || getCurrentScrollPos(),
     windowScroll = baseState[BROWSER_NAV_WINDOW_SCROLL_KEY] || getCurrentWindowScrollPos()
@@ -589,19 +625,21 @@ function replaceBrowserNavState(index, title = document.title, url = window.loca
   try {
     const nextState = buildBrowserNavState(index, title, url, chromeOverrides);
     window.history.replaceState(nextState, nextState.title, nextState.url);
+    rememberCommittedBrowserEntry(nextState);
   } catch (_e) {
     // Ignore replaceState failures; sessionStorage still tracks the fallback depth.
   }
 }
 
-function pushBrowserNavState(index, title, url, chromeOverrides = {}) {
+function pushBrowserNavState(index, title, url, chromeOverrides = {}, { preserveScroll = false } = {}) {
   const uid = createBrowserNavUid();
   const nextState = buildBrowserNavState(index, title, url, chromeOverrides, {
     uid,
-    scrollPos: [0, 0],
-    windowScroll: [0, 0]
+    scrollPos: preserveScroll ? getCurrentScrollPos() : [0, 0],
+    windowScroll: preserveScroll ? getCurrentWindowScrollPos() : [0, 0]
   });
   window.history.pushState(nextState, nextState.title, nextState.url);
+  rememberCommittedBrowserEntry(nextState);
   try {
     if (window.pjax) {
       window.pjax.lastUid = uid;
@@ -672,6 +710,27 @@ function installBrowserNavHelpers() {
       return;
     }
     window.location.href = fallback;
+  };
+
+  window.__browserSyncUiHistoryState = function({ url, title = document.title, mode = 'push', chrome = {} } = {}) {
+    let target;
+    try {
+      target = new URL(String(url || window.location.href), window.location.href);
+      if (target.origin !== window.location.origin) return false;
+      snapshotCurrentBrowserEntry();
+      const index = readBrowserNavIndexFromState() ?? getBrowserNavDepth();
+      if (mode === 'replace') {
+        replaceBrowserNavState(index, title, target.href, chrome);
+      } else if (mode === 'push') {
+        pushBrowserNavState(index + 1, title, target.href, chrome, { preserveScroll: true });
+        syncBrowserNavDepth(index + 1);
+      } else {
+        return false;
+      }
+      return true;
+    } catch (_error) {
+      return false;
+    }
   };
 }
 
@@ -919,7 +978,7 @@ export function initPjax(Alpine) {
 
     // Non-200 responses: full-page redirect to show dedicated error page.
     const _origHandleResponse = pjax.handleResponse.bind(pjax);
-    pjax.handleResponse = function(responseText, request, href, options) {
+    pjax.handleResponse = async function(responseText, request, href, options) {
       if (!isCurrentNavigationIntent(options?.[NAVIGATION_INTENT_OPTION], navigationIntentGeneration)) {
         pjaxLog('handleResponse: ignored stale navigation response');
         return;
@@ -937,6 +996,32 @@ export function initPjax(Alpine) {
         window.location = fallbackHref;
         return;
       }
+      if (responseText === null) {
+        // Pjax 0.2.8 treats null as HTML and strips the active history state.
+        // Route status=0 failures through its error events without swapping DOM.
+        _origHandleResponse(false, request, href, {
+          ...options,
+          [FAILED_RESPONSE_OPTION]: true
+        });
+        return;
+      }
+      // HTML and app downloads start together. Hold DOM replacement until
+      // both the inferred and actual response app have executed registrars.
+      const assetGate = _fullAssetGate;
+      try {
+        if (assetGate && !await assetGate.promise) return;
+        if (!isCurrentNavigationIntent(options?.[NAVIGATION_INTENT_OPTION], navigationIntentGeneration)) return;
+        const responseApp = parsePageAppFromResponse(responseText);
+        await ensureAppAssetsLoaded(responseApp, { signal: assetGate?.controller.signal });
+        if (!isCurrentNavigationIntent(options?.[NAVIGATION_INTENT_OPTION], navigationIntentGeneration)) return;
+        stageAppCssForNavigation(responseApp);
+      } catch (error) {
+        if (!isCurrentNavigationIntent(options?.[NAVIGATION_INTENT_OPTION], navigationIntentGeneration)) return;
+        pjaxWarn('response app assets failed:', error?.message || error, '→ hard navigation');
+        stopTopProgress();
+        hardNavigate(fallbackHref);
+        return;
+      }
       // The desktop surface is persistent and lives outside Pjax's selector.
       // Install the inert home response protocol before Pjax starts switching
       // DOM so every pjax:complete listener observes fully hydrated data.
@@ -945,7 +1030,13 @@ export function initPjax(Alpine) {
         stageOnlineHistory: options?.history !== false,
         targetUrl: fallbackHref
       });
-      _origHandleResponse(responseText, request, href, options);
+      try {
+        _origHandleResponse(responseText, request, href, options);
+      } catch (error) {
+        pjaxWarn('response handling failed:', error?.message || error, '→ hard navigation');
+        stopTopProgress();
+        hardNavigate(fallbackHref);
+      }
     };
 
     // Patch attachLink to deduplicate — MoOx/pjax's attachLink never checks
@@ -967,9 +1058,67 @@ export function initPjax(Alpine) {
     let _pjaxLoadingController = null;
     let _fullPjaxGeneration = 0;
     let navigationIntentGeneration = 0;
+    let _fullAssetGate = null;
+    let cancelledPopstateUid = '';
+    let rollbackPopstateUid = '';
+    let rollbackTimer = 0;
+
+    const rollbackPopstateToCommittedEntry = (options = {}, { skipCurrentPopstateListener = false } = {}) => {
+      if (!committedBrowserEntry) return;
+      const targetState = window.history.state;
+      const sourceEntry = committedBrowserEntry;
+      const targetUid = String(targetState?.uid || '');
+      const sourceIndex = readBrowserNavIndexFromState(sourceEntry);
+      const targetIndex = readBrowserNavIndexFromState(targetState);
+      const delta = cancelledPopstateRollbackDelta(sourceIndex, targetIndex, options);
+      const targetHref = window.location.href;
+      const rollbackIntent = navigationIntentGeneration;
+      // The synchronous guard runs before our listener for the current
+      // popstate. An async XHR error has no such listener left to skip.
+      cancelledPopstateUid = skipCurrentPopstateListener ? targetUid : '';
+      rollbackPopstateUid = String(sourceEntry.uid);
+      clearPendingWindowScrollRestore();
+      window.clearTimeout(rollbackTimer);
+      try {
+        if (delta) window.history.go(delta);
+      } catch (_error) {
+        // The fallback below restores the visible URL if traversal is unavailable.
+      }
+      rollbackTimer = window.setTimeout(() => {
+        if (rollbackPopstateUid !== String(sourceEntry.uid)) return;
+        rollbackPopstateUid = '';
+        if (navigationIntentGeneration !== rollbackIntent
+          || String(window.history.state?.uid || '') !== targetUid
+          || window.location.href !== targetHref) return;
+        if (targetHref !== sourceEntry.url) {
+          window.history.replaceState(sourceEntry, sourceEntry.title || document.title, sourceEntry.url);
+          syncBrowserNavDepth(sourceIndex ?? 0);
+          applyBrowserNavChromeState(sourceEntry);
+        }
+      }, delta ? 1000 : 0);
+    };
 
     const _origLoadUrl = pjax.loadUrl.bind(pjax);
     pjax.loadUrl = function(url, options = {}) {
+      const isPopstateIntent = options?.history === false;
+      const currentEntryUid = String(window.history.state?.uid || '');
+      if (isPopstateIntent && committedBrowserEntry
+        && String(committedBrowserEntry.uid) !== currentEntryUid) {
+        // popstate already selected the target entry, while the visible DOM
+        // and scroller still belong to the source entry we are leaving.
+        rememberCommittedBrowserEntry({
+          ...committedBrowserEntry,
+          scrollPos: getCurrentScrollPos(),
+          [BROWSER_NAV_WINDOW_SCROLL_KEY]: getCurrentWindowScrollPos()
+        });
+      }
+      if (isPopstateIntent && rollbackPopstateUid && currentEntryUid === rollbackPopstateUid) {
+        window.clearTimeout(rollbackTimer);
+        rollbackTimer = 0;
+        rollbackPopstateUid = '';
+        restoreRememberedBrowserNavState();
+        return Promise.resolve(false);
+      }
       if (options?.history !== false) {
         clearPendingWindowScrollRestore();
         snapshotCurrentBrowserEntry();
@@ -981,12 +1130,18 @@ export function initPjax(Alpine) {
       });
       if (!window.dispatchEvent(beforeNavigation)) {
         pjaxLog('navigation cancelled by desktop layout guard', { url: String(url || '') });
+        if (isPopstateIntent && committedBrowserEntry) {
+          rollbackPopstateToCommittedEntry(options, { skipCurrentPopstateListener: true });
+        }
         return Promise.resolve(false);
       }
 
+      window.clearTimeout(rollbackTimer);
+      rollbackTimer = 0;
+      rollbackPopstateUid = '';
+      cancelledPopstateUid = '';
       const intentGeneration = ++navigationIntentGeneration;
       void cancelActivePhotosViewTransition();
-      const isPopstateIntent = options?.history === false;
       browserNavigationOwnership.begin(intentGeneration, { popstate: isPopstateIntent });
       window._browserPopstatePending = isPopstateIntent;
       window._browserForwardNavPending = false;
@@ -1000,49 +1155,70 @@ export function initPjax(Alpine) {
       staleFullContainer?.classList.remove('pjax-loading');
       clearBusyState(staleFullContainer);
       closeTransientNavigationUi();
-      // A newer navigation must cancel both an in-flight XHR and an older
-      // app-asset gate. Otherwise a slow app bundle can start a stale request
-      // after the user has already chosen another destination.
+      // A newer navigation cancels both the XHR and its app-asset wait. Shared
+      // downloads remain reusable, but only the current intent may replace DOM.
       pjax.abortRequest(pjax.request);
+      _fullAssetGate?.controller.abort();
       const targetApp = inferPageAppForNavigation(url, options?.triggerElement || null);
       startTopProgress();
-      return ensureAppAssetsLoaded(targetApp)
-        .then(() => {
-          if (intentGeneration !== navigationIntentGeneration) return false;
-          stageAppCssForNavigation(targetApp);
-          return _origLoadUrl(url, {
-            ...options,
-            requestOptions: {
-              ...(options?.requestOptions || {}),
-              requestUrl: options?.requestOptions?.requestUrl || String(url)
-            },
-            [NAVIGATION_INTENT_OPTION]: intentGeneration
-          });
-        })
-        .catch((error) => {
-          if (intentGeneration !== navigationIntentGeneration) return false;
-          syncAppCss(getCurrentPageApp() || document.body?.dataset?.pageApp || '');
-          browserNavigationOwnership.release(intentGeneration);
-          window._browserPopstatePending = false;
-          window._browserForwardNavPending = false;
-          pjaxWarn('app assets failed before navigation:', targetApp || '-', error?.message || error, '→ hard navigation');
-          stopTopProgress();
-          hardNavigate(url);
-          return false;
-        });
+      const controller = new AbortController();
+      const failAssetNavigation = (error) => {
+        if (intentGeneration !== navigationIntentGeneration) return false;
+        if (controller.signal.aborted) return false;
+        pjax.abortRequest(pjax.request);
+        syncAppCss(getCurrentPageApp() || document.body?.dataset?.pageApp || '');
+        browserNavigationOwnership.release(intentGeneration);
+        window._browserPopstatePending = false;
+        window._browserForwardNavPending = false;
+        pjaxWarn('app assets failed during navigation:', targetApp || '-', error?.message || error, '→ hard navigation');
+        stopTopProgress();
+        hardNavigate(url);
+        return false;
+      };
+      _fullAssetGate = {
+        controller,
+        promise: ensureAppAssetsLoaded(targetApp, { signal: controller.signal })
+          .then(() => true)
+          .catch(failAssetNavigation)
+      };
+      try {
+        // Warm CSS was disabled when leaving its app. Restore it before the
+        // synchronous pjax:send event while keeping the current page styled.
+        // Cold downloads still run in parallel with the HTML request below.
+        stageAppCssForNavigation(targetApp);
+        return Promise.resolve(_origLoadUrl(url, {
+          ...options,
+          scrollPos: isPopstateIntent
+            ? (browserNavStateStore.recover(window.history.state)?.scrollPos || options.scrollPos)
+            : options.scrollPos,
+          requestOptions: {
+            ...(options?.requestOptions || {}),
+            requestUrl: options?.requestOptions?.requestUrl || String(url)
+          },
+          [NAVIGATION_INTENT_OPTION]: intentGeneration
+        }));
+      } catch (error) {
+        return Promise.resolve(failAssetNavigation(error));
+      }
     };
 
     initializeBrowserNavDepth();
+    rememberCommittedBrowserEntry();
     installBrowserNavHelpers();
 
     window.addEventListener('popstate', (event) => {
+      if (cancelledPopstateUid && String(event.state?.uid || '') === cancelledPopstateUid) {
+        cancelledPopstateUid = '';
+        return;
+      }
       window._browserPopstatePending = browserNavigationOwnership.isPopstate(navigationIntentGeneration);
       window._browserForwardNavPending = false;
-      const stateIndex = readBrowserNavIndexFromState(event.state);
+      const entryState = browserNavStateStore.recover(event.state);
+      const stateIndex = readBrowserNavIndexFromState(entryState);
       syncBrowserNavDepth(stateIndex ?? 0);
-      applyBrowserNavChromeState(event.state);
-      pendingWindowScrollRestore = Array.isArray(event.state?.[BROWSER_NAV_WINDOW_SCROLL_KEY])
-        ? event.state[BROWSER_NAV_WINDOW_SCROLL_KEY]
+      applyBrowserNavChromeState(entryState);
+      pendingWindowScrollRestore = Array.isArray(entryState?.[BROWSER_NAV_WINDOW_SCROLL_KEY])
+        ? entryState[BROWSER_NAV_WINDOW_SCROLL_KEY]
         : [0, 0];
     });
 
@@ -1082,6 +1258,8 @@ export function initPjax(Alpine) {
       snapshotCurrentBrowserEntry();
       showNavigationStatus('');
       const intentGeneration = ++navigationIntentGeneration;
+      _fullAssetGate?.controller.abort();
+      _fullAssetGate = null;
       const previousPhotosTransitionSettled = cancelActivePhotosViewTransition();
       browserNavigationOwnership.begin(intentGeneration);
       _fullPjaxGeneration += 1;
@@ -1124,6 +1302,7 @@ export function initPjax(Alpine) {
       let shouldFallback = false;
       let finalizedCurrentNavigation = false;
       let completionDetail = null;
+      let contentTargetMarker = null;
       const requestSignal = createTimedNavigationSignal(navigation.signal, PJAX_REQUEST_TIMEOUT);
       perfMark('overlayVisible');
       if (useTopProgress) {
@@ -1140,7 +1319,7 @@ export function initPjax(Alpine) {
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
             signal: requestSignal.signal
           }),
-          ensureAppAssetsLoaded(targetApp)
+          ensureAppAssetsLoaded(targetApp, { signal: requestSignal.signal })
         ]);
 
         if (!isCurrentNavigation()) {
@@ -1199,7 +1378,7 @@ export function initPjax(Alpine) {
           || targetContentRoot?.querySelector('#pjax-container');
 
         const nextApp = parsePageAppFromResponse(html) || targetApp;
-        await ensureAppAssetsLoaded(nextApp);
+        await ensureAppAssetsLoaded(nextApp, { signal: requestSignal.signal });
         if (!isCurrentNavigation()) {
           throw new DOMException('Navigation superseded', 'AbortError');
         }
@@ -1238,6 +1417,9 @@ export function initPjax(Alpine) {
           throw new DOMException('Navigation superseded', 'AbortError');
         }
 
+        // A warm target stylesheet can still be disabled from the previous
+        // app. Keep both styles active before inserting the new app DOM.
+        stageAppCssForNavigation(nextApp);
         preparePluginCompatibilityFromResponse(html);
         const syncedTitlebar = preservePhotosDetailTitlebar
           ? null
@@ -1246,6 +1428,10 @@ export function initPjax(Alpine) {
         let contentSwapped = false;
         const performContentSwap = async () => {
           if (!isCurrentNavigation()) return;
+          // Alpine's mutation observer may initialize inserted nodes before
+          // initTree runs below, so expose the destination before the swap.
+          contentContainer.dataset.pjaxTargetUrl = targetUrl;
+          contentTargetMarker = contentContainer;
           deactivateCurrentPageApp();
           if (preservePhotosDetailTitlebar) {
             syncWindowTitlebarCopyFromDocument(targetDoc, targetPhotosChrome);
@@ -1332,7 +1518,7 @@ export function initPjax(Alpine) {
         setCurrentPageApp(nextApp);
         syncAppCss(nextApp);
 
-        // Alpine + scripts
+        // History is committed only after components have initialized.
         replayPjaxScripts(contentContainer);
         runShikiExtraPathRenderer(html, contentContainer);
         if (window.Alpine?.initTree) {
@@ -1409,6 +1595,9 @@ export function initPjax(Alpine) {
         }
       } finally {
         requestSignal.cleanup();
+        if (contentTargetMarker?.dataset.pjaxTargetUrl === targetUrl) {
+          delete contentTargetMarker.dataset.pjaxTargetUrl;
+        }
         if (isCurrentNavigation()) {
           await hideOverlay(contentRoot, loadingController, {
             immediate: !navigationSucceeded
@@ -1521,6 +1710,8 @@ export function initPjax(Alpine) {
         pjaxLog('event:complete ignored for stale navigation');
         return;
       }
+      if (event?.[FAILED_RESPONSE_OPTION]) return;
+      if (window._browserPopstatePending) restoreRememberedBrowserNavState();
       const completionGeneration = _fullPjaxGeneration;
       const completionIntentValue = event?.[NAVIGATION_INTENT_OPTION];
       const completionIntent = Number(completionIntentValue) > 0
@@ -1602,6 +1793,8 @@ export function initPjax(Alpine) {
           const nextNavIndex = getBrowserNavDepth() + 1;
           replaceBrowserNavState(nextNavIndex);
           syncBrowserNavDepth(nextNavIndex);
+        } else if (window._browserPopstatePending) {
+          rememberCommittedBrowserEntry();
         }
       } catch (error) {
         if (isCurrentCompletion()) {
@@ -1619,6 +1812,8 @@ export function initPjax(Alpine) {
           // A new intent can start while the overlay finish promise settles.
           // Only the still-current owner may clear shared DOM/transient state.
           if (isCurrentCompletion()) {
+            _fullAssetGate?.controller.abort();
+            _fullAssetGate = null;
             browserNavigationOwnership.release(completionIntent);
             window._browserForwardNavPending = false;
             window._browserPopstatePending = false;
@@ -1649,8 +1844,11 @@ export function initPjax(Alpine) {
       const errorIntent = Number(errorIntentValue) > 0
         ? Number(errorIntentValue)
         : navigationIntentGeneration;
+      if (event?.history === false) rollbackPopstateToCommittedEntry(event);
       clearPendingWindowScrollRestore();
       _fullPjaxGeneration += 1;
+      _fullAssetGate?.controller.abort();
+      _fullAssetGate = null;
       sameVariantCoordinator.cancel();
       discardStagedOnlineMonitorHistoryState();
       _sameVariantLoadingController?.finish({ immediate: true });
@@ -1676,7 +1874,7 @@ export function initPjax(Alpine) {
     document.addEventListener('click', (e) => {
       if (!isPlainPrimaryNavigationEvent(e)) return;
       const link = e.target.closest('a[href]');
-      if (!link || link.target || link.hasAttribute('download') || link.href.startsWith('javascript:')) return;
+      if (!link || (link.target && link.target.toLowerCase() !== '_self') || link.hasAttribute('download') || link.href.startsWith('javascript:')) return;
       if (!link.classList?.contains('pjax-link')) return;
 
       const targetUrl = new URL(link.href, window.location.origin);

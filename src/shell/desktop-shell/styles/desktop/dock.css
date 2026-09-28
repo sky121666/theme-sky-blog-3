@@ -184,6 +184,13 @@
   color: rgba(255, 255, 255, 0.96);
 }
 
+.dock-icon-initial {
+  font-size: calc(var(--dock-icon-size, 48px) * 0.43);
+  font-weight: 700;
+  line-height: 1;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+}
+
 .dock-icon-img {
   position: absolute;
   inset: 0;

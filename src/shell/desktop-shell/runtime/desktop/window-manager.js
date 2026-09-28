@@ -2,7 +2,7 @@
  * 全局窗口状态管理 Store + 菜单栏 + 主题 + Dock + macOS 26 通知中心控制器
  */
 
-import { resolveThemeMode, applyRootThemeState, runThemeTransition } from '../shared/theme.js';
+import { resolveThemeMode, persistThemeMode, applyRootThemeState, runThemeTransition } from '../shared/theme.js';
 import { openSearchWidget } from './search.js';
 import { runGenieAnimation } from './window.js';
 import { createLogger } from '../shared/debug.js';
@@ -11,8 +11,10 @@ import { getWidgetCatalogEntry, normalizeWidgetAppearance, normalizeWidgetInstan
 import {
   ensureWidgetRendererRuntime,
   renderWidgetBodyWithHost,
-  renderWidgetLoadingMarkup
+  renderWidgetLoadingMarkup,
+  retryBangumiWidgetDataWithHost
 } from '../widgets/render-runtime.js';
+import { disposeLatestPostsSources } from '../widgets/latest-posts-runtime.js';
 import { syncHomeDesktopWidgetProtocolFromResponse } from '../widgets/protocol.js';
 import { createNotificationCenterMotion } from './notification-center-motion.js';
 import { enhanceDoubanShowcaseWidgets } from '../../../../widgets/plugin/douban-showcase/runtime.js';
@@ -461,8 +463,7 @@ export function registerWindowManager(Alpine) {
     },
 
     setMode(newMode) {
-      this.mode = newMode;
-      localStorage.setItem('theme', newMode);
+      this.mode = persistThemeMode(newMode);
       runThemeTransition(() => {
         this.applyTheme();
       });
@@ -547,7 +548,9 @@ export function registerWindowManager(Alpine) {
     notificationWidgetRenderVersions: {},
     notificationWidgetRendererErrors: {},
     notificationWidgetHtmlCache: new Map(),
+    notificationBangumiWidgetPending: new Map(),
     notificationWidgetRenderTick: 0,
+    notificationCalendarDayKey: '',
     notificationWidgetDataStatus: 'idle',
     notificationWidgetDataPromise: null,
     notificationWidgetDataController: null,
@@ -564,6 +567,8 @@ export function registerWindowManager(Alpine) {
     notificationWeatherDefaults: null,
     notificationWeatherRefreshTimer: null,
     notificationWeatherRequestId: 0,
+    notificationWeatherRequestTargets: '',
+    notificationWidgetsDisposed: false,
     notificationWeatherState: {
       loading: false,
       error: '',
@@ -708,6 +713,9 @@ export function registerWindowManager(Alpine) {
       });
     },
     destroy() {
+      this.notificationWidgetsDisposed = true;
+      this.notificationWeatherRequestId += 1;
+      disposeLatestPostsSources({ widgetRenderVersions: this.notificationWidgetRenderVersions });
       this.notificationOpenGeneration += 1;
       window.removeEventListener('resize', this.handleResize);
       document.removeEventListener('pjax:complete', this.handlePjaxComplete);
@@ -1592,6 +1600,8 @@ export function registerWindowManager(Alpine) {
       return this.notificationWidgetDataPromise;
     },
     syncNotificationWidgets(widgets = null, options = {}) {
+      const previousWeatherTargets = this.resolveNotificationWeatherLoadTargets()
+        .map((target) => target.key).sort().join('\n');
       if (Array.isArray(widgets)) {
         this.notificationWidgetDraftWidgets = widgets.map((widget) => ({ ...widget }));
       }
@@ -1601,7 +1611,10 @@ export function registerWindowManager(Alpine) {
         void this.ensureNotificationWidgetRenderer(widget.widget);
       });
       if (this.hasNotificationWeatherWidget()) {
-        void this.loadNotificationWeather();
+        const nextWeatherTargets = this.resolveNotificationWeatherLoadTargets()
+          .map((target) => target.key).sort().join('\n');
+        const weatherTargetsChanged = previousWeatherTargets !== nextWeatherTargets;
+        void this.loadNotificationWeather(this.notificationWeatherState.loading && weatherTargetsChanged);
       } else {
         this.clearNotificationWeatherRefreshTimer();
         this.notificationWeatherRequestId += 1;
@@ -1688,14 +1701,20 @@ export function registerWindowManager(Alpine) {
       }, Math.max(10, refreshMinutes) * 60 * 1000);
     },
     async loadNotificationWeather(forceRefresh = false) {
+      if (this.notificationWidgetsDisposed) return;
       if (!this.hasNotificationWeatherWidget()) {
         this.clearNotificationWeatherRefreshTimer();
         return;
       }
-      if (this.notificationWeatherState.loading && !forceRefresh) return;
-      this.clearNotificationWeatherRefreshTimer();
-
       const targets = this.resolveNotificationWeatherLoadTargets();
+      const targetSignature = targets.map((target) => target.key).sort().join('\n');
+      // Defaults may already have changed before widget synchronization. Compare
+      // against the active request, not targets recomputed from the new defaults.
+      if (this.notificationWeatherState.loading && !forceRefresh
+        && targetSignature === this.notificationWeatherRequestTargets) return;
+      this.clearNotificationWeatherRefreshTimer();
+      const requestId = ++this.notificationWeatherRequestId;
+      this.notificationWeatherRequestTargets = targetSignature;
       if (!targets.length) {
         this.notificationWeatherState = {
           loading: false,
@@ -1714,6 +1733,7 @@ export function registerWindowManager(Alpine) {
         saveDesktopWidgetWeather,
         fetchDesktopWidgetWeather
       } = await this.ensureNotificationWeatherRuntime();
+      if (requestId !== this.notificationWeatherRequestId) return;
 
       const nextEntries = { ...(this.notificationWeatherState.entries || {}) };
       const pendingTargets = [];
@@ -1745,11 +1765,10 @@ export function registerWindowManager(Alpine) {
         };
         this.notificationWidgetHtmlCache.clear();
         this.notificationWidgetRenderTick += 1;
+        this.scheduleNotificationWeatherRefresh();
         return;
       }
 
-      this.notificationWeatherRequestId += 1;
-      const requestId = this.notificationWeatherRequestId;
       this.notificationWeatherState = {
         ...this.notificationWeatherState,
         entries: nextEntries,
@@ -1888,6 +1907,12 @@ export function registerWindowManager(Alpine) {
         widgetRenderVersions: this.notificationWidgetRenderVersions,
         widgetRendererErrors: this.notificationWidgetRendererErrors,
         _widgetHtmlCache: this.notificationWidgetHtmlCache,
+        _bangumiWidgetPending: this.notificationBangumiWidgetPending,
+        widgetsDisposed: this.notificationWidgetsDisposed,
+        onWidgetDataChanged: () => {
+          this.notificationWidgetHtmlCache.clear();
+          this.notificationWidgetRenderTick += 1;
+        },
         onWidgetRendererReady: () => {
           this.notificationWidgetHtmlCache.clear();
           this.notificationWidgetRenderTick += 1;
@@ -1896,7 +1921,20 @@ export function registerWindowManager(Alpine) {
           this.notificationWidgetHtmlCache.clear();
           this.notificationWidgetRenderTick += 1;
         }
-      }, widget, { surface: 'notification-center', compact: false });
+      }, widget, { surface: 'notification-center', compact: false, visible: this.notificationCenterVisible });
+    },
+    retryNotificationBangumiWidget(widget, event) {
+      if (!event?.target?.closest?.('[data-bangumi-widget-retry]')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const host = {
+        bangumiWidgetDataStore: undefined,
+        widgetRenderVersions: this.notificationWidgetRenderVersions,
+        _widgetHtmlCache: this.notificationWidgetHtmlCache,
+        _bangumiWidgetPending: this.notificationBangumiWidgetPending,
+        onWidgetDataChanged: () => { this.notificationWidgetRenderTick += 1; }
+      };
+      void retryBangumiWidgetDataWithHost(host, widget)?.catch(() => {});
     },
     dispatchNotificationWidgetCommand(widget, action, event = null) {
       if (!widget?.key || !action) return;
@@ -1934,6 +1972,7 @@ export function registerWindowManager(Alpine) {
         || document.body.classList.contains('desktop-editing');
     },
     beginNotificationWidgetDrag(widget, event) {
+      if (event?.target?.closest?.('[data-bangumi-widget-retry]')) return;
       if (!this.isNotificationWidgetEditingActive()) return;
       if (event.button !== undefined && event.button !== 0) return;
 
@@ -1965,13 +2004,23 @@ export function registerWindowManager(Alpine) {
         : this.timeDesktopPreset;
     },
     tick() {
+      const now = new Date();
+      const calendarDayKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
+      if (this.notificationCalendarDayKey && this.notificationCalendarDayKey !== calendarDayKey
+        && this.notificationWidgets.some((widget) => widget.widget === 'system.calendar')) {
+        for (const key of this.notificationWidgetHtmlCache.keys()) {
+          if (key.startsWith('system.calendar:')) this.notificationWidgetHtmlCache.delete(key);
+        }
+        this.notificationWidgetRenderTick += 1;
+      }
+      this.notificationCalendarDayKey = calendarDayKey;
       if (!this.timeEnabled) {
         this.timeStr = '';
         return;
       }
 
       this.timeStr = formatHeaderTime(
-        new Date(),
+        now,
         this.currentTimePreset(),
         this.timeHourCycle
       );

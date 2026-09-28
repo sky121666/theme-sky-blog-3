@@ -672,14 +672,22 @@
   }
 
   .desktop-widget-card {
+    --widget-card-mobile-highlight: rgba(255, 255, 255, 0.12);
+    --widget-card-mobile-surface: rgba(24, 27, 35, 0.84);
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03)),
-      rgba(24, 27, 35, 0.84);
+      linear-gradient(180deg, var(--widget-card-mobile-highlight), rgba(255, 255, 255, 0.03)),
+      var(--widget-card-mobile-surface);
     backdrop-filter: blur(18px) saturate(120%);
     -webkit-backdrop-filter: blur(18px) saturate(120%);
     box-shadow:
       0 10px 22px rgba(6, 8, 12, 0.14),
       inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  }
+
+  :root:not(.dark) .desktop-widget-card[data-widget-appearance="follow"],
+  .desktop-widget-card[data-widget-appearance="light"] {
+    --widget-card-mobile-highlight: var(--widget-card-highlight);
+    --widget-card-mobile-surface: var(--widget-card-surface);
   }
 
   .desktop-widget-center {

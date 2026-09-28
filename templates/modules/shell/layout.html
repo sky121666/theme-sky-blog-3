@@ -1,4 +1,21 @@
 <!doctype html>
+<!-- plugin-contract: seo-tools; surface: head-pjax; contract-version: 1.9.5; status: confirmed; source: docs/插件适配契约.md#pc-seo -->
+<!-- plugin-contract: PluginLightGallery; surface: reader-lightbox; contract-version: 1.2.1; status: confirmed; source: docs/插件适配契约.md#pc-lightgallery -->
+<!-- plugin-contract: online; surface: page-monitor; contract-version: 1.0.5; status: confirmed; source: docs/插件适配契约.md#pc-online -->
+<!-- plugin-contract: PluginFeed; surface: rss-discovery; contract-version: 1.5.0; status: confirmed; source: docs/插件适配契约.md#pc-feed -->
+<!-- plugin-contract: PluginContactForm; surface: global-resources; contract-version: 1.6.4; status: confirmed; source: docs/插件适配契约.md#pc-contact-form-resources -->
+<!-- plugin-contract: editor-hyperlink-card; surface: global-resources; contract-version: 1.9.2; status: confirmed; source: docs/插件适配契约.md#pc-hyperlink-resources -->
+<!-- plugin-contract: lottery; surface: global-resources; contract-version: 1.0.2; status: confirmed; source: docs/插件适配契约.md#pc-lottery-resources -->
+<!-- plugin-contract: restricted-reading; surface: global-resources; contract-version: 1.8.1; status: confirmed; source: docs/插件适配契约.md#pc-restricted-reading-resources -->
+<!-- plugin-contract: vote; surface: global-resources; contract-version: 1.1.3; status: confirmed; source: docs/插件适配契约.md#pc-vote-resources -->
+<!-- plugin-contract: ai-assistant; surface: global-resources; contract-version: 2.2.4; status: confirmed; source: docs/插件适配契约.md#pc-ai-assistant-resources -->
+<!-- plugin-contract: plugin-bilibili-bangumi; surface: widget:plugin-bangumis.recent; contract-version: 1.4.0; status: confirmed; source: docs/插件适配契约.md#pc-bangumi-widget -->
+<!-- plugin-contract: plugin-docsme; surface: widget:plugin-docsme.quick; contract-version: 1.6.0; status: confirmed; source: docs/插件适配契约.md#pc-docsme-widget -->
+<!-- plugin-contract: PluginPhotos; surface: widget:plugin-photos.gallery; contract-version: 2.1.1; status: confirmed; source: docs/插件适配契约.md#pc-photos-widget -->
+<!-- plugin-contract: PluginMoments; surface: widget:plugin-moments.recent; contract-version: 1.16.0; status: confirmed; source: docs/插件适配契约.md#pc-moments-widget -->
+<!-- plugin-contract: PluginLinks; surface: widget:plugin-links.feed; contract-version: 2.2.1; status: confirmed; source: docs/插件适配契约.md#pc-links-widget -->
+<!-- plugin-contract: steam; surface: widget:plugin-steam.summary; contract-version: 1.0.0; status: confirmed; source: docs/插件适配契约.md#pc-steam-widget -->
+<!-- plugin-contract: plugin-douban; surface: widget:plugin-douban.showcase; contract-version: 1.2.6; status: confirmed; source: docs/插件适配契约.md#pc-douban-widget -->
 <html
   lang="zh-CN"
   th:lang="${#locale != null ? #locale.toLanguageTag() : 'zh-CN'}"
@@ -32,7 +49,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- plugin-contract: seo-tools; contract-version: 1.9.5; tested-version: 1.9.5; status: confirmed; source: docs/插件适配契约.md -->
     <!-- SEO -->
     <title th:text="${title}"></title>
     <meta name="robots"
@@ -100,7 +116,6 @@
             th:data-image="${absoluteImage}"
             th:data-page-type="${pageType}"
             th:data-site-name="${site.title}"></script>
-    <!-- plugin-contract: PluginFeed; contract-version: 1.5.0; tested-version: 1.5.0; status: confirmed; source: docs/插件适配契约.md -->
     <link rel="alternate"
           type="application/rss+xml"
           title="RSS"
@@ -116,9 +131,12 @@
     <script>
       (function() {
         var root = document.documentElement;
-        var defaultTheme = root.getAttribute('data-default-theme') || 'system';
-        var savedTheme = localStorage.getItem('theme');
-        var theme = savedTheme || defaultTheme;
+        var modes = ['light', 'dark', 'system'];
+        var defaultTheme = root.getAttribute('data-default-theme');
+        if (modes.indexOf(defaultTheme) === -1) defaultTheme = 'system';
+        var savedTheme;
+        try { savedTheme = localStorage.getItem('theme'); } catch (_error) {}
+        var theme = modes.indexOf(savedTheme) !== -1 ? savedTheme : defaultTheme;
         var isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
         root.classList.remove('dark', 'light', 'system', 'color-scheme-auto', 'color-scheme-dark', 'color-scheme-light');
@@ -144,16 +162,21 @@
 	          th:if="${!#strings.isEmpty(pageAppValue)}"
 	          th:attr="data-app-css=${pageAppValue}"
 	          th:href="@{'/assets/css/apps/' + ${(pageAppValue == 'explorer-tags' ? 'tags' : (pageAppValue == 'explorer-categories' ? 'categories' : (pageAppValue == 'explorer-author' ? 'author' : (pageAppValue == 'explorer-archives' ? 'archives' : pageAppValue))))} + '/index.css?v=' + ${themeAssetVersion} + '&r=' + ${themeAssetRevision}}" />
-	    <script type="module"
-	            th:if="${!#strings.isEmpty(pageAppValue)}"
-	            th:attr="data-app-script=${pageAppValue}"
-	            th:src="@{'/assets/js/apps/' + ${(pageAppValue == 'explorer-tags' ? 'tags' : (pageAppValue == 'explorer-categories' ? 'categories' : (pageAppValue == 'explorer-author' ? 'author' : (pageAppValue == 'explorer-archives' ? 'archives' : pageAppValue))))} + '/index.js?v=' + ${themeAssetVersion} + '&r=' + ${themeAssetRevision}}"></script>
+		    <script type="application/json" data-initial-app-script
+		            th:if="${!#strings.isEmpty(pageAppValue)}"
+		            th:attr="data-app-script=${pageAppValue}"
+		            th:data-src="@{'/assets/js/apps/' + ${(pageAppValue == 'explorer-tags' ? 'tags' : (pageAppValue == 'explorer-categories' ? 'categories' : (pageAppValue == 'explorer-author' ? 'author' : (pageAppValue == 'explorer-archives' ? 'archives' : pageAppValue))))} + '/index.js?v=' + ${themeAssetVersion} + '&r=' + ${themeAssetRevision}}">{}</script>
 	    <script type="module" th:inline="javascript">
 	      (() => {
 	        const manifestUrl = /*[[@{/assets/asset-manifest.json(v=${themeAssetVersion},r=${themeAssetRevision})}]]*/ '/assets/asset-manifest.json';
 	        const fallbackScriptUrl = /*[[@{/assets/js/shell-core/index.js(v=${themeAssetVersion},r=${themeAssetRevision})}]]*/ '/assets/js/shell-core/index.js';
 	        const fallbackStyleUrl = /*[[@{/assets/css/shell-core/index.css(v=${themeAssetVersion},r=${themeAssetRevision})}]]*/ '/assets/css/shell-core/index.css';
-	        const shellStyle = document.querySelector('link[href*="/assets/css/shell-core/index.css"]');
+		        const shellStyle = document.querySelector('link[href*="/assets/css/shell-core/index.css"]');
+		        const initialAppScript = document.querySelector('script[data-initial-app-script]');
+		        const initialAppStyle = document.querySelector('link[data-app-css]');
+		        const manifestDeadlineMs = 4000;
+		        const styleDeadlineMs = 15000;
+		        const moduleDeadlineMs = 15000;
 
 	        const withQuery = (url, query) => {
 	          if (!query) return url;
@@ -163,28 +186,162 @@
 	          return `${parsed.pathname}${parsed.search}${parsed.hash}`;
 	        };
 
-	        const importShell = (scriptUrl, styleUrl) => {
-	          if (shellStyle && styleUrl) {
-	            const currentStyleUrl = new URL(shellStyle.href, window.location.origin);
-	            const nextStyleUrl = new URL(styleUrl, window.location.origin);
-	            // 服务端首屏 link 已带 Halo 版本；同路径仅 revision 不同不重复下载整份 Shell CSS。
-	            if (currentStyleUrl.pathname !== nextStyleUrl.pathname) {
-	              shellStyle.href = styleUrl;
-	            }
-	          }
-	          return import(scriptUrl);
-	        };
+		        const syncStyles = async (styles) => {
+		          const replacements = [];
+		          try {
+		            await Promise.all(styles.map(([link, href]) => {
+		              if (!link || !href || new URL(link.href, window.location.origin).href === new URL(href, window.location.origin).href) return;
+		              // Changing an applied link's href drops its CSS during the download.
+		              // Keep the SSR stylesheet active until every replacement is ready.
+		              const replacement = link.cloneNode(false);
+		              const entry = { link, replacement, media: link.getAttribute('media'), cancel: null };
+		              replacements.push(entry);
+		              replacement.removeAttribute('id');
+		              replacement.media = 'not all';
+		              return new Promise((resolve, reject) => {
+		                let settled = false;
+		                let timeoutId;
+		                const finish = (error) => {
+		                  if (settled) return;
+		                  settled = true;
+		                  clearTimeout(timeoutId);
+		                  replacement.removeEventListener('load', onLoad);
+		                  replacement.removeEventListener('error', onError);
+		                  entry.cancel = null;
+		                  if (error) reject(error);
+		                  else resolve();
+		                };
+		                const onLoad = () => finish();
+		                const onError = () => finish(new Error(`Theme stylesheet failed: ${href}`));
+		                entry.cancel = () => finish(new Error('Theme stylesheet synchronization cancelled'));
+		                // Install listeners and the deadline before insertion, including cache hits.
+		                replacement.addEventListener('load', onLoad);
+		                replacement.addEventListener('error', onError);
+		                timeoutId = setTimeout(() => finish(new Error(`Theme stylesheet timed out: ${href}`)), styleDeadlineMs);
+		                replacement.href = href;
+		                link.after(replacement);
+		              });
+		            }));
+		            // One task commits both styles in their original cascade positions.
+		            // App registration and Shell startup remain behind this handoff.
+		            replacements.forEach(({ link, replacement, media }) => {
+		              if (media === null) replacement.removeAttribute('media');
+		              else replacement.setAttribute('media', media);
+		              replacement.disabled = link.disabled;
+		              if (link.id) replacement.id = link.id;
+		              link.replaceWith(replacement);
+		            });
+		          } catch (error) {
+		            replacements.forEach(({ replacement, cancel }) => {
+		              cancel?.();
+		              replacement.remove();
+		            });
+		            throw error;
+		          }
+		        };
 
-	        fetch(manifestUrl, {
-	          credentials: 'same-origin',
-	          cache: 'no-store'
-	        })
-	          .then((response) => response.ok ? response.json() : Promise.reject(new Error(`asset-manifest ${response.status}`)))
-	          .then((manifest) => {
-	            const query = String(manifest?.__meta?.query || '').replace(/^\?/, '');
-	            return importShell(withQuery(fallbackScriptUrl, query), withQuery(fallbackStyleUrl, query));
-	          })
-	          .catch(() => importShell(fallbackScriptUrl, fallbackStyleUrl));
+		        const readManifestIdentity = (manifest) => {
+		          const version = String(manifest?.__meta?.version || '').trim();
+		          const revision = String(manifest?.__meta?.revision || '').trim();
+		          const query = String(manifest?.__meta?.query || '').replace(/^\?/, '');
+		          const params = new URLSearchParams(query);
+		          if (!version || !revision || params.get('v') !== version || params.get('r') !== revision) {
+		            throw new Error('Invalid theme asset identity');
+		          }
+		          return { version, revision, query, source: 'manifest' };
+		        };
+
+		        const loadManifestIdentity = async () => {
+		          const controller = new AbortController();
+		          let timeoutId;
+		          const deadline = new Promise((_resolve, reject) => {
+		            timeoutId = setTimeout(() => {
+		              controller.abort();
+		              reject(new Error('Theme asset manifest timed out'));
+		            }, manifestDeadlineMs);
+		          });
+		          try {
+		            // Keep the deadline until JSON parsing completes, including a stalled response body.
+		            return await Promise.race([
+		              fetch(manifestUrl, { credentials: 'same-origin', cache: 'no-store', signal: controller.signal })
+		                .then((response) => response.ok ? response.json() : Promise.reject(new Error(`asset-manifest ${response.status}`)))
+		                .then(readManifestIdentity),
+		              deadline
+		            ]);
+		          } finally {
+		            clearTimeout(timeoutId);
+		          }
+		        };
+
+		        const importWithDeadline = async (url, label) => {
+		          let timeoutId;
+		          try {
+		            return await Promise.race([
+		              import(url),
+		              new Promise((_resolve, reject) => {
+		                timeoutId = setTimeout(() => {
+		                  // Native import() cannot be aborted. Its module may still evaluate later.
+		                  window.__THEME_BOOTSTRAP_CANCELLED__ = true;
+		                  reject(new Error(`Theme ${label} module timed out: ${url}`));
+		                }, moduleDeadlineMs);
+		              })
+		            ]);
+		          } finally {
+		            clearTimeout(timeoutId);
+		          }
+		        };
+
+		        const showBootstrapRecovery = () => {
+		          if (document.getElementById('theme-bootstrap-recovery')) return;
+		          const notice = document.createElement('div');
+		          notice.id = 'theme-bootstrap-recovery';
+		          notice.setAttribute('role', 'alert');
+		          notice.style.cssText = 'position:fixed;inset:auto 16px 16px;z-index:2147483647;max-width:480px;margin:auto;padding:14px 16px;border-radius:10px;background:#202532;color:#fff;box-shadow:0 8px 24px #0005;display:flex;align-items:center;gap:12px;font:14px/1.5 system-ui,sans-serif';
+		          const message = document.createElement('span');
+		          message.textContent = '页面交互资源加载失败或超时，请刷新重试。';
+		          const retry = document.createElement('button');
+		          retry.type = 'button';
+		          retry.textContent = '刷新重试';
+		          retry.style.cssText = 'flex:none;padding:6px 10px;border:1px solid currentColor;border-radius:6px;background:transparent;color:inherit;cursor:pointer;font:inherit';
+		          retry.addEventListener('click', () => window.location.reload());
+		          notice.append(message, retry);
+		          (document.body || document.documentElement).appendChild(notice);
+		        };
+
+		        const start = async () => {
+		          let identity;
+		          try {
+		            identity = await loadManifestIdentity();
+	          } catch (_error) {
+	            const params = new URL(fallbackScriptUrl, window.location.origin).searchParams;
+	            // Halo's resource token is not the compiled build revision. The runtime uses
+	            // its compiled identity when the bounded manifest lookup falls back.
+	            // Halo serves these assets with a long cache lifetime, so a failed
+	            // manifest lookup must fetch current bytes instead of an older asset
+	            // stored under the unchanged server resource token.
+	            params.set('fallback', Date.now().toString(36));
+	            identity = { version: params.get('v') || '', revision: params.get('r') || '', query: params.toString(), source: 'server-fallback' };
+		          }
+		          window.__THEME_ASSET_IDENTITY__ = Object.freeze(identity);
+		          await syncStyles([
+		            [shellStyle, withQuery(fallbackStyleUrl, identity.query)],
+		            [initialAppStyle, initialAppStyle && withQuery(initialAppStyle.href, identity.query)]
+		          ]);
+		          const initialAppUrl = initialAppScript?.dataset.src;
+		          if (initialAppUrl) {
+		            // Register the initial app before Alpine.start(), with the same identity as Shell.
+		            await importWithDeadline(withQuery(initialAppUrl, identity.query), 'App');
+		            initialAppScript.dataset.appScriptState = 'ready';
+		          }
+		          await importWithDeadline(withQuery(fallbackScriptUrl, identity.query), 'Shell');
+		        };
+		        window.__THEME_BOOTSTRAP_CANCELLED__ = false;
+		        window.__THEME_BOOTSTRAP_READY__ = start().catch((error) => {
+		          window.__THEME_BOOTSTRAP_CANCELLED__ = true;
+		          window.__THEME_BOOTSTRAP_ERROR__ = String(error?.message || error);
+		          console.error('Theme bootstrap failed:', error);
+		          showBootstrapRecovery();
+		        });
 	      })();
 	    </script>
   </head>
@@ -323,18 +480,6 @@
         sort: {'spec.releaseTime,desc'}
       }) : null},
       widgetsBangumisAvailable = ${(widgetsNeedsBangumis or widgetsCatalogOptionsNeeded) and pluginFinder.available('plugin-bilibili-bangumi')},
-      widgetsBangumisAnimeWish = ${widgetsNeedsBangumis and widgetsBangumisAvailable ? bangumiFinder.list(1, 1, 1, 4) : null},
-      widgetsBangumisAnimeWatching = ${widgetsNeedsBangumis and widgetsBangumisAvailable ? bangumiFinder.list(1, 2, 1, 4) : null},
-      widgetsBangumisAnimeDone = ${widgetsNeedsBangumis and widgetsBangumisAvailable ? bangumiFinder.list(1, 3, 1, 4) : null},
-      widgetsBangumisDramaWish = ${widgetsNeedsBangumis and widgetsBangumisAvailable ? bangumiFinder.list(2, 1, 1, 4) : null},
-      widgetsBangumisDramaWatching = ${widgetsNeedsBangumis and widgetsBangumisAvailable ? bangumiFinder.list(2, 2, 1, 4) : null},
-      widgetsBangumisDramaDone = ${widgetsNeedsBangumis and widgetsBangumisAvailable ? bangumiFinder.list(2, 3, 1, 4) : null},
-      widgetsBangumiAnimeWishCount = ${widgetsBangumisAnimeWish != null ? widgetsBangumisAnimeWish.total : 0},
-      widgetsBangumiAnimeWatchingCount = ${widgetsBangumisAnimeWatching != null ? widgetsBangumisAnimeWatching.total : 0},
-      widgetsBangumiAnimeDoneCount = ${widgetsBangumisAnimeDone != null ? widgetsBangumisAnimeDone.total : 0},
-      widgetsBangumiDramaWishCount = ${widgetsBangumisDramaWish != null ? widgetsBangumisDramaWish.total : 0},
-      widgetsBangumiDramaWatchingCount = ${widgetsBangumisDramaWatching != null ? widgetsBangumisDramaWatching.total : 0},
-      widgetsBangumiDramaDoneCount = ${widgetsBangumisDramaDone != null ? widgetsBangumisDramaDone.total : 0},
       widgetsFriendsAvailable = ${pluginFinder.available('PluginLinks', '>=2.2.1')},
       widgetsRecentFriendsPage = ${widgetsNeedsLinksFeed and widgetsFriendsAvailable ? linkFeedFinder.list({limit: 5}) : null},
       widgetsRecentFriends = ${widgetsRecentFriendsPage},
@@ -519,18 +664,6 @@
       momentsAvailable=${widgetsMomentsAvailable},
       recentMoments=${widgetsRecentMoments != null ? widgetsRecentMoments.items : {}},
       bangumisAvailable=${widgetsBangumisAvailable},
-      bangumisAnimeWish=${widgetsBangumisAnimeWish != null ? widgetsBangumisAnimeWish.items : {}},
-      bangumisAnimeWatching=${widgetsBangumisAnimeWatching != null ? widgetsBangumisAnimeWatching.items : {}},
-      bangumisAnimeDone=${widgetsBangumisAnimeDone != null ? widgetsBangumisAnimeDone.items : {}},
-      bangumisDramaWish=${widgetsBangumisDramaWish != null ? widgetsBangumisDramaWish.items : {}},
-      bangumisDramaWatching=${widgetsBangumisDramaWatching != null ? widgetsBangumisDramaWatching.items : {}},
-      bangumisDramaDone=${widgetsBangumisDramaDone != null ? widgetsBangumisDramaDone.items : {}},
-      bangumiAnimeWishCount=${widgetsBangumiAnimeWishCount},
-      bangumiAnimeWatchingCount=${widgetsBangumiAnimeWatchingCount},
-      bangumiAnimeDoneCount=${widgetsBangumiAnimeDoneCount},
-      bangumiDramaWishCount=${widgetsBangumiDramaWishCount},
-      bangumiDramaWatchingCount=${widgetsBangumiDramaWatchingCount},
-      bangumiDramaDoneCount=${widgetsBangumiDramaDoneCount},
       friendsAvailable=${widgetsFriendsAvailable},
       recentFriends=${widgetsRecentFriends != null ? widgetsRecentFriends.items : {}},
       docsmeAvailable=${widgetsDocsmeAvailable},
@@ -717,7 +850,8 @@
                 <!-- 禁止 data/blob/javascript 等内联或可执行协议，避免大图复制进 HTML。 -->
                 <th:block th:if="${iconType == 'image' and !dockImageAllowed}">
                   <div class="dock-icon-svg dock-icon-svg--fallback" aria-hidden="true">
-                    <span class="icon-[lucide--app-window]"></span>
+                    <span class="dock-icon-initial"
+                          th:text="${#strings.isEmpty(menuItem.status.displayName) ? '·' : #strings.substring(menuItem.status.displayName, 0, 1)}">·</span>
                   </div>
                 </th:block>
 
@@ -772,9 +906,6 @@
       </div>
     </div>
     
-    <!-- plugin-contract: PluginLightGallery; contract-version: 1.2.1; tested-version: 1.2.1; status: confirmed; source: docs/插件适配契约.md -->
-    <!-- plugin-contract: plugin-online; contract-version: 1.0.5; tested-version: 1.0.5; status: confirmed; source: docs/插件适配契约.md -->
-    <!-- plugin-contract: plugin-shiki; contract-version: 1.4.1; tested-version: 1.4.1; status: confirmed; source: docs/插件适配契约.md -->
     <halo:footer />
   </body>
   </th:block>

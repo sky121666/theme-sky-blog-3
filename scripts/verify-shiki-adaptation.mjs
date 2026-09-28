@@ -5,8 +5,8 @@ import { chromium } from 'playwright';
 const baseUrl = String(
   process.env.SMOKE_BASE_URL || process.env.HALO_BASE_URL || 'http://localhost:8090'
 ).replace(/\/$/, '');
-const fixturePath = '/__theme_shiki_1_4_1_fixture__';
-const modulePath = '/plugins/shiki/assets/static/shiki-code.js?version=1.4.1';
+const fixturePath = '/__theme_shiki_1_5_1_fixture__';
+const modulePath = '/plugins/shiki/assets/static/shiki-code.js?version=1.5.1';
 const moduleUrl = new URL(modulePath, `${baseUrl}/`).toString();
 const pjaxRuntimeSource = readFileSync(
   new URL('../src/shell/desktop-shell/runtime/desktop/pjax/index.js', import.meta.url),
@@ -84,7 +84,7 @@ function fixtureDocument() {
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Shiki 1.4.1 non-destructive fixture</title>
+    <title>Shiki 1.5.1 non-destructive fixture</title>
     <style>
       body { margin: 24px; font-family: system-ui, sans-serif; }
       main { width: 440px; }
@@ -405,7 +405,7 @@ try {
     `;
     document.querySelector('#shiki-fixtures')?.append(root);
     const bridge = window.__SHIKI_INCREMENTAL_BRIDGE_FIXTURE__;
-    bridge.configure(config, 'plugin-shiki-1.4.1-browser-fixture');
+    bridge.configure(config, 'plugin-shiki-1.5.1-browser-fixture');
     return {
       firstRenderCount: bridge.render(root),
       secondRenderCount: bridge.render(root)
@@ -441,7 +441,7 @@ try {
     };
   });
   assert.equal(incrementalResult.hostCount, 1, 'the incremental bridge must not nest or duplicate shiki-code hosts');
-  assert.ok(incrementalResult.renderedText.includes('incrementalBridge'), 'the actual 1.4.1 custom element did not render the incrementally wrapped code');
+  assert.ok(incrementalResult.renderedText.includes('incrementalBridge'), 'the actual 1.5.1 custom element did not render the incrementally wrapped code');
   assert.equal(incrementalResult.lightTheme, 'github-light');
   assert.equal(incrementalResult.darkTheme, 'github-dark');
   assert.equal(incrementalResult.excludedStillRaw, true, 'excluded code should preserve its original pre > code structure');
@@ -449,7 +449,7 @@ try {
 
   const mainModuleResponse = pluginResponses.find((entry) => entry.url === moduleUrl);
   assert.ok(mainModuleResponse, `Shiki module was not requested: ${moduleUrl}`);
-  assert.equal(mainModuleResponse.status, 200, 'Shiki 1.4.1 module should return 200');
+  assert.equal(mainModuleResponse.status, 200, 'Shiki 1.5.1 module should return 200');
   assert.deepEqual(failedPluginRequests, [], 'Shiki module/chunk requests should not fail');
   assert.equal(
     pluginResponses.some((entry) => entry.status >= 400),
@@ -461,7 +461,7 @@ try {
 
   console.log(JSON.stringify({
     status: 'passed',
-    pluginVersion: '1.4.1',
+    pluginVersion: '1.5.1',
     moduleUrl,
     fixtures: lightResults.map((result) => ({
       id: result.id,

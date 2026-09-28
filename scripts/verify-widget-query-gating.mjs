@@ -94,12 +94,6 @@ assert.doesNotMatch(
 
 const dataQueryContracts = [
   /widgetsRecentMoments = \$\{widgetsNeedsMoments and widgetsMomentsAvailable \? momentFinder\.list\(/,
-  /widgetsBangumisAnimeWish = \$\{widgetsNeedsBangumis and widgetsBangumisAvailable \? bangumiFinder\.list\(/,
-  /widgetsBangumisAnimeWatching = \$\{widgetsNeedsBangumis and widgetsBangumisAvailable \? bangumiFinder\.list\(/,
-  /widgetsBangumisAnimeDone = \$\{widgetsNeedsBangumis and widgetsBangumisAvailable \? bangumiFinder\.list\(/,
-  /widgetsBangumisDramaWish = \$\{widgetsNeedsBangumis and widgetsBangumisAvailable \? bangumiFinder\.list\(/,
-  /widgetsBangumisDramaWatching = \$\{widgetsNeedsBangumis and widgetsBangumisAvailable \? bangumiFinder\.list\(/,
-  /widgetsBangumisDramaDone = \$\{widgetsNeedsBangumis and widgetsBangumisAvailable \? bangumiFinder\.list\(/,
   /widgetsRecentFriendsPage = \$\{widgetsNeedsLinksFeed and widgetsFriendsAvailable \? linkFeedFinder\.list\(\{limit: 5\}\)/,
   /widgetsRecentFriends = \$\{widgetsRecentFriendsPage\}/,
   /widgetsPhotos = \$\{widgetsNeedsPhotos and widgetsPhotosAvailable \? photoFinder\.list\(/,
@@ -113,6 +107,8 @@ const dataQueryContracts = [
 for (const contract of dataQueryContracts) {
   assert.match(layout, contract, `data Finder query must be gated by its saved widget: ${contract}`);
 }
+assert.doesNotMatch(layout, /\bbangumiFinder\.list\s*\(/, 'homepage Bangumi widgets must not invoke upstream Finder during SSR');
+assert.doesNotMatch(desktopTemplate, /\bbangumis(?:Anime|Drama)(?:Wish|Watching|Done)\b|bangumi(?:Anime|Drama)(?:Wish|Watching|Done)Count/, 'desktop protocol must not serialize six placeholder Bangumi groups');
 
 const activeWidgetContract = [widgetRegistry, widgetLoaders, widgetCatalog, widgetDataReload].join('\n');
 assert.match(activeWidgetContract, /plugin-links\.feed/, 'PluginLinks RSS 小组件必须使用当前契约 ID');
@@ -176,7 +172,7 @@ assert.doesNotMatch(desktopTemplate, /\b(?:eval|Function)\s*\(/, 'desktop protoc
 assert.doesNotMatch(widgetProtocolRuntime, /\b(?:eval|Function)\s*\(/, 'PJAX protocol parsing must use JSON.parse only');
 assert.match(
   pjaxRuntime,
-  /pjax\.handleResponse = function\(responseText,[\s\S]*?syncHomeDesktopWidgetProtocolFromResponse\(responseText\);[\s\S]*?_origHandleResponse\(/,
+  /pjax\.handleResponse = (?:async )?function\(responseText,[\s\S]*?syncHomeDesktopWidgetProtocolFromResponse\(responseText\);[\s\S]*?_origHandleResponse\(/,
   'home widget data must hydrate before Pjax starts its DOM switch'
 );
 const routeSyncContract = desktopSurface.slice(

@@ -1,6 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from 'playwright';
+import { collectBrowserRuntimeErrors, runtimeErrorMessages, installReadOnlyGuard } from './lib/browser-runtime-errors.mjs';
+import { readLiveBuildContext } from './lib/live-build-context.mjs';
+import { normalizeDocsPath, discoverDocsRoutes, inspectDocsCandidates, missingDocsSampleReason, DOCSME_INSPECTION_LIMIT } from './lib/docsme-sample-discovery.mjs';
+import { createDocsmeNavigationDiagnostics } from './lib/docsme-navigation-diagnostics.mjs';
 
 const root = process.cwd();
 const outputDir = path.join(root, 'output', 'playwright');
@@ -12,6 +16,36 @@ const explicitMermaidPath = (process.env.DOCSME_MERMAID_SAMPLE_PATH || '').trim(
 const fixtureOnly = process.env.DOCSME_FIXTURE_ONLY === 'true';
 const sampleDocPath = 'docs/测试样本数据.md';
 const docsmeRuntimePath = path.join(root, 'src', 'apps', 'docsme', 'runtime.js');
+const reportPath = process.env.DOCSME_REPORT_PATH
+  ? path.resolve(root, process.env.DOCSME_REPORT_PATH)
+  : path.join(outputDir, 'docsme-report.json');
+const navigationObservers = new WeakMap();
+
+function navigationObserver(page) {
+  if (!navigationObservers.has(page)) navigationObservers.set(page, createDocsmeNavigationDiagnostics(page));
+  return navigationObservers.get(page);
+}
+
+async function gotoDocsPage(page, url, options) {
+  const waitForParsedDocument = options.waitUntil === 'domcontentloaded';
+  // A deferred global plugin script can delay DOMContentLoaded after the
+  // Docsme document and theme shell are already interactive. Keep the HTTP
+  // response and runtime error gates, then wait for the actual parsed DOM.
+  const response = await navigationObserver(page).goto(url, waitForParsedDocument
+    ? { ...options, waitUntil: 'commit' }
+    : options);
+  if (waitForParsedDocument) {
+    try {
+      await page.waitForFunction(() => document.readyState !== 'loading', null, {
+        timeout: options.timeout
+      });
+    } catch (error) {
+      error.docsmeNavigationDiagnostic = await navigationObserver(page).snapshot();
+      throw error;
+    }
+  }
+  return response;
+}
 
 const SAMPLE_GUIDES = {
   document: {
@@ -46,35 +80,17 @@ function absoluteUrl(target) {
   return url.toString();
 }
 
-function toPathname(value) {
-  try {
-    const url = new URL(value, `${baseUrl}/`);
-    return `${url.pathname}${url.search}`;
-  } catch {
-    return '';
-  }
-}
-
 async function writeReport(report) {
-  await fs.mkdir(outputDir, { recursive: true });
-  const file = path.join(outputDir, 'docsme-report.json');
-  await fs.writeFile(file, JSON.stringify(report, null, 2), 'utf8');
-  return file;
+  await fs.mkdir(path.dirname(reportPath), { recursive: true });
+  await fs.writeFile(reportPath, JSON.stringify(report, null, 2), 'utf8');
+  return reportPath;
 }
 
 async function collectDocsLinks(page, startPath = '/docs') {
-  const queue = [startPath];
-  const visited = new Set();
-  const documents = [];
-  const catalogs = [];
-
-  while (queue.length > 0 && visited.size < 30) {
-    const current = queue.shift();
-    if (!current || visited.has(current)) continue;
-    visited.add(current);
-
-    const response = await page.goto(absoluteUrl(current), { waitUntil: 'domcontentloaded', timeout: 20_000 }).catch(() => null);
-    if (!response || response.status() >= 400) continue;
+  return discoverDocsRoutes({ baseUrl, startPath, visit: async (current) => {
+    const response = await gotoDocsPage(page, absoluteUrl(current), { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    if (!response) throw new Error(`No navigation response for ${current}`);
+    if (response.status() >= 400) return { status: response.status() };
     await page.waitForTimeout(500);
 
     const snapshot = await page.evaluate(() => {
@@ -93,31 +109,14 @@ async function collectDocsLinks(page, startPath = '/docs') {
       };
     });
 
-    if (snapshot.scene === 'document') documents.push(snapshot.path);
-    if (snapshot.scene === 'catalog') catalogs.push(snapshot.path);
-
-    for (const href of snapshot.links) {
-      const pathname = toPathname(href);
-      if (!pathname || pathname === '/docs' || !pathname.startsWith('/docs/')) continue;
-      if (!visited.has(pathname) && !queue.includes(pathname)) queue.push(pathname);
-    }
-  }
-
-  return {
-    visited: Array.from(visited),
-    documents: Array.from(new Set(documents)),
-    catalogs: Array.from(new Set(catalogs))
-  };
+    return { ...snapshot, status: response.status() };
+  } });
 }
 
 async function inspectDocsPage(page, target) {
-  const consoleErrors = [];
-  const onConsole = (message) => {
-    if (message.type() === 'error') consoleErrors.push(message.text());
-  };
-  page.on('console', onConsole);
+  const runtimeErrors = collectBrowserRuntimeErrors(page);
   try {
-    const response = await page.goto(absoluteUrl(target), { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    const response = await gotoDocsPage(page, absoluteUrl(target), { waitUntil: 'domcontentloaded', timeout: 20_000 });
     await page.waitForTimeout(1_800);
     const result = await page.evaluate(() => {
       const root = document.querySelector('[data-app-root="docsme"]');
@@ -163,7 +162,7 @@ async function inspectDocsPage(page, target) {
         katexFallback: katexNodes.filter((node) => node.hasAttribute('data-docsme-render-error')).length,
         katexStates: katexNodes.map((node) => node.dataset.docsmeKatexState || ''),
         mermaidSource: mermaidNodes.length,
-        mermaidRendered: mermaidNodes.filter((node) => node.querySelector('svg')).length,
+        mermaidRendered: mermaidNodes.filter((node) => node.querySelector(':scope > svg') && !node.querySelector('svg .error-icon, svg .error-text')).length,
         mermaidFallback: mermaidNodes.filter((node) => node.hasAttribute('data-docsme-render-error')).length,
         mermaidSvgCounts: mermaidNodes.map((node) => node.querySelectorAll('svg').length),
         mermaidStates: mermaidNodes.map((node) => node.dataset.docsmeMermaidState || ''),
@@ -202,14 +201,14 @@ async function inspectDocsPage(page, target) {
       await page.mouse.move(0, 0);
     }
 
-    return { ...result, projectCardHover, httpStatus: response.status(), consoleErrors };
+    return { ...result, projectCardHover, httpStatus: response.status(), ...runtimeErrors.snapshot() };
   } finally {
-    page.off('console', onConsole);
+    runtimeErrors.stop();
   }
 }
 
 function assertDocsProtocol(result, label) {
-  const failures = [];
+  const failures = runtimeErrorMessages(result).map((message) => `${label}: ${message}`);
   if (result.mode !== 'browser-docsme') failures.push(`${label}: pageMode=${result.mode}`);
   if (result.appId !== 'docsme') failures.push(`${label}: appId=${result.appId}`);
   if (result.windowVariant !== 'docsme') failures.push(`${label}: windowVariant=${result.windowVariant}`);
@@ -335,12 +334,13 @@ function printCheckHints(checks) {
 
 async function inspectRichContentRuntime(browser) {
   const page = await browser.newPage();
+  const runtimeErrors = collectBrowserRuntimeErrors(page);
   const runtimeSource = await fs.readFile(docsmeRuntimePath, 'utf8');
 
   try {
     // Establish a same-origin URL without booting the full theme runtime; async
     // homepage scripts could otherwise mutate this isolated fixture document.
-    await page.goto(`${baseUrl}/themes/theme-sky-blog-3/assets/asset-manifest.json`, {
+    await gotoDocsPage(page, `${baseUrl}/themes/theme-sky-blog-3/assets/asset-manifest.json`, {
       waitUntil: 'load',
       timeout: 20_000
     });
@@ -493,15 +493,17 @@ async function inspectRichContentRuntime(browser) {
       let continuationRuns = 0;
       let continuationActiveRuns = 0;
       let continuationMaxConcurrent = 0;
+      const continuationNodeIdTrace = [];
       const continuationMermaid = {
         initialize() {},
         async run({ nodes }) {
-          continuationRuns += 1;
+          const runId = ++continuationRuns;
+          continuationNodeIdTrace.push(nodes.map((node) => node.id));
           continuationActiveRuns += 1;
           continuationMaxConcurrent = Math.max(continuationMaxConcurrent, continuationActiveRuns);
           await new Promise((resolve) => window.setTimeout(resolve, 25));
           nodes.forEach((node) => {
-            node.innerHTML = `<svg data-continuation-run="${continuationRuns}"></svg>`;
+            node.innerHTML = `<svg data-continuation-run="${runId}"></svg>`;
           });
           continuationActiveRuns -= 1;
         }
@@ -531,6 +533,7 @@ async function inspectRichContentRuntime(browser) {
       await Promise.all([queuedContinuationJob, earlierContinuation]);
       const continuationRace = {
         runs: continuationRuns,
+        nodeIdTrace: continuationNodeIdTrace,
         maxConcurrent: continuationMaxConcurrent,
         svgCounts: Array.from(continuationApp.querySelectorAll('text-diagram'), (node) => node.querySelectorAll('svg').length)
       };
@@ -650,8 +653,10 @@ async function inspectRichContentRuntime(browser) {
       };
     });
 
-    return { ...fixtureResult, actualPluginRuntime };
+    return { ...fixtureResult, actualPluginRuntime, ...runtimeErrors.snapshot() };
   } finally {
+    runtimeErrors.stop();
+    navigationObservers.get(page)?.stop();
     await page.close();
   }
 }
@@ -711,7 +716,7 @@ async function setThemeMode(page, mode) {
 }
 
 async function inspectSwitcherThemeStyles(page, target) {
-  const response = await page.goto(absoluteUrl(target), { waitUntil: 'domcontentloaded', timeout: 20_000 });
+  const response = await gotoDocsPage(page, absoluteUrl(target), { waitUntil: 'domcontentloaded', timeout: 20_000 });
   await page.waitForTimeout(800);
 
   const switcherCount = await page.locator('.docsme-switcher select').count();
@@ -759,7 +764,7 @@ async function inspectMermaidLifecycle(page) {
     ));
     return {
       source: nodes.length,
-      rendered: nodes.filter((node) => node.querySelector('svg')).length,
+      rendered: nodes.filter((node) => node.querySelector(':scope > svg') && !node.querySelector('svg .error-icon, svg .error-text')).length,
       fallback: nodes.filter((node) => node.hasAttribute('data-docsme-render-error')).length,
       svgCounts: nodes.map((node) => node.querySelectorAll('svg').length),
       states: nodes.map((node) => node.dataset.docsmeMermaidState || ''),
@@ -770,7 +775,7 @@ async function inspectMermaidLifecycle(page) {
 }
 
 async function inspectMermaidPjaxTheme(page, target) {
-  await page.goto(absoluteUrl('/docs'), { waitUntil: 'domcontentloaded', timeout: 20_000 });
+  await gotoDocsPage(page, absoluteUrl('/docs'), { waitUntil: 'domcontentloaded', timeout: 20_000 });
   await page.waitForTimeout(800);
   const themeDriver = await setThemeMode(page, 'light');
   const cycles = [];
@@ -783,7 +788,7 @@ async function inspectMermaidPjaxTheme(page, target) {
       ));
       return nodes.length > 0
         && nodes.every((node) => node.querySelectorAll('svg').length === 1)
-        && nodes.every((node) => !node.hasAttribute('data-docsme-render-error'));
+        && nodes.every((node) => !node.hasAttribute('data-docsme-render-error') && !node.querySelector('svg .error-icon, svg .error-text'));
     }, null, { timeout: 12_000 });
     cycles.push(await inspectMermaidLifecycle(page));
     if (cycle === 0) await navigateWithPjax(page, '/docs');
@@ -798,7 +803,7 @@ async function inspectMermaidPjaxTheme(page, target) {
     return nodes.length > 0
       && nodes.every((node) => node.dataset.docsmeMermaidTheme === 'dark')
       && nodes.every((node) => node.querySelectorAll('svg').length === 1)
-      && nodes.every((node) => !node.hasAttribute('data-docsme-render-error'));
+      && nodes.every((node) => !node.hasAttribute('data-docsme-render-error') && !node.querySelector('svg .error-icon, svg .error-text'));
   }, null, { timeout: 12_000 });
   const dark = await inspectMermaidLifecycle(page);
 
@@ -806,17 +811,34 @@ async function inspectMermaidPjaxTheme(page, target) {
 }
 
 async function main() {
-  const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
+  const startAt = new Date().toISOString();
   const report = {
-    baseUrl,
-    checks: []
+    runId: `docsme-${Date.now()}-${process.pid}`, startAt, startedAt: startAt,
+    status: 'running', phase: 'environment', baseUrl, buildContext: null,
+    blockedWrites: [], checks: [], failures: []
   };
-  const failures = [];
-
+  // Invalidate a prior run before any environment, launch or navigation can fail.
+  await writeReport(report);
+  const failures = report.failures;
+  let browser;
+  let page;
+  let suiteRuntime;
   try {
-    const result = await inspectRichContentRuntime(browser);
-    const checkFailures = [];
+  const buildContext = await readLiveBuildContext(baseUrl);
+  report.buildContext = buildContext;
+  report.phase = 'browser-setup';
+  browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext({ viewport: { width: 1440, height: 960 }, serviceWorkers: 'block' });
+  const blockedWrites = report.blockedWrites;
+  await installReadOnlyGuard(context, blockedWrites);
+  page = await context.newPage();
+  suiteRuntime = collectBrowserRuntimeErrors(page);
+  navigationObserver(page);
+
+  report.phase = 'rich-content-runtime';
+  try {
+    const result = await inspectRichContentRuntime(context);
+    const checkFailures = runtimeErrorMessages(result).map((message) => `runtime fixture: ${message}`);
     if (!result.preRenderedUntouched) checkFailures.push('runtime fixture: pre-rendered KaTeX DOM was modified');
     if (!result.authorTitlePreserved) checkFailures.push('runtime fixture: author title attribute was removed');
     if (result.tocHistory?.state?.uid !== 'pjax-state'
@@ -843,11 +865,20 @@ async function main() {
       || result.changedDuringJob?.lateSvgCount !== 1) {
       checkFailures.push('runtime fixture: a fingerprint-changing caller did not await the queued rerender');
     }
-    if (result.continuationRace?.maxConcurrent !== 1
-      || result.continuationRace?.runs !== 2
-      || result.continuationRace?.svgCounts?.length !== 3
-      || result.continuationRace.svgCounts.some((count) => count !== 1)) {
-      checkFailures.push('runtime fixture: an earlier completion continuation bypassed the serialized render tail');
+    const continuationRace = result.continuationRace;
+    const continuationExpectedIds = ['continuation-first', 'continuation-queued', 'continuation-final'];
+    const continuationTrace = continuationRace?.nodeIdTrace;
+    const continuationActualIds = Array.isArray(continuationTrace) ? continuationTrace.flat() : [];
+    if (continuationRace?.maxConcurrent !== 1
+      || continuationRace?.runs !== continuationExpectedIds.length
+      || !Array.isArray(continuationTrace)
+      || continuationTrace.length !== continuationExpectedIds.length
+      || continuationTrace.some((ids) => !Array.isArray(ids) || ids.length !== 1)
+      || continuationActualIds.length !== continuationExpectedIds.length
+      || continuationExpectedIds.some((id) => continuationActualIds.filter((actual) => actual === id).length !== 1)
+      || continuationRace?.svgCounts?.length !== continuationExpectedIds.length
+      || continuationRace.svgCounts.some((count) => count !== 1)) {
+      checkFailures.push('runtime fixture: continuation must render each of the three node IDs once, one node per run, with a serialized render tail');
     }
     if (!result.thrownFallback.katex || !result.thrownFallback.mermaid) {
       checkFailures.push('runtime fixture: thrown render failure did not restore source content');
@@ -899,25 +930,30 @@ async function main() {
       status: 'failed',
       result: {},
       failures: checkFailures,
-      diagnostics: diagnosticsForCheck({ name: 'rich-content-runtime', result: {} })
+      diagnostics: { ...diagnosticsForCheck({ name: 'rich-content-runtime', result: {} }), navigation: error.docsmeNavigationDiagnostic || null }
     });
   }
 
   if (fixtureOnly) {
     report.fixtureOnly = true;
-    await browser.close();
+    report.finalBuildContext = await readLiveBuildContext(baseUrl);
+    if (report.finalBuildContext.sourceFingerprint !== buildContext.sourceFingerprint) failures.push('source/build changed during Docsme fixture validation');
+    failures.push(...runtimeErrorMessages({ blockedWrites }));
+    report.failures = failures;
     const reportFile = await writeReport(report);
     if (failures.length > 0) {
       console.error('Docsme rich-content fixture failed:');
       printCheckHints(report.checks);
       console.error(`Report: ${reportFile}`);
-      process.exit(1);
+      process.exitCode = 1;
+      return;
     }
     console.log('Docsme rich-content fixture passed');
     console.log(`Report: ${reportFile}`);
     return;
   }
 
+  report.phase = 'projects';
   const projects = await inspectDocsPage(page, '/docs');
   const projectFailures = assertDocsProtocol(projects, 'projects');
   if (projects.scene !== 'projects') projectFailures.push(`projects: scene=${projects.scene}`);
@@ -946,21 +982,55 @@ async function main() {
     })
   });
 
+  report.phase = 'route-discovery';
   const links = await collectDocsLinks(page);
+  report.discovery = links;
+  failures.push(...links.navigationErrors.map((error) => `discovery navigation: ${error.path}: ${error.message}`));
   const candidateDocs = Array.from(new Set([
     explicitDocPath,
     explicitCodePath,
     explicitKatexPath,
     explicitMermaidPath,
     ...links.documents
-  ].filter(Boolean)));
+  ].filter(Boolean).map((value) => {
+    const normalized = normalizeDocsPath(value, baseUrl);
+    if (!normalized) throw new Error(`Docsme sample must be a same-origin /docs route: ${value}`);
+    return normalized;
+  })));
 
-  const inspections = new Map();
-  for (const pathname of candidateDocs.slice(0, 12)) {
-    inspections.set(pathname, await inspectDocsPage(page, pathname));
-  }
+  report.phase = 'sample-scan';
+  report.sampleScan = { limit: DOCSME_INSPECTION_LIMIT, candidates: candidateDocs, attempted: [], inspected: [], failed: [], remaining: [...candidateDocs], truncated: candidateDocs.length > DOCSME_INSPECTION_LIMIT, complete: false };
+  const { inspections, summary: scanSummary } = await inspectDocsCandidates(candidateDocs, async (pathname) => {
+    report.sampleScan.active = pathname;
+    report.sampleScan.attempted.push(pathname);
+    report.sampleScan.remaining = candidateDocs.filter((candidate) => !report.sampleScan.attempted.includes(candidate));
+    try {
+      const result = await inspectDocsPage(page, pathname);
+      report.sampleScan.inspected.push(pathname);
+      return result;
+    } catch (error) {
+      const message = `sample inspection: ${pathname}: ${error.message}`;
+      failures.push(message);
+      report.sampleScan.failed.push({ path: pathname, message: error.message });
+      report.checks.push({ name: 'sample-inspection', path: pathname, status: 'failed', failures: [message], diagnostics: error.docsmeNavigationDiagnostic || null });
+      if (page.isClosed() || !browser.isConnected() || /page crashed/i.test(error.message)) throw error;
+      // Preserve the failure and inspect other independent candidates once.
+      // A failed result is never selected as an observed rich-content sample.
+      return {
+        status: 'failed', inspectionError: error.message, httpStatus: null,
+        scene: '', mode: '', appId: '', windowVariant: '', templateId: '', metaDescription: '',
+        replayScripts: 0, articleTextLength: 0, switchers: 0, shikiCode: 0, rawPreCode: 0,
+        katexSource: 0, katexRendered: 0, katexFallback: 0, katexStates: [],
+        mermaidSource: 0, mermaidRendered: 0, mermaidFallback: 0, mermaidSvgCounts: [], mermaidStates: [], mermaidThemes: []
+      };
+    }
+  });
+  const sampleScan = { ...report.sampleScan, remaining: scanSummary.remaining, active: null, complete: true };
+  report.sampleScan = sampleScan;
+  const missingSample = (label) => missingDocsSampleReason(label, links, sampleScan);
 
   const switcherPath = chooseSample(candidateDocs, inspections, (result) => result.switchers > 0);
+  report.phase = 'switcher-theme';
   if (switcherPath) {
     const result = await inspectSwitcherThemeStyles(page, switcherPath);
     const checkFailures = [];
@@ -990,10 +1060,11 @@ async function main() {
       failures: checkFailures
     });
   } else {
-    report.checks.push(skippedCheck('switcher-theme', 'No Docsme page with multiple versions or languages was discovered.'));
+    report.checks.push(skippedCheck('switcher-theme', missingSample('page with multiple versions or languages')));
   }
 
-  const docPath = explicitDocPath || candidateDocs[0] || '';
+  const docPath = normalizeDocsPath(explicitDocPath, baseUrl) || candidateDocs[0] || '';
+  report.phase = 'document';
   if (docPath) {
     const result = inspections.get(docPath) || await inspectDocsPage(page, docPath);
     const checkFailures = assertDocsProtocol(result, 'document');
@@ -1016,14 +1087,15 @@ async function main() {
       })
     });
   } else {
-    report.checks.push(skippedCheck('document', 'No accessible Docsme document page was discovered.'));
+    report.checks.push(skippedCheck('document', missingSample('accessible document page')));
   }
 
-  const codePath = explicitCodePath || chooseSample(
+  const codePath = normalizeDocsPath(explicitCodePath, baseUrl) || chooseSample(
     candidateDocs,
     inspections,
     (result) => result.shikiCode > 0 || result.rawPreCode > 0
   );
+  report.phase = 'code-sample';
   if (codePath) {
     const result = inspections.get(codePath) || await inspectDocsPage(page, codePath);
     const checkFailures = assertDocsProtocol(result, 'code sample');
@@ -1045,10 +1117,11 @@ async function main() {
       })
     });
   } else {
-    report.checks.push(skippedCheck('code-sample', 'No Docsme document with code block was found.'));
+    report.checks.push(skippedCheck('code-sample', missingSample('code block')));
   }
 
-  const katexPath = explicitKatexPath || chooseSample(candidateDocs, inspections, (result) => result.katexSource > 0);
+  const katexPath = normalizeDocsPath(explicitKatexPath, baseUrl) || chooseSample(candidateDocs, inspections, (result) => result.katexSource > 0);
+  report.phase = 'katex-sample';
   if (katexPath) {
     const result = inspections.get(katexPath) || await inspectDocsPage(page, katexPath);
     const checkFailures = assertDocsProtocol(result, 'katex sample');
@@ -1072,10 +1145,11 @@ async function main() {
       })
     });
   } else {
-    report.checks.push(skippedCheck('katex-sample', 'No Docsme document with KaTeX content was found.'));
+    report.checks.push(skippedCheck('katex-sample', missingSample('KaTeX content')));
   }
 
-  const mermaidPath = explicitMermaidPath || chooseSample(candidateDocs, inspections, (result) => result.mermaidSource > 0);
+  const mermaidPath = normalizeDocsPath(explicitMermaidPath, baseUrl) || chooseSample(candidateDocs, inspections, (result) => result.mermaidSource > 0);
+  report.phase = 'mermaid-sample';
   if (mermaidPath) {
     const result = inspections.get(mermaidPath) || await inspectDocsPage(page, mermaidPath);
     const checkFailures = assertDocsProtocol(result, 'mermaid sample');
@@ -1103,6 +1177,7 @@ async function main() {
     });
 
     try {
+      report.phase = 'mermaid-pjax-theme';
       const lifecycleResult = await inspectMermaidPjaxTheme(page, mermaidPath);
       const lifecycleFailures = [];
       lifecycleResult.cycles.forEach((cycleResult, index) => {
@@ -1149,19 +1224,24 @@ async function main() {
       });
     }
   } else {
-    report.checks.push(skippedCheck('mermaid-sample', 'No Docsme document with Mermaid content was found.'));
-    report.checks.push(skippedCheck('mermaid-pjax-theme', 'No real text-diagram sample was found for PJAX and theme switching.'));
+    report.checks.push(skippedCheck('mermaid-sample', missingSample('Mermaid content')));
+    report.checks.push(skippedCheck('mermaid-pjax-theme', missingSample('real text-diagram for PJAX and theme switching')));
   }
 
   report.discovery = links;
-  await browser.close();
-
+  report.suiteRuntime = suiteRuntime.snapshot();
+  failures.push(...runtimeErrorMessages({ ...report.suiteRuntime, blockedWrites }));
+  report.finalBuildContext = await readLiveBuildContext(baseUrl);
+  if (report.finalBuildContext.sourceFingerprint !== buildContext.sourceFingerprint) failures.push('source/build changed during Docsme validation');
+  report.failures = failures;
   const reportFile = await writeReport(report);
   if (failures.length > 0) {
     console.error('Docsme verification failed:');
+    failures.forEach((failure) => console.error(`- ${failure}`));
     printCheckHints(report.checks);
     console.error(`Report: ${reportFile}`);
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   const skipped = report.checks.filter((check) => check.status === 'skipped');
@@ -1169,6 +1249,42 @@ async function main() {
   console.log(`Docsme verification completed: ${passed.length} passed, ${skipped.length} skipped`);
   printCheckHints(report.checks);
   console.log(`Report: ${reportFile}`);
+  } catch (error) {
+    const message = `${report.phase}: ${error?.message || String(error)}`;
+    failures.push(message);
+    report.fatalError = { name: error?.name || 'Error', message: error?.message || String(error), phase: report.phase };
+    report.checks.push({ name: `${report.phase}-exception`, status: 'failed', failures: [message] });
+    if (error.docsmeNavigationDiagnostic) report.fatalError.navigationDiagnostic = error.docsmeNavigationDiagnostic;
+    console.error(`Docsme verification failed: ${message}`);
+    process.exitCode = 1;
+  } finally {
+    try {
+      report.suiteRuntime = suiteRuntime?.snapshot() || {};
+      failures.push(...runtimeErrorMessages({ ...report.suiteRuntime, blockedWrites: report.blockedWrites }));
+      const navigation = page && navigationObservers.get(page);
+      if (navigation) {
+        report.navigation = { attempts: navigation.attempts, failures: navigation.failures };
+        if (report.fatalError && !report.fatalError.navigationDiagnostic) {
+          report.fatalError.navigationDiagnostic = await navigation.snapshot();
+        }
+      }
+      if (report.buildContext && !report.finalBuildContext) {
+        try { report.finalBuildContext = await readLiveBuildContext(baseUrl); }
+        catch (error) { report.finalBuildContextError = error.message; failures.push(`final environment: ${error.message}`); }
+      }
+      if (report.finalBuildContext && report.finalBuildContext.sourceFingerprint !== report.buildContext.sourceFingerprint) failures.push('source/build changed during Docsme validation');
+      report.failures = [...new Set(failures)];
+      report.status = report.failures.length ? 'failed' : 'passed';
+      report.finishedAt = new Date().toISOString();
+      const reportFile = await writeReport(report);
+      if (report.status === 'failed') process.exitCode = 1;
+      console.log(`Report (${report.status}, ${report.runId}): ${reportFile}`);
+    } finally {
+      suiteRuntime?.stop();
+      if (page) navigationObservers.get(page)?.stop();
+      await browser?.close();
+    }
+  }
 }
 
 main().catch((error) => {

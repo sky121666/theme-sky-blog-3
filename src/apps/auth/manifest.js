@@ -3,9 +3,6 @@ export const authAppManifest = {
   windowVariant: 'none',
   supportsSameAppPjax: false,
   sameVariantPageModes: [],
-  cachePolicy: 'app-path-search',
-  assets: {
-    js: 'auth.js',
-    css: 'auth.css'
-  }
+  entry: 'src/apps/auth/entry.js',
+  assetDirectory: 'auth'
 };

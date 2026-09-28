@@ -36,8 +36,9 @@ function resolveWeatherStateForWidget(modules, weatherState, widget) {
   return {
     cityName: config.cityName,
     loading: weatherState?.loading === true,
-    error: weatherState?.error || '',
-    data: weatherState?.data || null
+    error: '',
+    // The primary weather snapshot may belong to another widget/city.
+    data: null
   };
 }
 

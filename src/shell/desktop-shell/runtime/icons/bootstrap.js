@@ -139,6 +139,15 @@ export function readDesktopIconsBootstrap() {
   });
 }
 
+function isUnavailableDefaultContentIcon(icon) {
+  if (icon?.href !== '#') return false;
+  // These key/app pairs come from Finder-backed defaults; custom icons are independent.
+  const key = String(icon.key || '');
+  return (key.startsWith('icon-category-') && icon.pjaxApp === 'explorer-categories')
+    || (key.startsWith('icon-tag-') && icon.pjaxApp === 'explorer-tags')
+    || ((key.startsWith('icon-post-') || key.startsWith('icon-page-')) && icon.pjaxApp === 'reader');
+}
+
 /**
  * 合并桌面图标布局。
  *
@@ -156,13 +165,15 @@ export function readDesktopIconsBootstrap() {
  * @param {number} maxVisibleRows   实际视口可见行数（由调用方传入）
  */
 export function mergeDesktopIconLayout(defaultIcons, savedLayout, resolvedWidgets = [], maxVisibleRows = 8) {
+  const unavailableKeys = new Set(defaultIcons.filter(isUnavailableDefaultContentIcon).map((icon) => icon.key));
+  const availableDefaults = defaultIcons.filter((icon) => !unavailableKeys.has(icon.key));
   if (!savedLayout || !Array.isArray(savedLayout.icons)) {
-    return defaultIcons;
+    return availableDefaults;
   }
 
   // ── 模式 2：前端完全自管理（hasFullIconDefs = true）──
   if (savedLayout.hasFullIconDefs) {
-    const validIcons = savedLayout.icons.filter((icon) => icon && icon.key && !icon.deleted);
+    const validIcons = savedLayout.icons.filter((icon) => icon && icon.key && !icon.deleted && !unavailableKeys.has(icon.key));
     return validIcons.map((icon, index) => {
       const fallback = computeDefaultDesktopIconPlacement(index, 12, Math.max(4, maxVisibleRows));
       const link = normalizeDesktopIconHref(icon.href || '#');
@@ -242,7 +253,7 @@ export function mergeDesktopIconLayout(defaultIcons, savedLayout, resolvedWidget
   }
 
   // Filter tombstoned icons before mapping
-  return defaultIcons
+  return availableDefaults
     .filter((icon) => !tombstoneKeys.has(icon.key))
     .map((icon) => {
       const saved = savedMap.get(icon.key);

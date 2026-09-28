@@ -94,6 +94,18 @@ try {
   assert.equal(cityCalls.filter((url) => url.includes('geocoding-api')).length, 2, '不同城市不能被错误合并');
   assert.equal(cityCalls.filter((url) => url.includes('/v1/forecast')).length, 2, '不同城市各自请求天气');
 
+  for (const [apparent, expected] of [[0, 0], [-3, -3], [null, 5], [undefined, 5]]) {
+    globalThis.fetch = async (url) => {
+      if (String(url).includes('geocoding-api')) return jsonResponse(geocodingPayload('零度城市'));
+      const payload = forecastPayload();
+      payload.current.temperature_2m = 5;
+      payload.current.apparent_temperature = apparent;
+      return jsonResponse(payload);
+    };
+    const weather = await fetchDesktopWidgetWeather('零度城市');
+    assert.equal(weather.apparent, expected, '合法零值/负值必须保留，仅缺失体感值才回退到实温');
+  }
+
   globalThis.fetch = (_url, options = {}) => new Promise((_resolve, reject) => {
     options.signal?.addEventListener('abort', () => {
       reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));

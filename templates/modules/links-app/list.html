@@ -1,3 +1,8 @@
+<!-- plugin-contract: PluginLinks; surface: public-list; contract-version: 2.2.1; status: confirmed; source: docs/插件适配契约.md#pc-links-list -->
+<!-- plugin-contract: PluginLinks; surface: public-feed; contract-version: 2.2.1; status: confirmed; source: docs/插件适配契约.md#pc-links-rss -->
+<!-- plugin-contract: PluginLinks; surface: visitor-application; contract-version: 2.3.0; status: confirmed; source: docs/插件适配契约.md#pc-links-visitor -->
+<!-- plugin-contract: PluginLinks; surface: protected-feed-and-management; contract-version: 2.2.1; status: confirmed; source: docs/插件适配契约.md#pc-links-protected -->
+<!-- plugin-contract: PluginCommentWidget; surface: links-comments; contract-version: 3.1.1; status: confirmed; source: docs/插件适配契约.md#pc-comment-links -->
 <th:block th:fragment="content"
   th:with="
             currentGroup=${param.group != null and !#lists.isEmpty(param.group) ? param.group[0] : ''},
@@ -11,7 +16,6 @@
             feedPublicSources=${feedGroupsData != null and !#lists.isEmpty(feedGroupsData)},
             feedPageData=${feedPublicSources ? initialFeedPage : null},
             allLinksTitle=${!#strings.isEmpty(theme.config.links?.profile?.display_name) ? theme.config.links.profile.display_name : (!#strings.isEmpty(linksTitle) ? linksTitle : '全部友链')}">
-  <!-- plugin-contract: PluginLinks; contract-version: 2.2.1; tested-version: 2.2.1; status: confirmed; source: docs/插件适配契约.md -->
   <div class="links-app" data-app-root="links">
     <h1 class="sr-only"
         th:text="${currentView == 'friends' ? '朋友圈' : (currentView == 'apply' ? '添加友链' : (currentView == 'board' ? '留言板' : allLinksTitle))}">友链</h1>
@@ -71,7 +75,7 @@
             <span class="links-rail-label">添加</span>
           </button>
           <button type="button" id="nav-board" class="links-rail-button"
-            th:if="${pluginFinder.available('PluginCommentWidget')}"
+            th:if="${haloCommentEnabled}"
             :class="{ 'is-active': activeView === 'board' }"
             :aria-pressed="activeView === 'board'" aria-controls="view-board"
             @click="showBoard()" title="留言板">
@@ -443,7 +447,7 @@
             </section>
 
             <div class="links-feed-pagination" x-show="!selectedFeedItem && (feedHasNext || feedLoading)"
-              x-intersect.margin.240px="loadNextFeed()">
+              x-intersect.margin.240px="loadNextFeed({ automatic: true })">
               <button type="button" class="links-secondary-action links-feed-more"
                 :disabled="feedLoading" @click="loadNextFeed()">
                 <span class="icon-[lucide--loader-circle]" :class="{ 'is-spinning': feedLoading }" aria-hidden="true"></span>
@@ -453,12 +457,13 @@
           </div>
 
           <section id="view-apply" class="links-submit-panel" x-data="linkSubmitForm"
-            x-show="activeView === 'apply'" aria-labelledby="links-apply-title">
+            x-show="activeView === 'apply'" aria-labelledby="links-apply-title"
+            th:attr="data-link-application-enabled=${linkApplicationEnabled == true}">
             <div class="links-panel-intro">
               <span class="links-panel-intro-icon icon-[lucide--user-round-plus]" aria-hidden="true"></span>
               <div>
                 <h2 id="links-apply-title">添加友链</h2>
-                <p>成功时安静填入或提交；失败时会说明是跨域、权限、地址还是服务问题。</p>
+                <p th:text="${linkApplicationEnabled == true ? '访客可提交官方审核申请；管理员仍可直接添加链接。' : '访客仅生成留言草稿，不会提交审核；管理员仍可直接添加链接。'}">访客仅生成留言草稿，不会提交审核；管理员仍可直接添加链接。</p>
               </div>
             </div>
 
@@ -481,7 +486,7 @@
                 <button type="button" class="links-helper-btn links-helper-btn--ghost"
                   data-link-meta-action="manual" :disabled="fetchingMeta" @click="fillFromUrl">手动填写</button>
               </div>
-              <p>管理员优先使用 PluginLinks 官方受保护接口；访客只做不带本站凭据的浏览器识别。</p>
+              <p th:text="${linkApplicationEnabled == true ? '识别失败时可以手动填写；正式申请会进入管理员审核队列。' : '识别失败时可以手动填写；访客仅生成留言草稿，不会提交审核。'}">识别失败时可以手动填写；访客仅生成留言草稿，不会提交审核。</p>
             </form>
 
             <div class="links-preview" x-show="previewVisible">
@@ -502,7 +507,7 @@
                   <option value="add">新增友链</option><option value="update">修改友链</option>
                 </select>
               </label>
-              <label><span>分组</span>
+              <label x-show="!isApplicationMode()"><span>分组</span>
                 <select class="links-input" x-model="form.groupName">
                   <option value="">不指定分组</option>
                   <option th:each="group : ${groupsData}" th:if="${group.metadata.name != 'ungrouped'}"
@@ -531,10 +536,24 @@
                 <input class="links-input" type="url" x-model="form.rssUrl"
                   data-link-field="rssUrl" placeholder="https://example.com/rss.xml" />
               </label>
-              <label class="links-field-wide" x-show="isMessageMode()"><span>联系邮箱（可选）</span>
+              <label class="links-field-wide" x-show="!isDirectCreateMode()"><span>联系邮箱（可选）</span>
                 <input class="links-input" type="email" x-model="form.email"
                   placeholder="name@example.com" />
               </label>
+            </div>
+
+            <div class="links-application-captcha" x-show="isApplicationMode()">
+              <div class="links-application-captcha-image">
+                <img x-bind:src="captchaImage || null" alt="友链申请验证码" width="160" height="48" x-show="captchaImage" />
+                <span x-show="captchaLoading" role="status">正在获取验证码…</span>
+                <button type="button" class="links-helper-btn links-helper-btn--ghost"
+                  :disabled="captchaLoading || submitting" @click="refreshCaptcha()">换一张</button>
+              </div>
+              <label><span>图片验证码</span>
+                <input class="links-input" type="text" x-model="captchaCode" maxlength="5"
+                  autocomplete="off" autocapitalize="characters" placeholder="输入图片中的五位字符" />
+              </label>
+              <small>验证码五分钟有效；提交失败后会自动刷新。</small>
             </div>
 
             <textarea id="markdownOutput" class="links-markdown-output" x-show="isMessageMode()" readonly
@@ -552,8 +571,8 @@
                   aria-live="polite"></small>
               </span>
               <button id="copyBtn" type="button" class="links-primary-action"
-                :disabled="isDirectCreateMode() ? !canCreateDirect() : !canCopyDraft()"
-                @click="isDirectCreateMode() ? createLink() : copyAndGotoBoard()">
+                :disabled="isDirectCreateMode() ? !canCreateDirect() : (isApplicationMode() ? !canSubmitApplication() : !canCopyDraft())"
+                @click="isDirectCreateMode() ? createLink() : (isApplicationMode() ? submitApplication() : copyAndGotoBoard())">
                 <span x-text="primaryActionLabel()"></span>
               </button>
             </div>
@@ -568,15 +587,14 @@
               </div>
               <button type="button" class="links-secondary-action" @click="showApply()">填写友链申请</button>
             </section>
-            <!-- plugin-contract: PluginCommentWidget; contract-version: 3.1.2; tested-version: 3.1.2; status: confirmed; source: docs/插件适配契约.md -->
             <section class="links-comments" id="links-comments"
-              th:if="${pluginFinder.available('PluginCommentWidget')}">
+              th:if="${haloCommentEnabled}">
               <halo:comment group="plugin.halo.run" kind="Plugin" th:attr="name=${pluginName}"></halo:comment>
             </section>
-            <section class="links-detail-empty" th:if="${!pluginFinder.available('PluginCommentWidget')}">
+            <section class="links-detail-empty" th:unless="${haloCommentEnabled}" role="status">
               <span class="icon-[lucide--message-circle-off]" aria-hidden="true"></span>
-              <strong>留言组件未启用</strong>
-              <p>管理员仍可直接添加友链；访客可先复制并保存申请内容，待站点启用留言组件后再提交。</p>
+              <strong>留言暂不可用</strong>
+              <p>站点已关闭评论或评论组件不可用。访客可先复制并保存申请内容，待留言恢复后再提交。</p>
             </section>
           </div>
         </div>

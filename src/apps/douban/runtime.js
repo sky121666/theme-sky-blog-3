@@ -3,6 +3,25 @@ import { warnApiCall } from '../../shell/desktop-shell/runtime/shared/debug.js';
 const API_BASE = '/apis/api.douban.moony.la/v1alpha1/doubanmovies';
 const PAGE_SIZE = 20;
 
+function positiveInteger(value, fallback) {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function routeFilters() {
+  const params = new URLSearchParams(globalThis.window?.location?.search || '');
+  const status = params.get('status');
+  return {
+    type: normalize(params.get('type')) || 'movie',
+    dataType: normalize(params.get('dataType')),
+    status: ['mark', 'doing', 'done'].includes(status) ? status : 'all',
+    genre: normalize(params.get('genre')) || 'all',
+    keyword: normalize(params.get('keyword')),
+    page: positiveInteger(params.get('page'), 1),
+    pageSize: positiveInteger(params.get('size'), PAGE_SIZE)
+  };
+}
+
 const FALLBACK_TYPES = [
   { key: 'movie', name: '电影', doubanCount: 0 },
   { key: 'book', name: '图书', doubanCount: 0 },
@@ -75,11 +94,17 @@ function firstNonEmpty(...values) {
 }
 
 function getSpec(item) {
-  return item?.spec || {};
+  // 1.2.6 的公开 API 返回扁平 DoubanMovieData；旧版返回 spec/faves。
+  return item?.spec || item || {};
 }
 
 function getFaves(item) {
-  return item?.faves || {};
+  return item?.faves || {
+    status: item?.favesStatus,
+    score: item?.favesScore,
+    createTime: item?.favesCreateTime,
+    remark: item?.favesRemark
+  };
 }
 
 function itemId(item) {
@@ -102,7 +127,7 @@ function typeLabels(type) {
 function scoreStars(score) {
   const value = numberValue(score);
   if (!value) return '未评星';
-  const count = Math.max(0, Math.min(5, Math.round(value / 2)));
+  const count = Math.max(0, Math.min(5, Math.round(value)));
   return `${'★'.repeat(count)}${'☆'.repeat(5 - count)}`;
 }
 
@@ -148,6 +173,9 @@ export class DoubanApp {
     this.root = root;
     this.abortController = null;
     this.paginationController = null;
+    this.typesController = null;
+    this.destroyed = false;
+    this.disposeRoot = () => this.destroy();
     this.requestGeneration = 0;
     this.reloadPending = false;
     this.loadError = false;
@@ -165,7 +193,8 @@ export class DoubanApp {
       hasMore: false,
       items: [],
       visibleItems: [],
-      focusedId: ''
+      focusedId: '',
+      ...routeFilters()
     };
 
     this.onClick = this.onClick.bind(this);
@@ -177,7 +206,8 @@ export class DoubanApp {
     if (!this.root) return () => {};
 
     this.root.__doubanAppDispose?.();
-    this.root.__doubanAppDispose = () => this.destroy();
+    this.destroyed = false;
+    this.root.__doubanAppDispose = this.disposeRoot;
 
     this.renderProfileIcon();
     this.root.addEventListener('click', this.onClick);
@@ -186,6 +216,9 @@ export class DoubanApp {
 
     this.renderTypes(FALLBACK_TYPES);
     this.renderStatuses();
+    this.queryAll('[data-douban-search], [data-douban-search-mobile]').forEach((input) => {
+      input.value = this.state.keyword;
+    });
     this.setViewMode(this.state.viewMode, false);
     this.loadTypes();
     this.reload();
@@ -194,8 +227,12 @@ export class DoubanApp {
   }
 
   destroy() {
+    if (this.destroyed) return;
+    this.destroyed = true;
     this.abortController?.abort();
     this.paginationController?.abort();
+    this.typesController?.abort();
+    this.typesController = null;
     this.requestGeneration += 1;
     this.reloadPending = false;
     clearTimeout(this.searchTimer);
@@ -203,7 +240,7 @@ export class DoubanApp {
     this.root?.removeEventListener('click', this.onClick);
     this.root?.removeEventListener('input', this.onInput);
     document.removeEventListener('keydown', this.onKeydown);
-    if (this.root?.__doubanAppDispose) {
+    if (this.root?.__doubanAppDispose === this.disposeRoot) {
       delete this.root.__doubanAppDispose;
     }
   }
@@ -211,6 +248,8 @@ export class DoubanApp {
   requestKey() {
     return JSON.stringify({
       type: this.state.type,
+      dataType: this.state.dataType,
+      pageSize: this.state.pageSize,
       status: this.state.status,
       genre: this.state.genre,
       keyword: this.state.keyword.trim()
@@ -218,7 +257,7 @@ export class DoubanApp {
   }
 
   isRequestCurrent(generation, requestKey, signal) {
-    return !signal?.aborted
+    return !this.destroyed && !signal?.aborted
       && generation === this.requestGeneration
       && requestKey === this.requestKey()
       && this.root?.isConnected !== false;
@@ -446,8 +485,14 @@ export class DoubanApp {
   }
 
   async loadTypes() {
+    this.typesController?.abort();
+    const controller = new AbortController();
+    this.typesController = controller;
+    const isCurrent = () => !this.destroyed && !controller.signal.aborted
+      && this.typesController === controller && this.root?.isConnected !== false;
     try {
-      const types = await fetchJson(`${API_BASE}/-/types`);
+      const types = await fetchJson(`${API_BASE}/-/types`, {}, controller.signal);
+      if (!isCurrent()) return;
       this.types = (Array.isArray(types) && types.length ? types : FALLBACK_TYPES)
         .map((type) => ({
           key: normalize(type.key),
@@ -457,8 +502,11 @@ export class DoubanApp {
         .filter((type) => type.key);
       this.renderTypes(this.types);
     } catch {
+      if (!isCurrent()) return;
       this.types = FALLBACK_TYPES;
       this.renderTypes(this.types);
+    } finally {
+      if (this.typesController === controller) this.typesController = null;
     }
   }
 
@@ -471,6 +519,7 @@ export class DoubanApp {
     const signal = this.abortController.signal;
     const generation = ++this.requestGeneration;
     const requestKey = this.requestKey();
+    const page = this.state.page;
 
     this.reloadPending = true;
     this.state.items = [];
@@ -482,22 +531,36 @@ export class DoubanApp {
     this.renderItems();
 
     try {
-      const [genres, list] = await Promise.all([
-        this.fetchGenres(signal),
-        this.fetchList(1, signal)
-      ]);
+      const genresPromise = this.fetchGenres(signal).then(
+        (genres) => ({ genres, error: null }),
+        (error) => ({ genres: [], error })
+      );
+      const list = await this.fetchList(page, signal);
       if (!this.isRequestCurrent(generation, requestKey, signal)) return;
 
       const listTotal = Number(list.total || 0) || 0;
-      await this.updateStats(signal, listTotal);
-      if (!this.isRequestCurrent(generation, requestKey, signal)) return;
-      this.genres = genres;
+      this.genres = [];
       this.state.items = list.items;
       this.state.total = listTotal;
-      this.state.page = 1;
-      this.state.hasMore = this.state.items.length < this.state.total;
-      this.renderGenres(genres);
+      this.state.page = page;
+      this.state.hasMore = page * this.state.pageSize < this.state.total;
+      this.renderGenres(this.genres);
       this.renderItems();
+      void this.updateStats(signal, listTotal);
+      void genresPromise.then((genresResult) => {
+        if (!this.isRequestCurrent(generation, requestKey, signal)) return;
+        this.genres = genresResult.genres;
+        this.renderGenres(this.genres);
+        if (genresResult.error) {
+          warnApiCall('douban', '豆瓣题材筛选加载失败，已保留列表', {
+            endpoint: genresResult.error?.url || `${API_BASE}/-/genres`,
+            status: genresResult.error?.status || '',
+            message: genresResult.error?.message || String(genresResult.error),
+            action: 'show-list-without-genres',
+            hint: '检查题材 API；列表仍可按类型、状态和关键词浏览。'
+          });
+        }
+      });
     } catch (error) {
       if (this.isRequestCurrent(generation, requestKey, signal)) {
         this.state.items = [];
@@ -537,8 +600,9 @@ export class DoubanApp {
   async fetchList(page, signal) {
     const params = {
       page,
-      size: PAGE_SIZE,
+      size: this.state.pageSize,
       type: this.state.type,
+      dataType: this.state.dataType,
       keyword: this.state.keyword.trim()
     };
 
@@ -565,29 +629,25 @@ export class DoubanApp {
       if (target) target.textContent = label;
     });
 
-    try {
-      const [total, done, doing, mark] = await Promise.all([
-        this.fetchCount({ type: this.state.type }, signal),
-        this.fetchCount({ type: this.state.type, status: 'done' }, signal),
-        this.fetchCount({ type: this.state.type, status: 'doing' }, signal),
-        this.fetchCount({ type: this.state.type, status: 'mark' }, signal)
-      ]);
-      if (signal.aborted) return;
-      this.setStat('total', total);
-      this.setStat('done', done);
-      this.setStat('doing', doing);
-      this.setStat('mark', mark);
-    } catch {
-      if (signal.aborted) return;
-      this.setStat('total', fallbackTotal);
-      this.setStat('done', 0);
-      this.setStat('doing', 0);
-      this.setStat('mark', 0);
-    }
+    this.setStat('total', fallbackTotal);
+    ['done', 'doing', 'mark'].forEach((key) => this.setStat(key, '—'));
+    await Promise.all([
+      ['total', { type: this.state.type }],
+      ['done', { type: this.state.type, status: 'done' }],
+      ['doing', { type: this.state.type, status: 'doing' }],
+      ['mark', { type: this.state.type, status: 'mark' }]
+    ].map(async ([key, params]) => {
+      try {
+        const count = await this.fetchCount(params, signal);
+        if (!signal.aborted) this.setStat(key, count);
+      } catch {
+        // An unavailable count stays unknown; the list total remains a useful fallback.
+      }
+    }));
   }
 
   async fetchCount(params, signal) {
-    const result = await fetchJson(API_BASE, { page: 1, size: 1, ...params }, signal);
+    const result = await fetchJson(API_BASE, { page: 1, size: 1, dataType: this.state.dataType, ...params }, signal);
     return Number(result?.total || 0) || 0;
   }
 
@@ -611,8 +671,8 @@ export class DoubanApp {
       if (!this.isRequestCurrent(generation, requestKey, controller.signal)) return;
       this.state.page = nextPage;
       this.state.items = this.state.items.concat(list.items);
-      this.state.total = Number(list.total || this.state.total) || 0;
-      this.state.hasMore = this.state.items.length < Number(list.total || this.state.total);
+      this.state.total = list.total;
+      this.state.hasMore = nextPage * this.state.pageSize < this.state.total;
       this.renderItems();
     } catch (error) {
       if (!this.isRequestCurrent(generation, requestKey, controller.signal)) return;

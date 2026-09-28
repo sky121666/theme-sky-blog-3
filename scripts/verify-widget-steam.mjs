@@ -145,4 +145,15 @@ const noStatsHtml = render({
 assert.equal(noStatsHtml.includes('124'), false, 'showStats=false should hide total games');
 assert.equal(noStatsHtml.includes('18.6h'), false, 'showStats=false should hide recent playtime');
 
+const zeroStatsHtml = render({
+  steamAvailable: true,
+  steamProfile: { steamLevel: 0, personaName: 'New player', statusText: '在线' },
+  steamStats: { totalGames: 0, recentPlaytimeMinutes: 0 }
+});
+assert.match(zeroStatsHtml, /LV\.0</, 'Steam level zero is a valid level');
+assert.match(zeroStatsHtml, /<em>游戏<\/em><strong title="0">0<\/strong>/, 'zero games must not render as unknown');
+const missingStatsHtml = render({ steamAvailable: true, steamProfile: {}, steamStats: {} });
+assert.match(missingStatsHtml, /LV\.--</, 'missing level remains unknown');
+assert.match(missingStatsHtml, /<em>游戏<\/em><strong title="--">--<\/strong>/, 'missing count remains unknown');
+
 console.log('verify-widget-steam passed');

@@ -3,9 +3,6 @@ export const steamAppManifest = {
   windowVariant: 'steam',
   supportsSameAppPjax: true,
   sameVariantPageModes: ['browser-steam'],
-  cachePolicy: 'app-path-search',
-  assets: {
-    js: 'steam.js',
-    css: 'steam.css'
-  }
+  entry: 'src/apps/steam/entry.js',
+  assetDirectory: 'steam'
 };

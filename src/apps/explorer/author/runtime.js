@@ -100,7 +100,9 @@ export function registerAuthorPostsExplorer(Alpine) {
 
       const urlState = this.readUrlState();
       const defaultSource = this.$root.dataset.defaultSource || 'posts';
-      this.activeSource = urlState.source === 'moments' && this.momentsEnabled ? 'moments' : defaultSource;
+      this.activeSource = urlState.source === 'posts'
+        ? 'posts'
+        : (urlState.source === 'moments' && this.momentsEnabled ? 'moments' : defaultSource);
       this.momentPage = urlState.momentPage;
 
       if (this.activeSource === 'moments' && this.momentsEnabled && this.momentPage > 1) {
@@ -178,7 +180,8 @@ export function registerAuthorPostsExplorer(Alpine) {
             url.searchParams.delete('momentPage');
           }
         } else {
-          url.searchParams.delete('source');
+          if (this.$root?.dataset?.defaultSource === 'moments') url.searchParams.set('source', 'posts');
+          else url.searchParams.delete('source');
           url.searchParams.delete('momentPage');
         }
         const currentState = window.history.state;
@@ -419,10 +422,14 @@ export function registerAuthorPostsExplorer(Alpine) {
         this.momentLoadError = '';
 
         if (typeof window !== 'undefined') {
-          window.sessionStorage.setItem(cacheKey, JSON.stringify({
-            timestamp: Date.now(),
-            data
-          }));
+          try {
+            window.sessionStorage.setItem(cacheKey, JSON.stringify({
+              timestamp: Date.now(),
+              data
+            }));
+          } catch (_error) {
+            // Storage is optional; a cache failure must not discard a successful response.
+          }
         }
 
         return data;

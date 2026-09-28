@@ -452,6 +452,15 @@
   gap: 8px;
 }
 
+.equipments-loadmore-error {
+  cursor: pointer;
+}
+
+.equipments-loadmore-error:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
 .equipments-loading-icon {
   animation: equipmentsSpin 1s linear infinite;
 }

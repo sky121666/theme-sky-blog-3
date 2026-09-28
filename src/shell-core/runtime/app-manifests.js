@@ -38,6 +38,34 @@ export function getAppManifest(appId) {
   return APP_MANIFESTS.find((manifest) => manifest.appId === appId) || null;
 }
 
+// These declarations are consumed by both the build and the browser loader.
+// Keep source entries and output directory aliases in the individual manifests.
+export function getAppAssetSegment(appId) {
+  return getAppManifest(typeof appId === 'string' ? appId.trim() : '')?.assetDirectory || '';
+}
+
+export function getAppEntryPaths() {
+  return Object.fromEntries([
+    ['shell-core', 'src/shell-core/entry.js'],
+    ...APP_MANIFESTS.map(({ appId, entry }) => [appId, entry])
+  ]);
+}
+
+function getEntryAssetPath(entryName, kind) {
+  if (entryName === 'shell-core') return `${kind}/shell-core/index.${kind}`;
+  const segment = getAppAssetSegment(entryName);
+  if (!segment) throw new Error(`Unknown app asset entry: ${entryName}`);
+  return `${kind}/apps/${segment}/index.${kind}`;
+}
+
+export function getEntryJsPath(entryName) {
+  return getEntryAssetPath(entryName, 'js');
+}
+
+export function getEntryCssPath(entryName) {
+  return getEntryAssetPath(entryName, 'css');
+}
+
 export function supportsSameVariantContentSwitch(appId) {
   return !!getAppManifest(appId)?.supportsSameAppPjax;
 }

@@ -49,7 +49,7 @@ export function registerEquipmentsExplorer(Alpine) {
       if ('IntersectionObserver' in window) {
         this._observer?.disconnect();
         this._observer = new IntersectionObserver((entries) => {
-          if (!this._destroyed && entries[0]?.isIntersecting) {
+          if (!this._destroyed && !this.loadError && entries[0]?.isIntersecting) {
             this.loadNext();
           }
         }, {
@@ -73,7 +73,7 @@ export function registerEquipmentsExplorer(Alpine) {
     },
 
     checkScrollFallback() {
-      if (this._destroyed) return;
+      if (this._destroyed || this.loadError) return;
       const scroller = this.$root.querySelector('.equipments-stage-scroller');
       if (!scroller) return;
 

@@ -87,6 +87,6 @@ const rssTags = layout.match(/<link\b(?=[^>]*\brel=["']alternate["'])(?=[^>]*\bt
 assert.equal(rssTags.length, 1, 'layout should define one RSS alternate tag');
 assert.match(rssTags[0], /th:if=["']\$\{pluginFinder\.available\('PluginFeed'\)\}["']/);
 assert.match(rssTags[0], /th:href=["']@\{\/rss\.xml\}["']/);
-assert.match(layout, /plugin-contract: PluginFeed; contract-version: 1\.5\.0; tested-version: 1\.5\.0/);
+assert.match(layout, /plugin-contract: PluginFeed; surface: rss-discovery; contract-version: 1\.5\.0; status: confirmed; source: docs\/插件适配契约\.md#pc-feed/);
 
 console.log(`plugin inventory contract passed (${THEME_PLUGIN_MANIFEST.length} strict fixture plugins)`);

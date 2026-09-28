@@ -289,6 +289,15 @@
     drop-shadow(0 1px 0.75px rgba(15, 23, 42, 0.22));
 }
 
+html:not(.dark) :is(.tags-shell, .tag-shell) .tags-sidebar-item:is(
+  [data-tag-color="#fff" i],
+  [data-tag-color="#ffff" i],
+  [data-tag-color="#ffffff" i],
+  [data-tag-color="#ffffffff" i]
+) .tags-folder-icon {
+  color: var(--tags-text);
+}
+
 .tags-folder-icon--card,
 .tags-folder-icon--detail {
   width: 22px;

@@ -106,15 +106,21 @@ export function registerSteamExplorer(Alpine) {
     _heatmapAbortController: null,
     _paginationAbortController: null,
     _destroyed: false,
+    _lifecycleGeneration: 0,
 
     init() {
       this._destroyed = false;
+      const generation = ++this._lifecycleGeneration;
+      const root = this.$root;
       this.activeView = this.$root.dataset.steamInitialView || 'profile';
       this.applyConfiguredCover();
       this.readGames();
       this.readPaginationState();
-      this.$watch('sortMode', () => this.applyGameOrdering());
+      this.$watch('sortMode', () => {
+        if (this.isAlive(generation, root)) this.applyGameOrdering();
+      });
       this.$nextTick(() => {
+        if (!this.isAlive(generation, root)) return;
         this.applyGameOrdering();
         this.installInfiniteLoader();
         this.renderHeatmap();
@@ -123,6 +129,7 @@ export function registerSteamExplorer(Alpine) {
 
     destroy() {
       this._destroyed = true;
+      this._lifecycleGeneration += 1;
       this._observer?.disconnect();
       this._observer = null;
       this.removeScrollFallback();
@@ -131,6 +138,12 @@ export function registerSteamExplorer(Alpine) {
       this._paginationAbortController?.abort();
       this._paginationAbortController = null;
       this._heatmapLoaded = false;
+      this.loading = false;
+    },
+
+    isAlive(generation = this._lifecycleGeneration, root = this.$root) {
+      return !this._destroyed && generation === this._lifecycleGeneration
+        && root === this.$root && Boolean(root) && root.isConnected !== false;
     },
 
     applyConfiguredCover() {
@@ -164,14 +177,20 @@ export function registerSteamExplorer(Alpine) {
     },
 
     switchView(view) {
+      if (!this.isAlive()) return;
       this.activeView = view || 'profile';
       this.scrollMainToTop();
-      if (this.activeView === 'library') {
-        this.$nextTick(() => {
+      const generation = this._lifecycleGeneration;
+      const root = this.$root;
+      this.$nextTick(() => {
+        if (!this.isAlive(generation, root)) return;
+        if (this.activeView === 'library') {
           this.installInfiniteLoader();
           this.checkScrollFallback();
-        });
-      }
+        } else if (this.activeView === 'profile') {
+          this.renderHeatmap();
+        }
+      });
     },
 
     scrollMainToTop() {
@@ -237,6 +256,9 @@ export function registerSteamExplorer(Alpine) {
     },
 
     async renderHeatmap() {
+      if (!this.isAlive()) return;
+      const generation = this._lifecycleGeneration;
+      const root = this.$root;
       const panel = this.$root.querySelector('.steam-heatmap-panel');
       const grid = panel?.querySelector('[data-steam-heatmap-grid]');
       if (!panel || !grid || this._heatmapLoaded) return;
@@ -266,31 +288,58 @@ export function registerSteamExplorer(Alpine) {
       let failed = false;
       const controller = createAbortController();
       this._heatmapAbortController = controller;
+      const isCurrent = () => !controller?.signal.aborted && this.isAlive(generation, root);
 
       try {
-        const api = `/apis/api.steam.timxs.com/v1alpha1/heatmap/records?startDate=${formatDate(start)}&endDate=${formatDate(end)}&page=1&size=${days}`;
-        const response = await fetch(api, {
-          headers: { Accept: 'application/json' },
-          ...(controller ? { signal: controller.signal } : {})
-        });
-        if (controller?.signal.aborted || this._destroyed) return;
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-        if (controller?.signal.aborted || this._destroyed) return;
         const cellMap = new Map(cells.map((cell) => [cell.date, cell]));
-        (data?.items || []).forEach((item) => {
-          const spec = item?.spec || {};
-          const cell = cellMap.get(spec.date);
-          if (!cell) return;
-          cell.minutes += Number(spec.playtimeMinutes || 0);
-          if (spec.gameName) cell.games.add(spec.gameName);
-        });
+        const seenRecords = new Set();
+        for (let page = 1; ; page += 1) {
+          const api = `/apis/api.steam.timxs.com/v1alpha1/heatmap/records?startDate=${formatDate(start)}&endDate=${formatDate(end)}&page=${page}&size=${days}`;
+          const response = await fetch(api, {
+            headers: { Accept: 'application/json' },
+            ...(controller ? { signal: controller.signal } : {})
+          });
+          if (!isCurrent()) return;
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+          const data = await response.json();
+          if (!isCurrent()) return;
+          const pageSize = Number(data?.size ?? days);
+          const total = Number(data?.total);
+          if (!Array.isArray(data?.items) || !Number.isInteger(pageSize) || pageSize <= 0
+            || data?.total == null || !Number.isSafeInteger(total) || total < 0
+            || (data.page != null && Number(data.page) !== page)) {
+            throw new Error('Steam 热力图分页响应格式无效');
+          }
+          const hasNext = total > page * pageSize;
+          if (typeof data.hasNext === 'boolean' && data.hasNext !== hasNext) {
+            throw new Error('Steam 热力图分页状态与记录总数不一致');
+          }
+
+          let added = 0;
+          data.items.forEach((item) => {
+            const spec = item?.spec || {};
+            const key = item?.metadata?.name || `${spec.steamId || ''}:${spec.date}:${spec.appId}`;
+            if (seenRecords.has(key)) return;
+            seenRecords.add(key);
+            added += 1;
+            const cell = cellMap.get(spec.date);
+            if (!cell) return;
+            const minutes = Number(spec.playtimeMinutes || 0);
+            if (!Number.isFinite(minutes) || minutes < 0) throw new Error('Steam 游玩时长格式无效');
+            cell.minutes += minutes;
+            if (spec.gameName) cell.games.add(spec.gameName);
+          });
+          if (!hasNext) {
+            if (seenRecords.size !== total) throw new Error('Steam 热力图分页记录不完整');
+            break;
+          }
+          if (!added) throw new Error('Steam 热力图分页未返回后续记录');
+        }
       } catch (error) {
-        if (isAbortError(error) || controller?.signal.aborted || this._destroyed) return;
+        if (isAbortError(error) || !isCurrent()) return;
         failed = true;
+        cells.forEach((cell) => { cell.minutes = 0; cell.games.clear(); });
         warnApiCall('steam', 'Steam 热力图记录加载失败', {
           message: error?.message || String(error || ''),
           action: 'render-empty-heatmap',
@@ -302,7 +351,8 @@ export function registerSteamExplorer(Alpine) {
         }
       }
 
-      if (this._destroyed) return;
+      if (!isCurrent()) return;
+      this._heatmapLoaded = !failed;
 
       const maxMinutes = Math.max(0, ...cells.map((cell) => cell.minutes));
       const activeDays = cells.filter((cell) => cell.minutes > 0).length;
@@ -331,6 +381,9 @@ export function registerSteamExplorer(Alpine) {
     },
 
     installInfiniteLoader() {
+      if (!this.isAlive()) return;
+      const generation = this._lifecycleGeneration;
+      const root = this.$root;
       const sentinel = this.$root.querySelector('[data-steam-scroll-sentinel]');
       const scroller = this.$root.querySelector('.steam-main-scroll');
       if (!sentinel) return;
@@ -342,7 +395,7 @@ export function registerSteamExplorer(Alpine) {
 
       this._observer?.disconnect();
       this._observer = new IntersectionObserver((entries) => {
-        if (entries[0]?.isIntersecting) {
+        if (this.isAlive(generation, root) && entries[0]?.isIntersecting) {
           this.loadNext();
         }
       }, {
@@ -355,15 +408,21 @@ export function registerSteamExplorer(Alpine) {
     },
 
     installScrollFallback(scroller) {
+      if (!this.isAlive()) return;
       this.removeScrollFallback();
       if (!scroller) return;
 
-      this._fallbackScrollHandler = () => this.checkScrollFallback();
+      const generation = this._lifecycleGeneration;
+      const root = this.$root;
+      this._fallbackScrollHandler = () => {
+        if (this.isAlive(generation, root)) this.checkScrollFallback();
+      };
       scroller.addEventListener('scroll', this._fallbackScrollHandler, { passive: true });
       this.checkScrollFallback();
     },
 
     checkScrollFallback() {
+      if (!this.isAlive()) return;
       const scroller = this.$root.querySelector('.steam-main-scroll');
       if (!scroller || this.activeView !== 'library') return;
 
@@ -414,25 +473,28 @@ export function registerSteamExplorer(Alpine) {
     },
 
     async loadNext() {
-      if (this.activeView !== 'library' || this.loading || !this.hasMore || !this.nextUrl) return;
+      if (!this.isAlive() || this.activeView !== 'library' || this.loading || !this.hasMore || !this.nextUrl) return;
+      const generation = this._lifecycleGeneration;
+      const root = this.$root;
 
       this.loading = true;
       this.loadError = false;
       const controller = createAbortController();
       this._paginationAbortController = controller;
+      const isCurrent = () => !controller?.signal.aborted && this.isAlive(generation, root);
 
       try {
         const response = await fetch(this.nextUrl, {
           headers: { 'X-Requested-With': 'XMLHttpRequest' },
           ...(controller ? { signal: controller.signal } : {})
         });
-        if (controller?.signal.aborted || this._destroyed) return;
+        if (!isCurrent()) return;
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
 
         const html = await response.text();
-        if (controller?.signal.aborted || this._destroyed) return;
+        if (!isCurrent()) return;
         const doc = new DOMParser().parseFromString(html, 'text/html');
         const cards = Array.from(doc.querySelectorAll('.steam-library-grid > [data-steam-game-card]'));
 
@@ -447,9 +509,11 @@ export function registerSteamExplorer(Alpine) {
 
         this.appendCards(cards);
         this.updatePaginationFrom(doc);
-        this.$nextTick(() => this.checkScrollFallback());
+        this.$nextTick(() => {
+          if (this.isAlive(generation, root)) this.checkScrollFallback();
+        });
       } catch (error) {
-        if (isAbortError(error) || controller?.signal.aborted || this._destroyed) return;
+        if (isAbortError(error) || !isCurrent()) return;
         this.loadError = true;
         warnApiCall('steam', 'Steam 游戏库下一页加载失败', {
           url: this.nextUrl,
@@ -461,7 +525,7 @@ export function registerSteamExplorer(Alpine) {
         if (this._paginationAbortController === controller) {
           this._paginationAbortController = null;
         }
-        if (!this._destroyed) {
+        if (this.isAlive(generation, root)) {
           this.loading = false;
         }
       }

@@ -11,27 +11,27 @@
   },
   "licenseOverrides": {
     "@alpinejs/intersect": {
-      "file": "security/licenses/alpinejs-3.15.12-LICENSE.md",
-      "source": "https://raw.githubusercontent.com/alpinejs/alpine/v3.15.12/LICENSE.md",
-      "version": "3.15.12",
+      "file": "security/licenses/alpinejs-3.17.3-LICENSE.md",
+      "source": "https://raw.githubusercontent.com/alpinejs/alpine/v3.17.3/LICENSE.md",
+      "version": "3.17.3",
       "sha256": "08b7502da6e7aa1d0bbdc97d220fbf669b9366c61bd0f072238283c89bc4773a"
     },
     "@alpinejs/morph": {
-      "file": "security/licenses/alpinejs-3.15.12-LICENSE.md",
-      "source": "https://raw.githubusercontent.com/alpinejs/alpine/v3.15.12/LICENSE.md",
-      "version": "3.15.12",
+      "file": "security/licenses/alpinejs-3.17.3-LICENSE.md",
+      "source": "https://raw.githubusercontent.com/alpinejs/alpine/v3.17.3/LICENSE.md",
+      "version": "3.17.3",
       "sha256": "08b7502da6e7aa1d0bbdc97d220fbf669b9366c61bd0f072238283c89bc4773a"
     },
     "@iconify-json/lucide": {
       "file": "security/licenses/lucide-LICENSE",
       "source": "https://raw.githubusercontent.com/lucide-icons/lucide/main/LICENSE",
-      "version": "1.2.118",
+      "version": "1.2.134",
       "sha256": "b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57"
     },
     "alpinejs": {
-      "file": "security/licenses/alpinejs-3.15.12-LICENSE.md",
-      "source": "https://raw.githubusercontent.com/alpinejs/alpine/v3.15.12/LICENSE.md",
-      "version": "3.15.12",
+      "file": "security/licenses/alpinejs-3.17.3-LICENSE.md",
+      "source": "https://raw.githubusercontent.com/alpinejs/alpine/v3.17.3/LICENSE.md",
+      "version": "3.17.3",
       "sha256": "08b7502da6e7aa1d0bbdc97d220fbf669b9366c61bd0f072238283c89bc4773a"
     }
   }

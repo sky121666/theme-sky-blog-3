@@ -164,7 +164,7 @@ function renderEmpty({ escapeHtml, mode, installed, hydrated = true }) {
     ? '未安装链接管理插件'
     : hydrated ? '暂无友链动态' : '朋友圈动态待同步';
   const description = !installed
-    ? '安装 PluginLinks 2.2.1 后可使用朋友圈小组件。'
+    ? '启用支持 RSS 动态的友链插件后可使用朋友圈小组件。'
     : hydrated
       ? '在 PluginLinks 中启用并公开 RSS 动态后，这里会显示最近更新。'
       : '当前页面未加载桌面数据；返回首页后会自动同步最近更新。';

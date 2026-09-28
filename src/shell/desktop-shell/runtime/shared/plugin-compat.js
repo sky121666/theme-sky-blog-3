@@ -1,6 +1,7 @@
 const LIGHT_GALLERY_ROOT_SELECTOR = '#article-content';
 const LIGHT_GALLERY_UID_ATTRIBUTE = 'lg-uid';
 const LIGHT_GALLERY_ASSET_PATTERN = /\/plugins\/PluginLightGallery\/assets\/static\//i;
+const LIGHT_GALLERY_SCRIPT_DEADLINE_MS = 15000;
 const PLUGIN_COMPAT_GUARD = '__THEME_PLUGIN_COMPAT_INITIALIZED__';
 const ONLINE_HISTORY_GUARD = '__THEME_ONLINE_HISTORY_BRIDGE_INITIALIZED__';
 const ONLINE_PRIVATE_STATE_KEY = '__themeOnlinePrivatePage';
@@ -10,6 +11,7 @@ let cancelRefreshFrame = null;
 let refreshGeneration = 0;
 let lightGalleryAssetsReady = Promise.resolve();
 const loadedPluginScripts = new Map();
+const observedPluginScripts = new WeakMap();
 let stagedOnlineHistoryState = null;
 
 function collectElements(root, selector) {
@@ -95,32 +97,117 @@ function ensureStylesheet(href) {
   document.head.appendChild(link);
 }
 
+function observeExistingScript(script) {
+  if (observedPluginScripts.has(script)) return observedPluginScripts.get(script);
+
+  const state = {
+    status: script.dataset?.themePluginCompatState === 'ready'
+      || script.readyState === 'loaded'
+      || script.readyState === 'complete'
+      || (document.readyState === 'complete'
+        && script.async === false
+        && typeof window.lightGallery === 'function') ? 'ready' : 'loading',
+    waiters: new Set()
+  };
+  observedPluginScripts.set(script, state);
+  if (state.status === 'ready') return state;
+
+  const settle = (status) => {
+    state.status = status;
+    script.removeEventListener('load', onLoad);
+    script.removeEventListener('error', onError);
+    state.waiters.forEach((waiter) => waiter(status));
+    state.waiters.clear();
+  };
+  const onLoad = () => settle('ready');
+  const onError = () => settle('error');
+  script.addEventListener('load', onLoad);
+  script.addEventListener('error', onError);
+  return state;
+}
+
 function ensureScript(src) {
   const normalized = normalizeAssetUrl(src);
   if (!normalized) return Promise.resolve();
   if (loadedPluginScripts.has(normalized)) return loadedPluginScripts.get(normalized);
 
+  let existingState;
   const existing = Array.from(document.querySelectorAll('script[src]'))
-    .find((script) => normalizeAssetUrl(script.getAttribute('src')) === normalized);
+    .find((script) => {
+      if (normalizeAssetUrl(script.getAttribute('src')) !== normalized) return false;
+      const state = observeExistingScript(script);
+      if (state.status === 'error') return false;
+      existingState = state;
+      return true;
+    });
   if (existing) {
-    const ready = Promise.resolve();
+    if (existingState.status === 'ready') {
+      const ready = Promise.resolve();
+      loadedPluginScripts.set(normalized, ready);
+      return ready;
+    }
+    const ready = new Promise((resolve, reject) => {
+      const finish = (status) => {
+        window.clearTimeout(timeoutId);
+        existingState.waiters.delete(finish);
+        if (status === 'ready') {
+          resolve();
+        } else {
+          if (loadedPluginScripts.get(normalized) === ready) loadedPluginScripts.delete(normalized);
+          reject(new Error(`LightGallery asset failed: ${src}`));
+        }
+      };
+      existingState.waiters.add(finish);
+      const timeoutId = window.setTimeout(() => {
+        window.clearTimeout(timeoutId);
+        existingState.waiters.delete(finish);
+        if (loadedPluginScripts.get(normalized) === ready) loadedPluginScripts.delete(normalized);
+        reject(new Error(`LightGallery asset timed out: ${src}`));
+      }, LIGHT_GALLERY_SCRIPT_DEADLINE_MS);
+    });
     loadedPluginScripts.set(normalized, ready);
     return ready;
   }
 
+  const script = document.createElement('script');
+  script.src = src;
+  script.dataset.themePluginCompat = 'lightgallery';
+  script.dataset.themePluginCompatState = 'loading';
+  let finish;
   const ready = new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = src;
-    script.dataset.themePluginCompat = 'lightgallery';
-    script.addEventListener('load', resolve, { once: true });
-    script.addEventListener('error', () => {
-      loadedPluginScripts.delete(normalized);
-      script.remove();
-      reject(new Error(`LightGallery asset failed: ${src}`));
-    }, { once: true });
-    document.head.appendChild(script);
+    let settled = false;
+    let timeoutId;
+    const onLoad = () => finish();
+    const onError = () => finish(new Error(`LightGallery asset failed: ${src}`));
+    finish = (error) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      script.removeEventListener('load', onLoad);
+      script.removeEventListener('error', onError);
+      if (error) {
+        script.dataset.themePluginCompatState = 'error';
+        if (loadedPluginScripts.get(normalized) === ready) loadedPluginScripts.delete(normalized);
+        script.remove();
+        reject(error);
+      } else {
+        script.dataset.themePluginCompatState = 'ready';
+        resolve();
+      }
+    };
+    script.addEventListener('load', onLoad);
+    script.addEventListener('error', onError);
+    timeoutId = window.setTimeout(
+      () => finish(new Error(`LightGallery asset timed out: ${src}`)),
+      LIGHT_GALLERY_SCRIPT_DEADLINE_MS
+    );
   });
   loadedPluginScripts.set(normalized, ready);
+  try {
+    document.head.appendChild(script);
+  } catch (error) {
+    finish(error);
+  }
   return ready;
 }
 
@@ -272,6 +359,9 @@ export function preparePluginCompatibilityFromResponse(responseText, options = {
   lightGalleryAssetsReady = lightGalleryAssetsReady
     .catch(() => {})
     .then(() => prepareLightGalleryAssets(responseText));
+  lightGalleryAssetsReady.catch((error) => {
+    console.warn('LightGallery asset load failed:', error);
+  });
   return lightGalleryAssetsReady;
 }
 
@@ -297,7 +387,11 @@ function scheduleLightGalleryRefresh(root = document) {
   refreshFrame = schedule(async () => {
     refreshFrame = 0;
     cancelRefreshFrame = null;
-    await lightGalleryAssetsReady.catch(() => {});
+    try {
+      await lightGalleryAssetsReady;
+    } catch (_error) {
+      return;
+    }
     if (generation !== refreshGeneration) return;
     mountLightGallery(root?.isConnected === false ? document : root);
   });

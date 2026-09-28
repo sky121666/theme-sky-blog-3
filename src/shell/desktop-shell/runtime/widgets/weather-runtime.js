@@ -128,7 +128,7 @@ async function fetchDesktopWidgetWeatherUncached(cityName, timeoutMs) {
       tone: descriptor.tone,
       icon: descriptor.icon,
       temperature: Math.round(Number(current.temperature_2m || 0)),
-      apparent: Math.round(Number(current.apparent_temperature || current.temperature_2m || 0)),
+      apparent: Math.round(Number(current.apparent_temperature ?? current.temperature_2m ?? 0)),
       humidity: Math.round(Number(current.relative_humidity_2m || 0)),
       windSpeed: Math.round(Number(current.wind_speed_10m || 0)),
       high: Math.round(Number(Array.isArray(daily.temperature_2m_max) ? daily.temperature_2m_max[0] || 0 : 0)),

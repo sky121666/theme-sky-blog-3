@@ -15,25 +15,30 @@ function resolveCategoryFilter(sources, categoryName) {
   return categories.find((category) => category.key === requested) || null;
 }
 
-function postMatchesCategory(post, categoryName) {
-  const specCategories = Array.isArray(post?.spec?.categories) ? post.spec.categories : [];
-  if (specCategories.includes(categoryName)) return true;
-  const categories = Array.isArray(post?.categories) ? post.categories : [];
-  return categories.some((category) => category?.metadata?.name === categoryName);
-}
-
 export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}) {
   const size = widget?.size || 'medium';
   const meta = widget?.meta && typeof widget.meta === 'object' ? widget.meta : {};
   const limit = defaultLimitForSize(size);
-  const category = resolveCategoryFilter(sources, meta.categoryName);
+  const categoryName = String(meta.categoryName || '').trim();
+  const category = resolveCategoryFilter(sources, categoryName);
+
+  if (categoryName) {
+    const categoryState = sources.latestPostsCategory;
+    if (categoryState?.name !== categoryName || categoryState.status === 'loading') {
+      return '<div class="desktop-widget-empty" role="status" aria-busy="true">正在读取分类文章…</div>';
+    }
+    if (categoryState.status !== 'ready') {
+      return '<div class="desktop-widget-empty" role="status">分类文章暂时无法加载，请刷新页面后重试。</div>';
+    }
+  }
 
   const sourcePosts = Array.isArray(sources.latestPosts) ? sources.latestPosts : [];
-  const posts = (category ? sourcePosts.filter((post) => postMatchesCategory(post, category.key)) : sourcePosts)
-    .slice(0, limit);
+  const posts = sourcePosts.slice(0, limit);
 
   if (!posts.length) {
-    return '<div class="desktop-widget-empty">还没有可展示的文章。</div>';
+    return categoryName
+      ? '<div class="desktop-widget-empty">该分类还没有可展示的文章。</div>'
+      : '<div class="desktop-widget-empty">还没有可展示的文章。</div>';
   }
 
   let inner = '';
@@ -100,7 +105,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}
       })}
       <div class="wg-news-md-body">
         <div class="wg-news-md-meta">
-          <span class="wg-news-md-category">${escapeHtml(category?.name || '最新发布')}</span>
+          <span class="wg-news-md-category">${escapeHtml(category?.name || (categoryName ? '分类文章' : '最新发布'))}</span>
           ${buildWidgetPjaxLink({
             href: escapeHtml(post?.status?.permalink || '#'),
             app: 'reader',
@@ -142,7 +147,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}
         ${coverImg}
         <div class="wg-news-lg-cover-scrim"></div>
         <div class="wg-news-lg-cover-text">
-          <span class="wg-news-lg-kicker">${escapeHtml(category?.name || '最新发布')}</span>
+          <span class="wg-news-lg-kicker">${escapeHtml(category?.name || (categoryName ? '分类文章' : '最新发布'))}</span>
           <strong>${heroTitle}</strong>
         </div>
       </div>

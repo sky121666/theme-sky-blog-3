@@ -49,6 +49,10 @@ const fakeWindow = {
   ResizeObserver: FakeResizeObserver,
   addEventListener: addTrackedListener,
   removeEventListener: removeTrackedListener,
+  dispatchEvent(event) {
+    for (const handler of windowListeners.get(event.type) || []) handler(event);
+    return true;
+  },
   setTimeout,
   clearTimeout,
   getComputedStyle() {
@@ -141,6 +145,48 @@ try {
   titlebar.shareFeedbackTimer = setTimeout(() => {}, 10_000);
   titlebar.destroy();
   assert.equal(titlebar.shareFeedbackTimer, null, 'windowTitlebar destroy 必须清理反馈 timer');
+
+  const closeTimers = new Map();
+  let nextCloseTimer = 0;
+  fakeWindow.setTimeout = (callback, delay) => {
+    assert.equal(delay, 180, 'close-to-home navigation keeps its short transition delay');
+    const id = ++nextCloseTimer;
+    closeTimers.set(id, callback);
+    return id;
+  };
+  fakeWindow.clearTimeout = (id) => closeTimers.delete(id);
+  const navigations = [];
+  fakeWindow.pjax = {
+    loadUrl(url) {
+      fakeWindow.dispatchEvent({ type: 'theme:before-pjax-navigation', detail: { url } });
+      navigations.push(url);
+    }
+  };
+  const closingWindow = factories.get('draggableWindow')();
+  const closeManager = {
+    show: true,
+    pendingOpenRequested: false,
+    hide() { this.show = false; }
+  };
+  closingWindow.$store = { windowManager: closeManager };
+
+  closingWindow.closeWindow();
+  const staleHomeCallback = [...closeTimers.values()][0];
+  assert.equal(fakeWindow.preventAutoOpen, true);
+  fakeWindow.pjax.loadUrl('/photos');
+  assert.equal(closeTimers.size, 0, 'a new PJAX intent cancels the pending home navigation');
+  assert.equal(fakeWindow.preventAutoOpen, false, 'new navigation can open its window');
+  staleHomeCallback();
+  assert.deepEqual(navigations, ['/photos'], 'a queued old close callback cannot overwrite new navigation');
+
+  fakeWindow.location.pathname = '/photos';
+  closeManager.show = true;
+  closingWindow.closeWindow();
+  const homeCallback = [...closeTimers.values()][0];
+  homeCallback();
+  assert.deepEqual(navigations, ['/photos', '/'], 'ordinary close still navigates home');
+  assert.equal(closeTimers.size, 0);
+  assert.equal(windowListeners.get('theme:before-pjax-navigation')?.size || 0, 0);
 
   console.log('window lifecycle contract passed');
 } finally {

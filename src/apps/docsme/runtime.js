@@ -66,6 +66,22 @@ function bindSwitchers(root) {
   });
 }
 
+function bindDocsmeSearch(app) {
+  const button = app.querySelector('#btn-search');
+  if (!button || app.dataset.docsmeSearchEnabled !== 'true' || app._docsmeSearchHandler) return;
+  const handler = () => {
+    const includeCategoryNames = [
+      ['project', app.dataset.docsmeProject],
+      ['version', app.dataset.docsmeVersion],
+      ['language', app.dataset.docsmeLanguage]
+    ].filter(([, value]) => value).map(([key, value]) => `${key}:${value}`);
+    window.SearchWidget?.open?.({ includeCategoryNames });
+  };
+  button.addEventListener('click', handler);
+  app._docsmeSearchButton = button;
+  app._docsmeSearchHandler = handler;
+}
+
 function bindMobileSidebar(root) {
   const app = getDocsmeRoot(root);
 
@@ -213,15 +229,28 @@ function renderToc(root) {
 
   list.closest('[data-docsme-toc]')?.classList.remove('is-empty');
   getDocsmeRoot(root)?.classList.remove('is-toc-empty');
-  const seen = new Map();
+  const headingNodes = new Set(headings);
+  const existingIdNodes = new Set([
+    ...content.ownerDocument.querySelectorAll('[id]'),
+    ...content.querySelectorAll('[id]')
+  ]);
+  const usedIds = new Set(Array.from(existingIdNodes, (node) => node.id).filter(Boolean));
+  const nonHeadingIds = new Set(Array.from(existingIdNodes)
+    .filter((node) => !headingNodes.has(node))
+    .map((node) => node.id)
+    .filter(Boolean));
+  const assignedHeadingIds = new Set();
   const tocLinks = new Map();
   headings.forEach((heading, index) => {
-    if (!heading.id) {
+    if (!heading.id || nonHeadingIds.has(heading.id) || assignedHeadingIds.has(heading.id)) {
       const slug = slugifyHeading(heading.textContent, index);
-      const count = seen.get(slug) || 0;
-      seen.set(slug, count + 1);
-      heading.id = count > 0 ? `${slug}-${count + 1}` : slug;
+      let id = slug;
+      let suffix = 2;
+      while (usedIds.has(id)) id = `${slug}-${suffix++}`;
+      heading.id = id;
+      usedIds.add(id);
     }
+    assignedHeadingIds.add(heading.id);
 
     const link = document.createElement('a');
     link.href = `#${heading.id}`;
@@ -298,6 +327,7 @@ const DOCSME_KATEX_ASSET = '/plugins/plugin-katex/assets/static/katex.min.js?ver
 const DOCSME_MERMAID_ASSET = '/plugins/text-diagram/assets/static/mermaid.min.js?version=1.5.2';
 const docsmeResourceLoads = new Map();
 const docsmeRichContentJobs = new WeakMap();
+const DOCSME_LAYOUT_WAIT_MS = 2_000;
 
 export function resolveDocsmeRichContentTheme(doc = document) {
   const html = doc?.documentElement;
@@ -327,6 +357,13 @@ function readKatexSource(node) {
   const normalized = source.trim();
   if (normalized) node.dataset.docsmeKatexSource = normalized;
   return normalized;
+}
+
+function hasUsableMermaidSvg(node) {
+  // Text Diagram 1.5.2's bundled Mermaid renderer leaves an error SVG before rejecting. Its temporary
+  // render container is also not a completed diagram: run() commits a direct SVG.
+  const svg = node.querySelector(':scope > svg');
+  return Boolean(svg && !svg.querySelector('.error-icon, .error-text'));
 }
 
 function readMermaidSource(node) {
@@ -435,27 +472,39 @@ function loadPluginRuntime(key, src, isReady) {
   if (docsmeResourceLoads.has(key)) return docsmeResourceLoads.get(key);
 
   const promise = new Promise((resolve, reject) => {
-    const timeout = window.setTimeout(() => {
-      reject(new Error(`${key} 资源加载超时`));
-    }, 6_000);
+    const absoluteSrc = new URL(src, window.location.origin).href;
+    const existing = Array.from(document.querySelectorAll('script[src]'))
+      .find((script) => new URL(script.src, window.location.origin).href === absoluteSrc);
+    const script = existing || document.createElement('script');
+    let settled = false;
+    let timeout;
     const finish = (error = null) => {
+      if (settled) return;
+      settled = true;
       window.clearTimeout(timeout);
-      if (error) {
-        reject(error);
-      } else if (isReady()) {
-        resolve();
-      } else {
-        reject(new Error(`${key} 资源已加载但运行时不可用`));
-      }
+      script.removeEventListener('load', onLoad);
+      script.removeEventListener('error', onError);
+      if (error) reject(error);
+      else if (isReady()) resolve();
+      else reject(new Error(`${key} 资源已加载但运行时不可用`));
     };
-
-    const script = document.createElement('script');
-    script.src = src;
-    script.defer = true;
-    script.dataset.docsmePluginRuntime = key;
-    script.addEventListener('load', () => finish(), { once: true });
-    script.addEventListener('error', () => finish(new Error(`${key} 资源加载失败`)), { once: true });
-    document.head.appendChild(script);
+    const onLoad = () => finish();
+    const onError = () => {
+      if (!existing || script.dataset.docsmePluginRuntime === key) script.remove();
+      finish(new Error(`${key} 资源加载失败`));
+    };
+    script.addEventListener('load', onLoad, { once: true });
+    script.addEventListener('error', onError, { once: true });
+    // A timeout leaves the pending tag in place: a later attempt reuses it,
+    // instead of inserting another script while the original is still loading.
+    timeout = window.setTimeout(() => finish(new Error(`${key} 资源加载超时`)), 6_000);
+    if (!existing) {
+      script.src = src;
+      script.defer = true;
+      script.dataset.docsmePluginRuntime = key;
+      document.head.appendChild(script);
+    }
+    if (isReady()) finish();
   });
 
   docsmeResourceLoads.set(key, promise);
@@ -483,35 +532,36 @@ async function ensureMermaidRuntime() {
   return window.mermaid;
 }
 
-async function renderMermaidNodes(root, mermaidRuntime, theme) {
+async function renderMermaidNodes(root, mermaidRuntime, theme, signal) {
   const nodes = Array.from(root.querySelectorAll(DOCSME_MERMAID_SELECTOR));
-  const result = {
-    total: nodes.length,
-    preRendered: 0,
-    rendered: 0,
-    pending: 0,
-    failed: 0
-  };
-  const renderable = [];
+  const result = { total: nodes.length, preRendered: 0, rendered: 0, pending: 0, failed: 0 };
+  let initialized = false;
 
-  nodes.forEach((node) => {
+  // One run per source preserves error attribution when only one of several
+  // diagrams fails. Mermaid's batch run rejects with only its first error.
+  for (const node of nodes) {
+    if (signal?.aborted) break;
     const source = readMermaidSource(node);
-    const hasSvg = node.querySelector('svg') != null;
     const renderedTheme = node.dataset.docsmeMermaidTheme || '';
-
-    if (hasSvg && (!renderedTheme || renderedTheme === theme)) {
+    if (hasUsableMermaidSvg(node) && (!renderedTheme || renderedTheme === theme)) {
       node.dataset.docsmeMermaidTheme = theme;
       node.dataset.docsmeMermaidState ||= 'pre-rendered';
       node.setAttribute('aria-busy', 'false');
       clearRichContentFallback(node);
       result.preRendered += 1;
-      return;
+      continue;
     }
-
-    if (!source) return;
+    if (!source) {
+      if (node.querySelector('svg')) {
+        node.dataset.docsmeMermaidState = 'error';
+        markRichContentFallback(node, '图表渲染失败，原始内容不可用。');
+        result.failed += 1;
+      }
+      continue;
+    }
     if (!mermaidRuntime?.run) {
       result.pending += 1;
-      return;
+      continue;
     }
 
     node.textContent = source;
@@ -519,63 +569,48 @@ async function renderMermaidNodes(root, mermaidRuntime, theme) {
     node.dataset.docsmeMermaidState = 'rendering';
     node.setAttribute('aria-busy', 'true');
     clearRichContentFallback(node);
-    renderable.push({ node, source });
-  });
-
-  if (renderable.length === 0) return { nodes, result };
-
-  mermaidRuntime.initialize?.({
-    startOnLoad: false,
-    theme
-  });
-
-  let renderError = null;
-  try {
-    await mermaidRuntime.run({ nodes: renderable.map(({ node }) => node) });
-  } catch (error) {
-    renderError = error;
-    warnDocsmeRender('Mermaid 渲染失败。', {
-      nodes: renderable.length,
-      message: error?.message || String(error || '')
-    });
-  }
-
-  renderable.forEach(({ node, source }) => {
-    if (node.querySelector('svg')) {
+    try {
+      if (!initialized) {
+        mermaidRuntime.initialize?.({ startOnLoad: false, theme });
+        initialized = true;
+      }
+      await mermaidRuntime.run({ nodes: [node] });
+      if (signal?.aborted) break;
+      if (!hasUsableMermaidSvg(node)) throw new Error('Mermaid 未生成有效图表');
       node.dataset.docsmeMermaidTheme = theme;
       node.dataset.docsmeMermaidState = 'rendered';
       node.setAttribute('aria-busy', 'false');
       clearRichContentFallback(node);
       result.rendered += 1;
-      return;
+    } catch (error) {
+      if (signal?.aborted) break;
+      node.dataset.docsmeMermaidState = 'error';
+      markRichContentFallback(node, '图表暂时无法渲染，已显示源内容。', source);
+      result.failed += 1;
+      warnDocsmeRender('Mermaid 渲染失败。', {
+        message: error?.message || String(error || '')
+      });
     }
-
-    node.dataset.docsmeMermaidState = 'error';
-    markRichContentFallback(node, '图表暂时无法渲染，已显示源内容。', source);
-    result.failed += 1;
-  });
-
-  if (renderError && result.failed === 0) {
-    warnDocsmeRender('Mermaid 报告异常，但可识别图表均已生成。', {
-      message: renderError?.message || String(renderError || '')
-    });
   }
   return { nodes, result };
 }
 
-async function performDocsmeRichContentRender(app, options = {}) {
+async function performDocsmeRichContentRender(app, options = {}, signal) {
   const allowResourceLoad = options.allowResourceLoad !== false;
   let katexRuntime = Object.hasOwn(options, 'katex') ? options.katex : window.katex;
   let mermaidRuntime = Object.hasOwn(options, 'mermaid') ? options.mermaid : window.mermaid;
   let katex = renderKatexNodes(app, katexRuntime);
   const mermaidTheme = resolveDocsmeRichContentTheme(app.ownerDocument || document);
-  let mermaid = await renderMermaidNodes(app, mermaidRuntime, mermaidTheme);
+  let mermaid = await renderMermaidNodes(app, mermaidRuntime, mermaidTheme, signal);
 
+  if (signal?.aborted) return null;
   if (katex.result.pending > 0 && allowResourceLoad) {
     try {
       katexRuntime = await ensureKatexRuntime();
+      if (signal?.aborted) return null;
       katex = renderKatexNodes(app, katexRuntime);
     } catch (error) {
+      if (signal?.aborted) return null;
       const unavailableNodes = katex.nodes.filter((node) => {
         return !hasRenderedKatex(node) && readKatexSource(node);
       });
@@ -608,10 +643,12 @@ async function performDocsmeRichContentRender(app, options = {}) {
   if (mermaid.result.pending > 0 && allowResourceLoad) {
     try {
       mermaidRuntime = await ensureMermaidRuntime();
-      mermaid = await renderMermaidNodes(app, mermaidRuntime, mermaidTheme);
+      if (signal?.aborted) return null;
+      mermaid = await renderMermaidNodes(app, mermaidRuntime, mermaidTheme, signal);
     } catch (error) {
+      if (signal?.aborted) return null;
       const unavailableNodes = mermaid.nodes.filter((node) => {
-        return node.querySelector('svg') == null && readMermaidSource(node);
+        return !hasUsableMermaidSvg(node) && readMermaidSource(node);
       });
       unavailableNodes.forEach((node) => {
         const source = readMermaidSource(node);
@@ -627,7 +664,7 @@ async function performDocsmeRichContentRender(app, options = {}) {
     }
   } else if (mermaid.result.pending > 0) {
     const unavailableNodes = mermaid.nodes.filter((node) => {
-      return node.querySelector('svg') == null && readMermaidSource(node);
+      return !hasUsableMermaidSvg(node) && readMermaidSource(node);
     });
     unavailableNodes.forEach((node) => {
       const source = readMermaidSource(node);
@@ -639,6 +676,7 @@ async function performDocsmeRichContentRender(app, options = {}) {
     mermaid.result.pending = 0;
   }
 
+  if (signal?.aborted) return null;
   return { katex: katex.result, mermaid: mermaid.result, mermaidTheme };
 }
 
@@ -650,15 +688,75 @@ function docsmeRichContentFingerprint(app) {
   ].join(':');
 }
 
-function enqueueDocsmeRichContentJob(app, options, fingerprint, generation, state) {
+function cancelDocsmeRichContent(app) {
+  if (!app) return;
+  app._docsmeRichContentGeneration = Number(app._docsmeRichContentGeneration || 0) + 1;
+  app._docsmeRichContentController?.abort();
+  app._docsmeRichContentController = null;
+}
+
+function waitForDocsmeLayout(app, signal) {
+  return new Promise((resolve, reject) => {
+    let pollTimer;
+    let deadlineTimer;
+    let settled = false;
+    const finish = (error, ready = false) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(pollTimer);
+      window.clearTimeout(deadlineTimer);
+      signal.removeEventListener('abort', onAbort);
+      if (error) reject(error);
+      else resolve(ready);
+    };
+    const onAbort = () => finish(null);
+    const check = () => {
+      if (signal.aborted || app._docsmeDisposed || !app.isConnected) return finish(null);
+      const rect = app.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0 && window.getComputedStyle(app).visibility !== 'hidden') {
+        finish(null, true);
+      } else {
+        pollTimer = window.setTimeout(check, 32);
+      }
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    deadlineTimer = window.setTimeout(() => finish(new Error('Docsme 富内容区域等待显示超时')), DOCSME_LAYOUT_WAIT_MS);
+    check();
+  });
+}
+
+function markDocsmeLayoutFailure(app) {
+  app.querySelectorAll(DOCSME_MERMAID_SELECTOR).forEach((node) => {
+    if (hasUsableMermaidSvg(node)) return;
+    node.dataset.docsmeMermaidState = 'layout-timeout';
+    markRichContentFallback(node, '内容区域暂未就绪，已显示源内容。', readMermaidSource(node));
+  });
+  app.querySelectorAll(DOCSME_KATEX_SELECTOR).forEach((node) => {
+    if (hasRenderedKatex(node)) return;
+    node.dataset.docsmeKatexState = 'layout-timeout';
+    markRichContentFallback(node, '内容区域暂未就绪，已显示源内容。', readKatexSource(node));
+  });
+}
+
+function enqueueDocsmeRichContentJob(app, options, fingerprint, generation, state, signal) {
   const previousJob = state.tailPromise;
-  const execute = () => {
-    if (generation !== Number(app._docsmeRichContentGeneration || 0)
+  const execute = async () => {
+    if (signal.aborted || generation !== Number(app._docsmeRichContentGeneration || 0)
       || app._docsmeDisposed
       || !app.isConnected) {
       return null;
     }
-    return performDocsmeRichContentRender(app, options);
+    if (app.querySelector(`${DOCSME_KATEX_SELECTOR}, ${DOCSME_MERMAID_SELECTOR}`)) {
+      try {
+        if (!await waitForDocsmeLayout(app, signal)) return null;
+      } catch (error) {
+        if (signal.aborted) return null;
+        markDocsmeLayoutFailure(app);
+        throw error;
+      }
+    }
+    if (signal.aborted) return null;
+    return performDocsmeRichContentRender(app, options, signal);
   };
   const task = previousJob
     ? previousJob.catch(() => null).then(execute)
@@ -679,7 +777,9 @@ export function renderDocsmeRichContent(root, options = {}) {
   const app = getDocsmeRoot(root) || root;
   if (!app?.querySelectorAll) return Promise.resolve(null);
 
-  app._docsmeDisposed = false;
+  if (app._docsmeDisposed || app._docsmeRichContentSuspended) return Promise.resolve(null);
+  app._docsmeRichContentController ||= new AbortController();
+  const signal = app._docsmeRichContentController.signal;
   const generation = Number(app._docsmeRichContentGeneration || 0);
   const fingerprint = docsmeRichContentFingerprint(app);
   let state = docsmeRichContentJobs.get(app);
@@ -697,7 +797,7 @@ export function renderDocsmeRichContent(root, options = {}) {
     && generation === state.lastRequestedGeneration) {
     return state.tailPromise;
   }
-  return enqueueDocsmeRichContentJob(app, options, fingerprint, generation, state);
+  return enqueueDocsmeRichContentJob(app, options, fingerprint, generation, state, signal);
 }
 
 function bindRichContentTheme(root) {
@@ -725,7 +825,10 @@ function disposeDocsmeEnhancements(root) {
   const app = getDocsmeRoot(root) || root;
   if (!app) return;
   app._docsmeDisposed = true;
-  app._docsmeRichContentGeneration = Number(app._docsmeRichContentGeneration || 0) + 1;
+  cancelDocsmeRichContent(app);
+  app._docsmeSearchButton?.removeEventListener('click', app._docsmeSearchHandler);
+  app._docsmeSearchButton = null;
+  app._docsmeSearchHandler = null;
   app._docsmeThemeObserver?.disconnect?.();
   app._docsmeTocObserver?.disconnect?.();
   app._docsmeTocMediaQuery?.removeEventListener?.('change', app._docsmeTocMediaHandler);
@@ -759,7 +862,9 @@ function enhanceDocsmeApp(root) {
   if (!app) return;
 
   app._docsmeDisposed = false;
+  app._docsmeRichContentSuspended = false;
   enhanceDocsmeLinks(app);
+  bindDocsmeSearch(app);
   bindSwitchers(app);
   bindMobileSidebar(app);
   bindTreeToggles(app);
@@ -779,12 +884,21 @@ export function registerDocsmeApp(Alpine) {
     init() {
       this._docsmeAppRoot = getDocsmeRoot(this.$root);
       enhanceDocsmeApp(this.$root);
-      this._onPjaxSend = () => setPjaxLoading(true);
+      this._onPjaxSend = () => {
+        setPjaxLoading(true);
+        if (this._docsmeAppRoot) {
+          this._docsmeAppRoot._docsmeRichContentSuspended = true;
+          cancelDocsmeRichContent(this._docsmeAppRoot);
+        }
+      };
       this._onPjaxComplete = () => {
         setPjaxLoading(false);
         enhanceDocsmeApp(document);
       };
-      this._onPjaxError = () => setPjaxLoading(false);
+      this._onPjaxError = () => {
+        setPjaxLoading(false);
+        if (!this._docsmeAppRoot?._docsmeDisposed) enhanceDocsmeApp(this._docsmeAppRoot);
+      };
 
       document.addEventListener('pjax:send', this._onPjaxSend);
       document.addEventListener('pjax:same-variant-send', this._onPjaxSend);

@@ -144,8 +144,8 @@ try {
   assert.match(pageAppSource, /import \{ disposeLazyComments, initLazyComments \} from '\.\/lazy-comment\.js';/);
   assert.match(
     pageAppSource,
-    /finally \{[\s\S]*?disposeLazyImages\(activeApp\.root \|\| document\);[\s\S]*?disposeLazyComments\(activeApp\.root \|\| document\);[\s\S]*?registry\.activeApp = null;/,
-    '页面销毁 finally 必须同时释放图片与评论观察器'
+    /registry\.activeApp = null;[\s\S]*?runAllLifecycleSteps\([\s\S]*?\(\) => disposeLazyImages\(activeApp\.root \|\| document\),[\s\S]*?\(\) => disposeLazyComments\(activeApp\.root \|\| document\)/,
+    '页面销毁必须先释放归属，并独立尝试图片与评论观察器清理'
   );
 
   console.log('lazy comment lifecycle contract passed');

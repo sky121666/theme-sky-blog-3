@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- plugin-contract: PluginCommentWidget; surface: page-comments; contract-version: 3.1.1; status: confirmed; source: docs/插件适配契约.md#pc-comment-page -->
+<!-- plugin-contract: shiki; surface: page-rich-content; contract-version: 1.4.1; status: confirmed; source: docs/插件适配契约.md#pc-shiki-page -->
 <html xmlns:th="https://www.thymeleaf.org"
       th:fragment="page"
       th:replace="~{modules/shell/layout :: html(
@@ -33,10 +35,14 @@
 
         <article id="article-content" class="post-content" th:utext="${singlePage.content.content}"></article>
 
-        <!-- plugin-contract: PluginCommentWidget; contract-version: 3.1.1; tested-version: 3.1.1; status: confirmed; source: docs/插件适配契约.md -->
-        <section id="post-comments" class="post-comments mac-comment-section" th:if="${pluginFinder.available('PluginCommentWidget')}" data-lazy-comment>
+        <section id="post-comments" class="post-comments mac-comment-section"
+                 th:if="${haloCommentEnabled}"
+                 th:with="officialComments=${pluginFinder.available('PluginCommentWidget')}"
+                 th:attr="data-lazy-comment=${officialComments ? 'true' : null}">
           <h2 class="post-comments-title mac-comment-title">评论</h2>
-          <div class="post-comments-shell mac-comment-shell" data-comment-hidden style="display:none;">
+          <div class="post-comments-shell mac-comment-shell"
+               th:attr="data-comment-hidden=${officialComments ? 'true' : null}"
+               th:style="${officialComments ? 'display:none;' : null}">
             <halo:comment
                 group="content.halo.run"
                 kind="SinglePage"
@@ -45,10 +51,10 @@
           </div>
         </section>
         <section class="post-comments post-comments-unavailable"
-                 th:unless="${pluginFinder.available('PluginCommentWidget')}"
+                 th:unless="${haloCommentEnabled}"
                  role="status">
           <h2 class="post-comments-title">评论</h2>
-          <p>评论组件当前未启用。</p>
+          <p>评论已关闭或评论组件不可用。</p>
         </section>
       </div>
     </div>

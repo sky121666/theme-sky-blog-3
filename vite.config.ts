@@ -1,10 +1,12 @@
 import fs from "node:fs";
 import crypto from "node:crypto";
 import path from "node:path";
+import { gzipSync } from "node:zlib";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
+import { getAppAssetSegment, getAppEntryPaths, getEntryJsPath, getEntryCssPath } from "./src/shell-core/runtime/app-manifests.js";
 
-const outDir = path.resolve(__dirname, "templates/assets");
+const outDir = path.resolve(import.meta.dirname, "templates/assets");
 const cssOutDir = path.resolve(outDir, "css");
 const jsOutDir = path.resolve(outDir, "js");
 // Only these directories are fully owned by Vite and may be cleared/pruned.
@@ -14,64 +16,29 @@ const isWatchMode = process.argv.includes("--watch");
 const conflictCopyPatterns = [/冲突副本/i, /conflict/i];
 
 // Read theme name from theme.yaml to construct Halo's asset serving path
-const themeYaml = fs.readFileSync(path.resolve(__dirname, "theme.yaml"), "utf-8");
+const themeYaml = fs.readFileSync(path.resolve(import.meta.dirname, "theme.yaml"), "utf-8");
 const themeNameMatch = themeYaml.match(/^\s*name:\s*(.+)$/m);
 const themeName = themeNameMatch ? themeNameMatch[1].trim() : "theme-sky-blog-3";
 const themeAssetBase = `/themes/${themeName}/assets/`;
-const buildVersion = JSON.parse(fs.readFileSync(path.resolve(__dirname, "package.json"), "utf-8")).version;
+const buildVersion = JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, "package.json"), "utf-8")).version;
 const buildRevision = computeBuildRevision();
 const buildVersionQuery = `v=${encodeURIComponent(buildVersion)}&r=${encodeURIComponent(buildRevision)}`;
-const entryNames = new Set([
-  "shell-core",
-  "auth",
-  "reader",
-  "moments",
-  "links",
-  "bangumis",
-  "douban",
-  "docsme",
-  "steam",
-  "equipments",
-  "photos",
-  "explorer-tags",
-  "explorer-categories",
-  "explorer-author",
-  "explorer-archives"
-]);
+const entryNames = new Set(Object.keys(getAppEntryPaths()));
 
 function entryAssetDirName(entryName: string): string {
-  switch (entryName) {
-    case "explorer-tags":
-      return "tags";
-    case "explorer-categories":
-      return "categories";
-    case "explorer-author":
-      return "author";
-    case "explorer-archives":
-      return "archives";
-    default:
-      return sanitizeChunkSegment(entryName);
-  }
+  return getAppAssetSegment(entryName) || sanitizeChunkSegment(entryName);
 }
 
 function entryJsPath(entryName: string): string {
-  const normalized = entryAssetDirName(entryName);
-  if (entryName === "shell-core") {
-    return "js/shell-core/index.js";
-  }
-  return `js/apps/${normalized}/index.js`;
+  return getEntryJsPath(entryName);
 }
 
 function entryCssPath(entryName: string): string {
-  const normalized = entryAssetDirName(entryName);
-  if (entryName === "shell-core") {
-    return "css/shell-core/index.css";
-  }
-  return `css/apps/${normalized}/index.css`;
+  return getEntryCssPath(entryName);
 }
 
 function normalizeRelPath(filePath: string): string {
-  return path.relative(__dirname, filePath).replace(/\\/g, "/");
+  return path.relative(import.meta.dirname, filePath).replace(/\\/g, "/");
 }
 
 function shouldHashBuildInput(filePath: string): boolean {
@@ -87,6 +54,9 @@ function shouldHashBuildInput(filePath: string): boolean {
     "src/",
     "templates/",
     "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "patches/",
     "theme.yaml",
     "settings.yaml",
     "theme-setting.yaml",
@@ -97,14 +67,17 @@ function shouldHashBuildInput(filePath: string): boolean {
 
 function collectBuildInputFiles(): string[] {
   const roots = [
-    path.resolve(__dirname, "src"),
-    path.resolve(__dirname, "templates"),
-    path.resolve(__dirname, "package.json"),
-    path.resolve(__dirname, "theme.yaml"),
-    path.resolve(__dirname, "settings.yaml"),
-    path.resolve(__dirname, "theme-setting.yaml"),
-    path.resolve(__dirname, "vite.config.ts"),
-    path.resolve(__dirname, "tsconfig.json")
+    path.resolve(import.meta.dirname, "src"),
+    path.resolve(import.meta.dirname, "templates"),
+    path.resolve(import.meta.dirname, "package.json"),
+    path.resolve(import.meta.dirname, "pnpm-lock.yaml"),
+    path.resolve(import.meta.dirname, "pnpm-workspace.yaml"),
+    path.resolve(import.meta.dirname, "patches"),
+    path.resolve(import.meta.dirname, "theme.yaml"),
+    path.resolve(import.meta.dirname, "settings.yaml"),
+    path.resolve(import.meta.dirname, "theme-setting.yaml"),
+    path.resolve(import.meta.dirname, "vite.config.ts"),
+    path.resolve(import.meta.dirname, "tsconfig.json")
   ];
 
   return roots
@@ -409,6 +382,38 @@ function maintainBuildOutputHygiene() {
       pruneConflictCopies(outDir);
       clearManagedOutputDirs();
     },
+    generateBundle(_options, bundle) {
+      const entry = Object.values(bundle).find((item: any) => item.type === "chunk" && item.isEntry && item.name === "shell-core") as any;
+      if (!entry) throw new Error("Shell entry missing from generated bundle");
+      const closure = new Set<string>();
+      const visit = (fileName: string) => {
+        if (closure.has(fileName)) return;
+        const chunk = bundle[fileName];
+        if (chunk?.type !== "chunk") return;
+        closure.add(fileName);
+        chunk.imports.forEach(visit);
+      };
+      visit(entry.fileName);
+      let raw = 0;
+      let gzip = 0;
+      for (const fileName of closure) {
+        const chunk = bundle[fileName] as any;
+        const appModules = Object.keys(chunk.modules).map(normalizeRelPath)
+          .filter((id) => /^src\/apps\/.*\.js$/.test(id) && !id.endsWith("/manifest.js"));
+        if (appModules.length) {
+          throw new Error(`Shell statically includes app runtime: ${appModules.join(", ")}`);
+        }
+        raw += Buffer.byteLength(chunk.code);
+        gzip += gzipSync(chunk.code, { level: 9 }).byteLength;
+      }
+      // These are compressed source budgets, not browser transfer or Web Vitals measurements.
+      if (gzip > 145 * 1024) throw new Error(`Shell JS gzip budget exceeded: ${gzip} bytes`);
+      const shellCss = bundle["css/shell-core/index.css"] as any;
+      const cssSource = shellCss?.source;
+      const cssGzip = cssSource == null ? 0 : gzipSync(cssSource, { level: 9 }).byteLength;
+      if (cssGzip > 64 * 1024) throw new Error(`Shell CSS gzip budget exceeded: ${cssGzip} bytes`);
+      console.log(`[asset-budget] shell static JS: ${closure.size} files, ${raw} raw / ${gzip} gzip bytes; CSS gzip: ${cssGzip} bytes (before URL revision suffixes)`);
+    },
     writeBundle(_options, bundle) {
       // Conflict copies can appear again during or after bundle emission.
       pruneConflictCopies(outDir);
@@ -442,28 +447,12 @@ export default defineConfig({
         ? {
           exclude: [
             `${outDir}/**`,
-            `${path.resolve(__dirname, "dist")}/**`,
+            `${path.resolve(import.meta.dirname, "dist")}/**`,
           ],
         }
       : null,
     rollupOptions: {
-      input: {
-        "shell-core": path.resolve(__dirname, "src/shell-core/entry.js"),
-        auth: path.resolve(__dirname, "src/apps/auth/entry.js"),
-        reader: path.resolve(__dirname, "src/apps/reader/entry.js"),
-        moments: path.resolve(__dirname, "src/apps/moments/entry.js"),
-        links: path.resolve(__dirname, "src/apps/links/entry.js"),
-        bangumis: path.resolve(__dirname, "src/apps/bangumis/entry.js"),
-        douban: path.resolve(__dirname, "src/apps/douban/entry.js"),
-        docsme: path.resolve(__dirname, "src/apps/docsme/entry.js"),
-        steam: path.resolve(__dirname, "src/apps/steam/entry.js"),
-        equipments: path.resolve(__dirname, "src/apps/equipments/entry.js"),
-        photos: path.resolve(__dirname, "src/apps/photos/entry.js"),
-        "explorer-tags": path.resolve(__dirname, "src/apps/explorer/tags/entry.js"),
-        "explorer-categories": path.resolve(__dirname, "src/apps/explorer/categories/entry.js"),
-        "explorer-author": path.resolve(__dirname, "src/apps/explorer/author/entry.js"),
-        "explorer-archives": path.resolve(__dirname, "src/apps/explorer/archives/entry.js"),
-      },
+      input: Object.fromEntries(Object.entries(getAppEntryPaths()).map(([name, source]) => [name, path.resolve(import.meta.dirname, source)])),
       output: {
         format: "es",
         entryFileNames(chunkInfo) {
@@ -478,11 +467,26 @@ export default defineConfig({
           }
           return `js/chunks/[name].js`;
         },
-        manualChunks(id) {
-          if (!id.includes(`${path.sep}src${path.sep}`) && !id.includes("/src/")) {
-            return null;
-          }
-          return deriveNamedChunk(id);
+        codeSplitting: {
+          groups: [
+            {
+              // Shared helpers must win over an application's recursive dependency group.
+              // Otherwise lazy-media enters Photos and text helpers enter Reader, pulling
+              // those complete application chunks into every cold Shell page.
+              priority: 100,
+              includeDependenciesRecursively: false,
+              name(id: string) {
+                const rel = normalizeRelPath(id);
+                if (rel.startsWith("src/shared/")) return deriveNamedChunk(id);
+                if (rel === "src/shell/desktop-shell/runtime/widgets/debug-core.js") return "shared/shell-debug";
+                if (rel.startsWith("src/shell/desktop-shell/runtime/shared/")) {
+                  return `shared/shell-${sanitizeChunkSegment(path.basename(id))}`;
+                }
+                return null;
+              }
+            },
+            { name: deriveNamedChunk }
+          ]
         },
         assetFileNames: (assetInfo) => {
           if (assetInfo.name?.endsWith(".css")) {

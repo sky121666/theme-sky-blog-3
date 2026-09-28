@@ -1,5 +1,7 @@
-<th:block th:fragment="content">
-  <!-- plugin-contract: PluginMoments; contract-version: 1.16.0; tested-version: 1.16.1; status: compatible-tested; source: docs/插件适配契约.md -->
+<!-- plugin-contract: PluginMoments; surface: list; contract-version: 1.16.0; status: confirmed; source: docs/插件适配契约.md#pc-moments-list -->
+<!-- plugin-contract: shiki; surface: moments-rich-content; contract-version: 1.4.1; status: confirmed; source: docs/插件适配契约.md#pc-shiki-moments -->
+<th:block th:fragment="content"
+          th:with="officialComments=${haloCommentEnabled and pluginFinder.available('PluginCommentWidget')}">
   <div class="moments-app moments-app--feed" data-app-root="moments">
     <h1 class="sr-only">瞬间</h1>
     <script type="application/json" data-app-props="moments">{"version":1,"appId":"moments","data":{"scene":"feed"}}</script>
@@ -71,7 +73,7 @@
                  th:attr="data-moment-card=${momentName},
                           data-moment-name=${momentName},
                           data-upvote-count=${upvoteCount},
-                          data-comment-count=${commentCount},
+                          data-comment-count=${officialComments ? commentCount : 0},
                           data-detail-url=${momentDetailUrl}">
 
           <!-- 头像列 -->
@@ -188,16 +190,24 @@
                     <span class="icon-[lucide--heart]" aria-hidden="true"></span>
                     <span data-moment-upvote-label>赞</span>
                   </button>
-                  <button type="button" class="moment-feed-popover-btn" data-moment-comments-toggle>
+                  <button type="button" class="moment-feed-popover-btn" data-moment-comments-toggle
+                          th:if="${officialComments}">
                     <span class="icon-[lucide--message-circle]" aria-hidden="true"></span>
                     <span>评论</span>
                   </button>
+                  <a class="moment-feed-popover-btn pjax-link"
+                     data-pjax-app="moments"
+                     th:if="${haloCommentEnabled and !officialComments}"
+                     th:href="${momentDetailUrl + '#moment-comments'}">
+                    <span class="icon-[lucide--message-circle]" aria-hidden="true"></span>
+                    <span>评论</span>
+                  </a>
                 </div>
               </div>
             </div>
             <section class="moment-feed-comments-panel"
                      data-moment-comments-panel
-                     th:hidden="${upvoteCount <= 0 and commentCount <= 0}"
+                     th:hidden="${upvoteCount <= 0 and (!officialComments or commentCount <= 0)}"
                      th:attr="aria-label=${'评论 ' + momentName}">
               <div class="moment-detail-social moment-feed-social" data-moment-stats th:hidden="${upvoteCount <= 0}">
                 <span class="moment-detail-social-item" data-moment-upvote-stat th:hidden="${upvoteCount <= 0}" th:title="${upvoteCount + ' 个点赞'}">
@@ -206,6 +216,7 @@
                 </span>
               </div>
               <div class="moment-feed-comments-status" data-moment-comments-status hidden></div>
+              <th:block th:if="${officialComments}">
               <div class="moment-feed-comments-list" data-moment-comments-list></div>
               <button type="button" class="moment-feed-comments-load-more" data-moment-comments-more hidden>查看更多评论</button>
               <a class="moment-feed-comments-more pjax-link"
@@ -238,6 +249,7 @@
                 </div>
                 <button type="submit" class="moment-feed-comment-submit" data-moment-comment-submit disabled>发送</button>
               </form>
+              </th:block>
             </section>
           </div>
         </article>

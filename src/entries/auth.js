@@ -3,9 +3,19 @@ function isWindowsPlatform() {
   return /win/i.test(platform);
 }
 
+let volatileAuthTheme = null;
+
 function resolveTheme(root = document.documentElement) {
-  const defaultTheme = root?.getAttribute('data-default-theme') || 'system';
-  return localStorage.getItem('theme') || defaultTheme;
+  if (volatileAuthTheme !== null) return volatileAuthTheme;
+  const validModes = ['light', 'dark', 'system'];
+  const configured = root?.getAttribute('data-default-theme');
+  const defaultTheme = validModes.includes(configured) ? configured : 'system';
+  try {
+    const saved = localStorage.getItem('theme');
+    return validModes.includes(saved) ? saved : defaultTheme;
+  } catch (_error) {
+    return defaultTheme;
+  }
 }
 
 function isDarkTheme(theme) {
@@ -23,6 +33,7 @@ function applyTheme(theme, root = document.documentElement) {
   root.setAttribute('data-color-scheme', nextTheme);
   root.setAttribute('data-theme', dark ? 'dark' : 'light');
   root.style.colorScheme = dark ? 'dark' : 'light';
+  if (dark) root.classList.add('dark');
 
   document.querySelectorAll('[data-auth-theme-toggle]').forEach((button) => {
     const showSun = dark;
@@ -45,7 +56,13 @@ export function initAuthThemeToggle(root = document) {
   const onClick = () => {
     const current = resolveTheme(document.documentElement);
     const next = isDarkTheme(current) ? 'light' : 'dark';
-    localStorage.setItem('theme', next);
+    volatileAuthTheme = next;
+    try {
+      localStorage.setItem('theme', next);
+      volatileAuthTheme = null;
+    } catch (_error) {
+      // Preserve the current tab's choice when browser storage is unavailable.
+    }
     applyTheme(next, document.documentElement);
   };
 

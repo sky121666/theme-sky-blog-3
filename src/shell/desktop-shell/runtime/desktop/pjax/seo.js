@@ -211,12 +211,81 @@ function repairPublisherName(value, siteName) {
   return changed;
 }
 
-function repairStructuredData(doc, siteName) {
-  if (!siteName) return;
+function getTrustedCollectionCanonical(doc, config) {
+  const canonicalNodes = doc.head?.querySelectorAll("link[rel='canonical']") || [];
+  if (canonicalNodes.length !== 1 || !config.canonical) return null;
+
+  try {
+    const canonical = new URL(canonicalNodes[0].getAttribute('href'));
+    const configured = new URL(config.canonical);
+    if (!['http:', 'https:'].includes(canonical.protocol)
+      || canonical.href !== configured.href
+      || canonical.hash || canonical.username || canonical.password) return null;
+
+    const queryKeys = [...canonical.searchParams.keys()];
+    if (queryKeys.length > 0) {
+      const page = canonical.searchParams.get('p');
+      if (queryKeys.length !== 1 || queryKeys[0] !== 'p' || !/^\d+$/.test(page || '')
+        || !Number.isSafeInteger(Number(page)) || Number(page) < 1) return null;
+    }
+    return canonical;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function repairCollectionPageIdentity(value, canonical) {
+  if (!canonical) return false;
+  if (Array.isArray(value)) {
+    return value.reduce((changed, item) => repairCollectionPageIdentity(item, canonical) || changed, false);
+  }
+  if (!value || typeof value !== 'object') return false;
+
+  let changed = false;
+  const types = Array.isArray(value['@type']) ? value['@type'] : [value['@type']];
+  if (types.includes('CollectionPage')) {
+    const fields = ['url', 'mainEntityOfPage'].filter((key) => Object.hasOwn(value, key));
+    const identities = fields.map((key) => {
+      const identity = value[key];
+      return typeof identity === 'string' ? identity
+        : identity && !Array.isArray(identity) && typeof identity['@id'] === 'string' ? identity['@id'] : '';
+    });
+    const belongsToCurrentPage = identities.length > 0 && identities.every((identity) => {
+      try {
+        const url = new URL(identity);
+        return url.origin === canonical.origin && !url.hash && !url.username && !url.password
+          && url.pathname.replace(/\/+/g, '/') === canonical.pathname.replace(/\/+/g, '/')
+          && (!url.search || url.search === canonical.search);
+      } catch (_error) {
+        return false;
+      }
+    });
+
+    if (belongsToCurrentPage) {
+      fields.forEach((key, index) => {
+        if (identities[index] === canonical.href) return;
+        if (typeof value[key] === 'string') value[key] = canonical.href;
+        else value[key]['@id'] = canonical.href;
+        changed = true;
+      });
+    }
+  }
+
+  // Only document-level nodes describe this page. Nested entities such as
+  // hasPart, itemListElement, image and author retain their own identities.
+  if (repairCollectionPageIdentity(value['@graph'], canonical)) changed = true;
+  return changed;
+}
+
+function repairStructuredData(doc, config) {
+  const canonical = getTrustedCollectionCanonical(doc, config);
+  if (!config.siteName && !canonical) return;
   doc.head?.querySelectorAll("script[type='application/ld+json']").forEach((node) => {
     try {
       const data = JSON.parse(node.textContent || '');
-      if (repairPublisherName(data, siteName)) node.textContent = JSON.stringify(data);
+      const publisherChanged = repairPublisherName(data, config.siteName);
+      const identityChanged = repairCollectionPageIdentity(data, canonical);
+      if (publisherChanged || identityChanged) node.textContent = JSON.stringify(data);
     } catch (_error) {
       // Preserve invalid third-party blocks verbatim; validation remains the provider's responsibility.
     }
@@ -316,7 +385,7 @@ export function reconcileSeoHead(doc = document) {
   }, { added: 0, removed: 0 });
 
   sanitizeTwitterHandles(doc);
-  repairStructuredData(doc, config.siteName);
+  repairStructuredData(doc, config);
   return summary;
 }
 

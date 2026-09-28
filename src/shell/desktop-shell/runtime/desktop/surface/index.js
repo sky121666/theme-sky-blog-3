@@ -20,15 +20,14 @@ import { inferPageAppFromUrl } from '../../../../../shell-core/runtime/route-man
 import { initLazyImages } from '../../shared/lazy-media.js';
 import { initLazyComments } from '../../shared/lazy-comment.js';
 import { createLogger } from '../../shared/debug.js';
-import {
-  mutateThemeConfig,
-  readThemeConfig
-} from '../../shared/theme-config-client.js';
+import { loadThemeConfigClient } from '../../shared/lazy-theme-config-client.js';
 import { enhanceDoubanShowcaseWidgets } from '../../../../../widgets/plugin/douban-showcase/runtime.js';
 import {
   ensureWidgetRendererRuntime as ensureWidgetRendererRuntimeWithHost,
-  renderWidgetBodyWithHost
+  renderWidgetBodyWithHost,
+  retryBangumiWidgetDataWithHost
 } from '../../widgets/render-runtime.js';
+import { disposeLatestPostsSources } from '../../widgets/latest-posts-runtime.js';
 
 import {
   createWidgetInstance,
@@ -250,7 +249,10 @@ export function registerDesktopSurface(Alpine) {
       entries: {}
     },
     weatherRequestId: 0,
+    widgetsDisposed: false,
     now: new Date(),
+    calendarRolloverTimer: null,
+    calendarVisibilityHandler: null,
     widgetCenterOpenPending: false,
     routeSyncHandler: null,
     protocolHydrationHandler: null,
@@ -316,6 +318,38 @@ export function registerDesktopSurface(Alpine) {
 
     hasVisibleWeatherWidget() {
       return this.hasVisibleWidgetType('system.weather');
+    },
+
+    syncCalendarDate(date = new Date()) {
+      if (
+        this.now?.getFullYear() === date.getFullYear()
+        && this.now?.getMonth() === date.getMonth()
+        && this.now?.getDate() === date.getDate()
+      ) return false;
+      this.now = date;
+      this.invalidateWidgetCache('system.calendar');
+      return true;
+    },
+
+    startCalendarRollover() {
+      if (this.calendarRolloverTimer !== null) {
+        window.clearTimeout(this.calendarRolloverTimer);
+      }
+      const now = new Date();
+      this.syncCalendarDate(now);
+      const nextDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      const delay = Math.max(1000, nextDay.getTime() - now.getTime() + 50);
+      this.calendarRolloverTimer = window.setTimeout(() => {
+        this.calendarRolloverTimer = null;
+        this.startCalendarRollover();
+      }, delay);
+    },
+
+    stopCalendarRollover() {
+      if (this.calendarRolloverTimer !== null) {
+        window.clearTimeout(this.calendarRolloverTimer);
+        this.calendarRolloverTimer = null;
+      }
     },
 
     syncWidgetRuntimes() {
@@ -462,7 +496,12 @@ export function registerDesktopSurface(Alpine) {
       this.scheduleDesktopWidgetEnhancement();
     },
 
+    onWidgetDataChanged(widgetType) {
+      this.invalidateWidgetCache(widgetType);
+    },
+
     async beginWidgetDrag(widget, event) {
+      if (event?.target?.closest?.('[data-bangumi-widget-retry]')) return;
       const runtime = await this.ensureEditingRuntime();
       return runtime.beginWidgetDrag.call(this, widget, event);
     },
@@ -705,6 +744,11 @@ export function registerDesktopSurface(Alpine) {
       });
 
       this.widgets = this.defaultWidgets.map((widget) => ({ ...widget }));
+      this.startCalendarRollover();
+      this.calendarVisibilityHandler = () => {
+        if (document.visibilityState === 'visible') this.startCalendarRollover();
+      };
+      document.addEventListener('visibilitychange', this.calendarVisibilityHandler);
       desktopDebug('desktop widgets initialized', {
         widgets: this.widgets.length
       });
@@ -752,6 +796,7 @@ export function registerDesktopSurface(Alpine) {
         }, 600);
       };
       this.routeSyncHandler = async () => {
+        this.startCalendarRollover();
         this.syncViewportState();
         this.isHome = window.location.pathname === '/';
         if (this.enabled && this.isHome && !this.homeDataHydrated) {
@@ -852,6 +897,14 @@ export function registerDesktopSurface(Alpine) {
     },
 
     destroy() {
+      this.widgetsDisposed = true;
+      this.weatherRequestId += 1;
+      disposeLatestPostsSources(this);
+      this.stopCalendarRollover();
+      if (this.calendarVisibilityHandler) {
+        document.removeEventListener('visibilitychange', this.calendarVisibilityHandler);
+        this.calendarVisibilityHandler = null;
+      }
       window.removeEventListener(THEME_SETTINGS_WIDGET_SYNC_EVENT, this.themeSettingsWidgetSyncHandler);
       if (this.themeSettingsWeatherTimer) {
         window.clearTimeout(this.themeSettingsWeatherTimer);
@@ -1497,6 +1550,7 @@ export function registerDesktopSurface(Alpine) {
       }
 
       try {
+        const { readThemeConfig } = await loadThemeConfigClient();
         const { response } = await readThemeConfig(this.themeJsonConfigEndpoint);
         this.canManageDefaultDesktopLayout = true;
         setDesktopDebugAccess(this.editEnabled && this.canManageDefaultDesktopLayout);
@@ -1555,6 +1609,7 @@ export function registerDesktopSurface(Alpine) {
 
       try {
         const { applyDesktopLayoutJsonToThemeConfig } = await this.ensurePersistenceWriteRuntime();
+        const { mutateThemeConfig } = await loadThemeConfigClient();
         await mutateThemeConfig(
           this.themeJsonConfigEndpoint,
           (currentConfig) => applyDesktopLayoutJsonToThemeConfig(currentConfig, layoutJson)
@@ -2139,6 +2194,7 @@ export function registerDesktopSurface(Alpine) {
     },
 
     async loadWeather(forceRefresh = false) {
+      if (this.widgetsDisposed) return;
       if (!this.hasVisibleWeatherWidget()) {
         this.clearWeatherRefreshTimer();
         return;
@@ -2160,11 +2216,13 @@ export function registerDesktopSurface(Alpine) {
         return;
       }
 
+      const requestId = ++this.weatherRequestId;
       const {
         loadCachedDesktopWidgetWeather,
         saveDesktopWidgetWeather,
         fetchDesktopWidgetWeather
       } = await this.ensureWeatherRuntime();
+      if (requestId !== this.weatherRequestId) return;
 
       const nextEntries = { ...(this.weatherState.entries || {}) };
       const pendingTargets = [];
@@ -2203,8 +2261,6 @@ export function registerDesktopSurface(Alpine) {
         return;
       }
 
-      this.weatherRequestId += 1;
-      const requestId = this.weatherRequestId;
       this.weatherState = {
         ...this.weatherState,
         entries: nextEntries,
@@ -2278,6 +2334,13 @@ export function registerDesktopSurface(Alpine) {
         compact: options.preview === true ? false : (!this.isMobileViewport && this.cellSize <= 60)
       };
       return renderWidgetBodyWithHost(this, widget, renderOptions);
+    },
+
+    retryBangumiWidget(widget, event) {
+      if (!event?.target?.closest?.('[data-bangumi-widget-retry]')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      void retryBangumiWidgetDataWithHost(this, widget)?.catch(() => {});
     },
 
     /** Invalidate widget render cache (call after data/layout changes) */

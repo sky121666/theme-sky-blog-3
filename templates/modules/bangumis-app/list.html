@@ -1,3 +1,4 @@
+<!-- plugin-contract: plugin-bilibili-bangumi; surface: list; contract-version: 1.4.0; status: confirmed; source: docs/插件适配契约.md#pc-bangumi-list -->
 <th:block th:fragment="content"
           th:with="
             currentType=${param.typeNum != null and !#lists.isEmpty(param.typeNum) ? param.typeNum[0] : (bangumis != null ? bangumis.typeNum : 1)},
@@ -5,18 +6,18 @@
             currentSize=${param.size != null and !#lists.isEmpty(param.size) ? param.size[0] : (bangumis != null ? bangumis.size : '')},
             isDrama=${currentType == 2 or currentType == '2'},
             totalCount=${bangumis != null ? bangumis.total : 0},
-            wishCount=${bangumiFinder != null ? bangumiFinder.list(currentType, 1, 1, 1).total : 0},
-            watchingCount=${bangumiFinder != null ? bangumiFinder.list(currentType, 2, 1, 1).total : 0},
-            doneCount=${bangumiFinder != null ? bangumiFinder.list(currentType, 3, 1, 1).total : 0},
             pageCount=${bangumis != null ? bangumis.totalPages : 1},
             pageNumber=${bangumis != null ? bangumis.page : 1},
             headerTitle=${isDrama ? '我的追剧' : '我的追番'},
             headerSubtitle=${'共 ' + totalCount + ' 部'}">
-  <!-- plugin-contract: plugin-bilibili-bangumi; contract-version: 1.4.0; tested-version: 1.4.1; status: compatible-tested; source: docs/插件适配契约.md -->
   <div class="bangumis-app"
        data-app-root="bangumis"
+       th:data-bangumis-current-type="${currentType}"
        x-data="bangumisExplorer">
     <script type="application/json" data-app-props="bangumis">{"version":1,"appId":"bangumis","data":{"scene":"collection"}}</script>
+    <script type="application/json" data-bangumi-widget-payload th:inline="javascript">
+      {"typeNum": [[${currentType}]], "status": [[${currentStatus}]], "size": [[${currentSize}]], "total": [[${totalCount}]], "items": [[${bangumis != null ? bangumis.items : {}}]]}
+    </script>
 
     <div class="bangumis-app-shell"
          th:attr="data-bangumis-site-title=${site.title},data-bangumis-chrome-title=${headerTitle},data-bangumis-chrome-subtitle=${headerSubtitle}">
@@ -59,7 +60,10 @@
                   <span class="bangumis-sidebar-icon icon-[lucide--layout-grid]" aria-hidden="true"></span>
                   <span class="bangumis-sidebar-label">全部</span>
                 </span>
-                <span class="bangumis-sidebar-badge" th:text="${totalCount}">0</span>
+                <span class="bangumis-sidebar-badge" data-bangumis-status-count="0" aria-hidden="true"
+                      th:attr="data-count-state=${currentStatus == 0 or currentStatus == '0' ? 'ready' : 'pending'}"
+                      th:title="${currentStatus == 0 or currentStatus == '0' ? '' : '数量加载中'}"
+                      th:text="${currentStatus == 0 or currentStatus == '0' ? totalCount : '—'}">—</span>
               </a>
               <a class="bangumis-sidebar-item pjax-link"
                  th:href="@{/bangumis(typeNum=${currentType},status=1,size=${currentSize})}"
@@ -68,7 +72,10 @@
                   <span class="bangumis-sidebar-icon icon-[lucide--bookmark]" aria-hidden="true"></span>
                   <span class="bangumis-sidebar-label">想看</span>
                 </span>
-                <span class="bangumis-sidebar-badge" th:text="${wishCount}">0</span>
+                <span class="bangumis-sidebar-badge" data-bangumis-status-count="1" aria-hidden="true"
+                      th:attr="data-count-state=${currentStatus == 1 or currentStatus == '1' ? 'ready' : 'pending'}"
+                      th:title="${currentStatus == 1 or currentStatus == '1' ? '' : '数量加载中'}"
+                      th:text="${currentStatus == 1 or currentStatus == '1' ? totalCount : '—'}">—</span>
               </a>
               <a class="bangumis-sidebar-item pjax-link"
                  th:href="@{/bangumis(typeNum=${currentType},status=2,size=${currentSize})}"
@@ -77,7 +84,10 @@
                   <span class="bangumis-sidebar-icon icon-[lucide--play-circle]" aria-hidden="true"></span>
                   <span class="bangumis-sidebar-label">在看</span>
                 </span>
-                <span class="bangumis-sidebar-badge" th:text="${watchingCount}">0</span>
+                <span class="bangumis-sidebar-badge" data-bangumis-status-count="2" aria-hidden="true"
+                      th:attr="data-count-state=${currentStatus == 2 or currentStatus == '2' ? 'ready' : 'pending'}"
+                      th:title="${currentStatus == 2 or currentStatus == '2' ? '' : '数量加载中'}"
+                      th:text="${currentStatus == 2 or currentStatus == '2' ? totalCount : '—'}">—</span>
               </a>
               <a class="bangumis-sidebar-item pjax-link"
                  th:href="@{/bangumis(typeNum=${currentType},status=3,size=${currentSize})}"
@@ -86,7 +96,10 @@
                   <span class="bangumis-sidebar-icon icon-[lucide--check-circle-2]" aria-hidden="true"></span>
                   <span class="bangumis-sidebar-label">已看</span>
                 </span>
-                <span class="bangumis-sidebar-badge" th:text="${doneCount}">0</span>
+                <span class="bangumis-sidebar-badge" data-bangumis-status-count="3" aria-hidden="true"
+                      th:attr="data-count-state=${currentStatus == 3 or currentStatus == '3' ? 'ready' : 'pending'}"
+                      th:title="${currentStatus == 3 or currentStatus == '3' ? '' : '数量加载中'}"
+                      th:text="${currentStatus == 3 or currentStatus == '3' ? totalCount : '—'}">—</span>
               </a>
             </nav>
           </section>
@@ -137,7 +150,7 @@
                  th:each="bangumi : ${bangumis.items}"
                  th:with="
                    statusClass=${(currentStatus == 1 or currentStatus == '1') ? 'is-wish' : ((currentStatus == 2 or currentStatus == '2') ? 'is-watching' : ((currentStatus == 3 or currentStatus == '3') ? 'is-done' : 'is-all'))},
-                   statusLabel=${(currentStatus == 1 or currentStatus == '1') ? '想看' : ((currentStatus == 2 or currentStatus == '2') ? '在看' : ((currentStatus == 3 or currentStatus == '3') ? '已看' : '追番'))}"
+                   statusLabel=${(currentStatus == 1 or currentStatus == '1') ? '想看' : ((currentStatus == 2 or currentStatus == '2') ? '在看' : ((currentStatus == 3 or currentStatus == '3') ? '已看' : (isDrama ? '追剧' : '追番')))}"
                  th:href="${bangumi.spec.url}"
                  target="_blank"
                  rel="noopener noreferrer"
@@ -188,7 +201,9 @@
                       <span class="icon-[lucide--message-circle]" aria-hidden="true"></span>
                       <span th:text="${bangumi.spec.danmaku}">0</span>
                     </span>
-                    <span th:if="${!#strings.isEmpty(bangumi.spec.follow)}" title="追番人数">
+                    <span th:if="${!#strings.isEmpty(bangumi.spec.follow)}"
+                          title="追番人数"
+                          th:title="${isDrama ? '追剧人数' : '追番人数'}">
                       <span class="icon-[lucide--heart]" aria-hidden="true"></span>
                       <span th:text="${bangumi.spec.follow}">0</span>
                     </span>
@@ -214,7 +229,8 @@
                 <span class="icon-[lucide--loader-circle] bangumis-loading-icon" aria-hidden="true"></span>
                 加载中...
               </span>
-              <span class="bangumis-loadmore-error" x-show="loadError" x-cloak>加载失败，继续滚动时会重试</span>
+              <button type="button" class="bangumis-loadmore-error" x-show="loadError" x-cloak
+                      @click="loadNext()">加载失败，点击重试</button>
               <span class="bangumis-scroll-sentinel" data-bangumis-scroll-sentinel aria-hidden="true"></span>
             </div>
           </section>

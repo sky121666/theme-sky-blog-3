@@ -1,4 +1,4 @@
-import{n as c}from"../../../rolldown-runtime.js?v=0.9.46&r=dc057f8c71a9";import{n as $,r as w}from"../../halo/author-card/render.js?v=0.9.46&r=dc057f8c71a9";var L=c({renderWidget:()=>S});function f(n,r=""){return String(n||r||"").replace(/<[^>]*>/g,"").replace(/\s+/g," ").trim()}function m(n){const r=n?new Date(n):null;if(!r||Number.isNaN(r.getTime()))return"";const s=i=>String(i).padStart(2,"0");return`${s(r.getMonth()+1)}.${s(r.getDate())}`}function h(n){const r=f(n?.title,n?.summary||"新的友链动态"),s=f(n?.author,n?.linkName||"友链");return{key:n?.id||`${n?.linkName||s||r}`,title:r,description:f(n?.summary,""),author:s,logo:String(n?.authorLogo||"").trim(),href:String(n?.url||"").trim(),authorUrl:String(n?.authorUrl||"").trim(),linkName:String(n?.linkName||"").trim(),time:m(n?.publishedAt)}}function l(n,r,s="wg-friends-avatar"){return n.logo?`
+import{n as c}from"../../../rolldown-runtime.js?v=0.9.46&r=584f65afd686";import{n as $,r as w}from"../../halo/author-card/render.js?v=0.9.46&r=584f65afd686";var A=c({renderWidget:()=>S});function f(n,r=""){return String(n||r||"").replace(/<[^>]*>/g,"").replace(/\s+/g," ").trim()}function m(n){const r=n?new Date(n):null;if(!r||Number.isNaN(r.getTime()))return"";const s=i=>String(i).padStart(2,"0");return`${s(r.getMonth()+1)}.${s(r.getDate())}`}function h(n){const r=f(n?.title,n?.summary||"新的友链动态"),s=f(n?.author,n?.linkName||"友链");return{key:n?.id||`${n?.linkName||s||r}`,title:r,description:f(n?.summary,""),author:s,logo:String(n?.authorLogo||"").trim(),href:String(n?.url||"").trim(),authorUrl:String(n?.authorUrl||"").trim(),linkName:String(n?.linkName||"").trim(),time:m(n?.publishedAt)}}function l(n,r,s="wg-friends-avatar"){return n.logo?`
       <span class="${s}">
         <img src="${r(n.logo)}" alt="" loading="lazy" decoding="async" fetchpriority="low">
       </span>
@@ -65,7 +65,7 @@ import{n as c}from"../../../rolldown-runtime.js?v=0.9.46&r=dc057f8c71a9";import{
         <span class="icon-[lucide--rss]" aria-hidden="true"></span>
       </span>
       <strong>${s?i?"暂无友链动态":"朋友圈动态待同步":"未安装链接管理插件"}</strong>
-      <p>${s?i?"在 PluginLinks 中启用并公开 RSS 动态后，这里会显示最近更新。":"当前页面未加载桌面数据；返回首页后会自动同步最近更新。":"安装 PluginLinks 2.2.1 后可使用朋友圈小组件。"}</p>
+      <p>${s?i?"在 PluginLinks 中启用并公开 RSS 动态后，这里会显示最近更新。":"当前页面未加载桌面数据；返回首页后会自动同步最近更新。":"启用支持 RSS 动态的友链插件后可使用朋友圈小组件。"}</p>
       ${s?v(n,r,"打开"):""}
     </div>
   `}function N({items:n,escapeHtml:r,mode:s}){const i=n[0],a=n.slice(1,4);return`
@@ -93,4 +93,4 @@ import{n as c}from"../../../rolldown-runtime.js?v=0.9.46&r=dc057f8c71a9";import{
         ${a.map((t,e)=>y({item:t,escapeHtml:r,mode:s,index:e+1})).join("")}
       </span>
     </div>
-  `}function S({sources:n,escapeHtml:r,mode:s},i){if(!n.friendsAvailable)return p({escapeHtml:r,mode:s,installed:!1});if(!n.hydrated)return p({escapeHtml:r,mode:s,installed:!0,hydrated:!1});const a=i?.size||"medium",t=a==="large"?4:1,e=Array.isArray(n.recentFriends)?n.recentFriends:Array.isArray(n.recentFriends?.items)?n.recentFriends.items:[],d=e.length?e.slice(0,t).map(g=>h(g)).filter(g=>g.title):[];return d.length?a==="large"?N({items:d,escapeHtml:r,mode:s}):a==="small"?b({item:d[0],escapeHtml:r,mode:s}):k({items:d,escapeHtml:r,mode:s}):p({escapeHtml:r,mode:s,installed:!0})}export{L as t};
+  `}function S({sources:n,escapeHtml:r,mode:s},i){if(!n.friendsAvailable)return p({escapeHtml:r,mode:s,installed:!1});if(!n.hydrated)return p({escapeHtml:r,mode:s,installed:!0,hydrated:!1});const a=i?.size||"medium",t=a==="large"?4:1,e=Array.isArray(n.recentFriends)?n.recentFriends:Array.isArray(n.recentFriends?.items)?n.recentFriends.items:[],d=e.length?e.slice(0,t).map(g=>h(g)).filter(g=>g.title):[];return d.length?a==="large"?N({items:d,escapeHtml:r,mode:s}):a==="small"?b({item:d[0],escapeHtml:r,mode:s}):k({items:d,escapeHtml:r,mode:s}):p({escapeHtml:r,mode:s,installed:!0})}export{A as t};

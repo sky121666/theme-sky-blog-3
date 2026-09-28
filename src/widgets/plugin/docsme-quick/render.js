@@ -19,7 +19,8 @@ function normalizeProject(project = {}) {
     icon: String(spec.icon || '').trim(),
     href,
     totalDocs,
-    disabled: totalDocs <= 0 || !href
+    // A catalog-only project can have a valid page while totalDocs is zero.
+    disabled: !href
   };
 }
 
@@ -128,7 +129,8 @@ function pickDesignatedProject(projects, projectTitle) {
     const found = projects.find(p => p.title === projectTitle);
     if (found) return found;
   }
-  return projects.find((project) => !project.disabled) || projects[0] || null;
+  return projects.find((project) => !project.disabled && project.totalDocs > 0)
+    || projects.find((project) => !project.disabled) || projects[0] || null;
 }
 
 /* Redesigned Small Dashboard widget (2x2) */

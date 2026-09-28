@@ -37,6 +37,7 @@
            data-archive-index-complete="false"
            th:attr="data-archive-base-url=${archiveBase},
                     data-archive-catalog-url=@{/apis/api.content.halo.run/v1alpha1/posts},
+                    data-archive-catalog-scope=${#authorization.expression('isAuthenticated()') ? 'user:' + #authentication.name : 'anonymous'},
                     data-active-year=${activeArchive.year},
                     data-active-year-label=${activeArchive.year + ' 年'},
                     data-active-month-key=${activeArchive.year + '-' + activeMonth.month},

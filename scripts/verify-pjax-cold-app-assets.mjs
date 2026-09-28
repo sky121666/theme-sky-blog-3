@@ -93,6 +93,52 @@ async function openHome(page) {
   );
 }
 
+async function installParallelNavigationProbe(page) {
+  await page.evaluate(() => {
+    const state = window.__PJAX_PARALLEL_PROBE__ = {
+      sends: [], completes: [], sameCompletes: [], pushes: [], abortCount: 0,
+      oldRequest: null, committedFrame: null
+    };
+    const pathname = (value) => new URL(value || location.href, location.origin).pathname;
+    document.addEventListener('pjax:send', (event) => {
+      state.sends.push(pathname(event.requestOptions?.requestUrl || event.triggerElement?.href));
+    });
+    document.addEventListener('pjax:complete', () => state.completes.push(location.pathname));
+    document.addEventListener('pjax:same-variant-complete', (event) => {
+      state.sameCompletes.push(pathname(event.detail?.targetUrl));
+    });
+    const originalPush = history.pushState;
+    history.pushState = function(nextState, title, url) {
+      const result = originalPush.apply(this, arguments);
+      state.pushes.push(pathname(url));
+      return result;
+    };
+  });
+}
+
+async function startObservedPhotosNavigation(page) {
+  await page.evaluate(() => {
+    window.pjax.loadUrl('/photos');
+    const state = window.__PJAX_PARALLEL_PROBE__;
+    state.oldRequest = window.pjax.request;
+    state.oldRequest.addEventListener('abort', () => { state.abortCount += 1; });
+  });
+}
+
+async function parallelNavigationState(page) {
+  return page.evaluate(() => {
+    const state = window.__PJAX_PARALLEL_PROBE__;
+    return {
+      sends: state.sends, completes: state.completes, sameCompletes: state.sameCompletes,
+      pushes: state.pushes, abortCount: state.abortCount,
+      oldRequestState: state.oldRequest?.readyState,
+      pathname: location.pathname, appId: document.body?.dataset?.appId || '',
+      historyState: JSON.stringify(history.state), historyLength: history.length,
+      sameCommittedFrame: document.getElementById('window-frame-root') === state.committedFrame
+    };
+  });
+}
+
 async function waitForRoute(page, pathname, appId) {
   await page.waitForFunction(
     ({ expectedPath, expectedApp }) => {
@@ -107,21 +153,120 @@ async function waitForRoute(page, pathname, appId) {
   );
 }
 
-async function clickHeaderRoute(page, pathname) {
-  const clicked = await page.evaluate((targetPathname) => {
+async function clickHeaderSameVariantRoute(page, targetPath) {
+  const result = await page.evaluate(({ targetPath, timeoutMs }) => new Promise((resolve, reject) => {
+    const route = (value) => {
+      const url = new URL(value, window.location.origin);
+      return `${url.pathname}${url.search}`;
+    };
     const link = Array.from(document.querySelectorAll('.menubar a.pjax-link[href]'))
-      .find((candidate) => {
-        try {
-          return new URL(candidate.href, window.location.origin).pathname === targetPathname;
-        } catch (_error) {
-          return false;
-        }
-      });
-    if (!link) return false;
+      .find((candidate) => candidate.matches('.menubar-item--desktop, .menubar-dropdown-item')
+        && route(candidate.href) === targetPath);
+    if (!link) {
+      reject(new Error(`header has no desktop PJAX link for ${targetPath}`));
+      return;
+    }
+    if (link.target !== '_self') {
+      reject(new Error(`header link ${targetPath} must retain target="_self"`));
+      return;
+    }
+
+    const events = { sameSend: 0, sameComplete: 0, fullSend: 0, fullComplete: 0 };
+    const cleanup = () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('pjax:same-variant-send', onSameSend);
+      document.removeEventListener('pjax:same-variant-complete', onSameComplete);
+      document.removeEventListener('pjax:send', onFullSend);
+      document.removeEventListener('pjax:complete', onFullComplete);
+      document.removeEventListener('pjax:error', onError);
+    };
+    const finish = (kind) => {
+      cleanup();
+      resolve({ kind, events, route: route(window.location.href) });
+    };
+    const onSameSend = () => { events.sameSend += 1; };
+    const onSameComplete = () => { events.sameComplete += 1; finish('same-variant'); };
+    const onFullSend = () => { events.fullSend += 1; };
+    const onFullComplete = () => { events.fullComplete += 1; finish('full-pjax'); };
+    const onError = () => finish('pjax-error');
+    const timer = window.setTimeout(() => {
+      cleanup();
+      reject(new Error(`header PJAX navigation timed out: ${targetPath}`));
+    }, timeoutMs);
+
+    document.addEventListener('pjax:same-variant-send', onSameSend);
+    document.addEventListener('pjax:same-variant-complete', onSameComplete);
+    document.addEventListener('pjax:send', onFullSend);
+    document.addEventListener('pjax:complete', onFullComplete);
+    document.addEventListener('pjax:error', onError);
     link.click();
-    return true;
-  }, pathname);
-  assert.equal(clicked, true, `header must expose a PJAX link for ${pathname}`);
+  }), { targetPath, timeoutMs: navigationTimeoutMs });
+
+  assert.equal(result.kind, 'same-variant', `${targetPath} must use same-variant PJAX: ${JSON.stringify(result)}`);
+  assert.deepEqual(result.events, {
+    sameSend: 1, sameComplete: 1, fullSend: 0, fullComplete: 0
+  }, `${targetPath} must not fall back to full PJAX`);
+  assert.equal(result.route, targetPath, `${targetPath} must update the browser URL`);
+}
+
+async function verifyHeaderLinksSameVariant(browser) {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
+  try {
+    const response = await page.goto(absoluteUrl('/links'), {
+      waitUntil: 'domcontentloaded',
+      timeout: navigationTimeoutMs
+    });
+    assert.equal(response?.status(), 200, 'links route must return 200');
+    await page.waitForFunction(() => window.pjax?.loadUrl
+      && document.body?.dataset.appId === 'links'
+      && document.querySelector('.links-app-shell')?.dataset.view === 'links',
+    null, { timeout: navigationTimeoutMs });
+
+    const linksTitle = await page.title();
+    await page.evaluate(() => {
+      window.__PJAX_HEADER_LINKS_FRAME__ = document.getElementById('window-frame-root');
+    });
+
+    const assertView = async (targetPath, view, title, { preserveFrame = true } = {}) => {
+      try {
+        await page.waitForFunction(({ targetPath, view }) => {
+          const route = `${window.location.pathname}${window.location.search}`;
+          return route === targetPath
+            && document.querySelector('.links-app-shell')?.dataset.view === view
+            && document.body?.dataset.appId === 'links';
+        }, { targetPath, view }, { timeout: 10_000 });
+      } catch (error) {
+        const actual = await page.evaluate(() => ({
+          route: `${window.location.pathname}${window.location.search}`,
+          appId: document.body?.dataset.appId,
+          view: document.querySelector('.links-app-shell')?.dataset.view,
+          title: document.title
+        }));
+        throw new Error(`Links view did not settle at ${targetPath}/${view}: ${JSON.stringify(actual)}`, { cause: error });
+      }
+      const state = await page.evaluate(() => ({
+        title: document.title,
+        framePreserved: document.getElementById('window-frame-root') === window.__PJAX_HEADER_LINKS_FRAME__
+      }));
+      if (preserveFrame) {
+        assert.equal(state.framePreserved, true, `${targetPath} must preserve the window frame`);
+      }
+      assert.equal(state.title, title, `${targetPath} must show the matching title`);
+    };
+
+    await clickHeaderSameVariantRoute(page, '/links?view=friends');
+    const friendsTitle = await page.title();
+    assert.match(friendsTitle, /朋友圈/, 'friends view must update the document title');
+    await assertView('/links?view=friends', 'friends', friendsTitle);
+
+    await clickHeaderSameVariantRoute(page, '/links');
+    await assertView('/links', 'links', linksTitle);
+
+    await page.evaluate(() => window.history.back());
+    await assertView('/links?view=friends', 'friends', friendsTitle, { preserveFrame: false });
+  } finally {
+    await page.close();
+  }
 }
 
 async function verifyWarmExplorerCssHandoff(browser) {
@@ -139,9 +284,9 @@ async function verifyWarmExplorerCssHandoff(browser) {
       { timeout: navigationTimeoutMs }
     );
 
-    await clickHeaderRoute(page, '/tags');
+    await clickHeaderSameVariantRoute(page, '/tags');
     await waitForRoute(page, '/tags', 'explorer-tags');
-    await clickHeaderRoute(page, '/archives');
+    await clickHeaderSameVariantRoute(page, '/archives');
     await waitForRoute(page, '/archives', 'explorer-archives');
 
     const beforeReturn = await page.evaluate(() => {
@@ -156,18 +301,36 @@ async function verifyWarmExplorerCssHandoff(browser) {
     assert.equal(beforeReturn.archivesDisabled, false, 'current Archives CSS must remain active');
 
     await page.evaluate(() => {
-      window.__PJAX_EXPLORER_CSS_HANDOFF__ = null;
-      document.addEventListener('pjax:send', () => {
+      const handoff = window.__PJAX_EXPLORER_CSS_HANDOFF__ = {
+        send: null, beforeSwap: null, swap: null, complete: null, fullSends: 0
+      };
+      const css = () => {
         const categories = document.querySelector('link[data-app-css="explorer-categories"]');
         const archives = document.querySelector('link[data-app-css="explorer-archives"]');
-        window.__PJAX_EXPLORER_CSS_HANDOFF__ = {
+        return {
           categoriesDisabled: categories?.disabled,
           archivesDisabled: archives?.disabled
         };
-      }, { once: true });
+      };
+      const content = document.querySelector('[data-window-content-root] [data-window-content-variant]');
+      const innerHtml = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+      if (!content || !innerHtml?.set) throw new Error('Cannot observe browser content swap');
+      Object.defineProperty(content, 'innerHTML', {
+        configurable: true,
+        get() { return innerHtml.get.call(this); },
+        set(value) {
+          handoff.beforeSwap = css();
+          delete this.innerHTML;
+          innerHtml.set.call(this, value);
+        }
+      });
+      document.addEventListener('pjax:same-variant-send', () => { handoff.send = css(); }, { once: true });
+      document.addEventListener('theme:content-swapped', () => { handoff.swap = css(); }, { once: true });
+      document.addEventListener('pjax:same-variant-complete', () => { handoff.complete = css(); }, { once: true });
+      document.addEventListener('pjax:send', () => { handoff.fullSends += 1; });
     });
 
-    await clickHeaderRoute(page, '/categories');
+    await clickHeaderSameVariantRoute(page, '/categories');
     await waitForRoute(page, '/categories', 'explorer-categories');
 
     const afterReturn = await page.evaluate(() => {
@@ -180,11 +343,49 @@ async function verifyWarmExplorerCssHandoff(browser) {
         rootDisplay: getComputedStyle(document.querySelector('[data-app-root="explorer-categories"]')).display
       };
     });
-    assert.equal(afterReturn.handoff?.categoriesDisabled, false, 'target CSS must be active before the Header PJAX request');
-    assert.equal(afterReturn.handoff?.archivesDisabled, false, 'current CSS must stay active until the incoming DOM is ready');
+    assert.equal(afterReturn.handoff?.fullSends, 0, 'same-variant Header navigation must not start full PJAX');
+    assert.equal(afterReturn.handoff?.send?.archivesDisabled, false, 'current Archives CSS must stay active when same-variant request starts');
+    assert.equal(afterReturn.handoff?.beforeSwap?.categoriesDisabled, false, 'target Categories CSS must be active before content swap');
+    assert.equal(afterReturn.handoff?.beforeSwap?.archivesDisabled, false, 'current Archives CSS must stay active before content swap');
+    assert.equal(afterReturn.handoff?.swap?.categoriesDisabled, false, 'target Categories CSS must be active at content swap');
+    assert.equal(afterReturn.handoff?.swap?.archivesDisabled, false, 'current Archives CSS must stay active through content swap');
+    assert.equal(afterReturn.handoff?.complete?.categoriesDisabled, false, 'target Categories CSS must remain active at same-variant completion');
+    assert.equal(afterReturn.handoff?.complete?.archivesDisabled, true, 'old Archives CSS must be inactive at same-variant completion');
     assert.equal(afterReturn.categoriesDisabled, false, 'Categories CSS must remain active after completion');
     assert.equal(afterReturn.archivesDisabled, true, 'old Archives CSS must be disabled after completion');
     assert.equal(afterReturn.rootDisplay, 'flex', 'returned Categories Finder must render with its app layout');
+
+    const fullHandoff = await page.evaluate((timeoutMs) => new Promise((resolve, reject) => {
+      const css = () => ({
+        categoriesDisabled: document.querySelector('link[data-app-css="explorer-categories"]')?.disabled,
+        archivesDisabled: document.querySelector('link[data-app-css="explorer-archives"]')?.disabled
+      });
+      let atSend = null;
+      const cleanup = () => {
+        window.clearTimeout(timer);
+        document.removeEventListener('pjax:send', onSend);
+        document.removeEventListener('pjax:complete', onComplete);
+        document.removeEventListener('pjax:error', onError);
+      };
+      const onSend = () => { atSend = css(); };
+      const onComplete = () => { cleanup(); resolve({ atSend }); };
+      const onError = () => { cleanup(); reject(new Error('full PJAX warm CSS navigation failed')); };
+      const timer = window.setTimeout(() => {
+        cleanup();
+        reject(new Error('full PJAX warm CSS navigation timed out'));
+      }, timeoutMs);
+      document.addEventListener('pjax:send', onSend);
+      document.addEventListener('pjax:complete', onComplete);
+      document.addEventListener('pjax:error', onError);
+      window.pjax.loadUrl('/archives');
+    }), navigationTimeoutMs);
+    assert.equal(fullHandoff.atSend?.categoriesDisabled, false, 'full PJAX must keep current Categories CSS active at send');
+    assert.equal(fullHandoff.atSend?.archivesDisabled, false, 'full PJAX must stage warm Archives CSS before send');
+    await page.waitForFunction(() => window.location.pathname === '/archives'
+      && document.body?.dataset.appId === 'explorer-archives'
+      && document.querySelector('link[data-app-css="explorer-categories"]')?.disabled === true
+      && document.querySelector('link[data-app-css="explorer-archives"]')?.disabled === false,
+    null, { timeout: navigationTimeoutMs });
   } finally {
     await page.close();
   }
@@ -257,7 +458,7 @@ async function verifyColdPhotosGate(browser) {
       sameFrame: document.getElementById('window-frame-root') === window.__PJAX_COLD_ASSET_PREVIOUS_FRAME__,
       appId: document.body?.dataset?.appId || ''
     }));
-    assert.equal(pendingState.pathname, '/', 'slow app asset must gate the target page request');
+    assert.equal(pendingState.pathname, '/', 'slow app asset must gate target URL/DOM commit while HTML downloads in parallel');
     assert.equal(pendingState.sameFrame, true, 'PJAX must not replace the frame before the app registrar is ready');
     assert.notEqual(pendingState.appId, 'photos', 'body app state must stay on the current page while assets are pending');
 
@@ -288,17 +489,14 @@ async function verifyLatestNavigationWins(browser) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
   const errors = collectAlpineUndefinedErrors(page);
   const assetGate = await installDelayedPhotosAsset(page);
+  const htmlGate = await installDelayedRequest(page, absoluteUrl('/photos'), 'older Photos HTML request');
 
   try {
     await openHome(page);
-    await page.evaluate(() => {
-      window.__PJAX_COLD_ASSET_SEND_COUNT__ = 0;
-      document.addEventListener('pjax:send', () => {
-        window.__PJAX_COLD_ASSET_SEND_COUNT__ += 1;
-      });
-      window.pjax.loadUrl('/photos');
-    });
-    await assetGate.waitUntilRequested();
+    await installParallelNavigationProbe(page);
+    await startObservedPhotosNavigation(page);
+    await Promise.all([assetGate.waitUntilRequested(), htmlGate.waitUntilRequested()]);
+    assert.equal((await parallelNavigationState(page)).oldRequestState, 1, 'older HTML must be in flight while its assets are pending');
 
     await page.evaluate(() => {
       window.pjax.loadUrl('/archives');
@@ -312,12 +510,15 @@ async function verifyLatestNavigationWins(browser) {
     assert.equal(historyState.index, 1, 'programmatic full PJAX must write the next browser navigation index');
     assert.equal(historyState.depth, '1', 'programmatic full PJAX must advance the session navigation depth');
     assert.equal(historyState.canGoBack, true, 'programmatic full PJAX must preserve in-site back navigation');
-    assert.equal(
-      await page.evaluate(() => window.__PJAX_COLD_ASSET_SEND_COUNT__),
-      1,
-      'only the latest navigation may start a PJAX request while the older app asset is pending'
-    );
+    await page.evaluate(() => { window.__PJAX_PARALLEL_PROBE__.committedFrame = document.getElementById('window-frame-root'); });
+    const committed = await parallelNavigationState(page);
+    assert.equal(committed.abortCount, 1, 'newer full navigation must actually abort the in-flight older HTML request');
+    assert.equal(committed.oldRequestState, 0, 'aborted XMLHttpRequest must return to UNSENT');
+    assert.deepEqual(committed.sends, ['/photos', '/archives'], 'each intent may start HTML once in parallel with assets');
+    assert.deepEqual(committed.completes, ['/archives'], 'only the latest full navigation may complete');
+    assert.deepEqual(committed.pushes, ['/archives'], 'only the latest target may commit one history entry');
 
+    htmlGate.release();
     assetGate.release();
     await page.waitForFunction(
       () => document.querySelector('script[data-app-script="photos"]')?.dataset?.appScriptState === 'ready',
@@ -326,16 +527,12 @@ async function verifyLatestNavigationWins(browser) {
     );
     await page.waitForTimeout(300);
 
-    const finalState = await page.evaluate(() => ({
-      pathname: window.location.pathname,
-      appId: document.body?.dataset?.appId || '',
-      sendCount: window.__PJAX_COLD_ASSET_SEND_COUNT__
-    }));
-    assert.equal(finalState.pathname, '/archives', 'released stale asset gate must not override the latest route');
-    assert.equal(finalState.appId, 'explorer-archives', 'released stale asset gate must not overwrite the latest app state');
-    assert.equal(finalState.sendCount, 1, 'stale asset completion must not start another PJAX request');
+    const finalState = await parallelNavigationState(page);
+    assert.deepEqual(finalState, committed, 'released stale HTML/assets must not replace DOM, change URL/history, repeat requests or complete again');
+    assert.equal(finalState.sameCommittedFrame, true, 'latest frame must survive the older asset completion');
     assert.deepEqual(errors, [], `latest-navigation test emitted Alpine undefined errors:\n${errors.join('\n')}`);
   } finally {
+    htmlGate.release();
     assetGate.release();
     await page.close();
   }
@@ -345,6 +542,7 @@ async function verifySameVariantNavigationWins(browser) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
   const errors = collectAlpineUndefinedErrors(page);
   const photosAssetGate = await installDelayedPhotosAsset(page);
+  const photosHtmlGate = await installDelayedRequest(page, absoluteUrl('/photos'), 'older cross-mode Photos HTML request');
   let detailRequestGate = null;
 
   try {
@@ -370,6 +568,7 @@ async function verifySameVariantNavigationWins(browser) {
       'moments same-variant detail request'
     );
 
+    await installParallelNavigationProbe(page);
     await page.evaluate(() => {
       window.__PJAX_CROSS_MODE_STATE__ = { fullSendCount: 0, sameCompleteCount: 0 };
       document.addEventListener('pjax:send', () => {
@@ -378,9 +577,10 @@ async function verifySameVariantNavigationWins(browser) {
       document.addEventListener('pjax:same-variant-complete', () => {
         window.__PJAX_CROSS_MODE_STATE__.sameCompleteCount += 1;
       });
-      window.pjax.loadUrl('/photos');
     });
-    await photosAssetGate.waitUntilRequested();
+    await startObservedPhotosNavigation(page);
+    await Promise.all([photosAssetGate.waitUntilRequested(), photosHtmlGate.waitUntilRequested()]);
+    assert.equal((await parallelNavigationState(page)).oldRequestState, 1, 'cross-mode test requires an in-flight older HTML request');
 
     await page.locator(`a.pjax-link[href="${detailHref}"]`).first().click();
     await detailRequestGate.waitUntilRequested();
@@ -412,11 +612,20 @@ async function verifySameVariantNavigationWins(browser) {
     }));
     assert.equal(beforeRelease.pathname, detailPath, 'same-variant navigation must complete while the older full gate is pending');
     assert.equal(beforeRelease.appId, 'moments');
-    assert.equal(beforeRelease.fullSendCount, 0, 'blocked older full gate must not start its page request');
+    assert.equal(beforeRelease.fullSendCount, 1, 'older full navigation may start exactly one HTML request in parallel with assets');
     assert.equal(beforeRelease.sameCompleteCount, 1, 'stale pjax:error must not cancel the newer same-variant request');
     assert.equal(beforeRelease.nprogressVisible, false, 'same-variant completion must clear progress inherited from the older full gate');
     assert.equal(beforeRelease.navigationPending, false, 'same-variant completion must clear transient navigation UI state');
+    await page.evaluate(() => { window.__PJAX_PARALLEL_PROBE__.committedFrame = document.getElementById('window-frame-root'); });
+    const committed = await parallelNavigationState(page);
+    assert.equal(committed.abortCount, 1, 'same-variant intent must actually abort the older full HTML request');
+    assert.equal(committed.oldRequestState, 0, 'superseded full request must be UNSENT after abort');
+    assert.deepEqual(committed.sends, ['/photos']);
+    assert.deepEqual(committed.completes, [], 'the cancelled full navigation must never complete');
+    assert.deepEqual(committed.sameCompletes, [detailPath], 'only the latest same-variant target may complete once');
+    assert.deepEqual(committed.pushes, [detailPath], 'only the latest same-variant target may commit history once');
 
+    photosHtmlGate.release();
     photosAssetGate.release();
     await page.waitForFunction(
       () => document.querySelector('script[data-app-script="photos"]')?.dataset?.appScriptState === 'ready',
@@ -433,11 +642,13 @@ async function verifySameVariantNavigationWins(browser) {
     }));
     assert.equal(finalState.pathname, detailPath, 'released older full gate must not override a completed same-variant route');
     assert.equal(finalState.appId, 'moments');
-    assert.equal(finalState.fullSendCount, 0, 'released stale full gate must remain request-free');
+    assert.equal(finalState.fullSendCount, 1, 'released stale assets must not start another full request');
     assert.equal(finalState.nprogressVisible, false, 'released stale gate must not restart global progress');
+    assert.deepEqual(await parallelNavigationState(page), committed, 'older HTML/assets must not alter the latest same-variant DOM/history or completion count');
     assert.deepEqual(errors, [], `cross-mode navigation emitted Alpine undefined errors:\n${errors.join('\n')}`);
   } finally {
     detailRequestGate?.release();
+    photosHtmlGate.release();
     photosAssetGate.release();
     await page.close();
   }
@@ -1018,15 +1229,25 @@ async function verifySkippedViewTransitionFallsBack(browser) {
 
 const browser = await chromium.launch({ headless: true });
 try {
-  await verifyWarmExplorerCssHandoff(browser);
-  await verifyColdPhotosGate(browser);
-  await verifyLatestNavigationWins(browser);
-  await verifySameVariantNavigationWins(browser);
-  await verifyDelayedViewTransitionLatestWins(browser);
-  await verifyRapidDetailViewTransitionLatestWins(browser);
-  await verifySupersededLiveDecodeDoesNotDispatch(browser);
-  await verifySkippedViewTransitionFallsBack(browser);
-  console.log('pjax cold app asset gate passed');
+  const headerLinksOnly = process.env.PJAX_HEADER_LINKS_ONLY === '1';
+  const checks = headerLinksOnly
+    ? [verifyHeaderLinksSameVariant]
+    : [
+      verifyHeaderLinksSameVariant,
+      verifyWarmExplorerCssHandoff,
+      verifyColdPhotosGate,
+      verifyLatestNavigationWins,
+      verifySameVariantNavigationWins,
+      verifyDelayedViewTransitionLatestWins,
+      verifyRapidDetailViewTransitionLatestWins,
+      verifySupersededLiveDecodeDoesNotDispatch,
+      verifySkippedViewTransitionFallsBack
+    ];
+  for (const verify of checks) {
+    await verify(browser);
+    console.log(`passed: ${verify.name}`);
+  }
+  console.log(headerLinksOnly ? 'pjax header Links navigation passed' : 'pjax cold app asset gate passed');
 } finally {
   await browser.close();
 }

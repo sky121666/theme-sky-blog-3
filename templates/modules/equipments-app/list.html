@@ -1,3 +1,4 @@
+<!-- plugin-contract: equipment; surface: library; contract-version: 1.1.0; status: confirmed; source: docs/插件适配契约.md#pc-equipment-library -->
 <th:block th:fragment="content"
           th:with="
             currentGroup=${param.group != null and !#lists.isEmpty(param.group) ? param.group[0] : ''},
@@ -11,7 +12,6 @@
             defaultEquipmentTitle=${!#strings.isEmpty(configuredEquipmentTitle) ? configuredEquipmentTitle : baseEquipmentTitle},
             defaultEquipmentDescription=${!#strings.isEmpty(configuredEquipmentDescription) ? configuredEquipmentDescription : '展示所有已收录的设备、工具与生活物件。'},
             hasEquipments=${equipments != null and equipments.items != null and !#lists.isEmpty(equipments.items)}">
-  <!-- plugin-contract: equipment; contract-version: 1.1.0; tested-version: 1.1.1; status: compatible-tested; source: docs/插件适配契约.md -->
   <div class="equipments-app"
        data-app-root="equipments"
        x-data="equipmentsExplorer">
@@ -157,7 +157,8 @@
               <span class="icon-[lucide--loader-circle] equipments-loading-icon" aria-hidden="true"></span>
               加载中...
             </span>
-            <span class="equipments-loadmore-error" x-show="loadError" x-cloak>加载失败，继续滚动时会重试</span>
+            <button type="button" class="equipments-loadmore-error" x-show="loadError" x-cloak
+                    @click="loadNext()">加载失败，点击重试</button>
             <span class="equipments-loadmore-done" x-show="!hasMore && !loading && !loadError" x-cloak>已全部加载</span>
             <span class="equipments-scroll-sentinel" data-equipments-scroll-sentinel aria-hidden="true"></span>
           </div>

@@ -1,0 +1,116 @@
+<!doctype html>
+<!-- Halo 2.26+ page layout contract: html(head, content). -->
+<html
+  xmlns:th="https://www.thymeleaf.org"
+  lang="zh-CN"
+  class="halo-plugin-layout"
+  th:lang="${#locale.toLanguageTag()}"
+  th:fragment="html(head, content)"
+  th:data-default-theme="${theme.config.header?.theme?.default_mode ?: 'system'}"
+>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title th:if="${head == null}" th:text="${site.title}"></title>
+    <link rel="icon" th:href="${site.favicon != null ? site.favicon : #theme.assets('/favicon.svg')}" />
+    <script>
+      (() => {
+        const root = document.documentElement;
+        const modes = ['light', 'dark', 'system'];
+        let saved;
+        try { saved = localStorage.getItem('theme'); } catch (_error) {}
+        const configured = root.dataset.defaultTheme;
+        const mode = modes.includes(saved) ? saved : (modes.includes(configured) ? configured : 'system');
+        const media = window.matchMedia?.('(prefers-color-scheme: dark)');
+        const apply = () => {
+          const dark = mode === 'dark' || (mode === 'system' && !!media?.matches);
+          root.classList.toggle('dark', dark);
+          root.dataset.theme = dark ? 'dark' : 'light';
+          root.style.colorScheme = dark ? 'dark' : 'light';
+        };
+        root.classList.add(mode, mode === 'system' ? 'color-scheme-auto' : `color-scheme-${mode}`);
+        root.dataset.colorScheme = mode === 'system' ? 'auto' : mode;
+        apply();
+        if (mode === 'system') media?.addEventListener?.('change', apply);
+      })();
+    </script>
+    <link rel="stylesheet"
+          th:href="@{/assets/css/shell-core/index.css(v=${theme.spec.version},r=${theme.metadata.version})}" />
+    <style>
+      html.halo-plugin-layout, body.halo-plugin-layout { min-height: 100%; height: auto; overflow-x: hidden; overflow-y: auto; }
+      body.halo-plugin-layout { min-height: 100dvh; background-color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif; }
+      .halo-plugin-layout .plugin-layout-menubar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 36px; padding: 0.35rem clamp(1rem, 3vw, 2.5rem); color: #fff; }
+      .halo-plugin-layout .plugin-layout-menubar a { color: inherit; text-decoration: none; }
+      .halo-plugin-layout .plugin-layout-menubar a:hover { text-decoration: underline; }
+      .halo-plugin-layout .plugin-layout-brand { font-weight: 650; }
+      .halo-plugin-layout .plugin-layout-window { width: min(1100px, calc(100% - 2rem)); margin: clamp(1rem, 5vh, 4rem) auto; overflow: hidden; border: 1px solid rgba(255, 255, 255, .32); border-radius: 16px; background: var(--theme-shell-light, #fff); color: #1d1d1f; box-shadow: 0 28px 80px rgba(0, 0, 0, .32); }
+      .halo-plugin-layout.dark .plugin-layout-window { border-color: rgba(255, 255, 255, .12); background: var(--theme-shell-dark, #141414); color: #f5f5f7; }
+      .halo-plugin-layout .plugin-layout-titlebar { display: flex; align-items: center; gap: .5rem; min-height: 42px; padding: .5rem 1rem; border-bottom: 1px solid rgba(0, 0, 0, .1); background: rgba(245, 245, 247, .78); }
+      .halo-plugin-layout.dark .plugin-layout-titlebar { border-color: rgba(255, 255, 255, .12); background: rgba(35, 35, 37, .8); }
+      .halo-plugin-layout .plugin-layout-dot { width: 11px; height: 11px; border-radius: 50%; }
+      .halo-plugin-layout .plugin-layout-dot:nth-child(1) { background: #ff5f57; }
+      .halo-plugin-layout .plugin-layout-dot:nth-child(2) { background: #febc2e; }
+      .halo-plugin-layout .plugin-layout-dot:nth-child(3) { background: #28c840; }
+      .halo-plugin-layout .plugin-layout-window-title { margin-left: .6rem; overflow: hidden; color: inherit; font-size: .85rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+      .halo-plugin-layout .plugin-layout-content { min-width: 0; padding: clamp(1rem, 3vw, 2rem); user-select: text; }
+      /* Restore readable defaults after the desktop Tailwind reset. Plugin head styles remain authoritative. */
+      @layer base {
+        .halo-plugin-layout .plugin-layout-content :where(h1, h2, h3, h4, h5, h6) { margin-block: 0 .75em; font-weight: 600; line-height: 1.3; }
+        .halo-plugin-layout .plugin-layout-content :where(h1) { font-size: clamp(1.75rem, 4vw, 2.125rem); }
+        .halo-plugin-layout .plugin-layout-content :where(h2) { font-size: 1.5rem; }
+        .halo-plugin-layout .plugin-layout-content :where(h3) { font-size: 1.25rem; }
+        .halo-plugin-layout .plugin-layout-content :where(h4, h5, h6) { font-size: 1rem; }
+        .halo-plugin-layout .plugin-layout-content :where(p, ul, ol, pre, blockquote) { margin-block: 0 1em; }
+        .halo-plugin-layout .plugin-layout-content :where(ul) { padding-inline-start: 1.5em; list-style: disc; }
+        .halo-plugin-layout .plugin-layout-content :where(ol) { padding-inline-start: 1.5em; list-style: decimal; }
+        .halo-plugin-layout .plugin-layout-content :where(a) { color: var(--theme-accent, #2e5fbd); text-decoration: underline; }
+        .halo-plugin-layout .plugin-layout-content :where(pre) { overflow-x: auto; }
+      }
+      @media (max-width: 640px) {
+        .halo-plugin-layout .plugin-layout-window { width: calc(100% - 1rem); margin: .5rem auto; border-radius: 12px; }
+        .halo-plugin-layout .plugin-layout-content { padding: 1rem; }
+      }
+    </style>
+    <th:block th:if="${head != null}">
+      <th:block th:replace="${head}"></th:block>
+    </th:block>
+  </head>
+  <body class="halo-plugin-layout"
+        th:with="
+          backgroundConfig=${theme.config.desktop?.background},
+          appearanceConfig=${theme.config.desktop?.appearance},
+          backgroundMode=${backgroundConfig?.mode ?: 'preset'},
+          backgroundPreset=${backgroundConfig?.preset ?: 'tahoe-dawn'},
+          legacyCustomScheme=${(appearanceConfig?.mode == null) and (appearanceConfig?.accent_color != null or appearanceConfig?.selection_color != null or appearanceConfig?.folder_color1 != null or appearanceConfig?.folder_color2 != null or appearanceConfig?.folder_color3 != null or appearanceConfig?.glass_light_color != null or appearanceConfig?.glass_dark_color != null)},
+          schemeMode=${appearanceConfig?.mode ?: (legacyCustomScheme ? 'custom' : 'preset')},
+          schemePreset=${appearanceConfig?.preset ?: 'blue'},
+          macAccent=${appearanceConfig?.accent_color ?: '#2E5FBD'},
+          macSelection=${appearanceConfig?.selection_color ?: '#244D9B'},
+          macFolder1=${appearanceConfig?.folder_color1 ?: '#4A90E2'},
+          macFolder2=${appearanceConfig?.folder_color2 ?: '#64B5F6'},
+          macFolder3=${appearanceConfig?.folder_color3 ?: '#90CAF9'},
+          macShellLight=${appearanceConfig?.glass_light_color ?: '#FFFFFF'},
+          macShellDark=${appearanceConfig?.glass_dark_color ?: '#141414'},
+          backgroundImage=${backgroundConfig?.image_url ?: backgroundConfig?.image}"
+        th:classappend="${(backgroundMode == 'preset' ? ' wallpaper-' + backgroundPreset : '') + (schemeMode == 'preset' ? ' scheme-' + schemePreset : ' scheme-custom')}"
+        th:style="${schemeMode == 'custom' ? '--mac-accent:' + macAccent + ';--mac-selection:' + macSelection + ';--mac-folder1:' + macFolder1 + ';--mac-folder2:' + macFolder2 + ';--mac-folder3:' + macFolder3 + ';--mac-shell-light:' + macShellLight + ';--mac-shell-dark:' + macShellDark + ';' : ''}"
+        th:styleappend="${backgroundMode == 'solid' ? 'background-color:' + (backgroundConfig?.solid_color ?: '#0f172a') + ';' : (backgroundMode == 'image' and backgroundImage != null ? 'background:url(' + backgroundImage + ') center/cover fixed no-repeat;background-color:#0f172a;' : '')}">
+    <header class="plugin-layout-menubar mac-glass">
+      <a class="plugin-layout-brand" th:href="@{/}"
+         th:text="${theme.config.header?.logo?.title ?: site.title}"></a>
+      <a th:href="@{/}">返回桌面</a>
+    </header>
+    <main class="plugin-layout-window" id="main-content">
+      <div class="plugin-layout-titlebar">
+        <span class="plugin-layout-dot" aria-hidden="true"></span>
+        <span class="plugin-layout-dot" aria-hidden="true"></span>
+        <span class="plugin-layout-dot" aria-hidden="true"></span>
+        <span class="plugin-layout-window-title" th:text="${site.title}"></span>
+      </div>
+      <div class="plugin-layout-content">
+        <th:block th:replace="${content}"></th:block>
+      </div>
+    </main>
+    <halo:footer />
+  </body>
+</html>

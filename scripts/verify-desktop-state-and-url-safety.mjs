@@ -254,6 +254,55 @@ try {
     'notifications without a real target must remain non-actionable'
   );
 
+  // Deleted content still appears in the theme's raw icon bootstrap with href="#".
+  // The visible desktop must omit those entries without rewriting saved layouts.
+  const missingContentIcons = [
+    { key: 'icon-category-deleted', title: 'Deleted category', href: '#', pjaxApp: 'explorer-categories' },
+    { key: 'icon-tag-deleted', title: 'Deleted tag', href: '#', pjaxApp: 'explorer-tags' },
+    { key: 'icon-post-deleted', title: 'Deleted post', href: '#', pjaxApp: 'reader' },
+    { key: 'icon-page-deleted', title: 'Deleted page', href: '#', pjaxApp: 'reader' }
+  ];
+  const retainedIcons = [
+    { key: 'icon-custom-docs', title: 'Docs', href: '/docs', pjaxApp: '', x: 5, y: 2 },
+    { key: 'icon-post-live', title: 'Live post', href: '/archives/live', pjaxApp: 'reader', x: 6, y: 2 }
+  ];
+  window.__THEME_DESKTOP_PROTOCOL__ = { icons: [...missingContentIcons, ...retainedIcons] };
+  const savedIconLayout = {
+    hasFullIconDefs: true,
+    icons: [...missingContentIcons, ...retainedIcons].map((icon, index) => ({
+      ...icon,
+      href: icon.key === 'icon-post-deleted' ? '/archives/deleted' : icon.href,
+      x: icon.x || index + 1,
+      y: icon.y || 1
+    }))
+  };
+  const originalSavedLayout = structuredClone(savedIconLayout);
+  const iconDesktop = desktopFactory();
+  iconDesktop.widgets = [];
+  iconDesktop.currentColumns = 12;
+  iconDesktop.maxVisibleRows = 8;
+  iconDesktop.bootstrapDesktopIcons(savedIconLayout);
+  assert.deepEqual(iconDesktop.icons.map((icon) => [icon.key, icon.href, icon.x, icon.y]), [
+    ['icon-custom-docs', '/docs', 5, 2],
+    ['icon-post-live', '/archives/live', 6, 2]
+  ], 'deleted categories, tags, posts and pages must not remain as clickable # desktop icons');
+  assert.deepEqual(savedIconLayout, originalSavedLayout, 'bootstrap must not rewrite the persisted layout');
+
+  const defaultIconDesktop = desktopFactory();
+  defaultIconDesktop.widgets = [];
+  defaultIconDesktop.bootstrapDesktopIcons();
+  assert.deepEqual(defaultIconDesktop.icons.map((icon) => icon.key), ['icon-custom-docs', 'icon-post-live'],
+    'a fresh desktop must omit deleted content without a saved layout');
+
+  const legacyIconLayout = { icons: [{ key: 'icon-custom-docs', x: 7, y: 3 }, { key: 'icon-post-live', x: 8, y: 3 }] };
+  const legacyIconDesktop = desktopFactory();
+  legacyIconDesktop.widgets = [];
+  legacyIconDesktop.bootstrapDesktopIcons(legacyIconLayout);
+  assert.deepEqual(legacyIconDesktop.icons.map((icon) => [icon.key, icon.x, icon.y]), [
+    ['icon-custom-docs', 7, 3], ['icon-post-live', 8, 3]
+  ], 'legacy saved positions for valid icons must remain intact');
+  delete window.__THEME_DESKTOP_PROTOCOL__;
+
   const desktop = desktopFactory();
   desktop.themeJsonConfigEndpoint = '/apis/theme/config';
   desktop.canManageDefaultDesktopLayout = true;

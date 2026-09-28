@@ -5,19 +5,9 @@ import { pathToFileURL } from 'node:url';
 
 const root = process.cwd();
 const template = fs.readFileSync(path.join(root, 'templates/modules/browser-explorer/archives.html'), 'utf8');
-const runtimeSource = fs.readFileSync(path.join(root, 'src/apps/explorer/archives/runtime.js'), 'utf8');
-
-assert.match(runtimeSource, /let catalogTimedOut = false;/, '归档目录请求必须区分主动取消和超时');
-assert.match(
-  runtimeSource,
-  /catalogTimedOut = true;\s*controller\.abort\(\);/,
-  '归档目录超时必须留下可识别原因后再取消请求'
-);
-assert.match(
-  runtimeSource,
-  /if \(error\?\.name === 'AbortError' && !catalogTimedOut\) return;/,
-  '只有主动取消可以静默结束，超时必须进入可见错误态'
-);
+// Execute the catalog's real request/aggregation behavior, including cancellation
+// and body timeout, instead of matching one implementation's timer variable names.
+await import('./verify-archive-catalog.mjs');
 
 assert.doesNotMatch(template, /siteStatsFinder\.getStats\(\)/, '归档 SSR 不得再按文章总数一次性查询完整文章树');
 assert.match(template, /archiveIndex=\$\{archives\}/, '首屏年月索引必须复用路由已有的有限分页结果');

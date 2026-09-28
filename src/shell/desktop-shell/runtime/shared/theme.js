@@ -2,11 +2,34 @@
  * 主题外观模式管理
  */
 
+export function normalizeThemeMode(value, fallback = 'system') {
+  return ['light', 'dark', 'system'].includes(value) ? value : fallback;
+}
+
+let volatileThemeMode = null;
+
 export function resolveThemeMode() {
   const root = document.documentElement;
-  const defaultTheme = root?.dataset?.defaultTheme || 'system';
-  const savedTheme = localStorage.getItem('theme');
-  return savedTheme || defaultTheme;
+  const defaultTheme = normalizeThemeMode(root?.dataset?.defaultTheme);
+  if (volatileThemeMode !== null) return volatileThemeMode;
+  try {
+    return normalizeThemeMode(localStorage.getItem('theme'), defaultTheme);
+  } catch (_error) {
+    return defaultTheme;
+  }
+}
+
+export function persistThemeMode(mode) {
+  const themeMode = normalizeThemeMode(mode);
+  // Keep this tab usable when storage is denied or full, including after PJAX.
+  volatileThemeMode = themeMode;
+  try {
+    localStorage.setItem('theme', themeMode);
+    volatileThemeMode = null;
+  } catch (_error) {
+    // The active page can still apply the selected mode without persistence.
+  }
+  return themeMode;
 }
 
 export function prefersReducedThemeMotion() {
@@ -50,7 +73,7 @@ export function runThemeTransition(apply) {
 
 export function applyRootThemeState(mode, mediaQuery) {
   const root = document.documentElement;
-  const themeMode = mode || 'system';
+  const themeMode = normalizeThemeMode(mode);
   const isDark = themeMode === 'dark' || (themeMode === 'system' && !!mediaQuery?.matches);
 
   root.classList.remove('dark', 'light', 'system', 'color-scheme-auto', 'color-scheme-dark', 'color-scheme-light');

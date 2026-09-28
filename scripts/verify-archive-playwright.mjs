@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import {
   assertPjaxLoadingSettled,
@@ -68,6 +69,40 @@ const page = await browser.newPage();
 const cdp = await page.context().newCDPSession(page);
 await cdp.send('Network.enable');
 await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
+const pendingRequests = new Map();
+const navigationEvents = [];
+const requestEvents = [];
+const diagnosticUrl = (value) => {
+  try {
+    const url = new URL(value);
+    url.search = '';
+    url.hash = '';
+    return url.toString();
+  } catch { return String(value); }
+};
+const rememberRequest = (event) => {
+  requestEvents.push({ at: Date.now(), ...event });
+  if (requestEvents.length > 100) requestEvents.shift();
+};
+page.on('request', (request) => {
+  const item = { url: diagnosticUrl(request.url()), method: request.method(), type: request.resourceType(), startedAt: Date.now() };
+  pendingRequests.set(request, item);
+  rememberRequest({ event: 'request', ...item });
+});
+page.on('response', (response) => {
+  const request = response.request();
+  const item = pendingRequests.get(request);
+  if (item) item.status = response.status();
+  rememberRequest({ event: 'response', url: diagnosticUrl(response.url()), status: response.status() });
+});
+for (const event of ['requestfinished', 'requestfailed']) page.on(event, (request) => {
+  pendingRequests.delete(request);
+  rememberRequest({ event, url: diagnosticUrl(request.url()), error: request.failure()?.errorText || '' });
+});
+for (const event of ['domcontentloaded', 'load']) page.on(event, () => navigationEvents.push({ at: Date.now(), event, url: diagnosticUrl(page.url()) }));
+page.on('framenavigated', (frame) => {
+  if (frame === page.mainFrame()) navigationEvents.push({ at: Date.now(), event: 'framenavigated', url: diagnosticUrl(frame.url()) });
+});
 const runtimeErrors = [];
 page.on('pageerror', (error) => runtimeErrors.push(`pageerror: ${error.message}`));
 page.on('console', (message) => {
@@ -256,6 +291,30 @@ try {
 
   assert.deepEqual(runtimeErrors, [], `归档真页出现运行时错误：${runtimeErrors.join(' | ')}`);
   console.log(`归档真页验证通过：${candidate.month.key} ${candidate.month.count} 篇，分页大小 ${rootState.pageSize}`);
+} catch (error) {
+  let diagnosticTimer;
+  const documentState = await Promise.race([
+    page.evaluate(() => ({
+      url: location.origin + location.pathname,
+      readyState: document.readyState,
+      appId: document.body?.dataset.pageApp || '',
+      bootstrapError: window.__THEME_BOOTSTRAP_ERROR__ || '',
+      shellLoaded: Boolean(window.__THEME_SHELL_CORE_LOADED__),
+      alpineStarted: Boolean(window.__THEME_ALPINE_STARTED__),
+      archiveIndexComplete: document.querySelector('.archive-workspace')?.dataset.archiveIndexComplete || '',
+      scripts: [...document.scripts].filter((script) => script.src).map((script) => ({ src: new URL(script.src).origin + new URL(script.src).pathname, type: script.type, async: script.async, defer: script.defer }))
+    })).catch((failure) => ({ evaluationError: failure.message })),
+    new Promise((resolve) => {
+      diagnosticTimer = setTimeout(() => resolve({ evaluationTimedOut: true }), 2000);
+    })
+  ]).finally(() => clearTimeout(diagnosticTimer));
+  const diagnostic = { error: error.message, browserVersion: browser.version(), documentState, pendingRequests: [...pendingRequests.values()], navigationEvents, requestEvents, runtimeErrors };
+  console.error('归档失败诊断：', JSON.stringify(diagnostic, null, 2));
+  if (process.env.ARCHIVE_DIAGNOSTICS_PATH) {
+    await writeFile(process.env.ARCHIVE_DIAGNOSTICS_PATH, JSON.stringify(diagnostic, null, 2) + '\n')
+      .catch((failure) => console.error('无法保存归档失败诊断：', failure.message));
+  }
+  throw error;
 } finally {
   await browser.close();
 }

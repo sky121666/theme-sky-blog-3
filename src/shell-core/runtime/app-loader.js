@@ -1,4 +1,5 @@
-import { getAssetsForApp, getThemeAssetBase, withThemeAssetVersion } from './resource-registry.js';
+import { getAssetsForApp, getThemeAssetBase, withThemeAssetVersion, waitForResource } from './resource-registry.js';
+import { getAppAssetSegment as assetPathSegment } from './app-manifests.js';
 
 const loadedAppsCss = new Set(['']);
 const loadedAppsJs = new Set(['']);
@@ -14,21 +15,6 @@ const ASSET_STATE = Object.freeze({
 
 function normalizeAppId(value) {
   return typeof value === 'string' ? value.trim() : '';
-}
-
-function assetPathSegment(appId) {
-  switch (normalizeAppId(appId)) {
-    case 'explorer-tags':
-      return 'tags';
-    case 'explorer-categories':
-      return 'categories';
-    case 'explorer-author':
-      return 'author';
-    case 'explorer-archives':
-      return 'archives';
-    default:
-      return normalizeAppId(appId);
-  }
 }
 
 function getFallbackCssPath(appId) {
@@ -90,6 +76,14 @@ function matchesAssetUrl(elementUrl, expectedUrl, fallbackPath) {
 
   const actualPath = normalizeAssetPath(actual);
   const expectedPath = normalizeAssetPath(expected);
+  try {
+    const params = new URL(actual, window.location.origin).searchParams;
+    // Only genuinely unversioned SSR elements can use the legacy path match.
+    // An explicit but different build identity must never satisfy this gate.
+    if (params.has('v') || params.has('r')) return false;
+  } catch (_error) {
+    return false;
+  }
   return actualPath === fallbackPath && expectedPath === fallbackPath;
 }
 
@@ -173,16 +167,33 @@ function waitForAssetElement(element, assetUrl, kind) {
 export function markAppAssetsLoaded(appId) {
   const normalized = normalizeAppId(appId);
   if (!normalized) return;
+  let cssReady = false;
+  let jsReady = false;
+  const segment = assetPathSegment(normalized);
   document.querySelectorAll?.(`link[data-app-css="${normalized}"]`)?.forEach((link) => {
+    if (!matchesAssetUrl(link.href || link.getAttribute?.('href'), getFallbackCssPath(normalized),
+      `${getThemeAssetBase()}css/apps/${segment}/index.css`.replace(window.location.origin, ''))) return;
     setAssetState(link, 'css', ASSET_STATE.ready);
+    cssReady = true;
   });
   document.querySelectorAll?.(`script[data-app-script="${normalized}"]`)?.forEach((script) => {
+    let actual = script.src || script.getAttribute?.('src') || script.dataset?.src || '';
+    // The inert startup marker records the SSR URL, while bootstrap imports
+    // its manifest-versioned equivalent before importing the shell.
+    const bootstrap = window.__THEME_ASSET_IDENTITY__;
+    if (script.type === 'application/json' && script.dataset?.appScriptState === ASSET_STATE.ready
+      && bootstrap?.source === 'manifest' && actual) {
+      const imported = new URL(actual, window.location.origin);
+      imported.search = bootstrap.query;
+      actual = imported.href;
+    }
+    if (!matchesAssetUrl(actual, getFallbackJsPath(normalized),
+      `${getThemeAssetBase()}js/apps/${segment}/index.js`.replace(window.location.origin, ''))) return;
     setAssetState(script, 'js', ASSET_STATE.ready);
+    jsReady = true;
   });
-  loadedAppsCss.add(normalized);
-  loadedAppsJs.add(normalized);
-  pendingAppsCss.delete(normalized);
-  pendingAppsJs.delete(normalized);
+  if (cssReady) { loadedAppsCss.add(normalized); pendingAppsCss.delete(normalized); }
+  if (jsReady) { loadedAppsJs.add(normalized); pendingAppsJs.delete(normalized); }
 }
 
 /**
@@ -199,16 +210,17 @@ export function stageAppCssForNavigation(appId) {
   if (!normalized) return 0;
 
   const segment = assetPathSegment(normalized);
-  const fallbackPath = `${getThemeAssetBase()}css/apps/${segment}/index.css`
-    .replace(window.location.origin, '');
+  if (!segment) return 0;
+  const expectedUrl = normalizeAssetUrl(getFallbackCssPath(normalized));
   let staged = 0;
 
   document.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
     if (getAssetState(link, 'css') === ASSET_STATE.error) return;
 
-    const linkAppId = normalizeAppId(link.dataset?.appCss);
-    const linkPath = normalizeAssetPath(link.href || link.getAttribute?.('href') || '');
-    if (linkAppId !== normalized && linkPath !== fallbackPath) return;
+    // A matching app id/path alone can belong to an older build. Staging is
+    // synchronous, so use the running build's complete URL, including v + r.
+    const linkUrl = normalizeAssetUrl(link.href || link.getAttribute?.('href') || '');
+    if (linkUrl !== expectedUrl) return;
 
     link.disabled = false;
     staged += 1;
@@ -217,12 +229,13 @@ export function stageAppCssForNavigation(appId) {
   return staged;
 }
 
-export async function ensureAppCssLoaded(appId) {
+export async function ensureAppCssLoaded(appId, options = {}) {
   const normalized = normalizeAppId(appId);
   const segment = assetPathSegment(normalized);
   if (!normalized || loadedAppsCss.has(normalized)) return;
+  if (!segment) throw new Error(`Unknown app asset entry: ${normalized}`);
   if (pendingAppsCss.has(normalized)) {
-    return pendingAppsCss.get(normalized);
+    return waitForResource(pendingAppsCss.get(normalized), options);
   }
 
   const promise = (async () => {
@@ -253,15 +266,16 @@ export async function ensureAppCssLoaded(appId) {
   });
 
   pendingAppsCss.set(normalized, promise);
-  return promise;
+  return waitForResource(promise, options);
 }
 
-export async function ensureAppJsLoaded(appId) {
+export async function ensureAppJsLoaded(appId, options = {}) {
   const normalized = normalizeAppId(appId);
   const segment = assetPathSegment(normalized);
   if (!normalized || loadedAppsJs.has(normalized)) return;
+  if (!segment) throw new Error(`Unknown app asset entry: ${normalized}`);
   if (pendingAppsJs.has(normalized)) {
-    return pendingAppsJs.get(normalized);
+    return waitForResource(pendingAppsJs.get(normalized), options);
   }
 
   const promise = (async () => {
@@ -293,12 +307,16 @@ export async function ensureAppJsLoaded(appId) {
   });
 
   pendingAppsJs.set(normalized, promise);
-  return promise;
+  return waitForResource(promise, options);
 }
 
-export async function ensureAppAssetsLoaded(appId) {
+export async function ensureAppAssetsLoaded(appId, options = {}) {
   const normalized = normalizeAppId(appId);
   if (!normalized) return;
-  await ensureAppCssLoaded(normalized);
-  await ensureAppJsLoaded(normalized);
+  // Both requests start together. Navigation still waits for CSS and module
+  // execution/registrars before it replaces the live page.
+  await waitForResource(Promise.all([
+    ensureAppCssLoaded(normalized, options),
+    ensureAppJsLoaded(normalized, options)
+  ]), options);
 }

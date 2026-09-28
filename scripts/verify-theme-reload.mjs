@@ -36,6 +36,19 @@ function normalizeBaseUrl(value) {
   return String(value || 'http://localhost:8090').replace(/\/+$/, '');
 }
 
+function themePageUrl(baseUrl, routePath) {
+  const url = new URL(routePath, `${baseUrl}/`);
+  if (process.env.HALO_THEME_PREVIEW === '1') {
+    url.searchParams.set('preview-theme', readThemeName());
+  }
+  return url;
+}
+
+function verifyThemeIdentity(text, routePath) {
+  // Thymeleaf serializes script URL slashes as \/ inside inline JavaScript.
+  assertIncludes(text.replaceAll('\\/', '/'), `/themes/${readThemeName()}/assets/js/shell-core/index.js`, `${routePath} 目标主题身份`);
+}
+
 async function fetchText(url, options = {}) {
   const response = await fetch(url, options);
   const text = await response.text();
@@ -97,8 +110,7 @@ function verifyRssAlternate(text, expected, routePath) {
 }
 
 async function verifyRoute(baseUrl, route) {
-  const url = new URL(route.path, `${baseUrl}/`).toString();
-  const verifyUrl = new URL(url);
+  const verifyUrl = themePageUrl(baseUrl, route.path);
   verifyUrl.searchParams.set('_theme_reload_verify', String(Date.now()));
   const { response, text } = await fetchText(verifyUrl.toString(), {
     headers: {
@@ -115,6 +127,7 @@ async function verifyRoute(baseUrl, route) {
     throw new Error(`${route.path} 返回 ${response.status}`);
   }
 
+  verifyThemeIdentity(text, route.path);
   assertIncludes(text, `data-page-mode="${route.pageMode}"`, route.path);
   assertIncludes(text, `data-window-variant="${route.windowVariant}"`, route.path);
 
@@ -144,7 +157,7 @@ async function verifyRoute(baseUrl, route) {
     const groupHref = text.match(/href="([^"]*\/equipments\?group=[^"]+)"/)?.[1];
     if (groupHref) {
       const groupUrl = new URL(groupHref.replace(/&amp;/g, '&'), `${baseUrl}/`).toString();
-      const verifyGroupUrl = new URL(groupUrl);
+      const verifyGroupUrl = themePageUrl(baseUrl, groupUrl);
       verifyGroupUrl.searchParams.set('_theme_reload_verify', String(Date.now()));
       const { response: groupResponse, text: groupText } = await fetchText(verifyGroupUrl.toString(), {
         headers: {
@@ -155,6 +168,7 @@ async function verifyRoute(baseUrl, route) {
       if (!groupResponse.ok) {
         throw new Error(`${new URL(groupUrl).pathname}${new URL(groupUrl).search} 返回 ${groupResponse.status}`);
       }
+      verifyThemeIdentity(groupText, groupUrl);
       assertIncludes(groupText, `data-page-mode="${route.pageMode}"`, groupUrl);
       assertIncludes(groupText, `data-window-variant="${route.windowVariant}"`, groupUrl);
       assertIncludes(groupText, `data-app-id="${route.appId}"`, groupUrl);
@@ -171,7 +185,7 @@ async function waitForHome(baseUrl, timeoutMs = 30_000) {
 
   while (Date.now() - startedAt < timeoutMs) {
     try {
-      const homeUrl = new URL('/', `${baseUrl}/`);
+      const homeUrl = themePageUrl(baseUrl, '/');
       homeUrl.searchParams.set('_theme_reload_verify', String(Date.now()));
       const { response, text } = await fetchText(homeUrl.toString(), {
         headers: {
@@ -181,6 +195,7 @@ async function waitForHome(baseUrl, timeoutMs = 30_000) {
       });
 
       if (response.ok && text.includes('data-page-mode=')) {
+        verifyThemeIdentity(text, '/');
         return;
       }
       lastError = new Error(`首页状态 ${response.status}`);
@@ -241,6 +256,7 @@ async function main() {
 
   console.log(`Reloading theme: ${themeName}`);
   console.log(`Base URL: ${baseUrl}`);
+  console.log(`Verification mode: ${process.env.HALO_THEME_PREVIEW === '1' ? 'theme preview (active theme unchanged)' : 'active theme'}`);
   console.log(`PluginFeed RSS: ${pluginFeedAvailable ? 'available' : 'absent'}`);
 
   const reloadResponse = await fetch(reloadUrl, {

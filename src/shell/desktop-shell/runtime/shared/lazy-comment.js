@@ -65,16 +65,24 @@ function stopObserving(section) {
 function getObserver() {
   if (_observer) return _observer;
 
-  _observer = new IntersectionObserver((entries) => {
+  const observer = new IntersectionObserver((entries) => {
+    // A queued callback may outlive a PJAX dispose and a replacement observer.
+    if (_observer !== observer) return;
     for (const entry of entries) {
-      if (!entry.isIntersecting) continue;
       const section = entry.target;
+      if (!_observedSections.has(section)) continue;
+      if (section.isConnected === false) {
+        stopObserving(section);
+        continue;
+      }
+      if (!entry.isIntersecting) continue;
       revealCommentSection(section);
       stopObserving(section);
     }
   }, OBSERVER_OPTIONS);
 
-  return _observer;
+  _observer = observer;
+  return observer;
 }
 
 /**

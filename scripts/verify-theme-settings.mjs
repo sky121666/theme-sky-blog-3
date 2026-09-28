@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import vm from 'node:vm';
 import { pathToFileURL } from 'node:url';
 
 const root = process.cwd();
@@ -212,6 +213,23 @@ const layoutTemplate = read('templates/modules/shell/layout.html');
 const headerTemplate = read('templates/modules/shell/header.html');
 const settingsTemplate = read('templates/modules/shell/theme-settings.html');
 const settingsRuntime = read('src/shell/desktop-shell/runtime/desktop/theme-settings.js');
+const probeAccessSource = settingsRuntime.slice(
+  settingsRuntime.indexOf('    async probeAccess() {'),
+  settingsRuntime.indexOf('    async requestOpen() {')
+);
+assert(probeAccessSource.includes('this.setEntryFeedback('), '必须从真实设置 Store 提取权限错误反馈');
+const probeAccess = vm.runInNewContext(`({ ${probeAccessSource} })`).probeAccess;
+for (const [error, expectedFeedback] of [
+  [new DOMException('cancelled', 'AbortError'), '主题设置暂时无法连接，请稍后重试。'],
+  [Object.assign(new Error('配置模块加载失败，请刷新重试。'), { code: 'module-load-failed' }), '配置模块加载失败，请刷新重试。']
+]) {
+  let feedback = '';
+  const state = { authenticated: true, endpoint: '/fixture', loading: false,
+    fetchConfig: async () => { throw error; }, setEntryFeedback: (message) => { feedback = message; } };
+  assert(await probeAccess.call(state) === false, '读取配置失败必须返回 false');
+  assert(feedback === expectedFeedback, '异常代码不论数字或字符串都必须显示正确的设置反馈');
+  assert(state.loading === false, '读取失败后必须退出 loading 状态');
+}
 const themeConfigClient = read('src/shell/desktop-shell/runtime/shared/theme-config-client.js');
 const desktopSurfaceRuntime = read('src/shell/desktop-shell/runtime/desktop/surface/index.js');
 const settingsStyles = read('src/shell/desktop-shell/styles/desktop/theme-settings.css');
@@ -276,7 +294,7 @@ assert(settingsRuntime.includes('mutateThemeConfig('), '系统设置必须通过
 assert(desktopSurfaceRuntime.includes('mutateThemeConfig('), '桌面布局必须通过共享主题配置写入器保存');
 assert(themeConfigClient.includes("headers['X-XSRF-TOKEN'] = csrfToken"), '共享写入器必须回传 Halo CSRF 令牌');
 assert(themeConfigClient.includes("headers['If-Match'] = etag"), '服务端提供 ETag 时必须执行条件写入');
-assert(themeConfigClient.includes("locks.request(lockNameForEndpoint(endpoint), { mode: 'exclusive' }"), '共享写入器必须使用跨标签页独占锁');
+assert(/locks\.request\(lockNameForEndpoint\(endpoint\),\s*\{\s*mode: 'exclusive',\s*\.\.\.\(signal \? \{ signal \} : \{\}\)/.test(themeConfigClient), '共享写入器必须使用可取消的跨标签页独占锁');
 assert(themeConfigClient.includes('Theme config request timed out'), '主题配置读取和写入必须有截止时间');
 assert(themeConfigClient.includes('response.redirected'), '共享写入器必须拒绝登录重定向假成功');
 assert(settingsRuntime.includes('rebaseThemeSettingsDraftAfterSave('), '保存期间的新编辑必须重放到新基线');

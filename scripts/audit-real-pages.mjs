@@ -1,12 +1,16 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from 'playwright';
+import { createPerformanceAccumulator, installPerformanceObservers, layoutStabilityFailures } from './lib/performance-metrics.mjs';
 
 const root = process.cwd();
 const baseUrl = (process.env.AUDIT_BASE_URL || process.env.SMOKE_BASE_URL || process.env.HALO_BASE_URL || 'http://localhost:8090').replace(/\/$/, '');
 const outputDir = path.join(root, 'output', 'audit');
 const localAssetManifestFile = path.join(root, 'templates', 'assets', 'asset-manifest.json');
 const requirePluginRoutes = /^(?:1|true)$/i.test(String(process.env.AUDIT_REQUIRE_PLUGIN_ROUTES || '').trim());
+// A repeatable laboratory regression gate, not a claim about field p75.
+// https://web.dev/articles/cls#what_is_a_good_cls_score
+const maxSampleCls = 0.1;
 const knownStaleContentUrls = new Set([
   'http://192.168.1.23:8090/upload/5BB751C4-JdQx.JPEG',
   'http://192.168.1.23:8090/upload/2E3462BD-FtZg.jpeg',
@@ -16,11 +20,11 @@ const knownStaleContentUrls = new Set([
 
 const routes = [
   { name: 'home', target: '/', required: true, focus: 'Dock / Header / widgets / theme' },
-  { name: 'links', target: '/links', required: requirePluginRoutes, focus: 'LCP / CLS / TBT / comment and link assistant resources' },
-  { name: 'douban', target: '/douban', required: requirePluginRoutes, focus: 'LCP / CLS / TBT / image and public API resources' },
-  { name: 'steam', target: '/steam', required: requirePluginRoutes, focus: 'LCP / CLS / TBT / heatmap and API resources' },
-  { name: 'docs', target: '/docs', required: requirePluginRoutes, focus: 'LCP / CLS / TBT / Shiki and comment resources' },
-  { name: 'equipments', target: '/equipments', required: requirePluginRoutes, focus: 'LCP / CLS / TBT / image loading' },
+  { name: 'links', target: '/links', required: requirePluginRoutes, focus: 'LCP / CLS / FCP-window blocking / comment and link assistant resources' },
+  { name: 'douban', target: '/douban', required: requirePluginRoutes, focus: 'LCP / CLS / FCP-window blocking / image and public API resources' },
+  { name: 'steam', target: '/steam', required: requirePluginRoutes, focus: 'LCP / CLS / FCP-window blocking / heatmap and API resources' },
+  { name: 'docs', target: '/docs', required: requirePluginRoutes, focus: 'LCP / CLS / FCP-window blocking / Shiki and comment resources' },
+  { name: 'equipments', target: '/equipments', required: requirePluginRoutes, focus: 'LCP / CLS / FCP-window blocking / image loading' },
   { name: 'moments', target: '/moments', required: requirePluginRoutes, focus: 'media / comments / notifications / Shiki resources' },
   { name: 'photos', target: '/photos', required: requirePluginRoutes, focus: 'image viewer / layout / lazy images' },
   { name: 'editor-plugins', target: '/archives/editor-feature-demo', required: requirePluginRoutes, focus: 'Vote / Hyperlink Card / LightGallery / Shiki runtime' },
@@ -117,7 +121,7 @@ function isIgnoredRequestFailure(entry) {
 }
 
 function round(value) {
-  return Number.isFinite(value) ? Math.round(value) : 0;
+  return Number.isFinite(value) ? Math.round(value) : null;
 }
 
 function formatBytes(bytes) {
@@ -183,7 +187,7 @@ function renderMarkdown(report) {
     const runtimeErrorCount = page.consoleErrors.filter((entry) => !isKnownStaleContentResourceError(entry)).length
       + (page.pageErrors?.length || 0)
       + (page.requestFailures?.length || 0);
-    return `| ${page.name} | ${page.status} | ${page.metrics.lcp} | ${page.metrics.cls} | ${page.metrics.tbt} | ${page.metrics.resourceCount} | ${images} | ${resources} | ${runtimeErrorCount} | ${ignoredContentWarningCount} |`;
+    return `| ${page.name} | ${page.status} | ${page.metrics.lcp ?? '—'} | ${Number.isFinite(page.metrics.cls) ? Number(page.metrics.cls.toFixed(4)) : '—'} | ${page.metrics.blockingTimeAfterFcp ?? '—'} | ${page.metrics.inp ?? '—'} | ${page.metrics.sample?.observedInteractionCount ?? 0} | ${page.metrics.resourceCount} | ${images} | ${resources} | ${runtimeErrorCount} | ${ignoredContentWarningCount} | ${page.excludedRequestFailures?.length || 0} |`;
   }).join('\n');
 
   const resourceRows = watchedResources.map((resource) => `| ${resource.key} | ${resource.allowed} |`).join('\n');
@@ -195,11 +199,17 @@ function renderMarkdown(report) {
     `- Base URL: ${report.baseUrl}`,
     `- Assets revision: ${report.assetRevision?.version || '-'} / ${report.assetRevision?.revision || '-'}`,
     `- Generated at: ${report.generatedAt}`,
+    `- Browser: ${report.sampling.browser}; viewport: ${report.sampling.viewport.width}×${report.sampling.viewport.height}; cache: ${report.sampling.cache}`,
+    '- 采样：无 CPU/网络限速；DOMContentLoaded 后等待 networkidle（最多 8 秒）再观察 800ms；未主动执行交互。',
+    '- CLS 使用最大会话窗口。阻塞时间仅覆盖 FCP 到采样结束，不等于 Lighthouse 的 FCP 到 TTI TBT。',
+    '- INP 只描述实际观察到的交互；无样本或浏览器不支持时为 —，不能解释为 0。所有值均不是完整访问周期或真实用户分位数。',
+    '- 排除的网络失败仍完整保存在 JSON：ERR_ABORTED 的取消原因未被证实，不能视为页面零错误；已登记旧图片地址与运行时错误分别计数。',
+    `- 本地布局稳定性门槛：每页采样 CLS ≤ ${maxSampleCls}，缺测也不记作通过；这不等于真实用户第 75 百分位达标。`,
     '',
     '## 页面结果',
     '',
-    '| 页面 | 状态 | LCP(ms) | CLS | TBT(ms) | Resource | Lazy Images | 命中资源 | Runtime Error | Content Warning |',
-    '| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |',
+    '| 页面 | 状态 | LCP(ms) | CLS | FCP后阻塞(ms) | INP(ms) | 交互样本数 | Resource | Lazy Images | 命中资源 | Runtime Error | Content Warning | Excluded Network |',
+    '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: |',
     rows,
     '',
     '## 资源边界',
@@ -218,9 +228,16 @@ function renderMarkdown(report) {
 }
 
 async function auditRoute(page, route) {
+  const pendingRequests = new Map();
+  const onRequest = (request) => pendingRequests.set(request, { url: request.url(), type: request.resourceType(), startedAt: Date.now() });
+  const onRequestDone = (request) => pendingRequests.delete(request);
+  page.on('request', onRequest);
+  page.on('requestfinished', onRequestDone);
+  page.on('requestfailed', onRequestDone);
   const consoleErrors = [];
   const pageErrors = [];
   const requestFailures = [];
+  const excludedRequestFailures = [];
   const resourceMap = Object.fromEntries(watchedResources.map((resource) => [resource.key, []]));
 
   const onConsole = (message) => {
@@ -255,7 +272,14 @@ async function auditRoute(page, route) {
       url: request.url(),
       errorText: String(request.failure()?.errorText || 'unknown request failure')
     };
-    if (!isIgnoredRequestFailure(entry)) requestFailures.push(entry);
+    if (isIgnoredRequestFailure(entry)) {
+      excludedRequestFailures.push({
+        ...entry,
+        reason: /net::ERR_ABORTED/i.test(entry.errorText)
+          ? 'request aborted; cancellation cause unverified'
+          : 'registered stale content URL'
+      });
+    } else requestFailures.push(entry);
   };
 
   page.on('console', onConsole);
@@ -274,14 +298,17 @@ async function auditRoute(page, route) {
     const metrics = await page.evaluate(() => {
       const nav = performance.getEntriesByType('navigation')[0];
       const paints = performance.getEntriesByType('paint');
-      const audit = window.__themeAuditMetrics || {};
+      const audit = window.__themeAuditMetrics?.snapshot?.() || {};
       return {
         domContentLoaded: nav ? nav.domContentLoadedEventEnd - nav.startTime : 0,
         load: nav ? nav.loadEventEnd - nav.startTime : 0,
         firstPaint: paints.find((entry) => entry.name === 'first-paint')?.startTime || 0,
-        lcp: audit.lcp || 0,
-        cls: audit.cls || 0,
-        tbt: audit.tbt || 0,
+        lcp: audit.lcp ?? null,
+        cls: audit.cls ?? null,
+        fcp: audit.fcp ?? null,
+        blockingTimeAfterFcp: audit.blockingTimeAfterFcp ?? null,
+        inp: audit.inp ?? null,
+        sample: audit.sample || null,
         resourceCount: performance.getEntriesByType('resource').length
       };
     });
@@ -317,32 +344,46 @@ async function auditRoute(page, route) {
         load: round(metrics.load),
         firstPaint: round(metrics.firstPaint),
         lcp: round(metrics.lcp),
-        cls: Number(metrics.cls.toFixed(4)),
-        tbt: round(metrics.tbt),
+        cls: Number.isFinite(metrics.cls) ? metrics.cls : null,
+        fcp: round(metrics.fcp),
+        blockingTimeAfterFcp: round(metrics.blockingTimeAfterFcp),
+        inp: round(metrics.inp),
+        sample: metrics.sample,
         resourceCount: metrics.resourceCount
       },
       protocol,
       watchedResources: resourceMap,
       consoleErrors,
       pageErrors,
-      requestFailures
+      requestFailures,
+      excludedRequestFailures
     };
   } catch (error) {
+    const documentState = await Promise.race([
+      page.evaluate(() => ({ url: location.href, readyState: document.readyState, title: document.title })).catch(() => null),
+      new Promise((resolve) => setTimeout(() => resolve(null), 2000))
+    ]);
     return {
       name: route.name,
       target: route.target,
       focus: route.focus,
       status: 'failed',
       url: '',
-      metrics: { domContentLoaded: 0, load: 0, firstPaint: 0, lcp: 0, cls: 0, tbt: 0, resourceCount: 0 },
+      metrics: { domContentLoaded: null, load: null, firstPaint: null, lcp: null, cls: null, fcp: null, blockingTimeAfterFcp: null, inp: null, sample: null, resourceCount: 0 },
       protocol: {},
       watchedResources: resourceMap,
       consoleErrors,
       pageErrors,
       requestFailures,
+      excludedRequestFailures,
+      documentState,
+      pendingRequests: [...pendingRequests.values()].map(({ startedAt, ...request }) => ({ ...request, elapsedMs: Date.now() - startedAt })),
       error: String(error?.message || error)
     };
   } finally {
+    page.off('request', onRequest);
+    page.off('requestfinished', onRequestDone);
+    page.off('requestfailed', onRequestDone);
     page.off('console', onConsole);
     page.off('response', onResponse);
     page.off('pageerror', onPageError);
@@ -358,39 +399,27 @@ async function main() {
     viewport: { width: 1440, height: 960 },
     userAgent: realChromeUserAgent(browser)
   });
-  await context.addInitScript(() => {
-    window.__themeAuditMetrics = { lcp: 0, cls: 0, tbt: 0 };
-    try {
-      new PerformanceObserver((list) => {
-        const entries = list.getEntries();
-        const last = entries[entries.length - 1];
-        if (last) window.__themeAuditMetrics.lcp = last.startTime;
-      }).observe({ type: 'largest-contentful-paint', buffered: true });
-    } catch {}
-    try {
-      new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) {
-          if (!entry.hadRecentInput) window.__themeAuditMetrics.cls += entry.value;
-        }
-      }).observe({ type: 'layout-shift', buffered: true });
-    } catch {}
-    try {
-      new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) {
-          window.__themeAuditMetrics.tbt += Math.max(0, entry.duration - 50);
-        }
-      }).observe({ type: 'longtask', buffered: true });
-    } catch {}
-  });
+  await context.addInitScript({ content: `(${installPerformanceObservers.toString()})(${createPerformanceAccumulator.toString()});` });
   const cdpPage = await context.newPage();
   const cdp = await context.newCDPSession(cdpPage);
   await cdp.send('Network.enable');
   await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
 
   const report = {
+    schemaVersion: 2,
     baseUrl,
     generatedAt: new Date().toISOString(),
     assetRevision,
+    sampling: {
+      browser: `Chromium ${browser.version()}`,
+      viewport: { width: 1440, height: 960 },
+      cache: 'disabled via CDP',
+      cpuThrottle: 1,
+      networkThrottle: 'none',
+      scenario: 'passive page load, no scripted interactions',
+      settle: { navigation: 'domcontentloaded', networkIdleTimeoutMs: 8000, additionalObservationMs: 800 },
+      metricScope: 'sample window, not field data; blockingTimeAfterFcp is not Lighthouse TBT'
+    },
     pages: []
   };
 
@@ -398,6 +427,11 @@ async function main() {
     report.pages.push(await auditRoute(cdpPage, route));
   }
   report.resourceFindings = buildResourceFindings(report.pages);
+  report.performanceGate = {
+    scope: 'Laboratory load-window regression only; not field p75 or full lifecycle',
+    maxSampleCls,
+    failures: layoutStabilityFailures(report.pages, maxSampleCls)
+  };
 
   await browser.close();
   const files = await writeReport(report);
@@ -420,6 +454,10 @@ async function main() {
   }
   if (runtimeErrors.length > 0 || pluginResourceErrors.length > 0) {
     console.error(`插件运行时审计失败: runtime=${runtimeErrors.map((page) => page.name).join(', ') || '-'}, resource=${pluginResourceErrors.length}`);
+    process.exit(1);
+  }
+  if (report.performanceGate.failures.length > 0) {
+    console.error(`布局稳定性回归失败: ${report.performanceGate.failures.map(({ page, cls }) => `${page}(${cls ?? 'unavailable'})`).join(', ')}`);
     process.exit(1);
   }
 }

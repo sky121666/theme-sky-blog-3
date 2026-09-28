@@ -1,6 +1,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from 'playwright';
+import { collectBrowserRuntimeErrors, runtimeErrorMessages, installReadOnlyGuard } from './lib/browser-runtime-errors.mjs';
+import { readLiveBuildContext } from './lib/live-build-context.mjs';
 
 const root = process.cwd();
 const outputDir = path.join(root, 'output', 'playwright');
@@ -36,7 +38,7 @@ function isCodeLike(content = {}) {
 
 async function fetchJson(target) {
   const response = await fetch(absoluteUrl(target), {
-    headers: { Accept: 'application/json' }
+    headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(15000), redirect: 'error'
   });
   if (!response.ok) {
     throw new Error(`${target} returned HTTP ${response.status}`);
@@ -152,13 +154,13 @@ async function clickMomentLink(page, pathname) {
 
 async function inspectPage(pathname) {
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
-  const consoleErrors = [];
-  page.on('console', (message) => {
-    if (message.type() === 'error') {
-      consoleErrors.push(message.text());
-    }
-  });
+  let runtimeErrors;
+  try {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 960 }, serviceWorkers: 'block' });
+  const blockedWrites = [];
+  await installReadOnlyGuard(context, blockedWrites);
+  const page = await context.newPage();
+  runtimeErrors = collectBrowserRuntimeErrors(page);
 
   await page.goto(absoluteUrl('/moments'), { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(600);
@@ -173,6 +175,23 @@ async function inspectPage(pathname) {
     const panel = card.querySelector('[data-moment-comments-panel]');
     return !panel?.classList.contains('is-loading');
   }, null, { timeout: 5000 }).catch(() => {});
+
+  // Detail pages use the theme's custom read-only list and composer. The
+  // hidden official host is a fallback, not the primary visibility assertion.
+  const customCard = page.locator('[data-moment-detail-comments="true"]');
+  let composerOpened = false;
+  if (await customCard.count()) {
+    await customCard.scrollIntoViewIfNeeded();
+    const commentsToggle = customCard.locator('[data-moment-comments-toggle]');
+    if (await commentsToggle.count()) {
+      await customCard.locator('[data-moment-action-toggle]').click();
+      await commentsToggle.click();
+      const composer = customCard.locator('[data-moment-comment-form]');
+      await composer.waitFor({ state: 'visible', timeout: 5000 });
+      await composer.scrollIntoViewIfNeeded();
+      composerOpened = true;
+    }
+  }
 
   const result = await page.evaluate(() => ({
     url: window.location.href,
@@ -190,12 +209,21 @@ async function inspectPage(pathname) {
     commentShell: Boolean(document.querySelector('.moment-comments-shell')),
     visibleCommentText: document.body.innerText.includes('评论'),
     renderedCommentCount: document.querySelectorAll('[data-moment-comment]').length,
+    visibleCommentCount: Array.from(document.querySelectorAll('[data-moment-comment]')).filter((node) => {
+      const rect = node.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0 && node.checkVisibility({ visibilityProperty: true, opacityProperty: true })
+        && node.textContent.trim().length > 0;
+    }).length,
     commentsLoading: Boolean(document.querySelector('[data-moment-comments-panel].is-loading')),
     commentStatus: document.querySelector('[data-moment-comments-status]')?.textContent?.trim() || ''
   }));
 
-  await browser.close();
-  return { ...result, usedPjax, consoleErrors };
+  const errors = runtimeErrors.snapshot();
+  return { ...result, usedPjax, composerOpened, ...errors, blockedWrites };
+  } finally {
+    runtimeErrors?.stop();
+    await browser.close();
+  }
 }
 
 async function writeReport(report) {
@@ -206,7 +234,7 @@ async function writeReport(report) {
 }
 
 function assertMomentPage(result, label) {
-  const failures = [];
+  const failures = runtimeErrorMessages(result).map((message) => `${label}: ${message}`);
   if (result.mode !== 'browser-moments') failures.push(`${label}: pageMode=${result.mode}`);
   if (result.appId !== 'moments') failures.push(`${label}: appId=${result.appId}`);
   if (result.windowVariant !== 'moments') failures.push(`${label}: windowVariant=${result.windowVariant}`);
@@ -283,6 +311,7 @@ function printCheckHints(checks) {
 }
 
 async function main() {
+  const buildContext = await readLiveBuildContext(baseUrl);
   const moments = await discoverMoments();
   const codeMoment = explicitCodePath
     ? findMomentByPath(moments, explicitCodePath)
@@ -295,6 +324,7 @@ async function main() {
   const commentPath = explicitCommentPath || toMomentPath(commentMoment);
   const report = {
     baseUrl,
+    buildContext,
     totalMoments: moments.length,
     discovery: {
       codeCandidates: moments
@@ -360,6 +390,10 @@ async function main() {
     } else if (expectedApprovedComment && result.renderedCommentCount < Math.min(expectedApprovedComment, 10)) {
       checkFailures.push(`comment sample: rendered ${result.renderedCommentCount}, expected at least ${Math.min(expectedApprovedComment, 10)}`);
     }
+    if (expectedApprovedComment && result.visibleCommentCount < Math.min(expectedApprovedComment, 10)) {
+      checkFailures.push(`comment sample: only ${result.visibleCommentCount} comments are visibly rendered`);
+    }
+    if (!result.composerOpened) checkFailures.push('comment sample: custom composer was not opened and observed');
     failures.push(...checkFailures);
     report.checks.push({
       name: 'comment-sample',
@@ -381,6 +415,9 @@ async function main() {
     report.checks.push(skippedCheck('comment-sample', 'No Moments item with approved comments was found.'));
   }
 
+  report.finalBuildContext = await readLiveBuildContext(baseUrl);
+  if (report.finalBuildContext.sourceFingerprint !== buildContext.sourceFingerprint) failures.push('source/build changed during Moments validation');
+  report.failures = failures;
   const reportFile = await writeReport(report);
   if (failures.length > 0) {
     console.error('Moments verification failed:');

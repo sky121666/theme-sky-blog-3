@@ -176,6 +176,68 @@ assert.deepEqual(explorer.sortedGames().map((game) => game.appId), ['20', '30', 
 
 const originalFetch = globalThis.fetch;
 const originalDomParser = globalThis.DOMParser;
+const originalWindow = globalThis.window;
+const originalIntersectionObserver = globalThis.IntersectionObserver;
+
+function createHeatmapFixture() {
+  const model = explorerFactory();
+  const summary = { textContent: '' };
+  const grid = { innerHTML: '' };
+  const panel = {
+    dataset: { steamHeatmapDays: '28' },
+    style: { setProperty() {} },
+    querySelector(selector) {
+      if (selector === '[data-steam-heatmap-summary]') return summary;
+      if (selector === '[data-steam-heatmap-grid]') return grid;
+      return null;
+    }
+  };
+  model.$root = { isConnected: true, querySelector: (selector) => selector === '.steam-heatmap-panel' ? panel : null };
+  return { model, panel, summary, grid };
+}
+
+function recordPage(url, { overlap = false } = {}) {
+  const parsed = new URL(url, 'https://halo.test');
+  const page = Number(parsed.searchParams.get('page'));
+  const date = parsed.searchParams.get('endDate');
+  const indexes = page === 1 ? Array.from({ length: 28 }, (_, index) => index + 1) : overlap ? [28, 29] : [29];
+  return {
+    page, size: 28, total: 29,
+    items: indexes.map((appId) => ({
+      metadata: { name: `record-${appId}` },
+      spec: { date, appId, steamId: 'fixture-steam', gameName: `游戏${appId}`, playtimeMinutes: 10 }
+    }))
+  };
+}
+
+function jsonResponse(data) {
+  return { ok: true, status: 200, json: async () => data };
+}
+
+function createLifecycleFixture() {
+  const queued = [];
+  const watched = [];
+  const counts = { added: 0, removed: 0 };
+  const scroller = {
+    scrollHeight: 2000, scrollTop: 0, clientHeight: 500,
+    addEventListener: () => { counts.added += 1; },
+    removeEventListener: () => { counts.removed += 1; }
+  };
+  const model = explorerFactory();
+  model.$root = {
+    isConnected: true,
+    dataset: {},
+    querySelectorAll: () => [],
+    querySelector(selector) {
+      if (selector === '[data-steam-scroll-sentinel]') return {};
+      if (selector === '.steam-main-scroll') return scroller;
+      return null;
+    }
+  };
+  model.$watch = (_name, callback) => watched.push(callback);
+  model.$nextTick = (callback) => queued.push(callback);
+  return { model, queued, watched, counts };
+}
 
 try {
   const paginationExplorer = explorerFactory();
@@ -244,6 +306,138 @@ try {
   assert.match(summary.textContent, /暂不可用/);
   assert.match(grid.innerHTML, /class="is-0"/, 'failed heatmap should keep a stable empty-grid fallback');
 
+  // S1: 29 game records in a 28-day window require two pages, even without hasNext.
+  const pagedHeatmap = createHeatmapFixture();
+  const heatmapPages = [];
+  globalThis.fetch = async (url) => {
+    heatmapPages.push(Number(new URL(url, 'https://halo.test').searchParams.get('page')));
+    return jsonResponse(recordPage(url, { overlap: true }));
+  };
+  await pagedHeatmap.model.renderHeatmap();
+  assert.deepEqual(heatmapPages, [1, 2]);
+  assert.equal(pagedHeatmap.panel.dataset.steamHeatmapState, 'ready');
+  assert.match(pagedHeatmap.summary.textContent, /1 天.*4 小时 50 分钟/);
+  assert.match(pagedHeatmap.grid.innerHTML, /290 分钟/, 'records of different games on the same date must be added');
+
+  const partialHeatmap = createHeatmapFixture();
+  globalThis.fetch = async (url) => Number(new URL(url, 'https://halo.test').searchParams.get('page')) === 2
+    ? { ok: false, status: 503 }
+    : jsonResponse(recordPage(url));
+  await partialHeatmap.model.renderHeatmap();
+  assert.equal(partialHeatmap.panel.dataset.steamHeatmapState, 'unavailable');
+  assert.doesNotMatch(partialHeatmap.grid.innerHTML, /class="is-[1-4]"/, 'a later-page failure must not publish partial totals');
+  assert.equal(partialHeatmap.model._heatmapLoaded, false, 'a failed batch should be retryable');
+  globalThis.fetch = async (url) => jsonResponse(recordPage(url));
+  await partialHeatmap.model.renderHeatmap();
+  assert.equal(partialHeatmap.panel.dataset.steamHeatmapState, 'ready');
+  assert.match(partialHeatmap.summary.textContent, /4 小时 50 分钟/);
+
+  const incompleteHeatmap = createHeatmapFixture();
+  globalThis.fetch = async (url) => {
+    const data = recordPage(url);
+    if (data.page === 2) data.items = [];
+    return jsonResponse(data);
+  };
+  await incompleteHeatmap.model.renderHeatmap();
+  assert.equal(incompleteHeatmap.panel.dataset.steamHeatmapState, 'unavailable', 'an incomplete final page cannot be reported as ready');
+
+  const inconsistentHeatmap = createHeatmapFixture();
+  let inconsistentRequests = 0;
+  globalThis.fetch = async (url) => {
+    inconsistentRequests += 1;
+    assert(inconsistentRequests <= 3, 'an inconsistent endpoint must not cause an unbounded request loop');
+    const data = recordPage(url);
+    return jsonResponse({
+      ...data, total: 1, hasNext: true,
+      items: [{ ...data.items[0], metadata: { name: `always-new-${inconsistentRequests}` } }]
+    });
+  };
+  await inconsistentHeatmap.model.renderHeatmap();
+  assert.equal(inconsistentRequests, 1, 'total=1 and hasNext=true must be rejected on the first page');
+  assert.equal(inconsistentHeatmap.panel.dataset.steamHeatmapState, 'unavailable');
+  assert.equal(inconsistentHeatmap.model._heatmapLoaded, false);
+  assert.doesNotMatch(inconsistentHeatmap.grid.innerHTML, /class="is-[1-4]"/);
+
+  const cancelledHeatmap = createHeatmapFixture();
+  let finishSecondPage;
+  let secondPageSignal;
+  globalThis.fetch = async (url, options) => {
+    const data = recordPage(url);
+    if (data.page === 1) return jsonResponse(data);
+    secondPageSignal = options.signal;
+    return new Promise((resolve) => { finishSecondPage = () => resolve(jsonResponse(data)); });
+  };
+  const pendingHeatmap = cancelledHeatmap.model.renderHeatmap();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(typeof finishSecondPage, 'function');
+  cancelledHeatmap.model.destroy();
+  assert.equal(secondPageSignal.aborted, true);
+  finishSecondPage();
+  await pendingHeatmap;
+  assert.equal(cancelledHeatmap.grid.innerHTML, '', 'late page results must not update a disposed heatmap');
+  assert.equal(cancelledHeatmap.summary.textContent, '');
+
+  // S2: init/switchView/pagination callbacks must not install resources after disposal.
+  let observerCount = 0;
+  globalThis.IntersectionObserver = class {
+    constructor() { observerCount += 1; }
+    observe() {}
+    disconnect() {}
+  };
+  globalThis.window = { IntersectionObserver: globalThis.IntersectionObserver };
+  const queuedInit = createLifecycleFixture();
+  queuedInit.model.init();
+  queuedInit.model.destroy();
+  queuedInit.queued.splice(0).forEach((callback) => callback());
+  queuedInit.model.installInfiniteLoader();
+  assert.equal(observerCount, 0);
+  assert.equal(queuedInit.counts.added, 0, 'destroyed init callbacks must not add scroll listeners');
+
+  const queuedView = createLifecycleFixture();
+  queuedView.model.switchView('library');
+  queuedView.model.destroy();
+  queuedView.queued.splice(0).forEach((callback) => callback());
+  assert.equal(observerCount, 0);
+  assert.equal(queuedView.counts.added, 0);
+
+  const reinitialized = createLifecycleFixture();
+  reinitialized.model.init();
+  const oldInit = reinitialized.queued.shift();
+  reinitialized.model.destroy();
+  reinitialized.model.init();
+  oldInit();
+  assert.equal(observerCount, 0, 'callbacks from an earlier initialization must not revive in a new generation');
+  reinitialized.queued.shift()();
+  assert.equal(observerCount, 1, 'the current generation must still install its loader');
+  assert.equal(reinitialized.counts.added, 1);
+  let orderingCount = 0;
+  reinitialized.model.applyGameOrdering = () => { orderingCount += 1; };
+  reinitialized.watched[0]();
+  reinitialized.watched[1]();
+  assert.equal(orderingCount, 1, 'only the current generation sort watcher may update cards');
+
+  const detached = createLifecycleFixture();
+  detached.model.init();
+  detached.model.$root.isConnected = false;
+  detached.queued.shift()();
+  assert.equal(observerCount, 1, 'a detached root must not receive new observers');
+
+  const queuedPagination = createLifecycleFixture();
+  queuedPagination.model.activeView = 'library';
+  queuedPagination.model.hasMore = true;
+  queuedPagination.model.nextUrl = '/steam/page/2';
+  queuedPagination.model.appendCards = () => {};
+  globalThis.fetch = async () => ({ ok: true, text: async () => '<html></html>' });
+  globalThis.DOMParser = class {
+    parseFromString() { return { querySelectorAll: () => [{}], querySelector: () => null }; }
+  };
+  await queuedPagination.model.loadNext();
+  let fallbackChecks = 0;
+  queuedPagination.model.checkScrollFallback = () => { fallbackChecks += 1; };
+  queuedPagination.model.destroy();
+  queuedPagination.queued.splice(0).forEach((callback) => callback());
+  assert.equal(fallbackChecks, 0, 'queued pagination follow-ups must check their captured lifecycle');
+
   const lifecycleExplorer = explorerFactory();
   const heatmapController = new AbortController();
   const paginationController = new AbortController();
@@ -265,6 +459,10 @@ try {
   assert.equal(removeCount, 1, 'PJAX disposal should remove the scroll fallback listener');
 } finally {
   globalThis.fetch = originalFetch;
+  if (originalWindow === undefined) delete globalThis.window;
+  else globalThis.window = originalWindow;
+  if (originalIntersectionObserver === undefined) delete globalThis.IntersectionObserver;
+  else globalThis.IntersectionObserver = originalIntersectionObserver;
   if (originalDomParser === undefined) {
     delete globalThis.DOMParser;
   } else {

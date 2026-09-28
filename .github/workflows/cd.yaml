@@ -15,4 +15,5 @@ jobs:
     with:
       app-id: app-gqnoxtpt
       skip-appstore-release: false
-      node-version: 24
+      node-version: 24.21.0
+      pnpm-version: 12.5.1

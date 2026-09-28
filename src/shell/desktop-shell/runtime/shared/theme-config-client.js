@@ -79,22 +79,35 @@ function createTimedSignal(parentSignal, timeoutMs) {
   };
 }
 
-async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_THEME_CONFIG_TIMEOUT) {
+// Keep the deadline and parent cancellation alive until the response body has
+// been consumed. fetch() alone settles as soon as response headers arrive.
+async function fetchWithTimeout(url, options, timeoutMs, consume) {
   const timed = createTimedSignal(options.signal, timeoutMs);
+  let onAbort;
   try {
-    return await fetch(url, {
-      ...options,
-      signal: timed.signal
+    timed.signal.throwIfAborted();
+    const aborted = new Promise((_resolve, reject) => {
+      onAbort = () => reject(timed.signal.reason);
+      timed.signal.addEventListener('abort', onAbort, { once: true });
     });
+    const request = (async () => {
+      const response = await fetch(url, { ...options, signal: timed.signal });
+      timed.signal.throwIfAborted();
+      return consume(response, timed.signal);
+    })();
+    return await Promise.race([request, aborted]);
   } catch (error) {
     if (timed.didTimeout()) {
-      throw createRequestError('主题配置请求超时，请检查网络后重试', {
+      throw createRequestError(options.method === 'PUT'
+        ? '保存请求超时，结果尚未确认，请重新读取配置后再保存'
+        : '主题配置请求超时，请检查网络后重试', {
         code: 'timeout',
         cause: error
       });
     }
     throw error;
   } finally {
+    if (onAbort) timed.signal.removeEventListener('abort', onAbort);
     timed.cleanup();
   }
 }
@@ -117,19 +130,23 @@ function lockNameForEndpoint(endpoint) {
   }
 }
 
-async function withCrossTabLock(endpoint, task) {
+async function withCrossTabLock(endpoint, task, signal) {
+  signal?.throwIfAborted();
   const locks = globalThis.navigator?.locks;
   if (!locks || typeof locks.request !== 'function') {
     return task();
   }
-  return locks.request(lockNameForEndpoint(endpoint), { mode: 'exclusive' }, task);
+  return locks.request(lockNameForEndpoint(endpoint), {
+    mode: 'exclusive',
+    ...(signal ? { signal } : {})
+  }, task);
 }
 
-function enqueueMutation(endpoint, task) {
+function enqueueMutation(endpoint, task, signal) {
   const previous = mutationQueues.get(endpoint) || Promise.resolve();
   const current = previous
     .catch(() => undefined)
-    .then(() => withCrossTabLock(endpoint, task));
+    .then(() => withCrossTabLock(endpoint, task, signal));
   const tail = current.then(
     () => undefined,
     () => undefined
@@ -180,28 +197,25 @@ export async function readThemeConfig(endpoint, {
   timeoutMs = DEFAULT_THEME_CONFIG_TIMEOUT
 } = {}) {
   const normalizedEndpoint = normalizeEndpoint(endpoint);
-  const response = await fetchWithTimeout(normalizedEndpoint, {
+  return fetchWithTimeout(normalizedEndpoint, {
     credentials: 'include',
     headers: {
       Accept: 'application/json'
     },
     signal
-  }, timeoutMs);
-  validateReadResponse(response);
-  let config;
-  try {
-    config = await response.json();
-  } catch (error) {
-    throw createRequestError('主题配置接口返回了无法解析的 JSON', {
-      code: 'invalid-response',
-      response,
-      cause: error
-    });
-  }
-  return {
-    config,
-    response
-  };
+  }, timeoutMs, async (response, timedSignal) => {
+    validateReadResponse(response);
+    try {
+      const config = await response.json();
+      timedSignal.throwIfAborted();
+      return { config, response };
+    } catch (error) {
+      if (timedSignal.aborted) throw timedSignal.reason;
+      throw createRequestError('主题配置接口返回了无法解析的 JSON', {
+        code: 'invalid-response', response, cause: error
+      });
+    }
+  });
 }
 
 export async function mutateThemeConfig(endpoint, mutate, {
@@ -236,36 +250,37 @@ export async function mutateThemeConfig(endpoint, mutate, {
       headers['If-Match'] = etag;
     }
 
-    const response = await fetchWithTimeout(normalizedEndpoint, {
+    return fetchWithTimeout(normalizedEndpoint, {
       method: 'PUT',
       credentials: 'include',
       headers,
       body: JSON.stringify(nextConfig),
       signal
-    }, timeoutMs);
-    validateWriteResponse(response);
+    }, timeoutMs, async (response, timedSignal) => {
+      validateWriteResponse(response);
 
-    let responsePayload = null;
-    if (response.status !== 204) {
-      try {
-        responsePayload = await response.json();
-      } catch (error) {
-        throw createRequestError('保存接口返回了无法解析的 JSON，无法确认配置已经写入', {
-          code: 'invalid-response',
-          response,
-          cause: error
-        });
+      let responsePayload = null;
+      if (response.status !== 204) {
+        try {
+          responsePayload = await response.json();
+        } catch (error) {
+          if (timedSignal.aborted) throw timedSignal.reason;
+          throw createRequestError('保存接口返回了无法解析的 JSON，无法确认配置已经写入', {
+            code: 'invalid-response', response, cause: error
+          });
+        }
       }
-    }
+      timedSignal.throwIfAborted();
 
-    return {
-      previousConfig: currentConfig,
-      config: nextConfig,
-      requestedConfig: nextConfig,
-      responsePayload,
-      response
-    };
-  });
+      return {
+        previousConfig: currentConfig,
+        config: nextConfig,
+        requestedConfig: nextConfig,
+        responsePayload,
+        response
+      };
+    });
+  }, signal);
 }
 
 export { DEFAULT_THEME_CONFIG_TIMEOUT };

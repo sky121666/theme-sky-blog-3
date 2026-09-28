@@ -1,6 +1,8 @@
 import { loadWidgetRenderer } from '../../../../widgets/loaders.js';
 import { escapeHtml } from '../shared/utils.js';
 import { normalizeMomentRecord } from '../shared/moments.js';
+import { resolveLatestPostsSources } from './latest-posts-runtime.js';
+import { bangumiWidgetDataStore } from '../../../../widgets/plugin/bangumis-recent/data.js';
 
 const HYDRATED_SOURCE_WIDGET_TYPES = new Set([
   'halo.author_card',
@@ -79,6 +81,37 @@ export function renderWidgetErrorMarkup() {
   return '<div class="desktop-widget-empty desktop-widget-render-error" role="alert"><strong>组件加载失败</strong><span>资源暂时不可用，请刷新页面后重试。</span></div>';
 }
 
+function renderBangumiWidgetDataErrorMarkup() {
+  return '<div class="wg-bangumis wg-bangumis--empty wg-bangumis--error" role="alert"><strong>追番数据暂时不可用</strong><p>读取失败，请稍后重试。</p><button type="button" data-bangumi-widget-retry>重试</button></div>';
+}
+
+function watchBangumiWidgetLoad(host, widget, promise) {
+  if (!host._bangumiWidgetPending) host._bangumiWidgetPending = new Map();
+  const key = widgetCacheKey(widget, { mode: 'live' });
+  if (host._bangumiWidgetPending.has(key)) return;
+  host._bangumiWidgetPending.set(key, promise);
+  void promise.catch(() => {}).finally(() => {
+    host._bangumiWidgetPending.delete(key);
+    if (host.widgetsDisposed === true) return;
+    const type = 'plugin-bangumis.recent';
+    host.widgetRenderVersions[type] = (host.widgetRenderVersions[type] || 0) + 1;
+    host._widgetHtmlCache?.clear();
+    host.onWidgetDataChanged?.(type);
+  });
+}
+
+export function retryBangumiWidgetDataWithHost(host, widget) {
+  if (widget?.widget !== 'plugin-bangumis.recent') return null;
+  const store = host.bangumiWidgetDataStore || bangumiWidgetDataStore;
+  const promise = store.retry(widget);
+  watchBangumiWidgetLoad(host, widget, promise);
+  const type = 'plugin-bangumis.recent';
+  host.widgetRenderVersions[type] = (host.widgetRenderVersions[type] || 0) + 1;
+  host._widgetHtmlCache?.clear();
+  host.onWidgetDataChanged?.(type);
+  return promise;
+}
+
 export async function ensureWidgetRendererRuntime(host, widgetType) {
   const type = String(widgetType || '').trim();
   if (!type) return null;
@@ -121,9 +154,33 @@ export function renderWidgetBodyWithHost(host, widget, options = {}) {
     mode: options.mode || (options.preview === true ? 'preview' : 'live'),
     compact: options.compact === true
   };
+  // Keep an Alpine dependency even while rendering the asynchronous skeleton.
+  const renderVersion = host.widgetRenderVersions[widgetType] || 0;
 
   if (widgetNeedsHydratedSources(widget) && host.sources?.hydrated !== true) {
     return renderWidgetLoadingMarkup(widget, { pending: true });
+  }
+
+  let bangumiSources = null;
+  if (widgetType === 'plugin-bangumis.recent' && host.sources?.bangumisAvailable === true) {
+    const store = host.bangumiWidgetDataStore || bangumiWidgetDataStore;
+    const snapshot = store.get(widget);
+    if (renderOptions.mode === 'preview' && !snapshot?.sources) {
+      return '<div class="desktop-widget-empty" role="status">添加后加载追番数据</div>';
+    }
+    if (renderOptions.mode === 'live' && options.visible === false) {
+      return renderWidgetLoadingMarkup(widget, { pending: true });
+    }
+    if (!snapshot) {
+      watchBangumiWidgetLoad(host, widget, store.load(widget));
+      return renderWidgetLoadingMarkup(widget, { pending: true });
+    }
+    if (snapshot.status === 'loading') {
+      watchBangumiWidgetLoad(host, widget, snapshot.promise);
+      return renderWidgetLoadingMarkup(widget, { pending: true });
+    }
+    if (snapshot.status === 'error') return renderBangumiWidgetDataErrorMarkup();
+    bangumiSources = { ...snapshot.sources, bangumiWidgetDataState: 'ready' };
   }
 
   const renderer = host.widgetRenderers[widgetType];
@@ -135,12 +192,15 @@ export function renderWidgetBodyWithHost(host, widget, options = {}) {
   }
 
   if (!host._widgetHtmlCache) host._widgetHtmlCache = new Map();
-  const renderVersion = host.widgetRenderVersions[widgetType] || 0;
+  const sources = bangumiSources
+    ? { ...resolveLatestPostsSources(host, widget), ...bangumiSources }
+    : resolveLatestPostsSources(host, widget);
   const cacheKey = `${widgetCacheKey(widget, renderOptions)}:v=${renderVersion}`;
   const cached = host._widgetHtmlCache.get(cacheKey);
   if (cached !== undefined) return cached;
 
-  const html = renderer(createWidgetRendererContext(host, renderOptions), widget, renderOptions);
+  const context = { ...createWidgetRendererContext(host, renderOptions), sources };
+  const html = renderer(context, widget, renderOptions);
   host._widgetHtmlCache.set(cacheKey, html);
   return html;
 }

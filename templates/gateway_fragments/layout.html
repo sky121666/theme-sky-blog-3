@@ -39,16 +39,21 @@
     <script>
       (function() {
         var root = document.documentElement;
-        var defaultTheme = root.getAttribute('data-default-theme') || 'system';
-        var savedTheme = localStorage.getItem('theme');
-        var theme = savedTheme || defaultTheme;
+        var modes = ['light', 'dark', 'system'];
+        var defaultTheme = root.getAttribute('data-default-theme');
+        if (modes.indexOf(defaultTheme) === -1) defaultTheme = 'system';
+        var savedTheme;
+        try { savedTheme = localStorage.getItem('theme'); } catch (_error) {}
+        var theme = modes.indexOf(savedTheme) !== -1 ? savedTheme : defaultTheme;
         var isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
         root.classList.remove('dark', 'light', 'system', 'color-scheme-auto', 'color-scheme-dark', 'color-scheme-light');
         root.classList.add(theme === 'system' ? 'color-scheme-auto' : 'color-scheme-' + theme);
         root.classList.add(theme);
         root.setAttribute('data-color-scheme', theme);
+        root.setAttribute('data-theme', isDark ? 'dark' : 'light');
         root.style.colorScheme = isDark ? 'dark' : 'light';
+        if (isDark) root.classList.add('dark');
       })();
     </script>
 

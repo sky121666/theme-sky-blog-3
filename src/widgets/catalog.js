@@ -33,6 +33,9 @@ export function buildWidgetCatalog(sources) {
       if (widgetId === 'plugin-docsme.quick') {
         return !!sources?.docsmeAvailable;
       }
+      if (widgetId === 'plugin-photos.gallery') {
+        return !!sources?.photosAvailable;
+      }
       if (widgetId === 'plugin-douban.showcase') {
         return !!sources?.doubanAvailable;
       }

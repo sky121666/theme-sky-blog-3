@@ -255,6 +255,29 @@ export const editModeMethods = {
     };
   },
 
+  handleCatalogAppearanceKeydown(entry, appearance, event) {
+    const appearances = ['follow', 'light', 'dark'];
+    const currentIndex = appearances.indexOf(appearance);
+    let nextIndex;
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      nextIndex = (currentIndex + 1) % appearances.length;
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      nextIndex = (currentIndex + appearances.length - 1) % appearances.length;
+    } else if (event.key === 'Home') {
+      nextIndex = 0;
+    } else if (event.key === 'End') {
+      nextIndex = appearances.length - 1;
+    } else {
+      return;
+    }
+    event.preventDefault();
+    const tablist = event.currentTarget.parentElement;
+    this.selectCatalogAppearance(entry.catalogKey, appearances[nextIndex]);
+    this.$nextTick(() => {
+      tablist.querySelectorAll('[role="tab"]')[nextIndex]?.focus();
+    });
+  },
+
   isCatalogAppearanceSelected(entry, appearance) {
     return this.selectedCatalogAppearance(entry) === normalizeWidgetAppearance(appearance);
   },
@@ -712,6 +735,9 @@ export const editModeMethods = {
       this.dispatchNotificationWidgetsChange();
       this.selectedDesktopKey = widget.key;
       this.markDesktopLayoutDirty('组件设置已更新，保存后生效');
+      if (widget.widget === 'system.weather') {
+        await this.loadWeather(true);
+      }
       return;
     }
     await this._doAddWidget(widgetType, size, catalogKey, { ...(meta || {}) });

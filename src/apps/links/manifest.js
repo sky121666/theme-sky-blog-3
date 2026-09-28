@@ -3,9 +3,6 @@ export const linksAppManifest = {
   windowVariant: 'links',
   supportsSameAppPjax: true,
   sameVariantPageModes: ['browser-links'],
-  cachePolicy: 'app-path-search',
-  assets: {
-    js: 'links.js',
-    css: 'links.css'
-  }
+  entry: 'src/apps/links/entry.js',
+  assetDirectory: 'links'
 };

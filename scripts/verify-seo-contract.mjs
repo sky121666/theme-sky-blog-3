@@ -263,6 +263,85 @@ async function verifyThemeCanonicalAuthority(page) {
   );
 }
 
+async function verifyCollectionPageIdentityRepair(page) {
+  // Real SEO Tools 1.10.1 response: /tags?p=2 described itself as //tags.
+  const canonical = 'https://www.5ee.net/tags?p=2';
+  const rawUrl = 'https://www.5ee.net//tags';
+  const original = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'CollectionPage',
+        name: 'Tags',
+        url: rawUrl,
+        mainEntityOfPage: { '@id': rawUrl, '@type': 'WebPage' },
+        publisher: { '@type': 'Organization', name: '' },
+        image: { url: rawUrl },
+        hasPart: { '@type': 'CollectionPage', url: rawUrl },
+        itemListElement: [{ '@type': 'Article', url: rawUrl }]
+      },
+      { '@type': 'Article', url: rawUrl, mainEntityOfPage: rawUrl },
+      { '@type': 'CollectionPage', url: 'https://www.5ee.net//categories' },
+      { '@type': 'CollectionPage', url: 'https://other.example//tags' },
+      { '@type': 'CollectionPage', url: `${rawUrl}?p=3` },
+      { '@type': 'CollectionPage', url: `${rawUrl}#related` },
+      { '@type': 'CollectionPage', url: rawUrl, mainEntityOfPage: 'https://other.example/tags' },
+      { '@type': ['WebPage', 'CollectionPage'], url: { '@id': rawUrl }, mainEntityOfPage: rawUrl }
+    ]
+  };
+  await loadRuntime(page, `${fallbackConfig({ canonical })}
+    <link rel="canonical" href="${canonical}">
+    <script type="application/ld+json">${JSON.stringify(original)}</script>`);
+  await page.evaluate(() => ThemeSeoContract.reconcileSeoHead(document));
+  const actual = JSON.parse(await page.locator("script[type='application/ld+json']").textContent());
+  const expected = structuredClone(original);
+  expected['@graph'][0].url = canonical;
+  expected['@graph'][0].mainEntityOfPage['@id'] = canonical;
+  expected['@graph'][0].publisher.name = 'Sky Blog';
+  expected['@graph'][7].url['@id'] = canonical;
+  expected['@graph'][7].mainEntityOfPage = canonical;
+  assert.deepEqual(actual, expected,
+    '仅修同域同路径当前 CollectionPage 身份，保留其他实体、嵌套节点、hash、不同分页和外部 URL');
+  await page.evaluate(() => ThemeSeoContract.reconcileSeoHead(document));
+  assert.deepEqual(JSON.parse(await page.locator("script[type='application/ld+json']").textContent()), expected,
+    '结构化数据身份修补必须幂等');
+
+  for (const [configCanonical, pageCanonical] of [
+    [canonical, 'https://other.example/tags?p=2'],
+    [canonical, 'https://www.5ee.net/tags'],
+    ['https://www.5ee.net/tags?p=2&sort=name', 'https://www.5ee.net/tags?p=2&sort=name'],
+    ['https://www.5ee.net/tags?p=2&p=3', 'https://www.5ee.net/tags?p=2&p=3'],
+    ['https://www.5ee.net/tags?p=invalid', 'https://www.5ee.net/tags?p=invalid']
+  ]) {
+    const data = { '@type': ['WebPage', 'CollectionPage'], url: rawUrl, mainEntityOfPage: rawUrl };
+    await loadRuntime(page, `${fallbackConfig({ canonical: configCanonical })}
+      <link rel="canonical" href="${pageCanonical}">
+      <script type="application/ld+json">${JSON.stringify(data)}</script>`);
+    await page.evaluate(() => ThemeSeoContract.reconcileSeoHead(document));
+    assert.deepEqual(JSON.parse(await page.locator("script[type='application/ld+json']").textContent()), data,
+      'canonical 与主题配置不一致或带未证实查询语义时，不得改写 CollectionPage');
+  }
+}
+
+async function verifyCollectionPagePjaxIdentity(page) {
+  await loadRuntime(page, `<title>初始页面</title>${fallbackConfig({ mode: 'meta' })}`);
+  for (const [pathname, query] of [['/tags', '?p=2'], ['/archives', ''], ['/categories', '?p=2'], ['/tags', '?p=2']]) {
+    const canonical = `https://www.5ee.net${pathname}${query}`;
+    const rawUrl = `https://www.5ee.net/${pathname}`;
+    const data = [{ '@type': 'CollectionPage', url: rawUrl, mainEntityOfPage: rawUrl }];
+    const response = `<!doctype html><html><head><title>${pathname}</title>
+      ${fallbackConfig({ canonical, mode: 'meta' })}
+      <link rel="canonical" href="${canonical}">
+      <script type="application/ld+json">${JSON.stringify(data)}</script>
+      </head><body></body></html>`;
+    await page.evaluate(html => ThemeSeoContract.syncSeoHeadFromResponse(html), response);
+    assert.equal(await page.locator("script[type='application/ld+json']").count(), 1);
+    assert.deepEqual(JSON.parse(await page.locator("script[type='application/ld+json']").textContent()), [
+      { '@type': 'CollectionPage', url: canonical, mainEntityOfPage: canonical }
+    ], '真实响应形态经 PJAX 往返后应只有当前集合页的精确身份');
+  }
+}
+
 async function verifyPjaxSyncDoesNotMultiplyBroadSelectors(page) {
   await loadRuntime(page, `
     <title>旧页面</title>
@@ -326,9 +405,11 @@ try {
   await verifyRobotsContract(page);
   await verifyInvalidProviderMetadataRepair(page);
   await verifyThemeCanonicalAuthority(page);
+  await verifyCollectionPageIdentityRepair(page);
+  await verifyCollectionPagePjaxIdentity(page);
   await verifyPjaxSyncDoesNotMultiplyBroadSelectors(page);
 
-  console.log('SEO Tools 1.9.5 协作契约验证通过：服务端缺口策略、插件优先、无效元数据修补、Docsme canonical、多值保留与 PJAX 同步。');
+  console.log('SEO Tools head 协作离线契约验证通过：服务端缺口策略、插件优先、无效元数据修补、Docsme canonical、当前 CollectionPage 身份、多值保留与 PJAX 同步；真页证据单独记录。');
 } finally {
   await browser?.close();
 }

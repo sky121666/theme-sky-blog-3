@@ -88,12 +88,25 @@ export function initPostOutline(root = document) {
     return;
   }
 
+  const existingIdOwners = new Map();
+  document.querySelectorAll('[id]').forEach((element) => {
+    if (!element.id) return;
+    const existing = existingIdOwners.get(element.id);
+    if (existing) existing.count += 1;
+    else existingIdOwners.set(element.id, { owner: element, count: 1 });
+  });
   const usedIds = new Set();
   headings.forEach((heading, index) => {
-    let headingId = heading.id || slugifyHeading(heading.textContent, index);
+    const baseId = heading.id || slugifyHeading(heading.textContent, index);
+    let headingId = baseId;
+    const originalOwners = existingIdOwners.get(baseId);
+    const keepExplicitId = Boolean(heading.id)
+      && (!originalOwners || originalOwners.count === 1 && originalOwners.owner === heading);
 
-    while (usedIds.has(headingId) || document.querySelectorAll(`#${CSS.escape(headingId)}`).length > 1) {
-      headingId = `${headingId}-${index + 1}`;
+    let suffix = index + 1;
+    while (usedIds.has(headingId)
+      || (existingIdOwners.has(headingId) && !(headingId === baseId && keepExplicitId))) {
+      headingId = `${baseId}-${suffix++}`;
     }
 
     usedIds.add(headingId);
@@ -134,6 +147,7 @@ export function initPostOutline(root = document) {
       button.classList.toggle('is-active', button.dataset.targetId === id);
     });
   };
+  let cancelHashScrollRestore = () => {};
 
   const handleClick = (event) => {
     const button = event.target.closest('.post-outline-link');
@@ -142,6 +156,7 @@ export function initPostOutline(root = document) {
     const target = article.querySelector(`#${CSS.escape(button.dataset.targetId || '')}`);
     if (!target) return;
 
+    cancelHashScrollRestore();
     const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
     target.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
     setActive(button.dataset.targetId || '');
@@ -149,7 +164,6 @@ export function initPostOutline(root = document) {
     closeMobileOutline();
   };
 
-  list.addEventListener('click', handleClick);
   let mobileDragActive = false;
   let mobileDragStartY = 0;
   let mobileDragPointerId = null;
@@ -210,50 +224,15 @@ export function initPostOutline(root = document) {
     }
   };
 
-  if (mobileManaged) {
-    mobileList.addEventListener('click', handleClick);
-    mobileTrigger.addEventListener('click', openMobileOutline);
-    mobileBackdrop.addEventListener('click', closeMobileOutline);
-    mobileHandle.addEventListener('click', closeMobileOutline);
-    mobileHandle.addEventListener('pointerdown', handleMobileDragStart);
-    window.addEventListener('pointermove', handleMobileDragMove);
-    window.addEventListener('pointerup', handleMobileDragEnd);
-    window.addEventListener('pointercancel', handleMobileDragEnd);
-  }
-
   const handleEscape = (event) => {
     if (event.key === 'Escape') {
       closeMobileOutline();
     }
   };
-  window.addEventListener('keydown', handleEscape);
-
   let observer = null;
-  if ('IntersectionObserver' in window) {
-    observer = new IntersectionObserver((entries) => {
-      const visible = entries
-        .filter((entry) => entry.isIntersecting)
-        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-
-      if (visible.length > 0) {
-        setActive(visible[0].target.id);
-      }
-    }, {
-      rootMargin: '-20% 0px -65% 0px',
-      threshold: [0, 1]
-    });
-
-    headings.forEach((heading) => observer.observe(heading));
-  }
-
-  const hash = decodeURIComponent(window.location.hash || '').replace(/^#/, '');
-  if (hash && usedIds.has(hash)) {
-    setActive(hash);
-  } else {
-    setActive(headings[0].id);
-  }
-
+  // Register cleanup before attaching anything so partial initialization can unwind.
   postOutlineCleanup = () => {
+    cancelHashScrollRestore();
     list.removeEventListener('click', handleClick);
     if (mobileManaged) {
       mobileList.removeEventListener('click', handleClick);
@@ -270,4 +249,99 @@ export function initPostOutline(root = document) {
     window.removeEventListener('keydown', handleEscape);
     if (observer) observer.disconnect();
   };
+
+  try {
+    list.addEventListener('click', handleClick);
+    if (mobileManaged) {
+      mobileList.addEventListener('click', handleClick);
+      mobileTrigger.addEventListener('click', openMobileOutline);
+      mobileBackdrop.addEventListener('click', closeMobileOutline);
+      mobileHandle.addEventListener('click', closeMobileOutline);
+      mobileHandle.addEventListener('pointerdown', handleMobileDragStart);
+      window.addEventListener('pointermove', handleMobileDragMove);
+      window.addEventListener('pointerup', handleMobileDragEnd);
+      window.addEventListener('pointercancel', handleMobileDragEnd);
+    }
+    window.addEventListener('keydown', handleEscape);
+
+    if ('IntersectionObserver' in window) {
+      observer = new IntersectionObserver((entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+
+        if (visible.length > 0) {
+          setActive(visible[0].target.id);
+        }
+      }, {
+        rootMargin: '-20% 0px -65% 0px',
+        threshold: [0, 1]
+      });
+
+      headings.forEach((heading) => observer.observe(heading));
+    }
+
+    const rawHash = String(window.location.hash || '').replace(/^#/, '');
+    let hash = usedIds.has(rawHash) ? rawHash : '';
+    if (!hash && rawHash.includes('%')) {
+      const normalizeEscapes = (value) => value.replace(/%[0-9a-f]{2}/gi, (escape) => escape.toUpperCase());
+      const normalizedHash = normalizeEscapes(rawHash);
+      hash = headings.find((heading) => heading.id.includes('%')
+        && normalizeEscapes(heading.id) === normalizedHash)?.id || '';
+    }
+    if (!hash && rawHash) {
+      try {
+        const decodedHash = decodeURIComponent(rawHash);
+        if (usedIds.has(decodedHash)) hash = decodedHash;
+      } catch (_error) {
+        // An invalid URL escape has no matching heading; keep the first heading active.
+      }
+    }
+    setActive(hash && usedIds.has(hash) ? hash : headings[0].id);
+
+    const hashTarget = hash ? headings.find((heading) => heading.id === hash) : null;
+    const scroller = hashTarget?.closest?.('[data-window-scroll]');
+    if (hashTarget && scroller && scroller.scrollTop <= 1) {
+      const initialHash = window.location.hash;
+      let frame = 0;
+      let attempts = 0;
+      let canceled = false;
+      const cancel = () => {
+        if (canceled) return;
+        canceled = true;
+        if (frame) window.cancelAnimationFrame(frame);
+        window.removeEventListener('wheel', cancel, { capture: true });
+        window.removeEventListener('touchstart', cancel, { capture: true });
+        window.removeEventListener('keydown', cancelOnScrollKey, { capture: true });
+      };
+      const cancelOnScrollKey = (event) => {
+        if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) cancel();
+      };
+      const restore = () => {
+        frame = 0;
+        if (canceled) return;
+        if (window.location.hash !== initialHash || hashTarget.isConnected === false
+          || scroller.isConnected === false || scroller.scrollTop > 1) {
+          cancel();
+          return;
+        }
+        const rect = hashTarget.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0 && scroller.clientHeight > 0) {
+          hashTarget.scrollIntoView({ behavior: 'auto', block: 'start' });
+          cancel();
+          return;
+        }
+        if (++attempts >= 60) cancel();
+        else frame = window.requestAnimationFrame(restore);
+      };
+      cancelHashScrollRestore = cancel;
+      window.addEventListener('wheel', cancel, { capture: true, passive: true });
+      window.addEventListener('touchstart', cancel, { capture: true, passive: true });
+      window.addEventListener('keydown', cancelOnScrollKey, { capture: true });
+      frame = window.requestAnimationFrame(restore);
+    }
+  } catch (error) {
+    cleanupPostOutline();
+    throw error;
+  }
 }

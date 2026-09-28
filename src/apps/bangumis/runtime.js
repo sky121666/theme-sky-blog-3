@@ -1,7 +1,47 @@
 import { warnApiCall } from '../../shell/desktop-shell/runtime/shared/debug.js';
+import { startBangumisStatusCounts } from './status-counts.js';
 
 function normalize(value) {
   return String(value || '').trim().toLowerCase();
+}
+
+function matchesRequestedPage(requestUrl, responseUrl) {
+  if (!responseUrl) return false;
+  const requested = new URL(requestUrl, window.location.href);
+  const received = new URL(responseUrl, window.location.href);
+  requested.searchParams.sort();
+  received.searchParams.sort();
+  return requested.origin === received.origin
+    && requested.pathname === received.pathname
+    && requested.searchParams.toString() === received.searchParams.toString();
+}
+
+function readPaginationPage(doc, html) {
+  const body = doc.body;
+  const app = body?.querySelector('[data-app-root="bangumis"]');
+  const scroller = app?.querySelector('.bangumis-main-scroll');
+  const list = scroller?.querySelector('.bangumis-list');
+  const trigger = scroller?.querySelector('[data-bangumis-loadmore]');
+  const sentinel = trigger?.querySelector('[data-bangumis-scroll-sentinel]');
+  const empty = scroller?.querySelector('.bangumis-empty:not(.bangumis-empty--inline)');
+
+  if (!/<\/body>\s*<\/html>\s*$/i.test(html)
+    || body?.dataset.errorPage !== 'false'
+    || body.dataset.pageMode !== 'browser-bangumis'
+    || body.dataset.appId !== 'bangumis'
+    || body.dataset.windowVariant !== 'bangumis'
+    || !app?.querySelector('[data-app-props="bangumis"]')
+    || (!list && !empty)
+    || (list && (!trigger || !sentinel))
+    || (!list && trigger)) {
+    throw new Error('追番分页响应缺少完整页面协议或加载节点');
+  }
+
+  const cards = Array.from(list?.querySelectorAll(':scope > [data-bangumi-card]') || []);
+  if (list && !cards.length) {
+    throw new Error('追番分页响应缺少条目');
+  }
+  return cards;
 }
 
 export function registerBangumisExplorer(Alpine) {
@@ -15,10 +55,15 @@ export function registerBangumisExplorer(Alpine) {
     _fallbackScrollHandler: null,
     _paginationController: null,
     _paginationGeneration: 0,
+    _statusCounts: null,
     _destroyed: false,
 
     init() {
       this._destroyed = false;
+      this._statusCounts?.cancel();
+      this._statusCounts = startBangumisStatusCounts(this.$root, {
+        typeNum: this.$root.dataset.bangumisCurrentType
+      });
       this.readPaginationState();
       const generation = this._paginationGeneration;
       this.$nextTick(() => {
@@ -29,6 +74,8 @@ export function registerBangumisExplorer(Alpine) {
 
     destroy() {
       this._destroyed = true;
+      this._statusCounts?.cancel();
+      this._statusCounts = null;
       this._paginationGeneration += 1;
       this._paginationController?.abort();
       this._paginationController = null;
@@ -76,7 +123,7 @@ export function registerBangumisExplorer(Alpine) {
 
       this._observer?.disconnect();
       this._observer = new IntersectionObserver((entries) => {
-        if (!this._destroyed && entries[0]?.isIntersecting) {
+        if (!this._destroyed && !this.loadError && entries[0]?.isIntersecting) {
           this.loadNext();
         }
       }, {
@@ -100,7 +147,7 @@ export function registerBangumisExplorer(Alpine) {
     },
 
     checkScrollFallback() {
-      if (this._destroyed) return;
+      if (this._destroyed || this.loadError) return;
       const scroller = this.$root.querySelector('.bangumis-main-scroll');
       if (!scroller) return;
 
@@ -174,16 +221,11 @@ export function registerBangumisExplorer(Alpine) {
 
         const html = await response.text();
         if (!isCurrentRequest()) return;
-        const doc = new DOMParser().parseFromString(html, 'text/html');
-        const cards = Array.from(doc.querySelectorAll('.bangumis-list > [data-bangumi-card]'));
-
-        if (!cards.length) {
-          this.hasMore = false;
-          this._observer?.disconnect();
-          this._observer = null;
-          this.removeScrollFallback();
-          return;
+        if (!matchesRequestedPage(requestUrl, response.url)) {
+          throw new Error('追番分页响应与请求地址不符');
         }
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const cards = readPaginationPage(doc, html);
 
         this.appendCards(cards);
         this.updatePaginationFrom(doc);

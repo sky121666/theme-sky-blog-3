@@ -111,7 +111,18 @@ export function registerPhotosExplorer(Alpine) {
     _paginationLoadMore: null,
     _paginationRetryCleanup: null,
     _destroyed: false,
+    _lifecycleGeneration: 0,
     _engine: null,
+
+    _queueLayoutUpdate(callback) {
+      const generation = this._lifecycleGeneration;
+      const root = this.$el;
+      this.$nextTick(() => {
+        if (this._destroyed || generation !== this._lifecycleGeneration
+          || this.$el !== root || root?.isConnected === false) return;
+        callback();
+      });
+    },
 
     _getEngine() {
       if (!this._engine) {
@@ -905,21 +916,39 @@ export function registerPhotosExplorer(Alpine) {
       if (!img || img.dataset.photosBound === '1') return;
       img.dataset.photosBound = '1';
 
-      const settle = () => {
+      const hasPendingLazySource = () => Boolean(img.dataset.src || img.dataset.srcset);
+      const isPlaceholder = (source) => /(?:^|\/)transparent\.svg(?:[?#]|$)/.test(source || '');
+      const settle = (failed) => {
         if (img.dataset.settled) return;
         img.dataset.settled = '1';
-        img.classList.add('ph-loaded');
-        img.closest('.photo-card')?.classList.add('ph-loaded');
+        const stateClass = failed ? 'ph-error' : 'ph-loaded';
+        const otherClass = failed ? 'ph-loaded' : 'ph-error';
+        img.classList.remove(otherClass);
+        img.classList.add(stateClass);
+        const card = img.closest('.photo-card');
+        card?.classList.remove(otherClass);
+        card?.classList.add(stateClass);
+        img.removeEventListener('load', onLoad);
+        img.removeEventListener('error', onError);
         this._scheduleHeightSync();
       };
 
-      if (img.complete && img.naturalWidth > 0) {
-        settle();
-        return;
-      }
+      const onLoad = () => {
+        if (hasPendingLazySource()) return;
+        if (isPlaceholder(img.currentSrc || img.src)) {
+          if (isPlaceholder(img.src)) settle(true);
+          return;
+        }
+        if (img.complete && img.naturalWidth > 0) settle(false);
+        else if (img.complete) settle(true);
+      };
+      const onError = () => {
+        if (!hasPendingLazySource()) settle(true);
+      };
 
-      img.addEventListener('load', settle, { once: true });
-      img.addEventListener('error', settle, { once: true });
+      img.addEventListener('load', onLoad);
+      img.addEventListener('error', onError);
+      if (!hasPendingLazySource() && img.complete) onLoad();
     },
 
     hydrateGridImages(root = this.$el) {
@@ -1128,7 +1157,7 @@ export function registerPhotosExplorer(Alpine) {
 
       this.layoutMode = mode;
       this.persistPreferences();
-      this.$nextTick(() => {
+      this._queueLayoutUpdate(() => {
         if (mode === 'aspect') {
           this.invalidateMasonryLayout();
         }
@@ -1377,7 +1406,7 @@ export function registerPhotosExplorer(Alpine) {
         this.squareCols = nextSquareCols;
       }
       this.persistPreferences();
-      this.$nextTick(() => {
+      this._queueLayoutUpdate(() => {
         this.renderLayout();
         this.syncChromeControls();
       });
@@ -1398,7 +1427,7 @@ export function registerPhotosExplorer(Alpine) {
         this.squareCols = nextSquareCols;
       }
       this.persistPreferences();
-      this.$nextTick(() => {
+      this._queueLayoutUpdate(() => {
         this.renderLayout();
         this.syncChromeControls();
       });
@@ -1406,6 +1435,7 @@ export function registerPhotosExplorer(Alpine) {
 
     init() {
       this._destroyed = false;
+      this._lifecycleGeneration += 1;
       const hasPreferences = hasSavedPreferences();
       this.restorePreferences();
       if (!hasPreferences && this._isCompactSurface()) {
@@ -1416,7 +1446,7 @@ export function registerPhotosExplorer(Alpine) {
       this.syncEffectiveColCount();
       this._getEngine();
 
-      this.$nextTick(() => {
+      this._queueLayoutUpdate(() => {
         if (this._destroyed || !this.$el?.isConnected) return;
         this._installSurfaceControls();
         if (this.isDetailView()) {
@@ -1437,6 +1467,7 @@ export function registerPhotosExplorer(Alpine) {
     destroy() {
       const engine = this._getEngine();
       this._destroyed = true;
+      this._lifecycleGeneration += 1;
       this._paginationGeneration += 1;
       this._paginationController?.abort();
       this._paginationController = null;

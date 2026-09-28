@@ -4,9 +4,6 @@ export const explorerArchivesAppManifest = {
   supportsSameAppPjax: true,
   sameAppPjaxLoading: 'progress',
   sameVariantPageModes: ['browser-list'],
-  cachePolicy: 'app-path-search',
-  assets: {
-    js: 'explorer-archives.js',
-    css: 'explorer-archives.css'
-  }
+  entry: 'src/apps/explorer/archives/entry.js',
+  assetDirectory: 'archives'
 };

@@ -1,3 +1,4 @@
+<!-- plugin-contract: auth-passkey; surface: auth-fragment; contract-version: 1.0.4; status: confirmed; source: docs/插件适配契约.md#pc-passkey -->
 <!-- ========================================== -->
 <!--    Gateway Fragments - Login              -->
 <!--    登录表单片段                            -->
@@ -74,7 +75,6 @@
     </div>
 
     <!-- 统一表单容器 -->
-    <!-- plugin-contract: auth-passkey; contract-version: 1.0.4; tested-version: 1.0.4; status: confirmed; source: docs/插件适配契约.md -->
     <!-- 重要：保留 halo-form class 以兼容 Passkey 插件的 JS 选择器 -->
     <form class="halo-form auth-form-stack" name="login-form" id="login-form" autocomplete="on"
         th:classappend="${fragmentTemplateName == 'login_local'} ? 'auth-form-lockscreen' : 'auth-form-provider'"

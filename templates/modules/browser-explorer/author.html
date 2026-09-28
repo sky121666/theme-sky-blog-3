@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- plugin-contract: PluginMoments; surface: author-moments; contract-version: 1.16.0; status: confirmed; source: docs/插件适配契约.md#pc-moments-author -->
 <html xmlns:th="https://www.thymeleaf.org"
       th:fragment="page"
       th:replace="~{modules/shell/layout :: html(
@@ -31,7 +32,7 @@
                        }) : null},
                        postTotal=${posts != null ? posts.total : 0},
                        momentTotal=${authorMoments != null ? authorMoments.total : 0},
-                       defaultSource=${posts != null and !#lists.isEmpty(posts.items) ? 'posts' : (authorMoments != null and !#lists.isEmpty(authorMoments.items) ? 'moments' : 'posts')}">
+                       defaultSource=${posts != null and (posts.total > 0 or posts.page > 1) ? 'posts' : (authorMoments != null and !#lists.isEmpty(authorMoments.items) ? 'moments' : 'posts')}">
       <div class="author-shell tag-shell" data-app-root="explorer-author">
         <script type="application/json" data-app-props="explorer-author">{"version":1,"appId":"explorer-author","data":{"view":"author"}}</script>
         <div class="author-workspace tag-workspace author-workspace--finder"
@@ -160,8 +161,24 @@
                   </a>
                 </th:block>
 
-                <section class="author-posts-empty" th:if="${posts == null or #lists.isEmpty(posts.items)}">
-                  <p>这个作者暂时还没有公开文章。</p>
+                <section class="author-posts-empty" data-author-post-empty aria-live="polite"
+                         th:if="${posts == null or #lists.isEmpty(posts.items)}">
+                  <div>
+                    <p th:if="${posts == null or posts.page <= 1}">这个作者暂时还没有公开文章。</p>
+                    <p th:if="${posts != null and posts.page > 1}"
+                       th:text="${'第 ' + posts.page + ' 页不存在'}">当前页不存在</p>
+                    <p th:if="${posts != null and posts.page > 1}"
+                       th:text="${posts.totalPages > 0 ? '作者文章共 ' + posts.totalPages + ' 页，请返回有效页码。' : '这个作者暂时还没有公开文章。'}">请返回有效页码。</p>
+                    <nav aria-label="作者文章恢复导航" th:if="${posts != null and posts.page > 1}">
+                      <a class="author-page-btn tag-page-btn pjax-link"
+                         data-pjax-app="explorer-author" data-author-return-first
+                         th:href="${'/authors/' + author.metadata.name + '?source=posts'}">返回第一页</a>
+                      <a class="author-page-btn tag-page-btn pjax-link"
+                         data-pjax-app="explorer-author" data-author-return-last
+                         th:if="${posts.totalPages > 1}"
+                         th:href="${'/authors/' + author.metadata.name + '/page/' + posts.totalPages}">返回最后一页</a>
+                    </nav>
+                  </div>
                 </section>
               </div>
 
@@ -216,7 +233,7 @@
             <nav class="author-pagination tag-pagination"
                  x-show="activeSource === 'posts'"
                  x-cloak
-                 th:if="${posts != null and (posts.hasPrevious() or posts.hasNext())}">
+                 th:if="${posts != null and !#lists.isEmpty(posts.items) and (posts.hasPrevious() or posts.hasNext())}">
               <a class="author-page-btn tag-page-btn pjax-link"
                  th:if="${posts.hasPrevious()}"
                  th:href="@{${posts.prevUrl}}">

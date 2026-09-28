@@ -1242,6 +1242,23 @@ select.links-input { padding-right: 24px; }
 
 .links-field-wide { grid-column: 1 / -1; }
 
+.links-application-captcha {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px solid var(--wx-border);
+  border-radius: 4px;
+  background: var(--wx-panel);
+}
+
+.links-application-captcha-image { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.links-application-captcha-image img { width: 160px; height: 48px; object-fit: contain; background: #fff; }
+.links-application-captcha-image span,
+.links-application-captcha small { color: var(--wx-text-muted); font-size: 11px; }
+.links-application-captcha label { display: grid; gap: 5px; max-width: 240px; }
+.links-application-captcha label > span { color: var(--wx-text); font-size: 11px; }
+
 .links-markdown-output {
   width: 100%;
   min-height: 116px;

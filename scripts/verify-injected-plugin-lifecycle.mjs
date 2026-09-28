@@ -35,7 +35,7 @@ const globalPluginAssets = {
   vote: { selector: 'script[src*="/plugins/vote/"]' },
   aiAssistant: {
     selector: 'script:not([src])',
-    text: '/plugins/ai-assistant/assets/static/rag-ui/rag-ui.js?v=2.2.4'
+    text: '/plugins/ai-assistant/assets/static/rag-ui/rag-ui.js?v=3.1.0'
   }
 };
 
@@ -139,7 +139,11 @@ await page.addInitScript(() => {
         try {
           const parsed = JSON.parse(payload);
           if (typeof parsed.uri === 'string' && Object.hasOwn(parsed, 'privatePage')) {
-            registrationPayloads.push(parsed);
+            registrationPayloads.push({
+              uri: parsed.uri,
+              privatePage: parsed.privatePage,
+              hasToken: Boolean(parsed.token)
+            });
           }
         } catch (_error) {
           // Heartbeats and non-JSON frames are outside this contract.

@@ -318,6 +318,7 @@ async function verifyNavigationHelpers() {
     path.join(root, 'src/shell/desktop-shell/runtime/desktop/pjax/navigation-guard.js')
   );
   const {
+    cancelledPopstateRollbackDelta,
     createBrowserNavigationOwnership,
     createNavigationCoordinator,
     createTimedNavigationSignal,
@@ -336,6 +337,10 @@ async function verifyNavigationHelpers() {
   assert.equal(isPlainPrimaryNavigationEvent({ button: 0, ctrlKey: true }), false);
   assert.equal(isPlainPrimaryNavigationEvent({ button: 0, shiftKey: true }), false);
   assert.equal(isPlainPrimaryNavigationEvent({ button: 0, altKey: true }), false);
+  assert.equal(cancelledPopstateRollbackDelta(2, 1), 1, '取消后退应回到原 entry');
+  assert.equal(cancelledPopstateRollbackDelta(1, 2), -1, '取消前进应回到原 entry');
+  assert.equal(cancelledPopstateRollbackDelta(3, 1), 2, '跨多个 entry 的回退必须恢复完整距离');
+  assert.equal(cancelledPopstateRollbackDelta(null, null, { backward: true }), 1);
 
   assert.equal(isCurrentNavigationIntent(undefined, 4), true, '无 intent tag 的兼容事件应 fail-open');
   assert.equal(isCurrentNavigationIntent('invalid', 4), true, '非法 intent tag 应 fail-open');
@@ -554,7 +559,53 @@ async function verifyBusyOnlyLoadingController() {
   assert.equal(rootAttributes.get('aria-busy'), 'false', 'progress 模式完成或中断后必须清除忙碌状态');
 }
 
+async function verifyBrowserNavStateRecovery() {
+  const moduleUrl = pathToFileURL(
+    path.join(root, 'src/shell/desktop-shell/runtime/desktop/pjax/browser-nav-state.js')
+  );
+  const { createBrowserNavStateStore } = await import(moduleUrl.href);
+  const stored = new Map();
+  const storage = {
+    getItem(key) { return stored.get(key) || null; },
+    setItem(key, value) { stored.set(key, value); }
+  };
+  const store = createBrowserNavStateStore(() => storage);
+  const original = {
+    uid: 'pjax-b',
+    url: 'https://example.test/docs/project',
+    title: 'Project',
+    __browserNavIndex: 1,
+    __browserNavChrome: { windowTitle: 'Project', windowSubtitle: 'Docs' },
+    __browserWindowScroll: [0, 320]
+  };
+  store.remember(original);
+
+  // Pjax 0.2.8 replaces the previous entry with only these four fields.
+  const stripped = {
+    uid: original.uid,
+    url: original.url,
+    title: original.title,
+    scrollPos: [0, 0]
+  };
+  const restored = store.recover(stripped);
+  assert.equal(restored.__browserNavIndex, 1);
+  assert.deepEqual(restored.__browserNavChrome, original.__browserNavChrome);
+  assert.deepEqual(restored.__browserWindowScroll, [0, 320]);
+  assert.equal(store.recover({ ...stripped, url: 'https://example.test/other' }).__browserNavIndex, undefined);
+
+  const afterReload = createBrowserNavStateStore(() => storage);
+  assert.equal(afterReload.recover(stripped).__browserNavIndex, 1, 'reload 后仍须恢复前一条 history entry');
+  const updated = { ...restored, __browserWindowScroll: [0, 480] };
+  afterReload.remember(updated);
+  assert.deepEqual(afterReload.recover(stripped).__browserWindowScroll, [0, 480]);
+  assert.deepEqual(afterReload.recover(original).__browserWindowScroll, [0, 480],
+    'popstate 离开源 entry 后，即使 history.state 原值完整也要恢复最新滚动位置');
+  assert.deepEqual(afterReload.recover({ ...original, uid: 'other-entry' }).__browserWindowScroll, [0, 320],
+    '新的 history entry 不得复用其他 entry 的滚动快照');
+}
+
 try {
+  await verifyBrowserNavStateRecovery();
   await verifyAssetFailureRecovery();
   await verifyAppCssNavigationStaging();
   await verifyTopLevelDynamicLink();
@@ -581,7 +632,7 @@ try {
   assert.match(pjaxSource, /discardStagedOnlineMonitorHistoryState\(\)/, 'PJAX 错误必须清理待写入的 Online history 状态');
   assert.match(
     pjaxSource,
-    /pjax\.loadUrl = function\(url, options = \{\}\) \{\s*if \(options\?\.history !== false\) \{\s*clearPendingWindowScrollRestore\(\);\s*snapshotCurrentBrowserEntry\(\);/,
+    /pjax\.loadUrl = function\(url, options = \{\}\) \{[\s\S]*?if \(options\?\.history !== false\) \{\s*clearPendingWindowScrollRestore\(\);\s*snapshotCurrentBrowserEntry\(\);/,
     '新的 full PJAX 前进导航必须清除失败后遗留的 popstate 窗口滚动位置'
   );
   assert.match(
@@ -626,8 +677,8 @@ try {
   );
   assert.match(
     pjaxSource,
-    /ensureAppAssetsLoaded\(targetApp\)\s*\.then\(\(\) => \{[\s\S]*?stageAppCssForNavigation\(targetApp\);[\s\S]*?return _origLoadUrl/,
-    'full PJAX 必须在发起请求和替换 DOM 前预激活目标应用 CSS'
+    /pjax\.handleResponse = async function[\s\S]*?await assetGate\.promise[\s\S]*?await ensureAppAssetsLoaded\(responseApp,[\s\S]*?stageAppCssForNavigation\(responseApp\);[\s\S]*?_origHandleResponse\(responseText/,
+    'full PJAX 可以并行下载 HTML，但必须在 DOM 替换前等待目标注册并启用 CSS'
   );
   const fullSendStart = pjaxSource.indexOf('document.addEventListener("pjax:send"');
   const fullSendEnd = pjaxSource.indexOf('document.addEventListener("pjax:complete"', fullSendStart);

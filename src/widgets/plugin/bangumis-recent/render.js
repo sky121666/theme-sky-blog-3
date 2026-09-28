@@ -42,7 +42,8 @@ function typeKeysForMeta(typeNum) {
 function normalizeBangumi(item, status, typeKey) {
   const spec = item?.spec || {};
   const title = String(spec.title || item?.metadata?.name || '追番记录').trim();
-  const explicitProgress = Number(spec.progress ?? spec.progressPercent ?? spec.currentProgress ?? 0);
+  const rawProgress = spec.progress ?? spec.progressPercent ?? spec.currentProgress;
+  const explicitProgress = rawProgress == null || String(rawProgress).trim() === '' ? NaN : Number(rawProgress);
   return {
     key: item?.metadata?.name || `${typeKey}-${status}-${title}`,
     title,
@@ -53,7 +54,7 @@ function normalizeBangumi(item, status, typeKey) {
     type: String(spec.type || '').trim(),
     area: String(spec.area || '').trim(),
     description: String(spec.des || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim(),
-    progress: Number.isFinite(explicitProgress) ? explicitProgress : 0,
+    progress: Number.isFinite(explicitProgress) && explicitProgress >= 0 ? explicitProgress : null,
     status,
     statusLabel: STATUS_LABELS[status] || '追番',
     typeKey,
@@ -179,10 +180,13 @@ function renderEmpty({ escapeHtml, mode, installed }) {
   `;
 }
 
+function renderPending() {
+  return '<div class="wg-bangumis wg-bangumis--empty" role="status" aria-live="polite" aria-busy="true"><strong>追番数据加载中</strong><p>正在读取所选类型和状态。</p></div>';
+}
+
 function episodeProgress(item) {
-  if (item.status !== 'watching') return 0;
-  if (item.progress > 0) return Math.max(1, Math.min(100, Math.round(item.progress)));
-  return 36;
+  if (item.status !== 'watching' || item.progress === null) return null;
+  return Math.max(0, Math.min(100, Math.round(item.progress)));
 }
 
 function readableProgressCount(item) {
@@ -195,21 +199,21 @@ function stageProgress(item) {
     return { value: 100, label: '已完成', state: 'success' };
   }
   if (item.status === 'wish') {
-    return { value: 0, label: '待开播', state: 'pending' };
+    return { value: null, label: '想看', state: 'pending' };
   }
 
   const progress = episodeProgress(item);
   return {
     value: progress,
-    label: `进度 ${readableProgressCount(item)}`,
+    label: progress === null ? '在看 · 进度未知' : `进度 ${readableProgressCount(item)}`,
     state: progress >= 100 ? 'success' : 'active'
   };
 }
 
 function renderProgress(item, escapeHtml, compact = false) {
   const progress = episodeProgress(item);
-  if (!progress) {
-    return `<span class="wg-bangumis-meta-line">${escapeHtml(item.totalCount || item.type || item.area || item.statusLabel)}</span>`;
+  if (progress === null) {
+    return `<span class="wg-bangumis-meta-line">${escapeHtml(item.status === 'watching' ? '在看 · 进度未知' : (item.totalCount || item.type || item.area || item.statusLabel))}</span>`;
   }
 
   return `
@@ -249,6 +253,10 @@ function renderSmall({ item, escapeHtml, mode }) {
 
 function renderMedium({ items, summary, counts, escapeHtml, mode }) {
   const featured = items[0];
+  const countStatus = counts.watching !== null ? 'watching' : summary.status;
+  const countLabel = counts[countStatus] === null
+    ? '数据已同步'
+    : `${counts[countStatus]} ${STATUS_LABELS[countStatus]}`;
   return `
     <div class="wg-bangumis wg-bangumis--medium ${bangumiToneClass(summary.typeKey, summary.status)}">
       ${renderBangumiLink({
@@ -265,7 +273,7 @@ function renderMedium({ items, summary, counts, escapeHtml, mode }) {
           <span class="wg-bangumis-status">${escapeHtml(`${featured.statusLabel} · ${featured.typeLabel}`)}</span>
           <span class="wg-bangumis-sync">
             <span class="icon-[lucide--refresh-cw]" aria-hidden="true"></span>
-            ${escapeHtml(`${counts.watching || 0} 在看`)}
+            ${escapeHtml(countLabel)}
           </span>
         </div>
         <div class="wg-bangumis-medium-title">
@@ -361,11 +369,11 @@ function renderLargePanel({ items, emptyLabel, escapeHtml, mode }) {
             <span class="wg-bangumis-stage-progress is-${progress.state}">
               <span class="wg-bangumis-stage-progress-copy">
                 <span>${escapeHtml(progress.label)}</span>
-                <b>${escapeHtml(String(progress.value))}%</b>
+                ${progress.value === null ? '' : `<b>${escapeHtml(String(progress.value))}%</b>`}
               </span>
-              <span class="wg-bangumis-stage-progress-track">
+              ${progress.value === null ? '' : `<span class="wg-bangumis-stage-progress-track">
                 <span style="width:${progress.value}%"></span>
-              </span>
+              </span>`}
             </span>
           </span>
           <span class="wg-bangumis-stage-copy">
@@ -384,8 +392,9 @@ function renderLargePanel({ items, emptyLabel, escapeHtml, mode }) {
   `;
 }
 
-function renderLarge({ groups, summary, counts, escapeHtml, mode }) {
-  const total = Math.max((counts.watching || 0) + (counts.wish || 0) + (counts.done || 0), groups.all.length);
+function renderLarge({ groups, summary, counts, selectedStatus, escapeHtml, mode }) {
+  const automatic = selectedStatus === 'auto';
+  const total = Math.max(automatic ? (counts.watching || 0) + (counts.wish || 0) + (counts.done || 0) : (counts[selectedStatus] || 0), groups.all.length);
   const radioName = `wg-bangumis-tabs-${summary.typeKey}-${summary.status}`;
 
   return `
@@ -395,38 +404,37 @@ function renderLarge({ groups, summary, counts, escapeHtml, mode }) {
           <span class="wg-bangumis-console-mark" aria-hidden="true"><i></i><i></i><i></i></span>
           <span>番剧雷达中心</span>
         </span>
-        <span class="wg-bangumis-console-version">v1.15.0</span>
       </header>
       <form class="wg-bangumis-tab-form">
         <div class="wg-bangumis-tabs" aria-label="${escapeHtml('追番状态筛选')}">
           <label class="is-all">
             <input class="wg-bangumis-tab-radio is-all" name="${radioName}" type="radio" checked>
             <i></i>
-            <b>${escapeHtml(`全部 (${total})`)}</b>
+            <b>${escapeHtml(`${automatic ? '全部' : STATUS_LABELS[selectedStatus]} (${total})`)}</b>
           </label>
-          <label class="is-watching">
+          ${automatic ? `<label class="is-watching">
             <input class="wg-bangumis-tab-radio is-watching" name="${radioName}" type="radio">
             <i></i>
             <b>${escapeHtml(`在看 (${counts.watching || 0})`)}</b>
-          </label>
-          <label class="is-wish">
+          </label>` : ''}
+          ${automatic ? `<label class="is-wish">
             <input class="wg-bangumis-tab-radio is-wish" name="${radioName}" type="radio">
             <i></i>
             <b>${escapeHtml(`想看 (${counts.wish || 0})`)}</b>
-          </label>
+          </label>` : ''}
         </div>
         <div class="wg-bangumis-stage-layout">
           <div class="wg-bangumis-tab-panels">
             ${renderLargePanel({ items: groups.all, emptyLabel: '还没有追番记录', escapeHtml, mode })}
-            ${renderLargePanel({ items: groups.watching, emptyLabel: '暂无在看记录', escapeHtml, mode })}
-            ${renderLargePanel({ items: groups.wish, emptyLabel: '暂无想看记录', escapeHtml, mode })}
+            ${automatic ? renderLargePanel({ items: groups.watching, emptyLabel: '暂无在看记录', escapeHtml, mode }) : ''}
+            ${automatic ? renderLargePanel({ items: groups.wish, emptyLabel: '暂无想看记录', escapeHtml, mode }) : ''}
           </div>
         </div>
       </form>
       <footer class="wg-bangumis-console-foot">
         <span>
           <span class="icon-[lucide--book-open]" aria-hidden="true"></span>
-          ${escapeHtml(`共追了 ${total} 部番剧`)}
+          ${escapeHtml(automatic ? `共追了 ${total} 部番剧` : `${STATUS_LABELS[selectedStatus]} ${total} 部${summary.typeLabel === '追剧' ? '剧集' : '番剧'}`)}
         </span>
         ${renderOpenBangumisLink(escapeHtml, mode, '进入归档')}
       </footer>
@@ -438,9 +446,9 @@ function resolveCounts(sources, typeKey) {
   const counts = sources.bangumiStatusCounts || {};
   const bucket = counts[typeKey] || counts.anime || {};
   return {
-    wish: Number(bucket.wish || 0) || 0,
-    watching: Number(bucket.watching || 0) || 0,
-    done: Number(bucket.done || 0) || 0
+    wish: Number.isFinite(Number(bucket.wish)) && bucket.wish != null ? Number(bucket.wish) : null,
+    watching: Number.isFinite(Number(bucket.watching)) && bucket.watching != null ? Number(bucket.watching) : null,
+    done: Number.isFinite(Number(bucket.done)) && bucket.done != null ? Number(bucket.done) : null
   };
 }
 
@@ -448,13 +456,17 @@ export function renderWidget({ sources, escapeHtml, mode }, widget) {
   if (!sources.bangumisAvailable) {
     return renderEmpty({ escapeHtml, mode, installed: false });
   }
+  if (sources.bangumiWidgetDataState !== 'ready' && !Object.keys(sources.bangumisByStatus || {}).length) {
+    return renderPending();
+  }
 
   const size = widget?.size || 'medium';
   const limit = size === 'large' ? 4 : 2;
-  const summary = resolveBangumiWidgetItems(sources, widget?.meta || {}, limit);
+  const meta = normalizeMeta(widget?.meta || {});
+  const summary = resolveBangumiWidgetItems(sources, meta, limit);
   const counts = resolveCounts(sources, summary.typeKey);
   const largeGroups = size === 'large'
-    ? collectBangumiItemsByStatus(sources, summary.typeKey, limit)
+    ? (meta.status === 'auto' ? collectBangumiItemsByStatus(sources, summary.typeKey, limit) : { all: summary.items })
     : null;
 
   if (!summary.items.length) {
@@ -466,7 +478,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget) {
   }
 
   if (size === 'large') {
-    return renderLarge({ groups: largeGroups, summary, counts, escapeHtml, mode });
+    return renderLarge({ groups: largeGroups, summary, counts, selectedStatus: meta.status, escapeHtml, mode });
   }
 
   return renderMedium({ items: summary.items, summary, counts, escapeHtml, mode });

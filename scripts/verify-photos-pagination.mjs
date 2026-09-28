@@ -251,6 +251,54 @@ try {
   assert.equal(staleAppend, 0, 'a response completed after destroy must not append cards');
   assert.equal(staleExplorer._paginationLoadMore, null, 'destroy should release the pagination callback');
 
+  for (const action of ['setLayoutMode', 'increaseCols', 'decreaseCols']) {
+    const queuedFixture = createFixture();
+    const queuedExplorer = explorerFactory();
+    queuedExplorer.$el = queuedFixture.root;
+    const callbacks = [];
+    let layoutWrites = 0;
+    queuedExplorer.$nextTick = (callback) => callbacks.push(callback);
+    queuedExplorer.isAlbumsView = () => false;
+    queuedExplorer._maxGridColCount = () => 6;
+    queuedExplorer._minColCount = () => 2;
+    queuedExplorer.persistPreferences = () => {};
+    queuedExplorer.invalidateMasonryLayout = () => {};
+    queuedExplorer._clearLoadingSkeletons = () => {};
+    queuedExplorer.renderLayout = () => { layoutWrites += 1; };
+    queuedExplorer.syncChromeControls = () => { layoutWrites += 1; };
+    queuedExplorer[action]('aspect');
+    assert.equal(callbacks.length, 1, `${action} should schedule its active layout update`);
+    queuedExplorer.destroy();
+    callbacks.forEach((callback) => callback());
+    assert.equal(layoutWrites, 0, `${action} must not update layout or chrome after destruction`);
+  }
+
+  const generationExplorer = explorerFactory();
+  generationExplorer.$el = createFixture().root;
+  const generations = [];
+  let installedControls = 0;
+  generationExplorer.$nextTick = (callback) => generations.push(callback);
+  generationExplorer.restorePreferences = () => {};
+  generationExplorer._isCompactSurface = () => false;
+  generationExplorer.syncEffectiveColCount = () => {};
+  generationExplorer._installSurfaceControls = () => { installedControls += 1; };
+  generationExplorer.isDetailView = () => false;
+  generationExplorer._captureInitialCards = () => {};
+  generationExplorer.renderLayout = () => {};
+  generationExplorer.syncChromeControls = () => {};
+  generationExplorer._installResizeHandler = () => {};
+  generationExplorer._initInfiniteScroll = () => {};
+  generationExplorer._clearLoadingSkeletons = () => {};
+  generationExplorer.init();
+  generationExplorer.destroy();
+  generationExplorer.init();
+  generations.forEach((callback) => callback());
+  assert.equal(installedControls, 1, 'reinitialization must not revive the previous queued init');
+  generationExplorer.$el.isConnected = false;
+  generationExplorer._queueLayoutUpdate(() => { installedControls += 1; });
+  generations.at(-1)();
+  assert.equal(installedControls, 1, 'detached roots must not receive queued layout updates');
+
   const detailStage = {
     clientWidth: 400,
     clientHeight: 300,

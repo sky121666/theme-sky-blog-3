@@ -6,13 +6,13 @@ Sky Blog 3 的浏览器产物包含或派生自下列第三方软件。清单从
 
 | 软件包 | 版本 | 许可证 | 作者 / 上游 |
 | --- | ---: | --- | --- |
-| `@alpinejs/intersect` | 3.15.12 | MIT | <https://alpinejs.dev/plugins/intersect> |
-| `@alpinejs/morph` | 3.15.12 | MIT | <https://alpinejs.dev/plugins/morph> |
-| `@iconify-json/lucide` | 1.2.118 | ISC | <https://icon-sets.iconify.design/lucide/> |
+| `@alpinejs/intersect` | 3.17.3 | MIT | <https://alpinejs.dev/plugins/intersect> |
+| `@alpinejs/morph` | 3.17.3 | MIT | <https://alpinejs.dev/plugins/morph> |
+| `@iconify-json/lucide` | 1.2.134 | ISC | <https://icon-sets.iconify.design/lucide/> |
 | `@iconify/types` | 2.0.0 | MIT | <https://github.com/iconify/iconify> |
-| `@vue/reactivity` | 3.1.5 | MIT | <https://github.com/vuejs/vue-next/tree/master/packages/reactivity#readme> |
-| `@vue/shared` | 3.1.5 | MIT | <https://github.com/vuejs/vue-next/tree/master/packages/shared#readme> |
-| `alpinejs` | 3.15.12 | MIT | <https://alpinejs.dev> |
+| `@vue/reactivity` | 3.5.43 | MIT | <https://github.com/vuejs/core/tree/main/packages/reactivity#readme> |
+| `@vue/shared` | 3.5.43 | MIT | <https://github.com/vuejs/core/tree/main/packages/shared#readme> |
+| `alpinejs` | 3.17.3 | MIT | <https://alpinejs.dev> |
 | `ansi-regex` | 5.0.1 | MIT | Sindre Sorhus |
 | `ansi-styles` | 4.3.0 | MIT | Sindre Sorhus |
 | `camelcase` | 5.3.1 | MIT | Sindre Sorhus |
@@ -47,10 +47,10 @@ Sky Blog 3 的浏览器产物包含或派生自下列第三方软件。清单从
 
 共 38 个分发依赖记录。下列许可与版权声明保持原文；第三方软件仍分别受其自身许可证约束。
 
-## @alpinejs/intersect@3.15.12
+## @alpinejs/intersect@3.17.3
 
 - 许可证：MIT
-- 来源文件：security/licenses/alpinejs-3.15.12-LICENSE.md（上游：https://raw.githubusercontent.com/alpinejs/alpine/v3.15.12/LICENSE.md）
+- 来源文件：security/licenses/alpinejs-3.17.3-LICENSE.md（上游：https://raw.githubusercontent.com/alpinejs/alpine/v3.17.3/LICENSE.md）
 - npm 作者元数据：Caleb Porzio
 
 ```text
@@ -77,10 +77,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @alpinejs/morph@3.15.12
+## @alpinejs/morph@3.17.3
 
 - 许可证：MIT
-- 来源文件：security/licenses/alpinejs-3.15.12-LICENSE.md（上游：https://raw.githubusercontent.com/alpinejs/alpine/v3.15.12/LICENSE.md）
+- 来源文件：security/licenses/alpinejs-3.17.3-LICENSE.md（上游：https://raw.githubusercontent.com/alpinejs/alpine/v3.17.3/LICENSE.md）
 - npm 作者元数据：Caleb Porzio
 
 ```text
@@ -107,7 +107,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @iconify-json/lucide@1.2.118
+## @iconify-json/lucide@1.2.134
 
 - 许可证：ISC
 - 来源文件：security/licenses/lucide-LICENSE（上游：https://raw.githubusercontent.com/lucide-icons/lucide/main/LICENSE）
@@ -189,7 +189,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @vue/reactivity@3.1.5
+## @vue/reactivity@3.5.43
 
 - 许可证：MIT
 - 来源文件：LICENSE
@@ -219,7 +219,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-## @vue/shared@3.1.5
+## @vue/shared@3.5.43
 
 - 许可证：MIT
 - 来源文件：LICENSE
@@ -249,10 +249,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-## alpinejs@3.15.12
+## alpinejs@3.17.3
 
 - 许可证：MIT
-- 来源文件：security/licenses/alpinejs-3.15.12-LICENSE.md（上游：https://raw.githubusercontent.com/alpinejs/alpine/v3.15.12/LICENSE.md）
+- 来源文件：security/licenses/alpinejs-3.17.3-LICENSE.md（上游：https://raw.githubusercontent.com/alpinejs/alpine/v3.17.3/LICENSE.md）
 - npm 作者元数据：Caleb Porzio
 
 ```text

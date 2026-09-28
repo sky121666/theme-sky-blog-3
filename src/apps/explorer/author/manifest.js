@@ -3,9 +3,6 @@ export const explorerAuthorAppManifest = {
   windowVariant: 'browser',
   supportsSameAppPjax: true,
   sameVariantPageModes: ['browser-list'],
-  cachePolicy: 'app-path-search',
-  assets: {
-    js: 'explorer-author.js',
-    css: 'explorer-author.css'
-  }
+  entry: 'src/apps/explorer/author/entry.js',
+  assetDirectory: 'author'
 };

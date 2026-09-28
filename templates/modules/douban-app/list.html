@@ -1,3 +1,4 @@
+<!-- plugin-contract: plugin-douban; surface: public-list; contract-version: 1.2.6; status: confirmed; source: docs/插件适配契约.md#pc-douban-list -->
 <th:block th:fragment="content"
           th:with="
             rawTitle=${!#strings.isEmpty(title) ? title : '豆瓣书影音记录'},
@@ -8,7 +9,6 @@
             profileTitle=${!#strings.isEmpty(configuredProfileTitle) ? configuredProfileTitle : resolvedTitle},
             profileSubtitle=${!#strings.isEmpty(configuredProfileSubtitle) ? configuredProfileSubtitle : '记录阅读、观影、音乐、游戏与舞台剧痕迹，保存我的个人记忆。'},
             colorMode=${theme.config.douban?.style?.color_mode ?: 'douban'}">
-  <!-- plugin-contract: plugin-douban; contract-version: 1.2.5; tested-version: 1.2.5; status: confirmed; source: docs/插件适配契约.md -->
   <div class="douban-app"
        data-app-root="douban"
        th:attr="data-douban-title=${profileTitle},data-douban-site-title=${site.title},data-douban-color-mode=${colorMode}">

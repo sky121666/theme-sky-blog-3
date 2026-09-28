@@ -655,6 +655,12 @@
   border-color: rgba(239, 68, 68, 0.2);
   background: rgba(239, 68, 68, 0.1);
   color: #dc2626;
+  cursor: pointer;
+}
+
+.bangumis-loadmore-error:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }
 
 .bangumis-scroll-sentinel {

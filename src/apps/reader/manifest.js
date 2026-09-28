@@ -3,9 +3,6 @@ export const readerAppManifest = {
   windowVariant: 'browser',
   supportsSameAppPjax: false,
   sameVariantPageModes: [],
-  cachePolicy: 'app-path-search',
-  assets: {
-    js: 'reader.js',
-    css: 'reader.css'
-  }
+  entry: 'src/apps/reader/entry.js',
+  assetDirectory: 'reader'
 };

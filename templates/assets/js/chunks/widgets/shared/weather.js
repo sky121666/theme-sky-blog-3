@@ -1,29 +1,29 @@
-function d(t){return String(t||"").trim()}function r(t){return d(t).toLowerCase()}function w(t,e){return{cityName:d((e?.meta&&typeof e.meta=="object"?e.meta:{}).cityName)||d(t.weather.cityName)}}function o(t,e,i){const a=w(t,i);if(!a.cityName)return{cityName:"",loading:!1,error:"请先在后台设置天气组件城市。",data:null};const s=e?.entries?.[r(a.cityName)];return s?{cityName:a.cityName,loading:s.loading===!0,error:s.error||"",data:s.data||null}:{cityName:a.cityName,loading:e?.loading===!0,error:e?.error||"",data:e?.data||null}}function h(t,e){const i=e?.data;return i||{city:t||"天气",temperature:"--",high:"--",low:"--",apparent:"--",humidity:"--",windSpeed:"--",condition:"等待数据",icon:"☁︎",tone:"cloudy",updatedAt:null}}function g(t,e){return`
-    <div class="desktop-widget-weather desktop-widget-weather--small is-${e(t.tone)}">
+function d(e){return String(e||"").trim()}function w(e){return d(e).toLowerCase()}function r(e,t){return{cityName:d((t?.meta&&typeof t.meta=="object"?t.meta:{}).cityName)||d(e.weather.cityName)}}function o(e,t,i){const a=r(e,i);if(!a.cityName)return{cityName:"",loading:!1,error:"请先在后台设置天气组件城市。",data:null};const s=t?.entries?.[w(a.cityName)];return s?{cityName:a.cityName,loading:s.loading===!0,error:s.error||"",data:s.data||null}:{cityName:a.cityName,loading:t?.loading===!0,error:"",data:null}}function h(e,t){const i=t?.data;return i||{city:e||"天气",temperature:"--",high:"--",low:"--",apparent:"--",humidity:"--",windSpeed:"--",condition:"等待数据",icon:"☁︎",tone:"cloudy",updatedAt:null}}function g(e,t){return`
+    <div class="desktop-widget-weather desktop-widget-weather--small is-${t(e.tone)}">
       <div class="desktop-widget-weather-atmo" aria-hidden="true"></div>
       <div class="desktop-widget-weather-top">
-        <span class="desktop-widget-weather-city">${e(t.city)}</span>
-        <span class="desktop-widget-weather-icon">${e(t.icon)}</span>
+        <span class="desktop-widget-weather-city">${t(e.city)}</span>
+        <span class="desktop-widget-weather-icon">${t(e.icon)}</span>
       </div>
       <div class="desktop-widget-weather-hero">
-        <span class="desktop-widget-weather-temp">${e(`${t.temperature}°`)}</span>
+        <span class="desktop-widget-weather-temp">${t(`${e.temperature}°`)}</span>
       </div>
       <div class="desktop-widget-weather-foot">
-        <span class="desktop-widget-weather-cond">${e(t.condition)}</span>
-        <span class="desktop-widget-weather-hilo">H:${e(`${t.high}°`)} L:${e(`${t.low}°`)}</span>
+        <span class="desktop-widget-weather-cond">${t(e.condition)}</span>
+        <span class="desktop-widget-weather-hilo">H:${t(`${e.high}°`)} L:${t(`${e.low}°`)}</span>
       </div>
     </div>
-  `}function c(t,e){return`
-    <div class="desktop-widget-weather desktop-widget-weather--medium is-${e(t.tone)}">
+  `}function c(e,t){return`
+    <div class="desktop-widget-weather desktop-widget-weather--medium is-${t(e.tone)}">
       <div class="desktop-widget-weather-atmo" aria-hidden="true"></div>
       <div class="desktop-widget-weather-m-main">
         <div class="desktop-widget-weather-m-top">
-          <h4 class="desktop-widget-weather-m-city">${e(t.city)}</h4>
-          <span class="desktop-widget-weather-m-cond">${e(t.condition)}</span>
+          <h4 class="desktop-widget-weather-m-city">${t(e.city)}</h4>
+          <span class="desktop-widget-weather-m-cond">${t(e.condition)}</span>
         </div>
         <div class="desktop-widget-weather-m-bottom">
-          <span class="desktop-widget-weather-m-temp">${e(`${t.temperature}°`)}</span>
-          <div class="desktop-widget-weather-m-icon is-float">${e(t.icon)}</div>
+          <span class="desktop-widget-weather-m-temp">${t(`${e.temperature}°`)}</span>
+          <div class="desktop-widget-weather-m-icon is-float">${t(e.icon)}</div>
         </div>
       </div>
       <div class="desktop-widget-weather-m-details">
@@ -33,25 +33,25 @@ function d(t){return String(t||"").trim()}function r(t){return d(t).toLowerCase(
         <div class="desktop-widget-weather-m-stats">
           <div class="desktop-widget-weather-m-stat">
             <span class="desktop-widget-weather-m-stat-lbl">体感</span>
-            <span class="desktop-widget-weather-m-stat-val">${e(`${t.apparent}°`)}</span>
+            <span class="desktop-widget-weather-m-stat-val">${t(`${e.apparent}°`)}</span>
           </div>
           <div class="desktop-widget-weather-m-stat">
             <span class="desktop-widget-weather-m-stat-lbl">湿度</span>
-            <span class="desktop-widget-weather-m-stat-val">${e(`${t.humidity}%`)}</span>
+            <span class="desktop-widget-weather-m-stat-val">${t(`${e.humidity}%`)}</span>
           </div>
           <div class="desktop-widget-weather-m-stat">
             <span class="desktop-widget-weather-m-stat-lbl">风速</span>
-            <span class="desktop-widget-weather-m-stat-val">${e(`${t.windSpeed}`)} km/h</span>
+            <span class="desktop-widget-weather-m-stat-val">${t(`${e.windSpeed}`)} km/h</span>
           </div>
         </div>
         <div class="desktop-widget-weather-m-hilo">
           <div class="flex-between">
             <span>最高</span>
-            <span>${e(`${t.high}°`)}</span>
+            <span>${t(`${e.high}°`)}</span>
           </div>
           <div class="flex-between">
             <span>最低</span>
-            <span>${e(`${t.low}°`)}</span>
+            <span>${t(`${e.low}°`)}</span>
           </div>
         </div>
       </div>
@@ -114,4 +114,4 @@ function d(t){return String(t||"").trim()}function r(t){return d(t).toLowerCase(
         </div>
       </div>
     </div>
-  `}function m({modules:t,weatherState:e,escapeHtml:i},a){const s=o(t,e,a),l=s.cityName,p=a?.size==="small";if(!l)return'<div class="desktop-widget-empty">请先在后台设置天气组件城市。</div>';if(s.loading&&!s.data)return p?v():k();const n=h(l,s);return p?g(n,i):c(n,i)}export{m as t};
+  `}function m({modules:e,weatherState:t,escapeHtml:i},a){const s=o(e,t,a),l=s.cityName,p=a?.size==="small";if(!l)return'<div class="desktop-widget-empty">请先在后台设置天气组件城市。</div>';if(s.loading&&!s.data)return p?v():k();const n=h(l,s);return p?g(n,i):c(n,i)}export{m as t};

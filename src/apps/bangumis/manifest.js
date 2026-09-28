@@ -3,9 +3,6 @@ export const bangumisAppManifest = {
   windowVariant: 'bangumis',
   supportsSameAppPjax: true,
   sameVariantPageModes: ['browser-bangumis'],
-  cachePolicy: 'app-path-search',
-  assets: {
-    js: 'bangumis.js',
-    css: 'bangumis.css'
-  }
+  entry: 'src/apps/bangumis/entry.js',
+  assetDirectory: 'bangumis'
 };

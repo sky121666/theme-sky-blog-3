@@ -149,7 +149,7 @@ const pageApp = read('src/shell/desktop-shell/runtime/shared/page-app.js');
 assert.match(pageApp, /import \{ disposeLazyImages, initLazyImages \} from '\.\/lazy-media\.js';/);
 assert.match(
   pageApp,
-  /finally \{\s*disposeLazyImages\(activeApp\.root \|\| document\);\s*disposeLazyComments\(activeApp\.root \|\| document\);\s*registry\.activeApp = null;/
+  /registry\.activeApp = null;[\s\S]*?runAllLifecycleSteps\([\s\S]*?\(\) => disposeLazyImages\(activeApp\.root \|\| document\),[\s\S]*?\(\) => disposeLazyComments\(activeApp\.root \|\| document\)/
 );
 
 const moments = read('templates/modules/moments-app/list.html');

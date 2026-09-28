@@ -67,6 +67,35 @@ try {
     };
     globalThis.DOMParser = class {
       parseFromString() {
+        if (fixture.id === 'bangumis') {
+          const cards = [{ dataset: {} }];
+          const loadMore = { querySelector: (selector) => selector === fixture.sentinelSelector ? {} : null };
+          const scroller = {
+            querySelector(selector) {
+              if (selector === '.bangumis-list') return { querySelectorAll: () => cards };
+              if (selector === fixture.loadMoreSelector) return loadMore;
+              return null;
+            }
+          };
+          const app = {
+            querySelector(selector) {
+              if (selector === fixture.scrollerSelector) return scroller;
+              if (selector === '[data-app-props="bangumis"]') return {};
+              return null;
+            }
+          };
+          return {
+            body: {
+              dataset: {
+                errorPage: 'false',
+                pageMode: 'browser-bangumis',
+                appId: 'bangumis',
+                windowVariant: 'bangumis'
+              },
+              querySelector: (selector) => selector === '[data-app-root="bangumis"]' ? app : null
+            }
+          };
+        }
         return {
           querySelectorAll(selector) {
             assert.equal(selector, fixture.cardSelector);
@@ -114,6 +143,8 @@ try {
       removeEventListener() {}
     };
     const lifecycleRoot = {
+      dataset: { bangumisCurrentType: '1' },
+      querySelectorAll: () => [],
       querySelector(selector) {
         if (selector === fixture.loadMoreSelector) return trigger;
         if (selector === fixture.sentinelSelector) return sentinel;
@@ -123,7 +154,7 @@ try {
     };
     Object.defineProperty(globalThis, 'window', {
       configurable: true,
-      value: {}
+      value: { location: { href: 'https://pagination.test/' } }
     });
     Object.defineProperty(globalThis, 'document', {
       configurable: true,
@@ -134,7 +165,8 @@ try {
       return {
         ok: true,
         status: 200,
-        async text() { return '<html></html>'; }
+        url: `https://pagination.test/${fixture.id}?page=2`,
+        async text() { return '<html><body></body></html>'; }
       };
     };
 

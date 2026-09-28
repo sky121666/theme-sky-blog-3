@@ -4,8 +4,9 @@
   "private": true,
   "license": "MIT",
   "engines": {
-    "node": ">=24.18.0 <25"
+    "node": ">=24.21.0 <25"
   },
+  "packageManager": "pnpm@12.5.1",
   "type": "module",
   "scripts": {
     "preinstall": "node -e \"if (!/pnpm/.test(process.env.npm_config_user_agent || '')) { console.error('This project uses pnpm only. Do not use npm.'); process.exit(1); }\"",
@@ -20,6 +21,7 @@
     "verify:theme-settings": "node scripts/verify-theme-settings.mjs",
     "verify:theme-config-client": "node scripts/verify-theme-config-client.mjs",
     "verify:docsme": "node scripts/verify-docsme.mjs",
+    "verify:docsme-toc": "node scripts/verify-docsme-toc.mjs",
     "verify:douban-adaptation": "node scripts/verify-douban-adaptation.mjs",
     "verify:links": "node scripts/verify-links-adaptation.mjs",
     "verify:photos-pagination": "node scripts/verify-photos-pagination.mjs",
@@ -49,43 +51,45 @@
     "audit:plugins:strict": "node scripts/audit-plugin-inventory.mjs --strict-theme",
     "notices:generate": "node scripts/generate-third-party-notices.mjs",
     "notices:check": "node scripts/generate-third-party-notices.mjs --check && node scripts/check-third-party-notices.mjs",
-    "verify:contracts": "node scripts/verify-weather-runtime.mjs && node scripts/verify-shell-bootstrap-contract.mjs && node scripts/verify-window-lifecycle.mjs && node scripts/verify-media-performance-contract.mjs && node scripts/verify-lazy-comment-lifecycle.mjs && node scripts/verify-shell-resource-lifecycle.mjs && pnpm run verify:theme-settings && pnpm run verify:theme-config-client && pnpm run verify:pjax-navigation && pnpm run verify:repair-contracts && node scripts/verify-pnpm-supply-chain-policy.mjs && node scripts/verify-widgets-config-schema.mjs && node scripts/verify-widget-bangumis.mjs && node scripts/verify-widget-photos.mjs && node scripts/verify-widget-steam.mjs && pnpm run verify:plugin-inventory && pnpm run verify:douban-adaptation && pnpm run verify:photos-pagination && pnpm run verify:waterfall-lifecycle && pnpm run verify:steam-adaptation && pnpm run verify:links && pnpm run verify:plugin-runtime",
+    "verify:contracts": "node scripts/verify-weather-runtime.mjs && pnpm run verify:widget-data-fixes && node scripts/verify-shell-bootstrap-contract.mjs && node scripts/verify-window-lifecycle.mjs && node scripts/verify-media-performance-contract.mjs && node scripts/verify-lazy-comment-lifecycle.mjs && node scripts/verify-shell-resource-lifecycle.mjs && pnpm run verify:theme-settings && pnpm run verify:theme-config-client && pnpm run verify:pjax-navigation && pnpm run verify:repair-contracts && pnpm run verify:core-page-regressions && node scripts/verify-pnpm-supply-chain-policy.mjs && node --test scripts/verify-pnpm-supply-chain-policy.test.mjs && node scripts/verify-widgets-config-schema.mjs && node scripts/verify-widget-bangumis.mjs && node scripts/verify-widget-photos.mjs && node scripts/verify-widget-steam.mjs && pnpm run verify:plugin-inventory && pnpm run verify:douban-adaptation && pnpm run verify:docsme-toc && pnpm run verify:photos-pagination && pnpm run verify:waterfall-lifecycle && pnpm run verify:steam-adaptation && pnpm run verify:links && pnpm run verify:plugin-runtime && pnpm run verify:plugin-shell-integration && pnpm run verify:comment-integration && pnpm run verify:plugin-contract-markers && pnpm run verify:reader-comment-anchor && pnpm run verify:framework-hardening",
     "verify:performance": "node scripts/verify-html-performance.mjs",
     "verify:pjax-navigation": "node scripts/verify-pjax-navigation-contract.mjs",
     "verify:pjax-cold-assets": "node scripts/verify-pjax-cold-app-assets.mjs",
     "verify:pjax-lifecycle": "node scripts/verify-pjax-lifecycle.mjs",
     "verify:release-package": "node scripts/verify-release-package.mjs",
     "verify:halo-compat:prepare": "node scripts/prepare-halo-compat.mjs",
-    "check": "node scripts/lint-architecture.mjs && node scripts/typecheck-contracts.mjs && pnpm run verify:contracts && pnpm run notices:check && vite build && node scripts/smoke-theme.mjs",
+    "check": "node scripts/lint-architecture.mjs && node scripts/typecheck-contracts.mjs && pnpm run verify:contracts && pnpm run verify:halo-page-layout && pnpm run notices:check && vite build && pnpm run verify:asset-budget && node scripts/smoke-theme.mjs",
     "build-only": "vite build",
     "build": "vite build && pnpm run package",
-    "package": "theme-package && node scripts/finalize-theme-package.mjs"
+    "package": "theme-package && node scripts/finalize-theme-package.mjs",
+    "verify:core-page-regressions": "node scripts/verify-core-page-regressions.mjs",
+    "verify:widget-data-fixes": "node scripts/verify-widget-data-fixes.mjs",
+    "verify:plugin-shell-integration": "node scripts/verify-plugin-shell-integration.mjs",
+    "verify:comment-integration": "node scripts/verify-comment-integration.mjs",
+    "verify:plugin-contract-markers": "node scripts/verify-plugin-contract-markers.mjs && node scripts/verify-plugin-contract-markers.mjs --self-test",
+    "verify:reader-comment-anchor": "node scripts/verify-reader-comment-anchor.mjs",
+    "verify:framework-hardening": "node scripts/verify-resource-navigation-hardening.mjs && node scripts/verify-browser-error-gates.mjs && node --test scripts/verify-performance-metrics.test.mjs && node scripts/verify-live-build-context.mjs && node scripts/verify-docsme-discovery.mjs",
+    "verify:halo-page-layout": "node scripts/verify-halo-page-layout.mjs",
+    "verify:asset-budget": "node scripts/verify-asset-budget.mjs",
+    "verify:auth:live": "node scripts/verify-anonymous-auth.mjs",
+    "verify:widgets:browser": "node scripts/verify-widget-browser.mjs"
   },
   "devDependencies": {
-    "@alpinejs/intersect": "3.15.12",
-    "@alpinejs/morph": "3.15.12",
+    "@alpinejs/intersect": "3.17.3",
+    "@alpinejs/morph": "3.17.3",
     "@halo-dev/theme-package-cli": "1.1.1",
-    "@iconify-json/lucide": "1.2.118",
+    "@iconify-json/lucide": "1.2.134",
     "@iconify/tailwind4": "1.2.3",
     "@tailwindcss/vite": "4.3.3",
-    "alpinejs": "3.15.12",
-    "esbuild": "0.28.1",
-    "playwright": "1.61.1",
+    "alpinejs": "3.17.3",
+    "esbuild": "0.28.2",
+    "playwright": "1.63.0",
     "tailwindcss": "4.3.3",
-    "vite": "8.1.5"
+    "vite": "8.3.0"
   },
   "dependencies": {
     "nprogress": "0.2.0",
     "pjax": "0.2.8",
     "qrcode": "1.5.4"
-  },
-  "pnpm": {
-    "overrides": {
-      "archiver": "8.0.0",
-      "postcss": "8.5.23"
-    },
-    "patchedDependencies": {
-      "@halo-dev/theme-package-cli@1.1.1": "patches/@halo-dev__theme-package-cli@1.1.1.patch"
-    }
   }
 }

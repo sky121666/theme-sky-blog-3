@@ -1,5 +1,8 @@
 import path from 'node:path';
+import fs from 'node:fs';
+import nodeAssert from 'node:assert/strict';
 import { pathToFileURL } from 'node:url';
+import { validateAppManifests } from './lib/app-contracts.mjs';
 
 const root = process.cwd();
 globalThis.window = {
@@ -28,7 +31,11 @@ const {
   getAppManifest,
   getKnownAppIds,
   getSameAppPjaxLoadingMode,
-  shouldUseWindowLoadingOverlay
+  shouldUseWindowLoadingOverlay,
+  getAppAssetSegment,
+  getAppEntryPaths,
+  getEntryJsPath,
+  getEntryCssPath
 } = appManifestsMod;
 const {
   resolveRoute,
@@ -39,6 +46,35 @@ const {
 const { renderWidget: renderCategoriesWidget } = categoriesWidgetMod;
 
 assert(Array.isArray(APP_MANIFESTS) && APP_MANIFESTS.length > 0, 'APP_MANIFESTS 不能为空');
+nodeAssert.deepEqual(validateAppManifests(APP_MANIFESTS, { root }), [], 'App manifest 必须符合实际消费契约');
+for (const patch of [
+  { cachePolicy: 'invalid-policy' },
+  { assets: { js: 'missing.js', css: 'missing.css' } },
+  { entry: 'src/apps/missing/entry.js' },
+  { assetDirectory: '../outside' },
+  { sameAppPjaxLoading: 'invalid-policy' }
+]) {
+  nodeAssert.ok(validateAppManifests([{ ...APP_MANIFESTS[0], ...patch }], { root }).length,
+    `无效声明必须失败: ${JSON.stringify(patch)}`);
+}
+nodeAssert.equal(getAppAssetSegment('unknown-app'), '');
+nodeAssert.throws(() => getEntryJsPath('unknown-app'));
+nodeAssert.equal(getEntryJsPath('shell-core'), 'js/shell-core/index.js');
+nodeAssert.equal(getEntryCssPath('shell-core'), 'css/shell-core/index.css');
+const buildEntries = getAppEntryPaths();
+const layoutSource = fs.readFileSync(path.join(root, 'templates/modules/shell/layout.html'), 'utf8');
+// Thymeleaf cannot import the JS registry. Check its unavoidable SSR aliases
+// against the executable registry until Halo can read a generated asset map.
+for (const manifest of APP_MANIFESTS) {
+  nodeAssert.equal(buildEntries[manifest.appId], manifest.entry);
+  nodeAssert.ok(fs.existsSync(path.join(root, buildEntries[manifest.appId])));
+  nodeAssert.equal(getEntryJsPath(manifest.appId), `js/apps/${manifest.assetDirectory}/index.js`);
+  nodeAssert.equal(getEntryCssPath(manifest.appId), `css/apps/${manifest.assetDirectory}/index.css`);
+  if (manifest.appId !== manifest.assetDirectory) {
+    const alias = `pageAppValue == '${manifest.appId}' ? '${manifest.assetDirectory}'`;
+    nodeAssert.equal(layoutSource.split(alias).length - 1, 2, `${manifest.appId}: SSR CSS/JS 目录别名必须与 manifest 一致`);
+  }
+}
 
 const seenIds = new Set();
 for (const manifest of APP_MANIFESTS) {
@@ -58,10 +94,6 @@ for (const manifest of APP_MANIFESTS) {
     assert(manifest.supportsSameAppPjax, `${manifest.appId} 仅在支持 same-app PJAX 时才能使用 progress`);
   }
   assert(Array.isArray(manifest.sameVariantPageModes), `${manifest.appId}.sameVariantPageModes 必须是数组`);
-  assert(typeof manifest.cachePolicy === 'string' && manifest.cachePolicy, `${manifest.appId}.cachePolicy 必须是非空字符串`);
-  assert(typeof manifest.assets === 'object' && manifest.assets, `${manifest.appId}.assets 必须存在`);
-  assert(typeof manifest.assets.js === 'string' && manifest.assets.js, `${manifest.appId}.assets.js 必须是非空字符串`);
-  assert(typeof manifest.assets.css === 'string' && manifest.assets.css, `${manifest.appId}.assets.css 必须是非空字符串`);
   if (!manifest.supportsSameAppPjax) {
     assert(manifest.sameVariantPageModes.length === 0, `${manifest.appId} 不支持 same-app pjax 时 sameVariantPageModes 必须为空`);
   }
@@ -77,7 +109,6 @@ const doubanManifest = getAppManifest('douban');
 assert(doubanManifest?.windowVariant === 'douban', 'Douban manifest.windowVariant 必须为 douban');
 assert(doubanManifest?.supportsSameAppPjax === true, 'Douban 必须支持 same-app PJAX');
 assert(doubanManifest?.sameVariantPageModes?.includes('browser-douban'), 'Douban 必须声明 browser-douban 页面模式');
-assert(doubanManifest?.cachePolicy === 'app-path-search', 'Douban cachePolicy 必须覆盖路径和查询参数');
 
 assert(getSameAppPjaxLoadingMode('explorer-categories') === 'progress', '分类同应用 PJAX 必须使用轻量进度');
 assert(getSameAppPjaxLoadingMode('explorer-archives') === 'progress', '归档同应用 PJAX 必须使用轻量进度');
@@ -268,4 +299,4 @@ assert(
 );
 assert(!categoryWidgetHtml.includes('href="/categories"'), '自定义 categoriesUri 下不得回退到硬编码 /categories');
 
-console.log('协议 typecheck 通过');
+console.log('App 协议与资源契约校验通过（兼容 typecheck 命令名；不包含全量 JavaScript 静态类型检查）');
