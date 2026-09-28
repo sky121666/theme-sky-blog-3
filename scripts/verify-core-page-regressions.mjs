@@ -117,14 +117,20 @@ for (const scenario of [
   });
 }
 
-// A3: Run the actual shared gateway script against the four real button declarations.
+// A3: Run the actual shared gateway script against each password control.
 const common = read('templates/gateway_fragments/common.html');
 const gatewayScript = common.match(/<script th:inline="javascript">([\s\S]*?)<\/script>/)?.[1];
 assert.ok(gatewayScript, 'shared gateway helper script must be present');
-for (const path of ['templates/gateway_fragments/signup.html', 'templates/gateway_fragments/password_reset_email_reset.html']) {
+for (const [path, expectedCount] of [
+  ['templates/login_local.html', 1],
+  ['templates/gateway_fragments/signup.html', 2],
+  ['templates/gateway_fragments/password_reset_email_reset.html', 2]
+]) {
   const template = read(path);
-  const buttonMarkup = [...template.matchAll(/<button\b[^>]*class="auth-toggle-password"[^>]*>/g)].map((match) => match[0]);
-  assert.equal(buttonMarkup.length, 2, `${path}: both password fields need controls`);
+  const buttonMarkup = [...template.matchAll(/<button\b[^>]*>/g)]
+    .map((match) => match[0])
+    .filter((markup) => /\bclass="[^"]*\bauth-toggle-password\b/.test(markup));
+  assert.equal(buttonMarkup.length, expectedCount, `${path}: every password field needs a visibility control`);
   const buttons = buttonMarkup.map((markup) => {
     const attributes = new Map([...markup.matchAll(/([\w-]+)="([^"]*)"/g)].map((match) => [match[1], match[2]]));
     assert.equal(attributes.get('type'), 'button');

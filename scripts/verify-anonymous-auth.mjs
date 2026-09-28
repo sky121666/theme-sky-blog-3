@@ -157,6 +157,16 @@ try {
           await themeToggle.click();
           await page.waitForFunction((before) => document.documentElement.dataset.theme === before, beforeTheme);
 
+          if (route.name === 'login') {
+            passkeyPath = await page.locator('a[href*="method=passkey"]').first().getAttribute('href').catch(() => '');
+          }
+          const hasLockscreen = route.name === 'login' && await page.locator('[data-auth-lockscreen-advance]').count() > 0;
+          if (hasLockscreen) {
+            await page.locator('#username').fill('theme3-readonly-audit');
+            await page.locator('[data-auth-lockscreen-advance]').click();
+            await page.locator('#password').waitFor({ state: 'visible' });
+          }
+
           const passwordToggles = page.locator('button.auth-toggle-password');
           for (let index = 0; index < await passwordToggles.count(); index += 1) {
             const button = passwordToggles.nth(index);
@@ -166,31 +176,33 @@ try {
             assert.ok(accessibleName?.trim(), 'Password toggle needs an accessible name');
             const input = page.locator(`[id="${target}"]`);
             assert.equal(await input.getAttribute('type'), 'password');
+            const isLocalPassword = route.name === 'login' && target === 'password';
+            if (isLocalPassword) await input.fill('theme3-readonly-fixture');
+            const originalValue = await input.inputValue();
+            const originalName = await input.getAttribute('name');
             await button.focus();
             await button.press('Enter');
             assert.equal(await input.getAttribute('type'), 'text');
             assert.equal(await button.getAttribute('aria-pressed'), 'true');
+            assert.equal(await input.inputValue(), originalValue, 'revealing must preserve the typed password');
             // WAI APG toggle buttons retain their label while aria-pressed changes.
             assert.equal(await button.getAttribute('aria-label'), accessibleName);
             await button.press('Space');
             assert.equal(await input.getAttribute('type'), 'password');
             assert.equal(await button.getAttribute('aria-pressed'), 'false');
             assert.equal(await button.getAttribute('aria-label'), accessibleName);
+            assert.equal(await input.inputValue(), originalValue, 'hiding must preserve the typed password');
+            assert.equal(await input.getAttribute('name'), originalName, 'visibility must not change the submitted field');
+            if (isLocalPassword) await input.fill('');
             item.actions.push({ action: 'password-toggle-keyboard', target, accessibleName, status: 'passed' });
           }
 
-          if (route.name === 'login') {
-            passkeyPath = await page.locator('a[href*="method=passkey"]').first().getAttribute('href').catch(() => '');
-            if (await page.locator('[data-auth-lockscreen-advance]').count()) {
-              await page.locator('#username').fill('theme3-readonly-audit');
-              await page.locator('[data-auth-lockscreen-advance]').click();
-              await page.locator('#password').waitFor({ state: 'visible' });
-              item.screenshots.push(await screenshot(page, 'login-password-step', viewport.name));
-              await page.locator('[data-auth-lockscreen-back]').click();
-              await page.locator('#username').waitFor({ state: 'visible' });
-              await page.locator('#username').fill('');
-              item.actions.push({ action: 'local-login-client-step-and-back', status: 'passed' });
-            }
+          if (hasLockscreen) {
+            item.screenshots.push(await screenshot(page, 'login-password-step', viewport.name));
+            await page.locator('[data-auth-lockscreen-back]').click();
+            await page.locator('#username').waitFor({ state: 'visible' });
+            await page.locator('#username').fill('');
+            item.actions.push({ action: 'local-login-client-step-and-back', status: 'passed' });
           }
         } else {
           await page.waitForSelector('.error-modal-surface', { state: 'visible', timeout: 15000 });

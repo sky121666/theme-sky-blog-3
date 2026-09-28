@@ -332,7 +332,7 @@ const authStructureChecks = [
   ],
   [
     'templates/login_local.html',
-    ['id="password" th:name="${#strings.isEmpty(publicKey) ? \'password\' : null}"', 'id="encrypted-password"', 'type="hidden" name="password"', 'data-auth-encryption-error role="alert" hidden', 'autocomplete="current-password"', 'data-auth-lockscreen-native', 'data-auth-lockscreen-advance', 'data-auth-lockscreen-submit', 'data-auth-lockscreen-back']
+    ['id="password" th:name="${#strings.isEmpty(publicKey) ? \'password\' : null}"', 'id="encrypted-password"', 'type="hidden" name="password"', 'data-auth-encryption-error role="alert" hidden', 'autocomplete="current-password"', 'data-auth-lockscreen-native', 'data-auth-lockscreen-advance', 'data-auth-lockscreen-submit', 'data-auth-lockscreen-back', 'auth-toggle-password auth-lockscreen-password-toggle', 'aria-controls="password" aria-pressed="false"']
   ],
   [
     'templates/gateway_fragments/common.html',
@@ -380,9 +380,7 @@ const authForbiddenBackgroundPatterns = [
   ['templates/gateway_fragments/common.html', 'plainPasswordInput.name = "plainPassword"'],
   ['templates/gateway_fragments/common.html', '<script type="module" src="/js/main.js"></script>'],
   ['templates/login_local.html', 'data-auth-encrypted-password'],
-  ['templates/login_local.html', 'auth-toggle-password'],
   ['templates/login_local.html', 'auth-input-wrap'],
-  ['templates/login_local.html', 'auth-password-wrap'],
   ['src/entries/auth.js', 'querySelectorAll?.(\'altcha-widget[floating]\')'],
   ['src/entries/auth.js', "widget.removeAttribute('floating')"],
   ['templates/gateway_fragments/signup.html', 'autocomplete="off"'],

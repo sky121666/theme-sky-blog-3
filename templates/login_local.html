@@ -28,7 +28,7 @@
                 </button>
                 <span data-auth-lockscreen-account-label>账户</span>
             </div>
-            <div class="auth-field auth-field-compact auth-lockscreen-field">
+            <div class="auth-field auth-field-compact auth-lockscreen-field auth-password-wrap">
                 <label for="password">密码</label>
                 <input id="password" th:name="${#strings.isEmpty(publicKey) ? 'password' : null}"
                     type="password" placeholder="输入密码" autocomplete="current-password"
@@ -36,6 +36,11 @@
                     class="auth-input auth-lockscreen-input" />
                 <input th:if="${not #strings.isEmpty(publicKey)}" id="encrypted-password"
                     type="hidden" name="password" value="" autocomplete="off" />
+                <button type="button" class="auth-toggle-password auth-lockscreen-password-toggle"
+                    aria-label="显示密码" aria-controls="password" aria-pressed="false">
+                    <span class="auth-icon-eye-show icon-[lucide--eye]" aria-hidden="true"></span>
+                    <span class="auth-icon-eye-hide icon-[lucide--eye-off]" style="display:none" aria-hidden="true"></span>
+                </button>
                 <button type="submit" class="auth-lockscreen-submit" data-auth-lockscreen-submit
                     aria-label="登录" title="登录">
                     <span class="icon-[lucide--arrow-right]" aria-hidden="true"></span>

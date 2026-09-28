@@ -2010,6 +2010,24 @@ html.dark body.auth-gateway-page--lockscreen .auth-theme-toggle {
     color 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.auth-gateway-page--lockscreen .auth-lockscreen-field.auth-password-wrap .auth-lockscreen-input,
+.auth-gateway-page--lockscreen .halo-form .auth-lockscreen-field.auth-password-wrap .auth-lockscreen-input {
+  padding-right: 116px !important;
+}
+
+.auth-gateway-page--lockscreen .auth-lockscreen-password-toggle {
+  color: var(--auth-lockscreen-muted);
+  height: 44px;
+  right: 59px;
+  width: 44px;
+  z-index: 2;
+}
+
+.auth-gateway-page--lockscreen .auth-lockscreen-password-toggle:focus-visible {
+  outline: 2px solid var(--auth-system-accent);
+  outline-offset: 2px;
+}
+
 .auth-gateway-page--lockscreen .auth-lockscreen-input::placeholder,
 .auth-gateway-page--lockscreen .halo-form .auth-lockscreen-input::placeholder {
   color: var(--auth-lockscreen-muted);
