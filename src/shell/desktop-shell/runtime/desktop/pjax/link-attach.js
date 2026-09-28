@@ -17,7 +17,9 @@ const PJAX_ATTACHED_ATTR = 'data-pjax-attached';
  * @returns {boolean}
  */
 export function isPjaxManagedLink(link) {
-  if (!link || link.target === '_blank' || !link.classList?.contains('pjax-link')) {
+  const target = String(link?.target || '').toLowerCase();
+  if (!link || (target && target !== '_self') || link.hasAttribute?.('download')
+      || !link.classList?.contains('pjax-link')) {
     return false;
   }
 

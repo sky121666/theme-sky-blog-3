@@ -19,7 +19,8 @@ function syncDocsmeTocState(app) {
 }
 
 function isInternalDocsmeLink(anchor) {
-  if (!anchor?.href) return false;
+  if (!anchor?.href || (anchor.target && anchor.target.toLowerCase() !== '_self')
+      || anchor.hasAttribute('download')) return false;
 
   try {
     const url = new URL(anchor.href, window.location.href);
@@ -30,16 +31,17 @@ function isInternalDocsmeLink(anchor) {
 }
 
 function enhanceDocsmeLinks(root) {
+  const pjax = window.pjax;
   root.querySelectorAll('a[href]').forEach((anchor) => {
     if (!isInternalDocsmeLink(anchor)) return;
     anchor.classList.add('pjax-link');
     anchor.dataset.pjaxApp = 'docsme';
+    anchor.setAttribute('data-pjax-managed', 'true');
+    if (typeof pjax?.attachLink !== 'function'
+        || anchor.hasAttribute('data-pjax-state')
+        || anchor.hasAttribute('data-pjax-attached')) return;
+    pjax.attachLink(anchor);
   });
-
-  const links = Array.from(root.querySelectorAll('a.pjax-link'));
-  if (window.pjax && typeof window.pjax.attachLinks === 'function' && links.length > 0) {
-    window.pjax.attachLinks(links);
-  }
 }
 
 function bindSwitchers(root) {

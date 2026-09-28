@@ -265,29 +265,32 @@ async function verifyAppCssNavigationStaging() {
 
 async function verifyTopLevelDynamicLink() {
   let attached = 0;
-  const attributes = new Map();
-  const anchor = {
-    tagName: 'A',
-    href: 'https://example.test/posts/example',
-    target: '',
-    className: 'pjax-link',
-    classList: { contains: (name) => name === 'pjax-link' },
-    matches(selector) {
-      return selector.includes('a.pjax-link');
-    },
-    querySelectorAll() {
-      return [];
-    },
-    hasAttribute(name) {
-      return attributes.has(name);
-    },
-    setAttribute(name, value) {
-      attributes.set(name, String(value));
-    },
-    removeAttribute(name) {
-      attributes.delete(name);
-    }
+  const createAnchor = ({ target = '', download = false } = {}) => {
+    const attributes = new Map(download ? [['download', '']] : []);
+    return {
+      tagName: 'A',
+      href: 'https://example.test/posts/example',
+      target,
+      className: 'pjax-link',
+      classList: { contains: (name) => name === 'pjax-link' },
+      matches(selector) {
+        return selector.includes('a.pjax-link');
+      },
+      querySelectorAll() {
+        return [];
+      },
+      hasAttribute(name) {
+        return attributes.has(name);
+      },
+      setAttribute(name, value) {
+        attributes.set(name, String(value));
+      },
+      removeAttribute(name) {
+        attributes.delete(name);
+      }
+    };
   };
+  const anchor = createAnchor();
 
   setGlobal('window', {
     location: {
@@ -298,7 +301,7 @@ async function verifyTopLevelDynamicLink() {
     },
     pjax: {
       attachLink(link) {
-        assert.equal(link, anchor);
+        assert.equal(link.tagName, 'A');
         attached += 1;
       }
     }
@@ -311,6 +314,22 @@ async function verifyTopLevelDynamicLink() {
   const { attachDynamicLinks } = await import(`${linkAttachUrl.href}?contract=top-level-link`);
   assert.equal(attachDynamicLinks(anchor), 1, '新增节点本身为 a.pjax-link 时也必须绑定');
   assert.equal(attached, 1);
+
+  for (const { label, target, download, managed } of [
+    { label: 'default target', target: '', download: false, managed: true },
+    { label: 'explicit self target', target: '_self', download: false, managed: true },
+    { label: 'new window', target: '_blank', download: false, managed: false },
+    { label: 'top frame', target: '_top', download: false, managed: false },
+    { label: 'parent frame', target: '_parent', download: false, managed: false },
+    { label: 'named frame', target: 'preview-frame', download: false, managed: false },
+    { label: 'empty download attribute', target: '', download: true, managed: false }
+  ]) {
+    const caseAnchor = createAnchor({ target, download });
+    const before = attached;
+    assert.equal(attachDynamicLinks(caseAnchor), managed ? 1 : 0, `${label}: PJAX attachment`);
+    assert.equal(caseAnchor.hasAttribute('data-pjax-managed'), managed, `${label}: managed marker`);
+    assert.equal(attached - before, managed ? 1 : 0, `${label}: handler count`);
+  }
 }
 
 async function verifyNavigationHelpers() {
