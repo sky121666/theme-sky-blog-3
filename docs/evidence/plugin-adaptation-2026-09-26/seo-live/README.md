@@ -1,5 +1,7 @@
 # SEO Tools 1.10.1：真实 head / PJAX 验收与最小修复
 
+下述原始 JSON、日志和截图文件名只对应本机验证材料；仓库保留本页的人工结论与适用边界。
+
 日期：2026-09-26。测试站点：`http://localhost:8090`。Canonical 使用站点配置的公开域名 `https://www.5ee.net`，没有要求它改成验收站点的 localhost。
 
 ## 结论

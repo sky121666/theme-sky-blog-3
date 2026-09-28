@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,6 +16,8 @@ const clean = (value) => value.trim().replace(/^`([^`]+)`$/, '$1');
 const list = (value) => EMPTY.has(clean(value)) ? [] : value.split(';').map(clean).filter(Boolean);
 const key = (plugin, surface) => `${plugin}\0${surface}`;
 const sameSet = (left, right) => [...left].sort().join('\0') === [...right].sort().join('\0');
+const isNonportableEvidence = (file) => file.startsWith('output/') || /\.log$/i.test(file)
+  || /^docs\/evidence\/.*\.(?:json|txt|png|jpe?g|webp|har|zip)$/i.test(file);
 
 function region(document, name) {
   const start = `<!-- plugin-contract-${name}:start -->`;
@@ -122,6 +125,13 @@ export function validateContract(provider, { matrixOnly = false, expectedTargetC
     if (source === undefined) report('MISSING_FILE', location, ref);
     else if (anchor && !source.includes(`<a id="${anchor}"></a>`)) report('MISSING_ANCHOR', location, ref);
   };
+  const evidenceReference = (ref, location) => {
+    const filename = ref.split('#', 1)[0];
+    if (isNonportableEvidence(filename) || provider.isTracked?.(filename) === false) {
+      report('NONPORTABLE_EVIDENCE', location, ref);
+    }
+    reference(ref, location);
+  };
   if (targets.length !== expectedTargetCount) report('TARGET_COUNT', TARGET_DOCUMENT, `${targets.length}, expected ${expectedTargetCount}`);
   for (const target of targets) {
     if (targetById.has(target.plugin)) report('DUPLICATE_TARGET', TARGET_DOCUMENT, target.plugin);
@@ -165,7 +175,7 @@ export function validateContract(provider, { matrixOnly = false, expectedTargetC
       reference(host, location);
     }
     list(row.Files).forEach((file) => reference(file, location, true));
-    list(row.Evidence).forEach((file) => reference(file, location));
+    list(row.Evidence).forEach((file) => evidenceReference(file, location));
   }
   for (const target of targets) if (!rows.some((row) => row.Plugin === target.plugin)) report('MISSING_PLUGIN', CONTRACT_DOCUMENT, target.plugin);
   for (const test of tests) {
@@ -179,12 +189,7 @@ export function validateContract(provider, { matrixOnly = false, expectedTargetC
     if (!/^\d{4}-\d{2}-\d{2}(?:T[^\s]+)?$/.test(test.Date) || Number.isNaN(Date.parse(test.Date))) report('TEST_DATE', location, test.Date);
     if (!VERSION.test(test['Tested version']) || !VERSION.test(test.Halo)) report('TEST_VERSION', location, test['Tested version']);
     if (/^(?:pending|unknown|待验证|未验证|HEAD|main)$/i.test(test['Theme revision'])) report('TEST_REVISION', location, test['Theme revision']);
-    for (const field of ['Inventory', 'Evidence']) list(test[field]).forEach((file) => {
-      if (file.startsWith('output/') || file.endsWith('.log')) {
-        report('NONPORTABLE_EVIDENCE', location, file);
-      }
-      reference(file, location);
-    });
+    for (const field of ['Inventory', 'Evidence']) list(test[field]).forEach((file) => evidenceReference(file, location));
   }
   for (const row of rows) {
     const location = `${CONTRACT_DOCUMENT}#${row.ID}`;
@@ -264,6 +269,12 @@ export function validateContract(provider, { matrixOnly = false, expectedTargetC
 }
 
 function fileProvider(root) {
+  let tracked;
+  try {
+    tracked = new Set(execFileSync('git', ['ls-files', '-z', '--cached'], { cwd: root, encoding: 'utf8' }).split('\0').filter(Boolean));
+  } catch {
+    // A packaged source tree has no index; path existence checks still apply.
+  }
   const read = (file) => {
     try { return fs.readFileSync(path.join(root, file), 'utf8'); } catch (error) {
       if (['ENOENT', 'EISDIR'].includes(error.code)) return undefined;
@@ -284,11 +295,15 @@ function fileProvider(root) {
     walk(prefix);
     return result.sort();
   };
-  return { read, files };
+  return { read, files, isTracked: tracked ? (file) => tracked.has(file) : undefined };
 }
 
 function memoryProvider(files) {
-  return { read: (file) => files[file], files: (prefix) => Object.keys(files).filter((file) => file.startsWith(prefix)).sort() };
+  return {
+    read: (file) => files[file],
+    files: (prefix) => Object.keys(files).filter((file) => file.startsWith(prefix)).sort(),
+    isTracked: (file) => Object.hasOwn(files, file)
+  };
 }
 
 export function selfTest() {
@@ -349,6 +364,21 @@ export function selfTest() {
   };
   assert.ok(check(localOnly).errors.some((error) => error.code === 'NONPORTABLE_EVIDENCE'),
     'live evidence must not depend on untracked local output');
+  count += 1;
+  for (const file of ['docs/evidence/run/report.json', 'docs/evidence/run/trace.txt', 'docs/evidence/run/screen.png']) {
+    const raw = { ...tested,
+      [file]: 'local test artifact',
+      [CONTRACT_DOCUMENT]: tested[CONTRACT_DOCUMENT].replace('| docs/evidence.md | No writes |', `| ${file} | No writes |`)
+    };
+    assert.ok(check(raw).errors.some((error) => error.code === 'NONPORTABLE_EVIDENCE'),
+      `${file}: raw local artifacts must not become contract evidence`);
+    count += 1;
+  }
+  const untrackedSummary = memoryProvider(tested);
+  untrackedSummary.isTracked = (file) => file !== 'docs/evidence.md';
+  assert.ok(validateContract(untrackedSummary, { expectedTargetCount: 1 }).errors
+    .some((error) => error.code === 'NONPORTABLE_EVIDENCE'),
+  'contract evidence must be committed, not merely present in the local workspace');
   count += 1;
   return { ok: true, cases: count, boundary: 'validator consistency only; no plugin runtime or business verification' };
 }

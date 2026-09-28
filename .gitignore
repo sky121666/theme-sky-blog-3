@@ -21,9 +21,10 @@ pnpm-debug.log*
 .idea/
 .vscode/
 .playwright-cli
-output/playwright/
-output/audit/
-output/demo-site/
+/output/
+# Local evidence stays out of new commits; existing reviewed summaries remain tracked.
+/docs/evidence/
+/theme-settings-*.png
 links-*.png
 
 # macOS / 云同步冲突副本（不要污染主题构建产物）
