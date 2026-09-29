@@ -69,12 +69,12 @@ for (const [flag, widgetId] of widgetFlagContracts) {
 
 assert.match(
   layout,
-  /widgetsCatalogOptionsNeeded = \$\{widgetsEnabled and isDesktopHome and widgetsEditEnabled and notificationCenterAuthenticated\}/,
+  /widgetsCatalogOptionsNeeded = \$\{widgetsEnabled and isDesktopHome and widgetsEditEnabled and notificationCenterAuthenticated and !widgetsSourceRequest\}/,
   'widget option data should only load for an authenticated home-page editor'
 );
 assert.match(
   layout,
-  /currentContributor = \$\{widgetsRuntimeEnabled and isDesktopHome and notificationCenterAuthenticated and widgetsAuthorConfigured \? contributorFinder\.getContributor/,
+  /currentContributor = \$\{widgetsRuntimeEnabled and isDesktopHome and notificationCenterAuthenticated and widgetsAuthorConfigured and !widgetsSourceRequest \? contributorFinder\.getContributor/,
   'contributor data must only load when widgets and the saved author widget are both enabled'
 );
 assert.match(layout, /widgetsLatestPosts = \$\{widgetsNeedsLatestPosts \? postFinder\.list\(/);
@@ -98,7 +98,7 @@ const dataQueryContracts = [
   /widgetsRecentFriendsPage = \$\{widgetsNeedsLinksFeed and widgetsFriendsAvailable \? linkFeedFinder\.list\(\{limit: 5\}\)/,
   /widgetsRecentFriends = \$\{widgetsRecentFriendsPage\}/,
   /widgetsPhotos = \$\{widgetsNeedsPhotos and widgetsPhotosAvailable \? photoFinder\.list\(/,
-  /widgetsPhotoGroups = \$\{widgetsNeedsPhotos and widgetsPhotosAvailable \? photoFinder\.groupBy\(\)/,
+  /widgetsPhotoGroups = \$\{widgetsNeedsPhotos and widgetsPhotosAvailable and !widgetsSourceRequest \? photoFinder\.groupBy\(\)/,
   /widgetsSteamProfile = \$\{widgetsNeedsSteam and widgetsSteamAvailable \? steamFinder\.getProfile\(\)/,
   /widgetsSteamStats = \$\{widgetsNeedsSteam and widgetsSteamAvailable \? steamFinder\.getStats\(\)/,
   /widgetsSteamRecentGames = \$\{widgetsNeedsSteam and widgetsSteamAvailable \? steamFinder\.getRecentGames\(1\)/,
@@ -146,7 +146,7 @@ assert.match(pendingHtml, /widget--halo-latest-posts/);
 assert.match(pendingHtml, /aria-busy="true"/);
 
 const hydratedHtml = renderWidgetBodyWithHost({
-  sources: { hydrated: true },
+  sources: { hydrated: true, loaded: { 'halo.latest_posts': true } },
   widgetRenderers: {
     'halo.latest_posts': () => '<div class="real-widget-content"></div>'
   },
@@ -167,7 +167,7 @@ assert.match(editMode, /async ensureWidgetConfigOptions\(widgetType\)[\s\S]*?fet
 assert.match(editMode, /requestId !== this\.widgetConfigOptionsRequestId \|\| controller\.signal\.aborted \|\| !this\.isHome/);
 assert.match(desktopTemplate, /type="application\/json"[\s\S]*?data-theme-desktop-widget-protocol/);
 assert.match(desktopTemplate, /"hydrated": \[\[\$\{isHome\}\]\]/, 'widget source protocol must distinguish loaded home data from deferred non-home data');
-assert.match(layout, /widgetsFriendsAvailable = \$\{pluginFinder\.available\('PluginLinks', '>=2\.2\.1'\)\}/, 'PluginLinks availability must not be falsified on direct non-home loads');
+assert.match(layout, /widgetsFriendsAvailable = \$\{\(!widgetsSourceRequest or widgetsNeedsLinksFeed\) and pluginFinder\.available\('PluginLinks', '>=2\.2\.1'\)\}/, 'PluginLinks availability remains correct on normal non-home loads and gated in source requests');
 assert.match(desktopTemplate, /JSON\.parse\(payloadNode\.textContent \|\| '\{\}'\)/);
 assert.doesNotMatch(desktopTemplate, /\b(?:eval|Function)\s*\(/, 'desktop protocol bootstrap must stay non-executable');
 assert.doesNotMatch(widgetProtocolRuntime, /\b(?:eval|Function)\s*\(/, 'PJAX protocol parsing must use JSON.parse only');

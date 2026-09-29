@@ -25,6 +25,7 @@ import { activateCurrentPageApp } from './runtime/shared/page-app.js';
 import { initLazyImages } from './runtime/shared/lazy-media.js';
 import { initPluginCompatibility } from './runtime/shared/plugin-compat.js';
 import { initErrorDialog } from './runtime/shared/error-dialog.js';
+import { createWidgetPreviewLifecycle } from './runtime/widgets/preview-runtime.js';
 import { getCurrentThemeAssetIdentity, getLatestThemeAssetIdentity, isSameThemeAssetIdentity } from '../../shell-core/runtime/resource-registry.js';
 
 const CURRENT_THEME_BUILD_IDENTITY = getCurrentThemeAssetIdentity();
@@ -92,16 +93,28 @@ if (!window.__THEME_MAIN_LOADED__ && !window.__THEME_BOOTSTRAP_CANCELLED__) {
   Alpine.plugin(intersect);
 
   // Custom directive for incremental widget updates
-  Alpine.directive('widget-content', (el, { expression }, { evaluateLater, effect }) => {
+  Alpine.directive('widget-content', (el, { expression }, { evaluateLater, effect, cleanup }) => {
     const getHtml = evaluateLater(expression);
     const tagName = el.tagName.toLowerCase();
+    const preview = el.hasAttribute('data-widget-preview') ? createWidgetPreviewLifecycle(el) : null;
+    if (preview) {
+      const observer = new MutationObserver(() => preview.sync());
+      observer.observe(el, { attributes: true, attributeFilter: ['data-widget-preview-visible'], childList: true });
+      cleanup(() => { observer.disconnect(); preview.dispose(); });
+    }
     effect(() => {
       getHtml((html) => {
         const nextHtml = typeof html === 'string' ? html : '';
         const renderMode = el.dataset.widgetRenderMode || 'morph';
 
+        // Alpine applies visibility bindings and HTML in the same update.
+        // Enhance after both settle, and release the old preview before its
+        // HTML is replaced so in-flight consumers can cancel promptly.
+        if (preview) queueMicrotask(() => preview.sync());
+
         if (renderMode === 'html') {
           if (el.innerHTML !== nextHtml) {
+            preview?.clear();
             el.innerHTML = nextHtml;
           }
           return;
@@ -111,15 +124,20 @@ if (!window.__THEME_MAIN_LOADED__ && !window.__THEME_BOOTSTRAP_CANCELLED__) {
 
         const loadingRoot = el.firstElementChild?.classList?.contains('desktop-widget-loading') === true;
         if (loadingRoot && !nextHtml.includes('desktop-widget-loading')) {
+          preview?.clear();
           el.innerHTML = nextHtml;
           return;
         }
 
         if (el.innerHTML === nextHtml) return;
 
+        preview?.clear();
+
         Alpine.morph(el, `<${tagName}>${nextHtml}</${tagName}>`, {
           updating: (_from, _to, childrenOnly) => {
-            childrenOnly();
+            // Preserve the host's Alpine bindings; widget descendants must
+            // receive fresh configuration, state and accessibility attributes.
+            if (_from === el) childrenOnly();
           }
         });
       });

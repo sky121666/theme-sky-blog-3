@@ -769,16 +769,16 @@ export const editModeMethods = {
     candidate.w = placement.w;
     candidate.h = placement.h;
 
-    if (widgetType === 'system.weather') {
-      await this.loadWeather(true);
-    }
-
     this.invalidateWidgetCache();
     this.syncResponsiveVisibility();
     this.syncWidgetRuntimes();
     this.selectedDesktopKey = candidate.key;
     this.setEditStage('decorate');
     this.markDesktopLayoutDirty('组件已添加，保存后生效');
+
+    if (widgetType === 'system.weather') {
+      await this.loadWeather(true);
+    }
   },
 
   async hideWidget(key) {

@@ -10,6 +10,7 @@ const TYPE_LABELS = {
 
 const STATUS_ORDER = ['doing', 'mark', 'done'];
 const CACHE_TTL = 5 * 60 * 1000;
+const REQUEST_TIMEOUT_MS = 8000;
 const CACHE_PREFIX = 'theme:douban-showcase:v2:';
 const DATA_CACHE = new Map();
 const { warn: debugWarn } = createLogger('douban-widget');
@@ -95,12 +96,38 @@ function writeStoredCache(cacheKey, data) {
 }
 
 async function fetchJson(path, params = {}, signal) {
-  const response = await fetch(withParams(path, params), {
-    headers: { Accept: 'application/json' },
-    signal
-  });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  return response.json();
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+  const controller = new AbortController();
+  let timer;
+  let cancel;
+  try {
+    return await Promise.race([
+      (async () => {
+        const response = await fetch(withParams(path, params), {
+          headers: { Accept: 'application/json' },
+          signal: controller.signal
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+      })(),
+      new Promise((_, reject) => {
+        cancel = () => {
+          controller.abort();
+          reject(new DOMException('Aborted', 'AbortError'));
+        };
+        signal?.addEventListener('abort', cancel, { once: true });
+        timer = window.setTimeout(() => {
+          const error = new DOMException('Douban request timed out', 'TimeoutError');
+          controller.abort(error);
+          reject(error);
+        }, REQUEST_TIMEOUT_MS);
+        if (signal?.aborted) cancel();
+      })
+    ]);
+  } finally {
+    window.clearTimeout(timer);
+    signal?.removeEventListener('abort', cancel);
+  }
 }
 
 function pageItems(page) {
@@ -187,7 +214,10 @@ function renderRail(items, activeIndex) {
 
 async function resolveType(root, apiBase, configuredType, signal) {
   if (configuredType && configuredType !== 'auto') return configuredType;
-  const types = await fetchJson(`${apiBase}/-/types`, {}, signal).catch(() => []);
+  const types = await fetchJson(`${apiBase}/-/types`, {}, signal).catch((error) => {
+    if (signal?.aborted || ['AbortError', 'TimeoutError'].includes(error?.name)) throw error;
+    return [];
+  });
   const first = Array.isArray(types)
     ? types.find((type) => Number(type?.doubanCount || 0) > 0)
     : null;
@@ -296,7 +326,39 @@ async function loadShowcaseData(apiBase, configuredType, configuredStatus, signa
 
 function setText(root, selector, value) {
   const node = root.querySelector(selector);
-  if (node) node.textContent = value;
+  if (node) {
+    node.textContent = value;
+    node.hidden = value === '';
+  }
+}
+
+function renderShowcaseState(root, state, type = 'movie') {
+  const loading = state === 'loading';
+  const error = state === 'error';
+  root.classList.toggle('is-empty', state === 'empty');
+  root.classList.toggle('is-error', error);
+  root.setAttribute('aria-busy', loading ? 'true' : 'false');
+  root.dataset.doubanHydrated = loading ? 'false' : 'true';
+  const retry = root.querySelector('[data-douban-retry]');
+  if (retry) retry.hidden = !error;
+  const poster = root.querySelector('[data-douban-poster]');
+  if (poster) {
+    poster.classList.toggle('is-loading', loading);
+    poster.classList.toggle('is-empty', !loading);
+    delete poster.dataset.posterSrc;
+    poster.innerHTML = renderPoster({});
+  }
+  const bg = root.querySelector('[data-douban-bg]');
+  if (bg) bg.style.backgroundImage = '';
+  const rail = root.querySelector('[data-douban-rail]');
+  if (rail) rail.innerHTML = '';
+  setText(root, '[data-douban-heading]', loading ? '正在读取收藏' : error ? '读取失败' : `${TYPE_LABELS[type] || '豆瓣'} · 暂无记录`);
+  setText(root, '[data-douban-title]', loading ? '豆瓣收藏' : error ? '豆瓣数据暂时不可用' : '还没有收藏记录');
+  setText(root, '[data-douban-subtitle]', loading ? '正在加载收藏。' : error ? '读取失败，请稍后重试。' : '同步豆瓣收藏后会在这里展示。');
+  setText(root, '[data-douban-count]', state === 'empty' ? '0 条' : '-- 条');
+  setText(root, '[data-douban-score]', '');
+  setText(root, '[data-douban-stars]', '');
+  setText(root, '[data-douban-remark]', state === 'empty' ? '可以在组件配置里切换类型或状态。' : '');
 }
 
 function updateRailState(root, activeIndex) {
@@ -327,7 +389,7 @@ function isShowcaseDomComplete(root) {
   if (!state.hydrated) return false;
   if (state.empty || state.error) return !!state.title && !state.posterLoading;
   return !!state.title
-    && state.title !== '书影音收藏'
+    && state.title !== '豆瓣收藏'
     && !state.posterLoading
     && state.hasPosterContent
     && state.railCount > 0;
@@ -337,11 +399,15 @@ function updateActive(root, items, activeIndex, total, type, _status, options = 
   const item = items[activeIndex] || items[0];
   if (!item) return;
 
-  const typeLabel = TYPE_LABELS[type] || '书影音';
+  const typeLabel = TYPE_LABELS[type] || '豆瓣';
   const poster = root.querySelector('[data-douban-poster]');
   const bg = root.querySelector('[data-douban-bg]');
   const rail = root.querySelector('[data-douban-rail]');
 
+  root.classList.remove('is-empty', 'is-error');
+  root.setAttribute('aria-busy', 'false');
+  const retry = root.querySelector('[data-douban-retry]');
+  if (retry) retry.hidden = true;
   root.dataset.doubanActiveStatus = item.status || _status || 'done';
   setText(root, '[data-douban-heading]', `${typeLabel}收藏`);
   setText(root, '[data-douban-status-label]', '收藏精选');
@@ -402,8 +468,8 @@ function mountDoubanShowcase(root) {
   }
   root.dataset.doubanShowcaseMounted = 'true';
 
-  if (root.dataset.doubanPreview === 'true') return;
   root.dataset.doubanLoading = 'true';
+  renderShowcaseState(root, 'loading');
 
   const apiBase = normalizeText(root.dataset.doubanApi || '/apis/api.douban.moony.la/v1alpha1/doubanmovies');
   const configuredType = normalizeText(root.dataset.doubanType || 'auto');
@@ -428,7 +494,8 @@ function mountDoubanShowcase(root) {
     timer = 0;
   };
   const start = () => {
-    if (reduceMotion || timer || items.length <= 1 || isEditingOrDragging()) return;
+    if (abortController.signal.aborted || !root.isConnected || root.dataset.doubanPreview === 'true'
+      || reduceMotion || timer || items.length <= 1 || isEditingOrDragging()) return;
     timer = window.setInterval(() => {
       if (!root.isConnected || isEditingOrDragging()) {
         stop();
@@ -444,13 +511,21 @@ function mountDoubanShowcase(root) {
     resumeTimer = window.setTimeout(start, 3000);
   };
 
-  root.__doubanShowcaseCleanup = () => {
+  const cleanup = () => {
     stop();
     if (resumeTimer) window.clearTimeout(resumeTimer);
     resumeTimer = 0;
     abortController.abort();
     eventController.abort();
+    if (root.__doubanShowcaseCleanup === cleanup) {
+      root.dataset.doubanShowcaseMounted = 'false';
+      root.dataset.doubanLoading = 'false';
+      root.dataset.doubanHydrated = 'false';
+      root.setAttribute('aria-busy', 'false');
+      root.__doubanShowcaseCleanup = null;
+    }
   };
+  root.__doubanShowcaseCleanup = cleanup;
 
   root.addEventListener('pointerenter', stop, { signal: eventController.signal });
   root.addEventListener('pointerleave', pauseThenResume, { signal: eventController.signal });
@@ -470,6 +545,13 @@ function mountDoubanShowcase(root) {
   root.addEventListener('pointerover', selectItem, { signal: eventController.signal });
   root.addEventListener('click', selectItem, { signal: eventController.signal });
   root.addEventListener('focusin', selectItem, { signal: eventController.signal });
+  root.addEventListener('click', (event) => {
+    if (!event.target.closest('[data-douban-retry]') || !root.classList.contains('is-error')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    cleanup();
+    mountDoubanShowcase(root);
+  }, { signal: eventController.signal });
 
   (async () => {
     try {
@@ -481,12 +563,7 @@ function mountDoubanShowcase(root) {
 
       if (!root.isConnected || abortController.signal.aborted) return;
       if (!items.length) {
-        root.classList.add('is-empty');
-        setText(root, '[data-douban-heading]', `${TYPE_LABELS[resolvedType] || '书影音'} · 暂无记录`);
-        setText(root, '[data-douban-title]', '还没有收藏记录');
-        setText(root, '[data-douban-subtitle]', '同步豆瓣插件后会在这里展示。');
-        setText(root, '[data-douban-remark]', '可以在组件配置里切换类型或状态。');
-        root.dataset.doubanHydrated = 'true';
+        renderShowcaseState(root, 'empty', resolvedType);
         return;
       }
 
@@ -494,12 +571,7 @@ function mountDoubanShowcase(root) {
       start();
     } catch (_error) {
       if (!root.isConnected || abortController.signal.aborted) return;
-      root.classList.add('is-error');
-      setText(root, '[data-douban-heading]', '读取失败');
-      setText(root, '[data-douban-title]', '豆瓣数据暂时不可用');
-      setText(root, '[data-douban-subtitle]', '请确认 plugin-douban API 可访问。');
-      setText(root, '[data-douban-remark]', '组件使用插件公开 API，不读取页面 DOM。');
-      root.dataset.doubanHydrated = 'true';
+      renderShowcaseState(root, 'error');
     } finally {
       if (!abortController.signal.aborted) root.dataset.doubanLoading = 'false';
     }
@@ -508,5 +580,6 @@ function mountDoubanShowcase(root) {
 
 export function enhanceDoubanShowcaseWidgets(root) {
   const scope = root || document;
+  if (scope.matches?.('[data-douban-showcase]')) mountDoubanShowcase(scope);
   scope.querySelectorAll('[data-douban-showcase]').forEach((node) => mountDoubanShowcase(node));
 }

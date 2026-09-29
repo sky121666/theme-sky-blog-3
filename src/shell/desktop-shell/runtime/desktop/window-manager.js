@@ -12,7 +12,9 @@ import {
   ensureWidgetRendererRuntime,
   renderWidgetBodyWithHost,
   renderWidgetLoadingMarkup,
-  retryBangumiWidgetDataWithHost
+  retryBangumiWidgetDataWithHost,
+  retryRandomTagsWidgetDataWithHost,
+  retryFinderWidgetDataWithHost
 } from '../widgets/render-runtime.js';
 import { disposeLatestPostsSources } from '../widgets/latest-posts-runtime.js';
 import { ensureDesktopWidgetData } from '../widgets/data-loader.js';
@@ -548,7 +550,6 @@ export function registerWindowManager(Alpine) {
     notificationWidgetRenderVersions: {},
     notificationWidgetRendererErrors: {},
     notificationWidgetHtmlCache: new Map(),
-    notificationBangumiWidgetPending: new Map(),
     notificationWidgetRenderTick: 0,
     notificationCalendarDayKey: '',
     notificationWidgetDataStatus: 'idle',
@@ -613,6 +614,11 @@ export function registerWindowManager(Alpine) {
         }
         this.syncNotificationWidgets();
         this.tick();
+      };
+      this.handleWidgetVisibilityChange = () => {
+        if (document.visibilityState !== 'visible') return;
+        this.tick();
+        if (this.notificationCenterVisible) this.scheduleNotificationWidgetEnhancement();
       };
       this.handleMenubarClose = () => {
         this.closeMobileMenu();
@@ -696,6 +702,7 @@ export function registerWindowManager(Alpine) {
       };
       window.addEventListener('resize', this.handleResize);
       document.addEventListener('theme:pjax-ready', this.handlePjaxReady);
+      document.addEventListener('visibilitychange', this.handleWidgetVisibilityChange);
       window.addEventListener('theme-menubar-close', this.handleMenubarClose);
       window.addEventListener('theme-notification-widgets-change', this.handleNotificationWidgetsChange);
       window.addEventListener('theme-notification-center-open', this.handleNotificationCenterOpen);
@@ -719,6 +726,7 @@ export function registerWindowManager(Alpine) {
       this.notificationOpenGeneration += 1;
       window.removeEventListener('resize', this.handleResize);
       document.removeEventListener('theme:pjax-ready', this.handlePjaxReady);
+      document.removeEventListener('visibilitychange', this.handleWidgetVisibilityChange);
       window.removeEventListener('theme-menubar-close', this.handleMenubarClose);
       window.removeEventListener('theme-notification-widgets-change', this.handleNotificationWidgetsChange);
       window.removeEventListener('theme-notification-center-open', this.handleNotificationCenterOpen);
@@ -1888,7 +1896,6 @@ export function registerWindowManager(Alpine) {
         widgetRenderVersions: this.notificationWidgetRenderVersions,
         widgetRendererErrors: this.notificationWidgetRendererErrors,
         _widgetHtmlCache: this.notificationWidgetHtmlCache,
-        _bangumiWidgetPending: this.notificationBangumiWidgetPending,
         widgetsDisposed: this.notificationWidgetsDisposed,
         onWidgetDataChanged: () => {
           this.notificationWidgetHtmlCache.clear();
@@ -1905,17 +1912,18 @@ export function registerWindowManager(Alpine) {
       }, widget, { surface: 'notification-center', compact: false, visible: this.notificationCenterVisible });
     },
     retryNotificationBangumiWidget(widget, event) {
-      if (!event?.target?.closest?.('[data-bangumi-widget-retry]')) return;
+      if (!event?.target?.closest?.('[data-bangumi-widget-retry], [data-random-tags-widget-retry], [data-widget-source-retry]')) return;
       event.preventDefault();
       event.stopPropagation();
       const host = {
         bangumiWidgetDataStore: undefined,
         widgetRenderVersions: this.notificationWidgetRenderVersions,
         _widgetHtmlCache: this.notificationWidgetHtmlCache,
-        _bangumiWidgetPending: this.notificationBangumiWidgetPending,
         onWidgetDataChanged: () => { this.notificationWidgetRenderTick += 1; }
       };
-      void retryBangumiWidgetDataWithHost(host, widget)?.catch(() => {});
+      const retry = event?.target?.closest?.('[data-widget-source-retry]') ? retryFinderWidgetDataWithHost
+        : widget?.widget === 'halo.random_tags' ? retryRandomTagsWidgetDataWithHost : retryBangumiWidgetDataWithHost;
+      void retry(host, widget)?.catch(() => {});
     },
     dispatchNotificationWidgetCommand(widget, action, event = null) {
       if (!widget?.key || !action) return;
@@ -1988,9 +1996,11 @@ export function registerWindowManager(Alpine) {
       const now = new Date();
       const calendarDayKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
       if (this.notificationCalendarDayKey && this.notificationCalendarDayKey !== calendarDayKey
-        && this.notificationWidgets.some((widget) => widget.widget === 'system.calendar')) {
+        && this.notificationWidgets.some((widget) => ['system.calendar', 'halo.random_tags'].includes(widget.widget))) {
         for (const key of this.notificationWidgetHtmlCache.keys()) {
-          if (key.startsWith('system.calendar:')) this.notificationWidgetHtmlCache.delete(key);
+          if (key.startsWith('system.calendar:') || key.startsWith('halo.random_tags:')) {
+            this.notificationWidgetHtmlCache.delete(key);
+          }
         }
         this.notificationWidgetRenderTick += 1;
       }

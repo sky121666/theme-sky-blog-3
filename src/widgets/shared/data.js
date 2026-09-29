@@ -125,14 +125,15 @@ function createSeededRandom(seed) {
   };
 }
 
-export function selectDailyRandomTags(tags, limit) {
+export function selectDailyRandomTags(tags, limit, now = new Date()) {
   const normalized = Array.isArray(tags)
     ? tags.map((tag) => normalizeWidgetTag(tag)).filter((tag) => tag.permalink !== '#' && tag.count > 0)
     : [];
 
   if (!normalized.length) return [];
 
-  const random = createSeededRandom(createSeedFromString(`${new Date().toISOString().slice(0, 10)}:${limit}`));
+  const dayKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
+  const random = createSeededRandom(createSeedFromString(`${dayKey}:${limit}`));
   return normalized
     .map((tag) => ({ tag, score: random() + Math.min(tag.count, 40) / 100 }))
     .sort((left, right) => right.score - left.score)

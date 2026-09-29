@@ -4,12 +4,12 @@ import { chromium } from 'playwright';
 import { readLiveBuildContext } from './lib/live-build-context.mjs';
 
 const base = process.env.SMOKE_BASE_URL || 'http://localhost:8090';
-const evidence = 'docs/evidence/direct-widgets-2026-09-29';
+const evidence = process.env.WIDGET_DIRECT_OUTPUT || 'output/direct-widgets';
 const browser = await chromium.launch();
 const records = [];
 try {
   for (const path of ['/links', '/archives', '/categories']) {
-    const context = await browser.newContext({ viewport: { width: 1920, height: 1000 }, reducedMotion: 'reduce' });
+    const context = await browser.newContext({ viewport: { width: 1920, height: 1000 }, reducedMotion: 'reduce', extraHTTPHeaders: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' } });
     const errors = [];
     const writes = [];
     let homeRequests = 0;
@@ -64,7 +64,7 @@ try {
     await context.close();
   }
   for (const mode of ['shared pending request', 'failed request retry']) {
-    const context = await browser.newContext({ viewport: { width: 1920, height: 1000 }, reducedMotion: 'reduce' });
+    const context = await browser.newContext({ viewport: { width: 1920, height: 1000 }, reducedMotion: 'reduce', extraHTTPHeaders: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' } });
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));

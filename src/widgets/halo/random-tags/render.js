@@ -20,8 +20,16 @@ const BG_POSITIONS = [
 let tagFocusTimer = null;
 const TAG_FOCUS_ROTATION_MS = 4_000;
 
+function isTagStageVisible(stage) {
+  if (document.hidden || stage.isConnected === false) return false;
+  if (stage.checkVisibility) {
+    return stage.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });
+  }
+  return !stage.getClientRects || stage.getClientRects().length > 0;
+}
+
 function rotateFocusedTags() {
-  const stages = Array.from(document.querySelectorAll('[data-tag-focus]'));
+  const stages = Array.from(document.querySelectorAll('[data-tag-focus]')).filter(isTagStageVisible);
   if (!stages.length) {
     tagFocusTimer = null;
     return;
@@ -62,23 +70,23 @@ export function ensureTagFocusRotation(root = null) {
   const scope = root || document;
   const stage = scope.matches?.('[data-tag-focus]')
     ? scope
-    : scope.querySelector?.('[data-tag-focus]');
-  if (!stage || tagFocusTimer !== null) return false;
+    : Array.from(scope.querySelectorAll?.('[data-tag-focus]') || []).find(isTagStageVisible);
+  if (!stage || !isTagStageVisible(stage) || tagFocusTimer !== null) return false;
 
   scheduleTagFocusRotation();
   return tagFocusTimer !== null;
 }
 
-export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}) {
+export function renderWidget({ sources, escapeHtml, mode, now }, widget, options = {}) {
   const isCompact = options.compact === true;
   const size = widget?.size || 'medium';
 
   if (size === 'small') {
-    const tags = selectDailyRandomTags(sources.randomTags, 8);
+    const tags = selectDailyRandomTags(sources.randomTags, 8, now);
     if (!tags.length) {
       return '<div class="desktop-widget-empty">无标签</div>';
     }
-    scheduleTagFocusRotation();
+    if (mode !== 'preview') scheduleTagFocusRotation();
 
     const itemsHTML = tags.map((tag, i) => {
       const pos = BG_POSITIONS[i % BG_POSITIONS.length];
@@ -95,11 +103,11 @@ export function renderWidget({ sources, escapeHtml, mode }, widget, options = {}
       });
     }).join('');
 
-    return `<div class="wg-tag-focus-stage" data-tag-focus>${itemsHTML}</div>`;
+    return `<div class="wg-tag-focus-stage"${mode === 'preview' ? '' : ' data-tag-focus'}>${itemsHTML}</div>`;
   }
 
   const limit = size === 'large' ? (isCompact ? 24 : 30) : (isCompact ? 24 : 30);
-  const tags = selectDailyRandomTags(sources.randomTags, limit);
+  const tags = selectDailyRandomTags(sources.randomTags, limit, now);
   if (!tags.length) {
     return '<div class="desktop-widget-empty">当前没有可展示的标签。</div>';
   }

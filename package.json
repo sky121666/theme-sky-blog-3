@@ -66,7 +66,7 @@
     "build": "vite build && pnpm run package",
     "package": "theme-package && node scripts/finalize-theme-package.mjs",
     "verify:core-page-regressions": "node scripts/verify-core-page-regressions.mjs",
-    "verify:widget-data-fixes": "node scripts/verify-widget-data-fixes.mjs && node --test scripts/verify-widget-data-loader.test.mjs",
+    "verify:widget-data-fixes": "node scripts/verify-widget-data-fixes.mjs && node --test scripts/verify-widget-data-loader.test.mjs && node --test scripts/verify-widget-edit-lifecycle.test.mjs scripts/verify-widget-preview-data.test.mjs scripts/verify-widget-morph.test.mjs scripts/verify-widget-finder-sources.test.mjs",
     "verify:plugin-shell-integration": "node scripts/verify-plugin-shell-integration.mjs",
     "verify:comment-integration": "node scripts/verify-comment-integration.mjs",
     "verify:plugin-contract-markers": "node scripts/verify-plugin-contract-markers.mjs && node scripts/verify-plugin-contract-markers.mjs --self-test",

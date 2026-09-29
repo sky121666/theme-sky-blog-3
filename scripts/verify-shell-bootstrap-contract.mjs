@@ -289,13 +289,13 @@ assert.equal(shellFailure.window.__THEME_BOOTSTRAP_ERROR__, 'shell failed');
 assert.equal(shellFailure.alerts.length, 1);
 
 assert.equal(layout.includes('photoFinder.listAll()'), false, '桌面 bootstrap 禁止重新读取全部照片');
-const photoSize = Number(layout.match(/photoFinder\.list\(1,\s*(\d+)\)/)?.[1]);
+const photoSize = Number(layout.match(/photoFinder\.list\(1,\s*(\d+)(?:,\s*widgetsPhotoGroupName)?\)/)?.[1]);
 const steamSize = Number(layout.match(/steamFinder\.getOwnedGames\(1,\s*(\d+)\)/)?.[1]);
 assert.ok(Number.isInteger(photoSize) && photoSize > 0 && photoSize <= 12, '照片 Finder 首批大小必须在预算内');
 assert.ok(Number.isInteger(steamSize) && steamSize > 0 && steamSize <= 12, 'Steam Finder 首批大小必须在预算内');
 assert.match(layout, /photos=\$\{widgetsPhotos != null \? widgetsPhotos\.items : \{\}\}/, 'Photo Page 必须消费 items');
 assert.match(layout, /steamOwnedGames=\$\{widgetsSteamWidgetGames != null \? widgetsSteamWidgetGames\.items : \{\}\}/, 'Steam Page 必须消费 items');
-assert.match(layout, /widgetsPhotosAvailable \? photoFinder\.list\(1,\s*\d+\) : null/, 'Photos 插件不可用时必须短路 Finder');
+assert.match(layout, /widgetsPhotosAvailable \? photoFinder\.list\(1,\s*\d+(?:,\s*widgetsPhotoGroupName)?\) : null/, 'Photos 插件不可用时必须短路 Finder');
 assert.match(layout, /widgetsSteamAvailable \? steamFinder\.getOwnedGames\(1,\s*\d+\) : null/, 'Steam 插件不可用时必须短路 Finder');
 assert.match(layout, /dockImageAllowed\s*=\s*\$\{[^}]*https:\/\//, 'Dock 必须使用图片 URL 协议白名单');
 assert.match(layout, /iconType == 'image' and dockImageAllowed/, 'Dock img 只能输出允许的 URL');

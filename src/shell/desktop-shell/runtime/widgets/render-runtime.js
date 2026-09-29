@@ -2,7 +2,43 @@ import { loadWidgetRenderer } from '../../../../widgets/loaders.js';
 import { escapeHtml } from '../shared/utils.js';
 import { normalizeMomentRecord } from '../shared/moments.js';
 import { resolveLatestPostsSources } from './latest-posts-runtime.js';
-import { bangumiWidgetDataStore } from '../../../../widgets/plugin/bangumis-recent/data.js';
+import { widgetNeedsFinderData } from './source-types.js';
+
+let dataRuntime = null;
+let dataRuntimePromise = null;
+let dataRuntimeError = false;
+const dataRuntimeHosts = new WeakMap();
+const pendingWidgetData = new WeakMap();
+
+function notifyWidgetDataChanged(host, type) {
+  host.widgetRenderVersions[type] = (host.widgetRenderVersions[type] || 0) + 1;
+  host._widgetHtmlCache?.clear();
+  host.onWidgetDataChanged?.(type);
+}
+
+function loadWidgetDataRuntime(host, type) {
+  dataRuntimeError = false;
+  dataRuntimePromise ||= import('./widget-data-runtime.js').then((runtime) => { dataRuntime = runtime; return runtime; });
+  if (!dataRuntimeHosts.has(host.widgetRenderVersions)) {
+    dataRuntimeHosts.set(host.widgetRenderVersions, new Set());
+    void dataRuntimePromise.catch(() => {
+      dataRuntimePromise = null;
+      dataRuntimeError = true;
+    }).finally(() => {
+      const types = dataRuntimeHosts.get(host.widgetRenderVersions);
+      dataRuntimeHosts.delete(host.widgetRenderVersions);
+      if (host.widgetsDisposed === true) return;
+      types.forEach((widgetType) => notifyWidgetDataChanged(host, widgetType));
+    });
+  }
+  dataRuntimeHosts.get(host.widgetRenderVersions).add(type);
+  return dataRuntimePromise;
+}
+
+export async function retryFinderWidgetDataWithHost(host, widget) {
+  const runtime = dataRuntime || await loadWidgetDataRuntime(host, widget.widget);
+  return runtime.retryFinderWidgetSources(host, widget);
+}
 
 const HYDRATED_SOURCE_WIDGET_TYPES = new Set([
   'halo.author_card',
@@ -85,31 +121,34 @@ function renderBangumiWidgetDataErrorMarkup() {
   return '<div class="wg-bangumis wg-bangumis--empty wg-bangumis--error" role="alert"><strong>追番数据暂时不可用</strong><p>读取失败，请稍后重试。</p><button type="button" data-bangumi-widget-retry>重试</button></div>';
 }
 
-function watchBangumiWidgetLoad(host, widget, promise) {
-  if (!host._bangumiWidgetPending) host._bangumiWidgetPending = new Map();
-  const key = widgetCacheKey(widget, { mode: 'live' });
-  if (host._bangumiWidgetPending.has(key)) return;
-  host._bangumiWidgetPending.set(key, promise);
+function watchWidgetDataLoad(host, widget, promise) {
+  const owner = host.widgetRenderVersions;
+  if (!pendingWidgetData.has(owner)) pendingWidgetData.set(owner, new Set());
+  const pending = pendingWidgetData.get(owner);
+  if (pending.has(promise)) return;
+  pending.add(promise);
   void promise.catch(() => {}).finally(() => {
-    host._bangumiWidgetPending.delete(key);
+    pending.delete(promise);
     if (host.widgetsDisposed === true) return;
-    const type = 'plugin-bangumis.recent';
-    host.widgetRenderVersions[type] = (host.widgetRenderVersions[type] || 0) + 1;
-    host._widgetHtmlCache?.clear();
-    host.onWidgetDataChanged?.(type);
+    notifyWidgetDataChanged(host, widget.widget);
   });
 }
 
-export function retryBangumiWidgetDataWithHost(host, widget) {
-  if (widget?.widget !== 'plugin-bangumis.recent') return null;
-  const store = host.bangumiWidgetDataStore || bangumiWidgetDataStore;
+async function retryWidgetStore(host, widget, type, storeName) {
+  if (widget?.widget !== type) return null;
+  const store = host[storeName] || (dataRuntime || await loadWidgetDataRuntime(host, type))[storeName];
   const promise = store.retry(widget);
-  watchBangumiWidgetLoad(host, widget, promise);
-  const type = 'plugin-bangumis.recent';
-  host.widgetRenderVersions[type] = (host.widgetRenderVersions[type] || 0) + 1;
-  host._widgetHtmlCache?.clear();
-  host.onWidgetDataChanged?.(type);
+  watchWidgetDataLoad(host, widget, promise);
+  notifyWidgetDataChanged(host, type);
   return promise;
+}
+
+export function retryRandomTagsWidgetDataWithHost(host, widget) {
+  return retryWidgetStore(host, widget, 'halo.random_tags', 'randomTagsWidgetDataStore');
+}
+
+export function retryBangumiWidgetDataWithHost(host, widget) {
+  return retryWidgetStore(host, widget, 'plugin-bangumis.recent', 'bangumiWidgetDataStore');
 }
 
 export async function ensureWidgetRendererRuntime(host, widgetType) {
@@ -157,30 +196,71 @@ export function renderWidgetBodyWithHost(host, widget, options = {}) {
   // Keep an Alpine dependency even while rendering the asynchronous skeleton.
   const renderVersion = host.widgetRenderVersions[widgetType] || 0;
 
+  // x-show keeps catalog cards mounted. A preview is a data consumer only
+  // while its card intersects the visible library or settings dialog.
+  if (renderOptions.mode === 'preview' && options.visible !== true) {
+    return renderWidgetLoadingMarkup(widget, { pending: true });
+  }
+
   if (widgetNeedsHydratedSources(widget) && host.sources?.hydrated !== true) {
     return renderWidgetLoadingMarkup(widget, { pending: true });
   }
 
-  let bangumiSources = null;
-  if (widgetType === 'plugin-bangumis.recent' && host.sources?.bangumisAvailable === true) {
-    const store = host.bangumiWidgetDataStore || bangumiWidgetDataStore;
-    const snapshot = store.get(widget);
-    if (renderOptions.mode === 'preview' && !snapshot?.sources) {
-      return '<div class="desktop-widget-empty" role="status">添加后加载追番数据</div>';
-    }
-    if (renderOptions.mode === 'live' && options.visible === false) {
+  let loadedSources = null;
+  if (widgetNeedsFinderData(widget, host.sources)) {
+    if (options.visible === false) return renderWidgetLoadingMarkup(widget, { pending: true });
+    if (dataRuntimeError) return '<div class="desktop-widget-empty desktop-widget-render-error" role="alert"><strong>内容暂时无法加载</strong><button type="button" data-widget-source-retry>重试</button></div>';
+    if (!dataRuntime) {
+      void loadWidgetDataRuntime(host, widgetType);
       return renderWidgetLoadingMarkup(widget, { pending: true });
     }
+    const snapshot = dataRuntime.resolveFinderWidgetSources(host, widget);
+    if (snapshot.status === 'loading') return renderWidgetLoadingMarkup(widget, { pending: true });
+    if (snapshot.status === 'error') {
+      return '<div class="desktop-widget-empty desktop-widget-render-error" role="alert"><strong>内容暂时无法加载</strong><button type="button" data-widget-source-retry>重试</button></div>';
+    }
+    loadedSources = snapshot.sources;
+  }
+  if (widgetType === 'halo.random_tags' && host.sources?.loaded?.['halo.random_tags'] !== true
+    && !(Array.isArray(host.sources?.randomTags) && host.sources.randomTags.length)) {
+    if (options.visible === false) return renderWidgetLoadingMarkup(widget, { pending: true });
+    const store = host.randomTagsWidgetDataStore || dataRuntime?.randomTagsWidgetDataStore;
+    if (!store) {
+      if (dataRuntimeError) return '<div class="desktop-widget-empty desktop-widget-render-error" role="alert"><strong>标签暂时无法加载</strong><button type="button" data-random-tags-widget-retry>重试</button></div>';
+      void loadWidgetDataRuntime(host, widgetType);
+      return renderWidgetLoadingMarkup(widget, { pending: true });
+    }
+    const snapshot = store.get(host.sources);
+    if (!snapshot || snapshot.status === 'loading') {
+      watchWidgetDataLoad(host, widget, snapshot?.promise || store.load());
+      return renderWidgetLoadingMarkup(widget, { pending: true });
+    }
+    if (snapshot.status === 'error') {
+      return '<div class="desktop-widget-empty desktop-widget-render-error" role="alert"><strong>标签暂时无法加载</strong><button type="button" data-random-tags-widget-retry>重试</button></div>';
+    }
+    loadedSources = snapshot.sources;
+  }
+  if (widgetType === 'plugin-bangumis.recent' && host.sources?.bangumisAvailable === true) {
+    if (options.visible === false) {
+      return renderWidgetLoadingMarkup(widget, { pending: true });
+    }
+    const store = host.bangumiWidgetDataStore || dataRuntime?.bangumiWidgetDataStore;
+    if (!store) {
+      if (dataRuntimeError) return renderBangumiWidgetDataErrorMarkup();
+      void loadWidgetDataRuntime(host, widgetType);
+      return renderWidgetLoadingMarkup(widget, { pending: true });
+    }
+    const snapshot = store.get(widget);
     if (!snapshot) {
-      watchBangumiWidgetLoad(host, widget, store.load(widget));
+      watchWidgetDataLoad(host, widget, store.load(widget));
       return renderWidgetLoadingMarkup(widget, { pending: true });
     }
     if (snapshot.status === 'loading') {
-      watchBangumiWidgetLoad(host, widget, snapshot.promise);
+      watchWidgetDataLoad(host, widget, snapshot.promise);
       return renderWidgetLoadingMarkup(widget, { pending: true });
     }
     if (snapshot.status === 'error') return renderBangumiWidgetDataErrorMarkup();
-    bangumiSources = { ...snapshot.sources, bangumiWidgetDataState: 'ready' };
+    loadedSources = { ...snapshot.sources, bangumiWidgetDataState: 'ready' };
   }
 
   const renderer = host.widgetRenderers[widgetType];
@@ -192,10 +272,13 @@ export function renderWidgetBodyWithHost(host, widget, options = {}) {
   }
 
   if (!host._widgetHtmlCache) host._widgetHtmlCache = new Map();
-  const sources = bangumiSources
-    ? { ...resolveLatestPostsSources(host, widget), ...bangumiSources }
+  const sources = loadedSources
+    ? { ...resolveLatestPostsSources(host, widget), ...loadedSources }
     : resolveLatestPostsSources(host, widget);
-  const cacheKey = `${widgetCacheKey(widget, renderOptions)}:v=${renderVersion}`;
+  const now = host.now instanceof Date ? host.now : new Date();
+  const dayKey = widgetType === 'halo.random_tags'
+    ? `:day=${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}` : '';
+  const cacheKey = `${widgetCacheKey(widget, renderOptions)}:v=${renderVersion}${dayKey}`;
   const cached = host._widgetHtmlCache.get(cacheKey);
   if (cached !== undefined) return cached;
 

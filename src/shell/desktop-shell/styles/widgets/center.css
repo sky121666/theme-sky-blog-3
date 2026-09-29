@@ -202,7 +202,7 @@
 
 .desktop-widget-center {
   position: fixed;
-  inset: 0;
+  inset: 24px 0 0;
   z-index: 10021;
   display: flex;
   align-items: flex-end;
@@ -218,6 +218,7 @@
   min-height: 0;
   width: min(960px, calc(100vw - 72px));
   height: min(680px, calc(100vh - 24px));
+  max-height: 100%;
   border-radius: calc(28px + var(--desktop-widget-center-radius-bonus, 0px)) calc(28px + var(--desktop-widget-center-radius-bonus, 0px)) 0 0;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.012)),
@@ -782,6 +783,11 @@
   pointer-events: auto;
 }
 
+.desktop-widget-card--preview .desktop-widget-render-error button,
+.desktop-widget-card--preview .desktop-widget-data-retry {
+  pointer-events: auto;
+}
+
 .desktop-widgets-layer.is-adding .desktop-widget-card--preview.widget--plugin-bangumis-recent {
   pointer-events: auto;
 }
@@ -1306,6 +1312,22 @@
 :root:not(.dark) .desktop-widget-center-head-action {
   background: rgba(118, 118, 128, 0.08);
   border-color: rgba(0, 0, 0, 0.08);
+}
+
+:root:not(.dark) .desktop-widget-center-item-action {
+  color: rgba(29, 29, 31, 0.86);
+  background: rgba(118, 118, 128, 0.1);
+  border-color: rgba(0, 0, 0, 0.11);
+}
+
+:root:not(.dark) .desktop-widget-center-item-action--quiet {
+  color: rgba(60, 60, 67, 0.72);
+  background: rgba(118, 118, 128, 0.06);
+}
+
+:root:not(.dark) .desktop-widget-center-item-action:hover {
+  color: #1d1d1f;
+  background: rgba(118, 118, 128, 0.16);
 }
 
 :root:not(.dark) .desktop-widget-center-head-action:hover,

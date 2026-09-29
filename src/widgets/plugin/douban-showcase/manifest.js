@@ -1,6 +1,6 @@
 export const pluginDoubanShowcaseWidgetManifest = {
   widgetId: 'plugin-douban.showcase',
-  title: '书影音',
+  title: '豆瓣',
   kicker: 'Douban',
   defaultSize: 'large',
   supportedSizes: ['large'],

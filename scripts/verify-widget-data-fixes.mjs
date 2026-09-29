@@ -29,7 +29,7 @@ const latestWidget = (categoryName = '', key = 'latest') => ({
 });
 const latestHost = (surface = 'desktop') => ({
   surface,
-  sources: { hydrated: true, categories: [], latestPosts: Array.from({ length: 8 }, (_, i) => post(`global-${i}`, 'other')) },
+  sources: { hydrated: true, loaded: { 'halo.latest_posts': true }, categories: [], latestPosts: Array.from({ length: 8 }, (_, i) => post(`global-${i}`, 'other')) },
   widgetRenderers: { 'halo.latest_posts': renderWidget },
   widgetRendererPromises: {}, widgetRenderVersions: {}, widgetRendererErrors: {},
   _widgetHtmlCache: new Map(), readyCount: 0,

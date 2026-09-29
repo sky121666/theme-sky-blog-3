@@ -460,11 +460,18 @@ function createShowcaseRoot(api, overrides = {}) {
   return {
     ...createRoot(),
     dataset: { doubanApi: api, doubanType: 'movie', doubanStatus: 'all', ...overrides },
+    setAttribute() {},
     querySelector(selector) {
-      if (!nodes.has(selector)) nodes.set(selector, {
-        textContent: '', innerHTML: '', dataset: {}, style: {}, classList: createClassList(),
-        querySelector: () => null, querySelectorAll: () => [], setAttribute() {}
-      });
+      if (!nodes.has(selector)) {
+        const node = {
+          textContent: '', innerHTML: '', dataset: {}, style: {}, classList: createClassList(), hidden: selector === '[data-douban-retry]',
+          querySelector() { return /<(?:img|span)\b/.test(this.innerHTML) ? {} : null; },
+          querySelectorAll() { return [...this.innerHTML.matchAll(/data-douban-index=/g)]; },
+          setAttribute() {}
+        };
+        if (selector === '[data-douban-poster]') node.classList.add('is-loading');
+        nodes.set(selector, node);
+      }
       return nodes.get(selector);
     },
     querySelectorAll: () => thumbs,
@@ -475,8 +482,13 @@ function createShowcaseRoot(api, overrides = {}) {
       signal?.addEventListener('abort', () => list.delete(callback), { once: true });
     },
     dispatch(type, index) {
-      const event = { target: { closest: () => thumbs[index] } };
-      for (const callback of listeners.get(type) || []) callback(event);
+      const event = {
+        preventDefault() {}, stopPropagation() {},
+        target: { closest: (selector) => selector === '[data-douban-retry]'
+          ? (index === 'retry' ? this.querySelector(selector) : null)
+          : thumbs[index] }
+      };
+      for (const callback of [...listeners.get(type) || []]) callback(event);
     }
   };
 }
@@ -504,6 +516,17 @@ try {
   });
 
   globalThis.fetch = async () => response();
+  let previewIntervalCount = 0;
+  globalThis.window.matchMedia = () => ({ matches: false });
+  globalThis.window.setInterval = () => { previewIntervalCount += 1; return 1; };
+  const preview = mount('/widget/preview', { doubanPreview: 'true' });
+  await tick();
+  assert.equal(title(preview), '第一项', 'a visible library preview loads real collection data');
+  assert.equal(preview.dataset.doubanLoading, 'false', 'preview loading reaches a terminal state');
+  assert.equal(previewIntervalCount, 0, 'library previews must not start background autoplay');
+  globalThis.window.matchMedia = () => ({ matches: true });
+  globalThis.window.setInterval = setInterval;
+
   const keyboard = mount('/widget/keyboard');
   await tick();
   assert.equal(title(keyboard), '第一项');
@@ -529,7 +552,7 @@ try {
   assert.equal(sharedSignal.aborted, false, 'one cancelled consumer must not abort the remaining consumer');
   pending.resolve(response('共享数据'));
   await tick();
-  assert.equal(title(first), '', 'cancelled connected host cannot receive a late write');
+  assert.equal(title(first), '豆瓣收藏', 'cancelled connected host cannot receive a late write');
   assert.equal(title(second), '共享数据');
   assert.equal(second.classList.contains('is-error'), false);
   const cached = mount('/widget/shared');
@@ -553,7 +576,7 @@ try {
   assert.equal(signals.length, 2, 'a new mount must not reuse a cancelled pending request');
   cancelled.resolve(response('过期响应'));
   await tick();
-  assert.equal(title(only), '', 'even a transport ignoring abort cannot update a cancelled host');
+  assert.equal(title(only), '豆瓣收藏', 'even a transport ignoring abort cannot update a cancelled host');
   const another = mount('/widget/reentry');
   await tick();
   assert.equal(signals.length, 2, 'a late cancelled result cannot replace or delete the active shared request');
@@ -574,6 +597,79 @@ try {
   const retried = mount('/widget/failure');
   await tick();
   assert.equal(title(retried), '重试成功', 'failed shared entries do not poison later mounts');
+
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ items: [], total: 0 }) });
+  const empty = mount('/widget/empty');
+  await tick();
+  assert.equal(empty.classList.contains('is-empty'), true);
+  assert.equal(empty.querySelector('[data-douban-poster]').classList.contains('is-loading'), false,
+    'an empty collection must stop showing a loading poster');
+  assert.equal(empty.querySelector('[data-douban-count]').textContent, '0 条');
+  const emptyCleanup = empty.__doubanShowcaseCleanup;
+  enhanceDoubanShowcaseWidgets({ querySelectorAll: () => [empty] });
+  assert.equal(empty.__doubanShowcaseCleanup, emptyCleanup, 'stable empty results must not remount on every enhance');
+
+  globalThis.fetch = async () => ({ ok: false, status: 503 });
+  const error = mount('/widget/same-root-retry');
+  await tick();
+  assert.equal(error.querySelector('[data-douban-poster]').classList.contains('is-loading'), false,
+    'a failed collection must stop showing a loading poster');
+  assert.equal(error.querySelector('[data-douban-retry]').hidden, false, 'errors provide a retry action');
+  assert.equal(error.querySelector('[data-douban-score]').hidden, true, 'failed data must not show empty score badges');
+  globalThis.fetch = async () => response('同一组件重试成功');
+  error.dispatch('click', 'retry');
+  await tick();
+  assert.equal(title(error), '同一组件重试成功');
+  assert.equal(error.classList.contains('is-error'), false, 'retry success must remove the error layout');
+  assert.equal(error.classList.contains('is-empty'), false);
+  assert.equal(error.querySelector('[data-douban-retry]').hidden, true);
+  assert.equal(error.querySelector('[data-douban-score]').hidden, false, 'retry success restores score content');
+
+  const sameNodePending = deferred();
+  globalThis.fetch = () => sameNodePending.promise;
+  const sameNode = mount('/widget/same-node-reentry');
+  await tick();
+  sameNode.__doubanShowcaseCleanup();
+  globalThis.fetch = async () => response('重新进入');
+  enhanceDoubanShowcaseWidgets({ querySelectorAll: () => [sameNode] });
+  await tick();
+  assert.equal(title(sameNode), '重新进入', 'a cancelled node can mount again when its preview becomes visible');
+  sameNodePending.resolve(response('已取消旧响应'));
+  await tick();
+  assert.equal(title(sameNode), '重新进入', 'the cancelled request cannot overwrite the new mount');
+
+  const requestTimers = new Map();
+  let nextTimer = 0;
+  globalThis.window.setTimeout = (callback, delay) => {
+    const id = ++nextTimer;
+    requestTimers.set(id, { callback, delay });
+    return id;
+  };
+  globalThis.window.clearTimeout = (id) => requestTimers.delete(id);
+  const stalled = deferred();
+  let stalledSignal;
+  let stalledCalls = 0;
+  globalThis.fetch = (_url, { signal }) => { stalledCalls += 1; stalledSignal = signal; return stalled.promise; };
+  const timedOut = mount('/widget/timeout', { doubanType: 'auto' });
+  await tick();
+  assert.equal(requestTimers.size, 1, 'a pending collection request has a bounded deadline');
+  [...requestTimers.values()][0].callback();
+  await tick();
+  assert.equal(stalledSignal.aborted, true, 'the timeout cancels transport work');
+  assert.equal(timedOut.classList.contains('is-error'), true, 'timeouts reach the recoverable error state');
+  assert.equal(timedOut.dataset.doubanLoading, 'false');
+  assert.equal(requestTimers.size, 0, 'settled requests release their deadline');
+  assert.equal(stalledCalls, 1, 'a type lookup timeout must not silently start a second collection request');
+  stalled.resolve(response('超时旧响应'));
+  await tick();
+  assert.equal(title(timedOut), '豆瓣数据暂时不可用', 'a late timed-out transport cannot overwrite the error state');
+  globalThis.window.setTimeout = setTimeout;
+  globalThis.window.clearTimeout = clearTimeout;
+  globalThis.fetch = async () => response('超时后重试成功');
+  timedOut.dataset.doubanType = 'movie';
+  timedOut.dispatch('click', 'retry');
+  await tick();
+  assert.equal(title(timedOut), '超时后重试成功');
 } finally {
   roots.forEach((root) => root.__doubanShowcaseCleanup?.());
   for (const [name, value] of Object.entries(widgetGlobals)) {
@@ -582,4 +678,4 @@ try {
   }
 }
 
-console.log('verify-douban-adaptation passed (app and widget keyboard/shared-request lifecycle)');
+console.log('verify-douban-adaptation passed (app, widget preview/states/retry/timeout/shared-request lifecycle)');

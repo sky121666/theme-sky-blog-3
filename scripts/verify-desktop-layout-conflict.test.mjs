@@ -78,6 +78,40 @@ test('unchanged layout baselines save successfully and advance only after PUT su
   assert.equal(f.surface.serverLayoutSavedMutationVersion, 3);
 });
 
+test('lazy resource failures retain the layout draft and allow a successful save retry', async () => {
+  const f = fixture();
+  f.surface.ensurePersistenceWriteRuntime = async () => {
+    throw new TypeError('Failed to fetch dynamically imported module: http://localhost/fixture.js');
+  };
+  assert.equal(await f.surface.saveLayoutJsonToServer(newLayout), false);
+  assert.match(f.surface.serverLayoutSaveMessage, /资源加载失败.*当前编辑内容已保留/);
+  assert.doesNotMatch(f.surface.serverLayoutSaveMessage, /http:|TypeError/);
+  assert.equal(f.writes.length, 0);
+  assert.equal(f.surface.serverLayoutSaving, false);
+  assert.equal(f.surface.serverLayoutJson, oldLayout);
+  assert.equal(f.surface.serverLayoutSavedMutationVersion, 2);
+  assert.equal(f.surface.icons[0].title, '当前未保存图标');
+  f.surface.ensurePersistenceWriteRuntime = async () => persistenceWrite;
+  assert.equal(await f.surface.saveLayoutJsonToServer(newLayout), true);
+  assert.equal(f.writes.length, 1);
+  assert.equal(f.surface.serverLayoutSaveState, 'saved');
+});
+
+test('the real default-layout entry handles serializer import failure before preparing a save', async () => {
+  const f = fixture();
+  f.surface.ensurePersistenceWriteRuntime = async () => {
+    throw new TypeError('Failed to fetch dynamically imported module: http://localhost/persistence-write.js');
+  };
+  assert.equal(await f.surface.saveDefaultLayoutToServer(), false);
+  assert.equal(f.surface.serverLayoutSaveState, 'failed');
+  assert.match(f.surface.serverLayoutSaveMessage, /资源加载失败.*当前编辑内容已保留/);
+  assert.equal(f.writes.length, 0);
+  assert.equal(f.surface.icons[0].title, '当前未保存图标');
+  f.surface.ensurePersistenceWriteRuntime = async () => persistenceWrite;
+  assert.equal(await f.surface.saveDefaultLayoutToServer(), true);
+  assert.equal(f.writes.length, 1);
+});
+
 test('same-page icon settings invalidate legacy layouts even when layout JSON is unchanged', async () => {
   const f = fixture(config(oldLayout), { desktopLayoutReloadRequired: true });
   assert.equal(await f.surface.saveLayoutJsonToServer(newLayout), false);

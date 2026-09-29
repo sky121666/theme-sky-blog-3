@@ -58,6 +58,13 @@
   }
 }
 
+/* Match the shared mobile menu bar; keep the title and save action below it. */
+@media (max-width: 640px) {
+  .desktop-widget-center {
+    top: 44px;
+  }
+}
+
 @media (max-width: 480px) {
   .desktop-widget-center-frame {
     width: calc(100vw - 8px);

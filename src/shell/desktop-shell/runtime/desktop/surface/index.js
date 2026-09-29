@@ -26,7 +26,9 @@ import {
   ensureWidgetRendererRuntime as ensureWidgetRendererRuntimeWithHost,
   renderWidgetBodyWithHost,
   widgetNeedsHydratedSources,
-  retryBangumiWidgetDataWithHost
+  retryBangumiWidgetDataWithHost,
+  retryRandomTagsWidgetDataWithHost,
+  retryFinderWidgetDataWithHost
 } from '../../widgets/render-runtime.js';
 import { disposeLatestPostsSources } from '../../widgets/latest-posts-runtime.js';
 
@@ -67,6 +69,14 @@ const THEME_SETTINGS_WIDGET_SYNC_EVENT = 'theme:widget-settings-change';
 
 /* ── Helpers ── */
 const DEFAULT_WIDGET_CENTER_CATEGORIES = [{ id: 'all', label: '所有小组件' }];
+
+function desktopLayoutSaveErrorMessage(error) {
+  if (error?.code === 'conflict') return '配置已在其他窗口更新，请重新打开编辑模式后再保存';
+  if (/Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Loading chunk .* failed/i.test(error?.message || '')) {
+    return '保存所需资源加载失败，当前编辑内容已保留。请检查网络或主题资源后重试。';
+  }
+  return error?.message || '保存失败，请检查登录状态或后台权限';
+}
 
 function resolveDesktopIconApp(href, explicitApp = '') {
   if (explicitApp) return explicitApp;
@@ -332,6 +342,7 @@ export function registerDesktopSurface(Alpine) {
       ) return false;
       this.now = date;
       this.invalidateWidgetCache('system.calendar');
+      this.invalidateWidgetCache('halo.random_tags');
       return true;
     },
 
@@ -505,7 +516,7 @@ export function registerDesktopSurface(Alpine) {
     },
 
     async beginWidgetDrag(widget, event) {
-      if (event?.target?.closest?.('[data-bangumi-widget-retry], [data-widget-data-retry]')) return;
+      if (event?.target?.closest?.('[data-bangumi-widget-retry], [data-random-tags-widget-retry], [data-widget-data-retry], [data-widget-source-retry]')) return;
       const runtime = await this.ensureEditingRuntime();
       return runtime.beginWidgetDrag.call(this, widget, event);
     },
@@ -806,7 +817,10 @@ export function registerDesktopSurface(Alpine) {
       this.widgets = this.defaultWidgets.map((widget) => ({ ...widget }));
       this.startCalendarRollover();
       this.calendarVisibilityHandler = () => {
-        if (document.visibilityState === 'visible') this.startCalendarRollover();
+        if (document.visibilityState === 'visible') {
+          this.startCalendarRollover();
+          this.scheduleDesktopWidgetEnhancement();
+        }
       };
       document.addEventListener('visibilitychange', this.calendarVisibilityHandler);
       desktopDebug('desktop widgets initialized', {
@@ -1727,9 +1741,7 @@ export function registerDesktopSurface(Alpine) {
         return !hasNewerChanges;
       } catch (error) {
         this.serverLayoutSaveState = 'failed';
-        this.serverLayoutSaveMessage = error?.code === 'conflict'
-          ? '配置已在其他窗口更新，请重新打开编辑模式后再保存'
-          : (error?.message || '保存失败，请检查登录状态或后台权限');
+        this.serverLayoutSaveMessage = desktopLayoutSaveErrorMessage(error);
         desktopDebugWarn('desktop default layout save failed', {
           endpoint: this.themeJsonConfigEndpoint,
           themeName: this.themeName,
@@ -1748,7 +1760,15 @@ export function registerDesktopSurface(Alpine) {
         return false;
       }
 
-      const { buildDesktopLayoutJsonString } = await this.ensurePersistenceWriteRuntime();
+      let buildDesktopLayoutJsonString;
+      try {
+        ({ buildDesktopLayoutJsonString } = await this.ensurePersistenceWriteRuntime());
+      } catch (error) {
+        this.serverLayoutSaveState = 'failed';
+        this.serverLayoutSaveMessage = desktopLayoutSaveErrorMessage(error);
+        desktopDebugWarn('desktop default layout serializer load failed', { error: error?.message });
+        return false;
+      }
       const snapshot = {
         mutationVersion: this.serverLayoutMutationVersion,
         widgets: cloneJsonValue(this.widgets) || [],
@@ -2415,6 +2435,18 @@ export function registerDesktopSurface(Alpine) {
     },
 
     retryWidgetData(widget, event) {
+      if (event?.target?.closest?.('[data-widget-source-retry]')) {
+        event.preventDefault();
+        event.stopPropagation();
+        void retryFinderWidgetDataWithHost(this, widget)?.catch(() => {});
+        return;
+      }
+      if (event?.target?.closest?.('[data-random-tags-widget-retry]')) {
+        event.preventDefault();
+        event.stopPropagation();
+        void retryRandomTagsWidgetDataWithHost(this, widget)?.catch(() => {});
+        return;
+      }
       if (event?.target?.closest?.('[data-widget-data-retry]')) {
         event.preventDefault();
         event.stopPropagation();

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="https://www.thymeleaf.org">
-  <th:block th:fragment="layer(enabled, isHome, hideOnMobile, editEnabled, columns, gap, layoutVersion, serverLayoutJson, themeName, themeJsonConfigEndpoint, weatherCityName, weatherRefreshMinutes, latestPosts, popularPosts, categoryTree, siteStats, randomTags, momentsAvailable, recentMoments, bangumisAvailable, friendsAvailable, recentFriends, docsmeAvailable, docsmeProjects, photosAvailable, photos, photoGroups, doubanAvailable, steamAvailable, steamPlaying, steamStatusText, steamPersonaName, steamAvatarFull, steamProfileUrl, steamLevel, steamStatsTotalGames, steamStatsRecentPlaytimeFormatted, steamStatsRecentPlaytimeMinutes, steamRecentGames, steamOwnedGames, siteUrl, siteTitle, siteSubtitle, siteLogo, authenticated, currentUserName, currentUserDisplayName, currentUserAvatar, currentUserBio, archivesUrl, fallbackCover)">
+  <th:block th:fragment="layer(enabled, isHome, hideOnMobile, editEnabled, columns, gap, layoutVersion, serverLayoutJson, themeName, themeJsonConfigEndpoint, weatherCityName, weatherRefreshMinutes, latestPosts, loadedSources, popularPosts, categoryTree, siteStats, randomTags, momentsAvailable, recentMoments, bangumisAvailable, friendsAvailable, recentFriends, docsmeAvailable, docsmeProjects, photosAvailable, photos, photoGroups, photoGroupName, doubanAvailable, steamAvailable, steamPlaying, steamStatusText, steamPersonaName, steamAvatarFull, steamProfileUrl, steamLevel, steamStatsTotalGames, steamStatsRecentPlaytimeFormatted, steamStatsRecentPlaytimeMinutes, steamRecentGames, steamOwnedGames, siteUrl, siteTitle, siteSubtitle, siteLogo, authenticated, currentUserName, currentUserDisplayName, currentUserAvatar, currentUserBio, archivesUrl, fallbackCover)">
     <!-- Inert, JSON-only response contract. Thymeleaf's JavaScript serializer
          escapes embedded strings before they enter this raw-text element. -->
     <script id="theme-desktop-widget-protocol"
@@ -28,6 +28,7 @@
 
         "sources": {
           "hydrated": [[${isHome}]],
+          "loaded": [[${loadedSources}]],
           "siteProfile": {
             "title": [[${siteTitle}]],
             "subtitle": [[${siteSubtitle}]],
@@ -62,6 +63,7 @@
           "photosAvailable": [[${photosAvailable}]],
           "photos": [[${photos}]],
           "photoGroups": [[${photoGroups}]],
+          "photoGroupName": [[${photoGroupName}]],
           "photosUrl": "/photos",
           "doubanAvailable": [[${doubanAvailable}]],
           "doubanUrl": "/douban",
@@ -472,7 +474,10 @@
             </template>
 
             <template x-if="widgetConfigForm.previewWidget">
-              <div class="desktop-widget-config-preview" aria-label="组件预览">
+              <div class="desktop-widget-config-preview" aria-label="组件预览"
+                   x-data="{ previewVisible: false }"
+                   x-intersect:enter="previewVisible = true"
+                   x-intersect:leave="previewVisible = false">
                 <p class="desktop-widget-config-preview-label">预览</p>
                 <article class="desktop-widget-card desktop-widget-card--preview desktop-widget-config-preview-card"
                          :style="widgetConfigPreviewStyle()"
@@ -485,8 +490,11 @@
                     </div>
                   </header>
                   <div class="desktop-widget-body"
+                       data-widget-preview
+                       :data-widget-preview-visible="widgetConfigForm.open && previewVisible"
                        :data-widget-render-mode="widgetContentRenderMode(widgetConfigForm.previewWidget)"
-                       x-widget-content="renderWidgetBody(widgetConfigForm.previewWidget, { preview: true })"></div>
+                       @click="retryWidgetData(widgetConfigForm.previewWidget, $event)"
+                       x-widget-content="renderWidgetBody(widgetConfigForm.previewWidget, { preview: true, visible: widgetConfigForm.open && previewVisible })"></div>
                 </article>
               </div>
             </template>
@@ -601,6 +609,9 @@
 
                     <!-- Widget card -->
                     <article class="desktop-widget-center-item"
+                             x-data="{ previewVisible: false }"
+                             x-intersect:enter="previewVisible = true"
+                             x-intersect:leave="previewVisible = false"
                              :class="`is-size-${entry.size}`"
                              x-show="!entry._type">
                       <!-- 预览区 -->
@@ -615,8 +626,11 @@
                             </div>
                           </header>
                           <div class="desktop-widget-body"
+                               data-widget-preview
+                               :data-widget-preview-visible="showWidgetCenter && previewVisible && !entry._type"
                                :data-widget-render-mode="widgetContentRenderMode(selectedWidgetVariant(entry))"
-                               x-widget-content="renderWidgetBody(selectedWidgetVariant(entry), { preview: true })"></div>
+                               @click="retryWidgetData(selectedWidgetVariant(entry), $event)"
+                               x-widget-content="renderWidgetBody(selectedWidgetVariant(entry), { preview: true, visible: showWidgetCenter && previewVisible && !entry._type })"></div>
                         </article>
                       </div>
 

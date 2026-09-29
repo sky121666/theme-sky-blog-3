@@ -7,6 +7,8 @@
  * the content switch starts.
  */
 
+import { FINDER_WIDGET_SOURCES } from './source-types.js';
+
 export const DESKTOP_WIDGET_PROTOCOL_ATTRIBUTE = 'data-theme-desktop-widget-protocol';
 export const DESKTOP_WIDGET_PROTOCOL_EVENT = 'theme:desktop-widget-protocol';
 
@@ -43,6 +45,8 @@ export function normalizeDesktopWidgetSources(rawSources, siteUrl = '') {
 
   return {
     hydrated: sources.hydrated === true,
+    loaded: Object.fromEntries(Object.entries(asRecord(sources.loaded)).filter(([type, value]) =>
+      (Object.hasOwn(FINDER_WIDGET_SOURCES, type) || type === 'halo.random_tags') && typeof value === 'boolean')),
     siteProfile: {
       title: asString(siteProfile.title),
       subtitle: asString(siteProfile.subtitle),
@@ -79,6 +83,7 @@ export function normalizeDesktopWidgetSources(rawSources, siteUrl = '') {
     photosAvailable: sources.photosAvailable === true,
     photos: asArray(sources.photos),
     photoGroups: asArray(sources.photoGroups),
+    photoGroupName: asString(sources.photoGroupName),
     photosUrl: asString(sources.photosUrl, '/photos') || '/photos',
     doubanAvailable: sources.doubanAvailable === true,
     doubanUrl: asString(sources.doubanUrl, '/douban') || '/douban',

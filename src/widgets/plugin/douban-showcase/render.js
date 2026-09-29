@@ -18,7 +18,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget) {
   const status = normalizeChoice(meta.status, ALLOWED_STATUS, 'auto');
   const endpoint = escapeHtml(sources.doubanApiBase || '/apis/api.douban.moony.la/v1alpha1/doubanmovies');
   const href = escapeHtml(sources.doubanUrl || '/douban');
-  const title = escapeHtml(widget?.title || '书影音');
+  const title = escapeHtml(widget?.title || '豆瓣');
   const disabled = mode === 'preview' ? 'true' : 'false';
 
   const mainContent = buildWidgetPjaxLink({
@@ -36,8 +36,8 @@ export function renderWidget({ sources, escapeHtml, mode }, widget) {
           <span data-douban-status-label>收藏精选</span>
           <span data-douban-count>-- 条</span>
         </div>
-        <h3 data-douban-title>书影音收藏</h3>
-        <p class="wg-douban-sub" data-douban-subtitle>从豆瓣插件读取真实收藏数据。</p>
+        <h3 data-douban-title>豆瓣收藏</h3>
+        <p class="wg-douban-sub" data-douban-subtitle>正在加载收藏。</p>
         <div class="wg-douban-scoreline">
           <span data-douban-score>豆瓣 --</span>
           <span data-douban-stars>我的评分 --</span>
@@ -63,7 +63,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget) {
         <div class="wg-douban-brand">
           <span class="wg-douban-mark"><span class="icon-[lucide--clapperboard]" aria-hidden="true"></span></span>
           <div>
-            <p>我的书影音</p>
+            <p>豆瓣</p>
             <strong data-douban-heading>正在读取收藏</strong>
           </div>
         </div>
@@ -76,6 +76,7 @@ export function renderWidget({ sources, escapeHtml, mode }, widget) {
 
       <footer class="wg-douban-foot">
         <div class="wg-douban-rail" data-douban-rail aria-label="收藏条目"></div>
+        <button type="button" class="desktop-widget-data-retry" data-douban-retry hidden>重试</button>
       </footer>
     </section>
   `;
