@@ -154,15 +154,7 @@
             </dialog>
 </th:block>
 
-<th:block th:fragment="loadingSkeleton (windowScene)">
-  <th:block th:if="${windowScene == null or windowScene == 'feed'}">
-    <div class="skeleton-moments moments-app">
-      <div class="skeleton-cover skeleton-moments-cover">
-        <div class="skeleton-moments-cover-user">
-          <div class="skeleton-bar skeleton-moments-cover-name"></div>
-          <div class="skeleton-block skeleton-moments-cover-avatar"></div>
-        </div>
-      </div>
+<th:block th:fragment="loadingFeedSkeleton">
       <div class="skeleton-moments-list skeleton-feed">
         <div class="skeleton-moments-card">
           <div class="skeleton-block skeleton-moments-avatar"></div>
@@ -203,6 +195,18 @@
           </div>
         </div>
       </div>
+</th:block>
+
+<th:block th:fragment="loadingSkeleton (windowScene)">
+  <th:block th:if="${windowScene == null or windowScene == 'feed'}">
+    <div class="skeleton-moments moments-app">
+      <div class="skeleton-cover skeleton-moments-cover">
+        <div class="skeleton-moments-cover-user">
+          <div class="skeleton-bar skeleton-moments-cover-name"></div>
+          <div class="skeleton-block skeleton-moments-cover-avatar"></div>
+        </div>
+      </div>
+      <th:block th:replace="~{::loadingFeedSkeleton}"></th:block>
     </div>
   </th:block>
 

@@ -68,6 +68,7 @@ import {
   runNonFatalNavigationHook
 } from './navigation-guard.js';
 import { createBrowserNavStateStore } from './browser-nav-state.js';
+import { prepareMomentsFeedNavigation } from './moments-feed.js';
 import { prepareNavigation, commitNavigation, abandonNavigation, prepareNativeHandoff,
   revokeNativeHandoff } from './navigation-admission.js';
 
@@ -1429,7 +1430,9 @@ export function initPjax(Alpine) {
       const currentApp = getCurrentPageApp() || document.body.dataset.pageApp || '';
       const targetApp = inferPageAppForNavigation(targetUrl) || '';
       const useWindowOverlay = shouldUseWindowLoadingOverlay(currentApp, targetApp);
-      const loadingController = createWindowLoadingController(contentRoot, {
+      const momentsFeedPlan = currentApp === 'moments' && targetApp === 'moments'
+        ? prepareMomentsFeedNavigation(contentRoot, targetUrl) : null;
+      const loadingController = createWindowLoadingController(momentsFeedPlan?.loadingRoot || contentRoot, {
         useOverlay: useWindowOverlay
       }).start();
       _sameVariantLoadingController = loadingController;
@@ -1533,6 +1536,8 @@ export function initPjax(Alpine) {
         const preservePhotosDetailTitlebar = currentApp === 'photos'
           && responseApp === 'photos'
           && isPhotosDetailToDetailNavigation(contentContainer, targetContainer);
+        const swapMomentsFeed = responseApp === 'moments'
+          ? momentsFeedPlan?.prepareSwap(targetContainer) : null;
         const targetPhotosRoot = preservePhotosDetailTitlebar
           ? findPhotosAppRoot(targetContainer)
           : null;
@@ -1568,7 +1573,8 @@ export function initPjax(Alpine) {
           if (!isCurrentNavigation() || !commitAcceptedNavigation(record)) return;
           stageAppCssForNavigation(nextApp);
           preparePluginCompatibilityFromResponse(html);
-          syncedTitlebar = preservePhotosDetailTitlebar ? null : syncWindowTitlebarFromDocument(targetDoc);
+          syncedTitlebar = preservePhotosDetailTitlebar || swapMomentsFeed
+            ? null : syncWindowTitlebarFromDocument(targetDoc);
           // Alpine's mutation observer may initialize inserted nodes before
           // initTree runs below, so expose the destination before the swap.
           contentContainer.dataset.pjaxTargetUrl = targetUrl;
@@ -1577,7 +1583,9 @@ export function initPjax(Alpine) {
           if (preservePhotosDetailTitlebar) {
             syncWindowTitlebarCopyFromDocument(targetDoc, targetPhotosChrome);
           }
-          if (targetContainer) {
+          if (swapMomentsFeed) {
+            swapMomentsFeed();
+          } else if (targetContainer) {
             contentContainer.innerHTML = targetContainer.innerHTML;
           } else {
             // Fallback: use full content root innerHTML
@@ -1652,7 +1660,8 @@ export function initPjax(Alpine) {
         perfMark('contentSwap');
 
         // Sync state
-        const nextNavIndex = getBrowserNavDepth() + 1;
+        const refreshCurrentFeed = Boolean(swapMomentsFeed && targetUrl === window.location.href);
+        const nextNavIndex = getBrowserNavDepth() + (refreshCurrentFeed ? 0 : 1);
 
         syncSeoHeadFromResponse(html);
         syncBodyDatasetFromResponse(html);
@@ -1688,14 +1697,8 @@ export function initPjax(Alpine) {
           windowTitle: documentState.windowTitle || (isDetail ? '详情' : resolvedTitle),
           windowSubtitle: documentState.windowSubtitle || ''
         };
-        // Sync back button fallback for scene change
-        const backBtn = document.querySelector('.moments-titlebar-back');
-        if (backBtn) {
-          backBtn.dataset.fallback = isDetail ? '/moments' : '/';
-        }
-
         // Scroll content to top
-        contentRoot.scrollTop = 0;
+        if (!swapMomentsFeed) contentRoot.scrollTop = 0;
         focusNavigatedContent(contentContainer);
 
         // Reinstall moments scroll listener for feed/detail scene change
@@ -1721,7 +1724,8 @@ export function initPjax(Alpine) {
         // Commit history last. Every hook that may throw has either completed
         // above or is explicitly isolated as non-fatal, so a committed entry
         // can never be followed by a full-PJAX fallback for the same intent.
-        pushBrowserNavState(nextNavIndex, resolvedTitle, targetUrl, historyChrome);
+        if (refreshCurrentFeed) replaceBrowserNavState(nextNavIndex, resolvedTitle, targetUrl, historyChrome);
+        else pushBrowserNavState(nextNavIndex, resolvedTitle, targetUrl, historyChrome);
         record.historyCommitted = true;
         syncBrowserNavDepth(nextNavIndex);
         navigationSucceeded = true;
@@ -2010,7 +2014,9 @@ export function initPjax(Alpine) {
         const currentApp = getCurrentPageApp() || '';
         const targetApp = inferPageAppForNavigation(url, triggerElement) || '';
         const sameRoute = url.pathname === window.location.pathname && url.search === window.location.search;
-        const same = url.pathname !== '/' && !sameRoute && currentVariant && currentVariant !== 'none'
+        const feedRefresh = sameRoute && currentApp === 'moments' && targetApp === 'moments'
+          && prepareMomentsFeedNavigation(document.querySelector('[data-window-content-root]'), href);
+        const same = url.pathname !== '/' && (!sameRoute || feedRefresh) && currentVariant && currentVariant !== 'none'
           && currentVariant === targetVariant
           && isContentSwitchAllowed(currentApp, document.body.dataset.pageMode || '')
           && supportsSameVariantContentSwitch(targetApp);

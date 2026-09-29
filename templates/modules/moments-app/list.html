@@ -61,6 +61,9 @@
       </div>
 
       <!-- 动态列表 -->
+      <div class="moments-feed-region" data-moments-feed-region>
+        <th:block th:replace="~{modules/shell/window-frame :: loadingOverlay(contentFragment=~{modules/moments-app/window :: loadingFeedSkeleton})}"></th:block>
+        <div data-moments-feed-content>
       <div class="moments-feed-list" th:if="${moments != null and moments.items != null}">
         <article th:each="moment : ${moments.items}"
                  class="moment-feed-card"
@@ -297,6 +300,11 @@
                init() {
                    this.destroyed = false;
                    this.routeKey = this.currentPath();
+                   const pendingTarget = this.$el.closest('[data-pjax-target-url]')?.dataset.pjaxTargetUrl;
+                   if (pendingTarget) {
+                       const target = new URL(pendingTarget, location.href);
+                       this.routeKey = target.pathname + target.search;
+                   }
                    // 1. 尝试从单次返回缓存中恢复
                    const rawCache = sessionStorage.getItem(this.cacheKey);
                    if (rawCache) {
@@ -512,6 +520,8 @@
 
       <div th:if="${moments == null or moments.items == null or #lists.isEmpty(moments.items)}" class="moment-feed-empty">
         暂无动态
+      </div>
+        </div>
       </div>
     </div>
   </div>

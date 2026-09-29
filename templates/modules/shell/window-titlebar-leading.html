@@ -23,9 +23,9 @@
     <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=false)}"></th:block>
     <a th:href="${windowScene == 'detail' ? '/moments' : '/'}"
        class="moments-titlebar-back pjax-link"
-       data-pjax-app="moments"
-       title="返回"
-       onclick="if(window.history.length > 1) { event.preventDefault(); history.back(); }">
+       th:data-pjax-app="${windowScene == 'detail' ? 'moments' : null}"
+       th:title="${windowScene == 'detail' ? '返回瞬间列表' : '返回首页'}"
+       th:aria-label="${windowScene == 'detail' ? '返回瞬间列表' : '返回首页'}">
       <span class="icon-[lucide--chevron-left]" aria-hidden="true"></span>
     </a>
   </th:block>

@@ -25,6 +25,7 @@
     "verify:docsme-links": "node scripts/verify-docsme-link-navigation.mjs",
     "verify:douban-adaptation": "node scripts/verify-douban-adaptation.mjs",
     "verify:links": "node scripts/verify-links-adaptation.mjs",
+    "verify:links:navigation": "node scripts/verify-links-local-navigation.mjs",
     "verify:photos-pagination": "node scripts/verify-photos-pagination.mjs",
     "verify:photos:view-transition": "node scripts/verify-photos-view-transition.mjs",
     "verify:plugin-inventory": "node scripts/verify-plugin-inventory.mjs",
@@ -37,6 +38,7 @@
     "verify:waterfall-lifecycle": "node scripts/verify-waterfall-lifecycle.mjs",
     "verify:moments": "node scripts/verify-moments.mjs",
     "verify:moments-lifecycle": "node scripts/verify-moments-lifecycle.mjs",
+    "verify:moments:feed": "node scripts/verify-moments-feed-navigation.mjs",
     "verify:archive-pagination": "node scripts/verify-archive-pagination.mjs",
     "verify:archives:live": "node scripts/verify-archive-playwright.mjs",
     "verify:categories": "node scripts/verify-category-explorer.mjs",
@@ -75,10 +77,9 @@
     "verify:auth-password-contract": "node scripts/verify-auth-password-contract.mjs",
     "verify:auth:live": "node scripts/verify-anonymous-auth.mjs",
     "verify:widgets:browser": "node scripts/verify-widget-browser.mjs",
+    "verify:widgets:direct": "node scripts/verify-widget-direct-entry.mjs",
     "verify:navigation:live": "node scripts/verify-navigation-runtime.mjs && node scripts/verify-navigation-response.mjs && node scripts/verify-navigation-readiness.mjs",
-    "verify:navigation:pages": "node scripts/verify-navigation-pages.mjs",
-    "verify:links:navigation": "node scripts/verify-links-local-navigation.mjs",
-    "verify:widgets:direct": "node scripts/verify-widget-direct-entry.mjs"
+    "verify:navigation:pages": "node scripts/verify-navigation-pages.mjs"
   },
   "devDependencies": {
     "@alpinejs/intersect": "3.17.3",

@@ -653,7 +653,7 @@ try {
   );
   assert.match(
     pjaxSource,
-    /const useWindowOverlay = shouldUseWindowLoadingOverlay\(currentApp, targetApp\);\s*const loadingController = createWindowLoadingController\(contentRoot, \{\s*useOverlay: useWindowOverlay\s*\}\)\.start\(\);/,
+    /const useWindowOverlay = shouldUseWindowLoadingOverlay\(currentApp, targetApp\);[\s\S]*?const loadingController = createWindowLoadingController\(momentsFeedPlan\?\.loadingRoot \|\| contentRoot, \{\s*useOverlay: useWindowOverlay\s*\}\)\.start\(\);/,
     'same-variant 必须按应用清单决定使用窗口骨架或轻量进度'
   );
   assert.match(

@@ -1159,6 +1159,24 @@
 }
 
 /* ═══ Feed 列表 ═══ */
+.moments-feed-region {
+  position: relative;
+}
+
+.moments-feed-region[aria-busy="true"] {
+  min-height: 240px;
+  overflow: hidden;
+}
+
+.moments-feed-region > .window-loading-overlay {
+  background: var(--wc-bg);
+  overflow: hidden;
+}
+
+.moments-feed-region .skeleton-moments-list {
+  padding-top: 0;
+}
+
 .moments-feed-list {
   display: flex;
   flex-direction: column;

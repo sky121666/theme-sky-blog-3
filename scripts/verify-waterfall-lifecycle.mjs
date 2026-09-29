@@ -292,6 +292,34 @@ async function verifyCacheQuotaFailureInBrowser(expression) {
     assert.deepEqual(result, { aborted: true, loading: false, intentId: 91, retryFlag: true },
       'a failed optional cache write must still cancel the in-flight pagination request');
     assert.deepEqual(errors, [], 'optional cache failure must not escape as a browser page error');
+
+    const filtered = await page.evaluate(async (realExpression) => {
+      const root = document.querySelector('[data-app-root="moments"]');
+      root.dataset.pjaxTargetUrl = 'https://moments.test/moments?tag=travel';
+      const trigger = document.querySelector('.moments-feed-pagination');
+      trigger.dataset.nextUrl = '/moments/page/2?tag=travel';
+      const model = new Function('$el', `return (${realExpression});`)(trigger);
+      model.$el = trigger;
+      model.init(); // PJAX hydrates before committing the target history entry.
+      history.pushState({}, '', '/moments?tag=travel');
+      delete root.dataset.pjaxTargetUrl;
+      const requests = [];
+      const originalFetch = window.fetch;
+      window.fetch = async (url) => {
+        requests.push(url);
+        return new Response('<main data-app-root="moments"><div class="moments-feed-list"><article data-test-next-card>next filtered card</article></div></main>');
+      };
+      try {
+        await model.loadNext();
+        return { route: model.routeKey, requests, appended: Boolean(root.querySelector('[data-test-next-card]')) };
+      } finally {
+        window.fetch = originalFetch;
+        model.destroy();
+      }
+    }, expression);
+    assert.deepEqual(filtered, {
+      route: '/moments?tag=travel', requests: ['/moments/page/2?tag=travel'], appended: true
+    }, 'hydration before history commit must retain the target filter for subsequent pagination');
   } finally {
     await browser.close();
   }

@@ -7,7 +7,8 @@ import { readLiveBuildContext } from './lib/live-build-context.mjs';
 // visible anchors on the live page; no fixture content or account is created.
 const base = process.env.SMOKE_BASE_URL || 'http://localhost:8090';
 const origin = new URL(base).origin;
-const evidencePath = 'docs/evidence/pjax-design-2026-09-28/page-matrix-results.json';
+const momentsOnly = process.argv.includes('--moments');
+const evidencePath = `docs/evidence/pjax-design-2026-09-28/${momentsOnly ? 'moments-parent-return-results' : 'page-matrix-results'}.json`;
 const records = [];
 const failures = [];
 const profiles = [
@@ -250,22 +251,65 @@ async function runHeader(browser, profile) {
 }
 
 async function runMoments(browser, profile) {
+  let detailUrl = '';
+  async function assertBackTarget(page, detail) {
+    const back = page.locator('a.moments-titlebar-back.pjax-link');
+    assert.equal(await back.count(), 1, 'moment titlebar must have exactly one parent link');
+    assert.equal(await back.getAttribute('href'), detail ? '/moments' : '/', 'titlebar parent URL');
+    assert.equal(await back.getAttribute('title'), detail ? '返回瞬间列表' : '返回首页');
+    assert.equal(await back.getAttribute('aria-label'), detail ? '返回瞬间列表' : '返回首页');
+    assert.equal(await back.getAttribute('data-pjax-app'), detail ? 'moments' : null);
+    assert.equal(await back.getAttribute('onclick'), null, 'parent link must not override native click behavior');
+    return back;
+  }
+  async function returnToList(page, record, keyboard = false) {
+    const back = await assertBackTarget(page, true);
+    const from = await eventCount(page);
+    if (keyboard) {
+      await back.focus();
+      await back.press('Enter');
+    } else await back.click({ timeout: 10000 });
+    const result = await waitForReady(page, from, absolute('/moments'), 'moments', 'titlebar parent return');
+    assert.equal(result.events.find((event) => event.type === 'accepted')?.source, 'click',
+      'parent link must enter the shared click controller exactly once');
+    assert.ok(await page.locator('.moments-app--feed').count(), 'moment list root must appear');
+    await assertBackTarget(page, false);
+    record.steps.push({ label: keyboard ? 'keyboard parent return' : 'titlebar parent return', status: 'passed', ...result });
+  }
   await runCase(browser, profile, 'moments detail and titlebar back', '/moments', async (page, record) => {
+    detailUrl = (await firstVisibleAnchor(page, 'a.moment-feed-time-link.pjax-link[href^="/moments/"]'))?.data.href || '';
+    if (momentsOnly) assert.ok(detailUrl, 'targeted moments verification requires a published detail sample');
     const entered = await clickNavigation(page, record, 'feed time to detail',
       'a.moment-feed-time-link.pjax-link[href^="/moments/"]', 'moments');
     if (!entered) return;
     assert.ok(await page.locator('.moments-app--detail').count(), 'moment detail root must appear');
-    const back = await firstVisibleAnchor(page, 'a.moments-titlebar-back.pjax-link[href="/moments"]');
-    if (!back) {
-      record.steps.push({ label: 'titlebar back', status: 'skipped', reason: 'detail titlebar back absent' });
-      return;
+    await returnToList(page, record);
+    for (const [direction, expected, detail] of [['back', detailUrl, true], ['forward', absolute('/moments'), false]]) {
+      const from = await eventCount(page);
+      if (direction === 'back') await page.goBack();
+      else await page.goForward();
+      const result = await waitForReady(page, from, expected, 'moments', `browser ${direction}`);
+      assert.equal(result.events.find((event) => event.type === 'accepted')?.source, 'popstate');
+      await assertBackTarget(page, detail);
+      record.steps.push({ label: `browser ${direction}`, status: 'passed', ...result });
     }
-    const from = await eventCount(page);
-    await back.link.click({ timeout: 10000 });
-    const result = await waitForReady(page, from, absolute('/moments'), 'moments', 'titlebar history back');
-    assert.equal(result.events.find((event) => event.type === 'accepted')?.source, 'popstate',
-      'inline onclick must own history.back before the document click controller');
-    record.steps.push({ label: 'titlebar history back', status: 'passed', anchor: back.data, ...result });
+    assert.ok(await clickNavigation(page, record, 'repeat feed to detail',
+      'a.moment-feed-time-link.pjax-link[href^="/moments/"]', 'moments'));
+    await returnToList(page, record, true);
+    if (profile.name === 'mobile') {
+      assert.ok(await clickNavigation(page, record, 'list parent to home',
+        'a.moments-titlebar-back.pjax-link[href="/"]', ''));
+    }
+  });
+  if (!detailUrl) return; // No published detail sample: the feed case records the skip.
+  await runCase(browser, profile, 'moments cold detail parent return', detailUrl, async (page, record) => {
+    await returnToList(page, record);
+  });
+  await runCase(browser, profile, 'moments unrelated history parent return', '/archives', async (page, record) => {
+    const response = await page.goto(detailUrl, { waitUntil: 'commit', timeout: 15000 });
+    assert.equal(response?.status(), 200);
+    await page.waitForFunction(() => window.pjax?.loadUrl && window.Alpine, null, { timeout: 15000 });
+    await returnToList(page, record);
   });
 }
 
@@ -592,6 +636,10 @@ async function runExplorer(browser, profile) {
 const browser = await chromium.launch();
 try {
   for (const profile of profiles) {
+    if (momentsOnly) {
+      await runMoments(browser, profile);
+      continue;
+    }
     await runHomeEntries(browser, profile);
     await runHeader(browser, profile);
     await runMoments(browser, profile);
@@ -603,6 +651,10 @@ try {
     console.error(JSON.stringify({ failures, records }, null, 2));
     throw new AggregateError(failures.map((message) => new Error(message)),
       `navigation page matrix failed: ${failures.length} scenario(s)`);
+  }
+  if (momentsOnly) {
+    assert.equal(records.filter((record) => record.status === 'passed').length, profiles.length * 3,
+      'targeted moments verification must exercise all entry modes on both profiles');
   }
   const context = await readLiveBuildContext(base);
   await fs.mkdir('docs/evidence/pjax-design-2026-09-28', { recursive: true });
