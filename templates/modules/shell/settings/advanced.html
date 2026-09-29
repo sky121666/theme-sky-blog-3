@@ -1,0 +1,17 @@
+<section xmlns:th="https://www.thymeleaf.org" th:fragment="pane"
+         class="theme-settings-pane theme-settings-pane-advanced" data-settings-pane="advanced"
+         x-show="$store.themeSettings.activePane === 'advanced'" aria-labelledby="theme-settings-title">
+  <section class="theme-settings-section">
+    <h3 class="theme-settings-section-title">开发者</h3>
+    <div class="theme-settings-group">
+      <label class="theme-settings-group-row" data-setting-path="developer.debug_mode">
+        <span class="theme-settings-copy"><strong>调试模式</strong></span>
+        <input type="checkbox" class="theme-settings-switch-input" :checked="$store.themeSettings.value('developer.debug_mode')"
+               @change="$store.themeSettings.update('developer.debug_mode', $event.target.checked)" />
+        <span class="theme-settings-switch" aria-hidden="true"></span>
+      </label>
+    </div>
+    <p class="theme-settings-section-note">在浏览器控制台输出导航与桌面组件日志。保存后刷新页面生效。</p>
+  </section>
+
+</section>

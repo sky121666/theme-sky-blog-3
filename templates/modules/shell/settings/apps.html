@@ -1,0 +1,126 @@
+<section xmlns:th="https://www.thymeleaf.org" th:fragment="pane"
+         class="theme-settings-pane theme-settings-pane-apps" data-settings-pane="apps"
+         x-show="$store.themeSettings.activePane === 'apps'" aria-labelledby="theme-settings-title">
+  <section class="theme-settings-section theme-settings-app-section" data-settings-app="moments">
+    <div class="theme-settings-section-heading"><h3 class="theme-settings-section-title"><span class="icon-[lucide--message-circle]" aria-hidden="true"></span>瞬间</h3><span class="theme-settings-app-status" :class="{ 'is-available': $store.themeSettings.appAvailable('moments') }" x-text="$store.themeSettings.appAvailable('moments') ? '已启用' : '未启用'"></span></div>
+    <p class="theme-settings-section-note theme-settings-app-unavailable" x-show="!$store.themeSettings.appAvailable('moments')">启用对应插件后，以下设置将显示在应用页面中。</p>
+    <div class="theme-settings-group">
+      <div class="theme-settings-group-row theme-settings-image-row" data-setting-path="moments.cover.image_url">
+        <img class="theme-settings-image-thumbnail" x-show="$store.themeSettings.value('moments.cover.image_url')" :src="$store.themeSettings.value('moments.cover.image_url') || null" alt="封面图片" loading="lazy" referrerpolicy="no-referrer" />
+        <span class="theme-settings-copy"><strong title="推荐横向图片；留空时不显示封面">封面图片</strong></span>
+        <div class="theme-settings-inline-actions">
+          <button type="button" class="theme-settings-secondary-button" @click="$store.themeAssets.openImage('moments.cover.image_url')">选择图片…</button>
+          <button type="button" class="theme-settings-text-button" x-show="$store.themeSettings.value('moments.cover.image_url')" @click="$store.themeSettings.clearImage('moments.cover.image_url')">移除</button>
+        </div>
+      </div>
+      <label class="theme-settings-input-row" data-setting-path="moments.profile.display_name">
+        <span class="theme-settings-copy"><strong>封面名称</strong></span>
+        <input type="text" placeholder="使用站点标题" :value="$store.themeSettings.value('moments.profile.display_name')"
+               @input="$store.themeSettings.update('moments.profile.display_name', $event.target.value)" />
+      </label>
+      <label class="theme-settings-input-row" data-setting-path="moments.profile.subtitle">
+        <span class="theme-settings-copy"><strong>封面副标题</strong></span>
+        <input type="text" placeholder="使用站点副标题" :value="$store.themeSettings.value('moments.profile.subtitle')"
+               @input="$store.themeSettings.update('moments.profile.subtitle', $event.target.value)" />
+      </label>
+      <label class="theme-settings-input-row" data-setting-path="moments.style.color_mode">
+        <span class="theme-settings-copy"><strong>配色模式</strong></span>
+        <select :value="$store.themeSettings.value('moments.style.color_mode')" @change="$store.themeSettings.update('moments.style.color_mode', $event.target.value)">
+          <option value="wechat">微信风格</option>
+          <option value="theme">跟随主题</option>
+        </select>
+      </label>
+      <label class="theme-settings-group-row" data-setting-path="moments.publish.enabled">
+        <span class="theme-settings-copy"><strong>允许登录用户在前端发布</strong></span>
+        <input type="checkbox" class="theme-settings-switch-input" :checked="$store.themeSettings.value('moments.publish.enabled')"
+               @change="$store.themeSettings.update('moments.publish.enabled', $event.target.checked)" />
+        <span class="theme-settings-switch" aria-hidden="true"></span>
+      </label>
+      <label class="theme-settings-group-row" data-setting-path="moments.publish.image_upload" :class="{ 'is-disabled': !$store.themeSettings.value('moments.publish.enabled') }">
+        <span class="theme-settings-copy"><strong>图片上传</strong></span>
+        <input type="checkbox" class="theme-settings-switch-input" :checked="$store.themeSettings.value('moments.publish.image_upload')" :disabled="!$store.themeSettings.value('moments.publish.enabled')"
+               @change="$store.themeSettings.update('moments.publish.image_upload', $event.target.checked)" />
+        <span class="theme-settings-switch" aria-hidden="true"></span>
+      </label>
+      <label class="theme-settings-group-row" data-setting-path="moments.publish.video_upload" :class="{ 'is-disabled': !$store.themeSettings.value('moments.publish.enabled') }">
+        <span class="theme-settings-copy"><strong>视频上传</strong></span>
+        <input type="checkbox" class="theme-settings-switch-input" :checked="$store.themeSettings.value('moments.publish.video_upload')" :disabled="!$store.themeSettings.value('moments.publish.enabled')"
+               @change="$store.themeSettings.update('moments.publish.video_upload', $event.target.checked)" />
+        <span class="theme-settings-switch" aria-hidden="true"></span>
+      </label>
+      <label class="theme-settings-group-row" data-setting-path="moments.publish.audio_upload" :class="{ 'is-disabled': !$store.themeSettings.value('moments.publish.enabled') }">
+        <span class="theme-settings-copy"><strong>音频上传</strong></span>
+        <input type="checkbox" class="theme-settings-switch-input" :checked="$store.themeSettings.value('moments.publish.audio_upload')" :disabled="!$store.themeSettings.value('moments.publish.enabled')"
+               @change="$store.themeSettings.update('moments.publish.audio_upload', $event.target.checked)" />
+        <span class="theme-settings-switch" aria-hidden="true"></span>
+      </label>
+    </div>
+  </section>
+  <section class="theme-settings-section theme-settings-app-section" data-settings-app="douban">
+    <div class="theme-settings-section-heading"><h3 class="theme-settings-section-title"><span class="icon-[lucide--book-open]" aria-hidden="true"></span>豆瓣</h3><span class="theme-settings-app-status" :class="{ 'is-available': $store.themeSettings.appAvailable('douban') }" x-text="$store.themeSettings.appAvailable('douban') ? '已启用' : '未启用'"></span></div>
+    <p class="theme-settings-section-note theme-settings-app-unavailable" x-show="!$store.themeSettings.appAvailable('douban')">启用对应插件后，以下设置将显示在应用页面中。</p>
+    <div class="theme-settings-group">
+      <div class="theme-settings-group-row" data-setting-path="douban.profile.icon"><span class="theme-settings-copy"><strong title="留空时使用默认书影音图标">页面图标</strong></span><button type="button" class="theme-settings-icon-trigger" aria-label="选择图标：书影音页面" title="更换图标" aria-haspopup="dialog" aria-controls="theme-asset-picker" @click="$store.themeAssets.openIcon('douban.profile.icon')"><span class="theme-settings-icon-sample" aria-hidden="true" x-html="$store.themeSettings.iconPreview('douban.profile.icon')"></span><span class="icon-[lucide--chevrons-up-down] theme-settings-icon-disclosure" aria-hidden="true"></span></button></div>
+      <label class="theme-settings-input-row" data-setting-path="douban.profile.display_name">
+        <span class="theme-settings-copy"><strong>页面标题</strong></span>
+        <input type="text" placeholder="使用当前页面标题" :value="$store.themeSettings.value('douban.profile.display_name')"
+               @input="$store.themeSettings.update('douban.profile.display_name', $event.target.value)" />
+      </label>
+      <label class="theme-settings-input-row is-textarea" data-setting-path="douban.profile.subtitle">
+        <span class="theme-settings-copy"><strong>页面说明</strong></span>
+        <textarea rows="2" placeholder="使用默认书影音说明" :value="$store.themeSettings.value('douban.profile.subtitle')"
+                  @input="$store.themeSettings.update('douban.profile.subtitle', $event.target.value)"></textarea>
+      </label>
+      <label class="theme-settings-input-row" data-setting-path="douban.style.color_mode">
+        <span class="theme-settings-copy"><strong>配色模式</strong></span>
+        <select :value="$store.themeSettings.value('douban.style.color_mode')" @change="$store.themeSettings.update('douban.style.color_mode', $event.target.value)">
+          <option value="douban">豆瓣绿</option>
+          <option value="theme">跟随主题</option>
+        </select>
+      </label>
+    </div>
+  </section>
+  <section class="theme-settings-section theme-settings-app-section" data-settings-app="links">
+    <div class="theme-settings-section-heading"><h3 class="theme-settings-section-title"><span class="icon-[lucide--link]" aria-hidden="true"></span>友链</h3><span class="theme-settings-app-status" :class="{ 'is-available': $store.themeSettings.appAvailable('links') }" x-text="$store.themeSettings.appAvailable('links') ? '已启用' : '未启用'"></span></div>
+    <p class="theme-settings-section-note theme-settings-app-unavailable" x-show="!$store.themeSettings.appAvailable('links')">启用对应插件后，以下设置将显示在应用页面中。</p>
+    <div class="theme-settings-group">
+      <label class="theme-settings-input-row" data-setting-path="links.profile.display_name">
+        <span class="theme-settings-copy"><strong>全部友链标题</strong></span>
+        <input type="text" placeholder="全部友链" :value="$store.themeSettings.value('links.profile.display_name')"
+               @input="$store.themeSettings.update('links.profile.display_name', $event.target.value)" />
+      </label>
+    </div>
+  </section>
+  <section class="theme-settings-section theme-settings-app-section" data-settings-app="steam">
+    <div class="theme-settings-section-heading"><h3 class="theme-settings-section-title"><span class="icon-[lucide--gamepad-2]" aria-hidden="true"></span>Steam</h3><span class="theme-settings-app-status" :class="{ 'is-available': $store.themeSettings.appAvailable('steam') }" x-text="$store.themeSettings.appAvailable('steam') ? '已启用' : '未启用'"></span></div>
+    <p class="theme-settings-section-note theme-settings-app-unavailable" x-show="!$store.themeSettings.appAvailable('steam')">启用对应插件后，以下设置将显示在应用页面中。</p>
+    <div class="theme-settings-group">
+      <div class="theme-settings-group-row theme-settings-image-row" data-setting-path="steam.cover.image_url">
+        <img class="theme-settings-image-thumbnail" x-show="$store.themeSettings.value('steam.cover.image_url')" :src="$store.themeSettings.value('steam.cover.image_url') || null" alt="背景图片" loading="lazy" referrerpolicy="no-referrer" />
+        <span class="theme-settings-copy"><strong>背景图片</strong></span>
+        <div class="theme-settings-inline-actions">
+          <button type="button" class="theme-settings-secondary-button" @click="$store.themeAssets.openImage('steam.cover.image_url')">选择图片…</button>
+          <button type="button" class="theme-settings-text-button" x-show="$store.themeSettings.value('steam.cover.image_url')" @click="$store.themeSettings.clearImage('steam.cover.image_url')">移除</button>
+        </div>
+      </div>
+    </div>
+    <p class="theme-settings-section-note">用于应用窗口和资料横幅；留空时使用内置游戏背景。</p>
+  </section>
+  <section class="theme-settings-section theme-settings-app-section" data-settings-app="equipments">
+    <div class="theme-settings-section-heading"><h3 class="theme-settings-section-title"><span class="icon-[lucide--headphones]" aria-hidden="true"></span>装备</h3><span class="theme-settings-app-status" :class="{ 'is-available': $store.themeSettings.appAvailable('equipments') }" x-text="$store.themeSettings.appAvailable('equipments') ? '已启用' : '未启用'"></span></div>
+    <p class="theme-settings-section-note theme-settings-app-unavailable" x-show="!$store.themeSettings.appAvailable('equipments')">启用对应插件后，以下设置将显示在应用页面中。</p>
+    <div class="theme-settings-group">
+      <label class="theme-settings-input-row" data-setting-path="equipments.profile.display_name">
+        <span class="theme-settings-copy"><strong>全部装备标题</strong></span>
+        <input type="text" placeholder="使用插件设置中的标题" :value="$store.themeSettings.value('equipments.profile.display_name')"
+               @input="$store.themeSettings.update('equipments.profile.display_name', $event.target.value)" />
+      </label>
+      <label class="theme-settings-input-row is-textarea" data-setting-path="equipments.profile.subtitle">
+        <span class="theme-settings-copy"><strong>全部装备描述</strong></span>
+        <textarea rows="2" placeholder="使用默认装备描述" :value="$store.themeSettings.value('equipments.profile.subtitle')"
+                  @input="$store.themeSettings.update('equipments.profile.subtitle', $event.target.value)"></textarea>
+      </label>
+    </div>
+  </section>
+
+</section>

@@ -40,6 +40,10 @@ function parseJsonObject(value) {
   }
 }
 
+function selectedContentName(value) {
+  return typeof value === 'string' ? value : value?.name ?? value?.metadata?.name ?? value?.value;
+}
+
 function applyDesktopLayoutJsonToGroup(container, layoutJson) {
   if (!container || typeof container !== 'object' || Array.isArray(container)) {
     return false;
@@ -51,17 +55,12 @@ function applyDesktopLayoutJsonToGroup(container, layoutJson) {
     const desktopGroup = parseJsonObject(currentDesktopGroup) || {};
     desktopGroup.layout_json = layoutJson;
     container.default_layout = JSON.stringify(desktopGroup);
-    return true;
+  } else {
+    const desktopGroup = currentDesktopGroup && typeof currentDesktopGroup === 'object' && !Array.isArray(currentDesktopGroup)
+      ? currentDesktopGroup
+      : {};
+    container.default_layout = { ...desktopGroup, layout_json: layoutJson };
   }
-
-  const desktopGroup = currentDesktopGroup && typeof currentDesktopGroup === 'object' && !Array.isArray(currentDesktopGroup)
-    ? currentDesktopGroup
-    : {};
-
-  container.default_layout = {
-    ...desktopGroup,
-    layout_json: layoutJson
-  };
 
   // 同步：当前端删除了后端设定的图标时，通过 tombstone 将其从后台主题设置中真实抹除
   const payload = parseJsonObject(layoutJson);
@@ -76,46 +75,48 @@ function applyDesktopLayoutJsonToGroup(container, layoutJson) {
       }
       if (Array.isArray(backendIcons.categories)) {
         backendIcons.categories = backendIcons.categories.filter(
-          (name) => !tombstoneKeys.includes(`icon-category-${name}`)
+          (item) => !tombstoneKeys.includes(`icon-category-${selectedContentName(item)}`)
         );
       }
       if (Array.isArray(backendIcons.tags)) {
         backendIcons.tags = backendIcons.tags.filter(
-          (name) => !tombstoneKeys.includes(`icon-tag-${name}`)
+          (item) => !tombstoneKeys.includes(`icon-tag-${selectedContentName(item)}`)
         );
       }
       if (Array.isArray(backendIcons.posts)) {
         backendIcons.posts = backendIcons.posts.filter(
-          (name) => !tombstoneKeys.includes(`icon-post-${name}`)
+          (item) => !tombstoneKeys.includes(`icon-post-${selectedContentName(item)}`)
         );
       }
       if (Array.isArray(backendIcons.single_pages)) {
         backendIcons.single_pages = backendIcons.single_pages.filter(
-          (name) => !tombstoneKeys.includes(`icon-page-${name}`)
+          (item) => !tombstoneKeys.includes(`icon-page-${selectedContentName(item)}`)
         );
       }
     }
 
     // 将前端新增的图标推送到后端的 custom_icons 配置供管理
     const activeCustomIcons = payload.icons.filter(
-      (i) => i && i.deleted !== true && i.key && i.key.startsWith('icon-custom-')
+      (i) => payload.hasFullIconDefs === true && i && i.deleted !== true
+        && typeof i.key === 'string' && i.key.startsWith('icon-custom-')
     );
     if (activeCustomIcons.length > 0) {
       if (!Array.isArray(backendIcons.custom_icons)) {
         backendIcons.custom_icons = [];
       }
-      const existingNames = new Set(backendIcons.custom_icons.map((item) => item.name));
+      const existingByName = new Map(backendIcons.custom_icons.map((item) => [item?.name, item]));
       for (const icon of activeCustomIcons) {
-        // 由于旧数据或 title 未设置，Fallback 为 key 中间的内容
+        // The key owns identity; the desktop display title can be edited
+        // independently and must never rename the backend entry.
         const newName = icon.key.replace('icon-custom-', '');
-        if (!existingNames.has(newName)) {
-          existingNames.add(newName);
-          backendIcons.custom_icons.push({
-            name: newName,
-            href: icon.href || '#',
-            type: icon.subtype || 'folder',
-            external: icon.external === true
-          });
+        const properties = { href: icon.href || '#', type: icon.subtype || 'folder', external: icon.external === true };
+        const existing = existingByName.get(newName);
+        if (existing) {
+          Object.assign(existing, properties);
+        } else {
+          const item = { name: newName, ...properties };
+          existingByName.set(newName, item);
+          backendIcons.custom_icons.push(item);
         }
       }
     }

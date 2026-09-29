@@ -1,0 +1,59 @@
+<section xmlns:th="https://www.thymeleaf.org" th:fragment="pane"
+         class="theme-settings-pane theme-settings-pane-widgets" data-settings-pane="widgets"
+         x-show="$store.themeSettings.activePane === 'widgets'" aria-labelledby="theme-settings-title">
+  <section class="theme-settings-section">
+    <h3 class="theme-settings-section-title">显示与编辑</h3>
+    <div class="theme-settings-group">
+      <label class="theme-settings-group-row" data-setting-path="widgets.behavior.enabled">
+        <span class="theme-settings-copy"><strong>启用桌面小组件</strong></span>
+        <input type="checkbox" class="theme-settings-switch-input" :checked="$store.themeSettings.value('widgets.behavior.enabled')"
+               @change="$store.themeSettings.update('widgets.behavior.enabled', $event.target.checked)" />
+        <span class="theme-settings-switch" aria-hidden="true"></span>
+      </label>
+      <label class="theme-settings-group-row" data-setting-path="widgets.behavior.edit_enabled" :class="{ 'is-disabled': !$store.themeSettings.value('widgets.behavior.enabled') }">
+        <span class="theme-settings-copy"><strong>允许管理员编辑布局</strong></span>
+        <input type="checkbox" class="theme-settings-switch-input" :checked="$store.themeSettings.value('widgets.behavior.edit_enabled')" :disabled="!$store.themeSettings.value('widgets.behavior.enabled')"
+               @change="$store.themeSettings.update('widgets.behavior.edit_enabled', $event.target.checked)" />
+        <span class="theme-settings-switch" aria-hidden="true"></span>
+      </label>
+      <label class="theme-settings-group-row" data-setting-path="widgets.behavior.hide_on_mobile" :class="{ 'is-disabled': !$store.themeSettings.value('widgets.behavior.enabled') }">
+        <span class="theme-settings-copy"><strong title="屏幕宽度不大于 640px 时隐藏">在手机上隐藏小组件</strong></span>
+        <input type="checkbox" class="theme-settings-switch-input" :checked="$store.themeSettings.value('widgets.behavior.hide_on_mobile')" :disabled="!$store.themeSettings.value('widgets.behavior.enabled')"
+               @change="$store.themeSettings.update('widgets.behavior.hide_on_mobile', $event.target.checked)" />
+        <span class="theme-settings-switch" aria-hidden="true"></span>
+      </label>
+    </div>
+
+  </section>
+  <section class="theme-settings-section">
+    <h3 class="theme-settings-section-title">天气</h3>
+    <div class="theme-settings-group">
+      <label class="theme-settings-input-row" data-setting-path="widgets.modules.weather.city_name">
+        <span class="theme-settings-copy"><strong>默认城市</strong></span>
+        <input type="text" title="用于没有单独指定城市的天气组件" :value="$store.themeSettings.value('widgets.modules.weather.city_name')"
+               @input.debounce.350ms="$store.themeSettings.previewWeatherCity($event.target.value)" @input="$store.themeSettings.update('widgets.modules.weather.city_name', $event.target.value, false)" />
+      </label>
+      <label class="theme-settings-range-row" data-setting-path="widgets.modules.weather.refresh_minutes">
+        <span class="theme-settings-copy"><strong>刷新间隔</strong></span>
+        <input type="range" min="10" max="180" step="1"
+               :value="$store.themeSettings.value('widgets.modules.weather.refresh_minutes')" @input="$store.themeSettings.update('widgets.modules.weather.refresh_minutes', $event.target.value)" />
+        <output x-text="$store.themeSettings.value('widgets.modules.weather.refresh_minutes') + ' 分钟'"></output>
+      </label>
+    </div>
+
+  </section>
+  <section class="theme-settings-section">
+    <h3 class="theme-settings-section-title">默认封面</h3>
+    <div class="theme-settings-group">
+      <div class="theme-settings-group-row theme-settings-image-row" data-setting-path="widgets.behavior.fallback_cover">
+        <img class="theme-settings-image-thumbnail" x-show="$store.themeSettings.value('widgets.behavior.fallback_cover')" :src="$store.themeSettings.value('widgets.behavior.fallback_cover') || null" alt="回退封面" loading="lazy" referrerpolicy="no-referrer" />
+        <span class="theme-settings-copy"><strong>回退封面</strong><small>文章没有封面时使用；留空时显示纯色。</small></span>
+        <div class="theme-settings-inline-actions">
+          <button type="button" class="theme-settings-secondary-button" @click="$store.themeAssets.openImage('widgets.behavior.fallback_cover')">选择图片…</button>
+          <button type="button" class="theme-settings-text-button" x-show="$store.themeSettings.value('widgets.behavior.fallback_cover')" @click="$store.themeSettings.clearImage('widgets.behavior.fallback_cover')">移除</button>
+        </div>
+      </div>
+    </div>
+
+  </section>
+</section>

@@ -1,160 +1,16 @@
-const THEME_MODE_VALUES = new Set(['system', 'light', 'dark']);
-const APPEARANCE_MODE_VALUES = new Set(['preset', 'custom']);
-const BACKGROUND_MODE_VALUES = new Set(['preset', 'solid', 'image']);
-const HEADER_TIME_PRESET_VALUES = new Set([
-  'time-only',
-  'time-seconds',
-  'date-time',
-  'weekday-date-time',
-  'month-day-weekday-time'
-]);
-const APPEARANCE_PRESET_VALUES = new Set([
-  'blue',
-  'purple',
-  'pink',
-  'red',
-  'orange',
-  'yellow',
-  'green',
-  'graphite'
-]);
-const BACKGROUND_PRESET_VALUES = new Set([
-  'tahoe-dawn',
-  'tahoe-blue',
-  'sequoia-mist',
-  'graphite-night',
-  'sonoma-sunset',
-  'aurora-mint',
-  'alpine-lilac',
-  'coral-haze',
-  'arctic-pearl',
-  'midnight-indigo',
-  'golden-amber',
-  'deep-sea'
-]);
+import { SETTINGS_FIELDS, SETTINGS_PANES } from './settings-model/schema.js';
 
-const DEFAULT_DRAFT = Object.freeze({
-  header: {
-    logo: {
-      title: ''
-    },
-    theme: {
-      enable_frontend_setting: true,
-      default_mode: 'system'
-    },
-    actions: {
-      search_enabled: true,
-      auth_enabled: true,
-      mobile_menu_enabled: true
-    },
-    time: {
-      enabled: true,
-      desktop_preset: 'month-day-weekday-time',
-      mobile_preset: 'time-only',
-      hour_cycle: 12
-    },
-    auth: {
-      login_label: '登录'
-    },
-    dropdown: {
-      light_bg: 'rgba(88, 92, 100, 0.66)',
-      dark_bg: 'rgba(70, 74, 82, 0.72)'
-    }
-  },
-  desktop: {
-    appearance: {
-      mode: 'preset',
-      preset: 'blue',
-      accent_color: '#2E5FBD',
-      selection_color: '#244D9B',
-      folder_color1: '#4A90E2',
-      folder_color2: '#64B5F6',
-      folder_color3: '#90CAF9'
-    },
-    background: {
-      mode: 'preset',
-      preset: 'tahoe-dawn',
-      solid_color: '#0F172A',
-      image_url: ''
-    }
-  },
-  dock: {
-    appearance: {
-      show_labels: true,
-      magnification: true,
-      icon_size: 48,
-      icon_gap: 4,
-      dock_padding: 6,
-      magnification_scale: 1.4,
-      glass_blur: 60,
-      glass_opacity: 28
-    }
-  },
-  widgets: {
-    behavior: {
-      enabled: true,
-      hide_on_mobile: false,
-      edit_enabled: true,
-      fallback_cover: ''
-    },
-    modules: {
-      weather: {
-        city_name: '北京',
-        refresh_minutes: 30
-      }
-    }
-  },
-  sidebar: {
-    notification_center: {
-      title: '通知中心',
-      guest_title: '小组件',
-      default_open: false
-    }
-  }
-});
+export { SETTINGS_FIELDS, SETTINGS_PANES };
 
-export const THEME_SETTINGS_WRITABLE_PATHS = Object.freeze([
-  'header.logo.title',
-  'header.theme.enable_frontend_setting',
-  'header.theme.default_mode',
-  'header.actions.search_enabled',
-  'header.actions.auth_enabled',
-  'header.actions.mobile_menu_enabled',
-  'header.time.enabled',
-  'header.time.desktop_preset',
-  'header.time.mobile_preset',
-  'header.time.hour_cycle',
-  'header.auth.login_label',
-  'header.dropdown.light_bg',
-  'header.dropdown.dark_bg',
-  'desktop.appearance.mode',
-  'desktop.appearance.preset',
-  'desktop.appearance.accent_color',
-  'desktop.appearance.selection_color',
-  'desktop.appearance.folder_color1',
-  'desktop.appearance.folder_color2',
-  'desktop.appearance.folder_color3',
-  'desktop.background.mode',
-  'desktop.background.preset',
-  'desktop.background.solid_color',
-  'dock.appearance.show_labels',
-  'dock.appearance.magnification',
-  'dock.appearance.icon_size',
-  'dock.appearance.icon_gap',
-  'dock.appearance.dock_padding',
-  'dock.appearance.magnification_scale',
-  'dock.appearance.glass_blur',
-  'dock.appearance.glass_opacity',
-  'widgets.behavior.enabled',
-  'widgets.behavior.hide_on_mobile',
-  'widgets.behavior.edit_enabled',
-  'widgets.modules.weather.city_name',
-  'widgets.modules.weather.refresh_minutes',
-  'sidebar.notification_center.title',
-  'sidebar.notification_center.guest_title',
-  'sidebar.notification_center.default_open'
-]);
+const FIELD_BY_PATH = new Map(SETTINGS_FIELDS.map((field) => [field.path, field]));
+const DEFAULT_DRAFT = {};
+SETTINGS_FIELDS.forEach((field) => setPathValue(DEFAULT_DRAFT, field.path, cloneThemeSettingsValue(field.default)));
 
+export const THEME_SETTINGS_WRITABLE_PATHS = Object.freeze(
+  SETTINGS_FIELDS.filter((field) => field.writable).map((field) => field.path)
+);
+export const THEME_SETTINGS_ICON_FIELDS = Object.freeze(SETTINGS_FIELDS.filter((field) => field.type === 'icon'));
+export const THEME_SETTINGS_IMAGE_FIELDS = Object.freeze(SETTINGS_FIELDS.filter((field) => field.type === 'image'));
 const WRITABLE_PATHS = new Set(THEME_SETTINGS_WRITABLE_PATHS);
 
 export function cloneThemeSettingsValue(value) {
@@ -261,90 +117,85 @@ export function isValidThemeCssColor(value) {
   return normalizeCssColor(value, null) !== null;
 }
 
-function normalizeEnum(value, allowed, fallback) {
-  const candidate = String(value || '').trim();
-  return allowed.has(candidate) ? candidate : fallback;
+export function isThemeImageUrl(value) {
+  if (typeof value !== 'string' || value.length > 2048 || /[\u0000-\u0020\u007f\\]/.test(value)) return false;
+  if (!/^https?:\/\//i.test(value) && !/^\/(?!\/)/.test(value)) return false;
+  try {
+    const url = new URL(value, 'https://theme.invalid');
+    return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password;
+  } catch (_error) { return false; }
 }
 
-function normalizeText(value, fallback = '', maxLength = 80) {
-  const candidate = String(value ?? '').trim();
-  return (candidate || fallback).slice(0, maxLength);
+function isRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function normalizeOptionalText(value, maxLength = 80) {
-  return String(value ?? '').trim().slice(0, maxLength);
+function validateThemeSettingValue(field, value) {
+  if (field.type === 'image' && value && (typeof value !== 'string' || !isThemeImageUrl(value.trim()))) {
+    throw new Error('请输入有效的图片地址（HTTP、HTTPS 或站内路径）');
+  }
+  if (field.type === 'icon') {
+    if (value !== '' && (!isRecord(value) || typeof value.value !== 'string')) {
+      throw new Error('请选择有效的图标');
+    }
+    if (value?.value?.length > 100_000) throw new Error('图标数据过大，请选择更简洁的图标');
+  }
+  if (field.type === 'custom-icons' || field.type === 'content-list') {
+    if (!Array.isArray(value)) throw new Error('桌面图标配置必须是数组');
+    const valid = value.every((item) => {
+      if (field.type === 'content-list') {
+        return typeof item === 'string' || (isRecord(item)
+          && typeof (item.name ?? item.metadata?.name ?? item.value) === 'string');
+      }
+      return isRecord(item) && typeof item.name === 'string' && typeof item.href === 'string'
+        && (item.type === undefined || ['folder', 'document', 'link'].includes(item.type))
+        && (item.external === undefined || typeof item.external === 'boolean');
+    });
+    if (!valid) throw new Error('桌面图标配置包含无效的项目');
+  }
 }
 
 export function normalizeThemeSettingValue(path, value, fallback = undefined) {
-  switch (path) {
-    case 'header.theme.enable_frontend_setting':
-    case 'header.actions.search_enabled':
-    case 'header.actions.auth_enabled':
-    case 'header.actions.mobile_menu_enabled':
-    case 'header.time.enabled':
-    case 'dock.appearance.show_labels':
-    case 'dock.appearance.magnification':
-    case 'widgets.behavior.enabled':
-    case 'widgets.behavior.hide_on_mobile':
-    case 'widgets.behavior.edit_enabled':
-    case 'sidebar.notification_center.default_open':
-      return normalizeBoolean(value, fallback === undefined ? false : fallback);
-    case 'header.logo.title':
-      return normalizeOptionalText(value, 80);
-    case 'header.theme.default_mode':
-      return normalizeEnum(value, THEME_MODE_VALUES, fallback || 'system');
-    case 'header.time.desktop_preset':
-      return normalizeEnum(value, HEADER_TIME_PRESET_VALUES, fallback || 'month-day-weekday-time');
-    case 'header.time.mobile_preset':
-      return normalizeEnum(value, HEADER_TIME_PRESET_VALUES, fallback || 'time-only');
-    case 'header.time.hour_cycle':
-      return normalizeNumber(value, fallback ?? 12, 12, 24, 12);
-    case 'header.auth.login_label':
-      return normalizeText(value, fallback || '登录', 20);
-    case 'header.dropdown.light_bg':
-      return normalizeCssColor(value, fallback || 'rgba(88, 92, 100, 0.66)');
-    case 'header.dropdown.dark_bg':
-      return normalizeCssColor(value, fallback || 'rgba(70, 74, 82, 0.72)');
-    case 'desktop.appearance.mode':
-      return normalizeEnum(value, APPEARANCE_MODE_VALUES, fallback || 'preset');
-    case 'desktop.appearance.preset':
-      return normalizeEnum(value, APPEARANCE_PRESET_VALUES, fallback || 'blue');
-    case 'desktop.background.mode':
-      return normalizeEnum(value, BACKGROUND_MODE_VALUES, fallback || 'preset');
-    case 'desktop.background.preset':
-      return normalizeEnum(value, BACKGROUND_PRESET_VALUES, fallback || 'tahoe-dawn');
-    case 'desktop.appearance.accent_color':
-      return normalizeHexColor(value, fallback || '#2E5FBD');
-    case 'desktop.appearance.selection_color':
-      return normalizeHexColor(value, fallback || '#244D9B');
-    case 'desktop.appearance.folder_color1':
-      return normalizeHexColor(value, fallback || '#4A90E2');
-    case 'desktop.appearance.folder_color2':
-      return normalizeHexColor(value, fallback || '#64B5F6');
-    case 'desktop.appearance.folder_color3':
-      return normalizeHexColor(value, fallback || '#90CAF9');
-    case 'desktop.background.solid_color':
-      return normalizeHexColor(value, fallback || '#0F172A');
-    case 'dock.appearance.icon_size':
-      return normalizeNumber(value, fallback ?? 48, 36, 64, 2);
-    case 'dock.appearance.icon_gap':
-      return normalizeNumber(value, fallback ?? 4, 2, 12, 1);
-    case 'dock.appearance.dock_padding':
-      return normalizeNumber(value, fallback ?? 6, 4, 16, 1);
-    case 'dock.appearance.magnification_scale':
-      return normalizeNumber(value, fallback ?? 1.4, 1, 2, 0.1);
-    case 'dock.appearance.glass_blur':
-      return normalizeNumber(value, fallback ?? 60, 20, 100, 5);
-    case 'dock.appearance.glass_opacity':
-      return normalizeNumber(value, fallback ?? 28, 10, 80, 2);
-    case 'widgets.modules.weather.city_name':
-      return normalizeText(value, fallback || '北京', 40);
-    case 'widgets.modules.weather.refresh_minutes':
-      return normalizeNumber(value, fallback ?? 30, 10, 180, 5);
-    case 'sidebar.notification_center.title':
-      return normalizeText(value, fallback || '通知中心', 40);
-    case 'sidebar.notification_center.guest_title':
-      return normalizeText(value, fallback || '小组件', 40);
+  const field = FIELD_BY_PATH.get(path);
+  if (!field) return value;
+  const defaultValue = fallback === undefined ? field.default : fallback;
+  switch (field.type) {
+    case 'icon':
+      if (!isRecord(value) || typeof value.value !== 'string') return '';
+      // Console owns the icon object. Preserve its complete metadata and SVG;
+      // the shared picker sanitizes newly selected SVG before this boundary.
+      return {
+        ...cloneThemeSettingsValue(value),
+        value: value.value,
+        name: String(value.name ?? ''),
+        width: String(normalizeNumber(value.width, 24, 16, 64, 1)),
+        color: String(value.color ?? '')
+      };
+    case 'image': {
+      const url = typeof value === 'string' ? value.trim() : '';
+      return !url || isThemeImageUrl(url) ? url : '';
+    }
+    case 'boolean':
+      return normalizeBoolean(value, defaultValue);
+    case 'select': {
+      const selected = field.options.find((option) => String(option.value) === String(value ?? '').trim());
+      return selected ? selected.value : defaultValue;
+    }
+    case 'number':
+      return normalizeNumber(value, defaultValue, field.min, field.max, field.step);
+    case 'color':
+      return normalizeHexColor(value, defaultValue);
+    case 'css-color':
+      return normalizeCssColor(value, defaultValue);
+    case 'custom-icons':
+    case 'content-list':
+      return cloneThemeSettingsValue(Array.isArray(value) ? value : defaultValue);
+    case 'text':
+    case 'textarea':
+    case 'external-editor':
+      return String(value ?? defaultValue);
+    case 'menu':
+      return String(value ?? defaultValue).trim();
     default:
       return value;
   }
@@ -354,22 +205,16 @@ export function buildThemeSettingsDraft(config) {
   const container = resolveThemeConfigContainer(config);
   const draft = cloneThemeSettingsValue(DEFAULT_DRAFT);
 
-  THEME_SETTINGS_WRITABLE_PATHS.forEach((path) => {
-    const fallback = getPathValue(draft, path);
-    const sourceValue = getPathValue(container, path, fallback);
-    setPathValue(draft, path, normalizeThemeSettingValue(path, sourceValue, fallback));
+  SETTINGS_FIELDS.forEach((field) => {
+    const sourceValue = getPathValue(container, field.path);
+    if (sourceValue === undefined) return;
+    // Loading existing strings must never shorten or rewrite their contents.
+    const keepText = ['text', 'textarea', 'menu', 'external-editor'].includes(field.type)
+      && typeof sourceValue === 'string';
+    setPathValue(draft, field.path, keepText ? sourceValue
+      : normalizeThemeSettingValue(field.path, sourceValue, field.default));
   });
 
-  draft.desktop.background.image_url = normalizeText(
-    getPathValue(container, 'desktop.background.image_url', ''),
-    '',
-    2048
-  );
-  draft.widgets.behavior.fallback_cover = normalizeText(
-    getPathValue(container, 'widgets.behavior.fallback_cover', ''),
-    '',
-    2048
-  );
   return draft;
 }
 
@@ -377,6 +222,7 @@ export function updateThemeSettingsDraft(draft, path, value) {
   if (!WRITABLE_PATHS.has(path)) {
     throw new Error(`Theme settings path is not writable: ${path}`);
   }
+  validateThemeSettingValue(FIELD_BY_PATH.get(path), value);
 
   const next = cloneThemeSettingsValue(draft || DEFAULT_DRAFT);
   const fallback = getPathValue(next, path, getPathValue(DEFAULT_DRAFT, path));
@@ -405,6 +251,7 @@ export function applyThemeSettingsDraftToConfig(config, draft, changedPaths = []
   uniquePaths.forEach((path) => {
     const fallback = getPathValue(DEFAULT_DRAFT, path);
     const value = getPathValue(draft, path, fallback);
+    validateThemeSettingValue(FIELD_BY_PATH.get(path), value);
     setPathValue(container, path, normalizeThemeSettingValue(path, value, fallback));
   });
 

@@ -1,0 +1,34 @@
+<section xmlns:th="https://www.thymeleaf.org" th:fragment="pane"
+         class="theme-settings-pane theme-settings-pane-notifications" data-settings-pane="notifications"
+         x-show="$store.themeSettings.activePane === 'notifications'" aria-labelledby="theme-settings-title">
+  <section class="theme-settings-section">
+    <h3 class="theme-settings-section-title">通知中心</h3>
+    <div class="theme-settings-group">
+      <label class="theme-settings-input-row" data-setting-path="sidebar.notification_center.title">
+        <span class="theme-settings-copy"><strong>登录后名称</strong></span>
+        <input type="text" :value="$store.themeSettings.value('sidebar.notification_center.title')"
+               @input="$store.themeSettings.update('sidebar.notification_center.title', $event.target.value)" />
+      </label>
+      <label class="theme-settings-input-row" data-setting-path="sidebar.notification_center.guest_title">
+        <span class="theme-settings-copy"><strong>访客名称</strong></span>
+        <input type="text" :value="$store.themeSettings.value('sidebar.notification_center.guest_title')"
+               @input="$store.themeSettings.update('sidebar.notification_center.guest_title', $event.target.value)" />
+      </label>
+      <label class="theme-settings-group-row" data-setting-path="sidebar.notification_center.default_open">
+        <span class="theme-settings-copy"><strong>首次进入桌面时展开</strong></span>
+        <input type="checkbox" class="theme-settings-switch-input" :checked="$store.themeSettings.value('sidebar.notification_center.default_open')"
+               @change="$store.themeSettings.update('sidebar.notification_center.default_open', $event.target.checked)" />
+        <span class="theme-settings-switch" aria-hidden="true"></span>
+      </label>
+    </div>
+
+  </section>
+  <section class="theme-settings-section">
+    <h3 class="theme-settings-section-title">通知权限</h3>
+    <div class="theme-settings-group">
+      <div class="theme-settings-group-row"><span class="theme-settings-copy"><strong>读取、已读与删除</strong></span><span class="theme-settings-readonly-value">由 Halo 管理</span></div>
+    </div>
+    <p class="theme-settings-section-note">通知操作遵循当前用户在 Halo 中的权限。</p>
+  </section>
+
+</section>

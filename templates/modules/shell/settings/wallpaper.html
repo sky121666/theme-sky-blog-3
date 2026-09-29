@@ -1,0 +1,135 @@
+<section xmlns:th="https://www.thymeleaf.org" th:fragment="pane"
+         class="theme-settings-pane theme-settings-pane-wallpaper" data-settings-pane="wallpaper" x-data="{ wallpapersExpanded: false }" x-effect="if ($store.themeSettings.focusedSettingPath === 'desktop.background.preset') wallpapersExpanded = true; $store.themeSettings.isMobileViewport; $nextTick(() => $store.themeSettings.syncRadioGroupTabStops())"
+         x-show="$store.themeSettings.activePane === 'wallpaper'" aria-labelledby="theme-settings-title">
+  <section class="theme-settings-wallpaper-summary" data-setting-path="desktop.background.mode" aria-label="当前墙纸">
+    <div class="theme-settings-wallpaper-current" :style="{ backgroundColor: $store.themeSettings.value('desktop.background.mode') === 'solid' ? $store.themeSettings.value('desktop.background.solid_color') : '' }">
+      <img x-show="$store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'tahoe-dawn'" th:src="${#theme.assets('/images/wallpaper-presets/tahoe-dawn.svg')}" alt="晨雾" />
+      <img x-show="$store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'tahoe-blue'" th:src="${#theme.assets('/images/wallpaper-presets/tahoe-blue.svg')}" alt="湖蓝" />
+      <img x-show="$store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'sequoia-mist'" th:src="${#theme.assets('/images/wallpaper-presets/sequoia-mist.svg')}" alt="松雾" />
+      <img x-show="$store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'graphite-night'" th:src="${#theme.assets('/images/wallpaper-presets/graphite-night.svg')}" alt="石墨夜" />
+      <img x-show="$store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'sonoma-sunset'" th:src="${#theme.assets('/images/wallpaper-presets/sonoma-sunset.svg')}" alt="霞粉" />
+      <img x-show="$store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'aurora-mint'" th:src="${#theme.assets('/images/wallpaper-presets/aurora-mint.svg')}" alt="薄荷" />
+      <img x-show="$store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'alpine-lilac'" th:src="${#theme.assets('/images/wallpaper-presets/alpine-lilac.svg')}" alt="淡紫" />
+      <img x-show="$store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'coral-haze'" th:src="${#theme.assets('/images/wallpaper-presets/coral-haze.svg')}" alt="珊瑚" />
+      <img x-show="$store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'arctic-pearl'" th:src="${#theme.assets('/images/wallpaper-presets/arctic-pearl.svg')}" alt="银霜" />
+      <img x-show="$store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'midnight-indigo'" th:src="${#theme.assets('/images/wallpaper-presets/midnight-indigo.svg')}" alt="靛夜" />
+      <img x-show="$store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'golden-amber'" th:src="${#theme.assets('/images/wallpaper-presets/golden-amber.svg')}" alt="金砂" />
+      <img x-show="$store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'deep-sea'" th:src="${#theme.assets('/images/wallpaper-presets/deep-sea.svg')}" alt="深海" />
+      <img x-show="$store.themeSettings.value('desktop.background.mode') === 'image' && $store.themeSettings.value('desktop.background.image_url')" :src="$store.themeSettings.value('desktop.background.image_url') || null" alt="当前图片墙纸" referrerpolicy="no-referrer" />
+    </div>
+    <div class="theme-settings-wallpaper-summary-copy">
+      <div class="theme-settings-group">
+        <div class="theme-settings-group-row theme-settings-wallpaper-name">
+          <strong x-text="({preset: '内置墙纸', solid: '纯色背景', image: '图片墙纸'})[$store.themeSettings.value('desktop.background.mode')]">当前墙纸</strong>
+          <span>当前预览</span>
+        </div>
+        <label class="theme-settings-group-row theme-settings-input-row">
+          <span class="theme-settings-copy"><strong>背景来源</strong></span>
+          <select aria-label="背景来源" :value="$store.themeSettings.value('desktop.background.mode')" @change="$store.themeSettings.setBackgroundMode($event.target.value)">
+            <option value="preset">内置墙纸</option><option value="solid">颜色</option><option value="image" :disabled="!$store.themeSettings.value('desktop.background.image_url')">你的图片</option>
+          </select>
+        </label>
+      </div>
+    </div>
+  </section>
+  <section class="theme-settings-section theme-settings-wallpaper-library" data-setting-path="desktop.background.preset">
+    <div class="theme-settings-section-heading"><h3 class="theme-settings-section-title">内置墙纸</h3><button type="button" class="theme-settings-text-button theme-settings-gallery-toggle" aria-controls="theme-wallpaper-presets" :aria-expanded="wallpapersExpanded.toString()" @click="if (wallpapersExpanded &amp;&amp; $store.themeSettings.focusedSettingPath === 'desktop.background.preset') $store.themeSettings.focusedSettingPath = ''; wallpapersExpanded = !wallpapersExpanded; $nextTick(() => $store.themeSettings.syncRadioGroupTabStops())" x-text="wallpapersExpanded ? '收起' : '全部显示（12）'">全部显示（12）</button></div>
+    <div id="theme-wallpaper-presets" class="theme-settings-wallpapers" :class="{ 'is-expanded': wallpapersExpanded }" role="radiogroup" aria-label="内置墙纸">
+      <button type="button" role="radio" :class="{ 'is-selected': $store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'tahoe-dawn' }" :aria-checked="($store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'tahoe-dawn').toString()"
+              @click="$store.themeSettings.selectWallpaperPreset('tahoe-dawn')">
+        <img th:src="${#theme.assets('/images/wallpaper-presets/tahoe-dawn.svg')}" alt="" loading="lazy" /><span>晨雾</span>
+      </button>
+      <button type="button" role="radio" :class="{ 'is-selected': $store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'tahoe-blue' }" :aria-checked="($store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'tahoe-blue').toString()"
+              @click="$store.themeSettings.selectWallpaperPreset('tahoe-blue')">
+        <img th:src="${#theme.assets('/images/wallpaper-presets/tahoe-blue.svg')}" alt="" loading="lazy" /><span>湖蓝</span>
+      </button>
+      <button type="button" role="radio" :class="{ 'is-selected': $store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'sequoia-mist' }" :aria-checked="($store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'sequoia-mist').toString()"
+              @click="$store.themeSettings.selectWallpaperPreset('sequoia-mist')">
+        <img th:src="${#theme.assets('/images/wallpaper-presets/sequoia-mist.svg')}" alt="" loading="lazy" /><span>松雾</span>
+      </button>
+      <button type="button" role="radio" :hidden="!wallpapersExpanded &amp;&amp; $store.themeSettings.isMobileViewport" :class="{ 'is-selected': $store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'graphite-night' }" :aria-checked="($store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'graphite-night').toString()"
+              @click="$store.themeSettings.selectWallpaperPreset('graphite-night')">
+        <img th:src="${#theme.assets('/images/wallpaper-presets/graphite-night.svg')}" alt="" loading="lazy" /><span>石墨夜</span>
+      </button>
+      <button type="button" role="radio" :hidden="!wallpapersExpanded" :class="{ 'is-selected': $store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'sonoma-sunset' }" :aria-checked="($store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'sonoma-sunset').toString()"
+              @click="$store.themeSettings.selectWallpaperPreset('sonoma-sunset')">
+        <img th:src="${#theme.assets('/images/wallpaper-presets/sonoma-sunset.svg')}" alt="" loading="lazy" /><span>霞粉</span>
+      </button>
+      <button type="button" role="radio" :hidden="!wallpapersExpanded" :class="{ 'is-selected': $store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'aurora-mint' }" :aria-checked="($store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'aurora-mint').toString()"
+              @click="$store.themeSettings.selectWallpaperPreset('aurora-mint')">
+        <img th:src="${#theme.assets('/images/wallpaper-presets/aurora-mint.svg')}" alt="" loading="lazy" /><span>薄荷</span>
+      </button>
+      <button type="button" role="radio" :hidden="!wallpapersExpanded" :class="{ 'is-selected': $store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'alpine-lilac' }" :aria-checked="($store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'alpine-lilac').toString()"
+              @click="$store.themeSettings.selectWallpaperPreset('alpine-lilac')">
+        <img th:src="${#theme.assets('/images/wallpaper-presets/alpine-lilac.svg')}" alt="" loading="lazy" /><span>淡紫</span>
+      </button>
+      <button type="button" role="radio" :hidden="!wallpapersExpanded" :class="{ 'is-selected': $store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'coral-haze' }" :aria-checked="($store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'coral-haze').toString()"
+              @click="$store.themeSettings.selectWallpaperPreset('coral-haze')">
+        <img th:src="${#theme.assets('/images/wallpaper-presets/coral-haze.svg')}" alt="" loading="lazy" /><span>珊瑚</span>
+      </button>
+      <button type="button" role="radio" :hidden="!wallpapersExpanded" :class="{ 'is-selected': $store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'arctic-pearl' }" :aria-checked="($store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'arctic-pearl').toString()"
+              @click="$store.themeSettings.selectWallpaperPreset('arctic-pearl')">
+        <img th:src="${#theme.assets('/images/wallpaper-presets/arctic-pearl.svg')}" alt="" loading="lazy" /><span>银霜</span>
+      </button>
+      <button type="button" role="radio" :hidden="!wallpapersExpanded" :class="{ 'is-selected': $store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'midnight-indigo' }" :aria-checked="($store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'midnight-indigo').toString()"
+              @click="$store.themeSettings.selectWallpaperPreset('midnight-indigo')">
+        <img th:src="${#theme.assets('/images/wallpaper-presets/midnight-indigo.svg')}" alt="" loading="lazy" /><span>靛夜</span>
+      </button>
+      <button type="button" role="radio" :hidden="!wallpapersExpanded" :class="{ 'is-selected': $store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'golden-amber' }" :aria-checked="($store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'golden-amber').toString()"
+              @click="$store.themeSettings.selectWallpaperPreset('golden-amber')">
+        <img th:src="${#theme.assets('/images/wallpaper-presets/golden-amber.svg')}" alt="" loading="lazy" /><span>金砂</span>
+      </button>
+      <button type="button" role="radio" :hidden="!wallpapersExpanded" :class="{ 'is-selected': $store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'deep-sea' }" :aria-checked="($store.themeSettings.value('desktop.background.mode') === 'preset' && $store.themeSettings.value('desktop.background.preset') === 'deep-sea').toString()"
+              @click="$store.themeSettings.selectWallpaperPreset('deep-sea')">
+        <img th:src="${#theme.assets('/images/wallpaper-presets/deep-sea.svg')}" alt="" loading="lazy" /><span>深海</span>
+      </button>
+    </div>
+  </section>
+  <section class="theme-settings-section theme-settings-color-library" data-setting-path="desktop.background.solid_color">
+    <h3 class="theme-settings-section-title">颜色</h3>
+    <div class="theme-settings-solid-colors" aria-label="纯色背景">
+      <label class="theme-settings-custom-wallpaper-color" title="自定义颜色">
+        <span class="icon-[lucide--plus]" aria-hidden="true"></span>
+        <input type="color" aria-label="自定义墙纸颜色" :value="$store.themeSettings.value('desktop.background.solid_color')" @input="$store.themeSettings.setBackgroundMode('solid'); $store.themeSettings.update('desktop.background.solid_color', $event.target.value)" />
+      </label>
+        <button type="button" class="theme-settings-solid-swatch" :aria-pressed="$store.themeSettings.value('desktop.background.mode') === 'solid' && $store.themeSettings.value('desktop.background.solid_color').toLowerCase() === '#0f172a'" title="深海蓝" aria-label="深海蓝"
+                :class="{ 'is-selected': $store.themeSettings.value('desktop.background.mode') === 'solid' && $store.themeSettings.value('desktop.background.solid_color').toLowerCase() === '#0f172a' }"
+                style="--wallpaper-color: #0f172a" @click="$store.themeSettings.setBackgroundMode('solid'); $store.themeSettings.update('desktop.background.solid_color', '#0f172a')"></button>
+        <button type="button" class="theme-settings-solid-swatch" :aria-pressed="$store.themeSettings.value('desktop.background.mode') === 'solid' && $store.themeSettings.value('desktop.background.solid_color').toLowerCase() === '#1c1c1e'" title="石墨黑" aria-label="石墨黑"
+                :class="{ 'is-selected': $store.themeSettings.value('desktop.background.mode') === 'solid' && $store.themeSettings.value('desktop.background.solid_color').toLowerCase() === '#1c1c1e' }"
+                style="--wallpaper-color: #1c1c1e" @click="$store.themeSettings.setBackgroundMode('solid'); $store.themeSettings.update('desktop.background.solid_color', '#1c1c1e')"></button>
+        <button type="button" class="theme-settings-solid-swatch" :aria-pressed="$store.themeSettings.value('desktop.background.mode') === 'solid' && $store.themeSettings.value('desktop.background.solid_color').toLowerCase() === '#596b5b'" title="松绿色" aria-label="松绿色"
+                :class="{ 'is-selected': $store.themeSettings.value('desktop.background.mode') === 'solid' && $store.themeSettings.value('desktop.background.solid_color').toLowerCase() === '#596b5b' }"
+                style="--wallpaper-color: #596b5b" @click="$store.themeSettings.setBackgroundMode('solid'); $store.themeSettings.update('desktop.background.solid_color', '#596b5b')"></button>
+        <button type="button" class="theme-settings-solid-swatch" :aria-pressed="$store.themeSettings.value('desktop.background.mode') === 'solid' && $store.themeSettings.value('desktop.background.solid_color').toLowerCase() === '#748a9b'" title="雾蓝色" aria-label="雾蓝色"
+                :class="{ 'is-selected': $store.themeSettings.value('desktop.background.mode') === 'solid' && $store.themeSettings.value('desktop.background.solid_color').toLowerCase() === '#748a9b' }"
+                style="--wallpaper-color: #748a9b" @click="$store.themeSettings.setBackgroundMode('solid'); $store.themeSettings.update('desktop.background.solid_color', '#748a9b')"></button>
+        <button type="button" class="theme-settings-solid-swatch" :aria-pressed="$store.themeSettings.value('desktop.background.mode') === 'solid' && $store.themeSettings.value('desktop.background.solid_color').toLowerCase() === '#a48b95'" title="藕粉色" aria-label="藕粉色"
+                :class="{ 'is-selected': $store.themeSettings.value('desktop.background.mode') === 'solid' && $store.themeSettings.value('desktop.background.solid_color').toLowerCase() === '#a48b95' }"
+                style="--wallpaper-color: #a48b95" @click="$store.themeSettings.setBackgroundMode('solid'); $store.themeSettings.update('desktop.background.solid_color', '#a48b95')"></button>
+        <button type="button" class="theme-settings-solid-swatch" :aria-pressed="$store.themeSettings.value('desktop.background.mode') === 'solid' && $store.themeSettings.value('desktop.background.solid_color').toLowerCase() === '#c3b59d'" title="浅沙色" aria-label="浅沙色"
+                :class="{ 'is-selected': $store.themeSettings.value('desktop.background.mode') === 'solid' && $store.themeSettings.value('desktop.background.solid_color').toLowerCase() === '#c3b59d' }"
+                style="--wallpaper-color: #c3b59d" @click="$store.themeSettings.setBackgroundMode('solid'); $store.themeSettings.update('desktop.background.solid_color', '#c3b59d')"></button>
+        <button type="button" class="theme-settings-solid-swatch" :aria-pressed="$store.themeSettings.value('desktop.background.mode') === 'solid' && $store.themeSettings.value('desktop.background.solid_color').toLowerCase() === '#e6e5e0'" title="暖灰色" aria-label="暖灰色"
+                :class="{ 'is-selected': $store.themeSettings.value('desktop.background.mode') === 'solid' && $store.themeSettings.value('desktop.background.solid_color').toLowerCase() === '#e6e5e0' }"
+                style="--wallpaper-color: #e6e5e0" @click="$store.themeSettings.setBackgroundMode('solid'); $store.themeSettings.update('desktop.background.solid_color', '#e6e5e0')"></button>
+    </div>
+  </section>
+  <section class="theme-settings-section" data-setting-path="desktop.background.image_url">
+    <h3 class="theme-settings-section-title">你的图片</h3>
+    <div class="theme-settings-photo-library">
+      <button type="button" class="theme-settings-add-photo" @click="$store.themeAssets.openImage('desktop.background.image_url')">
+        <span class="icon-[lucide--image-plus]" aria-hidden="true"></span><span>添加图片…</span>
+      </button>
+      <div class="theme-settings-photo-card" x-show="$store.themeSettings.value('desktop.background.image_url')">
+        <button type="button" class="theme-settings-photo-choice" :class="{ 'is-selected': $store.themeSettings.value('desktop.background.mode') === 'image' }"
+                :aria-pressed="($store.themeSettings.value('desktop.background.mode') === 'image').toString()" @click="$store.themeSettings.setBackgroundMode('image')">
+          <img :src="$store.themeSettings.value('desktop.background.image_url') || null" alt="已选择的背景图片" referrerpolicy="no-referrer" />
+          <span x-text="$store.themeSettings.value('desktop.background.mode') === 'image' ? '正在使用' : '使用图片'"></span>
+        </button>
+        <button type="button" class="theme-settings-text-button" @click="$store.themeSettings.clearImage('desktop.background.image_url')">移除图片</button>
+      </div>
+    </div>
+    <p class="theme-settings-section-note">从附件库选择或上传图片。移除图片仅解除墙纸引用，原附件仍保留。</p>
+  </section>
+</section>

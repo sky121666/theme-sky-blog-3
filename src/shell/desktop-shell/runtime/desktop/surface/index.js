@@ -828,6 +828,9 @@ export function registerDesktopSurface(Alpine) {
         this.enabled = detail.enabled === true;
         this.hideOnMobile = detail.hideOnMobile === true;
         this.editEnabled = detail.editEnabled === true;
+        if (typeof detail.fallbackCover === 'string') {
+          this.sources = { ...this.sources, fallbackCover: detail.fallbackCover };
+        }
         this.modules = {
           ...this.modules,
           weather: {
@@ -1662,6 +1665,14 @@ export function registerDesktopSurface(Alpine) {
         return false;
       }
 
+      if (Alpine.store?.('themeSettings')?.desktopLayoutReloadRequired) {
+        this.serverLayoutSaveState = 'failed';
+        this.serverLayoutSaveMessage = '桌面图标设置已更新，当前编辑内容已保留。请刷新页面后重新编辑再保存。';
+        return false;
+      }
+
+      const baselineLayoutJson = this.serverLayoutJson;
+
       const savedSnapshot = snapshot || {
         mutationVersion: this.serverLayoutMutationVersion,
         widgets: cloneJsonValue(this.widgets) || [],
@@ -1681,10 +1692,16 @@ export function registerDesktopSurface(Alpine) {
 
       try {
         const { applyDesktopLayoutJsonToThemeConfig } = await this.ensurePersistenceWriteRuntime();
+        const { assertDesktopLayoutBaseline } = await import('../../widgets/persistence-conflict.js');
         const { mutateThemeConfig } = await loadThemeConfigClient();
         await mutateThemeConfig(
           this.themeJsonConfigEndpoint,
-          (currentConfig) => applyDesktopLayoutJsonToThemeConfig(currentConfig, layoutJson)
+          (currentConfig) => {
+            assertDesktopLayoutBaseline(currentConfig, baselineLayoutJson, {
+              settingsChanged: Alpine.store?.('themeSettings')?.desktopLayoutReloadRequired === true
+            });
+            return applyDesktopLayoutJsonToThemeConfig(currentConfig, layoutJson);
+          }
         );
 
         this.serverLayoutJson = layoutJson;
@@ -1970,9 +1987,9 @@ export function registerDesktopSurface(Alpine) {
         return {
           ...icon,
           href: link.href,
-          pjax: link.pjax && (icon.pjax ?? sourceIcon?.pjax) !== false,
+          pjax: link.pjax && icon.external !== true && (icon.pjax ?? sourceIcon?.pjax) !== false,
           pjaxApp: resolveDesktopIconApp(link.href, icon.pjaxApp || sourceIcon?.pjaxApp || ''),
-          external: link.external,
+          external: typeof icon.external === 'boolean' ? icon.external : link.external,
           subtype: icon.subtype || sourceIcon?.subtype || 'folder',
           dataId: sourceIcon?.dataId || icon.title
         };

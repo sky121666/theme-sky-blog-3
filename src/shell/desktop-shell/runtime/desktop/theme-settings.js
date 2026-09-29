@@ -1,363 +1,26 @@
+import { captureRuntimeSnapshot, restoreBodyRuntime, restoreDockRuntime, restoreHeaderIcons, restoreStoredTheme, applyBodyPreview, applyDockPreview, applyMenubarPreview, applyWidgetPreview, applyHeaderIconPreview } from './settings-model/preview.js';
 import {
-  applyThemeSettingsDraftToConfig,
   buildThemeSettingsDraft,
   cloneThemeSettingsValue,
   isValidThemeCssColor,
+  THEME_SETTINGS_ICON_FIELDS,
+  THEME_SETTINGS_IMAGE_FIELDS,
   rebaseThemeSettingsDraftAfterSave,
   themeSettingsValueAt,
   updateThemeSettingsDraft
 } from './theme-settings-core.js';
 import { loadThemeConfigClient } from '../shared/lazy-theme-config-client.js';
 import { registerNavigationGuard, isCoveredNativeBeforeUnload } from './pjax/navigation-admission.js';
+import { registerThemeSettingsAssetPicker } from './settings-assets/picker.js';
+import { sanitizeIconSvg } from './settings-assets/icon-svg.js';
+import { createSettingsPanelMethods } from './settings-model/panels.js';
+import { loadSettingsSave } from './settings-model/lazy-save.js';
 
-const SCHEME_CLASS_PREFIX = 'scheme-';
-const WALLPAPER_CLASS_PREFIX = 'wallpaper-';
 const SETTINGS_CLOSE_DELAY = 240;
 const CLOSE_CONFIRM_TIMEOUT = 3200;
-const DOCK_RUNTIME_SYNC_EVENT = 'theme:dock-settings-change';
-const MENUBAR_RUNTIME_SYNC_EVENT = 'theme:menubar-settings-change';
-const WIDGET_RUNTIME_SYNC_EVENT = 'theme:widget-settings-change';
-const APPEARANCE_PRESET_ACCENTS = Object.freeze({
-  blue: '#2e5fbd',
-  purple: '#6555b5',
-  pink: '#bd557c',
-  red: '#b0525b',
-  orange: '#ad7339',
-  yellow: '#948041',
-  green: '#427e59',
-  graphite: '#656c75'
-});
-
-const BODY_CUSTOM_PROPERTIES = [
-  '--mac-accent',
-  '--theme-accent-contrast',
-  '--mac-selection',
-  '--mac-folder1',
-  '--mac-folder2',
-  '--mac-folder3'
-];
-
-const MENUBAR_CUSTOM_PROPERTIES = [
-  '--mac-header-dropdown-light-bg',
-  '--mac-header-dropdown-dark-bg'
-];
-
-const BODY_RUNTIME_CUSTOM_PROPERTIES = [
-  ...BODY_CUSTOM_PROPERTIES,
-  ...MENUBAR_CUSTOM_PROPERTIES
-];
-
-const DOCK_DATASET_FIELDS = [
-  'showLabels',
-  'magnification',
-  'dockIconSize',
-  'dockIconGap',
-  'dockPadding',
-  'dockMagScale',
-  'dockGlassBlur',
-  'dockGlassOpacity'
-];
-
-const DOCK_CUSTOM_PROPERTIES = [
-  '--dock-icon-size',
-  '--dock-gap',
-  '--dock-padding',
-  '--dock-glass-height',
-  '--dock-bar-height',
-  '--dock-blur',
-  '--dock-opacity',
-  '--dock-icon-radius'
-];
-
-const SETTINGS_NAV_ITEMS = Object.freeze([
-  {
-    id: 'appearance',
-    label: '外观',
-    detail: '显示模式、强调色与桌面背景'
-  },
-  {
-    id: 'desktop-dock',
-    label: '桌面与 Dock',
-    detail: 'Dock 尺寸、间距与玻璃质感'
-  },
-  {
-    id: 'widgets',
-    label: '小组件',
-    detail: '显示、编辑与天气参数'
-  },
-  {
-    id: 'menu-control',
-    label: '菜单栏与控制中心',
-    detail: '名称、功能入口与时间格式'
-  },
-  {
-    id: 'notifications',
-    label: '通知',
-    detail: '通知中心名称与默认状态'
-  }
-]);
 
 function getProtocolElement() {
   return document.querySelector('[data-theme-settings-protocol]');
-}
-
-function classNamesWithPrefix(element, prefix) {
-  if (!element) return [];
-  return Array.from(element.classList).filter((className) => className.startsWith(prefix));
-}
-
-function captureBodyRuntime() {
-  const body = document.body;
-  if (!body) return null;
-
-  return {
-    schemeClasses: classNamesWithPrefix(body, SCHEME_CLASS_PREFIX),
-    wallpaperClasses: classNamesWithPrefix(body, WALLPAPER_CLASS_PREFIX),
-    background: body.style.background,
-    backgroundColor: body.style.backgroundColor,
-    backgroundImage: body.style.backgroundImage,
-    backgroundPosition: body.style.backgroundPosition,
-    backgroundSize: body.style.backgroundSize,
-    backgroundRepeat: body.style.backgroundRepeat,
-    customProperties: Object.fromEntries(
-      BODY_RUNTIME_CUSTOM_PROPERTIES.map((property) => [property, body.style.getPropertyValue(property)])
-    )
-  };
-}
-
-function restoreBodyRuntime(snapshot) {
-  const body = document.body;
-  if (!body || !snapshot) return;
-
-  classNamesWithPrefix(body, SCHEME_CLASS_PREFIX).forEach((className) => body.classList.remove(className));
-  classNamesWithPrefix(body, WALLPAPER_CLASS_PREFIX).forEach((className) => body.classList.remove(className));
-  snapshot.schemeClasses.forEach((className) => body.classList.add(className));
-  snapshot.wallpaperClasses.forEach((className) => body.classList.add(className));
-  body.style.background = snapshot.background;
-  body.style.backgroundColor = snapshot.backgroundColor;
-  body.style.backgroundImage = snapshot.backgroundImage;
-  body.style.backgroundPosition = snapshot.backgroundPosition;
-  body.style.backgroundSize = snapshot.backgroundSize;
-  body.style.backgroundRepeat = snapshot.backgroundRepeat;
-  BODY_RUNTIME_CUSTOM_PROPERTIES.forEach((property) => {
-    body.style.setProperty(property, snapshot.customProperties[property] || '');
-  });
-}
-
-function captureDockRuntime() {
-  const dock = document.querySelector('.dock-container');
-  if (!dock) return null;
-
-  return {
-    dataset: Object.fromEntries(DOCK_DATASET_FIELDS.map((field) => [field, dock.dataset[field]])),
-    customProperties: Object.fromEntries(
-      DOCK_CUSTOM_PROPERTIES.map((property) => [property, dock.style.getPropertyValue(property)])
-    )
-  };
-}
-
-function restoreDockRuntime(snapshot) {
-  const dock = document.querySelector('.dock-container');
-  if (!dock || !snapshot) return;
-
-  DOCK_DATASET_FIELDS.forEach((field) => {
-    const value = snapshot.dataset[field];
-    if (value === undefined) {
-      delete dock.dataset[field];
-    } else {
-      dock.dataset[field] = value;
-    }
-  });
-  DOCK_CUSTOM_PROPERTIES.forEach((property) => {
-    dock.style.setProperty(property, snapshot.customProperties[property] || '');
-  });
-  dock.dispatchEvent(new CustomEvent(DOCK_RUNTIME_SYNC_EVENT));
-}
-
-function captureRuntimeSnapshot() {
-  return {
-    body: captureBodyRuntime(),
-    dock: captureDockRuntime(),
-    storedTheme: localStorage.getItem('theme')
-  };
-}
-
-function restoreStoredTheme(snapshot, Alpine) {
-  if (!snapshot) return;
-  if (snapshot.storedTheme === null) {
-    localStorage.removeItem('theme');
-  } else {
-    localStorage.setItem('theme', snapshot.storedTheme);
-  }
-  Alpine.store('theme')?.refresh?.();
-}
-
-function readableTextOnColor(value) {
-  const match = String(value || '').match(/^#([0-9a-f]{6})$/i);
-  if (!match) return '#ffffff';
-  const channels = [0, 2, 4].map((offset) => Number.parseInt(match[1].slice(offset, offset + 2), 16) / 255);
-  const luminance = channels
-    .map((channel) => (channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4))
-    .reduce((total, channel, index) => total + channel * [0.2126, 0.7152, 0.0722][index], 0);
-  return luminance > 0.18 ? '#17181a' : '#ffffff';
-}
-
-function applyBodyPreview(draft, { remoteImageReady = true } = {}) {
-  const body = document.body;
-  if (!body) return;
-
-  const appearance = draft.desktop.appearance;
-  const background = draft.desktop.background;
-
-  classNamesWithPrefix(body, SCHEME_CLASS_PREFIX).forEach((className) => body.classList.remove(className));
-  if (appearance.mode === 'custom') {
-    body.classList.add('scheme-custom');
-    body.style.setProperty('--mac-accent', appearance.accent_color);
-    body.style.setProperty('--theme-accent-contrast', readableTextOnColor(appearance.accent_color));
-    body.style.setProperty('--mac-selection', appearance.selection_color);
-    body.style.setProperty('--mac-folder1', appearance.folder_color1);
-    body.style.setProperty('--mac-folder2', appearance.folder_color2);
-    body.style.setProperty('--mac-folder3', appearance.folder_color3);
-  } else {
-    body.classList.add(`${SCHEME_CLASS_PREFIX}${appearance.preset}`);
-    BODY_CUSTOM_PROPERTIES.forEach((property) => body.style.removeProperty(property));
-    body.style.setProperty(
-      '--theme-accent-contrast',
-      readableTextOnColor(APPEARANCE_PRESET_ACCENTS[appearance.preset] || APPEARANCE_PRESET_ACCENTS.blue)
-    );
-  }
-
-  classNamesWithPrefix(body, WALLPAPER_CLASS_PREFIX).forEach((className) => body.classList.remove(className));
-  body.style.background = '';
-  body.style.backgroundImage = '';
-  body.style.backgroundPosition = '';
-  body.style.backgroundSize = '';
-  body.style.backgroundRepeat = '';
-
-  if (background.mode === 'preset') {
-    body.style.backgroundColor = '';
-    body.classList.add(`${WALLPAPER_CLASS_PREFIX}${background.preset}`);
-  } else if (background.mode === 'solid') {
-    body.style.backgroundColor = background.solid_color;
-  } else if (background.image_url && remoteImageReady) {
-    const escapedUrl = String(background.image_url).replaceAll('"', '%22');
-    body.style.background = `url("${escapedUrl}") center / cover no-repeat`;
-    body.style.backgroundColor = '#0f172a';
-  }
-}
-
-function applyDockPreview(draft) {
-  const dock = document.querySelector('.dock-container');
-  if (!dock) return;
-
-  const appearance = draft.dock.appearance;
-  const baseSize = appearance.icon_size;
-  const dockPadding = appearance.dock_padding;
-  const magScale = appearance.magnification_scale;
-  const maxLift = appearance.magnification ? Math.round(baseSize * 0.1) : 0;
-  const glassHeight = baseSize + dockPadding * 2;
-  const barHeadroom = appearance.magnification ? Math.max(14, maxLift + 8) : 0;
-
-  dock.dataset.showLabels = String(appearance.show_labels);
-  dock.dataset.magnification = String(appearance.magnification);
-  dock.dataset.dockIconSize = String(baseSize);
-  dock.dataset.dockIconGap = String(appearance.icon_gap);
-  dock.dataset.dockPadding = String(dockPadding);
-  dock.dataset.dockMagScale = String(magScale);
-  dock.dataset.dockGlassBlur = String(appearance.glass_blur);
-  dock.dataset.dockGlassOpacity = String(appearance.glass_opacity);
-  dock.style.setProperty('--dock-icon-size', `${baseSize}px`);
-  dock.style.setProperty('--dock-gap', `${appearance.icon_gap}px`);
-  dock.style.setProperty('--dock-padding', `${dockPadding}px`);
-  dock.style.setProperty('--dock-glass-height', `${glassHeight}px`);
-  dock.style.setProperty('--dock-bar-height', `${glassHeight + barHeadroom}px`);
-  dock.style.setProperty('--dock-blur', `${appearance.glass_blur}px`);
-  dock.style.setProperty('--dock-opacity', `${appearance.glass_opacity / 100}`);
-  dock.style.setProperty('--dock-icon-radius', `${Math.round(baseSize * 0.25)}px`);
-
-  dock.querySelectorAll('.dock-tooltip').forEach((tooltip) => {
-    tooltip.hidden = !appearance.show_labels;
-    if (appearance.show_labels) {
-      tooltip.style.removeProperty('display');
-    }
-  });
-  dock.dispatchEvent(new CustomEvent(DOCK_RUNTIME_SYNC_EVENT));
-}
-
-function applyMenubarPreview(draft) {
-  const menubar = document.querySelector('.menubar');
-  const body = document.body;
-  if (!menubar || !draft?.header || !draft?.sidebar?.notification_center) return;
-
-  const fallbackTitle = String(
-    menubar.dataset.siteFallbackTitle
-    || menubar.dataset.siteTitle
-    || ''
-  ).trim();
-  const configuredTitle = String(draft.header.logo?.title || '').trim();
-  const loginLabel = String(draft.header.auth?.login_label || '').trim() || '登录';
-  const notification = draft.sidebar.notification_center;
-  const effectiveTitle = configuredTitle || fallbackTitle;
-
-  menubar.dataset.siteTitle = effectiveTitle;
-  menubar.dataset.themeSettingEnabled = String(draft.header.theme.enable_frontend_setting);
-  menubar.dataset.searchEnabled = String(draft.header.actions.search_enabled);
-  menubar.dataset.authEnabled = String(draft.header.actions.auth_enabled);
-  menubar.dataset.mobileMenuEnabled = String(draft.header.actions.mobile_menu_enabled);
-  menubar.dataset.timeEnabled = String(draft.header.time.enabled);
-  menubar.dataset.timeDesktopPreset = String(draft.header.time.desktop_preset);
-  menubar.dataset.timeMobilePreset = String(draft.header.time.mobile_preset);
-  menubar.dataset.timeHourCycle = String(draft.header.time.hour_cycle);
-  menubar.dataset.loginLabel = loginLabel;
-  menubar.dataset.notificationCenterTitle = String(notification.title);
-  menubar.dataset.notificationCenterGuestTitle = String(notification.guest_title);
-  menubar.dataset.notificationCenterDefaultOpen = String(notification.default_open);
-
-  if (body) {
-    body.style.setProperty('--mac-header-dropdown-light-bg', draft.header.dropdown.light_bg);
-    body.style.setProperty('--mac-header-dropdown-dark-bg', draft.header.dropdown.dark_bg);
-  }
-
-  window.dispatchEvent(new CustomEvent(MENUBAR_RUNTIME_SYNC_EVENT, {
-    detail: {
-      appName: effectiveTitle,
-      themeSettingEnabled: draft.header.theme.enable_frontend_setting,
-      searchEnabled: draft.header.actions.search_enabled,
-      authEnabled: draft.header.actions.auth_enabled,
-      mobileMenuEnabled: draft.header.actions.mobile_menu_enabled,
-      timeEnabled: draft.header.time.enabled,
-      timeDesktopPreset: draft.header.time.desktop_preset,
-      timeMobilePreset: draft.header.time.mobile_preset,
-      timeHourCycle: draft.header.time.hour_cycle,
-      loginLabel,
-      notificationCenterTitle: notification.title,
-      notificationCenterGuestTitle: notification.guest_title,
-      notificationCenterDefaultOpen: notification.default_open
-    }
-  }));
-}
-
-function applyWidgetPreview(draft, changedPath = '') {
-  const behavior = draft?.widgets?.behavior;
-  const weather = draft?.widgets?.modules?.weather;
-  if (!behavior || !weather) return;
-
-  window.dispatchEvent(new CustomEvent(WIDGET_RUNTIME_SYNC_EVENT, {
-    detail: {
-      changedPath,
-      enabled: behavior.enabled,
-      hideOnMobile: behavior.hide_on_mobile,
-      editEnabled: behavior.edit_enabled,
-      weather: {
-        cityName: weather.city_name,
-        refreshMinutes: weather.refresh_minutes
-      }
-    }
-  }));
-}
-
-function normalizeSearchValue(value) {
-  return String(value || '').trim().toLocaleLowerCase('zh-CN');
 }
 
 function isSameValue(left, right) {
@@ -399,14 +62,17 @@ export function registerThemeSettings(Alpine) {
     statusResetTimer: null,
     closeArmed: false,
     closeArmTimer: null,
+    closeArmGeneration: 0,
     runtimeSnapshot: null,
     reloadRequired: false,
+    desktopLayoutReloadRequired: false,
     wallpaperPreviewGeneration: 0,
     readyWallpaperUrl: '',
     restoreFocusElement: null,
     searchAvailable: false,
     mobileMenuAvailable: false,
-    navItems: SETTINGS_NAV_ITEMS,
+    ...createSettingsPanelMethods(Alpine),
+    iconFields: THEME_SETTINGS_ICON_FIELDS,
 
     init() {
       const protocol = getProtocolElement();
@@ -433,13 +99,18 @@ export function registerThemeSettings(Alpine) {
       };
       this.handleBeforeUnload = (event) => {
         if (isCoveredNativeBeforeUnload(event, 'theme-settings')) return;
-        if (!this.hasDirtyChanges() && !this.saving) return;
+        if (!this.hasDirtyChanges() && !this.saving && !Alpine.store('themeAssets')?.uploading) return;
         event.preventDefault();
         event.returnValue = '';
       };
       this.handleEscape = (event) => {
         if (event.key === 'Escape' && this.visible) {
           event.preventDefault();
+          if (Alpine.store('themeAssets')?.visible) {
+            event.stopImmediatePropagation();
+            Alpine.store('themeAssets').close();
+            return;
+          }
           if (this.mobileSidebarOpen) {
             this.closeMobileSidebar();
             return;
@@ -470,6 +141,8 @@ export function registerThemeSettings(Alpine) {
     },
 
     destroy() {
+      Alpine.store('themeAssets')?.destroy();
+      this.cancelResourceRequests();
       window.removeEventListener('theme-settings-open', this.handleOpenRequest);
       window.removeEventListener('keydown', this.handleEscape, true);
       window.removeEventListener('keydown', this.handleSettingsRadioKeydown, true);
@@ -477,9 +150,7 @@ export function registerThemeSettings(Alpine) {
       this.unregisterNavigationGuard?.();
       this.unregisterNavigationGuard = null;
       this.mobileViewportQuery?.removeEventListener?.('change', this.handleMobileViewportChange);
-      if (this.closeArmTimer) {
-        window.clearTimeout(this.closeArmTimer);
-      }
+      this.resetCloseArm();
       if (this.entryStatusTimer) window.clearTimeout(this.entryStatusTimer);
       if (this.statusResetTimer) window.clearTimeout(this.statusResetTimer);
     },
@@ -491,6 +162,13 @@ export function registerThemeSettings(Alpine) {
         this.entryStatusMessage = '';
         this.entryStatusTimer = null;
       }, 4200);
+    },
+
+    resetCloseArm() {
+      this.closeArmGeneration += 1;
+      if (this.closeArmTimer) window.clearTimeout(this.closeArmTimer);
+      this.closeArmTimer = null;
+      this.closeArmed = false;
     },
 
     async fetchConfig() {
@@ -562,16 +240,19 @@ export function registerThemeSettings(Alpine) {
       this.dirtyPaths = [];
       this.validationErrors = {};
       this.draftMutationVersion = 0;
-      this.closeArmed = false;
+      this.resetCloseArm();
       this.mobileSidebarOpen = false;
       this.statusTone = this.reloadRequired ? 'warning' : 'muted';
       this.statusMessage = this.reloadRequired
         ? '上次保存的服务端渲染内容尚未刷新；可直接刷新页面使其完整生效。'
-        : '更改会先在当前桌面预览，应用后写入 Halo 主题配置。';
+        : '';
       this.visible = true;
       document.body.classList.add('theme-settings-open');
       await nextFrame();
       this.syncRadioGroupTabStops();
+      this.switchPane(this.activePane, false);
+      const content = document.querySelector('[data-theme-settings-content]');
+      if (content) content.scrollTop = this.paneScroll[this.activePane] || 0;
       this.open = true;
       window.setTimeout(() => {
         document.querySelector('[data-theme-settings-window]')?.focus?.({ preventScroll: true });
@@ -580,33 +261,36 @@ export function registerThemeSettings(Alpine) {
 
     close(force = false) {
       if (!this.visible) return;
+      if (Alpine.store('themeAssets')?.visible) { Alpine.store('themeAssets').close(); return; }
       if (this.saving) {
         this.statusTone = 'warning';
         this.statusMessage = '主题设置正在保存，请等待完成后再关闭。';
         return;
       }
       if (this.hasDirtyChanges() && !force && !this.closeArmed) {
+        this.resetCloseArm();
         this.closeArmed = true;
         this.statusTone = 'warning';
         this.statusMessage = '存在未应用的修改；再次点击关闭将放弃这些修改。';
-        if (this.closeArmTimer) {
-          window.clearTimeout(this.closeArmTimer);
-        }
+        const generation = this.closeArmGeneration;
         this.closeArmTimer = window.setTimeout(() => {
+          if (generation !== this.closeArmGeneration || !this.visible || !this.closeArmed) return;
+          this.closeArmTimer = null;
           this.closeArmed = false;
           this.statusTone = 'muted';
           this.statusMessage = '修改尚未应用。';
         }, CLOSE_CONFIRM_TIMEOUT);
         return;
       }
-      this.closeArmed = false;
+      this.resetCloseArm();
+      this.paneScroll[this.activePane] = document.querySelector('[data-theme-settings-content]')?.scrollTop || 0;
+      this.cancelResourceRequests();
       this.restoreRuntimePreview();
       this.open = false;
       document.body.classList.remove('theme-settings-open');
       window.setTimeout(() => {
         this.visible = false;
         this.query = '';
-        this.activePane = 'appearance';
         this.mobileSidebarOpen = false;
         this.draft = cloneThemeSettingsValue(this.baseline);
         this.dirtyPaths = [];
@@ -662,14 +346,14 @@ export function registerThemeSettings(Alpine) {
     },
 
     hasDirtyChanges() {
-      return this.dirtyPaths.length > 0;
+      return this.dirtyPaths.length > 0 || this.hasValidationErrors();
     },
 
     captureNavigationGuardState() {
       return {
         draftMutationVersion: this.draftMutationVersion,
         dirty: this.hasDirtyChanges(),
-        saving: this.saving === true,
+        saving: this.saving === true || Alpine.store('themeAssets')?.uploading === true,
         visible: this.visible === true
       };
     },
@@ -696,9 +380,10 @@ export function registerThemeSettings(Alpine) {
 
     closeForNavigationCommit() {
       if (!this.visible || this.saving) return;
-      if (this.closeArmTimer) window.clearTimeout(this.closeArmTimer);
-      this.closeArmTimer = null;
-      this.closeArmed = false;
+      Alpine.store('themeAssets')?.close();
+      this.resetCloseArm();
+      this.paneScroll[this.activePane] = document.querySelector('[data-theme-settings-content]')?.scrollTop || 0;
+      this.cancelResourceRequests();
       this.restoreRuntimePreview();
       this.open = false;
       this.visible = false;
@@ -725,7 +410,28 @@ export function registerThemeSettings(Alpine) {
       return themeSettingsValueAt(this.draft, path, fallback);
     },
 
-    update(path, value) {
+    iconPreview(path) {
+      if (!THEME_SETTINGS_ICON_FIELDS.some((field) => field.path === path)) return '';
+      const configured = sanitizeIconSvg(this.value(path)?.value || '');
+      if (configured) return configured;
+      if (path === 'douban.profile.icon') return '<span class="icon-[lucide--clapperboard]" aria-hidden="true"></span>';
+      // Reuse the same theme-owned default markup as the rendered menu bar.
+      return document.getElementById('theme-header-icon-defaults')?.content?.querySelector(`[data-icon-path="${path}"]`)?.innerHTML || '';
+    },
+
+    setImage(path, value) {
+      if (!THEME_SETTINGS_IMAGE_FIELDS.some((field) => field.path === path)) return;
+      this.update(path, value);
+      if (path === 'desktop.background.image_url' && (value || this.value('desktop.background.mode') === 'image')) {
+        this.update('desktop.background.mode', value ? 'image' : 'preset');
+      }
+    },
+
+    clearImage(path) { this.setImage(path, ''); },
+
+    selectWallpaperPreset(preset) { this.setBackgroundPreset(preset); },
+
+    update(path, value, preview = true) {
       if (this.validationErrors[path]) {
         const validationErrors = { ...this.validationErrors };
         delete validationErrors[path];
@@ -735,7 +441,13 @@ export function registerThemeSettings(Alpine) {
         window.clearTimeout(this.statusResetTimer);
         this.statusResetTimer = null;
       }
-      const nextDraft = updateThemeSettingsDraft(this.draft, path, value);
+      let nextDraft;
+      try { nextDraft = updateThemeSettingsDraft(this.draft, path, value); } catch (error) {
+        this.validationErrors = { ...this.validationErrors, [path]: error.message };
+        this.statusTone = 'error';
+        this.statusMessage = error.message;
+        return false;
+      }
       const nextValue = themeSettingsValueAt(nextDraft, path);
       const baselineValue = themeSettingsValueAt(this.baseline, path);
       const dirty = new Set(this.dirtyPaths);
@@ -747,12 +459,12 @@ export function registerThemeSettings(Alpine) {
       this.draft = nextDraft;
       this.dirtyPaths = Array.from(dirty);
       this.draftMutationVersion += 1;
-      this.closeArmed = false;
+      this.resetCloseArm();
       this.statusTone = 'muted';
       this.statusMessage = this.hasDirtyChanges()
         ? '设置已修改，尚未应用。'
         : '已恢复到当前主题配置。';
-      this.applyRuntimePreview(path);
+      if (preview) this.applyRuntimePreview(path);
       window.requestAnimationFrame(() => this.syncRadioGroupTabStops());
     },
 
@@ -801,6 +513,7 @@ export function registerThemeSettings(Alpine) {
     },
 
     setBackgroundMode(mode) {
+      if (mode === 'image' && !this.value('desktop.background.image_url')) return false;
       this.update('desktop.background.mode', mode);
     },
 
@@ -813,7 +526,7 @@ export function registerThemeSettings(Alpine) {
       this.draft = cloneThemeSettingsValue(this.baseline);
       this.dirtyPaths = [];
       this.draftMutationVersion += 1;
-      this.closeArmed = false;
+      this.resetCloseArm();
       this.validationErrors = {};
       this.statusTone = 'success';
       this.statusMessage = '已撤销本次未应用的修改。';
@@ -822,38 +535,47 @@ export function registerThemeSettings(Alpine) {
       this.statusResetTimer = window.setTimeout(() => {
         if (!this.hasDirtyChanges() && !this.reloadRequired) {
           this.statusTone = 'muted';
-          this.statusMessage = '更改会先在当前桌面预览，应用后写入 Halo 主题配置。';
+          this.statusMessage = '';
         }
         this.statusResetTimer = null;
       }, 1800);
     },
 
     applyRuntimePreview(changedPath = '') {
-      const wallpaperUrl = this.draft.desktop.background.mode === 'image'
-        ? String(this.draft.desktop.background.image_url || '')
-        : '';
-      if (wallpaperUrl && wallpaperUrl !== this.readyWallpaperUrl) {
-        const generation = ++this.wallpaperPreviewGeneration;
-        applyBodyPreview(this.draft, { remoteImageReady: false });
-        const image = new Image();
-        image.onload = () => {
-          if (generation !== this.wallpaperPreviewGeneration || this.draft.desktop.background.mode !== 'image') return;
-          this.readyWallpaperUrl = wallpaperUrl;
+      if (!changedPath || changedPath.startsWith('desktop.')) {
+        const wallpaperUrl = this.draft.desktop.background.mode === 'image'
+          ? String(this.draft.desktop.background.image_url || '')
+          : '';
+        if (wallpaperUrl && wallpaperUrl !== this.readyWallpaperUrl) {
+          const generation = ++this.wallpaperPreviewGeneration;
+          applyBodyPreview(this.draft, { remoteImageReady: false });
+          const image = new Image();
+          image.onload = () => {
+            if (!this.visible || generation !== this.wallpaperPreviewGeneration
+              || this.draft.desktop.background.mode !== 'image'
+              || String(this.draft.desktop.background.image_url || '') !== wallpaperUrl) return;
+            this.readyWallpaperUrl = wallpaperUrl;
+            applyBodyPreview(this.draft);
+          };
+          image.onerror = () => {
+            if (!this.visible || generation !== this.wallpaperPreviewGeneration
+              || this.draft.desktop.background.mode !== 'image'
+              || String(this.draft.desktop.background.image_url || '') !== wallpaperUrl) return;
+            this.statusTone = 'error';
+            this.statusMessage = '后台桌面图片无法加载，当前预览已保留纯色背景。';
+          };
+          image.src = wallpaperUrl;
+        } else {
+          this.wallpaperPreviewGeneration += 1;
           applyBodyPreview(this.draft);
-        };
-        image.onerror = () => {
-          if (generation !== this.wallpaperPreviewGeneration) return;
-          this.statusTone = 'error';
-          this.statusMessage = '后台桌面图片无法加载，当前预览已保留纯色背景。';
-        };
-        image.src = wallpaperUrl;
-      } else {
-        this.wallpaperPreviewGeneration += 1;
-        applyBodyPreview(this.draft);
+        }
       }
-      applyDockPreview(this.draft);
-      applyMenubarPreview(this.draft);
-      applyWidgetPreview(this.draft, changedPath);
+      if (!changedPath || changedPath.startsWith('dock.')) applyDockPreview(this.draft);
+      if (!changedPath || changedPath.startsWith('header.') || changedPath.startsWith('sidebar.notification_center.')) {
+        applyMenubarPreview(this.draft);
+      }
+      if (!changedPath || THEME_SETTINGS_ICON_FIELDS.some((field) => field.path === changedPath)) applyHeaderIconPreview(this.draft);
+      if (!changedPath || changedPath.startsWith('widgets.')) applyWidgetPreview(this.draft, changedPath);
       if (!changedPath || changedPath === 'header.theme.default_mode') {
         Alpine.store('theme')?.setMode?.(this.draft.header.theme.default_mode);
       }
@@ -864,6 +586,7 @@ export function registerThemeSettings(Alpine) {
       if (!this.runtimeSnapshot) return;
       restoreBodyRuntime(this.runtimeSnapshot.body);
       restoreDockRuntime(this.runtimeSnapshot.dock);
+      restoreHeaderIcons(this.runtimeSnapshot.icons);
       restoreStoredTheme(this.runtimeSnapshot, Alpine);
       applyMenubarPreview(this.baseline);
       applyWidgetPreview(this.baseline);
@@ -871,7 +594,14 @@ export function registerThemeSettings(Alpine) {
     },
 
     async save() {
-      if (this.saving || !this.hasDirtyChanges() || !this.canOpen || this.hasValidationErrors()) return false;
+      if (this.saving || !this.hasDirtyChanges() || !this.canOpen || this.hasValidationErrors() || Alpine.store('themeAssets')?.visible) return false;
+      const surface = document.querySelector('.desktop-surface');
+      if (this.dirtyPaths.some((path) => path.startsWith('desktop.icons.')) && surface && Alpine.$data?.(surface)?.hasUnsavedDesktopChanges?.()) {
+        this.statusTone = 'warning';
+        this.statusMessage = '桌面布局有未保存修改，请先处理布局后再应用桌面图标设置。';
+        return false;
+      }
+      this.resetCloseArm();
       const savePaths = [...this.dirtyPaths];
       const saveDraft = cloneThemeSettingsValue(this.draft);
       const saveMutationVersion = this.draftMutationVersion;
@@ -881,9 +611,13 @@ export function registerThemeSettings(Alpine) {
 
       try {
         const { mutateThemeConfig } = await loadThemeConfigClient();
+        const { mergeSettingsChanges } = await loadSettingsSave();
         const result = await mutateThemeConfig(
           this.endpoint,
-          (latestConfig) => applyThemeSettingsDraftToConfig(latestConfig, saveDraft, savePaths)
+          (latestConfig) => mergeSettingsChanges(latestConfig, saveDraft, savePaths, {
+            baseline: this.baseline,
+            resources: Object.fromEntries(Object.entries(this.resources).map(([kind, state]) => [kind, state.items]))
+          })
         );
         const savedConfig = result.config;
         const savedBaseline = buildThemeSettingsDraft(savedConfig);
@@ -904,6 +638,7 @@ export function registerThemeSettings(Alpine) {
         this.draft = nextDraft;
         this.dirtyPaths = pendingPaths;
         this.reloadRequired = true;
+        this.desktopLayoutReloadRequired ||= savePaths.some((path) => path.startsWith('desktop.icons.'));
         this.statusTone = pendingPaths.length > 0 ? 'warning' : 'success';
         this.statusMessage = pendingPaths.length > 0
           ? `本次修改已保存；保存期间又产生 ${pendingPaths.length} 项新修改，请再次应用。`
@@ -913,10 +648,11 @@ export function registerThemeSettings(Alpine) {
         this.draft = cloneThemeSettingsValue(savedBaseline);
         this.applyRuntimePreview();
         restoreStoredTheme(this.runtimeSnapshot, Alpine);
+        applyBodyPreview(savedBaseline);
         this.runtimeSnapshot = captureRuntimeSnapshot();
         this.draft = pendingDraft;
         if (pendingPaths.length > 0) {
-          this.applyRuntimePreview();
+          pendingPaths.forEach((path) => this.applyRuntimePreview(path));
         }
         window.dispatchEvent(new CustomEvent('theme-settings-saved', {
           detail: {
@@ -942,24 +678,6 @@ export function registerThemeSettings(Alpine) {
     reloadPage() {
       if (this.hasDirtyChanges() || this.saving) return;
       window.location.reload();
-    },
-
-    switchPane(pane) {
-      if (!SETTINGS_NAV_ITEMS.some((item) => item.id === pane)) return;
-      const restoreMobileToggleFocus = this.mobileSidebarOpen && this.isMobileViewport;
-      const content = document.querySelector('[data-theme-settings-content]');
-      if (content) {
-        content.scrollTop = 0;
-        content.scrollLeft = 0;
-      }
-      this.activePane = pane;
-      this.mobileSidebarOpen = false;
-      window.requestAnimationFrame(() => {
-        content?.scrollTo?.({ top: 0, left: 0, behavior: 'auto' });
-        if (restoreMobileToggleFocus) {
-          document.querySelector('[data-theme-settings-sidebar-toggle]')?.focus?.({ preventScroll: true });
-        }
-      });
     },
 
     toggleMobileSidebar() {
@@ -988,10 +706,7 @@ export function registerThemeSettings(Alpine) {
       }
     },
 
-    navItemVisible(item) {
-      const query = normalizeSearchValue(this.query);
-      if (!query) return true;
-      return normalizeSearchValue(`${item.label} ${item.detail}`).includes(query);
-    }
+
   });
+  registerThemeSettingsAssetPicker(Alpine);
 }

@@ -74,6 +74,7 @@ const fakeWindow = {
 
 const fakeDocument = {
   title: '分类',
+  querySelector() { return null; },
   body: { style: {} },
   head: { querySelector() { return null; } },
   addEventListener(type, handler) {
@@ -235,7 +236,12 @@ try {
   let desktopFactory;
   registerDesktopSurface({ data(_name, factory) { desktopFactory = factory; } });
   let settingsStore;
-  registerThemeSettings({ store(_name, store) { settingsStore = store; } });
+  const settingsStores = new Map();
+  registerThemeSettings({ store(name, store) {
+    if (arguments.length > 1) settingsStores.set(name, store);
+    if (name === 'themeSettings' && store) settingsStore = store;
+    return settingsStores.get(name);
+  } });
   fakeDocument.body.classList = { remove() {} };
   const surface = desktopFactory();
   Object.assign(surface, editModeMethods);

@@ -71,6 +71,7 @@ function normalizeDesktopLayoutPayload(layoutVersion, rawPayload) {
     version: rawPayload.version ?? DESKTOP_LAYOUT_STORAGE_SCHEMA_VERSION,
     layoutVersion: rawPayload.layoutVersion || layoutVersion,
     columns: rawPayload.columns || null,
+    ...(rawPayload.hasFullIconDefs === true ? { hasFullIconDefs: true } : {}),
     instances: Array.isArray(rawPayload.instances) ? rawPayload.instances : [],
     icons: Array.isArray(rawPayload.icons) ? rawPayload.icons : []
   };

@@ -393,11 +393,16 @@ try {
   desktop.ensurePersistenceWriteRuntime = async () => persistenceWrite;
 
   const slowPut = deferred();
+  let serverConfig = { spec: { value: { default_layout: {} } } };
   let requestCount = 0;
   globalThis.fetch = async (_url, options = {}) => {
     requestCount += 1;
-    if (options.method === 'PUT') return slowPut.promise;
-    return response({ spec: { value: { default_layout: {} } } });
+    if (options.method === 'PUT') {
+      const result = await slowPut.promise;
+      serverConfig = JSON.parse(options.body);
+      return result;
+    }
+    return response(serverConfig);
   };
 
   const firstSave = desktop.saveDefaultLayoutToServer();
@@ -416,9 +421,13 @@ try {
   assert.equal(desktop.widgets[0].title, '保存期间的新修改', 'newer live edits must remain intact');
   assert.equal(desktop.serverLayoutSaveState, 'dirty');
 
-  globalThis.fetch = async (_url, options = {}) => options.method === 'PUT'
-    ? response()
-    : response({ spec: { value: { default_layout: {} } } });
+  globalThis.fetch = async (_url, options = {}) => {
+    if (options.method === 'PUT') {
+      serverConfig = JSON.parse(options.body);
+      return response();
+    }
+    return response(serverConfig);
+  };
   assert.equal(await desktop.saveDefaultLayoutToServer(), true, 'a follow-up save should persist the newer snapshot');
   assert.equal(desktop.defaultWidgets[0].title, '保存期间的新修改');
   assert.equal(desktop.serverLayoutSaveState, 'saved');

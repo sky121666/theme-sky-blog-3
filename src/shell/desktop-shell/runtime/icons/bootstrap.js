@@ -73,13 +73,14 @@ export function normalizeDesktopIconInstance(instance, fallback = {}) {
 
 export function serializeDesktopIconInstance(icon) {
   const link = normalizeDesktopIconHref(icon.href);
+  const external = typeof icon.external === 'boolean' ? icon.external : link.external;
   return {
     key: icon.key,
     title: icon.title,
     href: link.href,
-    pjax: link.pjax && icon.pjax !== false,
+    pjax: link.pjax && !external && icon.pjax !== false,
     pjaxApp: icon.pjaxApp || '',
-    external: link.external,
+    external,
     subtype: icon.subtype || 'folder',
     dataId: icon.dataId || icon.key,
     x: icon.baseX ?? icon.x,
@@ -127,12 +128,13 @@ export function readDesktopIconsBootstrap() {
   if (!Array.isArray(bootstrap)) return [];
   return bootstrap.map((icon, index) => {
     const link = normalizeDesktopIconHref(icon?.href || '#');
+    const external = typeof icon?.external === 'boolean' ? icon.external : link.external;
     return {
       ...normalizeDesktopIconBootstrap(icon, index),
       href: link.href,
-      pjax: link.pjax && icon?.pjax !== false,
+      pjax: link.pjax && !external && icon?.pjax !== false,
       pjaxApp: typeof icon?.pjaxApp === 'string' ? icon.pjaxApp : '',
-      external: link.external,
+      external,
       subtype: normalizeDesktopIconType(icon?.subtype || icon?.type),
       dataId: icon?.dataId || icon?.title || icon?.name || `icon-${index + 1}`
     };
@@ -177,14 +179,15 @@ export function mergeDesktopIconLayout(defaultIcons, savedLayout, resolvedWidget
     return validIcons.map((icon, index) => {
       const fallback = computeDefaultDesktopIconPlacement(index, 12, Math.max(4, maxVisibleRows));
       const link = normalizeDesktopIconHref(icon.href || '#');
+      const external = typeof icon.external === 'boolean' ? icon.external : link.external;
       return {
         key: icon.key,
         kind: 'icon',
         title: icon.title || '',
         href: link.href,
-        pjax: link.pjax && icon.pjax !== false,
+        pjax: link.pjax && !external && icon.pjax !== false,
         pjaxApp: typeof icon.pjaxApp === 'string' ? icon.pjaxApp : '',
-        external: link.external,
+        external,
         subtype: normalizeDesktopIconType(icon.subtype || 'folder'),
         dataId: icon.dataId || icon.key,
         x: toPositiveInt(icon.x ?? icon.baseX, fallback.x),

@@ -1,0 +1,86 @@
+<section xmlns:th="https://www.thymeleaf.org" th:fragment="pane"
+         class="theme-settings-pane theme-settings-pane-appearance" data-settings-pane="appearance"
+         x-show="$store.themeSettings.activePane === 'appearance'" aria-labelledby="theme-settings-title">
+  <section class="theme-settings-section">
+    <div class="theme-settings-group">
+      <div class="theme-settings-group-row theme-settings-appearance-row" data-setting-path="header.theme.default_mode">
+        <span class="theme-settings-copy"><strong>外观</strong></span>
+        <div class="theme-settings-appearance-choices" role="radiogroup" aria-label="外观">
+          <button type="button" role="radio" class="is-light" :class="{ 'is-selected': $store.themeSettings.value('header.theme.default_mode') === 'light' }"
+                  :aria-checked="($store.themeSettings.value('header.theme.default_mode') === 'light').toString()" @click="$store.themeSettings.setThemeMode('light')">
+            <span class="theme-settings-appearance-preview" aria-hidden="true"><img th:src="${#theme.assets('/images/wallpaper-presets/tahoe-blue.svg')}" alt="" /><span></span></span><span>浅色</span>
+          </button>
+          <button type="button" role="radio" class="is-dark" :class="{ 'is-selected': $store.themeSettings.value('header.theme.default_mode') === 'dark' }"
+                  :aria-checked="($store.themeSettings.value('header.theme.default_mode') === 'dark').toString()" @click="$store.themeSettings.setThemeMode('dark')">
+            <span class="theme-settings-appearance-preview" aria-hidden="true"><img th:src="${#theme.assets('/images/wallpaper-presets/tahoe-blue.svg')}" alt="" /><span></span></span><span>深色</span>
+          </button>
+          <button type="button" role="radio" class="is-system" :class="{ 'is-selected': $store.themeSettings.value('header.theme.default_mode') === 'system' }"
+                  :aria-checked="($store.themeSettings.value('header.theme.default_mode') === 'system').toString()" @click="$store.themeSettings.setThemeMode('system')">
+            <span class="theme-settings-appearance-preview" aria-hidden="true"><img th:src="${#theme.assets('/images/wallpaper-presets/tahoe-blue.svg')}" alt="" /><span></span></span><span>自动</span>
+          </button>
+        </div>
+      </div>
+      <label class="theme-settings-group-row" data-setting-path="header.theme.enable_frontend_setting">
+        <span class="theme-settings-copy"><strong>允许访客切换外观</strong></span>
+        <input type="checkbox" class="theme-settings-switch-input" :checked="$store.themeSettings.value('header.theme.enable_frontend_setting')"
+               @change="$store.themeSettings.update('header.theme.enable_frontend_setting', $event.target.checked)" />
+        <span class="theme-settings-switch" aria-hidden="true"></span>
+      </label>
+    </div>
+
+  </section>
+  <section class="theme-settings-section">
+    <h3 class="theme-settings-section-title">主题</h3>
+    <div class="theme-settings-group">
+      <div class="theme-settings-group-row theme-settings-accent-row" data-setting-path="desktop.appearance.preset">
+        <div class="theme-settings-row-heading"><strong>主题配色</strong><span class="theme-settings-current-value" x-text="$store.themeSettings.value('desktop.appearance.mode') === 'custom' ? '自定义' : '内置配色'"></span></div>
+        <div class="theme-settings-swatches" role="radiogroup" aria-label="主题配色">
+          <button type="button" class="is-blue" role="radio" aria-label="海蓝" title="海蓝"
+                  :class="{ 'is-selected': $store.themeSettings.value('desktop.appearance.mode') === 'preset' && $store.themeSettings.value('desktop.appearance.preset') === 'blue' }" :aria-checked="($store.themeSettings.value('desktop.appearance.mode') === 'preset' && $store.themeSettings.value('desktop.appearance.preset') === 'blue').toString()"
+                  @click="$store.themeSettings.setAppearancePreset('blue')"><span></span></button>
+          <button type="button" class="is-purple" role="radio" aria-label="紫藤" title="紫藤"
+                  :class="{ 'is-selected': $store.themeSettings.value('desktop.appearance.mode') === 'preset' && $store.themeSettings.value('desktop.appearance.preset') === 'purple' }" :aria-checked="($store.themeSettings.value('desktop.appearance.mode') === 'preset' && $store.themeSettings.value('desktop.appearance.preset') === 'purple').toString()"
+                  @click="$store.themeSettings.setAppearancePreset('purple')"><span></span></button>
+          <button type="button" class="is-pink" role="radio" aria-label="玫粉" title="玫粉"
+                  :class="{ 'is-selected': $store.themeSettings.value('desktop.appearance.mode') === 'preset' && $store.themeSettings.value('desktop.appearance.preset') === 'pink' }" :aria-checked="($store.themeSettings.value('desktop.appearance.mode') === 'preset' && $store.themeSettings.value('desktop.appearance.preset') === 'pink').toString()"
+                  @click="$store.themeSettings.setAppearancePreset('pink')"><span></span></button>
+          <button type="button" class="is-red" role="radio" aria-label="樱红" title="樱红"
+                  :class="{ 'is-selected': $store.themeSettings.value('desktop.appearance.mode') === 'preset' && $store.themeSettings.value('desktop.appearance.preset') === 'red' }" :aria-checked="($store.themeSettings.value('desktop.appearance.mode') === 'preset' && $store.themeSettings.value('desktop.appearance.preset') === 'red').toString()"
+                  @click="$store.themeSettings.setAppearancePreset('red')"><span></span></button>
+          <button type="button" class="is-orange" role="radio" aria-label="琥珀" title="琥珀"
+                  :class="{ 'is-selected': $store.themeSettings.value('desktop.appearance.mode') === 'preset' && $store.themeSettings.value('desktop.appearance.preset') === 'orange' }" :aria-checked="($store.themeSettings.value('desktop.appearance.mode') === 'preset' && $store.themeSettings.value('desktop.appearance.preset') === 'orange').toString()"
+                  @click="$store.themeSettings.setAppearancePreset('orange')"><span></span></button>
+          <button type="button" class="is-yellow" role="radio" aria-label="麦黄" title="麦黄"
+                  :class="{ 'is-selected': $store.themeSettings.value('desktop.appearance.mode') === 'preset' && $store.themeSettings.value('desktop.appearance.preset') === 'yellow' }" :aria-checked="($store.themeSettings.value('desktop.appearance.mode') === 'preset' && $store.themeSettings.value('desktop.appearance.preset') === 'yellow').toString()"
+                  @click="$store.themeSettings.setAppearancePreset('yellow')"><span></span></button>
+          <button type="button" class="is-green" role="radio" aria-label="森绿" title="森绿"
+                  :class="{ 'is-selected': $store.themeSettings.value('desktop.appearance.mode') === 'preset' && $store.themeSettings.value('desktop.appearance.preset') === 'green' }" :aria-checked="($store.themeSettings.value('desktop.appearance.mode') === 'preset' && $store.themeSettings.value('desktop.appearance.preset') === 'green').toString()"
+                  @click="$store.themeSettings.setAppearancePreset('green')"><span></span></button>
+          <button type="button" class="is-graphite" role="radio" aria-label="石墨" title="石墨"
+                  :class="{ 'is-selected': $store.themeSettings.value('desktop.appearance.mode') === 'preset' && $store.themeSettings.value('desktop.appearance.preset') === 'graphite' }" :aria-checked="($store.themeSettings.value('desktop.appearance.mode') === 'preset' && $store.themeSettings.value('desktop.appearance.preset') === 'graphite').toString()"
+                  @click="$store.themeSettings.setAppearancePreset('graphite')"><span></span></button>
+        </div>
+      </div>
+      <button type="button" class="theme-settings-group-row theme-settings-disclosure-row" data-setting-path="desktop.appearance.mode"
+              :aria-expanded="($store.themeSettings.value('desktop.appearance.mode') === 'custom' || ['desktop.appearance.accent_color', 'desktop.appearance.selection_color', 'desktop.appearance.folder_color1', 'desktop.appearance.folder_color2', 'desktop.appearance.folder_color3'].includes($store.themeSettings.focusedSettingPath)).toString()" aria-controls="theme-settings-custom-colors"
+              @click="$store.themeSettings.useCustomAppearance()">
+        <span class="theme-settings-copy"><strong>自定义颜色</strong></span>
+        <span class="theme-settings-disclosure-value"><span x-text="$store.themeSettings.value('desktop.appearance.mode') === 'custom' ? '已启用' : '设置'"></span><span class="icon-[lucide--chevron-right]" aria-hidden="true"></span></span>
+      </button>
+      <p class="theme-settings-section-note theme-settings-custom-color-note" x-show="$store.themeSettings.value('desktop.appearance.mode') !== 'custom' &amp;&amp; ['desktop.appearance.accent_color', 'desktop.appearance.selection_color', 'desktop.appearance.folder_color1', 'desktop.appearance.folder_color2', 'desktop.appearance.folder_color3'].includes($store.themeSettings.focusedSettingPath)">启用上方「自定义颜色」后，这些颜色才会显示在桌面上。</p>
+      <div id="theme-settings-custom-colors" class="theme-settings-custom-colors" x-show="$store.themeSettings.value('desktop.appearance.mode') === 'custom' || ['desktop.appearance.accent_color', 'desktop.appearance.selection_color', 'desktop.appearance.folder_color1', 'desktop.appearance.folder_color2', 'desktop.appearance.folder_color3'].includes($store.themeSettings.focusedSettingPath)">
+        <label data-setting-path="desktop.appearance.accent_color"><span>强调色</span><input type="color" :value="$store.themeSettings.value('desktop.appearance.accent_color')" @input="$store.themeSettings.update('desktop.appearance.accent_color', $event.target.value)" /></label>
+        <label data-setting-path="desktop.appearance.selection_color"><span>选中态</span><input type="color" :value="$store.themeSettings.value('desktop.appearance.selection_color')" @input="$store.themeSettings.update('desktop.appearance.selection_color', $event.target.value)" /></label>
+        <label data-setting-path="desktop.appearance.folder_color1"><span>文件夹主色</span><input type="color" :value="$store.themeSettings.value('desktop.appearance.folder_color1')" @input="$store.themeSettings.update('desktop.appearance.folder_color1', $event.target.value)" /></label>
+        <label data-setting-path="desktop.appearance.folder_color2"><span>阴影层</span><input type="color" :value="$store.themeSettings.value('desktop.appearance.folder_color2')" @input="$store.themeSettings.update('desktop.appearance.folder_color2', $event.target.value)" /></label>
+        <label data-setting-path="desktop.appearance.folder_color3"><span>亮部层</span><input type="color" :value="$store.themeSettings.value('desktop.appearance.folder_color3')" @input="$store.themeSettings.update('desktop.appearance.folder_color3', $event.target.value)" /></label>
+      </div>
+    </div>
+
+  </section>
+  <button type="button" class="theme-settings-group theme-settings-link-row" @click="$store.themeSettings.switchPane('wallpaper')">
+    <span class="theme-settings-inline-icon icon-[lucide--image]" aria-hidden="true"></span>
+    <span class="theme-settings-copy"><strong>墙纸</strong></span>
+    <span class="icon-[lucide--chevron-right]" aria-hidden="true"></span>
+  </button>
+</section>

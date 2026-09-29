@@ -1,0 +1,107 @@
+<th:block xmlns:th="https://www.thymeleaf.org" th:fragment="picker">
+  <dialog id="theme-asset-picker" class="theme-asset-dialog" aria-labelledby="theme-asset-title"
+          @cancel.prevent="$store.themeAssets.close()"
+          @click="if ($event.target === $el) $store.themeAssets.close()">
+    <div class="theme-asset-panel" :class="{ 'is-icon-picker': $store.themeAssets.kind === 'icon' }">
+      <header class="theme-asset-heading">
+        <h2 id="theme-asset-title" x-text="$store.themeAssets.title">选择图片</h2>
+        <button type="button" class="theme-asset-close" aria-label="关闭素材选择" @click="$store.themeAssets.close()"><span class="icon-[lucide--x]" aria-hidden="true"></span></button>
+      </header>
+
+      <div class="theme-asset-tabs" x-show="$store.themeAssets.kind === 'image'" aria-label="图片来源">
+        <button type="button" :aria-pressed="$store.themeAssets.tab === 'library'" :disabled="$store.themeAssets.uploading" @click="$store.themeAssets.switchTab('library')">附件库</button>
+        <button type="button" :aria-pressed="$store.themeAssets.tab === 'upload'" :disabled="$store.themeAssets.uploading" @click="$store.themeAssets.switchTab('upload')">上传图片</button>
+        <button type="button" :aria-pressed="$store.themeAssets.tab === 'url'" :disabled="$store.themeAssets.uploading" @click="$store.themeAssets.switchTab('url')">图片地址</button>
+      </div>
+
+      <div class="theme-asset-toolbar" :class="{ 'is-icon-toolbar': $store.themeAssets.kind === 'icon' }" x-show="$store.themeAssets.kind === 'icon' || $store.themeAssets.tab === 'library'">
+        <select class="theme-asset-collection" aria-label="图标集" x-show="$store.themeAssets.kind === 'icon'" :value="$store.themeAssets.iconCollection" @change="$store.themeAssets.switchIconCollection($event.target.value)">
+          <option value="" :selected="!$store.themeAssets.iconCollection">全部图标集</option>
+          <template x-for="collection in $store.themeAssets.iconCollectionOptions()" :key="collection.prefix"><option :value="collection.prefix" :selected="$store.themeAssets.iconCollection === collection.prefix" x-text="collection.name"></option></template>
+        </select>
+        <label class="theme-asset-search"><span class="icon-[lucide--search]" aria-hidden="true"></span><input type="search" aria-label="搜索素材" :placeholder="$store.themeAssets.kind === 'image' ? '搜索附件名称' : 'Search icons…'" x-model="$store.themeAssets.query" @input="$store.themeAssets.scheduleSearch()" /></label>
+        <button type="button" class="theme-asset-refresh" aria-label="刷新素材" title="刷新" :disabled="$store.themeAssets.busy" @click="$store.themeAssets.kind === 'icon' ? $store.themeAssets.refreshIcons() : $store.themeAssets.search()"><span class="icon-[lucide--rotate-cw]" aria-hidden="true"></span></button>
+      </div>
+
+      <div class="theme-asset-content" :aria-busy="$store.themeAssets.busy.toString()">
+        <p class="theme-asset-feedback is-error" role="alert" x-show="$store.themeAssets.kind === 'image' &amp;&amp; $store.themeAssets.error" x-text="$store.themeAssets.error"></p>
+        <p class="theme-asset-feedback" role="status" x-show="$store.themeAssets.kind === 'image' &amp;&amp; $store.themeAssets.notice" x-text="$store.themeAssets.notice"></p>
+        <p class="theme-asset-feedback" role="status" x-show="$store.themeAssets.kind === 'image' &amp;&amp; $store.themeAssets.busy" x-text="$store.themeAssets.uploading ? '正在上传，请稍候…' : '正在加载…'"></p>
+
+        <div x-show="$store.themeAssets.kind === 'image' &amp;&amp; $store.themeAssets.tab === 'library'">
+          <div class="theme-asset-grid">
+            <template x-for="item in ($store.themeAssets.kind === 'image' ? $store.themeAssets.items : [])" :key="item.name">
+              <button type="button" class="theme-asset-card" :aria-label="item.displayName" :aria-pressed="$store.themeAssets.selectedUrl === item.url" @click="$store.themeAssets.selectImage(item)">
+                <img :src="item.thumbnailUrl || item.url" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" @error="if ($el.getAttribute('src') !== item.url) $el.src = item.url" />
+                <span x-text="item.displayName"></span>
+              </button>
+            </template>
+          </div>
+          <p class="theme-asset-empty" x-show="!$store.themeAssets.busy &amp;&amp; !$store.themeAssets.error &amp;&amp; !$store.themeAssets.items.length">没有找到可用图片，可更换关键词或上传图片。</p>
+          <nav class="theme-asset-pagination" aria-label="附件分页" x-show="$store.themeAssets.totalPages > 1">
+            <button type="button" class="theme-settings-secondary-button" :disabled="$store.themeAssets.busy || $store.themeAssets.page <= 1" @click="$store.themeAssets.search($store.themeAssets.page - 1)">上一页</button>
+            <span x-text="$store.themeAssets.page + ' / ' + $store.themeAssets.totalPages"></span>
+            <button type="button" class="theme-settings-secondary-button" :disabled="$store.themeAssets.busy || $store.themeAssets.page >= $store.themeAssets.totalPages" @click="$store.themeAssets.search($store.themeAssets.page + 1)">下一页</button>
+          </nav>
+        </div>
+
+        <div class="theme-asset-upload" x-show="$store.themeAssets.kind === 'image' &amp;&amp; $store.themeAssets.tab === 'upload'">
+          <label>存储位置<select aria-label="上传存储位置" x-model="$store.themeAssets.policyName" :disabled="$store.themeAssets.busy"><option value="">请选择存储策略</option><template x-for="policy in $store.themeAssets.policies" :key="policy.name"><option :value="policy.name" x-text="policy.displayName"></option></template></select></label>
+          <label class="theme-asset-dropzone" @dragover.prevent @drop.prevent="$store.themeAssets.upload($event.dataTransfer.files[0])">
+            <span class="icon-[lucide--upload]" aria-hidden="true"></span><strong>选择图片，或拖动图片到这里</strong>
+            <span x-text="$store.themeAssets.imageTypeDescription() + '；文件大小受存储策略限制。'"></span>
+            <input type="file" aria-label="选择要上传的图片" :accept="$store.themeAssets.accepts.join(',')" :disabled="$store.themeAssets.busy || !$store.themeAssets.policyName" @change="$store.themeAssets.upload($event.target.files[0]); $event.target.value = ''" />
+          </label>
+          <p class="theme-asset-feedback">上传成功的文件会保留在附件库，取消本次设置不会删除文件。</p>
+        </div>
+
+        <div class="theme-asset-url" x-show="$store.themeAssets.kind === 'image' &amp;&amp; $store.themeAssets.tab === 'url'">
+          <label>图片地址<input type="text" aria-label="图片地址" maxlength="2048" placeholder="https://… 或 /upload/…" x-model="$store.themeAssets.urlInput" @input="$store.themeAssets.selectedUrl = ''" @keydown.enter.prevent="$store.themeAssets.useUrl()" /></label>
+          <button type="button" class="theme-settings-secondary-button" @click="$store.themeAssets.useUrl()">预览图片</button>
+        </div>
+
+        <div class="theme-asset-icon-browser" x-show="$store.themeAssets.kind === 'icon'">
+          <div class="theme-asset-result-label"><span x-text="$store.themeAssets.iconResultsLabel()"></span><span class="theme-asset-loading-indicator" role="status" x-show="$store.themeAssets.busy"><span class="theme-asset-spinner" aria-hidden="true"></span><span class="sr-only">Loading icons…</span></span></div>
+          <div class="theme-asset-results" :class="{ 'is-loading': $store.themeAssets.busy, 'has-error': !!$store.themeAssets.error }">
+            <div class="theme-asset-icon-grid">
+              <template x-for="item in ($store.themeAssets.kind === 'icon' ? $store.themeAssets.items : [])" :key="item.name">
+                <button type="button" class="theme-asset-icon" :title="item.name" :aria-label="item.name" :aria-disabled="$store.themeAssets.busy || !!$store.themeAssets.error" :aria-pressed="$store.themeAssets.selectedIcon?.name === item.name" @click="if (!$store.themeAssets.busy &amp;&amp; !$store.themeAssets.error) $store.themeAssets.selectIcon(item)"><span x-html="item.svg"></span></button>
+              </template>
+            </div>
+            <template x-if="$store.themeAssets.kind === 'icon' &amp;&amp; $store.themeAssets.busy &amp;&amp; !$store.themeAssets.items.length">
+              <div class="theme-asset-icon-skeleton" aria-hidden="true"><template x-for="slot in 50" :key="slot"><span></span></template></div>
+            </template>
+            <div class="theme-asset-empty theme-asset-result-overlay" x-show="!$store.themeAssets.busy &amp;&amp; !$store.themeAssets.error &amp;&amp; !$store.themeAssets.items.length"><strong>未找到匹配图标</strong><p>Try another keyword or icon set.</p></div>
+            <div class="theme-asset-empty theme-asset-result-overlay is-error" role="alert" x-show="$store.themeAssets.error"><strong x-text="$store.themeAssets.error"></strong><button type="button" class="theme-settings-secondary-button" @click="$store.themeAssets.refreshIcons()">重试</button></div>
+          </div>
+          <div class="theme-asset-result-toolbar">
+            <p class="theme-asset-result-note" role="status" :title="$store.themeAssets.notice || $store.themeAssets.collectionsError" x-text="$store.themeAssets.notice || $store.themeAssets.collectionsError"></p>
+            <nav class="theme-asset-pagination" aria-label="图标分页">
+              <button type="button" class="theme-settings-secondary-button" aria-label="上一页图标" :aria-disabled="$store.themeAssets.busy || !!$store.themeAssets.error || $store.themeAssets.page <= 1" @click="if (!$store.themeAssets.busy &amp;&amp; !$store.themeAssets.error &amp;&amp; $store.themeAssets.page > 1) $store.themeAssets.search($store.themeAssets.page - 1)"><span class="icon-[lucide--chevron-left]" aria-hidden="true"></span></button>
+              <span x-text="$store.themeAssets.page"></span>
+              <button type="button" class="theme-settings-secondary-button" aria-label="下一页图标" :aria-disabled="$store.themeAssets.busy || !!$store.themeAssets.error || !$store.themeAssets.hasMore" @click="if (!$store.themeAssets.busy &amp;&amp; !$store.themeAssets.error &amp;&amp; $store.themeAssets.hasMore) $store.themeAssets.search($store.themeAssets.page + 1)"><span class="icon-[lucide--chevron-right]" aria-hidden="true"></span></button>
+            </nav>
+          </div>
+        </div>
+      </div>
+
+      <footer class="theme-asset-footer">
+        <div class="theme-asset-selection" x-show="$store.themeAssets.kind === 'image'">
+          <img x-show="$store.themeAssets.selectedUrl" :src="$store.themeAssets.selectedUrl || null" alt="已选图片预览" referrerpolicy="no-referrer" @error="$store.themeAssets.error = '图片暂时无法加载，请检查地址或附件访问权限。'" />
+          <span x-text="$store.themeAssets.selectedUrl ? '已选择图片，应用设置后对全站生效。' : '请选择一张图片'"></span>
+        </div>
+        <div class="theme-asset-icon-options" x-show="$store.themeAssets.kind === 'icon'">
+          <div class="theme-asset-selected-icon"><span class="theme-asset-icon-preview" x-html="$store.themeAssets.iconPreview"></span><span :title="$store.themeAssets.selectedIcon?.name || ''" x-text="$store.themeAssets.selectedIcon ? ($store.themeAssets.selectedIcon.name || '自定义图标') : '未选择图标'"></span></div>
+          <div class="theme-asset-color-options"><label class="theme-asset-color-toggle"><span>自定义颜色</span><input type="checkbox" class="theme-settings-switch-input" x-model="$store.themeAssets.iconUseColor" @change="$store.themeAssets.updateIconPreview()" /><span class="theme-settings-switch" aria-hidden="true"></span></label>
+          <input type="color" aria-label="图标颜色" x-show="$store.themeAssets.iconUseColor" x-model="$store.themeAssets.iconColor" @input="$store.themeAssets.updateIconPreview()" /></div>
+        </div>
+        <p class="theme-asset-feedback is-error" role="alert" x-show="$store.themeAssets.kind === 'icon' &amp;&amp; $store.themeAssets.iconPreviewError" x-text="$store.themeAssets.iconPreviewError"></p>
+        <div class="theme-asset-actions">
+          <button type="button" class="theme-settings-secondary-button theme-asset-default" x-show="$store.themeAssets.kind === 'icon'" @click="$store.themeAssets.useDefaultIcon()">使用默认图标</button>
+          <button type="button" class="theme-settings-secondary-button" @click="$store.themeAssets.close()">取消</button>
+          <button type="button" class="theme-settings-primary-button" :disabled="$store.themeAssets.kind === 'image' ? ($store.themeAssets.busy || !$store.themeAssets.selectedUrl) : !$store.themeAssets.iconPreview" @click="$store.themeAssets.confirm()" x-text="$store.themeAssets.kind === 'image' ? '使用图片' : '使用图标'">使用图片</button>
+        </div>
+      </footer>
+    </div>
+  </dialog>
+</th:block>

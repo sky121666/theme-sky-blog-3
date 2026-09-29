@@ -20,6 +20,14 @@
        th:data-notification-center-guest-title="${notificationCenterGuestTitle}"
        th:data-notification-center-default-open="${notificationCenterDefaultOpen}"
        th:data-notification-center-authenticated="${notificationCenterAuthenticated}">
+    <template id="theme-header-icon-defaults">
+      <span data-icon-path="header.logo.icon">&#63743;</span>
+      <span data-icon-path="header.icons.mobile_menu"><th:block th:replace="~{modules/shell/icons :: header_mobile_menu}" /></span>
+      <span data-icon-path="header.icons.search"><th:block th:replace="~{modules/shell/icons :: header_search}" /></span>
+      <span data-icon-path="header.icons.auth"><th:block th:replace="~{modules/shell/icons :: header_auth}" /></span>
+      <span data-icon-path="header.icons.theme_light"><th:block th:replace="~{modules/shell/icons :: header_theme_light}" /></span>
+      <span data-icon-path="header.icons.theme_dark"><th:block th:replace="~{modules/shell/icons :: header_theme_dark}" /></span>
+    </template>
     <div class="menubar-left">
       <a href="javascript:void(0)" class="menubar-icon-btn menubar-brand-icon" title="System">
         <th:block th:if="${#strings.isEmpty(logoIcon)}">

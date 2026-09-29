@@ -1,0 +1,112 @@
+<section xmlns:th="https://www.thymeleaf.org" th:fragment="pane"
+         class="theme-settings-pane theme-settings-pane-menu-control" data-settings-pane="menu-control"
+         x-show="$store.themeSettings.activePane === 'menu-control'" aria-labelledby="theme-settings-title">
+  <section class="theme-settings-section">
+    <h3 class="theme-settings-section-title">品牌</h3>
+    <div class="theme-settings-group">
+      <label class="theme-settings-input-row" data-setting-path="header.logo.title">
+        <span class="theme-settings-copy"><strong>应用名称</strong></span>
+        <input type="text" placeholder="使用站点标题" :value="$store.themeSettings.value('header.logo.title')"
+               @input="$store.themeSettings.update('header.logo.title', $event.target.value)" />
+      </label>
+    </div>
+
+  </section>
+  <section class="theme-settings-section">
+    <h3 class="theme-settings-section-title">菜单栏图标</h3>
+    <div class="theme-settings-group">
+      <template x-for="field in $store.themeSettings.iconFields.filter(field => field.path.startsWith('header.'))" :key="field.path">
+        <div class="theme-settings-group-row" :data-setting-path="field.path">
+          <span class="theme-settings-copy"><strong x-text="field.label"></strong></span>
+          <button type="button" class="theme-settings-icon-trigger" :aria-label="'选择图标：' + field.label" title="更换图标" aria-haspopup="dialog" aria-controls="theme-asset-picker" @click="$store.themeAssets.openIcon(field.path)"><span class="theme-settings-icon-sample" aria-hidden="true" x-html="$store.themeSettings.iconPreview(field.path)"></span><span class="icon-[lucide--chevrons-up-down] theme-settings-icon-disclosure" aria-hidden="true"></span></button>
+        </div>
+      </template>
+    </div>
+
+  </section>
+  <section class="theme-settings-section">
+    <h3 class="theme-settings-section-title">显示项目</h3>
+    <div class="theme-settings-group">
+      <label class="theme-settings-group-row" data-setting-path="header.actions.search_enabled">
+        <span class="theme-settings-copy"><strong>启用搜索</strong></span>
+        <input type="checkbox" class="theme-settings-switch-input" :checked="$store.themeSettings.value('header.actions.search_enabled')"
+               @change="$store.themeSettings.update('header.actions.search_enabled', $event.target.checked)" />
+        <span class="theme-settings-switch" aria-hidden="true"></span>
+      </label>
+      <label class="theme-settings-group-row" data-setting-path="header.actions.auth_enabled">
+        <span class="theme-settings-copy"><strong>登录入口</strong></span>
+        <input type="checkbox" class="theme-settings-switch-input" :checked="$store.themeSettings.value('header.actions.auth_enabled')"
+               @change="$store.themeSettings.update('header.actions.auth_enabled', $event.target.checked)" />
+        <span class="theme-settings-switch" aria-hidden="true"></span>
+      </label>
+      <label class="theme-settings-input-row" data-setting-path="header.auth.login_label">
+        <span class="theme-settings-copy"><strong>登录文案</strong></span>
+        <input type="text" :disabled="!$store.themeSettings.value('header.actions.auth_enabled')" :value="$store.themeSettings.value('header.auth.login_label')"
+               @input="$store.themeSettings.update('header.auth.login_label', $event.target.value)" />
+      </label>
+      <label class="theme-settings-group-row" data-setting-path="header.actions.mobile_menu_enabled">
+        <span class="theme-settings-copy"><strong>手机端菜单</strong></span>
+        <input type="checkbox" class="theme-settings-switch-input" :checked="$store.themeSettings.value('header.actions.mobile_menu_enabled')"
+               @change="$store.themeSettings.update('header.actions.mobile_menu_enabled', $event.target.checked)" />
+        <span class="theme-settings-switch" aria-hidden="true"></span>
+      </label>
+    </div>
+
+  </section>
+  <section class="theme-settings-section">
+    <h3 class="theme-settings-section-title">日期与时间</h3>
+    <div class="theme-settings-group">
+      <label class="theme-settings-group-row" data-setting-path="header.time.enabled">
+        <span class="theme-settings-copy"><strong>显示日期与时间</strong></span>
+        <input type="checkbox" class="theme-settings-switch-input" :checked="$store.themeSettings.value('header.time.enabled')"
+               @change="$store.themeSettings.update('header.time.enabled', $event.target.checked)" />
+        <span class="theme-settings-switch" aria-hidden="true"></span>
+      </label>
+      <label class="theme-settings-input-row" data-setting-path="header.time.desktop_preset">
+        <span class="theme-settings-copy"><strong>桌面端格式</strong></span>
+        <select :value="$store.themeSettings.value('header.time.desktop_preset')" :disabled="!$store.themeSettings.value('header.time.enabled')" @change="$store.themeSettings.update('header.time.desktop_preset', $event.target.value)">
+          <option value="time-only">仅时间</option>
+          <option value="time-seconds">时间含秒</option>
+          <option value="date-time">日期 + 时间</option>
+          <option value="weekday-date-time">星期 + 日期 + 时间</option>
+          <option value="month-day-weekday-time">月日 + 星期 + 时间</option>
+        </select>
+      </label>
+      <label class="theme-settings-input-row" data-setting-path="header.time.mobile_preset">
+        <span class="theme-settings-copy"><strong>手机端格式</strong></span>
+        <select :value="$store.themeSettings.value('header.time.mobile_preset')" :disabled="!$store.themeSettings.value('header.time.enabled')" @change="$store.themeSettings.update('header.time.mobile_preset', $event.target.value)">
+          <option value="time-only">仅时间</option>
+          <option value="time-seconds">时间含秒</option>
+          <option value="date-time">日期 + 时间</option>
+          <option value="weekday-date-time">星期 + 日期 + 时间</option>
+          <option value="month-day-weekday-time">月日 + 星期 + 时间</option>
+        </select>
+      </label>
+      <div class="theme-settings-group-row" data-setting-path="header.time.hour_cycle">
+        <span class="theme-settings-copy"><strong>小时制</strong></span>
+        <div class="theme-settings-segmented" role="radiogroup" aria-label="小时制">
+          <button type="button" role="radio" :class="{ 'is-selected': $store.themeSettings.value('header.time.hour_cycle') === 12 }"
+                  :aria-checked="($store.themeSettings.value('header.time.hour_cycle') === 12).toString()" @click="$store.themeSettings.update('header.time.hour_cycle', 12)">12 小时</button>
+          <button type="button" role="radio" :class="{ 'is-selected': $store.themeSettings.value('header.time.hour_cycle') === 24 }"
+                  :aria-checked="($store.themeSettings.value('header.time.hour_cycle') === 24).toString()" @click="$store.themeSettings.update('header.time.hour_cycle', 24)">24 小时</button>
+        </div>
+      </div>
+    </div>
+
+  </section>
+  <section class="theme-settings-section">
+    <h3 class="theme-settings-section-title">二级菜单背景</h3>
+    <div class="theme-settings-group">
+      <label class="theme-settings-input-row theme-settings-color-input-row" data-setting-path="header.dropdown.light_bg" :class="{ 'is-invalid': $store.themeSettings.validationError('header.dropdown.light_bg') }">
+        <span class="theme-settings-copy"><strong>浅色模式</strong></span><span class="theme-settings-color-value-control"><i :style="{ backgroundColor: $store.themeSettings.value('header.dropdown.light_bg') }" aria-hidden="true"></i><input type="text" :value="$store.themeSettings.value('header.dropdown.light_bg')" :aria-invalid="Boolean($store.themeSettings.validationError('header.dropdown.light_bg')).toString()" aria-describedby="header-dropdown-light_bg-error" @input="$store.themeSettings.updateCssColor('header.dropdown.light_bg', $event.target.value)" /></span>
+        <small id="header-dropdown-light_bg-error" class="theme-settings-field-error" x-show="$store.themeSettings.validationError('header.dropdown.light_bg')" x-text="$store.themeSettings.validationError('header.dropdown.light_bg')" role="alert"></small>
+      </label>
+      <label class="theme-settings-input-row theme-settings-color-input-row" data-setting-path="header.dropdown.dark_bg" :class="{ 'is-invalid': $store.themeSettings.validationError('header.dropdown.dark_bg') }">
+        <span class="theme-settings-copy"><strong>深色模式</strong></span><span class="theme-settings-color-value-control"><i :style="{ backgroundColor: $store.themeSettings.value('header.dropdown.dark_bg') }" aria-hidden="true"></i><input type="text" :value="$store.themeSettings.value('header.dropdown.dark_bg')" :aria-invalid="Boolean($store.themeSettings.validationError('header.dropdown.dark_bg')).toString()" aria-describedby="header-dropdown-dark_bg-error" @input="$store.themeSettings.updateCssColor('header.dropdown.dark_bg', $event.target.value)" /></span>
+        <small id="header-dropdown-dark_bg-error" class="theme-settings-field-error" x-show="$store.themeSettings.validationError('header.dropdown.dark_bg')" x-text="$store.themeSettings.validationError('header.dropdown.dark_bg')" role="alert"></small>
+      </label>
+    </div>
+    <p class="theme-settings-section-note">支持 CSS 颜色，例如 #ffffff 或 rgba(88, 92, 100, 0.66)。</p>
+  </section>
+
+</section>

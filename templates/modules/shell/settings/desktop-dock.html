@@ -1,0 +1,161 @@
+<section xmlns:th="https://www.thymeleaf.org" th:fragment="pane"
+         class="theme-settings-pane theme-settings-pane-desktop-dock" data-settings-pane="desktop-dock"
+         x-show="$store.themeSettings.activePane === 'desktop-dock'" aria-labelledby="theme-settings-title">
+  <section class="theme-settings-section">
+    <h3 class="theme-settings-section-title">桌面内容</h3>
+    <div class="theme-settings-group">
+      <details class="theme-settings-resource-picker" data-setting-path="desktop.icons.categories" @toggle="if ($event.target.open) $store.themeSettings.loadResources('categories')">
+        <summary><span class="theme-settings-copy"><strong>文章分类</strong></span><span class="theme-settings-resource-count" x-text="($store.themeSettings.value('desktop.icons.categories') || []).length + ' 项已选择'"></span><span class="icon-[lucide--chevron-right]" aria-hidden="true"></span></summary>
+        <div class="theme-settings-resource-body">
+          <label class="theme-settings-resource-search"><span class="icon-[lucide--search]" aria-hidden="true"></span><input type="search" placeholder="筛选已加载分类" aria-label="筛选已加载分类" :value="$store.themeSettings.resourceState('categories').query || ''" @input.debounce.300ms="$store.themeSettings.searchResources('categories', $event.target.value)" /></label>
+          <p class="theme-settings-resource-message" x-show="$store.themeSettings.resourceState('categories').busy" role="status">正在加载…</p>
+          <div class="theme-settings-resource-error" x-show="$store.themeSettings.resourceState('categories').error" role="alert"><span x-text="$store.themeSettings.resourceState('categories').error"></span><button type="button" class="theme-settings-text-button" @click="$store.themeSettings.loadResources('categories')">重试</button></div>
+          <div class="theme-settings-resource-options">
+            <template x-for="option in $store.themeSettings.resourceOptions('categories')" :key="option.name">
+              <label class="theme-settings-resource-option"><input type="checkbox" :checked="$store.themeSettings.resourceSelected('desktop.icons.categories', option.name)" :disabled="option.disabled &amp;&amp; !$store.themeSettings.resourceSelected('desktop.icons.categories', option.name)" @change="$store.themeSettings.toggleResource('desktop.icons.categories', option.name)" /><span x-text="option.label"></span></label>
+            </template>
+          </div>
+          <p class="theme-settings-resource-message" x-show="$store.themeSettings.resourceState('categories').loaded && !$store.themeSettings.resourceState('categories').busy && !$store.themeSettings.resourceState('categories').error && !$store.themeSettings.resourceOptions('categories').length">暂无匹配内容</p>
+          <button type="button" class="theme-settings-text-button" x-show="$store.themeSettings.resourceState('categories').hasNext" :disabled="$store.themeSettings.resourceState('categories').busy" @click="$store.themeSettings.loadResources('categories', true)">加载更多</button>
+        </div>
+      </details>
+      <details class="theme-settings-resource-picker" data-setting-path="desktop.icons.tags" @toggle="if ($event.target.open) $store.themeSettings.loadResources('tags')">
+        <summary><span class="theme-settings-copy"><strong>文章标签</strong></span><span class="theme-settings-resource-count" x-text="($store.themeSettings.value('desktop.icons.tags') || []).length + ' 项已选择'"></span><span class="icon-[lucide--chevron-right]" aria-hidden="true"></span></summary>
+        <div class="theme-settings-resource-body">
+          <label class="theme-settings-resource-search"><span class="icon-[lucide--search]" aria-hidden="true"></span><input type="search" placeholder="筛选已加载标签" aria-label="筛选已加载标签" :value="$store.themeSettings.resourceState('tags').query || ''" @input.debounce.300ms="$store.themeSettings.searchResources('tags', $event.target.value)" /></label>
+          <p class="theme-settings-resource-message" x-show="$store.themeSettings.resourceState('tags').busy" role="status">正在加载…</p>
+          <div class="theme-settings-resource-error" x-show="$store.themeSettings.resourceState('tags').error" role="alert"><span x-text="$store.themeSettings.resourceState('tags').error"></span><button type="button" class="theme-settings-text-button" @click="$store.themeSettings.loadResources('tags')">重试</button></div>
+          <div class="theme-settings-resource-options">
+            <template x-for="option in $store.themeSettings.resourceOptions('tags')" :key="option.name">
+              <label class="theme-settings-resource-option"><input type="checkbox" :checked="$store.themeSettings.resourceSelected('desktop.icons.tags', option.name)" :disabled="option.disabled &amp;&amp; !$store.themeSettings.resourceSelected('desktop.icons.tags', option.name)" @change="$store.themeSettings.toggleResource('desktop.icons.tags', option.name)" /><span x-text="option.label"></span></label>
+            </template>
+          </div>
+          <p class="theme-settings-resource-message" x-show="$store.themeSettings.resourceState('tags').loaded && !$store.themeSettings.resourceState('tags').busy && !$store.themeSettings.resourceState('tags').error && !$store.themeSettings.resourceOptions('tags').length">暂无匹配内容</p>
+          <button type="button" class="theme-settings-text-button" x-show="$store.themeSettings.resourceState('tags').hasNext" :disabled="$store.themeSettings.resourceState('tags').busy" @click="$store.themeSettings.loadResources('tags', true)">加载更多</button>
+        </div>
+      </details>
+      <details class="theme-settings-resource-picker" data-setting-path="desktop.icons.posts" @toggle="if ($event.target.open) $store.themeSettings.loadResources('posts')">
+        <summary><span class="theme-settings-copy"><strong>文章</strong></span><span class="theme-settings-resource-count" x-text="($store.themeSettings.value('desktop.icons.posts') || []).length + ' 项已选择'"></span><span class="icon-[lucide--chevron-right]" aria-hidden="true"></span></summary>
+        <div class="theme-settings-resource-body">
+          <label class="theme-settings-resource-search"><span class="icon-[lucide--search]" aria-hidden="true"></span><input type="search" placeholder="筛选已加载文章" aria-label="筛选已加载文章" :value="$store.themeSettings.resourceState('posts').query || ''" @input.debounce.300ms="$store.themeSettings.searchResources('posts', $event.target.value)" /></label>
+          <p class="theme-settings-resource-message" x-show="$store.themeSettings.resourceState('posts').busy" role="status">正在加载…</p>
+          <div class="theme-settings-resource-error" x-show="$store.themeSettings.resourceState('posts').error" role="alert"><span x-text="$store.themeSettings.resourceState('posts').error"></span><button type="button" class="theme-settings-text-button" @click="$store.themeSettings.loadResources('posts')">重试</button></div>
+          <div class="theme-settings-resource-options">
+            <template x-for="option in $store.themeSettings.resourceOptions('posts')" :key="option.name">
+              <label class="theme-settings-resource-option"><input type="checkbox" :checked="$store.themeSettings.resourceSelected('desktop.icons.posts', option.name)" :disabled="option.disabled &amp;&amp; !$store.themeSettings.resourceSelected('desktop.icons.posts', option.name)" @change="$store.themeSettings.toggleResource('desktop.icons.posts', option.name)" /><span x-text="option.label"></span></label>
+            </template>
+          </div>
+          <p class="theme-settings-resource-message" x-show="$store.themeSettings.resourceState('posts').loaded && !$store.themeSettings.resourceState('posts').busy && !$store.themeSettings.resourceState('posts').error && !$store.themeSettings.resourceOptions('posts').length">暂无匹配内容</p>
+          <button type="button" class="theme-settings-text-button" x-show="$store.themeSettings.resourceState('posts').hasNext" :disabled="$store.themeSettings.resourceState('posts').busy" @click="$store.themeSettings.loadResources('posts', true)">加载更多</button>
+        </div>
+      </details>
+      <details class="theme-settings-resource-picker" data-setting-path="desktop.icons.single_pages" @toggle="if ($event.target.open) $store.themeSettings.loadResources('singlepages')">
+        <summary><span class="theme-settings-copy"><strong>独立页面</strong></span><span class="theme-settings-resource-count" x-text="($store.themeSettings.value('desktop.icons.single_pages') || []).length + ' 项已选择'"></span><span class="icon-[lucide--chevron-right]" aria-hidden="true"></span></summary>
+        <div class="theme-settings-resource-body">
+          <label class="theme-settings-resource-search"><span class="icon-[lucide--search]" aria-hidden="true"></span><input type="search" placeholder="筛选已加载页面" aria-label="筛选已加载页面" :value="$store.themeSettings.resourceState('singlepages').query || ''" @input.debounce.300ms="$store.themeSettings.searchResources('singlepages', $event.target.value)" /></label>
+          <p class="theme-settings-resource-message" x-show="$store.themeSettings.resourceState('singlepages').busy" role="status">正在加载…</p>
+          <div class="theme-settings-resource-error" x-show="$store.themeSettings.resourceState('singlepages').error" role="alert"><span x-text="$store.themeSettings.resourceState('singlepages').error"></span><button type="button" class="theme-settings-text-button" @click="$store.themeSettings.loadResources('singlepages')">重试</button></div>
+          <div class="theme-settings-resource-options">
+            <template x-for="option in $store.themeSettings.resourceOptions('singlepages')" :key="option.name">
+              <label class="theme-settings-resource-option"><input type="checkbox" :checked="$store.themeSettings.resourceSelected('desktop.icons.single_pages', option.name)" :disabled="option.disabled &amp;&amp; !$store.themeSettings.resourceSelected('desktop.icons.single_pages', option.name)" @change="$store.themeSettings.toggleResource('desktop.icons.single_pages', option.name)" /><span x-text="option.label"></span></label>
+            </template>
+          </div>
+          <p class="theme-settings-resource-message" x-show="$store.themeSettings.resourceState('singlepages').loaded && !$store.themeSettings.resourceState('singlepages').busy && !$store.themeSettings.resourceState('singlepages').error && !$store.themeSettings.resourceOptions('singlepages').length">暂无匹配内容</p>
+          <button type="button" class="theme-settings-text-button" x-show="$store.themeSettings.resourceState('singlepages').hasNext" :disabled="$store.themeSettings.resourceState('singlepages').busy" @click="$store.themeSettings.loadResources('singlepages', true)">加载更多</button>
+        </div>
+      </details>
+    </div>
+    <p class="theme-settings-section-note">勾选要显示在桌面上的内容；取消勾选只会移除桌面入口。</p>
+  </section>
+  <section class="theme-settings-section">
+    <h3 class="theme-settings-section-title">自定义图标</h3>
+    <p class="theme-settings-section-note theme-settings-app-unavailable">已有图标名称用于保留桌面位置。显示标题可在桌面编辑器中调整。</p>
+    <div class="theme-settings-group">
+      <div class="theme-settings-custom-icon-list" data-setting-path="desktop.icons.custom_icons">
+        <template x-for="(item, index) in ($store.themeSettings.value('desktop.icons.custom_icons') || [])" :key="index">
+          <div class="theme-settings-custom-icon-editor">
+            <div class="theme-settings-row-heading"><strong x-text="item.name || '新图标'"></strong><button type="button" class="theme-settings-text-button is-danger" @click="$store.themeSettings.removeCustomIcon(index)">移除图标</button></div>
+            <label class="theme-settings-input-row"><span>名称</span><input type="text" :value="item.name" :readonly="$store.themeSettings.customIconNameLocked(index)" @input="$store.themeSettings.updateCustomIcon(index, 'name', $event.target.value)" /></label>
+            <label class="theme-settings-input-row"><span>链接</span><input type="text" placeholder="/about 或 https://…" :value="item.href" @input="$store.themeSettings.updateCustomIcon(index, 'href', $event.target.value)" /></label>
+            <label class="theme-settings-input-row"><span>图标样式</span><select :value="item.type" @change="$store.themeSettings.updateCustomIcon(index, 'type', $event.target.value)"><option value="folder">文件夹</option><option value="document">文稿</option><option value="link">链接</option></select></label>
+            <label class="theme-settings-group-row"><span>在新窗口打开</span><input type="checkbox" class="theme-settings-switch-input" :checked="item.external" @change="$store.themeSettings.updateCustomIcon(index, 'external', $event.target.checked)" /><span class="theme-settings-switch" aria-hidden="true"></span></label>
+          </div>
+        </template>
+        <div class="theme-settings-group-row"><span class="theme-settings-copy"><small x-show="!($store.themeSettings.value('desktop.icons.custom_icons') || []).length">为常用链接添加桌面入口。</small></span><button type="button" class="theme-settings-secondary-button" @click="$store.themeSettings.addCustomIcon()"><span class="icon-[lucide--plus]" aria-hidden="true"></span>添加图标</button></div>
+        <p class="theme-settings-field-error" x-show="$store.themeSettings.validationError('desktop.icons.custom_icons')" x-text="$store.themeSettings.validationError('desktop.icons.custom_icons')" role="alert"></p>
+      </div>
+    </div>
+
+  </section>
+  <section class="theme-settings-section">
+    <h3 class="theme-settings-section-title">Dock</h3>
+    <div class="theme-settings-group">
+      <label class="theme-settings-group-row" data-setting-path="dock.appearance.show_labels">
+        <span class="theme-settings-copy"><strong>显示名称标签</strong></span>
+        <input type="checkbox" class="theme-settings-switch-input" :checked="$store.themeSettings.value('dock.appearance.show_labels')"
+               @change="$store.themeSettings.update('dock.appearance.show_labels', $event.target.checked)" />
+        <span class="theme-settings-switch" aria-hidden="true"></span>
+      </label>
+      <label class="theme-settings-group-row" data-setting-path="dock.appearance.magnification">
+        <span class="theme-settings-copy"><strong>图标放大</strong></span>
+        <input type="checkbox" class="theme-settings-switch-input" :checked="$store.themeSettings.value('dock.appearance.magnification')"
+               @change="$store.themeSettings.update('dock.appearance.magnification', $event.target.checked)" />
+        <span class="theme-settings-switch" aria-hidden="true"></span>
+      </label>
+    </div>
+
+  </section>
+  <section class="theme-settings-section">
+    <h3 class="theme-settings-section-title">Dock 尺寸与背景</h3>
+    <div class="theme-settings-group">
+      <label class="theme-settings-range-row" data-setting-path="dock.appearance.icon_size">
+        <span class="theme-settings-copy"><strong>图标大小</strong></span>
+        <input type="range" min="36" max="64" step="2"
+               :value="$store.themeSettings.value('dock.appearance.icon_size')" @input="$store.themeSettings.update('dock.appearance.icon_size', $event.target.value)" />
+        <output x-text="$store.themeSettings.value('dock.appearance.icon_size') + ' px'"></output>
+      </label>
+      <label class="theme-settings-range-row" data-setting-path="dock.appearance.icon_gap">
+        <span class="theme-settings-copy"><strong>图标间距</strong></span>
+        <input type="range" min="2" max="12" step="1"
+               :value="$store.themeSettings.value('dock.appearance.icon_gap')" @input="$store.themeSettings.update('dock.appearance.icon_gap', $event.target.value)" />
+        <output x-text="$store.themeSettings.value('dock.appearance.icon_gap') + ' px'"></output>
+      </label>
+      <label class="theme-settings-range-row" data-setting-path="dock.appearance.dock_padding">
+        <span class="theme-settings-copy"><strong>面板内边距</strong></span>
+        <input type="range" min="4" max="16" step="1"
+               :value="$store.themeSettings.value('dock.appearance.dock_padding')" @input="$store.themeSettings.update('dock.appearance.dock_padding', $event.target.value)" />
+        <output x-text="$store.themeSettings.value('dock.appearance.dock_padding') + ' px'"></output>
+      </label>
+      <label class="theme-settings-range-row" data-setting-path="dock.appearance.magnification_scale">
+        <span class="theme-settings-copy"><strong>放大倍率</strong></span>
+        <input type="range" min="1" max="2" step="0.1" :disabled="!$store.themeSettings.value('dock.appearance.magnification')"
+               :value="$store.themeSettings.value('dock.appearance.magnification_scale')" @input="$store.themeSettings.update('dock.appearance.magnification_scale', $event.target.value)" />
+        <output x-text="$store.themeSettings.value('dock.appearance.magnification_scale') + ' 倍'"></output>
+      </label>
+      <label class="theme-settings-range-row" data-setting-path="dock.appearance.glass_blur">
+        <span class="theme-settings-copy"><strong>背景模糊</strong></span>
+        <input type="range" min="20" max="100" step="5"
+               :value="$store.themeSettings.value('dock.appearance.glass_blur')" @input="$store.themeSettings.update('dock.appearance.glass_blur', $event.target.value)" />
+        <output x-text="$store.themeSettings.value('dock.appearance.glass_blur') + ' px'"></output>
+      </label>
+      <label class="theme-settings-range-row" data-setting-path="dock.appearance.glass_opacity">
+        <span class="theme-settings-copy"><strong>背景不透明度</strong></span>
+        <input type="range" min="10" max="80" step="2"
+               :value="$store.themeSettings.value('dock.appearance.glass_opacity')" @input="$store.themeSettings.update('dock.appearance.glass_opacity', $event.target.value)" />
+        <output x-text="$store.themeSettings.value('dock.appearance.glass_opacity') + '%'"></output>
+      </label>
+    </div>
+  </section>
+
+  <section class="theme-settings-section">
+    <h3 class="theme-settings-section-title">全站默认布局</h3>
+    <div class="theme-settings-group">
+      <div class="theme-settings-group-row" data-setting-path="default_layout.layout_json">
+        <span class="theme-settings-copy"><strong>编辑桌面布局</strong></span>
+        <button type="button" class="theme-settings-secondary-button" @click="$store.themeSettings.openLayoutEditor()">打开布局编辑器…</button>
+      </div>
+    </div>
+    <p class="theme-settings-section-note">在桌面编辑器中摆放小组件，并单独保存为全站默认布局。</p>
+  </section>
+
+</section>

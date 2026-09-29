@@ -134,16 +134,16 @@ updatedDraft = core.updateThemeSettingsDraft(updatedDraft, 'header.time.hour_cyc
 updatedDraft = core.updateThemeSettingsDraft(updatedDraft, 'header.dropdown.light_bg', 'rgba(20,30,40,0.5)');
 updatedDraft = core.updateThemeSettingsDraft(updatedDraft, 'sidebar.notification_center.guest_title', '访客组件');
 assert(updatedDraft.dock.appearance.icon_size === 64, '应更新 Dock 图标大小');
-assert(updatedDraft.widgets.modules.weather.city_name === '杭州', '应清理城市文本空白');
+assert(updatedDraft.widgets.modules.weather.city_name === ' 杭州 ', '编辑期间应保留输入空格');
 assert(updatedDraft.desktop.background.solid_color === '#ABCDEF', '应规范化颜色值');
-assert(updatedDraft.header.logo.title === '5ee 桌面', '应清理应用名称空白');
+assert(updatedDraft.header.logo.title === ' 5ee 桌面 ', '编辑期间应保留名称空格');
 assert(updatedDraft.header.time.hour_cycle === 12, '小时制应规范化为数字');
 assert(updatedDraft.header.dropdown.light_bg === 'rgba(20, 30, 40, 0.5)', '应规范化菜单背景颜色');
 assert(updatedDraft.sidebar.notification_center.guest_title === '访客组件', '应更新访客通知标题');
 
 let rejected = false;
 try {
-  core.updateThemeSettingsDraft(updatedDraft, 'developer.debug_mode', false);
+  core.updateThemeSettingsDraft(updatedDraft, 'developer.unsupported_setting', false);
 } catch (_error) {
   rejected = true;
 }
@@ -160,13 +160,13 @@ const merged = core.applyThemeSettingsDraftToConfig(sourceConfig, updatedDraft, 
   'developer.debug_mode'
 ]);
 assert(merged.dock.appearance.icon_size === 64, '应合并 Dock 修改');
-assert(merged.widgets.modules.weather.city_name === '杭州', '应合并天气城市修改');
+assert(merged.widgets.modules.weather.city_name === ' 杭州 ', '应保留草稿中的天气城市修改');
 assert(merged.desktop.background.solid_color === '#ABCDEF', '应合并背景颜色修改');
-assert(merged.header.logo.title === '5ee 桌面', '应合并应用名称修改');
+assert(merged.header.logo.title === ' 5ee 桌面 ', '应合并应用名称修改');
 assert(merged.header.time.hour_cycle === 12, '应合并小时制修改');
 assert(merged.header.dropdown.light_bg === 'rgba(20, 30, 40, 0.5)', '应合并菜单背景颜色修改');
 assert(merged.sidebar.notification_center.guest_title === '访客组件', '应合并通知访客标题修改');
-assert(merged.developer.debug_mode === true, '不得覆盖白名单外字段');
+assert(merged.developer.debug_mode === true, '必须保留本次未修改的调试设置');
 assert(merged.header.actions.search_enabled === false, '不得覆盖未修改的同组字段');
 assert(merged.desktop.icons.posts[0] === 'post-a', '不得覆盖桌面内容选择');
 assert(merged.widgets.behavior.grid_columns === 16, '不得覆盖小组件高级字段');
@@ -211,8 +211,8 @@ assert(cleanRebase.dirtyPaths.length === 0, '与新基线一致的值不得残�
 
 const layoutTemplate = read('templates/modules/shell/layout.html');
 const headerTemplate = read('templates/modules/shell/header.html');
-const settingsTemplate = read('templates/modules/shell/theme-settings.html');
-const settingsRuntime = read('src/shell/desktop-shell/runtime/desktop/theme-settings.js');
+const settingsTemplate = read('templates/modules/shell/theme-settings.html') + fs.readdirSync(path.join(root, 'templates/modules/shell/settings')).filter((name) => name.endsWith('.html')).map((name) => read(`templates/modules/shell/settings/${name}`)).join('\n');
+const settingsRuntime = read('src/shell/desktop-shell/runtime/desktop/theme-settings.js') + read('src/shell/desktop-shell/runtime/desktop/settings-model/preview.js');
 const probeAccessSource = settingsRuntime.slice(
   settingsRuntime.indexOf('    async probeAccess() {'),
   settingsRuntime.indexOf('    async requestOpen() {')
@@ -232,7 +232,7 @@ for (const [error, expectedFeedback] of [
 }
 const themeConfigClient = read('src/shell/desktop-shell/runtime/shared/theme-config-client.js');
 const desktopSurfaceRuntime = read('src/shell/desktop-shell/runtime/desktop/surface/index.js');
-const settingsStyles = read('src/shell/desktop-shell/styles/desktop/theme-settings.css');
+const settingsStyles = ['theme-settings', 'theme-settings-controls', 'theme-settings-panes'].map((name) => read(`src/shell/desktop-shell/styles/desktop/${name}.css`)).join('\n');
 const dockStyles = read('src/shell/desktop-shell/styles/desktop/dock.css');
 const windowManagerRuntime = read('src/shell/desktop-shell/runtime/desktop/window-manager.js');
 const authStyles = read('src/entries/auth.css');
@@ -256,40 +256,43 @@ assert(settingsTemplate.includes("activePane === 'notifications'"), '系统设�
 assert(settingsTemplate.includes("header.actions.search_enabled"), '菜单栏页面必须接入后台搜索开关');
 assert(settingsTemplate.includes("sidebar.notification_center.default_open"), '通知页面必须接入默认展开设置');
 core.THEME_SETTINGS_WRITABLE_PATHS.forEach((writablePath) => {
-  assert(settingsTemplate.includes(writablePath), `系统设置界面缺少可写配置项: ${writablePath}`);
+  const generatedIconField = core.THEME_SETTINGS_ICON_FIELDS.some((field) => field.path === writablePath)
+    && settingsTemplate.includes('$store.themeSettings.iconFields')
+    && settingsTemplate.includes('$store.themeAssets.openIcon(field.path)');
+  assert(settingsTemplate.includes(writablePath) || generatedIconField, `系统设置界面缺少可写配置项: ${writablePath}`);
 });
 assert(!settingsTemplate.includes('Dock 预览'), 'Dock 设置不得保留重复的静态预览块');
 assert(!settingsTemplate.includes('theme-settings-dock-preview'), 'Dock 设置必须直接联动桌面 Dock');
-assert(!settingsTemplate.includes('theme-settings-search'), '系统设置侧栏不得保留无效搜索框');
+assert(settingsTemplate.includes('searchResults()') && settingsTemplate.includes('focusSetting(result.path)'), '设置搜索必须能定位真实字段');
 assert(!settingsTemplate.includes('<small>显示与背景</small>'), '侧栏项目不得重复显示说明文本');
 assert(!settingsTemplate.includes('<small>图标与显示</small>'), '侧栏项目不得重复显示说明文本');
 assert(!settingsTemplate.includes('<small>显示与天气</small>'), '侧栏项目不得重复显示说明文本');
-assert(!settingsStyles.includes('linear-gradient'), '系统设置界面不得使用泛白渐变材质');
+assert(!/\.theme-settings-window\s*\{[^}]*linear-gradient/s.test(settingsStyles), '窗口表面不得使用泛白渐变材质');
 assert(settingsStyles.includes('.theme-settings-window'), '系统设置样式必须定义窗口表面');
-assert(settingsStyles.includes('width: min(1060px'), '桌面设置窗口必须保持设计稿宽度');
-assert(settingsStyles.includes('height: min(748px'), '桌面设置窗口必须保持设计稿高度');
-assert(settingsStyles.includes('flex: 0 0 232px'), '桌面设置侧栏必须保持设计稿宽度');
+assert(settingsStyles.includes('width: min(940px'), '桌面设置窗口必须保持设计稿宽度');
+assert(settingsStyles.includes('height: min(730px'), '桌面设置窗口必须保持设计稿高度');
+assert(settingsStyles.includes('220px'), '桌面设置侧栏必须采用紧凑的固定宽度');
 assert(settingsStyles.includes('z-index: 9997'), '系统设置必须位于菜单栏和 Dock 下方');
 assert(!/\.theme-settings-layer\.is-open\s*\{[^}]*pointer-events:\s*auto/s.test(settingsStyles), '系统设置透明层不得阻断菜单栏与桌面交互');
 assert(/\.theme-settings-layer\.is-open \.theme-settings-window\s*\{[^}]*pointer-events:\s*auto/s.test(settingsStyles), '系统设置打开后必须只恢复窗口本体交互');
 assert(!settingsStyles.includes('.theme-settings-layer.is-dock-pane'), '切换 Dock 设置不得移动系统设置窗口');
 assert(!settingsStyles.includes('.theme-settings-layer.is-widgets-pane'), '切换小组件设置不得移动系统设置窗口');
-assert(settingsStyles.includes('-webkit-backdrop-filter: none;'), '系统设置窗口与遮罩不得依赖背景虚化');
+assert(!/backdrop-filter:\s*blur/.test(settingsStyles), '设置窗口使用独立表面避免全层模糊');
 assert(settingsStyles.includes('--ts-accent: var(--theme-accent'), '系统设置交互色必须继承主题强调色');
 assert(!/#(?:0a84ff|007aff|0077ed|409cff)/i.test(settingsStyles), '系统设置不得写死 macOS 蓝色交互色');
-assert(settingsRuntime.includes('content.scrollTop = 0'), '切换设置分区前必须同步重置内容滚动位置');
+assert(read('src/shell/desktop-shell/runtime/desktop/settings-model/panels.js').includes('paneScroll[this.activePane]'), '切换分类必须保存各页滚动位置');
 assert(!settingsRuntime.includes("behavior: 'smooth'"), '切换设置分区不得使用可见的平滑滚动');
 assert(authStyles.includes('--auth-theme-accent: var(--theme-accent'), '登录注册页交互色必须继承主题强调色');
 assert(!/#(?:0a66ff|0a84ff|4f46e5|ff4d79)/i.test(authStyles), '登录注册页不得混入固定蓝紫或粉色装饰色');
 assert(settingsStyles.includes('.theme-settings-sidebar.is-open'), '手机端侧栏必须具备展开状态');
-assert(settingsStyles.includes('transform: translate3d(-102%, 0, 0);'), '手机端侧栏默认必须隐藏在视口外');
-assert(settingsStyles.includes('inset: 24px 0 calc(92px + env(safe-area-inset-bottom, 0px));'), '手机设置窗口必须为真实 Dock 预留空间');
+assert(/transform:\s*translateX\(-10[02]%\)/.test(settingsStyles), '手机端侧栏默认必须隐藏在视口外');
+assert(settingsStyles.includes('inset: 44px 0 calc(92px + env(safe-area-inset-bottom, 0px));'), '手机设置窗口必须为菜单栏和真实 Dock 预留空间');
 assert(settingsRuntime.includes('if (!this.authenticated || !this.endpoint)'), '访客不得探测受保护配置接口');
 assert(settingsRuntime.includes('mobileSidebarOpen: false'), '系统设置 Store 必须维护手机侧栏状态');
 assert(settingsRuntime.includes('handleMobileSidebarFocusTrap(event)'), '手机设置抽屉必须具备独立焦点循环');
 assert(settingsRuntime.includes("sidebar?.querySelector('button.is-active')"), '打开手机设置抽屉后焦点必须进入当前分类');
 assert(settingsRuntime.includes('this.mobileSidebarOpen = false;'), '切换分类与关闭窗口必须收起手机侧栏');
-assert(settingsRuntime.includes('applyThemeSettingsDraftToConfig(latestConfig, saveDraft, savePaths)'), '保存前必须重新读取并增量合并');
+assert(settingsRuntime.includes('mergeSettingsChanges(latestConfig, saveDraft, savePaths') && read('src/shell/desktop-shell/runtime/desktop/settings-model/save.js').includes('applyThemeSettingsDraftToConfig(latestConfig, draft, paths)'), '保存前必须重新读取并增量合并');
 assert(settingsRuntime.includes('mutateThemeConfig('), '系统设置必须通过共享主题配置写入器保存');
 assert(desktopSurfaceRuntime.includes('mutateThemeConfig('), '桌面布局必须通过共享主题配置写入器保存');
 assert(themeConfigClient.includes("headers['X-XSRF-TOKEN'] = csrfToken"), '共享写入器必须回传 Halo CSRF 令牌');
