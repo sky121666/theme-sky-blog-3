@@ -13,7 +13,7 @@ const jsOutDir = path.resolve(outDir, "js");
 const managedOutputDirs = [cssOutDir, jsOutDir];
 const isWatchMode = process.argv.includes("--watch");
 // Sync tools may generate duplicate "conflict copy" files inside the output tree.
-const conflictCopyPatterns = [/冲突副本/i, /conflict/i];
+const conflictCopyPatterns = [/冲突副本/i, /\bconflict(?:ed)? copy\b/i];
 
 // Read theme name from theme.yaml to construct Halo's asset serving path
 const themeYaml = fs.readFileSync(path.resolve(import.meta.dirname, "theme.yaml"), "utf-8");
@@ -247,9 +247,9 @@ function isConflictCopy(filePath: string): boolean {
   return conflictCopyPatterns.some((pattern) => pattern.test(baseName));
 }
 
-function pruneConflictCopies(dir: string) {
+function pruneConflictCopies(dir: string, expectedFiles: Set<string> = new Set()) {
   for (const filePath of walkFiles(dir)) {
-    if (isConflictCopy(filePath)) {
+    if (!expectedFiles.has(filePath) && isConflictCopy(filePath)) {
       fs.rmSync(filePath, { force: true });
     }
   }
@@ -415,14 +415,22 @@ function maintainBuildOutputHygiene() {
       console.log(`[asset-budget] shell static JS: ${closure.size} files, ${raw} raw / ${gzip} gzip bytes; CSS gzip: ${cssGzip} bytes (before URL revision suffixes)`);
     },
     writeBundle(_options, bundle) {
-      // Conflict copies can appear again during or after bundle emission.
-      pruneConflictCopies(outDir);
-
       const expectedFiles = collectExpectedManagedFiles(bundle);
+      // Generated filenames are authoritative, including legitimate names such
+      // as persistence-conflict.js. Never classify them as sync copies.
+      pruneConflictCopies(outDir, expectedFiles);
       // Only prune inside managed output directories. Static assets such as
       // templates/assets/images and favicon.svg are intentionally preserved.
       pruneUnexpectedManagedFiles(expectedFiles);
       pruneEmptyJsStubs(bundle);
+      for (const chunk of Object.values(bundle) as any[]) {
+        if (chunk.type !== "chunk") continue;
+        for (const dependency of [...chunk.imports, ...chunk.dynamicImports]) {
+          if (bundle[dependency] && !fs.existsSync(path.resolve(outDir, dependency))) {
+            throw new Error(`Built dependency missing after cleanup: ${chunk.fileName} -> ${dependency}`);
+          }
+        }
+      }
       appendBuildVersionToStaticImports();
       writeAssetManifest(bundle);
       removeEmptyDirs(outDir);

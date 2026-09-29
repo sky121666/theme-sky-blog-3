@@ -39,6 +39,29 @@ for (const key of requiredAssets) {
 // static dependency graph, because chunk assignment can turn an innocent source
 // helper import into an eager shell entry import.
 const assetRoot = path.join(root, 'templates/assets');
+// Entry existence alone misses lazy save/edit modules. Verify literal static
+// and dynamic dependencies of every emitted JS file after output cleanup.
+function verifyBuiltImports(dir) {
+  for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
+    const file = path.join(dir, item.name);
+    if (item.isDirectory()) { verifyBuiltImports(file); continue; }
+    if (!item.name.endsWith('.js')) continue;
+    const source = read(file);
+    const patterns = [
+      /\b(?:import\s*(?:[^'";]*?\bfrom\s*)?|export\s*[^'";]*?\bfrom\s*)(['"])([^'"]+)\1/g,
+      /\bimport\(\s*(['"])([^'"]+)\1\s*\)/g
+    ];
+    for (const pattern of patterns) {
+      for (const match of source.matchAll(pattern)) {
+        const specifier = match[2].split(/[?#]/)[0];
+        if (!specifier.startsWith('.')) continue;
+        const dependency = path.resolve(path.dirname(file), specifier);
+        assert(fs.existsSync(dependency), `构建依赖缺失: ${path.relative(assetRoot, file)} -> ${specifier}`);
+      }
+    }
+  }
+}
+verifyBuiltImports(path.join(assetRoot, 'js'));
 const assetFile = (url) => path.resolve(assetRoot, url.replace(/^\/themes\/theme-sky-blog-3\/assets\//, '').split(/[?#]/)[0]);
 const shellEntries = new Set((manifest['shell-core'].js || []).map(assetFile));
 const readerDependencies = new Set();
