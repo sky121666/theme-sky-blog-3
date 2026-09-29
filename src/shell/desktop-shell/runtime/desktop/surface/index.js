@@ -25,6 +25,7 @@ import { enhanceDoubanShowcaseWidgets } from '../../../../../widgets/plugin/doub
 import {
   ensureWidgetRendererRuntime as ensureWidgetRendererRuntimeWithHost,
   renderWidgetBodyWithHost,
+  widgetNeedsHydratedSources,
   retryBangumiWidgetDataWithHost
 } from '../../widgets/render-runtime.js';
 import { disposeLatestPostsSources } from '../../widgets/latest-posts-runtime.js';
@@ -50,6 +51,7 @@ import {
   DESKTOP_WIDGET_PROTOCOL_EVENT,
   normalizeDesktopWidgetProtocol
 } from '../../widgets/protocol.js';
+import { ensureDesktopWidgetData } from '../../widgets/data-loader.js';
 import {
   desktopLayoutNeedsDataReload,
   serverLoadedWidgetTypes
@@ -79,6 +81,9 @@ export function registerDesktopSurface(Alpine) {
     enabled: false,
     isHome: false,
     homeDataHydrated: false,
+    widgetDataStatus: 'idle',
+    widgetDataPromise: null,
+    widgetDataController: null,
     hideOnMobile: false,
     editEnabled: false,
     viewportWidth: 0,
@@ -500,7 +505,7 @@ export function registerDesktopSurface(Alpine) {
     },
 
     async beginWidgetDrag(widget, event) {
-      if (event?.target?.closest?.('[data-bangumi-widget-retry]')) return;
+      if (event?.target?.closest?.('[data-bangumi-widget-retry], [data-widget-data-retry]')) return;
       const runtime = await this.ensureEditingRuntime();
       return runtime.beginWidgetDrag.call(this, widget, event);
     },
@@ -585,9 +590,45 @@ export function registerDesktopSurface(Alpine) {
       });
     },
 
+    async ensureDesktopWidgetSources({ retry = false } = {}) {
+      const needed = !this.widgetsDisposed && this.enabled && this.sources?.hydrated !== true
+        && this.placedWidgets.some(widgetNeedsHydratedSources);
+      if (!needed) {
+        this.widgetDataController?.abort();
+        return null;
+      }
+      if (this.widgetDataPromise && !this.widgetDataController?.signal.aborted) return this.widgetDataPromise;
+      if (this.widgetDataStatus === 'error' && !retry) return null;
+      const controller = new AbortController();
+      this.widgetDataController = controller;
+      this.widgetDataStatus = 'loading';
+      this.widgetDataPromise = ensureDesktopWidgetData({ signal: controller.signal })
+        .then((protocol) => {
+          if (controller.signal.aborted || this.widgetsDisposed) return null;
+          // The protocol event normally applies it first; keep initialization
+          // safe even when a cached request resolves before this host listens.
+          if (this.sources?.hydrated !== true) this.applyHomeWidgetProtocol(protocol);
+          this.widgetDataStatus = 'ready';
+          return protocol;
+        })
+        .catch((error) => {
+          if (controller.signal.aborted || this.widgetsDisposed) return null;
+          this.widgetDataStatus = 'error';
+          desktopDebugWarn('desktop widget data failed', { message: error?.message });
+          return null;
+        })
+        .finally(() => {
+          if (this.widgetDataController !== controller) return;
+          this.widgetDataController = null;
+          this.widgetDataPromise = null;
+          if (!this.widgetsDisposed) this.invalidateWidgetCache();
+        });
+      return this.widgetDataPromise;
+    },
+
     applyHomeWidgetProtocol(rawProtocol) {
       const bootstrap = normalizeDesktopWidgetProtocol(rawProtocol);
-      if (!bootstrap.isHome) return false;
+      if (!bootstrap.isHome || !bootstrap.sources.hydrated) return false;
 
       // The persistent desktop layout is already initialized on a non-home
       // direct load. Returning home should hydrate Finder/plugin data only;
@@ -605,6 +646,7 @@ export function registerDesktopSurface(Alpine) {
       this.syncWidgetRuntimes();
       this.dispatchNotificationWidgetsChange();
       this.homeDataHydrated = true;
+      this.widgetDataStatus = 'ready';
       desktopDebug('desktop home protocol hydrated', {
         preservedWidgets: this.widgets.length,
         sourceKeys: Object.keys(this.sources)
@@ -729,7 +771,7 @@ export function registerDesktopSurface(Alpine) {
       this.syncViewportState();
       this.enabled = !!bootstrap.enabled;
       this.isHome = window.location.pathname === '/';
-      this.homeDataHydrated = this.isHome && bootstrap.isHome === true;
+      this.homeDataHydrated = bootstrap.sources?.hydrated === true;
       this.hideOnMobile = !!bootstrap.hideOnMobile;
       this.editEnabled = !!bootstrap.editEnabled;
       this.columns = toPositiveInt(bootstrap.columns, 12);
@@ -799,6 +841,7 @@ export function registerDesktopSurface(Alpine) {
         this.dispatchNotificationWidgetsChange();
         this.invalidateWidgetCache();
         this.scheduleDesktopRenderCheck();
+        void this.ensureDesktopWidgetSources();
 
         const weatherChanged = !detail.changedPath
           || previousCityName !== this.modules.weather.cityName
@@ -847,6 +890,7 @@ export function registerDesktopSurface(Alpine) {
         this.syncViewportState();
         this.syncGridMetrics({ deferVisibility: true });
         this.syncWidgetRuntimes();
+        void this.ensureDesktopWidgetSources();
       };
 
       this.handleNotificationWidgetDragStart = (event) => {
@@ -884,6 +928,7 @@ export function registerDesktopSurface(Alpine) {
         this.syncGridMetrics();
         this.ensureDesktopLayoutIntegrity();
         this.syncDesktopBodyState();
+        void this.ensureDesktopWidgetSources();
         desktopDebug('desktop post-bootstrap state', {
           widgets: this.widgets.length,
           icons: this.icons.length,
@@ -925,6 +970,7 @@ export function registerDesktopSurface(Alpine) {
       window.removeEventListener('theme-open-widget-center', this.handleOpenWidgetCenter);
       window.removeEventListener('beforeunload', this.handleBeforeUnload);
       this.widgetsDisposed = true;
+      this.widgetDataController?.abort();
       this.weatherRequestId += 1;
       disposeLatestPostsSources(this);
       this.stopCalendarRollover();
@@ -2338,6 +2384,10 @@ export function registerDesktopSurface(Alpine) {
     /* ═══ Widget body rendering ═══ */
 
     renderWidgetBody(widget, options = {}) {
+      if (this.widgetDataStatus === 'error' && this.sources?.hydrated !== true
+        && widgetNeedsHydratedSources(widget) && options.preview !== true) {
+        return '<div class="desktop-widget-empty desktop-widget-render-error" role="alert"><strong>内容暂时无法加载</strong><button type="button" class="desktop-widget-data-retry" data-widget-data-retry>重试</button></div>';
+      }
       const renderOptions = {
         ...options,
         surface: options.surface || widget?.surface || 'desktop',
@@ -2347,7 +2397,13 @@ export function registerDesktopSurface(Alpine) {
       return renderWidgetBodyWithHost(this, widget, renderOptions);
     },
 
-    retryBangumiWidget(widget, event) {
+    retryWidgetData(widget, event) {
+      if (event?.target?.closest?.('[data-widget-data-retry]')) {
+        event.preventDefault();
+        event.stopPropagation();
+        void this.ensureDesktopWidgetSources({ retry: true });
+        return;
+      }
       if (!event?.target?.closest?.('[data-bangumi-widget-retry]')) return;
       event.preventDefault();
       event.stopPropagation();

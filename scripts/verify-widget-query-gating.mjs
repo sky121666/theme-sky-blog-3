@@ -211,8 +211,8 @@ assert.match(
 );
 assert.match(
   windowManager,
-  /async ensureNotificationWidgetData\(\)[\s\S]*?fetch\(this\.notificationWidgetHomePath\(\)[\s\S]*?syncHomeDesktopWidgetProtocolFromResponse/,
-  'non-home direct loads must lazily hydrate notification widget data from the home protocol'
+  /async ensureNotificationWidgetData\(\)[\s\S]*?ensureDesktopWidgetData\(\{ signal: controller.signal \}\)/,
+  'desktop and notification widgets must share home protocol requests'
 );
 assert.match(
   windowManager,
@@ -328,6 +328,23 @@ registerDesktopSurface({
   }
 });
 assert.equal(typeof desktopFactory, 'function');
+
+// These hosts must never ask for the home payload. Run the actual entrypoint;
+// there is deliberately no browser/fetch available to hide an accidental load.
+for (const state of [
+  { enabled: false, widgets: [{ widget: 'halo.latest_posts' }] },
+  { enabled: true, widgets: [] },
+  { enabled: true, widgets: [{ widget: 'system.clock' }, { widget: 'system.calendar' }] },
+  { enabled: true, widgets: [{ widget: 'halo.latest_posts', hidden: true }] },
+  { enabled: true, widgets: [{ widget: 'halo.latest_posts', surface: 'notification-center' }] },
+  { enabled: true, widgetsDisposed: true, widgets: [{ widget: 'halo.latest_posts' }] },
+  { enabled: true, sources: { hydrated: true }, widgets: [{ widget: 'halo.latest_posts' }] },
+  { enabled: true, widgets: [{ widget: 'halo.latest_posts' }], hideOnMobile: true, viewportWidth: 390 }
+]) {
+  const host = Object.assign(desktopFactory(), state);
+  assert.equal(await host.ensureDesktopWidgetSources(), null);
+  assert.equal(host.widgetDataPromise, null);
+}
 
 const repairSurface = desktopFactory();
 repairSurface.serverLayoutPayload = { columns: 4 };

@@ -64,7 +64,7 @@
     "build": "vite build && pnpm run package",
     "package": "theme-package && node scripts/finalize-theme-package.mjs",
     "verify:core-page-regressions": "node scripts/verify-core-page-regressions.mjs",
-    "verify:widget-data-fixes": "node scripts/verify-widget-data-fixes.mjs",
+    "verify:widget-data-fixes": "node scripts/verify-widget-data-fixes.mjs && node --test scripts/verify-widget-data-loader.test.mjs",
     "verify:plugin-shell-integration": "node scripts/verify-plugin-shell-integration.mjs",
     "verify:comment-integration": "node scripts/verify-comment-integration.mjs",
     "verify:plugin-contract-markers": "node scripts/verify-plugin-contract-markers.mjs && node scripts/verify-plugin-contract-markers.mjs --self-test",
@@ -77,7 +77,8 @@
     "verify:widgets:browser": "node scripts/verify-widget-browser.mjs",
     "verify:navigation:live": "node scripts/verify-navigation-runtime.mjs && node scripts/verify-navigation-response.mjs && node scripts/verify-navigation-readiness.mjs",
     "verify:navigation:pages": "node scripts/verify-navigation-pages.mjs",
-    "verify:links:navigation": "node scripts/verify-links-local-navigation.mjs"
+    "verify:links:navigation": "node scripts/verify-links-local-navigation.mjs",
+    "verify:widgets:direct": "node scripts/verify-widget-direct-entry.mjs"
   },
   "devDependencies": {
     "@alpinejs/intersect": "3.17.3",

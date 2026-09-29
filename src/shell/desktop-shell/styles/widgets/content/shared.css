@@ -92,4 +92,11 @@
   font-weight: 560;
 }
 
+.desktop-widget-data-retry {
+  padding: 4px 10px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  font: inherit;
+  cursor: pointer;
+}
 

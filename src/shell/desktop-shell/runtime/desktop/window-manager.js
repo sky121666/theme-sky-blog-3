@@ -15,7 +15,7 @@ import {
   retryBangumiWidgetDataWithHost
 } from '../widgets/render-runtime.js';
 import { disposeLatestPostsSources } from '../widgets/latest-posts-runtime.js';
-import { syncHomeDesktopWidgetProtocolFromResponse } from '../widgets/protocol.js';
+import { ensureDesktopWidgetData } from '../widgets/data-loader.js';
 import { createNotificationCenterMotion } from './notification-center-motion.js';
 import { enhanceDoubanShowcaseWidgets } from '../../../../widgets/plugin/douban-showcase/runtime.js';
 
@@ -595,7 +595,7 @@ export function registerWindowManager(Alpine) {
       this.notificationCenterAuthenticated = parseBooleanData(dataset.notificationCenterAuthenticated, false);
       this.notificationCenterAuthResolved = true;
       this.notificationMotion = createNotificationCenterMotion();
-      this.notificationWidgetDataStatus = getDesktopWidgetProtocol().isHome === true ? 'ready' : 'idle';
+      this.notificationWidgetDataStatus = getDesktopWidgetProtocol().sources?.hydrated === true ? 'ready' : 'idle';
 
       this.tick();
       this.tickTimer = window.setInterval(() => this.tick(), 1000);
@@ -608,7 +608,7 @@ export function registerWindowManager(Alpine) {
       };
       this.handlePjaxReady = () => {
         this.closeMobileMenu();
-        if (getDesktopWidgetProtocol().isHome === true) {
+        if (getDesktopWidgetProtocol().sources?.hydrated === true) {
           this.notificationWidgetDataStatus = 'ready';
         }
         this.syncNotificationWidgets();
@@ -626,7 +626,7 @@ export function registerWindowManager(Alpine) {
         this.notificationWidgetHtmlCache.clear();
         this.notificationWidgetRenderTick += 1;
         this.notificationWeatherDefaults = event.detail?.modules?.weather || null;
-        if (getDesktopWidgetProtocol().isHome === true) {
+        if (getDesktopWidgetProtocol().sources?.hydrated === true) {
           this.notificationWidgetDataStatus = 'ready';
         }
         this.syncNotificationWidgets(event.detail?.widgets, { beforeRects });
@@ -1540,18 +1540,8 @@ export function registerWindowManager(Alpine) {
       const widgetType = String(widget?.widget || '').trim();
       return !!widgetType && !LOCAL_NOTIFICATION_WIDGETS.has(widgetType);
     },
-    notificationWidgetHomePath() {
-      const siteUrl = String(getDesktopWidgetProtocol().siteUrl || '').trim();
-      if (!siteUrl) return '/';
-      try {
-        const url = new URL(siteUrl, window.location.origin);
-        return `${url.pathname || '/'}${url.search || ''}`;
-      } catch (_error) {
-        return '/';
-      }
-    },
     async ensureNotificationWidgetData() {
-      if (getDesktopWidgetProtocol().isHome === true) {
+      if (getDesktopWidgetProtocol().sources?.hydrated === true) {
         this.notificationWidgetDataStatus = 'ready';
         return getDesktopWidgetProtocol();
       }
@@ -1566,19 +1556,9 @@ export function registerWindowManager(Alpine) {
       this.notificationWidgetDataStatus = 'loading';
       this.notificationWidgetRenderTick += 1;
 
-      this.notificationWidgetDataPromise = fetch(this.notificationWidgetHomePath(), {
-        credentials: 'same-origin',
-        headers: { Accept: 'text/html' },
-        signal: controller.signal
-      })
-        .then(async (response) => {
-          if (!response.ok) {
-            throw new Error(`首页小组件数据请求失败（HTTP ${response.status}）`);
-          }
-          const protocol = syncHomeDesktopWidgetProtocolFromResponse(await response.text());
-          if (!protocol?.isHome) {
-            throw new Error('首页响应缺少桌面小组件数据协议');
-          }
+      this.notificationWidgetDataPromise = ensureDesktopWidgetData({ signal: controller.signal })
+        .then((protocol) => {
+          if (controller.signal.aborted || this.notificationWidgetsDisposed) return null;
           this.notificationWidgetDataStatus = 'ready';
           return protocol;
         })
@@ -1589,12 +1569,13 @@ export function registerWindowManager(Alpine) {
           return null;
         })
         .finally(() => {
-          if (this.notificationWidgetDataController === controller) {
-            this.notificationWidgetDataController = null;
-          }
+          if (this.notificationWidgetDataController !== controller) return;
+          this.notificationWidgetDataController = null;
           this.notificationWidgetDataPromise = null;
-          this.notificationWidgetHtmlCache.clear();
-          this.notificationWidgetRenderTick += 1;
+          if (!this.notificationWidgetsDisposed) {
+            this.notificationWidgetHtmlCache.clear();
+            this.notificationWidgetRenderTick += 1;
+          }
         });
 
       return this.notificationWidgetDataPromise;
