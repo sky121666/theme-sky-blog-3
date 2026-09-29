@@ -332,21 +332,56 @@ async function runDocsme(browser, profile) {
       }));
       assert.ok(article.textLength > 0, 'document article must contain visible content text');
       record.steps.push({ label: 'document body', status: 'passed', article });
-      const toc = await firstVisibleAnchor(page, '.docsme-toc a[href^="#"]');
-      if (toc) {
+      const tocCount = await page.locator('.docsme-toc a[href^="#"]').count();
+      if (tocCount) {
+        if (profile.name === 'mobile') {
+          await page.locator('.docsme-toolbar .docsme-toc-reveal[data-docsme-toggle-toc]').click();
+          await page.waitForFunction(() => {
+            const toc = document.querySelector('[data-docsme-toc]');
+            return document.querySelector('.docsme-app')?.classList.contains('is-mobile-toc-open')
+              && toc?.inert === false && toc.getAttribute('aria-hidden') === 'false'
+              && document.querySelector('.docsme-toolbar [data-docsme-toggle-toc]')
+                ?.getAttribute('aria-expanded') === 'true';
+          }, null, { timeout: 5000 });
+        }
+        const toc = await firstVisibleAnchor(page, '.docsme-toc a[href^="#"]');
+        assert.ok(toc, 'generated TOC links must be reachable after opening the directory');
+        const beforeHash = await page.evaluate(() => ({ state: history.state, length: history.length }));
         const from = await eventCount(page);
         await toc.link.click({ timeout: 10000 });
         await page.waitForFunction((hash) => location.hash === hash, new URL(toc.data.href).hash);
-        const hashState = await page.evaluate(() => ({
-          url: location.href, targetExists: Boolean(document.getElementById(decodeURIComponent(location.hash.slice(1))))
-        }));
-        // Hash navigation is browser-native and intentionally has no PJAX ready.
-        assert.equal(hashState.targetExists, true, 'TOC hash must resolve to a heading');
-        assert.equal((await page.evaluate((start) => window.__pageMatrixEvents.slice(start)
-          .filter((event) => event.type === 'ready').length, from)), 0,
+        const hashState = await page.evaluate(() => {
+          const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+          const toolbar = document.querySelector('.docsme-main > .docsme-toolbar');
+          const scroller = document.querySelector('.docsme-main');
+          const toc = document.querySelector('[data-docsme-toc]');
+          return {
+            url: location.href, state: history.state, length: history.length,
+            targetTop: target?.getBoundingClientRect().top,
+            targetBottom: target?.getBoundingClientRect().bottom,
+            toolbarBottom: toolbar?.getBoundingClientRect().bottom,
+            scrollerBottom: scroller?.getBoundingClientRect().bottom,
+            tocClosed: !document.querySelector('.docsme-app')?.classList.contains('is-mobile-toc-open')
+              && toc?.inert === true && toc.getAttribute('aria-hidden') === 'true'
+              && [...document.querySelectorAll('[data-docsme-toggle-toc]')]
+                .every((button) => button.getAttribute('aria-expanded') === 'false')
+          };
+        });
+        // This context uses reduced motion: the component's scroll is immediate.
+        assert.ok(hashState.targetTop >= hashState.toolbarBottom - 1, 'TOC heading must clear the sticky toolbar');
+        assert.ok(hashState.targetBottom <= hashState.scrollerBottom + 1, 'TOC heading must be visible');
+        assert.deepEqual(hashState.state, beforeHash.state, 'TOC must preserve theme history fields');
+        assert.equal(hashState.length, beforeHash.length, 'TOC must not add a history entry');
+        if (profile.name === 'mobile') assert.equal(hashState.tocClosed, true, 'TOC must close after selection');
+        assert.equal(await eventCount(page), from,
         'same-document hash must not start PJAX');
-        record.steps.push({ label: 'TOC hash (native)', status: 'passed', anchor: toc.data, hashState });
-      } else record.steps.push({ label: 'TOC hash (native)', status: 'skipped', reason: 'document has no visible TOC hash link' });
+        record.steps.push({ label: 'TOC hash (component)', status: 'passed', anchor: toc.data, hashState });
+      } else {
+        const headings = await page.locator('.docsme-article h2, .docsme-article h3')
+          .evaluateAll((nodes) => nodes.filter((node) => node.textContent.trim()).length);
+        assert.equal(headings, 0, 'non-empty document headings must generate TOC links');
+        record.steps.push({ label: 'TOC hash (component)', status: 'skipped', reason: 'document has no non-empty h2/h3 headings' });
+      }
       const bodyLink = await firstVisibleAnchor(page, '.docsme-article a.pjax-link[href]',
         (link) => /\/docs\//.test(new URL(link.href).pathname)
           && new URL(link.href).pathname !== new URL(page.url()).pathname);

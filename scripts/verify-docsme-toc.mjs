@@ -73,7 +73,76 @@ try {
     '<div id="intro"></div>'
   );
 
-  console.log('Docsme TOC unique heading IDs passed');
+  // A real scrolling container catches headings hidden under the sticky toolbar,
+  // including a toolbar that changes height after the TOC has been initialized.
+  for (const width of [390, 1440]) {
+    for (const reducedMotion of ['reduce', 'no-preference']) {
+      const context = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion });
+      try {
+        await context.route('http://docsme.test/**', (route) => route.fulfill({
+          contentType: 'text/html', body: '<!doctype html><html><body></body></html>'
+        }));
+        const scrollPage = await context.newPage();
+        await scrollPage.goto('http://docsme.test/docs/current');
+        await scrollPage.addScriptTag({ content: runtimeBundle.outputFiles[0].text });
+        const before = await scrollPage.evaluate(() => {
+          document.body.innerHTML = `
+            <style>
+              body { margin: 0; min-height: 2000px; }
+              .docsme-app { margin-top: 180px; }
+              .docsme-main { height: 340px; overflow: auto; border: 2px solid; }
+              .docsme-toolbar { position: sticky; top: 0; height: 55px; background: white; }
+              article { padding: 20px; }
+              aside { position: fixed; top: 0; }
+            </style>
+            <main class="docsme-app is-mobile-toc-open">
+              <aside data-docsme-toc><nav data-docsme-toc-list></nav></aside>
+              <div class="docsme-main">
+                <div class="docsme-toolbar"><button data-docsme-toggle-toc aria-expanded="true">目录</button></div>
+                <article data-toc-content>
+                  <div style="height: 500px"></div><h2 id="target">Target heading</h2>
+                  <div style="height: 800px"></div>
+                </article>
+              </div>
+            </main>`;
+          const app = document.querySelector('.docsme-app');
+          window.__verifyDocsmeToc(app);
+          document.querySelector('.docsme-toolbar').style.height = '96px';
+          history.replaceState({ uid: 'docsme-test', __browserNavIndex: 4, scrollPos: [0, 17] }, '');
+          window.__tocScrollFinished = false;
+          document.querySelector('.docsme-main').addEventListener('scrollend', () => {
+            window.__tocScrollFinished = true;
+          }, { once: true });
+          return { history: history.state, length: history.length, outerScroll: window.scrollY };
+        });
+        await scrollPage.locator('.docsme-toc__link').click();
+        await scrollPage.waitForFunction(() => window.__tocScrollFinished, null, { timeout: 5000 });
+        const after = await scrollPage.evaluate(() => {
+          const target = document.getElementById('target').getBoundingClientRect();
+          const toolbar = document.querySelector('.docsme-toolbar').getBoundingClientRect();
+          const main = document.querySelector('.docsme-main').getBoundingClientRect();
+          return {
+            targetTop: target.top, targetBottom: target.bottom, toolbarBottom: toolbar.bottom,
+            mainBottom: main.bottom, outerScroll: window.scrollY, hash: location.hash,
+            history: history.state, length: history.length,
+            tocInert: document.querySelector('[data-docsme-toc]').inert
+          };
+        });
+        const label = `${width}px / ${reducedMotion}`;
+        assert.ok(after.targetTop >= after.toolbarBottom, `${label}: target heading must clear the sticky toolbar`);
+        assert.ok(after.targetBottom <= after.mainBottom, `${label}: target heading must remain visible`);
+        assert.equal(after.outerScroll, before.outerScroll, `${label}: only the document container should scroll`);
+        assert.equal(after.hash, '#target');
+        assert.deepEqual(after.history, before.history);
+        assert.equal(after.length, before.length);
+        assert.equal(after.tocInert, width <= 1080);
+      } finally {
+        await context.close();
+      }
+    }
+  }
+
+  console.log('Docsme TOC unique IDs and 4 sticky-toolbar scroll scenarios passed');
 } finally {
   await browser.close();
 }

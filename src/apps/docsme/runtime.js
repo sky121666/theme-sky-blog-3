@@ -265,10 +265,19 @@ function renderToc(root) {
       event.preventDefault();
       list.querySelectorAll('.is-active').forEach((item) => item.classList.remove('is-active'));
       link.classList.add('is-active');
-      heading.scrollIntoView({
-        behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-        block: 'start'
-      });
+      const behavior = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+      const scroller = heading.closest('.docsme-main');
+      const toolbar = scroller?.querySelector(':scope > .docsme-toolbar');
+      if (scroller && toolbar) {
+        // Scroll only this document and keep the heading below its sticky toolbar.
+        // Measure on click because responsive layout can change the toolbar height.
+        const top = scroller.scrollTop + heading.getBoundingClientRect().top
+          - scroller.getBoundingClientRect().top - scroller.clientTop
+          - toolbar.getBoundingClientRect().height - 12;
+        scroller.scrollTo({ top: Math.max(0, top), behavior });
+      } else {
+        heading.scrollIntoView({ behavior, block: 'start' });
+      }
       history.replaceState(history.state, '', `#${heading.id}`);
       const app = getDocsmeRoot(root);
       if (app && isCompactDocsmeToc()) {
