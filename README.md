@@ -185,7 +185,7 @@ SMOKE_BASE_URL="http://localhost:8090" pnpm run verify:pjax-lifecycle
 - `docs/发布说明.md`
 - `templates/assets/**`
 
-本仓库保留原有发布流程：CI 负责安装、检查以及按仓库变量选择性执行浏览器 smoke；CD 在 GitHub Release 公开后调用 Halo 官方 `theme-cd.yaml@v4`，完成主题发布与 Halo 应用市场同步。Halo 版本适配不改写 CI/CD，只在 `theme.yaml` 声明最低版本，并以最新稳定版完成发布前本地验证。
+每次修改后在本地完成检查、构建和相关页面验证，结果对应最终提交代码。CI 仅通过 GitHub Actions 的 `Run workflow` 手动运行，普通推送和 Pull Request 不自动触发；手动运行会先安装 Chromium，再执行检查，并按仓库变量选择性执行真实站点 smoke。CD 在 GitHub Release 公开后调用 Halo 官方 `theme-cd.yaml@v4`，完成主题发布与 Halo 应用市场同步。Halo 最低版本由 `theme.yaml` 声明，并以最新稳定版完成发布前本地验证。
 
 发布前必须确认：仓库 Secret `HALO_PAT` 已配置，并在 Halo 应用市场开发者中心具备目标应用的“版本管理”权限；`theme.yaml` 的 `metadata.annotations["store.halo.run/app-id"]` 必须与 `.github/workflows/cd.yaml` 的 `app-id` 一致，当前均为 `app-gqnoxtpt`。
 
