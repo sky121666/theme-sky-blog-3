@@ -28,7 +28,7 @@ try {
     link.id = 'navigation-guard-probe';
     link.className = 'pjax-link';
     link.dataset.pjaxApp = 'links';
-    link.href = '/links?view=friends';
+    link.href = '/links?view=friends&scope=all';
     link.textContent = 'guard fixture';
     link.style.cssText = 'position:fixed;top:80px;left:20px;z-index:2147483647;background:white;padding:10px';
     document.body.append(link);
@@ -48,7 +48,7 @@ try {
     const gate = new Promise((resolve) => { release = resolve; });
     let arrived;
     const requested = new Promise((resolve) => { arrived = resolve; });
-    const target = mode === 'full' ? '/archives' : '/links?view=friends';
+    const target = mode === 'full' ? '/archives' : '/links?view=friends&scope=all';
     await sample.route(new URL(target, base).href, async (route) => {
       arrived(); await gate; await route.continue();
     });
@@ -110,7 +110,7 @@ try {
     Alpine.store('windowManager').showDesktop();
     window.__revealDone = false;
     document.addEventListener('theme:navigation-settled', (event) => { window.__revealDone = event.detail.outcome === 'ready'; });
-    const link = document.createElement('a'); link.href = '/links?view=friends'; link.className = 'pjax-link';
+    const link = document.createElement('a'); link.href = '/links?view=friends&scope=all'; link.className = 'pjax-link';
     document.body.append(link); link.click(); link.remove();
   });
   await hiddenWindow.waitForFunction(() => window.__revealDone);
@@ -187,7 +187,7 @@ try {
     const offline = await browser.newPage();
     await ready(offline);
     offline.on('dialog', (dialog) => dialog.accept());
-    const target = mode === 'full' ? '/archives' : '/links?view=friends';
+    const target = mode === 'full' ? '/archives' : '/links?view=friends&scope=all';
     await offline.route(new URL(target, base).href, (route) => route.abort('failed'));
     await offline.evaluate(({ mode, target }) => {
       const settings = Alpine.store('themeSettings');

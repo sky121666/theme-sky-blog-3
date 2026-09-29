@@ -12,7 +12,8 @@ import {
   activatePageApp,
   deactivateCurrentPageApp,
   ensureCurrentPageAppActive,
-  getActivePageAppDocumentState
+  getActivePageAppDocumentState,
+  prepareActivePageAppLocalNavigation
 } from '../../shared/page-app.js';
 import { createLogger } from '../../shared/debug.js';
 import { installClickController } from './click-controller.js';
@@ -985,6 +986,14 @@ export function initPjax(Alpine) {
         handoffNavigation(record, window.location.href, { replace: true });
         return;
       }
+      const local = prepareLocalView(window.location.href, {
+        sourceUrl: record.sourceEntry?.url, historyMode: 'none'
+      });
+      if (local) {
+        event.stopImmediatePropagation();
+        void executeLocalNavigation(record, local);
+        return;
+      }
       pendingPopstateNavigation = record;
     }, true);
 
@@ -1237,6 +1246,46 @@ export function initPjax(Alpine) {
         }
       }
       return true;
+    }
+
+    function prepareLocalView(url, options = {}) {
+      try {
+        return prepareActivePageAppLocalNavigation(url, {
+          sourceUrl: window.location.href, ...options
+        });
+      } catch (error) {
+        pjaxWarn('local view preparation failed; using PJAX:', error);
+        return null;
+      }
+    }
+
+    async function executeLocalNavigation(record, plan) {
+      if (!isNavigationCurrent(record)) return false;
+      record.mode = 'local';
+      const permission = commitNavigation(record.permit, () => isNavigationCurrent(record));
+      if (permission !== 'committed') {
+        if (permission !== 'stale') failNavigation(record, permission, 'cancelled');
+        return false;
+      }
+      // Retain app/plugin instances, but cancel every superseded HTML request.
+      // A local view owns the same intent and leave permit as other navigation.
+      finishNavigationUi(record);
+      if (!isNavigationCurrent(record)) return false;
+      try {
+        if (!plan.commit()) return failNavigation(record, 'local-view-stale', 'cancelled');
+        record.uiCommitted = true;
+        record.historyCommitted = true;
+        syncBrowserNavDepth(readBrowserNavIndexFromState() ?? 0);
+        rememberCommittedBrowserEntry();
+        pjax.lastUid = window.history.state?.uid || pjax.lastUid;
+        await window.Alpine?.nextTick?.();
+        if (!isNavigationCurrent(record)) return false;
+        readyNavigation(record, plan.root);
+        return true;
+      } catch (error) {
+        pjaxWarn('local view failed:', error);
+        return failNavigation(record, 'local-view');
+      }
     }
 
     function handoffNavigation(record, url, { replace = false } = {}) {
@@ -1948,6 +1997,13 @@ export function initPjax(Alpine) {
         runtimeReady: window.pjax === pjax
       }),
       requestNavigation: ({ href, triggerElement, options }) => {
+        const local = prepareLocalView(href);
+        if (local) {
+          const record = beginNavigation(href, options, 'local');
+          if (!record) return { kind: 'cancelled', reason: 'leave-veto' };
+          void executeLocalNavigation(record, local);
+          return { kind: 'started', intentId: record.intentId };
+        }
         const url = new URL(href);
         const currentVariant = document.body.dataset.windowVariant || '';
         const targetVariant = inferWindowVariantFromUrl(url);

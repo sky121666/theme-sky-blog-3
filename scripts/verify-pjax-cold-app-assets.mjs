@@ -226,8 +226,37 @@ async function clickHeaderSameVariantRoute(page, targetPath) {
   assert.equal(result.route, targetPath, `${targetPath} must update the browser URL`);
 }
 
-async function verifyHeaderLinksSameVariant(browser) {
+async function clickHeaderLinksRoute(page, targetPath) {
+  const links = page.locator('.menubar a.pjax-link[href]');
+  const entry = await links.evaluateAll((anchors, target) => {
+    const groups = Array.from(document.querySelectorAll('.menubar-menu-group'));
+    const index = anchors.findIndex((anchor) => {
+      const url = new URL(anchor.href, location.origin);
+      return anchor.matches('.menubar-item--desktop, .menubar-dropdown-item')
+        && `${url.pathname}${url.search}` === target;
+    });
+    const anchor = anchors[index];
+    return { index, groupIndex: groups.indexOf(anchor?.closest('.menubar-menu-group')),
+      dropdown: anchor?.matches('.menubar-dropdown-item') === true };
+  }, targetPath);
+  assert.ok(entry.index >= 0, `header must expose a desktop PJAX link for ${targetPath}`);
+  const link = links.nth(entry.index);
+  assert.equal(await link.getAttribute('target'), '_self', `${targetPath} must retain target="_self"`);
+  // Click closes the menu while the pointer is still inside its group. Leave
+  // before hovering again so the real mouseenter handler opens the next menu.
+  await page.mouse.move(0, 0);
+  if (entry.dropdown) {
+    assert.ok(entry.groupIndex >= 0, `${targetPath} must belong to a header menu group`);
+    await page.locator('.menubar-menu-group').nth(entry.groupIndex)
+      .locator(':scope > .menubar-item--desktop').hover();
+  }
+  await link.hover();
+  await link.click();
+}
+
+async function verifyHeaderLinksLocalNavigation(browser) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
+  const htmlRequests = [];
   try {
     const response = await openThemePage(page, absoluteUrl('/links'), {
       waitUntil: 'domcontentloaded',
@@ -236,51 +265,135 @@ async function verifyHeaderLinksSameVariant(browser) {
     assert.equal(response?.status(), 200, 'links route must return 200');
     await page.waitForFunction(() => window.pjax?.loadUrl
       && document.body?.dataset.appId === 'links'
-      && document.querySelector('.links-app-shell')?.dataset.view === 'links',
+      && document.querySelector('.links-app-shell')?.dataset.view === 'links'
+      && document.querySelector('.links-app-shell')?._x_dataStack?.[0]
+      && window.__THEME_PAGE_APP_REGISTRY__?.activeApp?.appId === 'links',
     null, { timeout: navigationTimeoutMs });
 
     const linksTitle = await page.title();
+    page.on('request', (request) => {
+      const url = new URL(request.url());
+      if (request.resourceType() === 'document'
+        || (url.origin === new URL(baseUrl).origin && url.pathname === '/links')) {
+        htmlRequests.push({ url: request.url(), type: request.resourceType() });
+      }
+    });
     await page.evaluate(() => {
-      window.__PJAX_HEADER_LINKS_FRAME__ = document.getElementById('window-frame-root');
+      const frame = document.getElementById('window-frame-root');
+      const shell = document.querySelector('.links-app-shell');
+      const state = window.__PJAX_HEADER_LINKS_LOCAL__ = {
+        frame, shell, component: shell._x_dataStack[0],
+        appRoot: window.__THEME_PAGE_APP_REGISTRY__.activeApp.root,
+        events: [], legacyEvents: [], loading: []
+      };
+      const sampleLoading = () => {
+        const content = frame.querySelector('[data-window-content-root]');
+        const overlay = frame.querySelector('[data-window-loading-overlay]');
+        const sample = {
+          frameLoading: frame.classList.contains('pjax-loading'),
+          contentBusy: content?.getAttribute('aria-busy') === 'true',
+          overlayVisible: overlay?.getAttribute('aria-hidden') === 'false'
+        };
+        if (Object.values(sample).some(Boolean)) state.loading.push(sample);
+      };
+      for (const [name, type] of [
+        ['theme:navigation-accepted', 'accepted'],
+        ['theme:pjax-ready', 'ready'],
+        ['theme:navigation-settled', 'settled']
+      ]) {
+        document.addEventListener(name, (event) => {
+          const { intentId, url, source, mode, outcome, root } = event.detail || {};
+          sampleLoading();
+          state.events.push({ type, intentId, url, source, mode, outcome,
+            readyRootPreserved: type === 'ready' ? root === state.appRoot : undefined });
+        });
+      }
+      for (const name of ['pjax:send', 'pjax:complete', 'pjax:same-variant-send', 'pjax:same-variant-complete']) {
+        document.addEventListener(name, () => state.legacyEvents.push(name));
+      }
+      state.observer = new MutationObserver((mutations) => {
+        sampleLoading();
+        for (const mutation of mutations) {
+          const wasLoading = mutation.attributeName === 'class' && mutation.target === frame
+            && String(mutation.oldValue || '').split(/\s+/).includes('pjax-loading');
+          const wasBusy = mutation.attributeName === 'aria-busy'
+            && mutation.target.matches('[data-window-content-root]') && mutation.oldValue === 'true';
+          const wasVisible = mutation.attributeName === 'aria-hidden'
+            && mutation.target.matches('[data-window-loading-overlay]') && mutation.oldValue === 'false';
+          if (wasLoading || wasBusy || wasVisible) {
+            state.loading.push({ wasLoading, wasBusy, wasVisible });
+          }
+        }
+      });
+      state.observer.observe(frame, { subtree: true, attributes: true, attributeOldValue: true,
+        attributeFilter: ['class', 'aria-busy', 'aria-hidden'] });
+      sampleLoading();
     });
 
-    const assertView = async (targetPath, view, title, { preserveFrame = true } = {}) => {
+    const navigateAndAssert = async (targetPath, view, source, action, expectedTitle) => {
+      const from = await page.evaluate(() => window.__PJAX_HEADER_LINKS_LOCAL__.events.length);
+      await action();
       try {
-        await page.waitForFunction(({ targetPath, view }) => {
+        await page.waitForFunction(({ targetPath, view, from }) => {
           const route = `${window.location.pathname}${window.location.search}`;
           return route === targetPath
             && document.querySelector('.links-app-shell')?.dataset.view === view
-            && document.body?.dataset.appId === 'links';
-        }, { targetPath, view }, { timeout: 10_000 });
+            && document.body?.dataset.appId === 'links'
+            && window.__PJAX_HEADER_LINKS_LOCAL__.events.slice(from)
+              .some((event) => event.type === 'settled');
+        }, { targetPath, view, from }, { timeout: navigationTimeoutMs });
       } catch (error) {
         const actual = await page.evaluate(() => ({
           route: `${window.location.pathname}${window.location.search}`,
           appId: document.body?.dataset.appId,
           view: document.querySelector('.links-app-shell')?.dataset.view,
-          title: document.title
+          title: document.title,
+          events: window.__PJAX_HEADER_LINKS_LOCAL__?.events
         }));
         throw new Error(`Links view did not settle at ${targetPath}/${view}: ${JSON.stringify(actual)}`, { cause: error });
       }
-      const state = await page.evaluate(() => ({
-        title: document.title,
-        framePreserved: document.getElementById('window-frame-root') === window.__PJAX_HEADER_LINKS_FRAME__
-      }));
-      if (preserveFrame) {
-        assert.equal(state.framePreserved, true, `${targetPath} must preserve the window frame`);
+      const state = await page.evaluate((from) => {
+        const probe = window.__PJAX_HEADER_LINKS_LOCAL__;
+        const shell = document.querySelector('.links-app-shell');
+        return {
+          title: document.title, historyUrl: history.state?.url,
+          framePreserved: document.getElementById('window-frame-root') === probe.frame,
+          shellPreserved: shell === probe.shell,
+          componentPreserved: shell?._x_dataStack?.[0] === probe.component,
+          appRootPreserved: window.__THEME_PAGE_APP_REGISTRY__.activeApp.root === probe.appRoot,
+          events: probe.events.slice(from), legacyEvents: probe.legacyEvents, loading: probe.loading
+        };
+      }, from);
+      assert.deepEqual(state.events.map((event) => event.type), ['accepted', 'ready', 'settled'],
+        `${targetPath} must emit exactly one ordered local lifecycle`);
+      const [accepted, ready, settled] = state.events;
+      assert.equal(accepted.source, source);
+      assert.equal(ready.intentId, accepted.intentId);
+      assert.equal(settled.intentId, accepted.intentId);
+      assert.equal(ready.mode, 'local');
+      assert.equal(ready.readyRootPreserved, true);
+      assert.equal(settled.outcome, 'ready');
+      for (const event of state.events) assert.equal(new URL(event.url, baseUrl).href, absoluteUrl(targetPath));
+      assert.equal(state.historyUrl, absoluteUrl(targetPath));
+      for (const key of ['framePreserved', 'shellPreserved', 'componentPreserved', 'appRootPreserved']) {
+        assert.equal(state[key], true, `${targetPath} must retain ${key}`);
       }
-      assert.equal(state.title, title, `${targetPath} must show the matching title`);
+      assert.deepEqual(state.legacyEvents, [], 'local navigation must not start or complete HTML PJAX');
+      assert.deepEqual(htmlRequests, [], 'Header clicks and popstate must not request another HTML document');
+      assert.deepEqual(state.loading, [], 'local navigation must never show window loading or an overlay');
+      if (expectedTitle) assert.equal(state.title, expectedTitle, `${targetPath} must restore its title`);
+      return state.title;
     };
 
-    await clickHeaderSameVariantRoute(page, '/links?view=friends');
-    const friendsTitle = await page.title();
+    const friendsTitle = await navigateAndAssert('/links?view=friends', 'friends', 'click',
+      () => clickHeaderLinksRoute(page, '/links?view=friends'));
     assert.match(friendsTitle, /朋友圈/, 'friends view must update the document title');
-    await assertView('/links?view=friends', 'friends', friendsTitle);
-
-    await clickHeaderSameVariantRoute(page, '/links');
-    await assertView('/links', 'links', linksTitle);
-
-    await page.evaluate(() => window.history.back());
-    await assertView('/links?view=friends', 'friends', friendsTitle, { preserveFrame: false });
+    await navigateAndAssert('/links', 'links', 'click',
+      () => clickHeaderLinksRoute(page, '/links'), linksTitle);
+    await navigateAndAssert('/links?view=friends', 'friends', 'popstate',
+      () => page.evaluate(() => window.history.back()), friendsTitle);
+    await navigateAndAssert('/links', 'links', 'popstate',
+      () => page.evaluate(() => window.history.forward()), linksTitle);
   } finally {
     await page.close();
   }
@@ -1252,9 +1365,9 @@ const browser = await chromium.launch({ headless: true });
 try {
   const headerLinksOnly = process.env.PJAX_HEADER_LINKS_ONLY === '1';
   const checks = headerLinksOnly
-    ? [verifyHeaderLinksSameVariant]
+    ? [verifyHeaderLinksLocalNavigation]
     : [
-      verifyHeaderLinksSameVariant,
+      verifyHeaderLinksLocalNavigation,
       verifyWarmExplorerCssHandoff,
       verifyColdPhotosGate,
       verifyLatestNavigationWins,

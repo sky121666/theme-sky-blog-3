@@ -143,7 +143,7 @@ const browser = await chromium.launch();
 try {
   for (const { name, mode, target, finalUrl } of [
     { name: 'full ready', mode: 'full', target: '/archives', finalUrl: '/archives' },
-    { name: 'same ready', mode: 'same', target: '/links?view=friends', finalUrl: '/links?view=friends' },
+    { name: 'same ready', mode: 'same', target: '/links?view=friends&scope=all', finalUrl: '/links?view=friends&scope=all' },
     { name: 'same canonical ready', mode: 'same', target: '/links?group=__missing__', finalUrl: '/links' }
   ]) {
     const page = await openReadyPage(browser);
@@ -178,7 +178,7 @@ try {
 
   for (const mode of ['full', 'same']) {
     const name = `${mode} draft changed while fetching`;
-    const target = mode === 'full' ? '/archives' : '/links?view=friends';
+    const target = mode === 'full' ? '/archives' : '/links?view=friends&scope=all';
     const page = await openReadyPage(browser);
     const gate = await gateHtml(page, target);
     try {
@@ -205,11 +205,11 @@ try {
   {
     const page = await openReadyPage(browser);
     const oldGate = await gateHtml(page, '/archives');
-    const newGate = await gateHtml(page, '/links?view=friends');
+    const newGate = await gateHtml(page, '/links?view=friends&scope=all');
     try {
       await navigate(page, '/archives');
       await waitForRequest(oldGate, 'old intent');
-      await navigate(page, '/links?view=friends');
+      await navigate(page, '/links?view=friends&scope=all');
       await waitForRequest(newGate, 'new intent');
       const beforeStale = await page.evaluate(() => ({
         intents: window.__navigationReadinessProbe.events.filter((event) => event.type === 'accepted')
@@ -243,7 +243,7 @@ try {
         .map((event) => event.outcome), ['superseded']);
       assert.equal(events.filter((event) => event.type === 'ready' && event.intentId === oldIntent).length, 0);
       const currentEvents = events.filter((event) => event.intentId === currentIntent);
-      assertReadySequence(currentEvents, 'full', '/links?view=friends');
+      assertReadySequence(currentEvents, 'full', '/links?view=friends&scope=all');
     } finally {
       oldGate.release();
       newGate.release();

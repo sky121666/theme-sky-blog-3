@@ -22,6 +22,7 @@ import {
   normalizeLinkCapabilities,
   normalizeUrl,
   parseSiteMetadata,
+  prepareLinksLocalNavigation,
   registerLinksExplorer,
   registerLinkSubmitForm,
   resolveMetadataUrl,
@@ -356,6 +357,96 @@ registerLinksExplorer({
   }
 });
 assert.equal(typeof explorerFactory, 'function');
+{
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const calls = [];
+  const component = {
+    destroyed: false,
+    selectedGroup: 'stale-group',
+    showPrimaryView(view, options) { calls.push({ view, options }); }
+  };
+  const shell = {
+    isConnected: true,
+    matches(selector) { return selector === '.links-app-shell'; }
+  };
+  const root = {
+    querySelector(selector) { return selector === '.links-app-shell' ? shell : null; }
+  };
+  const location = new URL('https://halo.test/links');
+  const testWindow = {
+    location,
+    Alpine: { $data(node) { assert.equal(node, shell); return component; } }
+  };
+  try {
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: testWindow });
+    const prepare = (sourceUrl, url, historyMode) => prepareLinksLocalNavigation(root, {
+      sourceUrl, url, historyMode
+    });
+    for (const [sourceUrl, url] of [
+      ['https://halo.test/links?view=friends&group=x', 'https://halo.test/links'],
+      ['https://halo.test/links#section', 'https://halo.test/links?view=friends'],
+      ['https://other.test/links', 'https://halo.test/links?view=friends'],
+      ['https://halo.test/links', 'https://halo.test/links?view=friends&group=x'],
+      ['https://halo.test/links', 'https://halo.test/links#section'],
+      ['https://halo.test/links', 'https://other.test/links?view=friends']
+    ]) {
+      assert.equal(prepare(sourceUrl, url), null, `deep or foreign URL must use PJAX: ${sourceUrl} -> ${url}`);
+    }
+    assert.deepEqual(calls, [], 'rejected preparation must not switch views');
+
+    const toFriends = prepare('https://halo.test/links', 'https://halo.test/links?view=friends');
+    assert.equal(typeof toFriends, 'function');
+    assert.deepEqual(calls, [], 'preparing an accepted navigation must not switch views');
+    assert.equal(component.selectedGroup, 'stale-group', 'preparing must not clear the current selection');
+    assert.equal(testWindow.location.href, 'https://halo.test/links', 'preparing must not change history');
+    assert.equal(toFriends(), true);
+    assert.equal(component.selectedGroup, '');
+    assert.deepEqual(calls.shift(), {
+      view: 'friends',
+      options: {
+        historyMode: 'push',
+        targetUrl: 'https://halo.test/links?view=friends',
+        scrollToTop: true
+      }
+    });
+
+    component.selectedGroup = 'another-group';
+    const toLinks = prepare('https://halo.test/links?view=friends', 'https://halo.test/links');
+    assert.equal(toLinks(), true);
+    assert.equal(component.selectedGroup, '');
+    assert.deepEqual(calls.shift(), {
+      view: 'links',
+      options: {
+        historyMode: 'push',
+        targetUrl: 'https://halo.test/links',
+        scrollToTop: true
+      }
+    });
+
+    const fromHistory = prepare('https://halo.test/links', 'https://halo.test/links?view=friends', 'none');
+    assert.equal(fromHistory(), true);
+    assert.deepEqual(calls.shift(), {
+      view: 'friends',
+      options: {
+        historyMode: 'none',
+        targetUrl: 'https://halo.test/links?view=friends',
+        scrollToTop: false
+      }
+    });
+
+    shell.isConnected = false;
+    assert.equal(prepare('https://halo.test/links', 'https://halo.test/links?view=friends'), null);
+    assert.equal(toFriends(), false, 'a plan prepared before disconnect must not commit after disconnect');
+    shell.isConnected = true;
+    component.destroyed = true;
+    assert.equal(prepare('https://halo.test/links', 'https://halo.test/links?view=friends'), null);
+    assert.equal(toLinks(), false, 'a plan prepared before destroy must not commit after destroy');
+    assert.deepEqual(calls, [], 'rejected commits must not switch views');
+  } finally {
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
+    else delete globalThis.window;
+  }
+}
 {
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
   const historyCalls = [];

@@ -76,7 +76,8 @@
     "verify:auth:live": "node scripts/verify-anonymous-auth.mjs",
     "verify:widgets:browser": "node scripts/verify-widget-browser.mjs",
     "verify:navigation:live": "node scripts/verify-navigation-runtime.mjs && node scripts/verify-navigation-response.mjs && node scripts/verify-navigation-readiness.mjs",
-    "verify:navigation:pages": "node scripts/verify-navigation-pages.mjs"
+    "verify:navigation:pages": "node scripts/verify-navigation-pages.mjs",
+    "verify:links:navigation": "node scripts/verify-links-local-navigation.mjs"
   },
   "devDependencies": {
     "@alpinejs/intersect": "3.17.3",

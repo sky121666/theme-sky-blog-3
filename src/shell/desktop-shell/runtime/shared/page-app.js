@@ -226,3 +226,39 @@ export function ensureCurrentPageAppActive(root = document, extra = {}) {
 export function getActivePageAppDocumentState() {
   return getPageAppRegistry().activeApp?.documentState || null;
 }
+
+/** @theme-navigation-contract v1 — optional, synchronous app-local view plan. */
+export function prepareActivePageAppLocalNavigation(url, options = {}) {
+  const registry = getPageAppRegistry();
+  const active = registry.activeApp;
+  const appId = document.body?.dataset.appId || document.body?.dataset.pageApp || '';
+  if (!active || active.appId !== appId || !active.root?.isConnected) return null;
+  const commit = active.lifecycle?.prepareLocalNavigation?.(active.root, { ...options, url });
+  if (typeof commit !== 'function') return null;
+  return {
+    root: active.root,
+    commit() {
+      if (registry.activeApp !== active || !active.root.isConnected) return false;
+      if (commit() === false) return false;
+      active.context = buildPageAppContext(active.appId, active.protocol, active.root, {
+        reason: 'local-navigation', documentTitle: document.title
+      });
+      // The view and history have committed. A failing metadata getter must not
+      // turn that success into an attempted URL-only rollback.
+      const fallback = {
+        title: document.title,
+        windowTitle: document.querySelector('[data-window-title]')?.textContent || document.title,
+        windowVariant: document.body?.dataset.windowVariant || ''
+      };
+      active.documentState = normalizeDocumentState(fallback, active.context);
+      try {
+        active.documentState = normalizeDocumentState(
+          active.lifecycle.getDocumentState?.(active.root, active.context), active.context
+        );
+      } catch (error) {
+        console.warn('Local navigation metadata refresh failed:', error);
+      }
+      return true;
+    }
+  };
+}

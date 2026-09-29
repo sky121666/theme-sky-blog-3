@@ -357,6 +357,11 @@ try {
     fixture.documentListeners.get(type)?.forEach((handler) => handler({ detail: { root: fixture.document } }));
   }
   assert.equal(fixture.animationFrames.length, 0, '库传输事件不得提前重新初始化插件 UI');
+  fixture.documentListeners.get('theme:pjax-ready')[0]({ detail: {
+    root: fixture.document, mode: 'local'
+  } });
+  assert.equal(fixture.animationFrames.length, 0, '本地视图就绪不得调度图库重新初始化');
+  assert.equal(fixture.gallery.hasAttribute('lg-uid'), false, '本地视图就绪不得重新挂载已卸载的灯箱');
   fixture.documentListeners.get('theme:pjax-ready')[0]({ detail: { root: fixture.document } });
   assert.equal(fixture.animationFrames.length, 1, '主题就绪只调度一次插件 UI 增强');
   await fixture.animationFrames.shift()?.();

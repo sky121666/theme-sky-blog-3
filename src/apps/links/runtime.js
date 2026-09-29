@@ -793,6 +793,29 @@ export async function resolveLinkCapabilities(signal) {
   return normalizeLinkCapabilities(await response.json(), user);
 }
 
+// Only the two primary views can reuse this component without an HTML response.
+// Deep links, hashes and unknown query parameters keep the normal PJAX path.
+export function prepareLinksLocalNavigation(root, { url, sourceUrl, historyMode = 'push' }) {
+  const from = new URL(sourceUrl, window.location.href);
+  const target = new URL(url, from);
+  if (from.origin !== window.location.origin || target.origin !== from.origin
+    || from.pathname !== '/links' || target.pathname !== '/links' || from.hash || target.hash
+    || !['', '?view=friends'].includes(from.search)
+    || !['', '?view=friends'].includes(target.search)) return null;
+  const shell = root?.matches?.('.links-app-shell') ? root : root?.querySelector('.links-app-shell');
+  const component = shell && window.Alpine?.$data?.(shell);
+  if (!shell?.isConnected || !component || component.destroyed
+    || typeof component.showPrimaryView !== 'function') return null;
+  return () => {
+    if (!shell.isConnected || component.destroyed) return false;
+    component.selectedGroup = '';
+    component.showPrimaryView(target.search ? 'friends' : 'links', {
+      historyMode, targetUrl: target.href, scrollToTop: historyMode !== 'none'
+    });
+    return true;
+  };
+}
+
 export function registerLinksExplorer(Alpine) {
   Alpine.data('linksExplorer', () => ({
     activeView: 'links',
@@ -1040,15 +1063,19 @@ export function registerLinksExplorer(Alpine) {
       this.selectedFeedItem = null;
     },
 
-    showLinks() {
-      this.activeView = 'links';
+    showPrimaryView(view, options = {}) {
+      this.activeView = view;
       this.selectedLinkKey = '';
       this.selectedLink = null;
       this.feedScope = '';
       this.feedGroupName = '';
       this.feedLinkName = '';
       this.clearFeedSelection();
-      this.commitNavigation();
+      this.commitNavigation(options);
+    },
+
+    showLinks() {
+      this.showPrimaryView('links');
     },
 
     setGroup(key) {
@@ -1070,14 +1097,7 @@ export function registerLinksExplorer(Alpine) {
     },
 
     showFriends(scrollToTop = true) {
-      this.activeView = 'friends';
-      this.selectedLinkKey = '';
-      this.selectedLink = null;
-      this.feedScope = '';
-      this.feedGroupName = '';
-      this.feedLinkName = '';
-      this.clearFeedSelection();
-      this.commitNavigation({ scrollToTop });
+      this.showPrimaryView('friends', { scrollToTop });
     },
 
     showAllFeed() {
@@ -1184,9 +1204,9 @@ export function registerLinksExplorer(Alpine) {
       this.commitNavigation();
     },
 
-    commitNavigation({ historyMode = 'push', scrollToTop = true } = {}) {
+    commitNavigation({ historyMode = 'push', scrollToTop = true, targetUrl = '' } = {}) {
       this.mobileDetailOpen = this.detailOpen();
-      this.syncUrl(historyMode);
+      if (historyMode !== 'none') this.syncUrl(historyMode, targetUrl);
       this.syncDocumentChrome();
       if (scrollToTop) this.scrollActivePaneToTop();
       this.$nextTick(() => this.syncWindowLayout());
@@ -1320,9 +1340,9 @@ export function registerLinksExplorer(Alpine) {
       this.$nextTick(() => this.syncWindowLayout());
     },
 
-    syncUrl(mode = 'push') {
+    syncUrl(mode = 'push', targetUrl = '') {
       if (typeof window === 'undefined') return;
-      const url = new URL(window.location.href);
+      const url = new URL(targetUrl || window.location.href);
       for (const name of ['view', 'group', 'link', 'scope', 'groupName', 'linkName', 'itemId']) {
         url.searchParams.delete(name);
       }

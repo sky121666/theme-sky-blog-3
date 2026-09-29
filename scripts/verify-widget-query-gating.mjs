@@ -177,7 +177,7 @@ assert.match(
   'home widget data must hydrate before Pjax starts its DOM switch'
 );
 const routeSyncContract = desktopSurface.slice(
-  desktopSurface.indexOf('this.routeSyncHandler = async () => {'),
+  desktopSurface.indexOf('this.routeSyncHandler = async (event) => {'),
   desktopSurface.indexOf('this.resizeHandler = () => {')
 );
 assert.doesNotMatch(routeSyncContract, /window\.location\.reload\(\)/, 'home route sync must not hard reload');

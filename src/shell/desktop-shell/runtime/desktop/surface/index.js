@@ -813,7 +813,8 @@ export function registerDesktopSurface(Alpine) {
           void this.loadWeather(true);
         }, 600);
       };
-      this.routeSyncHandler = async () => {
+      this.routeSyncHandler = async (event) => {
+        if (event?.detail?.mode === 'local') return;
         this.startCalendarRollover();
         this.syncViewportState();
         this.isHome = window.location.pathname === '/';

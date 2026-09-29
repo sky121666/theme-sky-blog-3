@@ -408,6 +408,7 @@ export function initPluginCompatibility() {
   installOnlineMonitorHistoryBridge();
 
   const refreshAfterNavigation = (event) => {
+    if (event?.detail?.mode === 'local') return;
     scheduleLightGalleryRefresh(event?.detail?.root || document);
   };
   const recoverAfterNavigationError = (event) => {
