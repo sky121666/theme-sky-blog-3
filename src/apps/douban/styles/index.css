@@ -1083,12 +1083,13 @@
   .douban-mobile-lights {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 8px;
   }
 
   .douban-mobile-lights span {
-    width: 10px;
-    height: 10px;
+    width: 12px;
+    height: 12px;
+    flex: 0 0 12px;
     border-radius: 50%;
   }
 

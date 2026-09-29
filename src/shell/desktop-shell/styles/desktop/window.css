@@ -523,9 +523,14 @@
 }
 
 /* ---------- 交通灯 ---------- */
+.traffic-lights {
+  gap: 0;
+}
+
 .traffic-btn {
-  width: 24px !important;
+  width: 20px !important;
   height: 24px !important;
+  flex: 0 0 20px;
   border-radius: 50%;
   display: flex !important;
   align-items: center;

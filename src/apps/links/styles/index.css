@@ -152,12 +152,7 @@
 .links-rail-drag:active { cursor: grabbing; }
 
 .links-rail-drag .traffic-lights {
-  gap: 5px;
   transform: none;
-}
-
-.links-rail-drag .traffic-btn {
-  width: 16px !important;
 }
 
 .links-rail-avatar {

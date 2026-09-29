@@ -1,4 +1,4 @@
-import{n as h}from"../../../rolldown-runtime.js?v=0.9.46&r=cf1134f6ccdc";import{r as v}from"../../../shell-runtime/runtime/desktop/surface/edit-mode.js?v=0.9.46&r=cf1134f6ccdc";import{r as g}from"../../halo/author-card/render.js?v=0.9.46&r=cf1134f6ccdc";function l(n,s){if(!n.mediaCount)return"";const e=n.media[0],a=typeof e?.type=="string"?e.type:e?.type?.name||"",o=n.mediaCount>1?`<b>+${n.mediaCount-1}</b>`:"";return a==="PHOTO"&&e.url?`
+import{n as h}from"../../../rolldown-runtime.js?v=0.9.46&r=94df3a1023b3";import{r as v}from"../../../shell-runtime/runtime/desktop/surface/edit-mode.js?v=0.9.46&r=94df3a1023b3";import{r as g}from"../../halo/author-card/render.js?v=0.9.46&r=94df3a1023b3";function l(n,s){if(!n.mediaCount)return"";const e=n.media[0],a=typeof e?.type=="string"?e.type:e?.type?.name||"",o=n.mediaCount>1?`<b>+${n.mediaCount-1}</b>`:"";return a==="PHOTO"&&e.url?`
       <span class="wg-moment-social-media">
         <img src="${s(e.url)}" alt="" loading="lazy" decoding="async" fetchpriority="low">
         ${o}
