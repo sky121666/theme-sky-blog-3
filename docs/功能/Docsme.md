@@ -1,5 +1,11 @@
 # Docsme
 
+> 2026-09-30 按当前源码核对。插件契约与逐项测试版本见[适配契约](../插件适配契约.md#当前逐-surface-权威表2026-09-26)，精确构建和运行边界见[项目进度](../项目进度.md)。本次文档更新未重新执行插件业务验收。
+
+## 当前 surface 与样本边界
+
+主题实现仍以 Docsme `1.6.0` 页面模型为契约。逐 surface 表给项目大厅与正文登记了安装插件 `1.10.0` 的限定真页记录；目录和权限/语言/版本行仍是 `—`。因此不把正文内链修复或 `/docs` 200 推断为高级权限矩阵通过。项目首页依赖插件发布的首选版本与文档树关联；历史 `/docs/123` 404 对应站点当时的数据关联，用户删除旧项目后该 URL 的 404 为预期。正文 PJAX 内链由 `src/apps/docsme/runtime.js` 处理；KaTeX 真页缺样本，Mermaid 与 Shiki 的旧专项仅覆盖列出的宿主。
+
 ## 结论
 
 Docsme 现在按独立 App 接入主题，不直接裸用插件默认页面。
@@ -15,13 +21,13 @@ Docsme 现在按独立 App 接入主题，不直接裸用插件默认页面。
 
 | 能力 | 文件 |
 | --- | --- |
-| 项目大厅页面 | [/templates/docs.html](/templates/docs.html) |
-| 文档正文页面 | [/templates/doc.html](/templates/doc.html) |
-| 文档目录页面 | [/templates/doc-catalog.html](/templates/doc-catalog.html) |
-| Docsme 窗口外壳 | [/templates/modules/docsme-app/window.html](/templates/modules/docsme-app/window.html) |
-| Docsme 内容包裹 | [/templates/modules/docsme-app/content.html](/templates/modules/docsme-app/content.html) |
-| 运行时入口 | [/src/apps/docsme](/src/apps/docsme) |
-| 样式 | [/src/apps/docsme/styles/index.css](/src/apps/docsme/styles/index.css) |
+| 项目大厅页面 | [/templates/docs.html](../../templates/docs.html) |
+| 文档正文页面 | [/templates/doc.html](../../templates/doc.html) |
+| 文档目录页面 | [/templates/doc-catalog.html](../../templates/doc-catalog.html) |
+| Docsme 窗口外壳 | [/templates/modules/docsme-app/window.html](../../templates/modules/docsme-app/window.html) |
+| Docsme 内容包裹 | [/templates/modules/docsme-app/content.html](../../templates/modules/docsme-app/content.html) |
+| 运行时入口 | [/src/apps/docsme](../../src/apps/docsme) |
+| 样式 | [/src/apps/docsme/styles/index.css](../../src/apps/docsme/styles/index.css) |
 
 ## 路由
 
@@ -60,9 +66,9 @@ Docsme 现在按独立 App 接入主题，不直接裸用插件默认页面。
 - 移动端目录抽屉
 - 左侧文档目录可折叠，箭头负责展开/收起，标题负责进入目录页
 
-## 1.6.0 契约与 1.7.0 兼容边界
+## 1.6.0 契约与历史 1.7.0 兼容检查
 
-主题继续按 Docsme 1.6.0 的 `_templateId`、文档描述和页面模型契约实现。项目大厅、正文、目录、评论、SEO 与同 App PJAX 等核心 surface 已在最新稳定版 1.7.0 上完成兼容测试；权限、多语言和多版本切换因本地没有对应样本，testedVersion 仍保守记录为 1.6.0。
+主题继续按 Docsme 1.6.0 的 `_templateId`、文档描述和页面模型契约实现。项目大厅、正文、目录、评论、SEO 与同 App PJAX 等核心 surface 曾在 1.7.0 上执行限定兼容检查；权限、多语言和多版本切换因本地没有对应样本，逐 surface 表未登记真页 `Tested version`。
 
 主题适配规则：
 
@@ -81,7 +87,7 @@ Docsme 现在按独立 App 接入主题，不直接裸用插件默认页面。
 - `/docs` 输出 `.docsme-project-card`，不再输出 `.dm-project-card`
 - 移动端隐藏全局 header / dock，窗口铺满视口
 
-本轮 Docsme 1.7.0 兼容复验补充：
+历史 Docsme 1.7.0 兼容复验（对应当时构建）：
 
 - 本地可访问文档详情页返回 200。
 - 文档页输出 `data-docsme-template-id="plugin:docsme:doc"`，确认 `_templateId` 未被主题硬编码替代。
@@ -93,7 +99,7 @@ Docsme 现在按独立 App 接入主题，不直接裸用插件默认页面。
 
 2026-09-27 后续复测：用户已删除先前缺少可访问文档首页的项目。当前 `/docs` 为 200，项目卡片不再输出 `/docs/123`；已删除地址的 404 属预期。同一构建 `0.9.46 / acc35d74a2e5` 的三轮只读专项（本机 `docs/evidence/docsme-after-delete-2026-09-27/README.md`）均动态访问 22 条路由。默认 Node 22 的整套通过；指定 Node 24 的两轮一败一过，失败点是一篇有效文档等待 `DOMContentLoaded` 超时。真实 KaTeX 内容仍缺样本。原先的坏链 404 结论保留在带构建身份的历史验收记录中。
 
-权限态、多语言和多版本的真实矩阵仍待验证；本次 1.10.0 专项已在真实文档上观察到 Shiki 宿主和 Mermaid 渲染，KaTeX 因缺少有效内容样本继续跳过。旧 1.7.0 高级 surface 的 `Tested version` 不因通用文档通过而改写。
+权限态、多语言和多版本的真实矩阵仍待验证；历史 1.10.0 专项已在真实文档上观察到 Shiki 宿主和 Mermaid 渲染，KaTeX 因缺少有效内容样本继续跳过。旧 1.7.0 高级 surface 的 `Tested version` 不因通用文档通过而改写。
 
 专项复验命令：
 

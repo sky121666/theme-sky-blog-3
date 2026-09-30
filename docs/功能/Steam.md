@@ -1,5 +1,12 @@
 # Steam
 
+> 2026-09-30 按当前源码核对。插件契约与逐项测试版本见[适配契约](../插件适配契约.md#当前逐-surface-权威表2026-09-26)，精确构建和运行边界见[项目进度](../项目进度.md)。本次文档更新未重新执行插件业务验收。
+
+## 当前验收边界
+
+`steam` 是安装清单的 canonical ID，`halo-plugin-steam` 为项目/插件称呼。列表契约与已登记真页 testedVersion 均为 `1.0.0`；小组件在逐 surface 表中仍是独立实现项。游戏库从插件页面 `/steam/page/{page}` 取下一页 HTML，热图使用插件公开 heatmap API；失败与有效空页分开，PJAX 销毁时取消未完成请求。源码见 `src/apps/steam/runtime.js`、`templates/modules/steam-app/list.html`。插件后台同步、真实跨页数据变化和真机触摸没有因页面检查自动完成。
+
+
 `/steam` 现在按独立 App 设计，覆盖 `halo-plugin-steam` 插件默认页面。
 
 - `pageApp = steam`
@@ -13,11 +20,11 @@
 
 | 内容 | 文件 |
 | --- | --- |
-| 页面协议、标题、窗口参数 | [/templates/steam.html](/templates/steam.html) |
-| 页面结构、资料、游戏库、徽章 | [/templates/modules/steam-app/list.html](/templates/modules/steam-app/list.html) |
-| 独立窗口骨架和加载骨架 | [/templates/modules/steam-app/window.html](/templates/modules/steam-app/window.html) |
-| 运行时搜索、排序和 App 生命周期 | [/src/apps/steam](/src/apps/steam) |
-| 样式和移动端沉浸窗口 | [/src/apps/steam/styles/index.css](/src/apps/steam/styles/index.css) |
+| 页面协议、标题、窗口参数 | [/templates/steam.html](../../templates/steam.html) |
+| 页面结构、资料、游戏库、徽章 | [/templates/modules/steam-app/list.html](../../templates/modules/steam-app/list.html) |
+| 独立窗口骨架和加载骨架 | [/templates/modules/steam-app/window.html](../../templates/modules/steam-app/window.html) |
+| 运行时搜索、排序和 App 生命周期 | [/src/apps/steam](../../src/apps/steam) |
+| 样式和移动端沉浸窗口 | [/src/apps/steam/styles/index.css](../../src/apps/steam/styles/index.css) |
 
 ## 路由
 
@@ -32,7 +39,7 @@
 
 ## 数据
 
-当前主题契约和已测试版本均为最新稳定版 `halo-plugin-steam` `1.0.0`。
+当前主题列表契约和已登记列表真页版本均为 `steam` `1.0.0`。
 
 模板读取：
 
