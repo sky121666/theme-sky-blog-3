@@ -105,7 +105,7 @@ try {
       for (const [query, expected] of [['首页','house'], ['主页','house'], ['搜索','search'], ['菜单','menu'],
         ['用户','user'], ['头像','user'], ['设置','settings'], ['图片','image'], ['相册','images'], ['文章','file-text'],
         ['文档','book-open'], ['链接','link'], ['友链','link'], ['通知','bell'], ['太阳','sun'], ['月亮','moon'],
-        ['导航','navigation'], ['方向','compass'], ['定位','map-pin'], ['返回','arrow-left']]) {
+        ['文件夹','folder'], ['天气','cloud-sun'], ['壁纸','image'], ['文件','file'], ['时钟','clock'], ['时间','clock'], ['导航','navigation'], ['方向','compass'], ['定位','map-pin'], ['返回','arrow-left']]) {
         check(catalog.normalizeIconQuery(query) === expected, `中文标签 ${query} 归一化`);
       }
       check(catalog.normalizeIconQuery('  首页  搜索 ') === 'house search' && catalog.normalizeIconQuery('未知词') === '未知词', '中文映射保留未知词');

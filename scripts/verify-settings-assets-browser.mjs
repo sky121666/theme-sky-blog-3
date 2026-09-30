@@ -157,6 +157,7 @@ try {
         if (query === 'fixture-pending') await new Promise((resolve) => { releaseIconSearch = resolve; });
         let names;
         if (query === 'fixture-pages') names = pagedIconNames.map((name) => `mdi:${name}`);
+        else if (['folder', 'cloud-sun', 'image', 'clock'].includes(query)) names = [`lucide:${query}`];
         else if (query === 'fixture-empty') names = [];
         else if (query === 'fixture-pending') names = ['mdi:pending-old'];
         else if (query === 'fixture-error') names = ['mdi:home'];
@@ -309,6 +310,23 @@ try {
     await settings.waitFor({ state: 'visible' });
     assert.equal(await storeValue('widgets.behavior.fallback_cover'), imagePath('initial-cover'));
     assert.equal(putCount(), 0);
+  });
+  await scenario('关闭动画期间立即重开后，旧关闭任务不再隐藏设置', async () => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    assert.equal(await page.evaluate(async () => {
+      const store = window.Alpine.store('themeSettings');
+      store.close();
+      return store.requestOpen();
+    }), true);
+    // Wait past the old 240 ms close callback and the new focus callback.
+    await page.waitForTimeout(300);
+    assert.equal(await settings.isVisible(), true);
+    assert.deepEqual(await page.evaluate(() => {
+      const store = window.Alpine.store('themeSettings');
+      return { visible: store.visible, open: store.open, closeTimer: store.closeTimer, focused: document.activeElement === document.querySelector('[data-theme-settings-window]') };
+    }), { visible: true, open: true, closeTimer: null, focused: true });
+    assert.equal(putCount(), 0);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
   });
   await scenario('九个设置分类独立显示，添加图片只打开选择器', async () => {
     for (const label of ['外观', '墙纸', '桌面与 Dock', '菜单栏', '导航菜单', '小组件', '通知中心', '应用', '高级']) {
@@ -546,6 +564,17 @@ try {
     assert.ok(report.iconQueries.some((request) => request.path === '/search' && request.query === 'navigation'), '中文导航必须映射为navigation');
     assert.match(await picker.locator('.theme-asset-selected-icon').textContent(), /lucide:house/, '更换关键词保留已选图标');
     await screenshot('desktop-icon-navigation-fixture');
+    await picker.getByRole('button', { name: '取消', exact: true }).click();
+    await waitClosed();
+  });
+  await scenario('文件夹、天气、壁纸和时钟中文检索显示对应图标', async () => {
+    await settings.locator('.theme-settings-icon-trigger').first().click();
+    await waitPicker();
+    for (const [query, name] of [['文件夹', 'folder'], ['天气', 'cloud-sun'], ['壁纸', 'image'], ['时钟', 'clock']]) {
+      await searchIcons(query);
+      await picker.getByRole('button', { name: `lucide:${name}`, exact: true }).waitFor();
+      assert.ok(report.iconQueries.some((request) => request.path === '/search' && request.query === name), `${query}应映射到${name}`);
+    }
     await picker.getByRole('button', { name: '取消', exact: true }).click();
     await waitClosed();
   });
@@ -904,7 +933,12 @@ try {
     await page.waitForFunction(() => !window.Alpine.store('themeSettings').saving && window.Alpine.store('themeSettings').statusTone === 'error');
     assert.equal(putCount(), count);
     assert.equal(await storeValue('sidebar.notification_center.title'), '我的通知');
-    assert.match(await settings.locator('.theme-settings-save-status').textContent(), /其他位置修改/);
+    const message = await settings.locator('.theme-settings-save-status').textContent();
+    assert.match(message, /其他位置修改/);
+    assert.match(message, /当前窗口核对/);
+    assert.match(message, /关闭将放弃/);
+    assert.equal(await settings.isVisible(), true);
+    await screenshot('conflict-draft-retained');
     await settings.getByRole('button', { name: '取消', exact: true }).click();
   });
   if (liveIconify) await scenario('官方 Iconify 实际GET搜索与按需JSON可在浏览器显示', async () => {

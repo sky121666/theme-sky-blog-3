@@ -11,7 +11,7 @@ export function mergeSettingsChanges(latestConfig, draft, paths, { baseline, res
       const current = themeSettingsValueAt(latest, path);
       if (!equal(current, themeSettingsValueAt(baseline, path)) && !equal(current, themeSettingsValueAt(draft, path))) {
         const label = SETTINGS_FIELDS.find((field) => field.path === path)?.label || path;
-        throw new Error(`“${label}”已在其他位置修改。本次草稿已保留，请核对后重新打开设置。`);
+        throw new Error(`“${label}”已在其他位置修改。本次草稿已保留，请在当前窗口核对修改；关闭将放弃未应用的草稿。`);
       }
     }
   }

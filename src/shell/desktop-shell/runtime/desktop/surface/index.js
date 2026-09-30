@@ -1728,21 +1728,28 @@ export function registerDesktopSurface(Alpine) {
       });
 
       try {
-        const { applyDesktopLayoutJsonToThemeConfig } = await this.ensurePersistenceWriteRuntime();
+        const originalTombstones = new Set(this.iconTombstones);
+        const { applyDesktopLayoutJsonToThemeConfig, reconcileSavedDesktopLayout, assertPendingDesktopIconConflicts } = await this.ensurePersistenceWriteRuntime();
+        assertPendingDesktopIconConflicts(this, layoutJson);
         const { assertDesktopLayoutBaseline } = await import('../../widgets/persistence-conflict.js');
         const { mutateThemeConfig } = await loadThemeConfigClient();
-        await mutateThemeConfig(
+        const savedResult = await mutateThemeConfig(
           this.themeJsonConfigEndpoint,
           (currentConfig) => {
             assertDesktopLayoutBaseline(currentConfig, baselineLayoutJson, {
               settingsChanged: Alpine.store?.('themeSettings')?.desktopLayoutReloadRequired === true
             });
-            return applyDesktopLayoutJsonToThemeConfig(currentConfig, layoutJson);
+            return applyDesktopLayoutJsonToThemeConfig(currentConfig, layoutJson, baselineLayoutJson);
           }
         );
 
-        this.serverLayoutJson = layoutJson;
-        this.serverLayoutPayload = parseDesktopLayoutPayload(layoutJson, this.layoutVersion, 'saved-server');
+        const savedConfig = savedResult.config.spec?.value ?? savedResult.config.data ?? savedResult.config;
+        const savedGroup = typeof savedConfig.default_layout === 'string'
+          ? JSON.parse(savedConfig.default_layout) : savedConfig.default_layout;
+        const savedLayoutJson = savedGroup.layout_json;
+        this.serverLayoutJson = savedLayoutJson;
+        this.serverLayoutPayload = parseDesktopLayoutPayload(savedLayoutJson, this.layoutVersion, 'saved-server');
+        reconcileSavedDesktopLayout(this, layoutJson, savedLayoutJson, savedSnapshot, originalTombstones);
         this.serverLayoutSavedMutationVersion = savedSnapshot.mutationVersion;
         this.layoutIntegrityRepaired = false;
         this.syncLayoutSnapshotAsDefaults(

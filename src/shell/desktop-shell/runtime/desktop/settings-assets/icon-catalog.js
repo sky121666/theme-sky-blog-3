@@ -13,7 +13,7 @@ const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const ICON_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*:[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const QUERY_ALIASES = {
   首页: 'house', 主页: 'house', 搜索: 'search', 菜单: 'menu', 用户: 'user', 头像: 'user',
-  设置: 'settings', 图片: 'image', 相册: 'images', 文章: 'file-text', 文档: 'book-open',
+  设置: 'settings', 文件夹: 'folder', 文件: 'file', 天气: 'cloud-sun', 壁纸: 'image', 时钟: 'clock', 时间: 'clock', 图片: 'image', 相册: 'images', 文章: 'file-text', 文档: 'book-open',
   链接: 'link', 友链: 'link', 通知: 'bell', 太阳: 'sun', 月亮: 'moon', 调色板: 'palette',
   关于: 'info', 音乐: 'music', 视频: 'video', 邮件: 'mail', 邮箱: 'mail', 日历: 'calendar',
   标签: 'tag', 分类: 'folder', 下载: 'download', 上传: 'upload', 代码: 'code',

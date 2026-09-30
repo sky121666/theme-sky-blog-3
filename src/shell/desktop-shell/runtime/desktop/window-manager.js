@@ -2028,6 +2028,7 @@ export function registerWindowManager(Alpine) {
     animationToken: 0,
     pendingOpenTitle: '',
     pendingOpenRequested: false,
+    desktopFocusResizeHandler: null,
 
     init() {
       try {
@@ -2042,10 +2043,40 @@ export function registerWindowManager(Alpine) {
       if (window.location.pathname === '/') {
         this.showDesktop();
       }
+      if (this.desktopFocusResizeHandler) window.removeEventListener('resize', this.desktopFocusResizeHandler);
+      this.desktopFocusResizeHandler = () => this.syncDesktopFocus();
+      window.addEventListener('resize', this.desktopFocusResizeHandler);
+      this.syncDesktopFocus();
       wmLog('init', { show: this.show, minimized: this.minimized, path: window.location.pathname });
     },
 
+    destroy() {
+      if (this.desktopFocusResizeHandler) window.removeEventListener('resize', this.desktopFocusResizeHandler);
+      this.desktopFocusResizeHandler = null;
+      const surface = document.querySelector('.desktop-surface');
+      if (surface) surface.inert = false;
+    },
+
+    syncDesktopFocus() {
+      const surface = document.querySelector('.desktop-surface');
+      if (!surface) return;
+      const covered = window.innerWidth < 768 && this.show && !this.minimized;
+      const hadDesktopFocus = surface.contains(document.activeElement);
+      surface.inert = Boolean(covered);
+      if (covered && hadDesktopFocus) {
+        Alpine.nextTick(() => {
+          if (!surface.inert || window.innerWidth >= 768 || !this.show || this.minimized) return;
+          if (document.activeElement !== document.body && !surface.contains(document.activeElement)) return;
+          const content = document.querySelector('[data-window-content-root]');
+          if (!content) return;
+          if (!content.hasAttribute('tabindex')) content.setAttribute('tabindex', '-1');
+          content.focus({ preventScroll: true });
+        });
+      }
+    },
+
     sync() {
+       this.syncDesktopFocus();
        localStorage.setItem('theme-macOS-window-state', JSON.stringify({
           show: this.show,
           minimized: this.minimized

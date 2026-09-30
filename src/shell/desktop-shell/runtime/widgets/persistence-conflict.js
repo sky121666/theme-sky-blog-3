@@ -2,7 +2,7 @@ function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function layoutConflict() {
+export function layoutConflict() {
   return Object.assign(new Error('服务端桌面布局或图标设置已更新，当前编辑内容已保留。请刷新页面后重新编辑再保存。'), { code: 'layout-conflict' });
 }
 

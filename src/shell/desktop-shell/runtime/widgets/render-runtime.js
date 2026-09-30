@@ -152,6 +152,7 @@ export function retryBangumiWidgetDataWithHost(host, widget) {
 }
 
 export async function ensureWidgetRendererRuntime(host, widgetType) {
+  if (host.widgetsDisposed === true) return null;
   const type = String(widgetType || '').trim();
   if (!type) return null;
 
@@ -162,6 +163,7 @@ export async function ensureWidgetRendererRuntime(host, widgetType) {
   if (!host.widgetRendererPromises[type]) {
     host.widgetRendererPromises[type] = loadWidgetRenderer(type)
       .then((renderer) => {
+        if (host.widgetsDisposed === true) return null;
         if (typeof renderer === 'function') {
           if (host.widgetRendererErrors) delete host.widgetRendererErrors[type];
           host.widgetRenderers[type] = renderer;
@@ -171,6 +173,7 @@ export async function ensureWidgetRendererRuntime(host, widgetType) {
         return host.widgetRenderers[type] || null;
       })
       .catch((error) => {
+        if (host.widgetsDisposed === true) return null;
         if (!host.widgetRendererErrors) host.widgetRendererErrors = {};
         host.widgetRendererErrors[type] = error?.message || 'renderer-load-failed';
         host.widgetRenderVersions[type] = (host.widgetRenderVersions[type] || 0) + 1;

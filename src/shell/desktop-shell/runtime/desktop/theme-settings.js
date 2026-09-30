@@ -63,6 +63,10 @@ export function registerThemeSettings(Alpine) {
     closeArmed: false,
     closeArmTimer: null,
     closeArmGeneration: 0,
+    closeTimer: null,
+    closingRuntimeSnapshot: null,
+    openGeneration: 0,
+    focusTimer: null,
     runtimeSnapshot: null,
     desktopViewportRestoreCancel: null,
     reloadRequired: false,
@@ -142,6 +146,10 @@ export function registerThemeSettings(Alpine) {
     },
 
     destroy() {
+      this.cancelOpenTasks();
+      this.open = false;
+      this.closingRuntimeSnapshot = null;
+      this.cancelCloseTimer();
       this.cancelDesktopViewportRestore();
       Alpine.store('themeAssets')?.destroy();
       this.cancelResourceRequests();
@@ -164,6 +172,17 @@ export function registerThemeSettings(Alpine) {
         this.entryStatusMessage = '';
         this.entryStatusTimer = null;
       }, 4200);
+    },
+
+    cancelOpenTasks() {
+      this.openGeneration += 1;
+      if (this.focusTimer !== null) window.clearTimeout(this.focusTimer);
+      this.focusTimer = null;
+    },
+
+    cancelCloseTimer() {
+      if (this.closeTimer !== null) window.clearTimeout(this.closeTimer);
+      this.closeTimer = null;
     },
 
     resetCloseArm() {
@@ -225,20 +244,31 @@ export function registerThemeSettings(Alpine) {
         this.setEntryFeedback('当前账号没有主题设置权限。');
         return false;
       }
-      if (this.visible) return true;
+      if (this.visible) {
+        if (!this.open && this.closeTimer !== null) {
+          this.cancelCloseTimer();
+          this.visible = false;
+          await this.openWindow(true);
+        }
+        return true;
+      }
+      const generation = this.openGeneration;
       const allowed = await this.probeAccess();
-      if (!allowed) return false;
+      if (!allowed || generation !== this.openGeneration) return false;
       await this.openWindow();
       return true;
     },
 
-    async openWindow() {
+    async openWindow(reopening = false) {
       if (this.visible || !this.canOpen) return;
-      this.cancelDesktopViewportRestore();
-      this.restoreFocusElement = document.activeElement instanceof HTMLElement
+      this.cancelOpenTasks();
+      const generation = this.openGeneration;
+      if (!reopening) this.cancelDesktopViewportRestore();
+      this.restoreFocusElement ||= document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
-      this.runtimeSnapshot = captureRuntimeSnapshot();
+      this.runtimeSnapshot = reopening ? this.closingRuntimeSnapshot : captureRuntimeSnapshot();
+      this.closingRuntimeSnapshot = null;
       this.draft = cloneThemeSettingsValue(this.baseline);
       this.dirtyPaths = [];
       this.validationErrors = {};
@@ -252,18 +282,22 @@ export function registerThemeSettings(Alpine) {
       this.visible = true;
       document.body.classList.add('theme-settings-open');
       await nextFrame();
+      if (generation !== this.openGeneration || !this.visible) return;
       this.syncRadioGroupTabStops();
       this.switchPane(this.activePane, false);
       const content = document.querySelector('[data-theme-settings-content]');
       if (content) content.scrollTop = this.paneScroll[this.activePane] || 0;
       this.open = true;
-      window.setTimeout(() => {
+      this.focusTimer = window.setTimeout(() => {
+        if (generation !== this.openGeneration || !this.visible || !this.open) return;
+        this.focusTimer = null;
         document.querySelector('[data-theme-settings-window]')?.focus?.({ preventScroll: true });
       }, 40);
     },
 
     close(force = false) {
-      if (!this.visible) return;
+      if (!this.visible) { this.cancelOpenTasks(); return; }
+      if (this.closeTimer !== null) return;
       if (Alpine.store('themeAssets')?.visible) { Alpine.store('themeAssets').close(); return; }
       if (this.saving) {
         this.statusTone = 'warning';
@@ -285,13 +319,18 @@ export function registerThemeSettings(Alpine) {
         }, CLOSE_CONFIRM_TIMEOUT);
         return;
       }
+      this.cancelOpenTasks();
       this.resetCloseArm();
       this.paneScroll[this.activePane] = document.querySelector('[data-theme-settings-content]')?.scrollTop || 0;
       this.cancelResourceRequests();
+      this.closingRuntimeSnapshot = this.runtimeSnapshot;
       this.restoreRuntimePreview();
       this.open = false;
       document.body.classList.remove('theme-settings-open');
-      window.setTimeout(() => {
+      const timer = window.setTimeout(() => {
+        if (this.closeTimer !== timer) return;
+        this.closeTimer = null;
+        this.closingRuntimeSnapshot = null;
         this.visible = false;
         this.query = '';
         this.mobileSidebarOpen = false;
@@ -305,6 +344,7 @@ export function registerThemeSettings(Alpine) {
           focusTarget.focus?.({ preventScroll: true });
         }
       }, SETTINGS_CLOSE_DELAY);
+      this.closeTimer = timer;
     },
 
     mobileSidebarFocusableElements() {
@@ -375,14 +415,16 @@ export function registerThemeSettings(Alpine) {
           const current = this.captureNavigationGuardState();
           return Object.keys(snapshot).every((key) => current[key] === snapshot[key]);
         },
-        commit: (snapshot) => {
-          if (snapshot.visible) this.closeForNavigationCommit();
-        }
+        commit: () => this.closeForNavigationCommit()
       });
     },
 
     closeForNavigationCommit() {
-      if (!this.visible || this.saving) return;
+      if (this.saving) return;
+      this.cancelOpenTasks();
+      if (!this.visible) return;
+      this.cancelCloseTimer();
+      this.closingRuntimeSnapshot = null;
       Alpine.store('themeAssets')?.close();
       this.resetCloseArm();
       this.paneScroll[this.activePane] = document.querySelector('[data-theme-settings-content]')?.scrollTop || 0;
