@@ -588,7 +588,7 @@ body::before {
   top: 61px;
   left: 48px;
   right: 48px;
-  bottom: 140px;
+  bottom: var(--desktop-dock-reserve, 140px);
   z-index: 1;
   pointer-events: auto;
 }

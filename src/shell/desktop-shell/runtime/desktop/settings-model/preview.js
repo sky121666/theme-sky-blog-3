@@ -165,11 +165,35 @@ export function restoreDockRuntime(snapshot) {
 }
 
 export function captureRuntimeSnapshot() {
+  const viewport = document.querySelector('.desktop-surface .desktop-widgets-grid-shell');
   return {
     body: captureBodyRuntime(),
     dock: captureDockRuntime(),
     icons: captureHeaderIcons(),
+    desktopViewport: viewport ? {
+      element: viewport,
+      scrollTop: viewport.scrollTop,
+      scrollLeft: viewport.scrollLeft
+    } : null,
     storedTheme: localStorage.getItem('theme')
+  };
+}
+
+export function restoreDesktopViewport(snapshot) {
+  if (!snapshot?.element) return null;
+  let frame = window.requestAnimationFrame(() => {
+    // Dock geometry is queued first; restore after the new viewport has been laid out.
+    frame = window.requestAnimationFrame(() => {
+      frame = null;
+      const viewport = snapshot.element;
+      if (!viewport.isConnected
+        || document.querySelector('.desktop-surface .desktop-widgets-grid-shell') !== viewport) return;
+      viewport.scrollTop = snapshot.scrollTop;
+      viewport.scrollLeft = snapshot.scrollLeft;
+    });
+  });
+  return () => {
+    if (frame !== null) window.cancelAnimationFrame(frame);
   };
 }
 
@@ -244,36 +268,16 @@ export function applyDockPreview(draft) {
   if (!dock) return;
 
   const appearance = draft.dock.appearance;
-  const baseSize = appearance.icon_size;
-  const dockPadding = appearance.dock_padding;
-  const magScale = appearance.magnification_scale;
-  const maxLift = appearance.magnification ? Math.round(baseSize * 0.1) : 0;
-  const glassHeight = baseSize + dockPadding * 2;
-  const barHeadroom = appearance.magnification ? Math.max(14, maxLift + 8) : 0;
 
   dock.dataset.showLabels = String(appearance.show_labels);
   dock.dataset.magnification = String(appearance.magnification);
-  dock.dataset.dockIconSize = String(baseSize);
+  dock.dataset.dockIconSize = String(appearance.icon_size);
   dock.dataset.dockIconGap = String(appearance.icon_gap);
-  dock.dataset.dockPadding = String(dockPadding);
-  dock.dataset.dockMagScale = String(magScale);
+  dock.dataset.dockPadding = String(appearance.dock_padding);
+  dock.dataset.dockMagScale = String(appearance.magnification_scale);
   dock.dataset.dockGlassBlur = String(appearance.glass_blur);
   dock.dataset.dockGlassOpacity = String(appearance.glass_opacity);
-  dock.style.setProperty('--dock-icon-size', `${baseSize}px`);
-  dock.style.setProperty('--dock-gap', `${appearance.icon_gap}px`);
-  dock.style.setProperty('--dock-padding', `${dockPadding}px`);
-  dock.style.setProperty('--dock-glass-height', `${glassHeight}px`);
-  dock.style.setProperty('--dock-bar-height', `${glassHeight + barHeadroom}px`);
-  dock.style.setProperty('--dock-blur', `${appearance.glass_blur}px`);
-  dock.style.setProperty('--dock-opacity', `${appearance.glass_opacity / 100}`);
-  dock.style.setProperty('--dock-icon-radius', `${Math.round(baseSize * 0.25)}px`);
-
-  dock.querySelectorAll('.dock-tooltip').forEach((tooltip) => {
-    tooltip.hidden = !appearance.show_labels;
-    if (appearance.show_labels) {
-      tooltip.style.removeProperty('display');
-    }
-  });
+  // The mounted Dock owns appearance and geometry; this event applies both synchronously.
   dock.dispatchEvent(new CustomEvent(DOCK_RUNTIME_SYNC_EVENT));
 }
 

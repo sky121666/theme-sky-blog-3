@@ -1,4 +1,4 @@
-import { captureRuntimeSnapshot, restoreBodyRuntime, restoreDockRuntime, restoreHeaderIcons, restoreStoredTheme, applyBodyPreview, applyDockPreview, applyMenubarPreview, applyWidgetPreview, applyHeaderIconPreview } from './settings-model/preview.js';
+import { captureRuntimeSnapshot, restoreBodyRuntime, restoreDockRuntime, restoreHeaderIcons, restoreStoredTheme, restoreDesktopViewport, applyBodyPreview, applyDockPreview, applyMenubarPreview, applyWidgetPreview, applyHeaderIconPreview } from './settings-model/preview.js';
 import {
   buildThemeSettingsDraft,
   cloneThemeSettingsValue,
@@ -64,6 +64,7 @@ export function registerThemeSettings(Alpine) {
     closeArmTimer: null,
     closeArmGeneration: 0,
     runtimeSnapshot: null,
+    desktopViewportRestoreCancel: null,
     reloadRequired: false,
     desktopLayoutReloadRequired: false,
     wallpaperPreviewGeneration: 0,
@@ -141,6 +142,7 @@ export function registerThemeSettings(Alpine) {
     },
 
     destroy() {
+      this.cancelDesktopViewportRestore();
       Alpine.store('themeAssets')?.destroy();
       this.cancelResourceRequests();
       window.removeEventListener('theme-settings-open', this.handleOpenRequest);
@@ -232,6 +234,7 @@ export function registerThemeSettings(Alpine) {
 
     async openWindow() {
       if (this.visible || !this.canOpen) return;
+      this.cancelDesktopViewportRestore();
       this.restoreFocusElement = document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
@@ -531,6 +534,7 @@ export function registerThemeSettings(Alpine) {
       this.statusTone = 'success';
       this.statusMessage = '已撤销本次未应用的修改。';
       this.applyRuntimePreview();
+      this.restoreDesktopViewportContext();
       if (this.statusResetTimer) window.clearTimeout(this.statusResetTimer);
       this.statusResetTimer = window.setTimeout(() => {
         if (!this.hasDirtyChanges() && !this.reloadRequired) {
@@ -542,6 +546,7 @@ export function registerThemeSettings(Alpine) {
     },
 
     applyRuntimePreview(changedPath = '') {
+      this.cancelDesktopViewportRestore();
       if (!changedPath || changedPath.startsWith('desktop.')) {
         const wallpaperUrl = this.draft.desktop.background.mode === 'image'
           ? String(this.draft.desktop.background.image_url || '')
@@ -590,7 +595,18 @@ export function registerThemeSettings(Alpine) {
       restoreStoredTheme(this.runtimeSnapshot, Alpine);
       applyMenubarPreview(this.baseline);
       applyWidgetPreview(this.baseline);
+      this.restoreDesktopViewportContext();
       this.runtimeSnapshot = null;
+    },
+
+    cancelDesktopViewportRestore() {
+      this.desktopViewportRestoreCancel?.();
+      this.desktopViewportRestoreCancel = null;
+    },
+
+    restoreDesktopViewportContext() {
+      this.cancelDesktopViewportRestore();
+      this.desktopViewportRestoreCancel = restoreDesktopViewport(this.runtimeSnapshot?.desktopViewport);
     },
 
     async save() {

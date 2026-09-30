@@ -103,6 +103,8 @@ export function registerDesktopSurface(Alpine) {
     cellSize: 64,
     gridWidth: 0,
     gridTopOffset: 0,
+    lastGridShellWidth: null,
+    lastGridLayerHeight: null,
     maxVisibleRows: 1,
     visibleDesktopNodeKeys: [],
     layoutVersion: 'v1',
@@ -275,6 +277,7 @@ export function registerDesktopSurface(Alpine) {
     weatherRefreshTimer: null,
     resizeHandler: null,
     resizeVisibilityTimer: null,
+    desktopViewportCleanup: null,
     dragMoveHandler: null,
     dragEndHandler: null,
     dragCancelHandler: null,
@@ -904,8 +907,8 @@ export function registerDesktopSurface(Alpine) {
       };
 
       this.resizeHandler = () => {
-        this.syncViewportState();
-        this.syncGridMetrics({ deferVisibility: true });
+        const change = this.syncDesktopViewportMetrics();
+        if (!change?.widthChanged) return;
         this.syncWidgetRuntimes();
         void this.ensureDesktopWidgetSources();
       };
@@ -943,6 +946,22 @@ export function registerDesktopSurface(Alpine) {
         this.syncGridMetrics();
         this.bootstrapDesktopIcons(serverLayout);
         this.syncGridMetrics();
+        if (typeof window.ResizeObserver === 'function' && this.$refs.layer) {
+          // Observe the viewport, not the grid whose content height depends on these metrics.
+          let viewportFrame = null;
+          const observer = new window.ResizeObserver(() => {
+            if (viewportFrame !== null) return;
+            viewportFrame = window.requestAnimationFrame(() => {
+              viewportFrame = null;
+              if (!this.widgetsDisposed) this.resizeHandler();
+            });
+          });
+          observer.observe(this.$refs.layer);
+          this.desktopViewportCleanup = () => {
+            observer.disconnect();
+            if (viewportFrame !== null) window.cancelAnimationFrame(viewportFrame);
+          };
+        }
         this.ensureDesktopLayoutIntegrity();
         this.syncDesktopBodyState();
         void this.ensureDesktopWidgetSources();
@@ -982,6 +1001,10 @@ export function registerDesktopSurface(Alpine) {
       window.removeEventListener('theme:pjax-ready', this.routeSyncHandler);
       window.removeEventListener('pageshow', this.routeSyncHandler);
       window.removeEventListener('resize', this.resizeHandler);
+      this.desktopViewportCleanup?.();
+      this.desktopViewportCleanup = null;
+      if (this.resizeVisibilityTimer) window.clearTimeout(this.resizeVisibilityTimer);
+      this.resizeVisibilityTimer = null;
       window.removeEventListener('theme-notification-widget-drag-start', this.handleNotificationWidgetDragStart);
       window.removeEventListener('theme-widget-context-menu', this.handleWidgetContextMenu);
       window.removeEventListener('theme-open-widget-center', this.handleOpenWidgetCenter);

@@ -235,6 +235,7 @@ const desktopSurfaceRuntime = read('src/shell/desktop-shell/runtime/desktop/surf
 const settingsStyles = ['theme-settings', 'theme-settings-controls', 'theme-settings-panes'].map((name) => read(`src/shell/desktop-shell/styles/desktop/${name}.css`)).join('\n');
 const dockStyles = read('src/shell/desktop-shell/styles/desktop/dock.css');
 const windowManagerRuntime = read('src/shell/desktop-shell/runtime/desktop/window-manager.js');
+const dockRuntime = read('src/shell/desktop-shell/runtime/desktop/dock-runtime.js') + read('src/shell/desktop-shell/runtime/desktop/dock-geometry.js');
 const authStyles = read('src/entries/auth.css');
 const shellRuntime = read('src/shell/desktop-shell/runtime/desktop/shell.js');
 
@@ -307,13 +308,14 @@ assert(settingsRuntime.includes("new CustomEvent(MENUBAR_RUNTIME_SYNC_EVENT"), '
 assert(settingsRuntime.includes("new CustomEvent(WIDGET_RUNTIME_SYNC_EVENT"), '小组件草稿必须通知真实桌面运行时同步');
 assert(desktopSurfaceRuntime.includes("window.addEventListener(THEME_SETTINGS_WIDGET_SYNC_EVENT"), '桌面小组件必须监听主题设置同步事件');
 assert(desktopSurfaceRuntime.includes('void this.loadWeather(true)'), '默认天气参数变化后必须刷新真实天气组件');
-assert(windowManagerRuntime.includes("runtimeSyncEvent = 'theme:dock-settings-change'"), 'Dock 引擎必须监听设置同步事件');
+assert(dockRuntime.includes("DOCK_RUNTIME_SYNC_EVENT = 'theme:dock-settings-change'"), 'Dock 引擎必须监听设置同步事件');
+assert(windowManagerRuntime.includes('registerDock(Alpine)'), '窗口入口必须注册独立 Dock 运行时');
 assert(windowManagerRuntime.includes("MENUBAR_RUNTIME_SYNC_EVENT = 'theme:menubar-settings-change'"), '菜单栏必须监听设置同步事件');
 assert(headerTemplate.includes('menubar-notification-trigger'), '隐藏时间后必须保留独立通知中心入口');
 assert(headerTemplate.includes('x-show="timeEnabled"'), '时间入口必须支持运行时显示切换');
 assert(headerTemplate.includes('x-show="authEnabled"'), '登录入口必须支持运行时显示切换');
-assert(windowManagerRuntime.includes('let settings = applySettings()'), 'Dock 引擎必须支持运行时重读当前参数');
-assert(windowManagerRuntime.includes('tooltip.hidden = !nextSettings.showLabels'), 'Dock 引擎必须同步恢复名称标签状态');
+assert(dockRuntime.includes('let settings = applySettings()'), 'Dock 引擎必须支持运行时重读当前参数');
+assert(dockRuntime.includes('tooltip.hidden = !settings.showLabels'), 'Dock 引擎必须同步恢复名称标签状态');
 assert(dockStyles.includes('blur(var(--dock-blur'), '真实 Dock 必须使用可调玻璃模糊参数');
 assert(dockStyles.includes('var(--dock-opacity'), '真实 Dock 必须使用可调玻璃透明度参数');
 assert(shellRuntime.includes('registerThemeSettings(Alpine)'), '系统设置 Store 必须在 Alpine 启动前注册');

@@ -46,6 +46,8 @@ function createHarness(config = {}) {
   const images = [];
   const events = [];
   const dockEvents = [];
+  const animationFrames = new Map();
+  let nextAnimationFrame = 0;
   const stored = new Map([['theme', 'dark']]);
   let nextTimer = 0;
   let mutationGate = Promise.resolve();
@@ -69,18 +71,30 @@ function createHarness(config = {}) {
     dispatchEvent(event) { dockEvents.push(event); }
   };
   const menubar = { dataset: { siteTitle: 'Fixture Site', siteFallbackTitle: 'Fixture Site' } };
+  const gridShell = { isConnected: true, scrollTop: 210, scrollLeft: 12 };
   const document = {
     body,
     activeElement: new FixtureElement(),
     querySelector(selector) {
       if (selector === '.dock-container') return dock;
       if (selector === '.menubar') return menubar;
+      if (selector === '.desktop-surface .desktop-widgets-grid-shell') return gridShell;
       return null;
     },
     querySelectorAll() { return []; }
   };
   const window = {
-    requestAnimationFrame(callback) { queueMicrotask(callback); return 1; },
+    requestAnimationFrame(callback) {
+      const id = ++nextAnimationFrame;
+      animationFrames.set(id, callback);
+      queueMicrotask(() => {
+        if (!animationFrames.has(id)) return;
+        animationFrames.delete(id);
+        callback();
+      });
+      return id;
+    },
+    cancelAnimationFrame(id) { animationFrames.delete(id); },
     setTimeout(callback, delay) {
       const id = ++nextTimer;
       timers.set(id, { callback, delay });
@@ -133,7 +147,7 @@ function createHarness(config = {}) {
   store.draft = core.cloneThemeSettingsValue(store.baseline);
 
   return {
-    store, body, dock, images, events, dockEvents, stored, timers,
+    store, body, dock, gridShell, images, events, dockEvents, stored, timers,
     async open() { await store.openWindow(); },
     timer(delay) {
       const entry = [...timers.values()].find((item) => item.delay === delay);
@@ -264,4 +278,49 @@ test('Dock preview does not broadcast widget or menubar changes', async () => {
   assert.equal(fixture.dockEvents.length, 3, 'cancel should restore Dock completely');
   assert.equal(fixture.events.filter((event) => event.type === 'theme:widget-settings-change').length, 3,
     'full preview and cancel should both update widgets');
+});
+
+test('cancel restores the desktop scroll context captured before Dock preview', async () => {
+  const { store, gridShell } = createHarness();
+  await store.openWindow();
+  store.update('dock.appearance.icon_size', 64);
+  gridShell.scrollTop = 20;
+  gridShell.scrollLeft = 0;
+  store.restoreDraft();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(gridShell.scrollTop, 210);
+  assert.equal(gridShell.scrollLeft, 12);
+  assert.equal(store.hasDirtyChanges(), false);
+});
+
+test('discarding on close restores the same connected desktop viewport', async () => {
+  const { store, gridShell } = createHarness();
+  await store.openWindow();
+  store.update('dock.appearance.icon_size', 64);
+  gridShell.scrollTop = 20;
+  store.close(true);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(gridShell.scrollTop, 210);
+});
+
+test('a new preview cancels a queued scroll restoration', async () => {
+  const { store, gridShell } = createHarness();
+  await store.openWindow();
+  store.update('dock.appearance.icon_size', 64);
+  store.restoreDraft();
+  store.update('dock.appearance.icon_size', 60);
+  gridShell.scrollTop = 10;
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(gridShell.scrollTop, 10);
+});
+
+test('scroll restoration never writes to a detached desktop', async () => {
+  const { store, gridShell } = createHarness();
+  await store.openWindow();
+  store.update('dock.appearance.icon_size', 64);
+  gridShell.scrollTop = 20;
+  gridShell.isConnected = false;
+  store.restoreDraft();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(gridShell.scrollTop, 20);
 });

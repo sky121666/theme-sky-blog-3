@@ -54,8 +54,18 @@ export const gridMethods = {
     return true;
   },
 
+  syncDesktopViewportMetrics() {
+    const width = this.$refs.gridShell?.clientWidth || window.innerWidth;
+    const height = this.$refs.layer?.clientHeight || window.innerHeight;
+    const widthChanged = width !== this.lastGridShellWidth;
+    const heightChanged = height !== this.lastGridLayerHeight;
+    if (!widthChanged && !heightChanged) return null;
+    this.syncGridMetrics({ normalizeLayout: widthChanged, deferVisibility: true });
+    return { widthChanged, heightChanged };
+  },
+
   syncGridMetrics(options = {}) {
-    const { deferVisibility = false } = options;
+    const { deferVisibility = false, normalizeLayout = true } = options;
     const shellWidth = this.$refs.gridShell?.clientWidth || window.innerWidth;
     if (shellWidth <= 640) {
       this.cellSize = 64;
@@ -73,8 +83,11 @@ export const gridMethods = {
     const fitColumns = Math.max(4, Math.floor((shellWidth + this.gap) / (this.cellSize + this.gap)));
     this.currentColumns = fitColumns;
     this.maxVisibleRows = Math.max(1, Math.floor((usableHeight + this.gap) / (this.cellSize + this.gap)));
-    this.normalizeVisibleLayout();
+    // Dock previews and height-only resizes change the viewport, not the saved placements.
+    if (normalizeLayout) this.normalizeVisibleLayout();
     this.gridWidth = this.measureGridWidth();
+    this.lastGridShellWidth = shellWidth;
+    this.lastGridLayerHeight = shellHeight;
     if (this.previewPlacement) {
       this.previewPlacement = this.findNearestAvailablePlacement(
         this.previewPlacement,

@@ -2,7 +2,7 @@
 .dock-container {
   --dock-fit-scale: 1;
   position: fixed;
-  bottom: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%) scale(var(--dock-fit-scale));
   transform-origin: bottom center;
@@ -88,6 +88,7 @@
 }
 
 .dock-bar {
+  width: max-content;
   display: flex;
   align-items: flex-end;
   gap: var(--dock-gap, 4px);
@@ -100,6 +101,7 @@
 
 /* ── Dock icon — macOS 圆角正方形 ── */
 .dock-icon {
+  flex-shrink: 0;
   width: var(--dock-icon-size, 48px);
   height: var(--dock-icon-size, 48px);
   padding: 0;
@@ -305,7 +307,7 @@
 
 @media (max-width: 640px) {
   .dock-container {
-    bottom: 10px;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
   }
 
   .dock-glass {

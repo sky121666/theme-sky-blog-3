@@ -7,9 +7,10 @@
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   scrollbar-width: thin;
+  scrollbar-gutter: stable;
   scrollbar-color: transparent transparent;
   transition: transform 0.24s ease, opacity 0.24s ease, filter 0.24s ease;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .dark .desktop-widgets-grid-shell {
@@ -746,7 +747,7 @@
   .desktop-surface {
     left: 12px;
     right: 12px;
-    bottom: 110px;
+    bottom: var(--desktop-dock-reserve, 110px);
   }
 
   .desktop-widgets-layer {
