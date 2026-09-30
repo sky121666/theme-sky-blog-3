@@ -252,7 +252,7 @@ spec:
         - $formkit: group
           id: desktop_startup_group
           name: startup
-          label: 启动体验
+          label: 首屏加载
           value:
             mode: direct
             frequency: tab_once

@@ -8,6 +8,8 @@ import { chromium } from 'playwright';
 // attribute and the config endpoint are fixtures; no real writes are forwarded.
 const site = new URL(process.env.SMOKE_BASE_URL || 'http://localhost:8090/');
 const output = path.resolve(process.env.STARTUP_SETTINGS_OUTPUT || 'output/startup-2026-09-30/settings');
+const documentFixture = process.env.STARTUP_SETTINGS_DOCUMENT || '';
+const fixtureHtml = documentFixture ? await fs.readFile(path.resolve(documentFixture), 'utf8') : '';
 const initial = {
   header: { logo: { title: '启动设置隔离验收' } },
   dock: { appearance: { settings_enabled: true }, future: 'keep-dock' },
@@ -23,6 +25,7 @@ const report = {
   checks: [], screenshots: [], errors: [], fixtureWrites: [], blockedWrites: [], assets: [],
   realWriteRequestsForwarded: 0
 };
+if (documentFixture) report.boundary = '当前构建与服务端主题 SSR 快照；设置授权 DOM 属性及配置 GET/PUT 使用隔离 fixture。除 mock PUT 外所有非 GET 请求阻断；浏览器未接收登录凭据，未验证真实账号权限或 Halo 持久化。';
 const digest = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
 await fs.mkdir(output, { recursive: true });
 let browser;
@@ -34,6 +37,7 @@ try {
   assert.equal(manifestResponse.status, 200);
   const remoteManifest = await manifestResponse.json();
   assert.deepEqual(remoteManifest.__meta, manifest.__meta, 'served and local build metadata must match');
+  if (fixtureHtml) assert.ok(fixtureHtml.includes(manifest.__meta.revision), 'SSR snapshot must match the current build revision');
   report.build = manifest.__meta;
   for (const asset of [...manifest['shell-core'].js, ...manifest['shell-core'].css]) {
     const response = await fetch(new URL(asset, site));
@@ -71,15 +75,15 @@ try {
       return route.fulfill({ contentType: 'application/javascript', body: '/* Analytics excluded from isolated startup acceptance. */' });
     }
     if (local && request.isNavigationRequest() && request.resourceType() === 'document') {
-      const response = await route.fetch({ headers: { ...request.headers(), 'Cache-Control': 'no-cache' } });
+      const response = fixtureHtml ? null : await route.fetch({ headers: { ...request.headers(), 'Cache-Control': 'no-cache' } });
       let replacements = 0;
-      const html = (await response.text()).replace(/<[^>]*\bdata-theme-settings-protocol\b[^>]*>/g, (tag) => {
+      const html = (fixtureHtml || await response.text()).replace(/<[^>]*\bdata-theme-settings-protocol\b[^>]*>/g, (tag) => {
         replacements++;
         assert.match(tag, /\bdata-authenticated\s*=/);
         return tag.replace(/\bdata-authenticated\s*=\s*(["'])[^"']*\1/, 'data-authenticated="true"');
       });
       assert.equal(replacements, 1, 'expected exactly one settings protocol');
-      return route.fulfill({ response, body: html });
+      return route.fulfill(response ? { response, body: html } : { status: 200, contentType: 'text/html; charset=utf-8', body: html });
     }
     return route.continue();
   });
@@ -118,7 +122,7 @@ try {
   await page.waitForFunction(() => document.querySelector('.dock-container')?.dataset.dockReady === 'true');
   await page.locator('.dock-settings-icon').click();
   await settings.waitFor({ state: 'visible' });
-  await choose('启动与登录');
+  await choose('首屏加载');
   await pane.waitFor({ state: 'visible' });
 
   await check('new startup pane is reachable and missing values default to direct/tab_once/apple', async () => {
@@ -127,8 +131,6 @@ try {
     assert.equal(await value('frequency'), 'tab_once');
     assert.equal(await value('logo_mode'), 'apple');
     assert.equal(await preview.isVisible(), false);
-    assert.equal(await pane.getByText('未核验', { exact: true }).isVisible(), true);
-    assert.equal(await pane.getByRole('link', { name: '打开 Halo 后台' }).getAttribute('href'), '/console');
     assert.equal(report.fixtureWrites.length, 0);
     await capture('startup-direct-desktop');
   });
@@ -189,7 +191,7 @@ try {
     await settings.getByRole('button', { name: '展开设置分类', exact: true }).click();
     await choose('外观');
     await settings.getByRole('button', { name: '展开设置分类', exact: true }).click();
-    await choose('启动与登录');
+    await choose('首屏加载');
     await pane.waitFor({ state: 'visible' });
     assert.ok(await settings.evaluate((element) => element.scrollWidth - element.clientWidth) <= 2);
     await field('frequency').locator('select').selectOption('tab_once');
@@ -207,10 +209,6 @@ try {
     const footer = await settings.locator('.theme-settings-actions').boundingBox();
     assert.ok(footer && footer.x >= 0 && footer.x + footer.width <= 376 && footer.y + footer.height <= 813);
     await capture('startup-mobile-375');
-    await pane.getByRole('link', { name: '打开 Halo 后台' }).scrollIntoViewIfNeeded();
-    const accessLink = await pane.getByRole('link', { name: '打开 Halo 后台' }).boundingBox();
-    assert.ok(accessLink && accessLink.y >= 0 && accessLink.y + accessLink.height <= footer.y, 'site access link must scroll above the persistent footer');
-    await capture('startup-mobile-375-access');
   });
   assert.deepEqual(report.errors, []);
   report.status = 'passed';

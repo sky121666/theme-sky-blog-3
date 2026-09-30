@@ -2,34 +2,81 @@
          class="theme-settings-pane theme-settings-pane-startup" data-settings-pane="startup"
          x-show="$store.themeSettings.activePane === 'startup'" aria-labelledby="theme-settings-title">
   <style>
-    .theme-settings-startup-choices { display: grid; gap: 10px; }
-    .theme-settings-startup-choices > button { min-height: 76px; border: 1px solid var(--ts-group-border); border-radius: 12px; }
-    .theme-settings-startup-choices > button.is-selected { border-color: var(--ts-accent); background: color-mix(in srgb, var(--ts-accent) 7%, var(--ts-group)); }
-    .theme-settings-startup-check { visibility: hidden; }
-    .is-selected > .theme-settings-startup-check { visibility: visible; }
-    .theme-settings-startup-demo { min-height: 0; justify-content: flex-start; margin-top: 13px; padding: 0; }
-    .theme-settings-startup-demo .theme-settings-section-note { margin: 0; }
+    .theme-settings-pane-startup .theme-settings-startup-mode-row { align-items: flex-start; padding-top: 13px; padding-bottom: 12px; }
+    .theme-settings-pane-startup .theme-settings-startup-mode-row > .theme-settings-copy { padding-top: 4px; }
+    .theme-settings-pane-startup .theme-settings-startup-choices { gap: 14px; }
+    .theme-settings-pane-startup .theme-settings-startup-choices button { width: 96px; min-height: 88px; padding: 3px; border-radius: 8px; }
+    .theme-settings-pane-startup .theme-settings-startup-choices button:focus-visible { outline: 2px solid var(--ts-accent); outline-offset: 2px; }
+    .theme-settings-pane-startup .theme-settings-startup-preview { position: relative; display: block; width: 90px; height: 57px; overflow: hidden; border-radius: 6px; background: var(--ts-field); box-shadow: 0 0 0 0.5px var(--ts-group-border); }
+    .theme-settings-pane-startup .theme-settings-startup-preview > svg { display: block; width: 100%; height: 100%; }
+    .theme-settings-pane-startup .theme-settings-startup-desktop { background: linear-gradient(135deg, color-mix(in srgb, var(--ts-accent) 34%, var(--ts-group)), color-mix(in srgb, var(--ts-accent) 12%, var(--ts-group))); }
+    .theme-settings-pane-startup .theme-settings-startup-boot { background: #141416; }
+    .theme-settings-pane-startup .theme-settings-startup-choices button:hover .theme-settings-startup-preview { box-shadow: 0 0 0 1px var(--ts-text-tertiary); }
+    .theme-settings-pane-startup .theme-settings-startup-choices .is-selected .theme-settings-startup-preview { outline: 2px solid var(--ts-accent); outline-offset: 2px; }
+    .theme-settings-pane-startup .theme-settings-startup-check { position: absolute; right: 4px; bottom: 4px; display: grid; place-items: center; width: 14px; height: 14px; visibility: hidden; color: #fff; background: var(--ts-accent); border-radius: 50%; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8); }
+    .theme-settings-pane-startup .theme-settings-startup-check svg { width: 10px; height: 10px; }
+    .theme-settings-pane-startup .is-selected .theme-settings-startup-check { visibility: visible; }
+    .theme-settings-pane-startup .theme-settings-startup-demo { border-top: 0.5px solid var(--ts-hairline); }
+    .theme-settings-pane-startup .theme-settings-startup-demo .theme-settings-copy { min-width: 128px; }
+    .theme-settings-pane-startup .theme-settings-startup-demo > button { flex: 0 0 auto; }
+    @media (max-width: 430px) {
+      .theme-settings-pane-startup .theme-settings-startup-mode-row { gap: 12px; }
+      .theme-settings-pane-startup .theme-settings-startup-mode-row > .theme-settings-copy { flex: 1 0 100%; padding-top: 0; }
+      .theme-settings-pane-startup .theme-settings-startup-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+      .theme-settings-pane-startup .theme-settings-startup-choices button { justify-self: center; width: 100%; max-width: 120px; }
+      .theme-settings-pane-startup .theme-settings-startup-preview { width: 100%; max-width: 108px; height: auto; aspect-ratio: 30 / 19; }
+    }
   </style>
   <section class="theme-settings-section">
-    <h3 class="theme-settings-section-title">启动方式</h3>
-    <div class="theme-settings-startup-choices" role="radiogroup" aria-label="启动方式" data-setting-path="desktop.startup.mode">
-      <button type="button" role="radio" class="theme-settings-link-row theme-settings-group" :aria-checked="($store.themeSettings.value('desktop.startup.mode') === 'direct').toString()"
-              :class="{ 'is-selected': $store.themeSettings.value('desktop.startup.mode') === 'direct' }" @click="$store.themeSettings.update('desktop.startup.mode', 'direct')">
-        <span class="icon-[lucide--monitor]" aria-hidden="true"></span>
-        <span class="theme-settings-copy"><strong>普通显示</strong><small>页面直接出现，内容在原位置补齐</small></span>
-        <span class="icon-[lucide--circle-check] theme-settings-startup-check" aria-hidden="true"></span>
-      </button>
-      <button type="button" role="radio" class="theme-settings-link-row theme-settings-group" :aria-checked="($store.themeSettings.value('desktop.startup.mode') === 'boot').toString()"
-              :class="{ 'is-selected': $store.themeSettings.value('desktop.startup.mode') === 'boot' }" @click="$store.themeSettings.update('desktop.startup.mode', 'boot')">
-        <span class="icon-[lucide--power]" aria-hidden="true"></span>
-        <span class="theme-settings-copy"><strong>开机启动</strong><small>显示启动标识与短暂过渡</small></span>
-        <span class="icon-[lucide--circle-check] theme-settings-startup-check" aria-hidden="true"></span>
-      </button>
+    <div class="theme-settings-group">
+      <div class="theme-settings-group-row theme-settings-appearance-row theme-settings-startup-mode-row">
+        <span class="theme-settings-copy"><strong>显示方式</strong><small>选择进入页面的方式</small></span>
+        <div class="theme-settings-appearance-choices theme-settings-startup-choices" role="radiogroup" aria-label="显示方式" data-setting-path="desktop.startup.mode">
+          <button type="button" role="radio" :aria-checked="($store.themeSettings.value('desktop.startup.mode') === 'direct').toString()"
+                  :class="{ 'is-selected': $store.themeSettings.value('desktop.startup.mode') === 'direct' }" @click="$store.themeSettings.update('desktop.startup.mode', 'direct')">
+            <span class="theme-settings-startup-preview theme-settings-startup-desktop" aria-hidden="true">
+              <svg viewBox="0 0 108 68" fill="none">
+                <rect width="108" height="6" fill="white" fill-opacity=".6" />
+                <rect x="5" y="2" width="10" height="2" rx="1" fill="#506077" fill-opacity=".45" />
+                <rect x="91" y="2" width="12" height="2" rx="1" fill="#506077" fill-opacity=".3" />
+                <rect x="7" y="13" width="9" height="8" rx="2" fill="#558dcc" />
+                <rect x="8" y="23" width="7" height="2" rx="1" fill="white" fill-opacity=".8" />
+                <rect x="7" y="31" width="9" height="8" rx="2" fill="#558dcc" />
+                <rect x="8" y="41" width="7" height="2" rx="1" fill="white" fill-opacity=".8" />
+                <rect x="31" y="16" width="64" height="39" rx="4" fill="#fbfcfe" stroke="#aab6c7" stroke-width=".5" />
+                <path d="M31 22H95" stroke="#dce2e9" stroke-width=".5" />
+                <circle cx="35" cy="19" r="1" fill="#ff6058" /><circle cx="39" cy="19" r="1" fill="#ffbd2e" /><circle cx="43" cy="19" r="1" fill="#28c840" />
+                <path d="M46 22V55" stroke="#dce2e9" stroke-width=".5" />
+                <rect x="34" y="27" width="8" height="2" rx="1" fill="#d9dfe8" /><rect x="34" y="33" width="6" height="2" rx="1" fill="#e3e8ee" />
+                <rect x="52" y="29" width="25" height="3" rx="1.5" fill="var(--ts-accent)" fill-opacity=".75" />
+                <rect x="52" y="37" width="36" height="2" rx="1" fill="#dce2e9" /><rect x="52" y="43" width="28" height="2" rx="1" fill="#e7ebf0" />
+                <rect x="35" y="60" width="39" height="6" rx="3" fill="white" fill-opacity=".55" />
+                <rect x="40" y="61" width="4" height="4" rx="1" fill="#68a6db" /><rect x="47" y="61" width="4" height="4" rx="1" fill="#78ae85" /><rect x="54" y="61" width="4" height="4" rx="1" fill="#d59b83" /><rect x="61" y="61" width="4" height="4" rx="1" fill="#a6a9b1" />
+              </svg>
+              <span class="theme-settings-startup-check"><svg viewBox="0 0 12 12" fill="none"><path d="m2.5 6 2.2 2.2 4.8-4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
+            </span>
+            <span>普通显示</span>
+          </button>
+          <button type="button" role="radio" :aria-checked="($store.themeSettings.value('desktop.startup.mode') === 'boot').toString()"
+                  :class="{ 'is-selected': $store.themeSettings.value('desktop.startup.mode') === 'boot' }" @click="$store.themeSettings.update('desktop.startup.mode', 'boot')">
+            <span class="theme-settings-startup-preview theme-settings-startup-boot" aria-hidden="true">
+              <svg viewBox="0 0 108 68" fill="none">
+                <svg x="43" y="17" width="22" height="22" viewBox="0 0 24 24" fill="#f5f5f7">
+                  <path d="M17.05 12.54c.03 3.15 2.76 4.2 2.79 4.21-.02.07-.44 1.5-1.44 2.98-.87 1.28-1.77 2.56-3.19 2.59-1.39.03-1.84-.83-3.43-.83-1.58 0-2.08.8-3.39.86-1.37.05-2.41-1.38-3.29-2.65-1.79-2.61-3.15-7.38-1.31-10.6a5.1 5.1 0 0 1 4.34-2.62c1.35-.03 2.63.92 3.45.92.82 0 2.36-1.14 3.98-.98.68.03 2.59.27 3.82 2.07-.1.06-2.29 1.34-2.27 4.05M14.45 4.6c.73-.89 1.23-2.13 1.1-3.36-1.06.04-2.34.7-3.1 1.59-.68.79-1.27 2.05-1.11 3.26 1.18.09 2.38-.6 3.11-1.49" />
+                </svg>
+                <rect x="34" y="47" width="40" height="2" rx="1" fill="#535356" /><rect x="34" y="47" width="23" height="2" rx="1" fill="#ededf0" />
+              </svg>
+              <span class="theme-settings-startup-check"><svg viewBox="0 0 12 12" fill="none"><path d="m2.5 6 2.2 2.2 4.8-4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
+            </span>
+            <span>开机启动</span>
+          </button>
+        </div>
+      </div>
     </div>
-    <p class="theme-settings-section-note">应用后在下一次符合条件的完整访问时生效。减少动态效果开启时直接显示页面。</p>
+    <p class="theme-settings-section-note">应用后按所选频率生效。减少动态效果开启时直接显示页面。</p>
   </section>
   <section class="theme-settings-section" x-show="$store.themeSettings.value('desktop.startup.mode') === 'boot'">
-    <h3 class="theme-settings-section-title">开机体验</h3>
+    <h3 class="theme-settings-section-title">开机选项</h3>
     <div class="theme-settings-group">
       <label class="theme-settings-input-row" data-setting-path="desktop.startup.frequency">
         <span class="theme-settings-copy"><strong>播放频率</strong></span>
@@ -54,26 +101,12 @@
           <p class="theme-settings-resource-error" role="alert" x-show="$store.themeSettings.validationError('desktop.startup.logo_url')" x-text="$store.themeSettings.validationError('desktop.startup.logo_url')"></p>
         </div>
       </template>
-    </div>
-    <div class="theme-settings-startup-demo theme-settings-group-row theme-settings-image-row">
-      <button type="button" class="theme-settings-secondary-button" :disabled="$store.themeSettings.startupPreviewing || !!$store.themeSettings.validationError('desktop.startup.logo_url')" @click="$store.themeSettings.previewStartup()">
-        <span x-text="$store.themeSettings.startupPreviewing ? '演示中…' : '演示一次'"></span>
-      </button>
-      <span class="theme-settings-section-note">使用当前草稿，可跳过或按 Escape 结束。</span>
-    </div>
-  </section>
-  <section class="theme-settings-section">
-    <h3 class="theme-settings-section-title">站点访问</h3>
-    <div class="theme-settings-group">
-      <div class="theme-settings-group-row">
-        <span class="theme-settings-copy"><strong>当前策略</strong><small>由 Halo 后台的站点访问设置决定</small></span>
-        <span class="theme-settings-current-value">未核验</span>
+      <div class="theme-settings-startup-demo theme-settings-group-row theme-settings-image-row">
+        <span class="theme-settings-copy"><strong>预览效果</strong><small>只预览当前选项，不会保存</small></span>
+        <button type="button" class="theme-settings-secondary-button" :disabled="$store.themeSettings.startupPreviewing || !!$store.themeSettings.validationError('desktop.startup.logo_url')" @click="$store.themeSettings.previewStartup()">
+          <span x-text="$store.themeSettings.startupPreviewing ? '演示中…' : '演示一次'"></span>
+        </button>
       </div>
-      <a class="theme-settings-group-row theme-settings-link-row" href="/console" target="_blank" rel="noopener" data-no-pjax>
-        <span class="theme-settings-copy"><strong>打开 Halo 后台</strong></span>
-        <span class="icon-[lucide--external-link]" aria-hidden="true"></span>
-      </a>
     </div>
-    <p class="theme-settings-section-note">启动表现不改变访问权限。登录要求请在 Halo 后台查看和管理。</p>
   </section>
 </section>

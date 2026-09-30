@@ -8,7 +8,7 @@ export const SETTINGS_PANES = Object.freeze([
   { id: 'navigation', label: '导航菜单', detail: '选择菜单栏使用的后台菜单', keywords: ['导航', '菜单来源'], icon: 'icon-[lucide--navigation]', color: 'blue', group: 'desktop' },
   { id: 'widgets', label: '小组件', detail: '管理桌面小组件、图标与布局', keywords: ['组件', '天气', '城市', '封面', '桌面', '分类', '标签', '文章', '单页', '布局'], icon: 'icon-[lucide--layout-grid]', color: 'green', group: 'desktop' },
   { id: 'notifications', label: '通知中心', detail: '设置通知中心名称与展开方式', keywords: ['侧边栏', '通知', '访客'], icon: 'icon-[lucide--bell]', color: 'red', group: 'desktop' },
-  { id: 'startup', label: '启动与登录', detail: '设置启动表现并查看站点访问说明', keywords: ['开机', '动画', '启动', '登录', '访问', '私密'], icon: 'icon-[lucide--power]', color: 'gray', group: 'system' },
+  { id: 'startup', label: '首屏加载', detail: '选择首屏显示方式与开机效果', keywords: ['首屏', '加载', '开机', '动画', '启动'], icon: 'icon-[lucide--power]', color: 'gray', group: 'system' },
   { id: 'apps', label: '应用', detail: '自定义瞬间、书影音、友链和装备页面', keywords: ['瞬间', '豆瓣', '书影音', '友链', 'Steam', '装备'], icon: 'icon-[lucide--app-window]', color: 'orange', group: 'system' },
   { id: 'advanced', label: '高级', detail: '管理调试选项', keywords: ['调试', '日志'], icon: 'icon-[lucide--settings-2]', color: 'gray', group: 'system' }
 ].map(Object.freeze));
