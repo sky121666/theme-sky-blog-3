@@ -3,15 +3,16 @@ import { classifyLinkClick } from '../../../../../shared/navigation-link-policy.
 const controllers = new WeakMap();
 
 /** @theme-navigation-contract v1 — one bubble listener, no serializable bind markers. */
-export function installClickController({ document, readContext, requestNavigation }) {
+export function installClickController({ document, readContext, requestNavigation, restoreCurrentDockWindow }) {
   if (controllers.has(document)) return controllers.get(document);
   const onClick = (event) => {
     const path = event.composedPath?.() || [];
     const anchor = path.find((node) => node?.matches?.('a[href]'))
       || event.target?.closest?.('a[href]');
     if (!anchor?.isConnected || anchor.ownerDocument !== document) return;
+    const context = readContext();
     const decision = classifyLinkClick({
-      ...readContext(), event,
+      ...context, event,
       link: {
         rawHref: anchor.getAttribute('href'), resolvedHref: anchor.href,
         classOptIn: anchor.classList.contains('pjax-link'),
@@ -19,6 +20,14 @@ export function installClickController({ document, readContext, requestNavigatio
         hasDownload: anchor.hasAttribute('download')
       }
     });
+    // The policy deliberately leaves same-document hashes native. A Dock link
+    // may restore only when its entire resolved URL matches the hidden window.
+    if ((decision.kind === 'managed' || decision.reason === 'same-document-anchor')
+      && anchor.classList.contains('dock-icon') && anchor.closest('.dock-container')
+      && anchor.href === context.currentUrl && restoreCurrentDockWindow?.()) {
+      event.preventDefault();
+      return;
+    }
     if (decision.kind !== 'managed') return;
     // Admission can veto, but a managed click must never fall through natively.
     event.preventDefault();

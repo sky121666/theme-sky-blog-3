@@ -112,6 +112,8 @@ try {
       calls: [],
       requests: [],
       native: [],
+      restores: 0,
+      minimized: false,
       trace: [],
       results: []
     };
@@ -132,7 +134,13 @@ try {
       library.loadUrl(href, options);
       return { kind: 'started', intentId: f.calls.length };
     };
-    const install = () => installClickController({ document, readContext, requestNavigation });
+    const restoreCurrentDockWindow = () => {
+      if (!f.minimized) return false;
+      f.restores++;
+      f.minimized = false;
+      return true;
+    };
+    const install = () => installClickController({ document, readContext, requestNavigation, restoreCurrentDockWindow });
     let dispose = install();
     const test = (name, pass, detail = null) => f.results.push({ name, pass: Boolean(pass), detail });
     test('controller returns a disposer', typeof dispose === 'function');
@@ -312,7 +320,101 @@ try {
     trusted.push({ name, pass: after.calls - before.calls === 1 && after.requests - before.requests === 1 && after.native - before.native === 1 && after.sink.preventedBeforeSink && after.sink.trusted, detail: { before, after } });
   }
 
-  const all = [...results, ...trusted, { name: 'browser page errors', pass: pageErrors.length === 0, detail: pageErrors }];
+  await page.evaluate(() => {
+    const dock = document.createElement('div');
+    dock.className = 'dock-container';
+    dock.innerHTML = '<a id="dock-current" class="dock-icon pjax-link" target="_self" href="/base">current</a>';
+    document.body.append(dock);
+    const scroller = document.createElement('div');
+    scroller.id = 'content-scroll';
+    scroller.style.cssText = 'height: 20px; overflow: auto';
+    scroller.innerHTML = '<div style="height: 200px"></div>';
+    document.body.append(scroller);
+    scroller.scrollTop = 70;
+    window.__dockHistoryWrites = 0;
+    for (const method of ['pushState', 'replaceState']) {
+      const original = history[method].bind(history);
+      history[method] = (...args) => {
+        window.__dockHistoryWrites++;
+        return original(...args);
+      };
+    }
+  });
+  const dockChecks = [];
+  for (const [name, url] of [
+    ['same URL without hash restores minimized window', `${origin}/base`],
+    ['same URL with matching query and hash restores minimized window', `${origin}/base?view=friends#item`]
+  ]) {
+    await page.evaluate((nextUrl) => {
+      history.replaceState({}, '', nextUrl);
+      document.getElementById('dock-current').href = nextUrl;
+      window.__clickFixture.minimized = true;
+    }, url);
+    const before = await page.evaluate(() => ({
+      calls: window.__clickFixture.calls.length,
+      requests: window.__clickFixture.requests.length,
+      restores: window.__clickFixture.restores,
+      historyLength: history.length,
+      historyWrites: window.__dockHistoryWrites,
+      scroll: document.getElementById('content-scroll').scrollTop
+    }));
+    await page.click('#dock-current');
+    const after = await page.evaluate(() => ({
+      calls: window.__clickFixture.calls.length,
+      requests: window.__clickFixture.requests.length,
+      restores: window.__clickFixture.restores,
+      historyLength: history.length,
+      historyWrites: window.__dockHistoryWrites,
+      scroll: document.getElementById('content-scroll').scrollTop,
+      url: location.href,
+      sink: window.__clickFixture.native.at(-1)
+    }));
+    dockChecks.push({ name, pass: after.restores - before.restores === 1
+      && after.calls === before.calls && after.requests === before.requests
+      && after.historyLength === before.historyLength && after.historyWrites === before.historyWrites
+      && after.scroll === before.scroll
+      && after.url === url && after.sink?.trusted && after.sink?.preventedBeforeSink,
+    detail: { before, after } });
+  }
+
+  for (const [name, href, target, clickOptions, expected] of [
+    ['other Dock URL keeps navigation', '/links', '_self', {}, 'managed'],
+    ['different query keeps navigation', '/base?view=other', '_self', {}, 'managed'],
+    ['different hash keeps native anchor behavior', '/base?view=friends#other', '_self', {}, 'native'],
+    ['modified Dock click stays native', '/base?view=friends#item', '_self', { modifiers: ['Meta'] }, 'native'],
+    ['middle Dock click stays native', '/base?view=friends#item', '_self', { button: 'middle' }, 'native'],
+    ['new-tab Dock click stays native', '/base?view=friends#item', '_blank', {}, 'native'],
+    ['external Dock click stays native', 'https://outside.test/next', '_self', {}, 'native'],
+    ['visible window keeps existing navigation', '/base', '_self', {}, 'managed']
+  ]) {
+    await page.evaluate(({ href, target, visible }) => {
+      history.replaceState({}, '', visible ? `${location.origin}/base` : `${location.origin}/base?view=friends#item`);
+      const link = document.getElementById('dock-current');
+      link.href = href;
+      link.target = target;
+      window.__clickFixture.minimized = !visible;
+    }, { href, target, visible: name.startsWith('visible') });
+    const before = await page.evaluate(() => ({
+      calls: window.__clickFixture.calls.length,
+      requests: window.__clickFixture.requests.length,
+      restores: window.__clickFixture.restores
+    }));
+    await page.click('#dock-current', clickOptions);
+    const after = await page.evaluate(() => ({
+      calls: window.__clickFixture.calls.length,
+      requests: window.__clickFixture.requests.length,
+      restores: window.__clickFixture.restores,
+      sink: window.__clickFixture.native.at(-1)
+    }));
+    const managed = expected === 'managed';
+    dockChecks.push({ name, pass: after.restores === before.restores
+      && after.calls - before.calls === Number(managed)
+      && after.requests - before.requests === Number(managed)
+      && after.sink?.preventedBeforeSink === managed,
+    detail: { before, after } });
+  }
+
+  const all = [...results, ...trusted, ...dockChecks, { name: 'browser page errors', pass: pageErrors.length === 0, detail: pageErrors }];
   for (const result of all) console.log(`${result.pass ? 'PASS' : 'FAIL'} ${result.name}${result.pass ? '' : ` ${JSON.stringify(result.detail)}`}`);
   assert.equal(all.filter((result) => !result.pass).length, 0, `${all.filter((result) => !result.pass).length}/${all.length} navigation click checks failed`);
   console.log(`Navigation clicks: ${all.length}/${all.length} passed`);

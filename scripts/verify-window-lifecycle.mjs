@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
 
 const previousGlobals = {
   window: globalThis.window,
@@ -103,6 +104,8 @@ try {
   };
 
   const { registerWindowComponents } = await import('../src/shell/desktop-shell/runtime/desktop/window.js');
+  const require = createRequire(import.meta.url);
+  assert.equal(Boolean(require.cache[require.resolve('qrcode')]), false, '二维码库应在微信分享打开时才加载');
   const factories = new Map();
   registerWindowComponents({
     data(name, factory) {
@@ -155,6 +158,19 @@ try {
   assert.equal(draggable._viewportResizeTimer, 0);
 
   const titlebar = factories.get('windowTitlebar')();
+  const originalShareUrl = fakeWindow.location.href;
+  fakeWindow.location.href = `https://example.com/${'a'.repeat(10_000)}`;
+  await titlebar.openWeChatShare();
+  assert.equal(titlebar.wechatQrError, '二维码生成失败');
+  assert.equal(titlebar.wechatQrLoading, false, '失败后必须释放加载状态以允许重试');
+  fakeWindow.location.href = originalShareUrl;
+  const qrReady = titlebar.openWeChatShare();
+  assert.equal(titlebar.wechatQrLoading, true);
+  await titlebar.openWeChatShare();
+  await qrReady;
+  assert.match(titlebar.wechatQrDataUrl, /^data:image\/png;base64,/);
+  assert.equal(titlebar.wechatQrError, '');
+  assert.equal(titlebar.wechatQrLoading, false);
   titlebar.shareFeedbackTimer = setTimeout(() => {}, 10_000);
   titlebar.destroy();
   assert.equal(titlebar.shareFeedbackTimer, null, 'windowTitlebar destroy 必须清理反馈 timer');

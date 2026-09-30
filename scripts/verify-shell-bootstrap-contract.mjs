@@ -19,7 +19,7 @@ const deferred = () => {
 };
 const manifest = { __meta: { version: '1', revision: 'build-2', query: 'v=1&r=build-2' } };
 
-function harness(fetchResult, { withApp = true, appImport = Promise.resolve(), shellImport = Promise.resolve(), currentRevision = 'halo-12', autoStyleLoad = true } = {}) {
+function harness(fetchResult, { withApp = true, appImport = Promise.resolve(), shellImport = Promise.resolve(), currentRevision = 'halo-12', autoStyleLoad = true, domLoading = false } = {}) {
   const timers = new Map();
   const imports = [];
   const fetches = [];
@@ -28,6 +28,8 @@ function harness(fetchResult, { withApp = true, appImport = Promise.resolve(), s
   const nodes = [];
   const events = [];
   const alerts = [];
+  const preloads = [];
+  const domListeners = new Map();
   let reloads = 0;
   let timerId = 0;
   function style(name, href, attributes = {}) {
@@ -82,7 +84,11 @@ function harness(fetchResult, { withApp = true, appImport = Promise.resolve(), s
     };
   }
   const document = {
+    readyState: domLoading ? 'loading' : 'complete',
+    head: { appendChild(node) { preloads.push(node); } },
     body: { appendChild(node) { alerts.push(node); } },
+    addEventListener(type, listener) { domListeners.set(type, listener); },
+    removeEventListener(type, listener) { if (domListeners.get(type) === listener) domListeners.delete(type); },
     getElementById(id) { return alerts.find((node) => node.id === id) || null; },
     createElement: element,
     querySelector(selector) {
@@ -103,7 +109,8 @@ function harness(fetchResult, { withApp = true, appImport = Promise.resolve(), s
     .replace("'/assets/js/shell-core/index.js'", "'/assets/js/shell-core/index.js?v=1&r=halo-12'")
     .replace("'/assets/css/shell-core/index.css'", "'/assets/css/shell-core/index.css?v=1&r=halo-12'");
   vm.runInNewContext(source, context);
-  return { window, timers, imports, fetches, errors, writes, appScript, shellStyle, appStyle, nodes, events, alerts,
+  return { window, timers, imports, fetches, errors, writes, appScript, shellStyle, appStyle, nodes, events, alerts, preloads,
+    finishDom() { document.readyState = 'interactive'; domListeners.get('DOMContentLoaded')?.(); },
     get reloads() { return reloads; },
     fireDeadline(ms = 4000) { const timer = [...timers.values()].find((entry) => entry.ms === ms); assert.ok(timer, `missing ${ms}ms deadline`); timer.fn(); } };
 }
@@ -147,6 +154,20 @@ assert.equal(normal.appScript.dataset.appScriptState, 'ready');
 assert.equal(normal.timers.size, 0, 'App/Shell 完成后应清理模块 deadline');
 assert.equal(normal.alerts.length, 0, '正常启动不得显示恢复提示');
 assert.equal(normal.window.__THEME_BOOTSTRAP_CANCELLED__, false, '正常启动不得设置取消状态');
+assert.equal(normal.window.__THEME_ASSET_MANIFEST__, manifest, '完整已校验清单必须交给运行时复用');
+
+const parsing = harness(Promise.resolve({ ok: true, json: async () => manifest }), {
+  currentRevision: 'build-2', domLoading: true
+});
+await tick();
+assert.deepEqual(parsing.imports, [], 'HTML 尚未解析完成时不得执行 App 或 Alpine Shell');
+assert.deepEqual(parsing.preloads.map((node) => node.href).sort(), [
+  '/assets/js/apps/reader/index.js?v=1&r=build-2',
+  '/assets/js/shell-core/index.js?v=1&r=build-2'
+], 'DOM 解析期间应提前下载同构建模块');
+parsing.finishDom();
+await parsing.window.__THEME_BOOTSTRAP_READY__;
+assert.equal(parsing.imports.length, 2, 'DOM 可用后仍按 App→Shell 完成初始化');
 
 const unchangedCss = harness(Promise.resolve({ ok: true, json: async () => manifest }), { currentRevision: 'build-2' });
 await unchangedCss.window.__THEME_BOOTSTRAP_READY__;

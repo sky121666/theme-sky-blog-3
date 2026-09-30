@@ -20,6 +20,7 @@ import { disposeLatestPostsSources } from '../widgets/latest-posts-runtime.js';
 import { ensureDesktopWidgetData } from '../widgets/data-loader.js';
 import { createNotificationCenterMotion } from './notification-center-motion.js';
 import { registerDock } from './dock.js';
+import { applyMenubarForegroundFromBody } from './settings-model/color-controls.js';
 import { enhanceDoubanShowcaseWidgets } from '../../../../widgets/plugin/douban-showcase/runtime.js';
 
 const { log: wmLog } = createLogger('window');
@@ -579,6 +580,7 @@ export function registerWindowManager(Alpine) {
     },
     init() {
       const dataset = this.$el?.dataset || {};
+      applyMenubarForegroundFromBody();
       this.appName = dataset.siteTitle || '';
       this.themeSettingEnabled = parseBooleanData(dataset.themeSettingEnabled, true);
       this.searchAvailable = parseBooleanData(dataset.searchAvailable, false);
@@ -643,6 +645,7 @@ export function registerWindowManager(Alpine) {
       };
       this.handleMenubarSettingsChange = (event) => {
         const detail = event.detail || {};
+        applyMenubarForegroundFromBody();
         this.appName = String(detail.appName || '').trim();
         this.themeSettingEnabled = detail.themeSettingEnabled !== false;
         this.searchEnabled = detail.searchEnabled !== false;

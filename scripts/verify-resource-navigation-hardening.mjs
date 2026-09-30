@@ -22,7 +22,7 @@ const manifest = (revision = 'old') => ({
 });
 const response = (value) => ({ ok: true, json: async () => value });
 
-function registryFixture(fetch) {
+function registryFixture(fetch, bootstrapManifest = null) {
   const elements = [];
   let reloads = 0;
   const document = {
@@ -49,12 +49,57 @@ function registryFixture(fetch) {
     window: {
       location: { origin: 'https://example.test', reload: () => reloads++ },
       // A Halo SSR revision must not replace the compiled build identity.
-      __THEME_ASSET_IDENTITY__: { version: '0.9.46', revision: 'halo-token', source: 'server-fallback' },
+      __THEME_ASSET_IDENTITY__: bootstrapManifest
+        ? { version: '0.9.46', revision: 'old', query: 'v=0.9.46&r=old', source: 'manifest' }
+        : { version: '0.9.46', revision: 'halo-token', source: 'server-fallback' },
+      __THEME_ASSET_MANIFEST__: bootstrapManifest,
       setTimeout, clearTimeout
     }
   });
   vm.runInContext(registrySource, context);
   return { context, elements, reloads: () => reloads };
+}
+
+async function verifyBootstrapManifestReuse() {
+  let calls = 0;
+  const initial = manifest();
+  const { context } = registryFixture(async () => { calls++; return response(manifest('new')); }, initial);
+  const assets = await vm.runInContext("getAssetsForApp('reader')", context);
+  assert.equal(assets.css[0], initial.reader.css[0]);
+  assert.equal(calls, 0, '同一构建身份的启动清单不应重复下载');
+  assert.equal((await vm.runInContext('getLatestThemeAssetIdentity()', context)).revision, 'old');
+  assert.equal(calls, 0);
+  assert.equal((await vm.runInContext('getLatestThemeAssetIdentity({ force: true })', context)).revision, 'new');
+  assert.equal(calls, 1, 'force 必须从网络检查新构建');
+  await assert.rejects(vm.runInContext("getAssetsForApp('reader')", context), { name: 'ThemeAssetIdentityError' });
+
+  for (const changed of [
+    { ...initial, __meta: { ...initial.__meta, query: 'v=0.9.46&r=other' } },
+    { ...initial, __meta: { ...initial.__meta, revision: 'other' } },
+    { ...initial, __meta: { version: '0.9.46', revision: 'old' } },
+  ]) {
+    let mismatchedCalls = 0;
+    const mismatch = registryFixture(async () => { mismatchedCalls++; return response(initial); }, changed);
+    await vm.runInContext('loadAssetManifest()', mismatch.context);
+    assert.equal(mismatchedCalls, 1, '不完整或不匹配身份不得复用');
+  }
+}
+
+async function verifyFreshnessEventRouting() {
+  const entry = read('src/shell/desktop-shell/entry-main.js');
+  const start = entry.indexOf('  void verifyRuntimeFreshness();');
+  assert.ok(start > 0);
+  const source = entry.slice(start, entry.lastIndexOf('\n}'));
+  const calls = [];
+  const listeners = new Map();
+  const visibility = { visibilityState: 'hidden', addEventListener: (name, fn) => listeners.set(name, fn) };
+  const browser = { addEventListener: (name, fn) => listeners.set(name, fn) };
+  vm.runInNewContext(source, { document: visibility, window: browser, verifyRuntimeFreshness: (force = false) => { calls.push(force); return Promise.resolve(false); } });
+  listeners.get('pageshow')({ persisted: false });
+  listeners.get('pageshow')({ persisted: true });
+  visibility.visibilityState = 'visible';
+  listeners.get('visibilitychange')();
+  assert.deepEqual(calls, [false, false, true, true], '首次检查与首次 pageshow 复用清单，恢复检查强制下载');
 }
 
 async function verifyBuildIdentity() {
@@ -452,6 +497,8 @@ async function verifyFullPjaxAssetGate() {
 }
 
 await verifyBuildIdentity();
+await verifyBootstrapManifestReuse();
+await verifyFreshnessEventRouting();
 await verifyManifestTimeoutAndSharing();
 await verifyParallelAssetsAndCancellation();
 await verifyExistingAssetIdentity();

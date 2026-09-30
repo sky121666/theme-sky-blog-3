@@ -181,6 +181,21 @@ function normalizeManifestAssetQuery(meta = {}) {
 
 export function loadAssetManifest(options = {}) {
   const { force = false, signal, timeoutMs = RESOURCE_TIMEOUT_MS } = options;
+  if (!force && !assetManifestPromise) {
+    const identity = window.__THEME_ASSET_IDENTITY__;
+    const manifest = window.__THEME_ASSET_MANIFEST__;
+    const meta = manifest?.__meta;
+    const compiled = getCurrentThemeAssetIdentity();
+    const expectedQuery = new URLSearchParams({ v: compiled.version, r: compiled.revision }).toString();
+    if (identity?.source === 'manifest'
+      && compiled.version && compiled.revision
+      && identity.version === compiled.version && identity.revision === compiled.revision
+      && identity.query === expectedQuery
+      && meta && meta.version === compiled.version && meta.revision === compiled.revision
+      && meta.query === expectedQuery) {
+      assetManifestPromise = Promise.resolve(manifest);
+    }
+  }
   // Forced freshness checks share an in-flight request. They only bypass a
   // completed cache, so visibility/pageshow cannot start competing writers.
   if (!assetManifestPromise || (force && !assetManifestPending)) {

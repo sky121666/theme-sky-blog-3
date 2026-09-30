@@ -123,6 +123,13 @@
 .theme-settings-app-status { color: var(--ts-text-tertiary); font-size: 10.5px; }
 .theme-settings-app-status.is-available { color: var(--ts-success); }
 .theme-settings-app-unavailable { margin: -1px 2px 9px; }
+.theme-settings-app-list .theme-settings-section-note { margin-bottom: 12px; }
+.theme-settings-app-entry { min-height: 49px; }
+.theme-settings-app-entry + .theme-settings-app-entry { border-top: 0.5px solid var(--ts-hairline); }
+.theme-settings-app-entry .theme-settings-copy { min-width: 0; }
+.theme-settings-app-entry .theme-settings-app-status { white-space: nowrap; }
+.theme-settings-app-entry > .theme-settings-navigation-icon { width: 23px; height: 23px; flex-basis: 23px; }
+.theme-settings-app-entry:focus-visible { position: relative; z-index: 1; outline: 3px solid var(--ts-focus); outline-offset: -3px; }
 
 @media (max-width: 680px) {
   .theme-settings-appearance-choices { gap: 10px; }

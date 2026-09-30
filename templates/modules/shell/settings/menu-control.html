@@ -97,14 +97,38 @@
   <section class="theme-settings-section">
     <h3 class="theme-settings-section-title">二级菜单背景</h3>
     <div class="theme-settings-group">
-      <label class="theme-settings-input-row theme-settings-color-input-row" data-setting-path="header.dropdown.light_bg" :class="{ 'is-invalid': $store.themeSettings.validationError('header.dropdown.light_bg') }">
-        <span class="theme-settings-copy"><strong>浅色模式</strong></span><span class="theme-settings-color-value-control"><i :style="{ backgroundColor: $store.themeSettings.value('header.dropdown.light_bg') }" aria-hidden="true"></i><input type="text" :value="$store.themeSettings.value('header.dropdown.light_bg')" :aria-invalid="Boolean($store.themeSettings.validationError('header.dropdown.light_bg')).toString()" aria-describedby="header-dropdown-light_bg-error" @input="$store.themeSettings.updateCssColor('header.dropdown.light_bg', $event.target.value)" /></span>
+      <div class="theme-settings-input-row theme-settings-color-input-row" data-setting-path="header.dropdown.light_bg"
+           x-data="{ colorText: $store.themeSettings.value('header.dropdown.light_bg') }"
+           x-effect="if (!$store.themeSettings.validationError('header.dropdown.light_bg') && document.activeElement !== $refs.colorText) colorText = $store.themeSettings.value('header.dropdown.light_bg')"
+           :class="{ 'is-invalid': $store.themeSettings.validationError('header.dropdown.light_bg') }">
+        <label class="theme-settings-copy" for="header-dropdown-light-color"><strong>浅色模式</strong></label>
+        <div class="theme-settings-color-value-control">
+          <input id="header-dropdown-light-color" type="color" aria-label="浅色模式二级菜单背景颜色" :value="$store.themeSettings.colorParts('header.dropdown.light_bg')?.hex || '#000000'" :disabled="Boolean($store.themeSettings.validationError('header.dropdown.light_bg'))" @input="$store.themeSettings.updateColorHex('header.dropdown.light_bg', $event.target.value)" />
+          <input x-ref="colorText" type="text" aria-label="浅色模式颜色值，支持 HEX 或 rgb/rgba" x-model="colorText" :aria-invalid="Boolean($store.themeSettings.validationError('header.dropdown.light_bg')).toString()" aria-describedby="header-dropdown-light_bg-error" @input="$store.themeSettings.updateCssColor('header.dropdown.light_bg', $event.target.value)" @blur="if (!$store.themeSettings.validationError('header.dropdown.light_bg')) colorText = $store.themeSettings.value('header.dropdown.light_bg')" />
+        </div>
+        <label class="theme-settings-opacity-label" for="header-dropdown-light-opacity">不透明度</label>
+        <div class="theme-settings-opacity-control">
+          <input id="header-dropdown-light-opacity" type="range" min="0" max="100" step="1" :value="$store.themeSettings.colorParts('header.dropdown.light_bg')?.opacity ?? 100" :disabled="Boolean($store.themeSettings.validationError('header.dropdown.light_bg'))" @input="$store.themeSettings.updateColorOpacity('header.dropdown.light_bg', $event.target.value)" />
+          <input type="number" min="0" max="100" step="1" aria-label="浅色模式二级菜单不透明度百分比" :value="$store.themeSettings.colorParts('header.dropdown.light_bg')?.opacity ?? 100" :disabled="Boolean($store.themeSettings.validationError('header.dropdown.light_bg'))" @change="$store.themeSettings.updateColorOpacity('header.dropdown.light_bg', $event.target.value)" /><span aria-hidden="true">%</span>
+        </div>
         <small id="header-dropdown-light_bg-error" class="theme-settings-field-error" x-show="$store.themeSettings.validationError('header.dropdown.light_bg')" x-text="$store.themeSettings.validationError('header.dropdown.light_bg')" role="alert"></small>
-      </label>
-      <label class="theme-settings-input-row theme-settings-color-input-row" data-setting-path="header.dropdown.dark_bg" :class="{ 'is-invalid': $store.themeSettings.validationError('header.dropdown.dark_bg') }">
-        <span class="theme-settings-copy"><strong>深色模式</strong></span><span class="theme-settings-color-value-control"><i :style="{ backgroundColor: $store.themeSettings.value('header.dropdown.dark_bg') }" aria-hidden="true"></i><input type="text" :value="$store.themeSettings.value('header.dropdown.dark_bg')" :aria-invalid="Boolean($store.themeSettings.validationError('header.dropdown.dark_bg')).toString()" aria-describedby="header-dropdown-dark_bg-error" @input="$store.themeSettings.updateCssColor('header.dropdown.dark_bg', $event.target.value)" /></span>
+      </div>
+      <div class="theme-settings-input-row theme-settings-color-input-row" data-setting-path="header.dropdown.dark_bg"
+           x-data="{ colorText: $store.themeSettings.value('header.dropdown.dark_bg') }"
+           x-effect="if (!$store.themeSettings.validationError('header.dropdown.dark_bg') && document.activeElement !== $refs.colorText) colorText = $store.themeSettings.value('header.dropdown.dark_bg')"
+           :class="{ 'is-invalid': $store.themeSettings.validationError('header.dropdown.dark_bg') }">
+        <label class="theme-settings-copy" for="header-dropdown-dark-color"><strong>深色模式</strong></label>
+        <div class="theme-settings-color-value-control">
+          <input id="header-dropdown-dark-color" type="color" aria-label="深色模式二级菜单背景颜色" :value="$store.themeSettings.colorParts('header.dropdown.dark_bg')?.hex || '#000000'" :disabled="Boolean($store.themeSettings.validationError('header.dropdown.dark_bg'))" @input="$store.themeSettings.updateColorHex('header.dropdown.dark_bg', $event.target.value)" />
+          <input x-ref="colorText" type="text" aria-label="深色模式颜色值，支持 HEX 或 rgb/rgba" x-model="colorText" :aria-invalid="Boolean($store.themeSettings.validationError('header.dropdown.dark_bg')).toString()" aria-describedby="header-dropdown-dark_bg-error" @input="$store.themeSettings.updateCssColor('header.dropdown.dark_bg', $event.target.value)" @blur="if (!$store.themeSettings.validationError('header.dropdown.dark_bg')) colorText = $store.themeSettings.value('header.dropdown.dark_bg')" />
+        </div>
+        <label class="theme-settings-opacity-label" for="header-dropdown-dark-opacity">不透明度</label>
+        <div class="theme-settings-opacity-control">
+          <input id="header-dropdown-dark-opacity" type="range" min="0" max="100" step="1" :value="$store.themeSettings.colorParts('header.dropdown.dark_bg')?.opacity ?? 100" :disabled="Boolean($store.themeSettings.validationError('header.dropdown.dark_bg'))" @input="$store.themeSettings.updateColorOpacity('header.dropdown.dark_bg', $event.target.value)" />
+          <input type="number" min="0" max="100" step="1" aria-label="深色模式二级菜单不透明度百分比" :value="$store.themeSettings.colorParts('header.dropdown.dark_bg')?.opacity ?? 100" :disabled="Boolean($store.themeSettings.validationError('header.dropdown.dark_bg'))" @change="$store.themeSettings.updateColorOpacity('header.dropdown.dark_bg', $event.target.value)" /><span aria-hidden="true">%</span>
+        </div>
         <small id="header-dropdown-dark_bg-error" class="theme-settings-field-error" x-show="$store.themeSettings.validationError('header.dropdown.dark_bg')" x-text="$store.themeSettings.validationError('header.dropdown.dark_bg')" role="alert"></small>
-      </label>
+      </div>
     </div>
     <p class="theme-settings-section-note">支持 CSS 颜色，例如 #ffffff 或 rgba(88, 92, 100, 0.66)。</p>
   </section>

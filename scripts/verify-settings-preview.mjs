@@ -15,7 +15,7 @@ const source = fs.readFileSync(path.join(
 ), 'utf8');
 const moduleStart = source.indexOf('const SETTINGS_CLOSE_DELAY');
 assert.ok(moduleStart > 0, 'Settings runtime module body missing');
-const supportingSource = ['preview', 'panels'].map((name) => fs.readFileSync(path.join(root, `src/shell/desktop-shell/runtime/desktop/settings-model/${name}.js`), 'utf8').replace(/^import .*?;\n/gm, '').replace(/export function /g, 'function ')).join('\n');
+const supportingSource = ['color-controls', 'preview', 'panels'].map((name) => fs.readFileSync(path.join(root, `src/shell/desktop-shell/runtime/desktop/settings-model/${name}.js`), 'utf8').replace(/^import .*?;\n/gm, '').replace(/export function /g, 'function ')).join('\n');
 const runtimeSource = (supportingSource + '\n' + source.slice(moduleStart))
   .replace('export function registerThemeSettings(Alpine)', 'function registerThemeSettings(Alpine)')
   .concat('\nregisterThemeSettings;');
@@ -291,6 +291,21 @@ test('cancel restores the desktop scroll context captured before Dock preview', 
   assert.equal(gridShell.scrollTop, 210);
   assert.equal(gridShell.scrollLeft, 12);
   assert.equal(store.hasDirtyChanges(), false);
+});
+
+test('菜单背景预览计算前景色，取消后同时恢复背景和前景变量', async () => {
+  const fixture = createHarness({ header: { dropdown: { light_bg: 'rgba(20, 30, 40, 0.8)' } } });
+  const { store, body } = fixture;
+  body.style.setProperty('--mac-header-dropdown-light-bg', 'rgba(20, 30, 40, 0.8)');
+  body.style.setProperty('--mac-header-dropdown-light-fg', '#FFFFFF');
+  await fixture.open();
+  store.update('header.dropdown.light_bg', '#ffffff');
+  assert.equal(body.style.getPropertyValue('--mac-header-dropdown-light-bg'), '#FFFFFF');
+  assert.equal(body.style.getPropertyValue('--mac-header-dropdown-light-fg'), '#17212F');
+  store.close(true);
+  fixture.fire(240);
+  assert.equal(body.style.getPropertyValue('--mac-header-dropdown-light-bg'), 'rgba(20, 30, 40, 0.8)');
+  assert.equal(body.style.getPropertyValue('--mac-header-dropdown-light-fg'), '#FFFFFF');
 });
 
 test('discarding on close restores the same connected desktop viewport', async () => {

@@ -290,7 +290,7 @@ button.menubar-mobile-trigger {
   padding: 4px;
   border-radius: 7px;
   background-color: var(--mac-header-dropdown-light-bg, rgba(78, 82, 90, 0.62)) !important;
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 58%) !important;
+  background-image: none !important;
   border: 0.5px solid rgba(255, 255, 255, 0.10) !important;
   -webkit-backdrop-filter: blur(22px) saturate(125%) !important;
   backdrop-filter: blur(22px) saturate(125%) !important;
@@ -299,25 +299,13 @@ button.menubar-mobile-trigger {
     inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
-@supports (background: color-mix(in srgb, white 50%, black)) {
-  .menubar-dropdown {
-    background-color: color-mix(in srgb, var(--mac-header-dropdown-light-bg, rgba(78, 82, 90, 0.62)) 82%, rgba(120, 126, 136, 0.34)) !important;
-  }
-}
-
 .dark .menubar-dropdown {
   background-color: var(--mac-header-dropdown-dark-bg, rgba(58, 62, 70, 0.72)) !important;
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.026), transparent 58%) !important;
+  background-image: none !important;
   border-color: rgba(255, 255, 255, 0.08) !important;
   box-shadow:
     0 9px 22px rgba(0, 0, 0, 0.24),
     inset 0 1px 0 rgba(255, 255, 255, 0.026);
-}
-
-@supports (background: color-mix(in srgb, white 50%, black)) {
-  .dark .menubar-dropdown {
-    background-color: color-mix(in srgb, var(--mac-header-dropdown-dark-bg, rgba(58, 62, 70, 0.72)) 86%, rgba(108, 114, 124, 0.24)) !important;
-  }
 }
 
 /* ── submenu item 三列 grid ── */
@@ -329,9 +317,10 @@ button.menubar-mobile-trigger {
   min-height: 21px;
   padding: 2px 8px 2px 7px;
   border-radius: 4px;
-  color: rgba(255, 255, 255, 0.96);
+  color: var(--mac-header-dropdown-light-fg, #ffffff);
   text-decoration: none;
-  text-shadow: 0 0.5px 0 rgba(0, 0, 0, 0.14);
+  --menu-text-outline: var(--mac-header-dropdown-light-outline, transparent);
+  text-shadow: 0 1px 1px var(--menu-text-outline), 0 -1px 1px var(--menu-text-outline), 1px 0 1px var(--menu-text-outline), -1px 0 1px var(--menu-text-outline);
   letter-spacing: 0;
   line-height: 1.2;
   font-size: 12.5px;
@@ -400,12 +389,23 @@ button.menubar-mobile-trigger {
 /* ── hover / focus / active ── */
 .menubar-dropdown-item:hover {
   color: #ffffff;
+  text-shadow: none;
   background: var(--theme-accent);
   box-shadow: none;
 }
 
 .menubar-dropdown-item:hover .menubar-dropdown-icon-svg {
   opacity: 1;
+}
+
+.dark .menubar-dropdown-item {
+  color: var(--mac-header-dropdown-dark-fg, #ffffff);
+  --menu-text-outline: var(--mac-header-dropdown-dark-outline, transparent);
+}
+
+.dark .menubar-dropdown-item:hover,
+.dark .menubar-dropdown-item:focus-visible {
+  color: #ffffff;
 }
 
 .menubar-dropdown-item:hover .menubar-dropdown-trailing svg,
@@ -415,6 +415,7 @@ button.menubar-mobile-trigger {
 
 .menubar-dropdown-item:focus-visible {
   color: #ffffff;
+  text-shadow: none;
   background: var(--theme-accent);
   box-shadow: none;
   outline: 1.5px solid rgba(255, 255, 255, 0.32);
@@ -437,7 +438,7 @@ button.menubar-mobile-trigger {
   z-index: 100;
   border-radius: 14px;
   background-color: var(--mac-header-dropdown-light-bg, rgba(78, 82, 90, 0.62)) !important;
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 58%) !important;
+  background-image: none !important;
   border: 0.5px solid rgba(255, 255, 255, 0.10) !important;
   -webkit-backdrop-filter: blur(22px) saturate(125%) !important;
   backdrop-filter: blur(22px) saturate(125%) !important;
@@ -448,7 +449,7 @@ button.menubar-mobile-trigger {
 
 .dark .menubar-mobile-dropdown {
   background-color: var(--mac-header-dropdown-dark-bg, rgba(58, 62, 70, 0.72)) !important;
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 58%) !important;
+  background-image: none !important;
   border-color: rgba(255, 255, 255, 0.08) !important;
 }
 
@@ -465,7 +466,9 @@ button.menubar-mobile-trigger {
   min-height: 36px;
   padding: 0 10px;
   border-radius: 10px;
-  color: rgba(255, 255, 255, 0.96);
+  color: var(--mac-header-dropdown-light-fg, #ffffff);
+  --menu-text-outline: var(--mac-header-dropdown-light-outline, transparent);
+  text-shadow: 0 1px 1px var(--menu-text-outline), 0 -1px 1px var(--menu-text-outline), 1px 0 1px var(--menu-text-outline), -1px 0 1px var(--menu-text-outline);
   text-decoration: none;
   font-size: 13px;
   font-weight: 560;
@@ -475,9 +478,14 @@ button.menubar-mobile-trigger {
   background: rgba(255, 255, 255, 0.1);
 }
 
+.dark .menubar-mobile-item {
+  color: var(--mac-header-dropdown-dark-fg, #ffffff);
+  --menu-text-outline: var(--mac-header-dropdown-dark-outline, transparent);
+}
+
 .menubar-mobile-item--child {
   padding-left: 18px;
-  color: rgba(255, 255, 255, 0.86);
+  color: inherit;
 }
 
 .menubar-mobile-item-icon {
@@ -516,11 +524,16 @@ button.menubar-mobile-trigger {
 
 .menubar-mobile-section-label {
   margin: 6px 10px 0;
-  color: rgba(255, 255, 255, 0.56);
+  color: var(--mac-header-dropdown-light-fg, #ffffff);
+  opacity: 0.7;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.dark .menubar-mobile-section-label {
+  color: var(--mac-header-dropdown-dark-fg, #ffffff);
 }
 
 .menubar-mobile-dropdown-separator {

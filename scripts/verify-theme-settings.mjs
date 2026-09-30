@@ -281,7 +281,8 @@ assert(!settingsStyles.includes('.theme-settings-layer.is-widgets-pane'), '切�
 assert(!/backdrop-filter:\s*blur/.test(settingsStyles), '设置窗口使用独立表面避免全层模糊');
 assert(settingsStyles.includes('--ts-accent: var(--theme-accent'), '系统设置交互色必须继承主题强调色');
 assert(!/#(?:0a84ff|007aff|0077ed|409cff)/i.test(settingsStyles), '系统设置不得写死 macOS 蓝色交互色');
-assert(read('src/shell/desktop-shell/runtime/desktop/settings-model/panels.js').includes('paneScroll[this.activePane]'), '切换分类必须保存各页滚动位置');
+const panelsSource = read('src/shell/desktop-shell/runtime/desktop/settings-model/panels.js');
+assert(panelsSource.includes('paneScroll[this.paneScrollKey()]'), '切换分类与应用详情必须分别保存滚动位置');
 assert(!settingsRuntime.includes("behavior: 'smooth'"), '切换设置分区不得使用可见的平滑滚动');
 assert(authStyles.includes('--auth-theme-accent: var(--theme-accent'), '登录注册页交互色必须继承主题强调色');
 assert(!/#(?:0a66ff|0a84ff|4f46e5|ff4d79)/i.test(authStyles), '登录注册页不得混入固定蓝紫或粉色装饰色');

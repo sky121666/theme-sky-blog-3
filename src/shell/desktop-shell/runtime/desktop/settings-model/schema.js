@@ -3,10 +3,10 @@
 export const SETTINGS_PANES = Object.freeze([
   { id: 'appearance', label: '外观', detail: '选择外观模式与桌面配色', keywords: ['主题', '深色', '浅色', '强调色', '文件夹'], icon: 'icon-[lucide--palette]', color: 'purple', group: 'personalization' },
   { id: 'wallpaper', label: '墙纸', detail: '设置桌面的背景图片或颜色', keywords: ['壁纸', '背景', '图片', '纯色'], icon: 'icon-[lucide--image]', color: 'blue', group: 'personalization' },
-  { id: 'desktop-dock', label: '桌面与 Dock', detail: '管理桌面图标与 Dock 外观', keywords: ['图标', '分类', '标签', '文章', '单页', '放大'], icon: 'icon-[lucide--panel-bottom]', color: 'blue', group: 'personalization' },
+  { id: 'desktop-dock', label: 'Dock', detail: '管理 Dock 快捷入口与外观', keywords: ['程序坞', '图标', '快捷入口', '系统设置', '放大'], icon: 'icon-[lucide--panel-bottom]', color: 'blue', group: 'personalization' },
   { id: 'menu-control', label: '菜单栏', detail: '设置品牌标识、工具按钮与时间', keywords: ['顶栏', '品牌', '搜索', '登录', '时间', '控制中心'], icon: 'icon-[lucide--panel-top]', color: 'gray', group: 'desktop' },
-  { id: 'navigation', label: '导航菜单', detail: '选择菜单栏与 Dock 使用的后台菜单', keywords: ['导航', '菜单来源', '快捷入口'], icon: 'icon-[lucide--navigation]', color: 'blue', group: 'desktop' },
-  { id: 'widgets', label: '小组件', detail: '管理桌面小组件与天气参数', keywords: ['组件', '天气', '城市', '封面'], icon: 'icon-[lucide--layout-grid]', color: 'green', group: 'desktop' },
+  { id: 'navigation', label: '导航菜单', detail: '选择菜单栏使用的后台菜单', keywords: ['导航', '菜单来源'], icon: 'icon-[lucide--navigation]', color: 'blue', group: 'desktop' },
+  { id: 'widgets', label: '小组件', detail: '管理桌面小组件、图标与布局', keywords: ['组件', '天气', '城市', '封面', '桌面', '分类', '标签', '文章', '单页', '布局'], icon: 'icon-[lucide--layout-grid]', color: 'green', group: 'desktop' },
   { id: 'notifications', label: '通知中心', detail: '设置通知中心名称与展开方式', keywords: ['侧边栏', '通知', '访客'], icon: 'icon-[lucide--bell]', color: 'red', group: 'desktop' },
   { id: 'apps', label: '应用', detail: '自定义瞬间、书影音、友链和装备页面', keywords: ['瞬间', '豆瓣', '书影音', '友链', 'Steam', '装备'], icon: 'icon-[lucide--app-window]', color: 'orange', group: 'system' },
   { id: 'advanced', label: '高级', detail: '管理调试选项', keywords: ['调试', '日志'], icon: 'icon-[lucide--settings-2]', color: 'gray', group: 'system' }
@@ -24,7 +24,7 @@ const field = (path, pane, label, type, defaultValue, extra = {}) => Object.free
 
 export const SETTINGS_FIELDS = Object.freeze([
   field('navigation.header.menu_name', 'navigation', '菜单栏导航', 'menu', '', { source: 'menus' }),
-  field('navigation.dock.menu_name', 'navigation', 'Dock 快捷入口', 'menu', '', { source: 'menus' }),
+  field('navigation.dock.menu_name', 'desktop-dock', 'Dock 快捷入口', 'menu', '', { source: 'menus' }),
   field('header.logo.icon', 'menu-control', '应用图标', 'icon', ''),
   field('header.logo.title', 'menu-control', '应用名称', 'text', ''),
   field('header.theme.enable_frontend_setting', 'appearance', '允许访客切换', 'boolean', true),
@@ -64,11 +64,11 @@ export const SETTINGS_FIELDS = Object.freeze([
   ]) }),
   field('desktop.background.image_url', 'wallpaper', '桌面背景图', 'image', '', { accepts: [...IMAGE_TYPES, 'image/gif', 'image/svg+xml'] }),
   field('desktop.background.solid_color', 'wallpaper', '桌面纯色', 'color', '#0f172a'),
-  field('desktop.icons.custom_icons', 'desktop-dock', '自定义桌面图标', 'custom-icons', []),
-  field('desktop.icons.categories', 'desktop-dock', '桌面分类', 'content-list', [], { source: 'categories' }),
-  field('desktop.icons.tags', 'desktop-dock', '桌面标签', 'content-list', [], { source: 'tags' }),
-  field('desktop.icons.posts', 'desktop-dock', '桌面文章', 'content-list', [], { source: 'posts' }),
-  field('desktop.icons.single_pages', 'desktop-dock', '桌面独立单页', 'content-list', [], { source: 'singlepages' }),
+  field('desktop.icons.custom_icons', 'widgets', '自定义桌面图标', 'custom-icons', []),
+  field('desktop.icons.categories', 'widgets', '桌面分类', 'content-list', [], { source: 'categories' }),
+  field('desktop.icons.tags', 'widgets', '桌面标签', 'content-list', [], { source: 'tags' }),
+  field('desktop.icons.posts', 'widgets', '桌面文章', 'content-list', [], { source: 'posts' }),
+  field('desktop.icons.single_pages', 'widgets', '桌面独立单页', 'content-list', [], { source: 'singlepages' }),
   field('widgets.behavior.enabled', 'widgets', '启用桌面小组件', 'boolean', true),
   field('widgets.behavior.hide_on_mobile', 'widgets', '手机端不显示小组件', 'boolean', false),
   field('widgets.behavior.edit_enabled', 'widgets', '允许编辑布局', 'boolean', true),
@@ -78,6 +78,7 @@ export const SETTINGS_FIELDS = Object.freeze([
   field('sidebar.notification_center.title', 'notifications', '通知中心名称', 'text', '通知中心'),
   field('sidebar.notification_center.guest_title', 'notifications', '未登录名称', 'text', '小组件'),
   field('sidebar.notification_center.default_open', 'notifications', '默认展开', 'boolean', false),
+  field('dock.appearance.settings_enabled', 'desktop-dock', '显示系统设置', 'boolean', true),
   field('dock.appearance.show_labels', 'desktop-dock', '显示名称标签', 'boolean', true),
   field('dock.appearance.magnification', 'desktop-dock', '启用放大效果', 'boolean', true),
   field('dock.appearance.icon_size', 'desktop-dock', '图标大小', 'number', 48, { min: 36, max: 64, step: 2 }),
@@ -102,6 +103,6 @@ export const SETTINGS_FIELDS = Object.freeze([
   field('steam.cover.image_url', 'apps', 'Steam 背景图片', 'image', '', { accepts: IMAGE_TYPES, app: 'steam' }),
   field('equipments.profile.display_name', 'apps', '全部装备标题', 'text', '', { app: 'equipments' }),
   field('equipments.profile.subtitle', 'apps', '全部装备描述', 'textarea', '', { app: 'equipments' }),
-  field('default_layout.layout_json', 'desktop-dock', '默认桌面布局', 'external-editor', '', { editor: 'desktop-layout', writable: false }),
+  field('default_layout.layout_json', 'widgets', '默认桌面布局', 'external-editor', '', { editor: 'desktop-layout', writable: false }),
   field('developer.debug_mode', 'advanced', '调试模式', 'boolean', false)
 ]);

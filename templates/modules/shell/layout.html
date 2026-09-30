@@ -154,19 +154,13 @@
       })();
     </script>
 
-	    <!-- 本地打包产物：使用主题版本号 + Halo 主题资源版本作为缓存边界 -->
-	    <link id="shell-core-style"
-	          rel="stylesheet"
-	          th:href="@{/assets/css/shell-core/index.css(v=${themeAssetVersion},r=${themeAssetRevision})}" />
-	    <link rel="stylesheet"
-	          th:if="${!#strings.isEmpty(pageAppValue)}"
-	          th:attr="data-app-css=${pageAppValue}"
-	          th:href="@{'/assets/css/apps/' + ${(pageAppValue == 'explorer-tags' ? 'tags' : (pageAppValue == 'explorer-categories' ? 'categories' : (pageAppValue == 'explorer-author' ? 'author' : (pageAppValue == 'explorer-archives' ? 'archives' : pageAppValue))))} + '/index.css?v=' + ${themeAssetVersion} + '&r=' + ${themeAssetRevision}}" />
+	    <!-- 同次构建提供 CSS 身份；Halo 资源 token 继续用于清单与故障回退。 -->
+	    <th:block th:replace="~{assets/build-styles :: styles(${pageAppValue})}" />
 		    <script type="application/json" data-initial-app-script
 		            th:if="${!#strings.isEmpty(pageAppValue)}"
 		            th:attr="data-app-script=${pageAppValue}"
 		            th:data-src="@{'/assets/js/apps/' + ${(pageAppValue == 'explorer-tags' ? 'tags' : (pageAppValue == 'explorer-categories' ? 'categories' : (pageAppValue == 'explorer-author' ? 'author' : (pageAppValue == 'explorer-archives' ? 'archives' : pageAppValue))))} + '/index.js?v=' + ${themeAssetVersion} + '&r=' + ${themeAssetRevision}}">{}</script>
-	    <script type="module" th:inline="javascript">
+	    <script th:inline="javascript">
 	      (() => {
 	        const manifestUrl = /*[[@{/assets/asset-manifest.json(v=${themeAssetVersion},r=${themeAssetRevision})}]]*/ '/assets/asset-manifest.json';
 	        const fallbackScriptUrl = /*[[@{/assets/js/shell-core/index.js(v=${themeAssetVersion},r=${themeAssetRevision})}]]*/ '/assets/js/shell-core/index.js';
@@ -185,6 +179,29 @@
 	          params.forEach((value, key) => parsed.searchParams.set(key, value));
 	          return `${parsed.pathname}${parsed.search}${parsed.hash}`;
 	        };
+
+            const preloadModule = (url) => {
+              const link = document.createElement('link');
+              link.rel = 'modulepreload';
+              link.href = url;
+              document.head.appendChild(link);
+            };
+
+            const waitForDocument = () => {
+              if (document.readyState !== 'loading') return Promise.resolve();
+              return new Promise((resolve, reject) => {
+                let timeoutId;
+                const finish = (error) => {
+                  clearTimeout(timeoutId);
+                  document.removeEventListener('DOMContentLoaded', onReady);
+                  if (error) reject(error);
+                  else resolve();
+                };
+                const onReady = () => finish();
+                document.addEventListener('DOMContentLoaded', onReady, { once: true });
+                timeoutId = setTimeout(() => finish(new Error('Theme document parsing timed out')), moduleDeadlineMs);
+              });
+            };
 
 		        const syncStyles = async (styles) => {
 		          const replacements = [];
@@ -262,12 +279,15 @@
 		          });
 		          try {
 		            // Keep the deadline until JSON parsing completes, including a stalled response body.
-		            return await Promise.race([
+		            const result = await Promise.race([
 		              fetch(manifestUrl, { credentials: 'same-origin', cache: 'no-store', signal: controller.signal })
 		                .then((response) => response.ok ? response.json() : Promise.reject(new Error(`asset-manifest ${response.status}`)))
-		                .then(readManifestIdentity),
+                        .then((manifest) => ({ manifest, identity: readManifestIdentity(manifest) })),
 		              deadline
 		            ]);
+                    // Publish only the winner; late responses after fallback cannot seed runtime state.
+                    window.__THEME_ASSET_MANIFEST__ = Object.freeze(result.manifest);
+                    return result.identity;
 		          } finally {
 		            clearTimeout(timeoutId);
 		          }
@@ -323,19 +343,25 @@
 	            identity = { version: params.get('v') || '', revision: params.get('r') || '', query: params.toString(), source: 'server-fallback' };
 		          }
 		          window.__THEME_ASSET_IDENTITY__ = Object.freeze(identity);
+                  const shellUrl = withQuery(fallbackScriptUrl, identity.query);
+                  const initialAppUrl = initialAppScript?.dataset.src;
+                  preloadModule(shellUrl);
+                  if (initialAppUrl) preloadModule(withQuery(initialAppUrl, identity.query));
 		          await syncStyles([
 		            [shellStyle, withQuery(fallbackStyleUrl, identity.query)],
 		            [initialAppStyle, initialAppStyle && withQuery(initialAppStyle.href, identity.query)]
 		          ]);
-		          const initialAppUrl = initialAppScript?.dataset.src;
+                  // The head starts downloads early, while stores still receive the complete SSR DOM.
+                  await waitForDocument();
 		          if (initialAppUrl) {
 		            // Register the initial app before Alpine.start(), with the same identity as Shell.
 		            await importWithDeadline(withQuery(initialAppUrl, identity.query), 'App');
 		            initialAppScript.dataset.appScriptState = 'ready';
 		          }
-		          await importWithDeadline(withQuery(fallbackScriptUrl, identity.query), 'Shell');
+		          await importWithDeadline(shellUrl, 'Shell');
 		        };
 		        window.__THEME_BOOTSTRAP_CANCELLED__ = false;
+                window.__THEME_ASSET_MANIFEST__ = null;
 		        window.__THEME_BOOTSTRAP_READY__ = start().catch((error) => {
 		          window.__THEME_BOOTSTRAP_CANCELLED__ = true;
 		          window.__THEME_BOOTSTRAP_ERROR__ = String(error?.message || error);
@@ -404,6 +430,7 @@
       legacyDockMenuName = ${theme.config.dock?.source?.menu_name ?: ''},
       rawMenuName = ${!#strings.isEmpty(navigationDockMenuName) ? navigationDockMenuName : (!#strings.isEmpty(legacyDockMenuName) ? legacyDockMenuName : 'primary')},
       dockShowLabels = ${theme.config.dock?.appearance?.show_labels != null ? theme.config.dock?.appearance?.show_labels : true},
+      dockSettingsEnabled = ${theme.config.dock?.appearance?.settings_enabled != null ? theme.config.dock?.appearance?.settings_enabled : true},
       dockMagnification = ${theme.config.dock?.appearance?.magnification != null ? theme.config.dock?.appearance?.magnification : true},
       dockIconSize = ${theme.config.dock?.appearance?.icon_size ?: 48},
       dockIconGap = ${theme.config.dock?.appearance?.icon_gap ?: 4},
@@ -411,6 +438,23 @@
       dockMagScale = ${theme.config.dock?.appearance?.magnification_scale ?: 1.4},
       dockGlassBlur = ${theme.config.dock?.appearance?.glass_blur ?: 60},
       dockGlassOpacity = ${theme.config.dock?.appearance?.glass_opacity ?: 28},
+      dockNumericSize = ${#strings.toString(dockIconSize).matches('[-+]?[0-9]+([.][0-9]+)?') ? #conversions.convert(dockIconSize, 'java.lang.Double') : 48},
+      dockNumericGap = ${#strings.toString(dockIconGap).matches('[-+]?[0-9]+([.][0-9]+)?') ? #conversions.convert(dockIconGap, 'java.lang.Double') : 4},
+      dockNumericPadding = ${#strings.toString(dockPadding).matches('[-+]?[0-9]+([.][0-9]+)?') ? #conversions.convert(dockPadding, 'java.lang.Double') : 6},
+      dockNumericScale = ${#strings.toString(dockMagScale).matches('[-+]?[0-9]+([.][0-9]+)?') ? #conversions.convert(dockMagScale, 'java.lang.Double') : 1.4},
+      dockNumericBlur = ${#strings.toString(dockGlassBlur).matches('[-+]?[0-9]+([.][0-9]+)?') ? #conversions.convert(dockGlassBlur, 'java.lang.Double') : 60},
+      dockNumericOpacity = ${#strings.toString(dockGlassOpacity).matches('[-+]?[0-9]+([.][0-9]+)?') ? #conversions.convert(dockGlassOpacity, 'java.lang.Double') : 28},
+      dockInitialSize = ${((dockNumericSize == 0 ? 48 : dockNumericSize) < 36 ? 36 : ((dockNumericSize == 0 ? 48 : dockNumericSize) > 64 ? 64 : (dockNumericSize == 0 ? 48 : dockNumericSize))).intValue()},
+      dockInitialGap = ${((dockNumericGap == 0 ? 4 : dockNumericGap) < 2 ? 2 : ((dockNumericGap == 0 ? 4 : dockNumericGap) > 12 ? 12 : (dockNumericGap == 0 ? 4 : dockNumericGap))).intValue()},
+      dockInitialPadding = ${((dockNumericPadding == 0 ? 6 : dockNumericPadding) < 4 ? 4 : ((dockNumericPadding == 0 ? 6 : dockNumericPadding) > 16 ? 16 : (dockNumericPadding == 0 ? 6 : dockNumericPadding))).intValue()},
+      dockInitialScale = ${(dockNumericScale == 0 ? 1.4 : dockNumericScale) < 1 ? 1 : ((dockNumericScale == 0 ? 1.4 : dockNumericScale) > 2 ? 2 : (dockNumericScale == 0 ? 1.4 : dockNumericScale))},
+      dockInitialMaxSize = ${dockMagnification ? (dockInitialSize * dockInitialScale + 0.5).intValue() : dockInitialSize},
+      dockInitialLift = ${dockInitialMaxSize > dockInitialSize ? (dockInitialSize * 0.1 + 0.5).intValue() : 0},
+      dockInitialGlassHeight = ${dockInitialSize + dockInitialPadding * 2},
+      dockInitialBarHeight = ${dockInitialGlassHeight + (dockMagnification ? (dockInitialLift + 8 > 14 ? dockInitialLift + 8 : 14) : 0)},
+      dockInitialBlur = ${((dockNumericBlur == 0 ? 60 : dockNumericBlur) < 20 ? 20 : ((dockNumericBlur == 0 ? 60 : dockNumericBlur) > 100 ? 100 : (dockNumericBlur == 0 ? 60 : dockNumericBlur))).intValue()},
+      dockInitialOpacity = ${((dockNumericOpacity == 0 ? 28 : dockNumericOpacity) < 10 ? 10 : ((dockNumericOpacity == 0 ? 28 : dockNumericOpacity) > 80 ? 80 : (dockNumericOpacity == 0 ? 28 : dockNumericOpacity))).intValue()},
+      dockInitialRadius = ${(dockInitialSize * 0.25 + 0.5).intValue()},
       headerMenuName = ${!#strings.isEmpty(navigationHeaderMenuName) ? navigationHeaderMenuName : (!#strings.isEmpty(legacyHeaderMenuName) ? legacyHeaderMenuName : 'primary')},
       headerMenu = ${widgetsSourceRequest ? null : (!#strings.isEmpty(headerMenuName) ? menuFinder.getByName(headerMenuName) : menuFinder.getByName('primary'))},
       dockMenu = ${widgetsSourceRequest ? null : (!#strings.isEmpty(rawMenuName) ? menuFinder.getByName(rawMenuName) : menuFinder.getByName('primary'))},
@@ -823,7 +867,10 @@
     </div>
 
     <!-- ==================== Dock ==================== -->
-    <div class="dock-container" th:attr="data-show-labels=${dockShowLabels},data-magnification=${dockMagnification},data-dock-icon-size=${dockIconSize},data-dock-icon-gap=${dockIconGap},data-dock-padding=${dockPadding},data-dock-mag-scale=${dockMagScale},data-dock-glass-blur=${dockGlassBlur},data-dock-glass-opacity=${dockGlassOpacity}" x-data="dock">
+    <div class="dock-container" data-dock-ready="false"
+         th:attr="data-settings-enabled=${dockSettingsEnabled},data-show-labels=${dockShowLabels},data-magnification=${dockMagnification},data-dock-icon-size=${dockIconSize},data-dock-icon-gap=${dockIconGap},data-dock-padding=${dockPadding},data-dock-mag-scale=${dockMagScale},data-dock-glass-blur=${dockGlassBlur},data-dock-glass-opacity=${dockGlassOpacity}"
+         th:style="${'--dock-icon-size:' + dockInitialSize + 'px;--dock-gap:' + dockInitialGap + 'px;--dock-padding:' + dockInitialPadding + 'px;--dock-glass-height:' + dockInitialGlassHeight + 'px;--dock-bar-height:' + dockInitialBarHeight + 'px;--dock-blur:' + dockInitialBlur + 'px;--dock-opacity:' + (dockInitialOpacity / 100.0) + ';--dock-icon-radius:' + dockInitialRadius + 'px;'}"
+         x-data="dock">
       <div class="dock-glass"></div>
       <div class="dock-bar relative z-10" x-ref="dockBar">
         <th:block th:if="${dockMenu != null}">
@@ -843,14 +890,16 @@
                  th:target="${menuItem.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
                  th:classappend="${menuItem.spec.target?.name() == 'BLANK' ? '' : ' pjax-link'}"
                  th:style="${iconType != 'image' and !#strings.isEmpty(bgColor) ? 'background-color:' + bgColor : ''}"
-                 th:title="${menuItem.status.displayName}">
+                 th:aria-label="${menuItem.status.displayName}"
+                 th:data-dock-label="${menuItem.status.displayName}">
 
                 <!-- Tooltip -->
                 <div class="dock-tooltip" x-show="$el.closest('.dock-container').dataset.showLabels === 'true'" th:text="${menuItem.status.displayName}">Name</div>
 
+                <div class="dock-icon-face">
                 <!-- 图片类型 -->
                 <th:block th:if="${iconType == 'image' and dockImageAllowed}">
-                  <img class="dock-icon-img" th:src="${dockImageUrl}" th:alt="${menuItem.status.displayName}" loading="lazy" decoding="async" draggable="false" />
+                  <img class="dock-icon-img" th:src="${dockImageUrl}" alt="" aria-hidden="true" loading="eager" decoding="async" draggable="false" />
                 </th:block>
 
                 <!-- 禁止 data/blob/javascript 等内联或可执行协议，避免大图复制进 HTML。 -->
@@ -864,11 +913,17 @@
                 <!-- SVG 类型 -->
                 <th:block th:if="${iconType != 'image'}">
                   <th:block th:with="svgContent = ${iconType == 'custom_svg' ? customSvg : iconSvg}">
-                    <th:block th:if="${!#strings.isEmpty(svgContent)}">
+                    <th:block th:if="${!#strings.isEmpty(#strings.trim(svgContent))}">
                       <div class="dock-icon-svg" th:utext="${svgContent}"></div>
+                    </th:block>
+                    <th:block th:if="${#strings.isEmpty(#strings.trim(svgContent))}">
+                      <div class="dock-icon-svg dock-icon-svg--fallback" aria-hidden="true">
+                        <span class="dock-icon-initial" th:text="${#strings.isEmpty(menuItem.status.displayName) ? '·' : #strings.substring(menuItem.status.displayName, 0, 1)}">·</span>
+                      </div>
                     </th:block>
                   </th:block>
                 </th:block>
+                </div>
 
                 <!-- 运行状态指示点 -->
                 <div class="dock-dot"
@@ -882,6 +937,16 @@
           </th:block>
         </th:block>
 
+        <button type="button" class="dock-icon dock-settings-icon group"
+                aria-label="系统设置" data-dock-label="系统设置"
+                @click.stop="$store.themeSettings.requestOpen()">
+          <span class="dock-tooltip">系统设置</span>
+          <div class="dock-icon-face">
+            <img class="dock-icon-img" th:src="@{/assets/images/system-settings.png}" alt="" draggable="false" />
+          </div>
+          <span class="dock-dot" x-show="$store.themeSettings.visible" style="display: none;"></span>
+        </button>
+
         <!-- 动态缩小应用展示区 (macOS 分割线 + 极简文稿图标) -->
         <template x-if="$store.windowManager.minimized">
            <div style="display: contents;">
@@ -890,11 +955,12 @@
               
               <!-- 最小化的应用图标 -->
               <button id="minimized-dock-icon" type="button" class="dock-icon group cursor-pointer relative shrink-0" 
+                 :aria-label="'恢复：' + $store.windowManager.title"
                  @click.stop="$store.windowManager.restore()">
                <!-- Hover Label -->
                <div class="dock-tooltip" x-show="$el.closest('.dock-container').dataset.showLabels === 'true'" x-text="$store.windowManager.title"></div>
                <!-- 缩略图图标 (macOS 窗口微缩) -->
-               <div class="dock-minimized-thumb">
+               <div class="dock-icon-face"><div class="dock-minimized-thumb">
                  <svg viewBox="0 0 52 40" fill="none">
                     <rect class="dock-thumb-window" width="52" height="40" rx="4"/>
                     <path class="dock-thumb-titlebar" d="M0 4 C0 1.79 1.79 0 4 0 L48 0 C50.21 0 52 1.79 52 4 L52 10 L0 10 Z"/>
@@ -903,7 +969,7 @@
                     <circle cx="11" cy="5" r="1.5" fill="#ffbd2e" stroke="#dea123" stroke-width="0.3"/>
                     <circle cx="16" cy="5" r="1.5" fill="#27c93f" stroke="#1aab29" stroke-width="0.3"/>
                  </svg>
-               </div>
+               </div></div>
                <!-- 指示点 -->
                <div class="dock-dot"></div>
              </button>

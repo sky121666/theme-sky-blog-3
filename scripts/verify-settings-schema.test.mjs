@@ -46,14 +46,14 @@ function backendFields() {
   return fields;
 }
 
-test('frontend schema covers all 72 backend paths with the same defaults and input constraints', () => {
+test('frontend schema covers all 73 backend paths with the same defaults and input constraints', () => {
   const backend = backendFields();
-  assert.equal(backend.length, 72);
+  assert.equal(backend.length, 73);
   assert.ok(Array.isArray(core.SETTINGS_FIELDS), 'core exposes the shared settings registry');
   assert.deepEqual(core.SETTINGS_PANES.map(({ id }) => id), [
     'appearance', 'wallpaper', 'desktop-dock', 'menu-control', 'navigation', 'widgets', 'notifications', 'apps', 'advanced'
   ]);
-  assert.equal(new Set(core.SETTINGS_FIELDS.map(({ path }) => path)).size, 72);
+  assert.equal(new Set(core.SETTINGS_FIELDS.map(({ path }) => path)).size, 73);
   assert.deepEqual(core.SETTINGS_FIELDS.map(({ path }) => path).sort(), backend.map(({ path }) => path).sort());
   const draft = core.buildThemeSettingsDraft({});
   for (const field of backend) {
@@ -70,6 +70,19 @@ test('frontend schema covers all 72 backend paths with the same defaults and inp
   assert.equal(core.SETTINGS_FIELDS.find(({ path }) => path === 'default_layout.layout_json').type, 'external-editor');
   assert.equal(core.SETTINGS_FIELDS.find(({ path }) => path === 'default_layout.layout_json').editor, 'desktop-layout');
   assert.throws(() => core.updateThemeSettingsDraft(draft, 'default_layout.layout_json', '{}'));
+});
+
+test('Dock settings entry defaults on and round-trips without altering menu or legacy appearance values', () => {
+  assert.equal(core.buildThemeSettingsDraft({}).dock.appearance.settings_enabled, true);
+  const original = { dock: { appearance: { settings_enabled: 'false', future_flag: 'keep' } }, navigation: { dock: { menu_name: 'existing-menu' } } };
+  const draft = core.buildThemeSettingsDraft(original);
+  assert.equal(draft.dock.appearance.settings_enabled, false);
+  const enabled = core.updateThemeSettingsDraft(draft, 'dock.appearance.settings_enabled', true);
+  const saved = core.applyThemeSettingsDraftToConfig(original, enabled, ['dock.appearance.settings_enabled']);
+  assert.equal(saved.dock.appearance.settings_enabled, true);
+  assert.equal(saved.dock.appearance.future_flag, 'keep');
+  assert.equal(saved.navigation.dock.menu_name, 'existing-menu');
+  assert.equal(original.dock.appearance.settings_enabled, 'false');
 });
 
 test('previously missing application and navigation settings round-trip through every config envelope', () => {

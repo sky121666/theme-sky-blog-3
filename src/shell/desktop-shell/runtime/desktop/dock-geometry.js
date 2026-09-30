@@ -61,7 +61,7 @@ export function calculateDockGeometry(settings, {
   const magnificationHeadroom = settings.enableMagnification
     ? baseSize * (maxScale - 1) * 2 + 16
     : 0;
-  const availableWidth = Math.max(240, finiteNumber(viewportWidth, 0) - 16);
+  const availableWidth = Math.max(1, finiteNumber(viewportWidth, 0) - 16);
   const fitScale = Math.min(1, availableWidth / (naturalWidth + magnificationHeadroom));
   const overhang = maxScale > 1
     ? Math.max(0, Math.round(baseSize * maxScale) + maxLift - baseSize - dockPadding)

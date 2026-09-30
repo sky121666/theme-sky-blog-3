@@ -1,5 +1,6 @@
 import { themeSettingsValueAt } from '../theme-settings-core.js';
 import { sanitizeIconSvg } from '../settings-assets/icon-svg.js';
+import { applyMenubarForegroundFromBody } from './color-controls.js';
 
 const SCHEME_CLASS_PREFIX = 'scheme-';
 const WALLPAPER_CLASS_PREFIX = 'wallpaper-';
@@ -60,7 +61,11 @@ const BODY_CUSTOM_PROPERTIES = [
 
 const MENUBAR_CUSTOM_PROPERTIES = [
   '--mac-header-dropdown-light-bg',
-  '--mac-header-dropdown-dark-bg'
+  '--mac-header-dropdown-dark-bg',
+  '--mac-header-dropdown-light-fg',
+  '--mac-header-dropdown-dark-fg',
+  '--mac-header-dropdown-light-outline',
+  '--mac-header-dropdown-dark-outline'
 ];
 
 const BODY_RUNTIME_CUSTOM_PROPERTIES = [
@@ -69,6 +74,7 @@ const BODY_RUNTIME_CUSTOM_PROPERTIES = [
 ];
 
 const DOCK_DATASET_FIELDS = [
+  'settingsEnabled',
   'showLabels',
   'magnification',
   'dockIconSize',
@@ -269,6 +275,7 @@ export function applyDockPreview(draft) {
 
   const appearance = draft.dock.appearance;
 
+  dock.dataset.settingsEnabled = String(appearance.settings_enabled);
   dock.dataset.showLabels = String(appearance.show_labels);
   dock.dataset.magnification = String(appearance.magnification);
   dock.dataset.dockIconSize = String(appearance.icon_size);
@@ -313,6 +320,7 @@ export function applyMenubarPreview(draft) {
   if (body) {
     body.style.setProperty('--mac-header-dropdown-light-bg', draft.header.dropdown.light_bg);
     body.style.setProperty('--mac-header-dropdown-dark-bg', draft.header.dropdown.dark_bg);
+    applyMenubarForegroundFromBody(body);
   }
 
   window.dispatchEvent(new CustomEvent(MENUBAR_RUNTIME_SYNC_EVENT, {

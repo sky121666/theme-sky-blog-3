@@ -143,7 +143,14 @@ try {
   assert.match(renderWeatherWidget(weatherContext, weatherWidget), /北京市/, '城市缓存键不依赖地理编码显示名完全相同');
 
   setGlobal('window', { removeEventListener() {}, clearTimeout() {}, __THEME_WIDGETS__: { modules: { weather: {} } } });
-  setGlobal('document', { removeEventListener() {}, body: { classList: { remove() {} } } });
+  const bodyProperties = new Map();
+  setGlobal('document', { removeEventListener() {}, body: {
+    classList: { remove() {} },
+    style: {
+      getPropertyValue: (name) => bodyProperties.get(name) || '',
+      setProperty: (name, value) => bodyProperties.set(name, String(value))
+    }
+  } });
   let desktopFactory;
   let menuBarFactory;
   registerDesktopSurface({ data(_name, factory) { desktopFactory = factory; } });

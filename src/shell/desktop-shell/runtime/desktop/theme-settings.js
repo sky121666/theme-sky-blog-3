@@ -14,6 +14,7 @@ import { registerNavigationGuard, isCoveredNativeBeforeUnload } from './pjax/nav
 import { registerThemeSettingsAssetPicker } from './settings-assets/picker.js';
 import { sanitizeIconSvg } from './settings-assets/icon-svg.js';
 import { createSettingsPanelMethods } from './settings-model/panels.js';
+import { createSettingsColorMethods } from './settings-model/color-controls.js';
 import { loadSettingsSave } from './settings-model/lazy-save.js';
 
 const SETTINGS_CLOSE_DELAY = 240;
@@ -77,6 +78,7 @@ export function registerThemeSettings(Alpine) {
     searchAvailable: false,
     mobileMenuAvailable: false,
     ...createSettingsPanelMethods(Alpine),
+    ...createSettingsColorMethods(),
     iconFields: THEME_SETTINGS_ICON_FIELDS,
 
     init() {
@@ -286,7 +288,7 @@ export function registerThemeSettings(Alpine) {
       this.syncRadioGroupTabStops();
       this.switchPane(this.activePane, false);
       const content = document.querySelector('[data-theme-settings-content]');
-      if (content) content.scrollTop = this.paneScroll[this.activePane] || 0;
+      if (content) content.scrollTop = this.paneScroll[this.paneScrollKey()] || 0;
       this.open = true;
       this.focusTimer = window.setTimeout(() => {
         if (generation !== this.openGeneration || !this.visible || !this.open) return;
@@ -321,7 +323,7 @@ export function registerThemeSettings(Alpine) {
       }
       this.cancelOpenTasks();
       this.resetCloseArm();
-      this.paneScroll[this.activePane] = document.querySelector('[data-theme-settings-content]')?.scrollTop || 0;
+      this.paneScroll[this.paneScrollKey()] = document.querySelector('[data-theme-settings-content]')?.scrollTop || 0;
       this.cancelResourceRequests();
       this.closingRuntimeSnapshot = this.runtimeSnapshot;
       this.restoreRuntimePreview();
@@ -427,7 +429,7 @@ export function registerThemeSettings(Alpine) {
       this.closingRuntimeSnapshot = null;
       Alpine.store('themeAssets')?.close();
       this.resetCloseArm();
-      this.paneScroll[this.activePane] = document.querySelector('[data-theme-settings-content]')?.scrollTop || 0;
+      this.paneScroll[this.paneScrollKey()] = document.querySelector('[data-theme-settings-content]')?.scrollTop || 0;
       this.cancelResourceRequests();
       this.restoreRuntimePreview();
       this.open = false;
@@ -435,6 +437,7 @@ export function registerThemeSettings(Alpine) {
       document.body.classList.remove('theme-settings-open');
       this.query = '';
       this.activePane = 'appearance';
+      this.activeApp = null;
       this.mobileSidebarOpen = false;
       this.draft = cloneThemeSettingsValue(this.baseline);
       this.dirtyPaths = [];

@@ -2,8 +2,6 @@
  * 窗口拖拽/缩放引擎 + 标题栏 + Genie 最小化动画
  */
 
-import QRCode from 'qrcode';
-
 function readHeadAttribute(selectors, attribute = 'content') {
   for (const selector of selectors) {
     const node = document.head.querySelector(selector);
@@ -299,6 +297,7 @@ export function registerWindowComponents(Alpine) {
 
       this.wechatQrLoading = true;
       try {
+        const { default: QRCode } = await import('qrcode');
         this.wechatQrDataUrl = await QRCode.toDataURL(this.shareMeta.url, {
           errorCorrectionLevel: 'M',
           margin: 1,

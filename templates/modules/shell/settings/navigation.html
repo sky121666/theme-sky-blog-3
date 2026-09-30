@@ -12,16 +12,8 @@
           <template x-for="option in $store.themeSettings.resourceOptions('menus')" :key="option.name"><option :value="option.name" :disabled="option.disabled" :selected="$store.themeSettings.value('navigation.header.menu_name') === option.name" x-text="option.label"></option></template>
         </select>
       </label>
-      <label class="theme-settings-input-row" data-setting-path="navigation.dock.menu_name">
-        <span class="theme-settings-copy"><strong>Dock 菜单</strong></span>
-        <select :value="$store.themeSettings.value('navigation.dock.menu_name')"  @change="$store.themeSettings.update('navigation.dock.menu_name', $event.target.value)">
-          <option value="">沿用默认菜单</option>
-          <template x-if="$store.themeSettings.value('navigation.dock.menu_name') && !$store.themeSettings.resourceOptions('menus').some(option => option.name === $store.themeSettings.value('navigation.dock.menu_name'))"><option :value="$store.themeSettings.value('navigation.dock.menu_name')" selected x-text="'已选菜单：' + $store.themeSettings.value('navigation.dock.menu_name')"></option></template>
-          <template x-for="option in $store.themeSettings.resourceOptions('menus')" :key="option.name"><option :value="option.name" :disabled="option.disabled" :selected="$store.themeSettings.value('navigation.dock.menu_name') === option.name" x-text="option.label"></option></template>
-        </select>
-      </label>
     </div>
-    <p class="theme-settings-section-note">手机端沿用菜单栏菜单，Dock 只显示一级菜单项。菜单内容、排序和链接由 Halo 后台管理。</p>
+    <p class="theme-settings-section-note">手机端沿用菜单栏菜单。菜单内容、排序和链接由 Halo 后台管理。</p>
   </section>
   <div class="theme-settings-resource-error" x-show="$store.themeSettings.resourceState('menus').error" role="alert"><span x-text="$store.themeSettings.resourceState('menus').error"></span><button type="button" class="theme-settings-text-button" @click="$store.themeSettings.loadResources('menus')">重试</button></div>
   <div class="theme-settings-resource-toolbar"><span class="theme-settings-section-note" x-show="$store.themeSettings.resourceState('menus').busy" role="status">正在加载菜单…</span><button type="button" class="theme-settings-secondary-button" :disabled="$store.themeSettings.resourceState('menus').busy" @click="$store.themeSettings.loadResources('menus')">刷新菜单列表</button><button type="button" class="theme-settings-text-button" x-show="$store.themeSettings.resourceState('menus').hasNext" :disabled="$store.themeSettings.resourceState('menus').busy" @click="$store.themeSettings.loadResources('menus', true)">加载更多</button></div>

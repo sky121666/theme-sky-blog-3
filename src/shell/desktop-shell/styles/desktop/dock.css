@@ -14,6 +14,13 @@
   transition: opacity 180ms ease, transform 220ms cubic-bezier(0.22, 0.9, 0.24, 1), filter 180ms ease;
 }
 
+.dock-container[data-dock-ready="false"],
+.dock-container[data-dock-ready="false"] .dock-icon,
+.dock-container[data-dock-ready="false"] .dock-icon.dock-animating,
+.dock-container[data-dock-ready="false"] .dock-tooltip {
+  transition: none !important;
+}
+
 /* ── Glass 面板 — macOS Sonoma 风格毛玻璃 ── */
 .dock-glass {
   position: absolute;
@@ -111,7 +118,7 @@
   justify-content: center;
   cursor: pointer;
   position: relative;
-  overflow: hidden; /* clips image to rounded corners */
+  overflow: visible;
   appearance: none;
   -webkit-appearance: none;
   text-decoration: none;
@@ -127,7 +134,7 @@
 }
 
 /* ── 图片类型 icon — 完全无边框，1:1 macOS 全占效果 ── */
-/* 图标本身自带圆角设计，父级 overflow:hidden 负责裁剪 */
+/* 图标本身自带圆角设计，只有图像层负责裁剪 */
 .dock-icon:has(.dock-icon-img) {
   border: none;
   background-color: transparent;
@@ -143,6 +150,11 @@
     0 1px 1px rgba(255, 255, 255, 0.16) inset,
     0 4px 9px rgba(0, 0, 0, 0.20),
     0 12px 24px rgba(0, 0, 0, 0.18);
+}
+
+.dock-icon.dock-icon-image-failed:has(.dock-icon-img) {
+  background: var(--shell-dock-icon-bg);
+  border: 0.5px solid var(--shell-dock-icon-border);
 }
 
 /* JS 退出作用域时的平滑回落动画 */
@@ -162,6 +174,27 @@
 }
 
 /* ── Icon 内容 ── */
+.dock-icon-face {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.dock-container[data-settings-enabled="false"] .dock-settings-icon {
+  display: none;
+}
+
+.dock-icon[hidden],
+.dock-tooltip[hidden],
+.dock-container[data-show-labels="false"] .dock-tooltip {
+  display: none !important;
+}
+
 .dock-icon-svg {
   width: 55%;
   height: 55%;
@@ -199,9 +232,23 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  /* border-radius handled by parent overflow:hidden */
+  /* border-radius handled by .dock-icon-face */
   display: block;
   filter: saturate(1.06) contrast(1.03);
+}
+
+.dock-icon-img[hidden] {
+  display: none !important;
+}
+
+.dock-icon.dock-settings-icon,
+.dock-icon.dock-settings-icon:hover {
+  box-shadow: none;
+}
+
+.dock-settings-icon .dock-icon-img {
+  /* 原生 256px 图标的实色主体约 204px，补偿透明边距以铺满图像层。 */
+  transform: scale(1.25);
 }
 
 /* ── Tooltip 浮窗 ── */
@@ -214,10 +261,11 @@
   backdrop-filter: blur(20px) saturate(150%);
   -webkit-backdrop-filter: blur(20px) saturate(150%);
   color: var(--shell-text-primary);
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 560;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
   letter-spacing: 0;
   white-space: nowrap;
   pointer-events: none;
@@ -230,6 +278,11 @@
 }
 
 .dock-icon.dock-tooltip-visible .dock-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+.dock-icon:focus-visible .dock-tooltip {
   opacity: 1;
   transform: translateX(-50%) translateY(0) scale(1);
 }
@@ -316,6 +369,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .dock-bar {
+    height: var(--dock-glass-height, 60px);
+  }
+
   .dock-container,
   .dock-icon,
   .dock-icon.dock-animating,

@@ -57,6 +57,15 @@ test('a minimized icon and divider contribute their base widths and both new gap
   }).fitScale, 244 / 329);
 });
 
+test('an extremely narrow viewport fits the Dock inside its actual width', () => {
+  const geometry = calculateDockGeometry(readDockSettings(currentDataset), {
+    viewportWidth: 200, iconCount: 4
+  });
+  assert.equal(geometry.naturalWidth, 216);
+  assert.ok(geometry.fitScale <= 184 / geometry.naturalWidth);
+  assert.ok(geometry.fitScale > 0);
+});
+
 test('invalid settings and measurements cannot publish NaN or negative geometry', () => {
   const settings = readDockSettings({
     dockIconSize: 'Infinity', dockIconGap: '-9', dockPadding: '999', dockMagScale: 'NaN',
@@ -131,7 +140,7 @@ function createRuntime(t, { viewportWidth = 1440, bottomInset = 12 } = {}) {
   const observers = [];
   const root = createElement();
   const dock = createElement();
-  dock.dataset = { ...currentDataset };
+  dock.dataset = { ...currentDataset, dockReady: 'false' };
   const labels = [Object.assign(createElement(), { hidden: false })];
   const icons = Array.from({ length: 4 }, (_, index) => Object.assign(createElement(), {
     getBoundingClientRect: () => ({ left: 100 + index * 50, width: 46 })
@@ -161,7 +170,14 @@ function createRuntime(t, { viewportWidth = 1440, bottomInset = 12 } = {}) {
       disconnect() { this.connected = false; }
     }
   });
-  const doc = { documentElement: root, defaultView: win };
+  const doc = {
+    documentElement: root, defaultView: win,
+    createElement(tagName) {
+      return { tagName, className: '', textContent: '', attributes: {}, children: [],
+        setAttribute(name, value) { this.attributes[name] = value; },
+        appendChild(child) { this.children.push(child); } };
+    }
+  };
   dock.ownerDocument = doc;
   const previousWindow = globalThis.window;
   const previousDocument = globalThis.document;
@@ -179,6 +195,14 @@ function createRuntime(t, { viewportWidth = 1440, bottomInset = 12 } = {}) {
   });
   return {
     instance, dock, root, win, media, observers, icons, separators, frames,
+    visual(icon, { image = null, label = '相册' } = {}) {
+      const face = { children: [], appendChild(child) { this.children.push(child); } };
+      if (image) face.children.push(image);
+      icon.dataset.dockLabel = label;
+      icon.querySelector = (selector) => selector === '.dock-icon-face' ? face
+        : selector === '.dock-icon-img' ? image : null;
+      return face;
+    },
     flush() {
       let batches = 0;
       while (frames.size > 0) {
@@ -192,9 +216,125 @@ function createRuntime(t, { viewportWidth = 1440, bottomInset = 12 } = {}) {
       const event = new Event(type);
       Object.defineProperty(event, 'clientX', { value: clientX });
       dock.dispatchEvent(event);
+    },
+    focus(type, icon) {
+      const event = new Event(type);
+      Object.defineProperty(event, 'target', { value: icon });
+      dock.dispatchEvent(event);
     }
   };
 }
+
+test('Dock names remain visible without magnification and with reduced motion, including keyboard focus', async (t) => {
+  const fixture = createRuntime(t);
+  fixture.dock.dataset.magnification = 'false';
+  await fixture.instance.init();
+  fixture.flush();
+  fixture.mouse('mousemove');
+  fixture.flush();
+  assert.equal(fixture.icons[0].classList.contains('dock-tooltip-visible'), true);
+  fixture.mouse('mouseleave');
+  fixture.flush();
+  fixture.focus('focusin', fixture.icons[1]);
+  fixture.flush();
+  assert.equal(fixture.icons[1].classList.contains('dock-tooltip-visible'), true);
+  fixture.focus('focusout', fixture.icons[1]);
+  fixture.flush();
+  assert.equal(fixture.icons[1].classList.contains('dock-tooltip-visible'), false);
+  fixture.dock.dataset.magnification = 'true';
+  fixture.media.matches = true;
+  fixture.media.dispatchEvent(new Event('change'));
+  fixture.flush();
+  fixture.mouse('mousemove');
+  fixture.flush();
+  assert.equal(fixture.icons[0].classList.contains('dock-tooltip-visible'), true);
+});
+
+test('Dock becomes ready only after initial icon reset and geometry publication', async (t) => {
+  const fixture = createRuntime(t);
+  await fixture.instance.init();
+  assert.equal(fixture.dock.dataset.dockReady, 'false');
+  assert.equal(fixture.root.style.getPropertyValue('--desktop-dock-reserve'), '');
+  fixture.flush();
+  assert.equal(fixture.dock.dataset.dockReady, 'true');
+  assert.equal(fixture.icons[0].style.width, '46px');
+  assert.equal(Number(fixture.dock.style.getPropertyValue('--dock-fit-scale')), 1);
+  assert.equal(fixture.root.style.getPropertyValue('--desktop-dock-reserve'), '102px');
+});
+
+test('an image already failed before mounting gets a safe named icon without losing its link', async (t) => {
+  const fixture = createRuntime(t);
+  const icon = fixture.icons[0];
+  icon.href = '/photos';
+  const image = Object.assign(new EventTarget(), { complete: true, naturalWidth: 0, hidden: false });
+  const face = fixture.visual(icon, { image, label: '<相册>' });
+  await fixture.instance.init();
+  assert.equal(image.hidden, true);
+  assert.equal(face.children[1].children[0].textContent, '<');
+  assert.equal(icon.href, '/photos');
+  assert.equal(icon.classList.contains('dock-icon-image-failed'), true);
+});
+
+test('an image failing after mount gets a fallback and its listener is removed on destroy', async (t) => {
+  const fixture = createRuntime(t);
+  const icon = fixture.icons[0];
+  const image = Object.assign(new EventTarget(), { complete: false, naturalWidth: 0, hidden: false });
+  const face = fixture.visual(icon, { image, label: '照片' });
+  await fixture.instance.init();
+  assert.equal(face.children.length, 1);
+  image.dispatchEvent(new Event('error'));
+  assert.equal(face.children[1].children[0].textContent, '照');
+  fixture.instance.destroy();
+  assert.equal(face.children.length, 2);
+});
+
+test('an entry without image or SVG receives a named fallback', async (t) => {
+  const fixture = createRuntime(t);
+  const face = fixture.visual(fixture.icons[0], { label: '空图标' });
+  await fixture.instance.init();
+  assert.equal(face.children[0].children[0].textContent, '空');
+});
+
+test('settings toggle changes visible Dock geometry and restores it without observer loops', async (t) => {
+  const fixture = createRuntime(t, { viewportWidth: 260 });
+  const settingsIcon = Object.assign(createElement(), {
+    getBoundingClientRect: () => ({ left: 300, width: 46 })
+  });
+  settingsIcon.classList.add('dock-settings-icon');
+  fixture.icons.push(settingsIcon);
+  fixture.dock.dataset.settingsEnabled = 'true';
+  await fixture.instance.init();
+  fixture.flush();
+  const withSettings = fixture.dock.style.getPropertyValue('--dock-fit-scale');
+  fixture.dock.dataset.settingsEnabled = 'false';
+  fixture.observers[0].callback([{ type: 'attributes', attributeName: 'data-settings-enabled' }]);
+  fixture.flush();
+  const withoutSettings = fixture.dock.style.getPropertyValue('--dock-fit-scale');
+  assert.ok(Number(withoutSettings) > Number(withSettings));
+  assert.equal(fixture.frames.size, 0);
+  fixture.dock.dataset.settingsEnabled = 'true';
+  fixture.observers[0].callback([{ type: 'attributes', attributeName: 'data-settings-enabled' }]);
+  fixture.flush();
+  assert.equal(fixture.dock.style.getPropertyValue('--dock-fit-scale'), withSettings);
+});
+
+test('hidden Dock items leave geometry and return when shown', async (t) => {
+  const fixture = createRuntime(t, { viewportWidth: 260 });
+  await fixture.instance.init();
+  fixture.flush();
+  assert.deepEqual(fixture.observers[0].options, {
+    childList: true, subtree: true, attributes: true, attributeFilter: ['hidden']
+  });
+  const visibleFit = Number(fixture.dock.style.getPropertyValue('--dock-fit-scale'));
+  fixture.icons[3].hidden = true;
+  fixture.observers[0].callback([{ type: 'attributes', attributeName: 'hidden' }]);
+  fixture.flush();
+  assert.ok(Number(fixture.dock.style.getPropertyValue('--dock-fit-scale')) > visibleFit);
+  fixture.icons[3].hidden = false;
+  fixture.observers[0].callback([{ type: 'attributes', attributeName: 'hidden' }]);
+  fixture.flush();
+  assert.equal(Number(fixture.dock.style.getPropertyValue('--dock-fit-scale')), visibleFit);
+});
 
 test('hover and mouseleave animate icons without republishing desktop geometry', async (t) => {
   const fixture = createRuntime(t);
@@ -246,7 +386,7 @@ test('only Dock item count mutations update fit, including display-contents mini
   await fixture.instance.init();
   fixture.flush();
   const observer = fixture.observers[0];
-  assert.deepEqual(observer.options, { childList: true, subtree: true });
+  assert.deepEqual(observer.options, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden'] });
   observer.callback([{ type: 'childList' }]);
   assert.equal(fixture.frames.size, 0, 'tooltip text changes must not schedule geometry');
   fixture.icons.push(Object.assign(createElement(), { getBoundingClientRect: () => ({ left: 300, width: 46 }) }));
@@ -305,8 +445,10 @@ test('destroy before the first frame prevents an initial geometry publication', 
   const fixture = createRuntime(t);
   await fixture.instance.init();
   fixture.instance.destroy();
+  assert.equal(fixture.frames.size, 0);
   fixture.flush();
   assert.equal(fixture.root.style.getPropertyValue('--desktop-dock-reserve'), '');
+  assert.equal(fixture.dock.dataset.dockReady, 'false');
 });
 
 test('destroy during module loading prevents mounting a stale Dock', async (t) => {

@@ -1,7 +1,17 @@
 <section xmlns:th="https://www.thymeleaf.org" th:fragment="pane"
          class="theme-settings-pane theme-settings-pane-apps" data-settings-pane="apps"
          x-show="$store.themeSettings.activePane === 'apps'" aria-labelledby="theme-settings-title">
-  <section class="theme-settings-section theme-settings-app-section" data-settings-app="moments">
+  <section class="theme-settings-section theme-settings-app-list" data-settings-app-list x-show="$store.themeSettings.activeApp === null" aria-label="应用设置入口">
+    <p class="theme-settings-section-note">选择应用查看设置。未启用的应用也可预先配置。</p>
+    <div class="theme-settings-group">
+      <button type="button" class="theme-settings-link-row theme-settings-app-entry" data-settings-app-entry="moments" @click="$store.themeSettings.openApp('moments')"><span class="theme-settings-navigation-icon" data-icon-color="purple" aria-hidden="true"><span class="icon-[lucide--message-circle]"></span></span><span class="theme-settings-copy"><strong>瞬间</strong></span><span class="theme-settings-app-status" :class="{ 'is-available': $store.themeSettings.appAvailable('moments') }" x-text="$store.themeSettings.appAvailable('moments') ? '已启用' : '未启用'"></span><span class="icon-[lucide--chevron-right]" aria-hidden="true"></span></button>
+      <button type="button" class="theme-settings-link-row theme-settings-app-entry" data-settings-app-entry="douban" @click="$store.themeSettings.openApp('douban')"><span class="theme-settings-navigation-icon" data-icon-color="green" aria-hidden="true"><span class="icon-[lucide--book-open]"></span></span><span class="theme-settings-copy"><strong>豆瓣</strong></span><span class="theme-settings-app-status" :class="{ 'is-available': $store.themeSettings.appAvailable('douban') }" x-text="$store.themeSettings.appAvailable('douban') ? '已启用' : '未启用'"></span><span class="icon-[lucide--chevron-right]" aria-hidden="true"></span></button>
+      <button type="button" class="theme-settings-link-row theme-settings-app-entry" data-settings-app-entry="links" @click="$store.themeSettings.openApp('links')"><span class="theme-settings-navigation-icon" data-icon-color="blue" aria-hidden="true"><span class="icon-[lucide--link]"></span></span><span class="theme-settings-copy"><strong>友链</strong></span><span class="theme-settings-app-status" :class="{ 'is-available': $store.themeSettings.appAvailable('links') }" x-text="$store.themeSettings.appAvailable('links') ? '已启用' : '未启用'"></span><span class="icon-[lucide--chevron-right]" aria-hidden="true"></span></button>
+      <button type="button" class="theme-settings-link-row theme-settings-app-entry" data-settings-app-entry="steam" @click="$store.themeSettings.openApp('steam')"><span class="theme-settings-navigation-icon" data-icon-color="orange" aria-hidden="true"><span class="icon-[lucide--gamepad-2]"></span></span><span class="theme-settings-copy"><strong>Steam</strong></span><span class="theme-settings-app-status" :class="{ 'is-available': $store.themeSettings.appAvailable('steam') }" x-text="$store.themeSettings.appAvailable('steam') ? '已启用' : '未启用'"></span><span class="icon-[lucide--chevron-right]" aria-hidden="true"></span></button>
+      <button type="button" class="theme-settings-link-row theme-settings-app-entry" data-settings-app-entry="equipments" @click="$store.themeSettings.openApp('equipments')"><span class="theme-settings-navigation-icon" data-icon-color="gray" aria-hidden="true"><span class="icon-[lucide--headphones]"></span></span><span class="theme-settings-copy"><strong>装备</strong></span><span class="theme-settings-app-status" :class="{ 'is-available': $store.themeSettings.appAvailable('equipments') }" x-text="$store.themeSettings.appAvailable('equipments') ? '已启用' : '未启用'"></span><span class="icon-[lucide--chevron-right]" aria-hidden="true"></span></button>
+    </div>
+  </section>
+  <section class="theme-settings-section theme-settings-app-section" data-settings-app="moments" x-show="$store.themeSettings.activeApp === 'moments'">
     <div class="theme-settings-section-heading"><h3 class="theme-settings-section-title"><span class="icon-[lucide--message-circle]" aria-hidden="true"></span>瞬间</h3><span class="theme-settings-app-status" :class="{ 'is-available': $store.themeSettings.appAvailable('moments') }" x-text="$store.themeSettings.appAvailable('moments') ? '已启用' : '未启用'"></span></div>
     <p class="theme-settings-section-note theme-settings-app-unavailable" x-show="!$store.themeSettings.appAvailable('moments')">启用对应插件后，以下设置将显示在应用页面中。</p>
     <div class="theme-settings-group">
@@ -56,7 +66,7 @@
       </label>
     </div>
   </section>
-  <section class="theme-settings-section theme-settings-app-section" data-settings-app="douban">
+  <section class="theme-settings-section theme-settings-app-section" data-settings-app="douban" x-show="$store.themeSettings.activeApp === 'douban'">
     <div class="theme-settings-section-heading"><h3 class="theme-settings-section-title"><span class="icon-[lucide--book-open]" aria-hidden="true"></span>豆瓣</h3><span class="theme-settings-app-status" :class="{ 'is-available': $store.themeSettings.appAvailable('douban') }" x-text="$store.themeSettings.appAvailable('douban') ? '已启用' : '未启用'"></span></div>
     <p class="theme-settings-section-note theme-settings-app-unavailable" x-show="!$store.themeSettings.appAvailable('douban')">启用对应插件后，以下设置将显示在应用页面中。</p>
     <div class="theme-settings-group">
@@ -80,7 +90,7 @@
       </label>
     </div>
   </section>
-  <section class="theme-settings-section theme-settings-app-section" data-settings-app="links">
+  <section class="theme-settings-section theme-settings-app-section" data-settings-app="links" x-show="$store.themeSettings.activeApp === 'links'">
     <div class="theme-settings-section-heading"><h3 class="theme-settings-section-title"><span class="icon-[lucide--link]" aria-hidden="true"></span>友链</h3><span class="theme-settings-app-status" :class="{ 'is-available': $store.themeSettings.appAvailable('links') }" x-text="$store.themeSettings.appAvailable('links') ? '已启用' : '未启用'"></span></div>
     <p class="theme-settings-section-note theme-settings-app-unavailable" x-show="!$store.themeSettings.appAvailable('links')">启用对应插件后，以下设置将显示在应用页面中。</p>
     <div class="theme-settings-group">
@@ -91,7 +101,7 @@
       </label>
     </div>
   </section>
-  <section class="theme-settings-section theme-settings-app-section" data-settings-app="steam">
+  <section class="theme-settings-section theme-settings-app-section" data-settings-app="steam" x-show="$store.themeSettings.activeApp === 'steam'">
     <div class="theme-settings-section-heading"><h3 class="theme-settings-section-title"><span class="icon-[lucide--gamepad-2]" aria-hidden="true"></span>Steam</h3><span class="theme-settings-app-status" :class="{ 'is-available': $store.themeSettings.appAvailable('steam') }" x-text="$store.themeSettings.appAvailable('steam') ? '已启用' : '未启用'"></span></div>
     <p class="theme-settings-section-note theme-settings-app-unavailable" x-show="!$store.themeSettings.appAvailable('steam')">启用对应插件后，以下设置将显示在应用页面中。</p>
     <div class="theme-settings-group">
@@ -106,7 +116,7 @@
     </div>
     <p class="theme-settings-section-note">用于应用窗口和资料横幅；留空时使用内置游戏背景。</p>
   </section>
-  <section class="theme-settings-section theme-settings-app-section" data-settings-app="equipments">
+  <section class="theme-settings-section theme-settings-app-section" data-settings-app="equipments" x-show="$store.themeSettings.activeApp === 'equipments'">
     <div class="theme-settings-section-heading"><h3 class="theme-settings-section-title"><span class="icon-[lucide--headphones]" aria-hidden="true"></span>装备</h3><span class="theme-settings-app-status" :class="{ 'is-available': $store.themeSettings.appAvailable('equipments') }" x-text="$store.themeSettings.appAvailable('equipments') ? '已启用' : '未启用'"></span></div>
     <p class="theme-settings-section-note theme-settings-app-unavailable" x-show="!$store.themeSettings.appAvailable('equipments')">启用对应插件后，以下设置将显示在应用页面中。</p>
     <div class="theme-settings-group">

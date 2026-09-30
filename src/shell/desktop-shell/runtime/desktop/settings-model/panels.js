@@ -3,6 +3,8 @@ import { SETTINGS_FIELDS, SETTINGS_PANES } from './schema.js';
 const CONTENT_FIELDS = { categories: 'categories', tags: 'tags', posts: 'posts', singlepages: 'single_pages' };
 const normalize = (value) => String(value || '').trim().toLocaleLowerCase('zh-CN');
 const selectionName = (value) => typeof value === 'string' ? value : value?.name ?? value?.metadata?.name ?? value?.value;
+const APP_LABELS = Object.freeze({ moments: '瞬间', douban: '豆瓣', links: '友链', steam: 'Steam', equipments: '装备' });
+const APP_ALIASES = Object.freeze({ moments: '瞬间', douban: '豆瓣 书影音', links: '友链', steam: 'Steam', equipments: '装备' });
 
 // Resource requests live outside Alpine proxies; switching panes never owns config persistence.
 export function createSettingsPanelMethods(Alpine) {
@@ -10,16 +12,23 @@ export function createSettingsPanelMethods(Alpine) {
   let paneGeneration = 0;
   return {
     navItems: SETTINGS_PANES, paneHistory: [], paneScroll: {}, resources: {}, focusedSettingPath: '', layoutOpening: false,
-    paneLabel(pane = this.activePane) { return SETTINGS_PANES.find((item) => item.id === pane)?.label || '设置'; },
+    activeApp: null,
+    paneScrollKey(pane = this.activePane, app = this.activeApp) { return pane === 'apps' && app ? `apps:${app}` : pane; },
+    paneLabel(pane = this.activePane) {
+      if (arguments.length === 0 && pane === 'apps' && this.activeApp) return APP_LABELS[this.activeApp];
+      return SETTINGS_PANES.find((item) => item.id === pane)?.label || '设置';
+    },
     paneDirtyCount(pane) { return this.dirtyPaths.filter((path) => SETTINGS_FIELDS.some((field) => field.path === path && field.pane === pane)).length; },
     searchResults() {
       const words = normalize(this.query).split(/\s+/).filter(Boolean);
       if (!words.length) return [];
       return SETTINGS_FIELDS.filter((field) => {
         const pane = SETTINGS_PANES.find((item) => item.id === field.pane);
-        const text = normalize(`${field.label} ${field.path} ${pane?.label} ${pane?.keywords?.join(' ')}`);
+        const text = field.app
+          ? normalize(`${field.label} ${field.path} 应用 ${APP_ALIASES[field.app] || ''}`)
+          : normalize(`${field.label} ${field.path} ${pane?.label} ${pane?.keywords?.join(' ')}`);
         return words.every((word) => text.includes(word));
-      }).map((field) => ({ ...field, paneLabel: this.paneLabel(field.pane) }));
+      }).map((field) => ({ ...field, paneLabel: field.app ? APP_LABELS[field.app] : this.paneLabel(field.pane) }));
     },
     filteredNavItems() {
       if (!normalize(this.query)) return this.navItems;
@@ -32,29 +41,41 @@ export function createSettingsPanelMethods(Alpine) {
       if (!this.canGoBack()) return;
       const previous = this.paneHistory.at(-1);
       this.paneHistory = this.paneHistory.slice(0, -1);
-      this.switchPane(previous, false);
+      if (typeof previous === 'string') this.switchPane(previous, false);
+      else this.navigatePane(previous.pane, previous.app, false);
     },
-    switchPane(pane, recordHistory = true) {
+    openApp(id) {
+      if (!Object.hasOwn(APP_LABELS, id)) return;
+      this.navigatePane('apps', id);
+    },
+    switchPane(pane, recordHistory = true) { this.navigatePane(pane, null, recordHistory); },
+    navigatePane(pane, app = null, recordHistory = true) {
       if (!SETTINGS_PANES.some((item) => item.id === pane)) return;
       const content = document.querySelector('[data-theme-settings-content]');
-      const changed = pane !== this.activePane;
+      const nextApp = pane === 'apps' && Object.hasOwn(APP_LABELS, app) ? app : null;
+      const changed = pane !== this.activePane || nextApp !== this.activeApp;
       if (changed) {
-        this.paneScroll[this.activePane] = content?.scrollTop || 0;
-        if (recordHistory) this.paneHistory = [...this.paneHistory, this.activePane].slice(-30);
+        if (this.focusTimer != null) {
+          window.clearTimeout(this.focusTimer);
+          this.focusTimer = null;
+        }
+        this.paneScroll[this.paneScrollKey()] = content?.scrollTop || 0;
+        if (recordHistory) this.paneHistory = [...this.paneHistory, this.activeApp ? { pane: this.activePane, app: this.activeApp } : this.activePane].slice(-30);
         this.activePane = pane;
+        this.activeApp = nextApp;
       }
       const restoreFocus = this.mobileSidebarOpen && this.isMobileViewport;
       this.mobileSidebarOpen = false;
       const generation = ++paneGeneration;
       const afterRender = Alpine.nextTick || ((callback) => window.requestAnimationFrame(callback));
       afterRender(() => window.requestAnimationFrame(() => {
-        if (generation !== paneGeneration || this.activePane !== pane) return;
-        if (changed) content?.scrollTo?.({ top: this.paneScroll[pane] || 0, left: 0, behavior: 'auto' });
+        if (generation !== paneGeneration || this.activePane !== pane || this.activeApp !== nextApp) return;
+        if (changed) content?.scrollTo?.({ top: this.paneScroll[this.paneScrollKey()] || 0, left: 0, behavior: 'auto' });
         this.syncRadioGroupTabStops();
         if (restoreFocus) document.querySelector('[data-theme-settings-sidebar-toggle]')?.focus?.({ preventScroll: true });
       }));
-      if (pane === 'navigation' && !this.resourceState('menus').loaded) void this.loadResources('menus');
-      if (pane === 'desktop-dock') {
+      if ((pane === 'navigation' || pane === 'desktop-dock') && !this.resourceState('menus').loaded) void this.loadResources('menus');
+      if (pane === 'widgets') {
         Object.keys(CONTENT_FIELDS).forEach((kind) => {
           if (!this.resourceState(kind).loaded) void this.loadResources(kind);
         });
@@ -65,8 +86,11 @@ export function createSettingsPanelMethods(Alpine) {
       if (!field) return;
       this.query = '';
       this.focusedSettingPath = path;
-      this.switchPane(field.pane);
-      window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      if (field.app) this.navigatePane('apps', field.app);
+      else this.switchPane(field.pane);
+      const focusAfterRender = Alpine.nextTick || ((callback) => window.requestAnimationFrame(callback));
+      focusAfterRender(() => window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+        if (this.activePane !== field.pane || (field.app && this.activeApp !== field.app)) return;
         const row = document.querySelector(`[data-theme-settings-window] [data-setting-path="${path}"]`);
         let parent = row;
         while (parent) { if (parent.tagName === 'DETAILS') parent.open = true; parent = parent.parentElement; }
@@ -75,7 +99,7 @@ export function createSettingsPanelMethods(Alpine) {
         row?.scrollIntoView({ block: 'center', behavior: 'auto' });
         const input = row?.querySelector('input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])');
         input?.focus({ preventScroll: true });
-      }));
+      })));
     },
     appAvailable(id) { return document.querySelector('[data-theme-settings-protocol]')?.dataset?.[`app${id[0].toUpperCase()}${id.slice(1)}`] === 'true'; },
     resourceState(kind) { return this.resources[kind] || { items: [], busy: false, error: '', loaded: false, hasNext: false, page: 0, query: '' }; },

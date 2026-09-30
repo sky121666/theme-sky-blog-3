@@ -627,6 +627,7 @@ spec:
           name: appearance
           label: Dock 外观与交互
           value:
+            settings_enabled: true
             show_labels: true
             magnification: true
             icon_size: 48
@@ -636,6 +637,12 @@ spec:
             glass_blur: 60
             glass_opacity: 28
           children:
+            - $formkit: switch
+              id: dock_appearance_settings_enabled
+              name: settings_enabled
+              label: 显示系统设置入口
+              help: 在 Dock 中显示打开主题设置的内置入口。
+              value: true
             - $formkit: switch
               id: dock_appearance_show_labels
               name: show_labels

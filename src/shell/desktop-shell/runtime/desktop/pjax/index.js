@@ -2000,6 +2000,12 @@ export function initPjax(Alpine) {
         baseTarget: document.querySelector('base[target]')?.getAttribute('target') || '',
         runtimeReady: window.pjax === pjax
       }),
+      restoreCurrentDockWindow: () => {
+        const windowManager = Alpine.store('windowManager');
+        if (!windowManager?.minimized) return false;
+        void windowManager.restore();
+        return true;
+      },
       requestNavigation: ({ href, triggerElement, options }) => {
         const local = prepareLocalView(href);
         if (local) {

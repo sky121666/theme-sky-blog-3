@@ -63,8 +63,10 @@ nodeAssert.equal(getEntryJsPath('shell-core'), 'js/shell-core/index.js');
 nodeAssert.equal(getEntryCssPath('shell-core'), 'css/shell-core/index.css');
 const buildEntries = getAppEntryPaths();
 const layoutSource = fs.readFileSync(path.join(root, 'templates/modules/shell/layout.html'), 'utf8');
-// Thymeleaf cannot import the JS registry. Check its unavoidable SSR aliases
-// against the executable registry until Halo can read a generated asset map.
+const buildStylesSource = fs.readFileSync(path.join(root, 'templates/assets/build-styles.html'), 'utf8');
+const generatedCss = new Map([...buildStylesSource.matchAll(/<link\b[^>]*data-app-css="([^"]+)"[^>]*th:href="@\{'([^']+)'\}"/g)]
+  .map(([, appId, href]) => [appId, new URL(href.replaceAll('&amp;', '&'), window.location.origin)]));
+// The initial JS registration still has an SSR alias; CSS is generated from the build map.
 for (const manifest of APP_MANIFESTS) {
   nodeAssert.equal(buildEntries[manifest.appId], manifest.entry);
   nodeAssert.ok(fs.existsSync(path.join(root, buildEntries[manifest.appId])));
@@ -72,8 +74,10 @@ for (const manifest of APP_MANIFESTS) {
   nodeAssert.equal(getEntryCssPath(manifest.appId), `css/apps/${manifest.assetDirectory}/index.css`);
   if (manifest.appId !== manifest.assetDirectory) {
     const alias = `pageAppValue == '${manifest.appId}' ? '${manifest.assetDirectory}'`;
-    nodeAssert.equal(layoutSource.split(alias).length - 1, 2, `${manifest.appId}: SSR CSS/JS 目录别名必须与 manifest 一致`);
+    nodeAssert.equal(layoutSource.split(alias).length - 1, 1, `${manifest.appId}: SSR JS 目录别名必须与 manifest 一致`);
   }
+  nodeAssert.equal(generatedCss.get(manifest.appId)?.pathname, `/assets/css/apps/${manifest.assetDirectory}/index.css`,
+    `${manifest.appId}: 构建 CSS 片段必须使用实际 App 目录`);
 }
 
 const seenIds = new Set();

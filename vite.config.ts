@@ -5,6 +5,7 @@ import { gzipSync } from "node:zlib";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 import { getAppAssetSegment, getAppEntryPaths, getEntryJsPath, getEntryCssPath } from "./src/shell-core/runtime/app-manifests.js";
+import { renderBuildStyles } from "./scripts/theme-build-styles.mjs";
 
 const outDir = path.resolve(import.meta.dirname, "templates/assets");
 const cssOutDir = path.resolve(outDir, "css");
@@ -364,6 +365,7 @@ function writeAssetManifest(bundle: Record<string, any>) {
     JSON.stringify(manifest, null, 2),
     "utf-8"
   );
+  fs.writeFileSync(path.resolve(outDir, "build-styles.html"), renderBuildStyles(manifest), "utf-8");
 }
 
 function maintainBuildOutputHygiene() {

@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import * as core from '../src/shell/desktop-shell/runtime/desktop/theme-settings-core.js';
 import { mergeSettingsChanges } from '../src/shell/desktop-shell/runtime/desktop/settings-model/save.js';
+import { createSettingsColorMethods } from '../src/shell/desktop-shell/runtime/desktop/settings-model/color-controls.js';
 
 function fixture() {
   const timers = new Map();
@@ -13,7 +14,7 @@ function fixture() {
   let scrollCanceled = 0;
   const focus = { isConnected: true, focus() { this.calls = (this.calls || 0) + 1; } };
   const source = fs.readFileSync(new URL('../src/shell/desktop-shell/runtime/desktop/theme-settings.js', import.meta.url), 'utf8');
-  const context = vm.createContext({ ...core, captureRuntimeSnapshot: () => ({}), registerThemeSettingsAssetPicker() {}, createSettingsPanelMethods: () => ({ paneScroll: {}, resources: {} }),
+  const context = vm.createContext({ ...core, createSettingsColorMethods, captureRuntimeSnapshot: () => ({}), registerThemeSettingsAssetPicker() {}, createSettingsPanelMethods: () => ({ paneScroll: {}, resources: {}, paneScrollKey() { return this.activePane; } }),
     loadSettingsSave: async () => ({ mergeSettingsChanges }),
     loadThemeConfigClient: async () => ({ mutateThemeConfig: async (_endpoint, merge) => ({ config: merge({ header: { logo: { title: '远端' } } }) }) }),
     HTMLElement: class {}, document: { activeElement: null, querySelector: () => null, querySelectorAll: () => [], body: { classList: { add: (x) => classes.add(x), remove: (x) => classes.delete(x) } } },

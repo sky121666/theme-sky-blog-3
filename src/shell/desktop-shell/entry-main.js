@@ -53,7 +53,7 @@ async function verifyRuntimeFreshness(force = false) {
   if (!CURRENT_THEME_BUILD_VERSION) return false;
   if (runtimeFreshnessCheckPromise && !force) return runtimeFreshnessCheckPromise;
 
-  const promise = getLatestThemeAssetIdentity({ force: true })
+  const promise = getLatestThemeAssetIdentity({ force })
     .then((latestIdentity) => {
       if (!latestIdentity.version || !latestIdentity.revision
         || isSameThemeAssetIdentity(CURRENT_THEME_BUILD_IDENTITY, latestIdentity)) {
@@ -154,8 +154,8 @@ if (!window.__THEME_MAIN_LOADED__ && !window.__THEME_BOOTSTRAP_CANCELLED__) {
 
   // Detect when this tab is still running an older shell runtime after a deploy.
   void verifyRuntimeFreshness();
-  window.addEventListener('pageshow', () => {
-    void verifyRuntimeFreshness(true);
+  window.addEventListener('pageshow', (event) => {
+    void verifyRuntimeFreshness(event.persisted === true);
   });
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {

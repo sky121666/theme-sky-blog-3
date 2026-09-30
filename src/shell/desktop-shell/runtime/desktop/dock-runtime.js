@@ -24,13 +24,56 @@ export function mountDock(component) {
   let disposed = false;
   let animationFrame = null;
   let geometryFrame = null;
+  let readyFrame = null;
   let lastPublishedReserve = null;
   let fitScale = 1;
+  let focusedIcon = null;
+  const watchedImages = new WeakSet();
+  el.dataset.dockReady = 'false';
 
-  const getIcons = () => Array.from(dockBar.querySelectorAll('.dock-icon'));
+  const getIcons = () => Array.from(dockBar.querySelectorAll('.dock-icon')).filter((icon) =>
+    !icon.hidden
+    && !(icon.classList.contains('dock-settings-icon') && el.dataset.settingsEnabled === 'false')
+    && win.getComputedStyle(icon).display !== 'none');
   const getSeparators = () => Array.from(dockBar.querySelectorAll('.dock-separator'));
   const itemSignature = () => `${getIcons().length}:${getSeparators().length}`;
   let signature = itemSignature();
+
+  const fallbackIcon = (icon, image = null) => {
+    const face = icon.querySelector?.('.dock-icon-face');
+    if (!face || face.querySelector?.('.dock-icon-svg--fallback')) return;
+    if (image) {
+      image.hidden = true;
+      icon.classList.add('dock-icon-image-failed');
+    }
+    const fallback = doc.createElement('span');
+    fallback.className = 'dock-icon-svg dock-icon-svg--fallback';
+    fallback.setAttribute('aria-hidden', 'true');
+    const initial = doc.createElement('span');
+    initial.className = 'dock-icon-initial';
+    const label = icon.dataset.dockLabel || icon.getAttribute?.('aria-label') || '';
+    initial.textContent = Array.from(label.trim())[0] || '·';
+    fallback.appendChild(initial);
+    face.appendChild(fallback);
+  };
+
+  const watchIconImages = () => {
+    getIcons().forEach((icon) => {
+      const face = icon.querySelector?.('.dock-icon-face');
+      if (!face) return;
+      const image = icon.querySelector('.dock-icon-img');
+      if (!image) {
+        if (face.children.length === 0) fallbackIcon(icon);
+        return;
+      }
+      if (image.complete && image.naturalWidth === 0) fallbackIcon(icon, image);
+      if (!watchedImages.has(image)) {
+        watchedImages.add(image);
+        image.addEventListener('error', () => fallbackIcon(icon, image), { signal });
+      }
+    });
+  };
+  watchIconImages();
 
   const applySettings = () => {
     const nextSettings = readDockSettings(el.dataset, { reduceMotion: motionPreference?.matches });
@@ -47,6 +90,9 @@ export function mountDock(component) {
       icon.style.transform = 'translateY(0px)';
       icon.style.zIndex = '';
     });
+    if (settings.showLabels && focusedIcon && getIcons().includes(focusedIcon)) {
+      focusedIcon.classList.add('dock-tooltip-visible');
+    }
   };
 
   const syncGeometry = () => {
@@ -122,18 +168,33 @@ export function mountDock(component) {
     if (showLabels && tooltipTarget && nearestDistance < range * 0.65) {
       tooltipTarget.classList.add('dock-tooltip-visible');
     }
+    if (showLabels && focusedIcon && getIcons().includes(focusedIcon)) {
+      focusedIcon.classList.add('dock-tooltip-visible');
+    }
   };
 
   el.addEventListener('mousemove', (event) => {
-    if (!settings.enableMagnification) return;
     queueAnimation(() => updateDock(event.clientX));
   }, { signal });
 
   el.addEventListener('mouseleave', () => queueAnimation(resetIcons), { signal });
+  el.addEventListener('focusin', (event) => {
+    const icon = getIcons().find((candidate) => candidate === event.target || candidate.contains?.(event.target));
+    if (!icon) return;
+    focusedIcon = icon;
+    getIcons().forEach((item) => item.classList.remove('dock-tooltip-visible'));
+    if (settings.showLabels) icon.classList.add('dock-tooltip-visible');
+  }, { signal });
+  el.addEventListener('focusout', (event) => {
+    if (event.target !== focusedIcon && !focusedIcon?.contains?.(event.target)) return;
+    focusedIcon?.classList.remove('dock-tooltip-visible');
+    focusedIcon = null;
+  }, { signal });
 
   const refreshSettings = () => {
     if (disposed) return;
     settings = applySettings();
+    signature = itemSignature();
     refreshGeometry();
   };
   el.addEventListener(DOCK_RUNTIME_SYNC_EVENT, refreshSettings, { signal });
@@ -142,20 +203,31 @@ export function mountDock(component) {
   motionPreference?.addEventListener('change', refreshSettings, { signal });
 
   const observer = new win.MutationObserver(() => {
+    watchIconImages();
     const nextSignature = itemSignature();
     if (nextSignature === signature) return;
     signature = nextSignature;
     refreshGeometry();
   });
-  observer.observe(dockBar, { childList: true, subtree: true });
+  observer.observe(dockBar, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden'] });
+  const visibilityObserver = new win.MutationObserver(() => {
+    watchIconImages();
+    const nextSignature = itemSignature();
+    if (nextSignature === signature) return;
+    signature = nextSignature;
+    refreshGeometry();
+  });
+  visibilityObserver.observe(el, { attributes: true, attributeFilter: ['data-settings-enabled'] });
 
   const cleanup = () => {
     if (disposed) return;
     disposed = true;
     win.cancelAnimationFrame(animationFrame);
     win.cancelAnimationFrame(geometryFrame);
+    win.cancelAnimationFrame(readyFrame);
     controller.abort();
     observer.disconnect();
+    visibilityObserver.disconnect();
     if (lastPublishedReserve
       && rootStyle.getPropertyValue(DESKTOP_RESERVE_PROPERTY) === lastPublishedReserve) {
       if (previousReserve) {
@@ -167,5 +239,11 @@ export function mountDock(component) {
   };
 
   refreshGeometry();
+  readyFrame = win.requestAnimationFrame(() => {
+    readyFrame = win.requestAnimationFrame(() => {
+      readyFrame = null;
+      if (!disposed) el.dataset.dockReady = 'true';
+    });
+  });
   return cleanup;
 }

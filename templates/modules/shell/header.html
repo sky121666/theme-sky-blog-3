@@ -39,7 +39,7 @@
       </a>
 
       <span class="menubar-app-name"
-            x-cloak
+            th:style="${#strings.isEmpty(siteTitle) ? 'display:none' : null}"
             x-show="appName"
             x-text="appName"
             th:text="${siteTitle}"></span>
@@ -176,7 +176,7 @@
                desktopTimeText
               }"
               class="menubar-time"
-              x-cloak
+              th:style="${timeEnabled ? null : 'display:none'}"
               x-show="timeEnabled"
               x-ref="notificationCenterTrigger"
               @click.stop="toggleNotificationCenter()"
