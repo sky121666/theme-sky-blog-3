@@ -116,3 +116,93 @@ test('桌面图标应用后必须刷新再进入布局编辑器', async () => {
   assert.equal(await s.openLayoutEditor(), false);
   assert.match(s.statusMessage, /刷新/);
 });
+
+test('启动草稿只登记修改，不执行桌面即时预览', () => {
+  const s = fixture();
+  let previews = 0;
+  s.applyRuntimePreview = () => { previews += 1; };
+  s.update('desktop.startup.mode', 'boot');
+  s.update('desktop.startup.logo_mode', 'custom');
+  s.setImage('desktop.startup.logo_url', '/upload/boot.webp');
+  assert.equal(s.value('desktop.startup.mode'), 'boot');
+  assert.equal(s.value('desktop.startup.logo_url'), '/upload/boot.webp');
+  assert.equal(previews, 0);
+  assert.deepEqual(s.dirtyPaths.sort(), ['desktop.startup.logo_mode', 'desktop.startup.logo_url', 'desktop.startup.mode']);
+});
+
+test('切出自定义开机图片后隐藏字段不阻止应用，已有图片保留', () => {
+  const s = fixture({ desktop: { startup: { mode: 'boot', logo_mode: 'custom', logo_url: '/old.webp' } } });
+  s.setImage('desktop.startup.logo_url', 'javascript:alert(1)');
+  assert.equal(s.hasValidationErrors(), true);
+  s.update('desktop.startup.logo_mode', 'apple');
+  assert.equal(s.hasValidationErrors(), false);
+  assert.equal(s.value('desktop.startup.logo_url'), '/old.webp');
+  s.update('desktop.startup.logo_mode', 'custom');
+  s.setImage('desktop.startup.logo_url', 'invalid');
+  s.update('desktop.startup.mode', 'direct');
+  assert.equal(s.hasValidationErrors(), false);
+});
+
+test('启动演示使用当前草稿并保持配置与脏字段；取消阻止迟到的模块播放', async () => {
+  const module = await import('../src/shell/desktop-shell/runtime/desktop/settings-model/startup.js').catch(() => null);
+  assert.equal(typeof module?.createStartupSettingsMethods, 'function', '启动设置需要独立演示生命周期');
+  const s = fixture({ desktop: { startup: { mode: 'boot', frequency: 'every_reload', logo_mode: 'site' } } });
+  let received;
+  let finish;
+  let cancelled = 0;
+  const bridge = { previewStartup(config) { received = config; return new Promise((resolve) => { finish = resolve; }); }, cancelStartupPreview() { cancelled += 1; finish?.(); } };
+  Object.assign(s, module.createStartupSettingsMethods(() => Promise.resolve(bridge)));
+  s.visible = true;
+  s.siteLogo = '/site.png';
+  const before = structuredClone({ draft: s.draft, baseline: s.baseline, dirtyPaths: s.dirtyPaths });
+  const playing = s.previewStartup();
+  await Promise.resolve();
+  assert.deepEqual(received, { mode: 'boot', frequency: 'every_reload', logoMode: 'site', logoUrl: '', siteLogo: '/site.png', scene: 'desktop' });
+  assert.equal(s.startupPreviewing, true);
+  s.cancelStartupPreview();
+  await playing;
+  assert.equal(cancelled, 1);
+  assert.equal(s.startupPreviewing, false);
+  assert.deepEqual({ draft: s.draft, baseline: s.baseline, dirtyPaths: s.dirtyPaths }, before);
+  let resolveLoad;
+  received = undefined;
+  Object.assign(s, module.createStartupSettingsMethods(() => new Promise((resolve) => { resolveLoad = resolve; })));
+  const late = s.previewStartup();
+  s.cancelStartupPreview();
+  resolveLoad(bridge);
+  await late;
+  assert.equal(received, undefined);
+});
+
+test('演示结束在按钮恢复可用后还原触发焦点，关闭窗口后的取消不抢焦点', async () => {
+  const { createStartupSettingsMethods } = await import('../src/shell/desktop-shell/runtime/desktop/settings-model/startup.js');
+  const s = fixture({ desktop: { startup: { mode: 'boot' } } });
+  const previousDocument = globalThis.document;
+  const frames = [];
+  const target = { isConnected: true, calls: 0, focus() { assert.equal(s.startupPreviewing, false); this.calls += 1; } };
+  globalThis.document = { activeElement: target };
+  globalThis.window.requestAnimationFrame = (callback) => { frames.push(callback); };
+  let finish;
+  Object.assign(s, createStartupSettingsMethods(() => Promise.resolve({
+    previewStartup: () => new Promise((resolve) => { finish = resolve; }),
+    cancelStartupPreview: () => finish?.()
+  })));
+  s.visible = true;
+  s.open = true;
+  try {
+    const playing = s.previewStartup();
+    await Promise.resolve();
+    finish();
+    await playing;
+    assert.equal(target.calls, 0);
+    frames.splice(0).forEach((callback) => callback());
+    assert.equal(target.calls, 1);
+    const cancelled = s.previewStartup();
+    await Promise.resolve();
+    s.cancelStartupPreview();
+    s.open = false;
+    await cancelled;
+    frames.splice(0).forEach((callback) => callback());
+    assert.equal(target.calls, 1);
+  } finally { globalThis.document = previousDocument; }
+});

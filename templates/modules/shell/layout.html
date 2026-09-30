@@ -323,7 +323,10 @@
 		          retry.type = 'button';
 		          retry.textContent = '刷新重试';
 		          retry.style.cssText = 'flex:none;padding:6px 10px;border:1px solid currentColor;border-radius:6px;background:transparent;color:inherit;cursor:pointer;font:inherit';
-		          retry.addEventListener('click', () => window.location.reload());
+		          retry.addEventListener('click', () => {
+                    try { window.sessionStorage.setItem('theme:startup:recovery:v1', JSON.stringify({ target: window.location.pathname + window.location.search, at: Date.now() })); } catch (_) {}
+                    window.location.reload();
+                  });
 		          notice.append(message, retry);
 		          (document.body || document.documentElement).appendChild(notice);
 		        };
@@ -365,6 +368,7 @@
 		        window.__THEME_BOOTSTRAP_READY__ = start().catch((error) => {
 		          window.__THEME_BOOTSTRAP_CANCELLED__ = true;
 		          window.__THEME_BOOTSTRAP_ERROR__ = String(error?.message || error);
+		          window.__THEME_STARTUP__?.finish('failed');
 		          console.error('Theme bootstrap failed:', error);
 		          showBootstrapRecovery();
 		        });
@@ -563,6 +567,8 @@
     th:style="${(schemeMode == 'custom' ? '--mac-accent:' + macAccent + ';--mac-selection:' + macSelection + ';--mac-folder1:' + macFolder1 + ';--mac-folder2:' + macFolder2 + ';--mac-folder3:' + macFolder3 + ';--mac-shell-light:' + macShellLight + ';--mac-shell-dark:' + macShellDark + ';' : '') + '--mac-header-dropdown-light-bg:' + headerDropdownLightBg + ';--mac-header-dropdown-dark-bg:' + headerDropdownDarkBg + ';'}"
     th:styleappend="${bgMode == 'image' and bgImageUrl != null ? 'background:url(' + bgImageUrl + ') center/cover no-repeat; background-color:#0f172a;' : (bgMode == 'solid' ? 'background-color:' + (bgConf?.solid_color ?: '#0f172a') + ';' : '')}"
   >
+
+    <th:block th:replace="~{assets/build-startup :: startup(${isErrorPage ? 'none' : (pageModeValue == 'browser-home' ? 'desktop' : 'app')})}" />
 
     <th:block th:replace="~{modules/shell/header :: bar(
       siteTitle=${headerAppName},
@@ -978,6 +984,7 @@
       </div>
     </div>
     
+    <th:block th:replace="~{assets/build-desktop-preview :: surface}" />
     <halo:footer />
   </body>
   </th:block>

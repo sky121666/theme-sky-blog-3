@@ -1,4 +1,5 @@
 import { applyDockAppearance, calculateDockGeometry, readDockSettings } from './dock-geometry.js';
+import { signalStartupReady } from '../../../../shared/startup-signals.js';
 
 const DOCK_RUNTIME_SYNC_EVENT = 'theme:dock-settings-change';
 const DESKTOP_RESERVE_PROPERTY = '--desktop-dock-reserve';
@@ -242,7 +243,10 @@ export function mountDock(component) {
   readyFrame = win.requestAnimationFrame(() => {
     readyFrame = win.requestAnimationFrame(() => {
       readyFrame = null;
-      if (!disposed) el.dataset.dockReady = 'true';
+      if (!disposed) {
+        el.dataset.dockReady = 'true';
+        signalStartupReady('shell', win);
+      }
     });
   });
   return cleanup;

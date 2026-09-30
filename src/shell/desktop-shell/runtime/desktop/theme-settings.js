@@ -15,6 +15,7 @@ import { registerThemeSettingsAssetPicker } from './settings-assets/picker.js';
 import { sanitizeIconSvg } from './settings-assets/icon-svg.js';
 import { createSettingsPanelMethods } from './settings-model/panels.js';
 import { createSettingsColorMethods } from './settings-model/color-controls.js';
+import { createStartupSettingsMethods } from './settings-model/startup.js';
 import { loadSettingsSave } from './settings-model/lazy-save.js';
 
 const SETTINGS_CLOSE_DELAY = 240;
@@ -79,6 +80,7 @@ export function registerThemeSettings(Alpine) {
     mobileMenuAvailable: false,
     ...createSettingsPanelMethods(Alpine),
     ...createSettingsColorMethods(),
+    ...createStartupSettingsMethods(),
     iconFields: THEME_SETTINGS_ICON_FIELDS,
 
     init() {
@@ -87,6 +89,7 @@ export function registerThemeSettings(Alpine) {
       this.authenticated = protocol?.dataset?.authenticated === 'true';
       this.endpoint = String(protocol?.dataset?.configEndpoint || '').trim();
       this.themeName = String(protocol?.dataset?.themeName || '').trim();
+      this.siteLogo = String(protocol?.dataset?.siteLogo || '').trim();
       this.searchAvailable = menubar?.dataset?.searchAvailable === 'true';
       this.mobileMenuAvailable = menubar?.dataset?.hasMenu === 'true';
       this.mobileViewportQuery = window.matchMedia('(max-width: 680px)');
@@ -113,6 +116,11 @@ export function registerThemeSettings(Alpine) {
       this.handleEscape = (event) => {
         if (event.key === 'Escape' && this.visible) {
           event.preventDefault();
+          if (this.startupPreviewing) {
+            event.stopImmediatePropagation();
+            this.cancelStartupPreview();
+            return;
+          }
           if (Alpine.store('themeAssets')?.visible) {
             event.stopImmediatePropagation();
             Alpine.store('themeAssets').close();
@@ -148,6 +156,7 @@ export function registerThemeSettings(Alpine) {
     },
 
     destroy() {
+      this.cancelStartupPreview();
       this.cancelOpenTasks();
       this.open = false;
       this.closingRuntimeSnapshot = null;
@@ -298,6 +307,7 @@ export function registerThemeSettings(Alpine) {
     },
 
     close(force = false) {
+      this.cancelStartupPreview();
       if (!this.visible) { this.cancelOpenTasks(); return; }
       if (this.closeTimer !== null) return;
       if (Alpine.store('themeAssets')?.visible) { Alpine.store('themeAssets').close(); return; }
@@ -423,6 +433,7 @@ export function registerThemeSettings(Alpine) {
 
     closeForNavigationCommit() {
       if (this.saving) return;
+      this.cancelStartupPreview();
       this.cancelOpenTasks();
       if (!this.visible) return;
       this.cancelCloseTimer();
@@ -505,6 +516,12 @@ export function registerThemeSettings(Alpine) {
         dirty.add(path);
       }
       this.draft = nextDraft;
+      if (path.startsWith('desktop.startup.')
+        && (this.value('desktop.startup.mode') !== 'boot' || this.value('desktop.startup.logo_mode') !== 'custom')) {
+        const errors = { ...this.validationErrors };
+        delete errors['desktop.startup.logo_url'];
+        this.validationErrors = errors;
+      }
       this.dirtyPaths = Array.from(dirty);
       this.draftMutationVersion += 1;
       this.resetCloseArm();
@@ -512,7 +529,7 @@ export function registerThemeSettings(Alpine) {
       this.statusMessage = this.hasDirtyChanges()
         ? '设置已修改，尚未应用。'
         : '已恢复到当前主题配置。';
-      if (preview) this.applyRuntimePreview(path);
+      if (preview && !path.startsWith('desktop.startup.')) this.applyRuntimePreview(path);
       window.requestAnimationFrame(() => this.syncRadioGroupTabStops());
     },
 
@@ -571,6 +588,7 @@ export function registerThemeSettings(Alpine) {
     },
 
     restoreDraft() {
+      this.cancelStartupPreview();
       this.draft = cloneThemeSettingsValue(this.baseline);
       this.dirtyPaths = [];
       this.draftMutationVersion += 1;

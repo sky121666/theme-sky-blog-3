@@ -6,10 +6,8 @@
  */
 
 import {
-  computeDefaultDesktopIconPlacement,
   mergeDesktopIconLayout,
   normalizeDesktopIconHref,
-  normalizeDesktopIconInstance,
   readDesktopIconsBootstrap,
   renderDesktopIconGraphic,
   serializeDeletedIconTombstone,
@@ -62,6 +60,9 @@ import {
 /* ── Mixin modules ── */
 import { gridMethods } from './grid.js';
 import { placementMethods } from './placement.js';
+import { createDefaultDesktopIcons } from './layout-projection.js';
+import { reconcileEarlyDesktopSurface } from './early-surface.js';
+import { signalStartupReady, markStartupRecoveryReload } from '../../../../../shared/startup-signals.js';
 
 const { log: widgetPjaxLog } = createLogger('desktop-widget-pjax');
 const WIDGET_CENTER_PENDING_STORAGE_KEY = 'theme-widget-center-open-pending';
@@ -121,6 +122,7 @@ export function registerDesktopSurface(Alpine) {
     serverLayoutMutationVersion: 0,
     serverLayoutSavedMutationVersion: 0,
     layoutIntegrityRepaired: false,
+    startupSurfaceReady: false,
     serverLoadedWidgetTypes: [],
     serverLayoutReloadRequired: false,
     modules: {
@@ -562,6 +564,7 @@ export function registerDesktopSurface(Alpine) {
       });
       if (!sessionStorage.getItem(healKey) && !window.pjax) {
         sessionStorage.setItem(healKey, '1');
+        markStartupRecoveryReload();
         window.location.reload();
       }
 
@@ -570,15 +573,16 @@ export function registerDesktopSurface(Alpine) {
 
     ensureDesktopNodesRendered() {
       const healKey = 'theme-desktop-nodes-self-heal';
-      const domNodeCount = document.querySelectorAll('.desktop-node-slot').length;
-      const expectedCount = this.visibleDesktopNodeKeys.length;
+      const expectedCount = this.enabled && this.isHome ? this.placedDesktopNodes.length : 0;
+      const domNodeCount = this.$refs.grid?.querySelectorAll('.desktop-node-slot').length || 0;
 
-      if (expectedCount === 0 || domNodeCount > 0) {
+      if (reconcileEarlyDesktopSurface(this)) {
         sessionStorage.removeItem(healKey);
-        desktopDebug('desktop nodes rendered', {
-          expectedCount,
-          domNodeCount
-        });
+        if (!this.startupSurfaceReady) {
+          this.startupSurfaceReady = true;
+          signalStartupReady('surface');
+        }
+        desktopDebug('desktop nodes rendered', { expectedCount, domNodeCount });
         return true;
       }
 
@@ -590,6 +594,7 @@ export function registerDesktopSurface(Alpine) {
 
       if (!sessionStorage.getItem(healKey) && !window.pjax) {
         sessionStorage.setItem(healKey, '1');
+        markStartupRecoveryReload();
         window.location.reload();
       }
 
@@ -2003,33 +2008,10 @@ export function registerDesktopSurface(Alpine) {
           .map((icon) => serializeDeletedIconTombstone(icon.key))
         : [];
       const bootstrapIcons = readDesktopIconsBootstrap();
-      const defaultIcons = bootstrapIcons.map((icon, index) => {
-        const defaultPlacement = computeDefaultDesktopIconPlacement(index, this.currentColumns || this.columns || 12, this.maxVisibleRows || 8);
-        const fallbackX = icon.x ?? defaultPlacement.x;
-        const fallbackY = icon.y ?? defaultPlacement.y;
-
-        return {
-          ...normalizeDesktopIconInstance({
-            key: icon.key,
-            title: icon.title,
-            x: fallbackX,
-            y: fallbackY,
-            baseX: icon.baseX ?? fallbackX,
-            baseY: icon.baseY ?? fallbackY
-          }, {
-            key: icon.key,
-            title: icon.title,
-            x: fallbackX,
-            y: fallbackY
-          }),
-          href: icon.href,
-          pjax: icon.pjax,
-          pjaxApp: resolveDesktopIconApp(icon.href, icon.pjaxApp || ''),
-          external: icon.external,
-          subtype: icon.subtype,
-          dataId: icon.dataId
-        };
-      });
+      const defaultIcons = createDefaultDesktopIcons(bootstrapIcons, this.currentColumns || this.columns || 12, this.maxVisibleRows || 8).map((icon) => ({
+        ...icon,
+        pjaxApp: resolveDesktopIconApp(icon.href, icon.pjaxApp || '')
+      }));
 
       const serverDefaultIcons = mergeDesktopIconLayout(defaultIcons, serverLayout, this.widgets, this.maxVisibleRows || 8).map((icon) => {
         const sourceIcon = defaultIcons.find((item) => item.key === icon.key);

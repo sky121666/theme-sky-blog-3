@@ -1,0 +1,79 @@
+<section xmlns:th="https://www.thymeleaf.org" th:fragment="pane"
+         class="theme-settings-pane theme-settings-pane-startup" data-settings-pane="startup"
+         x-show="$store.themeSettings.activePane === 'startup'" aria-labelledby="theme-settings-title">
+  <style>
+    .theme-settings-startup-choices { display: grid; gap: 10px; }
+    .theme-settings-startup-choices > button { min-height: 76px; border: 1px solid var(--ts-group-border); border-radius: 12px; }
+    .theme-settings-startup-choices > button.is-selected { border-color: var(--ts-accent); background: color-mix(in srgb, var(--ts-accent) 7%, var(--ts-group)); }
+    .theme-settings-startup-check { visibility: hidden; }
+    .is-selected > .theme-settings-startup-check { visibility: visible; }
+    .theme-settings-startup-demo { min-height: 0; justify-content: flex-start; margin-top: 13px; padding: 0; }
+    .theme-settings-startup-demo .theme-settings-section-note { margin: 0; }
+  </style>
+  <section class="theme-settings-section">
+    <h3 class="theme-settings-section-title">启动方式</h3>
+    <div class="theme-settings-startup-choices" role="radiogroup" aria-label="启动方式" data-setting-path="desktop.startup.mode">
+      <button type="button" role="radio" class="theme-settings-link-row theme-settings-group" :aria-checked="($store.themeSettings.value('desktop.startup.mode') === 'direct').toString()"
+              :class="{ 'is-selected': $store.themeSettings.value('desktop.startup.mode') === 'direct' }" @click="$store.themeSettings.update('desktop.startup.mode', 'direct')">
+        <span class="icon-[lucide--monitor]" aria-hidden="true"></span>
+        <span class="theme-settings-copy"><strong>普通显示</strong><small>页面直接出现，内容在原位置补齐</small></span>
+        <span class="icon-[lucide--circle-check] theme-settings-startup-check" aria-hidden="true"></span>
+      </button>
+      <button type="button" role="radio" class="theme-settings-link-row theme-settings-group" :aria-checked="($store.themeSettings.value('desktop.startup.mode') === 'boot').toString()"
+              :class="{ 'is-selected': $store.themeSettings.value('desktop.startup.mode') === 'boot' }" @click="$store.themeSettings.update('desktop.startup.mode', 'boot')">
+        <span class="icon-[lucide--power]" aria-hidden="true"></span>
+        <span class="theme-settings-copy"><strong>开机启动</strong><small>显示启动标识与短暂过渡</small></span>
+        <span class="icon-[lucide--circle-check] theme-settings-startup-check" aria-hidden="true"></span>
+      </button>
+    </div>
+    <p class="theme-settings-section-note">应用后在下一次符合条件的完整访问时生效。减少动态效果开启时直接显示页面。</p>
+  </section>
+  <section class="theme-settings-section" x-show="$store.themeSettings.value('desktop.startup.mode') === 'boot'">
+    <h3 class="theme-settings-section-title">开机体验</h3>
+    <div class="theme-settings-group">
+      <label class="theme-settings-input-row" data-setting-path="desktop.startup.frequency">
+        <span class="theme-settings-copy"><strong>播放频率</strong></span>
+        <select :value="$store.themeSettings.value('desktop.startup.frequency')" @change="$store.themeSettings.update('desktop.startup.frequency', $event.target.value)">
+          <option value="tab_once">每个标签页首次</option>
+          <option value="every_reload">首次及每次主动刷新</option>
+        </select>
+      </label>
+      <label class="theme-settings-input-row" data-setting-path="desktop.startup.logo_mode">
+        <span class="theme-settings-copy"><strong>启动标识</strong></span>
+        <select :value="$store.themeSettings.value('desktop.startup.logo_mode')" @change="$store.themeSettings.update('desktop.startup.logo_mode', $event.target.value)">
+          <option value="apple">苹果标识</option>
+          <option value="site">站点标识</option>
+          <option value="custom">自定义图片</option>
+        </select>
+      </label>
+      <template x-if="$store.themeSettings.value('desktop.startup.mode') === 'boot' &amp;&amp; $store.themeSettings.value('desktop.startup.logo_mode') === 'custom'">
+        <div class="theme-settings-group-row theme-settings-image-row" data-setting-path="desktop.startup.logo_url">
+          <span class="theme-settings-copy"><strong>自定义图片</strong><small>图片不可用时使用内置标识</small></span>
+          <button type="button" class="theme-settings-secondary-button" @click="$store.themeAssets.openImage('desktop.startup.logo_url')">选择图片…</button>
+          <button type="button" class="theme-settings-text-button" x-show="$store.themeSettings.value('desktop.startup.logo_url')" @click="$store.themeSettings.clearImage('desktop.startup.logo_url')">移除引用</button>
+          <p class="theme-settings-resource-error" role="alert" x-show="$store.themeSettings.validationError('desktop.startup.logo_url')" x-text="$store.themeSettings.validationError('desktop.startup.logo_url')"></p>
+        </div>
+      </template>
+    </div>
+    <div class="theme-settings-startup-demo theme-settings-group-row theme-settings-image-row">
+      <button type="button" class="theme-settings-secondary-button" :disabled="$store.themeSettings.startupPreviewing || !!$store.themeSettings.validationError('desktop.startup.logo_url')" @click="$store.themeSettings.previewStartup()">
+        <span x-text="$store.themeSettings.startupPreviewing ? '演示中…' : '演示一次'"></span>
+      </button>
+      <span class="theme-settings-section-note">使用当前草稿，可跳过或按 Escape 结束。</span>
+    </div>
+  </section>
+  <section class="theme-settings-section">
+    <h3 class="theme-settings-section-title">站点访问</h3>
+    <div class="theme-settings-group">
+      <div class="theme-settings-group-row">
+        <span class="theme-settings-copy"><strong>当前策略</strong><small>由 Halo 后台的站点访问设置决定</small></span>
+        <span class="theme-settings-current-value">未核验</span>
+      </div>
+      <a class="theme-settings-group-row theme-settings-link-row" href="/console" target="_blank" rel="noopener" data-no-pjax>
+        <span class="theme-settings-copy"><strong>打开 Halo 后台</strong></span>
+        <span class="icon-[lucide--external-link]" aria-hidden="true"></span>
+      </a>
+    </div>
+    <p class="theme-settings-section-note">启动表现不改变访问权限。登录要求请在 Halo 后台查看和管理。</p>
+  </section>
+</section>

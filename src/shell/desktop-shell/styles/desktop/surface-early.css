@@ -1,0 +1,46 @@
+/* Early nodes share the canvas geometry while app content takes over in place. */
+.desktop-early-layer,
+.desktop-early-layer .desktop-widgets-grid-shell {
+  pointer-events: none;
+}
+.desktop-early-layer[hidden] { display: none; }
+.desktop-early-node {
+  position: absolute;
+  box-sizing: border-box;
+}
+.desktop-early-node--widget {
+  padding: 14px;
+  border-radius: 22px;
+  background: rgba(248, 250, 252, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+}
+.dark .desktop-early-node--widget {
+  background: rgba(28, 31, 38, 0.82);
+  color: rgba(255, 255, 255, 0.85);
+}
+.desktop-early-widget-title {
+  font-size: 12px;
+  line-height: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.desktop-early-widget-content {
+  width: 65%;
+  height: 8px;
+  margin-top: 14px;
+  border-radius: 4px;
+  background: rgba(125, 135, 150, 0.15);
+}
+
+.desktop-early-node--icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 2px;
+  padding: 3px 2px 4px;
+  border: 1px solid transparent;
+}
+

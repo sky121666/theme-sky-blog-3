@@ -15,7 +15,7 @@ const source = fs.readFileSync(path.join(
 ), 'utf8');
 const moduleStart = source.indexOf('const SETTINGS_CLOSE_DELAY');
 assert.ok(moduleStart > 0, 'Settings runtime module body missing');
-const supportingSource = ['color-controls', 'preview', 'panels'].map((name) => fs.readFileSync(path.join(root, `src/shell/desktop-shell/runtime/desktop/settings-model/${name}.js`), 'utf8').replace(/^import .*?;\n/gm, '').replace(/export function /g, 'function ')).join('\n');
+const supportingSource = ['color-controls', 'preview', 'panels', 'startup'].map((name) => fs.readFileSync(path.join(root, `src/shell/desktop-shell/runtime/desktop/settings-model/${name}.js`), 'utf8').replace(/^import .*?;\n/gm, '').replace(/export function /g, 'function ')).join('\n');
 const runtimeSource = (supportingSource + '\n' + source.slice(moduleStart))
   .replace('export function registerThemeSettings(Alpine)', 'function registerThemeSettings(Alpine)')
   .concat('\nregisterThemeSettings;');

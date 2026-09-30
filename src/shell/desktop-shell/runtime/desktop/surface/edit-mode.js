@@ -14,6 +14,7 @@ import {
 } from '../../widgets/catalog-core.js';
 import { flattenCategoryTree } from '../../../../../widgets/shared/data.js';
 import { cloneJsonValue } from '../../shared/utils.js';
+import { markStartupRecoveryReload } from '../../../../../shared/startup-signals.js';
 
 const PHOTO_GROUPS_API = '/apis/api.photo.halo.run/v1alpha1/photogroups';
 
@@ -35,6 +36,7 @@ export const editModeMethods = {
     await this.exitEditMode({ force: true });
     if (this.serverLayoutReloadRequired) {
       this.serverLayoutReloadRequired = false;
+      markStartupRecoveryReload();
       window.location.reload();
     }
     return true;

@@ -1,0 +1,1 @@
+function r({url:t,appId:e="",pageMode:n=""}={}){if(e==="auth"||n==="auth")return!0;try{const a=new URL(t).pathname;return/^\/(?:login|logout|signup|password-reset)(?:\/|$)/.test(a)}catch{return!1}}export{r as t};

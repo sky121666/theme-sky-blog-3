@@ -20,7 +20,10 @@ export function showThemeConfigRecovery() {
   retry.type = 'button';
   retry.textContent = '刷新重试';
   retry.style.cssText = 'flex:none;padding:6px 10px;border:1px solid currentColor;border-radius:6px;background:transparent;color:inherit;cursor:pointer;font:inherit';
-  retry.addEventListener('click', () => window.location.reload());
+  retry.addEventListener('click', () => {
+    markStartupRecoveryReload();
+    window.location.reload();
+  });
   notice.append(message, retry);
   (document.body || document.documentElement).appendChild(notice);
 }
@@ -60,3 +63,4 @@ export const loadThemeConfigClient = createBoundedModuleLoader(
   () => import('./theme-config-client.js'),
   { label: '主题配置功能', onFailure: showThemeConfigRecovery }
 );
+import { markStartupRecoveryReload } from '../../../../shared/startup-signals.js';

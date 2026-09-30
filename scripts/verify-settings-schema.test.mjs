@@ -46,14 +46,14 @@ function backendFields() {
   return fields;
 }
 
-test('frontend schema covers all 73 backend paths with the same defaults and input constraints', () => {
+test('frontend schema covers all 77 backend paths with the same defaults and input constraints', () => {
   const backend = backendFields();
-  assert.equal(backend.length, 73);
+  assert.equal(backend.length, 77);
   assert.ok(Array.isArray(core.SETTINGS_FIELDS), 'core exposes the shared settings registry');
   assert.deepEqual(core.SETTINGS_PANES.map(({ id }) => id), [
-    'appearance', 'wallpaper', 'desktop-dock', 'menu-control', 'navigation', 'widgets', 'notifications', 'apps', 'advanced'
+    'appearance', 'wallpaper', 'desktop-dock', 'menu-control', 'navigation', 'widgets', 'notifications', 'startup', 'apps', 'advanced'
   ]);
-  assert.equal(new Set(core.SETTINGS_FIELDS.map(({ path }) => path)).size, 73);
+  assert.equal(new Set(core.SETTINGS_FIELDS.map(({ path }) => path)).size, 77);
   assert.deepEqual(core.SETTINGS_FIELDS.map(({ path }) => path).sort(), backend.map(({ path }) => path).sort());
   const draft = core.buildThemeSettingsDraft({});
   for (const field of backend) {
@@ -70,6 +70,25 @@ test('frontend schema covers all 73 backend paths with the same defaults and inp
   assert.equal(core.SETTINGS_FIELDS.find(({ path }) => path === 'default_layout.layout_json').type, 'external-editor');
   assert.equal(core.SETTINGS_FIELDS.find(({ path }) => path === 'default_layout.layout_json').editor, 'desktop-layout');
   assert.throws(() => core.updateThemeSettingsDraft(draft, 'default_layout.layout_json', '{}'));
+});
+
+test('startup settings default to direct and round-trip only the changed paths', () => {
+  const original = { desktop: { startup: { frequency: 'every_reload', future_flag: 'keep' } } };
+  let draft = core.buildThemeSettingsDraft(original);
+  assert.equal(draft.desktop.startup.mode, 'direct');
+  assert.equal(draft.desktop.startup.frequency, 'every_reload');
+  assert.equal(draft.desktop.startup.logo_mode, 'apple');
+  assert.equal(draft.desktop.startup.logo_url, '');
+  draft = core.updateThemeSettingsDraft(draft, 'desktop.startup.mode', 'boot');
+  draft = core.updateThemeSettingsDraft(draft, 'desktop.startup.logo_mode', 'custom');
+  draft = core.updateThemeSettingsDraft(draft, 'desktop.startup.logo_url', '/upload/boot.webp');
+  const saved = core.applyThemeSettingsDraftToConfig(original, draft, ['desktop.startup.mode', 'desktop.startup.logo_mode', 'desktop.startup.logo_url']);
+  assert.equal(saved.desktop.startup.mode, 'boot');
+  assert.equal(saved.desktop.startup.frequency, 'every_reload');
+  assert.equal(saved.desktop.startup.logo_url, '/upload/boot.webp');
+  assert.equal(saved.desktop.startup.future_flag, 'keep');
+  assert.equal(original.desktop.startup.mode, undefined);
+  assert.throws(() => core.updateThemeSettingsDraft(draft, 'desktop.startup.logo_url', 'javascript:alert(1)'), /图片地址/);
 });
 
 test('Dock settings entry defaults on and round-trips without altering menu or legacy appearance values', () => {

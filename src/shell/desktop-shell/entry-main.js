@@ -27,6 +27,7 @@ import { initPluginCompatibility } from './runtime/shared/plugin-compat.js';
 import { initErrorDialog } from './runtime/shared/error-dialog.js';
 import { createWidgetPreviewLifecycle } from './runtime/widgets/preview-runtime.js';
 import { getCurrentThemeAssetIdentity, getLatestThemeAssetIdentity, isSameThemeAssetIdentity } from '../../shell-core/runtime/resource-registry.js';
+import { signalStartupReady, markStartupRecoveryReload } from '../../shared/startup-signals.js';
 
 const CURRENT_THEME_BUILD_IDENTITY = getCurrentThemeAssetIdentity();
 const CURRENT_THEME_BUILD_VERSION = CURRENT_THEME_BUILD_IDENTITY.version;
@@ -63,6 +64,7 @@ async function verifyRuntimeFreshness(force = false) {
       runtimeReloading = true;
       if (typeof window !== 'undefined') {
         window.__THEME_RUNTIME_STALE__ = latestIdentity;
+        markStartupRecoveryReload();
         window.location.reload();
       }
 
@@ -151,6 +153,12 @@ if (!window.__THEME_MAIN_LOADED__ && !window.__THEME_BOOTSTRAP_CANCELLED__) {
   initErrorDialog(document);
   initPluginCompatibility();
   activateCurrentPageApp(document, { reason: 'initial-load' });
+  Alpine.nextTick(() => {
+    if (!document.querySelector('.dock-container')) signalStartupReady('shell');
+    if (document.body?.dataset.pageMode !== 'browser-home' && document.querySelector('[data-app-root]')) {
+      signalStartupReady('app');
+    }
+  });
 
   // Detect when this tab is still running an older shell runtime after a deploy.
   void verifyRuntimeFreshness();

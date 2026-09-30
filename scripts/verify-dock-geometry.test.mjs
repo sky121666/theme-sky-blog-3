@@ -252,7 +252,10 @@ test('Dock names remain visible without magnification and with reduced motion, i
 
 test('Dock becomes ready only after initial icon reset and geometry publication', async (t) => {
   const fixture = createRuntime(t);
+  const ready = [];
+  fixture.win.__THEME_STARTUP__ = { ready: (part) => ready.push(part) };
   await fixture.instance.init();
+  assert.deepEqual(ready, [], 'Shell must wait for the lazy Dock runtime and its first geometry');
   assert.equal(fixture.dock.dataset.dockReady, 'false');
   assert.equal(fixture.root.style.getPropertyValue('--desktop-dock-reserve'), '');
   fixture.flush();
@@ -260,6 +263,16 @@ test('Dock becomes ready only after initial icon reset and geometry publication'
   assert.equal(fixture.icons[0].style.width, '46px');
   assert.equal(Number(fixture.dock.style.getPropertyValue('--dock-fit-scale')), 1);
   assert.equal(fixture.root.style.getPropertyValue('--desktop-dock-reserve'), '102px');
+  assert.deepEqual(ready, ['shell']);
+});
+
+test('Dock mount failure releases startup immediately', async (t) => {
+  const fixture = createRuntime(t);
+  const finished = [];
+  fixture.win.__THEME_STARTUP__ = { finish: (reason) => finished.push(reason) };
+  Object.defineProperty(fixture.instance, '$refs', { get() { throw new Error('mount failed'); } });
+  await assert.rejects(fixture.instance.init(), /mount failed/);
+  assert.deepEqual(finished, ['failed']);
 });
 
 test('an image already failed before mounting gets a safe named icon without losing its link', async (t) => {

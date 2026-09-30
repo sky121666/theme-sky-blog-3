@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import { getAppAssetSegment } from '../src/shell-core/runtime/app-manifests.js';
 import { createNavigationAdmission } from '../src/shell/desktop-shell/runtime/desktop/pjax/navigation-admission.js';
+import { markStartupRecoveryReload } from '../src/shared/startup-signals.js';
+import { isAuthenticationResponse } from '../src/shared/navigation-response.js';
 
 // Execute production functions with in-memory network/DOM fixtures. No server,
 // generated assets or file writes are needed for these failure-path tests.
@@ -104,6 +106,7 @@ async function verifyFreshnessEventRouting() {
 
 async function verifyBuildIdentity() {
   const { context, reloads } = registryFixture(async () => response(manifest('new')));
+  context.markStartupRecoveryReload = () => markStartupRecoveryReload(context.window);
   const entry = read('src/shell/desktop-shell/entry-main.js');
   const runtimeGuard = entry.search(/^if \(!window\.__THEME_MAIN_LOADED__/m);
   assert.ok(runtimeGuard > 0, 'Shell runtime initialization guard must exist');
@@ -325,7 +328,7 @@ async function verifyFullPjaxAssetGate() {
     for (const style of [warmStyle, currentStyle]) style.disabled = style.dataset.appCss !== app;
   };
   Object.assign(context, {
-    AbortController, DOMException, Promise,
+    AbortController, DOMException, Promise, isAuthenticationResponse,
     CustomEvent,
     DOMParser: class { parseFromString() { return { querySelectorAll: (selector) =>
       selector === '#window-frame-root' || selector === 'title' ? [{}] : [] }; } },
@@ -494,6 +497,13 @@ async function verifyFullPjaxAssetGate() {
     'same→full 必须把原 intent 注入 full 请求，不能新建第二个逻辑 intent');
   assert.equal(context.activeNavigation.mode, 'full');
   assert.equal(historyWrites, 1, '尚未收到回退 full 响应时不得提前提交 history');
+
+  const swapsBeforeLogin = events.filter((event) => event.startsWith('swap:')).length;
+  await context.pjax.handleResponse('auth', { status: 200 }, sameTarget, requests.get(sameTarget));
+  assert.ok(events.includes(`hard:${sameTarget}`), '登录响应必须沿已获准的原生导航重新进入目标');
+  assert.ok(!events.includes('assets:auth'), '登录响应不得在旧桌面加载 Auth 并绑定旧 body');
+  assert.equal(events.filter((event) => event.startsWith('swap:')).length, swapsBeforeLogin,
+    '登录表单不得作为普通应用 HTML 替换');
 }
 
 await verifyBuildIdentity();

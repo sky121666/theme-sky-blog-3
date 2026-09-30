@@ -1,5 +1,6 @@
 <th:block xmlns:th="https://www.thymeleaf.org" th:fragment="window (authenticated, themeName, configEndpoint)">
   <span hidden data-theme-settings-protocol th:data-authenticated="${authenticated}" th:data-theme-name="${themeName}" th:data-config-endpoint="${configEndpoint}"
+        th:data-site-logo="${site.logo}"
         th:data-app-moments="${pluginFinder.available('PluginMoments')}"
         th:data-app-douban="${pluginFinder.available('plugin-douban')}"
         th:data-app-links="${pluginFinder.available('PluginLinks')}"
@@ -56,6 +57,7 @@
             <th:block th:replace="~{modules/shell/settings/widgets :: pane}" />
             <th:block th:replace="~{modules/shell/settings/notifications :: pane}" />
             <th:block th:replace="~{modules/shell/settings/apps :: pane}" />
+            <th:block th:replace="~{modules/shell/settings/startup :: pane}" />
             <th:block th:replace="~{modules/shell/settings/advanced :: pane}" />
           </main>
           <footer class="theme-settings-actions">

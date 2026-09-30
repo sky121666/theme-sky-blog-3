@@ -6,6 +6,8 @@ import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 import { getAppAssetSegment, getAppEntryPaths, getEntryJsPath, getEntryCssPath } from "./src/shell-core/runtime/app-manifests.js";
 import { renderBuildStyles } from "./scripts/theme-build-styles.mjs";
+import { renderStartupTemplate } from "./scripts/theme-startup.mjs";
+import { renderEarlyDesktopTemplate } from "./scripts/theme-desktop-preview.mjs";
 
 const outDir = path.resolve(import.meta.dirname, "templates/assets");
 const cssOutDir = path.resolve(outDir, "css");
@@ -366,6 +368,10 @@ function writeAssetManifest(bundle: Record<string, any>) {
     "utf-8"
   );
   fs.writeFileSync(path.resolve(outDir, "build-styles.html"), renderBuildStyles(manifest), "utf-8");
+  fs.writeFileSync(path.resolve(outDir, "build-startup.html"), renderStartupTemplate(
+    fs.readFileSync(path.resolve(import.meta.dirname, "src/shared/startup-controller.js"), "utf-8")
+  ), "utf-8");
+  fs.writeFileSync(path.resolve(outDir, "build-desktop-preview.html"), renderEarlyDesktopTemplate(import.meta.dirname), "utf-8");
 }
 
 function maintainBuildOutputHygiene() {

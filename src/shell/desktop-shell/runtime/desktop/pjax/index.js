@@ -71,6 +71,7 @@ import { createBrowserNavStateStore } from './browser-nav-state.js';
 import { prepareMomentsFeedNavigation } from './moments-feed.js';
 import { prepareNavigation, commitNavigation, abandonNavigation, prepareNativeHandoff,
   revokeNativeHandoff } from './navigation-admission.js';
+import { isAuthenticationResponse } from '../../../../../shared/navigation-response.js';
 
 const { log: pjaxLog, warn: pjaxWarn } = createLogger('pjax');
 const NAVIGATION_INTENT_OPTION = '__themeNavigationIntent';
@@ -1037,13 +1038,18 @@ export function initPjax(Alpine) {
         });
         return;
       }
+      const responseDocument = new DOMParser().parseFromString(responseText, 'text/html');
+      const responseApp = parsePageAppFromResponse(responseText);
+      if (isAuthenticationResponse({ url: fallbackHref, appId: responseApp, pageMode: responseDocument.body?.dataset.pageMode })) {
+        handoffNavigation(record, fallbackHref);
+        return;
+      }
       // HTML and app downloads start together. Hold DOM replacement until
       // both the inferred and actual response app have executed registrars.
       const assetGate = _fullAssetGate;
       try {
         if (assetGate && !await assetGate.promise) return;
         if (!isNavigationCurrent(record)) return;
-        const responseApp = parsePageAppFromResponse(responseText);
         await ensureAppAssetsLoaded(responseApp, { signal: assetGate?.controller.signal });
         if (!isNavigationCurrent(record)) return;
         stageAppCssForNavigation(responseApp);
@@ -1053,7 +1059,6 @@ export function initPjax(Alpine) {
         failNavigation(record, 'response-assets');
         return;
       }
-      const responseDocument = new DOMParser().parseFromString(responseText, 'text/html');
       const validShell = ['title', '#window-frame-root'].every((selector) =>
         responseDocument.querySelectorAll(selector).length === 1 && document.querySelectorAll(selector).length === 1);
       if (!validShell) {

@@ -123,8 +123,7 @@ export function computeDefaultDesktopIconPlacement(index, columns, maxVisibleRow
   };
 }
 
-export function readDesktopIconsBootstrap() {
-  const bootstrap = window.__THEME_DESKTOP_PROTOCOL__?.icons || window.__THEME_DESKTOP_ICONS__;
+export function readDesktopIconsBootstrap(bootstrap = window.__THEME_DESKTOP_PROTOCOL__?.icons || window.__THEME_DESKTOP_ICONS__) {
   if (!Array.isArray(bootstrap)) return [];
   return bootstrap.map((icon, index) => {
     const link = normalizeDesktopIconHref(icon?.href || '#');

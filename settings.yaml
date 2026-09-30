@@ -250,6 +250,65 @@ spec:
       label: 桌面
       formSchema:
         - $formkit: group
+          id: desktop_startup_group
+          name: startup
+          label: 启动体验
+          value:
+            mode: direct
+            frequency: tab_once
+            logo_mode: apple
+            logo_url: ""
+          children:
+            - $formkit: toggle
+              id: desktop_startup_mode
+              name: mode
+              label: 启动方式
+              value: direct
+              help: 普通显示直接呈现页面。开机启动在下一次符合条件的完整访问时播放短暂过渡。
+              options:
+                - label: 普通显示
+                  value: direct
+                - label: 开机启动
+                  value: boot
+            - $formkit: select
+              id: desktop_startup_frequency
+              key: desktop_startup_frequency_field
+              name: frequency
+              label: 播放频率
+              value: tab_once
+              if: "$get(desktop_startup_mode).value === 'boot'"
+              options:
+                - label: 每个标签页首次
+                  value: tab_once
+                - label: 首次及每次主动刷新
+                  value: every_reload
+            - $formkit: select
+              id: desktop_startup_logo_mode
+              key: desktop_startup_logo_mode_field
+              name: logo_mode
+              label: 启动标识
+              value: apple
+              if: "$get(desktop_startup_mode).value === 'boot'"
+              options:
+                - label: 苹果标识
+                  value: apple
+                - label: 站点标识
+                  value: site
+                - label: 自定义图片
+                  value: custom
+            - $formkit: attachment
+              id: desktop_startup_logo_url
+              key: desktop_startup_logo_url_field
+              name: logo_url
+              label: 自定义启动图片
+              value: ""
+              help: 图片无法加载时使用内置标识。请选择公开可访问的图片。
+              if: "$get(desktop_startup_mode).value === 'boot' && $get(desktop_startup_logo_mode).value === 'custom'"
+              accepts:
+                - "image/png"
+                - "image/jpeg"
+                - "image/webp"
+        - $formkit: group
           id: desktop_appearance_group
           name: appearance
           label: 桌面配色

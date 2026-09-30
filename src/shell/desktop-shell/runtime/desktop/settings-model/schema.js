@@ -8,6 +8,7 @@ export const SETTINGS_PANES = Object.freeze([
   { id: 'navigation', label: '导航菜单', detail: '选择菜单栏使用的后台菜单', keywords: ['导航', '菜单来源'], icon: 'icon-[lucide--navigation]', color: 'blue', group: 'desktop' },
   { id: 'widgets', label: '小组件', detail: '管理桌面小组件、图标与布局', keywords: ['组件', '天气', '城市', '封面', '桌面', '分类', '标签', '文章', '单页', '布局'], icon: 'icon-[lucide--layout-grid]', color: 'green', group: 'desktop' },
   { id: 'notifications', label: '通知中心', detail: '设置通知中心名称与展开方式', keywords: ['侧边栏', '通知', '访客'], icon: 'icon-[lucide--bell]', color: 'red', group: 'desktop' },
+  { id: 'startup', label: '启动与登录', detail: '设置启动表现并查看站点访问说明', keywords: ['开机', '动画', '启动', '登录', '访问', '私密'], icon: 'icon-[lucide--power]', color: 'gray', group: 'system' },
   { id: 'apps', label: '应用', detail: '自定义瞬间、书影音、友链和装备页面', keywords: ['瞬间', '豆瓣', '书影音', '友链', 'Steam', '装备'], icon: 'icon-[lucide--app-window]', color: 'orange', group: 'system' },
   { id: 'advanced', label: '高级', detail: '管理调试选项', keywords: ['调试', '日志'], icon: 'icon-[lucide--settings-2]', color: 'gray', group: 'system' }
 ].map(Object.freeze));
@@ -64,6 +65,10 @@ export const SETTINGS_FIELDS = Object.freeze([
   ]) }),
   field('desktop.background.image_url', 'wallpaper', '桌面背景图', 'image', '', { accepts: [...IMAGE_TYPES, 'image/gif', 'image/svg+xml'] }),
   field('desktop.background.solid_color', 'wallpaper', '桌面纯色', 'color', '#0f172a'),
+  field('desktop.startup.mode', 'startup', '启动方式', 'select', 'direct', { options: options([['direct', '普通显示'], ['boot', '开机启动']]) }),
+  field('desktop.startup.frequency', 'startup', '播放频率', 'select', 'tab_once', { options: options([['tab_once', '每个标签页首次'], ['every_reload', '首次及每次主动刷新']]) }),
+  field('desktop.startup.logo_mode', 'startup', '启动标识', 'select', 'apple', { options: options([['apple', '苹果标识'], ['site', '站点标识'], ['custom', '自定义图片']]) }),
+  field('desktop.startup.logo_url', 'startup', '自定义启动图片', 'image', '', { accepts: IMAGE_TYPES }),
   field('desktop.icons.custom_icons', 'widgets', '自定义桌面图标', 'custom-icons', []),
   field('desktop.icons.categories', 'widgets', '桌面分类', 'content-list', [], { source: 'categories' }),
   field('desktop.icons.tags', 'widgets', '桌面标签', 'content-list', [], { source: 'tags' }),
