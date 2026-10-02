@@ -2,6 +2,10 @@
 
 > 2026-09-30 按当前源码核对。插件契约与逐项测试版本见[适配契约](../插件适配契约.md#当前逐-surface-权威表2026-09-26)，精确构建和运行边界见[项目进度](../项目进度.md)。本次文档更新未重新执行插件业务验收。
 
+## 界面截图
+
+[查看 Steam 编号截图图集](Steam/截图.md)：游戏库、关键词筛选。交互与写入验收范围见本页说明。
+
 ## 当前验收边界
 
 `steam` 是安装清单的 canonical ID，`halo-plugin-steam` 为项目/插件称呼。列表契约与已登记真页 testedVersion 均为 `1.0.0`；小组件在逐 surface 表中仍是独立实现项。游戏库从插件页面 `/steam/page/{page}` 取下一页 HTML，热图使用插件公开 heatmap API；失败与有效空页分开，PJAX 销毁时取消未完成请求。源码见 `src/apps/steam/runtime.js`、`templates/modules/steam-app/list.html`。插件后台同步、真实跨页数据变化和真机触摸没有因页面检查自动完成。
