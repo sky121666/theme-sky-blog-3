@@ -1,0 +1,34 @@
+@plugin "@iconify/tailwind4";
+
+.shop-category-icon[style] {
+  color: var(--shop-category-color, var(--shop-accent));
+}
+
+.shop-category-glyph,
+.shop-category-glyph > span {
+  display: inline-flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+}
+
+.shop-category-glyph > svg {
+  width: 100%;
+  height: 100%;
+}
+
+.shop-category-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  object-fit: contain;
+}
+
+.shop-category-image[hidden] {
+  display: none !important;
+}
+
+.shop-category-icon:has(> .shop-category-image:not([hidden])) > .shop-category-glyph {
+  display: none;
+}

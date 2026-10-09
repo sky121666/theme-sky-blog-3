@@ -23,6 +23,10 @@ export function mergeSettingsChanges(latestConfig, draft, paths, { baseline, res
       names.add(item.name);
     }
   }
+  if (paths.includes('shop.navigation.category_appearances')
+    && draft.shop.navigation.category_appearances.some((item) => !item.category_id.trim())) {
+    throw new Error('请为每项外观选择商品分类，或移除未完成的配置。');
+  }
   for (const path of paths.filter((key) => key === 'navigation.header.menu_name' || key === 'navigation.dock.menu_name')) {
     const name = themeSettingsValueAt(draft, path);
     if (name && !resources.menus?.some((item) => item.name === name && !item.disabled)) {

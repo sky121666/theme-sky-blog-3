@@ -1,0 +1,103 @@
+<th:block th:fragment="sidebar (categories, scene, currentKeyword, currentCategory, currentSort, currentView)"
+          th:with="rawSidebarCategories=${theme.config.shop?.navigation?.sidebar_categories},sidebarCategories=${rawSidebarCategories instanceof T(java.util.List) ? rawSidebarCategories : {}},sidebarCategoryValues=${sidebarCategories.![#this instanceof T(java.util.Map) ? (#this['id'] ?: #this['name'] ?: #this['value']) : #this]},sidebarCategoryIds=${sidebarCategoryValues.![#this == null ? '' : (#this instanceof T(java.lang.Number) ? #numbers.formatInteger(#this,1,'NONE') : #strings.trim(#strings.toString(#this)))]},fallbackCategoryPage=${categories == null and !#lists.isEmpty(sidebarCategories) and productCategoryFinder != null ? productCategoryFinder.list({'page':1,'size':999}) : null}">
+  <aside class="shop-sidebar" id="shop-sidebar" aria-label="商店导航">
+    <div class="shop-dragbar"
+         @pointerdown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
+      <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=true)}"></th:block>
+    </div>
+    <form class="shop-search shop-desktop-search" action="/shop/products" method="get" role="search" data-shop-search>
+      <label class="shop-ui-input">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m16 16 5 5"></path></svg>
+        <input type="search" name="keyword" aria-label="搜索商品" placeholder="搜索商品" th:value="${currentKeyword}" />
+      </label>
+      <input th:if="${!#strings.isEmpty(currentCategory)}" type="hidden" name="categoryId" th:value="${currentCategory}" />
+      <input th:if="${!#strings.isEmpty(currentSort)}" type="hidden" name="sort" th:value="${currentSort}" />
+      <input type="hidden" name="view" value="all" />
+    </form>
+    <nav class="shop-nav" aria-label="浏览商品">
+      <a class="shop-nav-link pjax-link" href="/shop/products" data-shop-browse data-shop-view="explore" data-shop-category=""
+         th:attr="aria-current=${scene == 'products' and currentView != 'all' and currentView != 'categories' and #strings.isEmpty(currentCategory) and #strings.isEmpty(currentKeyword) and #strings.isEmpty(currentSort) ? 'page' : null}">
+        <span class="shop-nav-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"></circle><path d="m16 8-3 5-5 3 3-5Z"></path></svg></span><span>探索</span>
+      </a>
+      <a class="shop-nav-link pjax-link" data-shop-browse data-shop-view="all" data-shop-category="" data-shop-keyword="" data-shop-sort=""
+         href="/shop/products?view=all"
+         th:attr="aria-current=${scene == 'products' and currentView == 'all' and #strings.isEmpty(currentCategory) ? 'page' : null}">
+        <span class="shop-nav-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg></span><span>商品</span>
+      </a>
+      <a class="shop-nav-link pjax-link" href="/shop/products?view=categories" data-shop-browse data-shop-view="categories" data-shop-category=""
+         th:attr="aria-current=${scene == 'products' and (currentView == 'categories' or (!#strings.isEmpty(currentCategory) and !#lists.contains(sidebarCategoryIds,currentCategory))) ? 'page' : null}">
+        <span class="shop-nav-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"></path><path d="M7 12h10M7 16h6"></path></svg></span><span>类别</span>
+      </a>
+      <th:block th:each="selection : ${sidebarCategories}"
+                th:with="selectedValue=${selection instanceof T(java.util.Map) ? (selection['id'] ?: selection['name'] ?: selection['value']) : selection},selectedCategoryId=${selectedValue == null ? '' : (selectedValue instanceof T(java.lang.Number) ? #numbers.formatInteger(selectedValue,1,'NONE') : #strings.trim(#strings.toString(selectedValue)))}">
+        <th:block th:if="${!#strings.isEmpty(selectedCategoryId) and categories != null}">
+          <th:block th:replace="~{::categoryLinks(categories=${categories},selectedCategoryId=${selectedCategoryId},scene=${scene},currentCategory=${currentCategory},currentKeyword=${currentKeyword},currentSort=${currentSort})}"></th:block>
+        </th:block>
+        <th:block th:if="${!#strings.isEmpty(selectedCategoryId) and categories == null and fallbackCategoryPage != null}">
+          <th:block th:replace="~{::categoryPageLink(categoryPage=${fallbackCategoryPage},selectedCategoryId=${selectedCategoryId},scene=${scene},currentCategory=${currentCategory},currentKeyword=${currentKeyword},currentSort=${currentSort})}"></th:block>
+        </th:block>
+      </th:block>
+      <a class="shop-nav-link pjax-link" href="/shop/cart" th:attr="aria-current=${scene == 'cart' ? 'page' : null}">
+        <span class="shop-nav-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m3 3 2 2 3 12h11l2-10H6"></path><circle cx="9" cy="21" r="1"></circle><circle cx="18" cy="21" r="1"></circle></svg></span><span>购物车</span>
+      </a>
+    </nav>
+    <div class="shop-sidebar-footer" th:with="
+      shopAuthenticated=${#authorization.expression('isAuthenticated()')},
+      shopContributor=${shopAuthenticated and contributorFinder != null ? contributorFinder.getContributor(#authentication.name) : null},
+      shopDisplayNameRaw=${shopContributor != null and shopContributor.displayName != null ? #strings.trim(shopContributor.displayName) : ''},
+      shopDisplayName=${!#strings.isEmpty(shopDisplayNameRaw) ? shopDisplayNameRaw : '我的账户'},
+      shopAvatar=${shopContributor != null and shopContributor.avatar != null ? #strings.trim(shopContributor.avatar) : ''},
+      shopAvatarLower=${#strings.toLowerCase(shopAvatar)},
+      shopAvatarAllowed=${!#strings.isEmpty(shopAvatar) and ((#strings.startsWith(shopAvatar, '/') and !#strings.startsWith(shopAvatar, '//')) or #strings.startsWith(shopAvatarLower, 'https://') or #strings.startsWith(shopAvatarLower, 'http://'))}">
+      <a th:if="${!shopAuthenticated}" class="shop-account-trigger pjax-link" data-shop-account-login th:href="@{/login(redirect_uri='/shop/products')}">
+        <span class="shop-account-icon" aria-hidden="true"><span class="icon-[lucide--user-round]"></span></span><span>登录</span>
+      </a>
+      <a th:if="${shopAuthenticated}" class="shop-account-trigger" data-shop-account-orders href="/uc/shop/orders">
+        <span class="shop-account-picture" aria-hidden="true">
+          <img th:if="${shopAvatarAllowed}" class="shop-account-avatar" data-shop-account-avatar th:src="${shopAvatar}" alt="" decoding="async" />
+          <span class="shop-account-icon" data-shop-account-fallback th:hidden="${shopAvatarAllowed}"><span class="icon-[lucide--user-round]"></span></span>
+        </span>
+        <span class="shop-account-name" th:text="${shopDisplayName}">我的账户</span>
+      </a>
+    </div>
+  </aside>
+</th:block>
+
+<th:block th:fragment="categoryLinks (categories, selectedCategoryId, scene, currentCategory, currentKeyword, currentSort)">
+  <th:block th:each="category : ${categories}">
+    <a th:if="${selectedCategoryId == #strings.toString(category.id)}" class="shop-nav-link pjax-link" data-shop-browse data-shop-view="all" data-shop-keyword="" data-shop-sort="" th:data-shop-category="${category.id}"
+       th:href="@{/shop/products(categoryId=${category.id},view='all')}"
+       th:attr="aria-current=${scene == 'products' and currentView != 'categories' and currentCategory == #strings.toString(category.id) ? 'page' : null}">
+      <th:block th:replace="~{modules/shop-app/category-appearance :: icon(category=${category},sidebar=true)}"></th:block><span th:text="${category.name}">分类</span>
+    </a>
+    <th:block th:if="${category.children != null and !#lists.isEmpty(category.children)}">
+      <th:block th:replace="~{::categoryLinks(categories=${category.children},selectedCategoryId=${selectedCategoryId},scene=${scene},currentCategory=${currentCategory},currentKeyword=${currentKeyword},currentSort=${currentSort})}"></th:block>
+    </th:block>
+  </th:block>
+</th:block>
+
+<!-- The Commerce finder returns a Spring Page; scan further pages only for unmatched configured IDs. -->
+<th:block th:fragment="categoryPageLink (categoryPage, selectedCategoryId, scene, currentCategory, currentKeyword, currentSort)"
+          th:with="matchingCategories=${categoryPage.content.?[#strings.toString(id) == #vars.selectedCategoryId]}">
+  <th:block th:if="${!#lists.isEmpty(matchingCategories)}">
+    <th:block th:replace="~{::categoryLinks(categories=${matchingCategories},selectedCategoryId=${selectedCategoryId},scene=${scene},currentCategory=${currentCategory},currentKeyword=${currentKeyword},currentSort=${currentSort})}"></th:block>
+  </th:block>
+  <th:block th:if="${#lists.isEmpty(matchingCategories) and categoryPage.hasNext()}">
+    <th:block th:replace="~{::categoryPageLink(categoryPage=${productCategoryFinder.list({'page':categoryPage.number + 2,'size':999})},selectedCategoryId=${selectedCategoryId},scene=${scene},currentCategory=${currentCategory},currentKeyword=${currentKeyword},currentSort=${currentSort})}"></th:block>
+  </th:block>
+</th:block>
+
+<th:block th:fragment="categoryOptions (categories, currentCategory, prefix)">
+  <th:block th:each="category : ${categories}">
+    <option th:value="${category.id}" th:text="${prefix + category.name}" th:selected="${currentCategory == #strings.toString(category.id)}">分类</option>
+    <th:block th:if="${category.children != null and !#lists.isEmpty(category.children)}">
+      <th:block th:replace="~{::categoryOptions(categories=${category.children},currentCategory=${currentCategory},prefix=${prefix + '　'})}"></th:block>
+    </th:block>
+  </th:block>
+</th:block>
+
+<button th:fragment="menuToggle" type="button" class="shop-ui-btn shop-mobile-menu" data-shop-menu-toggle aria-label="打开商店导航" aria-expanded="false" aria-controls="shop-sidebar">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
+</button>
+
+<button th:fragment="menuBackdrop" type="button" class="shop-menu-backdrop" data-shop-menu-close aria-label="关闭商店导航" tabindex="-1"></button>

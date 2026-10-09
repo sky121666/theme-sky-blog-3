@@ -1,1396 +1,214 @@
-# 主题强调色覆盖与品牌固定色隔离 QA
+# 商城 App Store 对齐：设计复核
 
-## 对照目标
+## 当前类别页复核（24098b08500b）
 
-- Source visual truth（系统设置）: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-5ad3deb7-012b-4928-ae53-bc6869cad705.png`
-- Source visual truth（菜单与图库）: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-9a486992-6cbe-46c7-95c6-8a7e55299d31.png`
-- Final system-settings implementation: `/private/tmp/theme-sky-blog-3-accent-settings-final.png`
-- Same-input full comparison: `/private/tmp/theme-sky-blog-3-accent-settings-comparison.png`
-- Route: `http://localhost:8090/docs`
-- State: 绿色主题方案、暗色外观、系统设置「外观」页打开；另行复核浅色外观、图库根视图和品牌插件页面。
-- Viewport: 来源与实现均约为 CSS `1183 × 805px`，实现 `devicePixelRatio: 1`。系统设置来源与实现已按原始密度横向合并，主要交互控件可直接辨认，无需放大裁切。
+参考为用户提供的Mac App Store类别页；本轮要求精简侧栏文案并尽量对齐排版。使用现有主题颜色、图标配置和真实商城数据，复核范围为标题、三列目录、精选分区及手机排列。
 
-## Findings
+- 文案：真实侧栏「商品／类别」，主标题「类别」，下方「编辑精选」，探索标题保持原有含义。
+- 排列：三列按列排列，列距20px、28px图标、48px行高；标题下4px，精选分区前28px，文字列起始分割线与参考一致。
+- 资产：当前3个类别、2件配置商品，内容高度按实际数据变化；图标和颜色来自既有配置。未复制参考中的Apple商品或分类数据。
+- 实图：截图47为1280×720桌面，截图48为390×844手机。已回看；手机一列无横溢。完整原生App参考与主题桌面外壳尺寸不同，结论限于内部结构和间距。
+- 交互：商品与类别真实往返，文档与窗口节点不变，Document请求0；后台资源与交易未写入。
+- 验证：完整check、真实Thymeleaf模板、商城SSR及13页重载通过；既有20类别嵌套／跨列对齐覆盖保留。全站smoke本轮未重跑。
 
-- No actionable P0/P1/P2 findings remain in the generic accent-color and branded-template isolation scope.
-- Generic token coverage: 通用交互统一从 `--theme-accent` 派生 `--theme-accent-strong / --theme-accent-soft / --theme-accent-ring`；菜单悬停/键盘焦点、系统设置侧栏选中态、显示模式边框、开关、自定义按钮、壁纸选中框、应用按钮、图库选中态、小组件配置焦点与拖放提示，以及登录/注册页的主操作、文本链接和头像底色不再依赖固定蓝紫色。
-- System Settings visual evidence: 当前绿色方案计算值为 `#427e59`。真实页面中的外观侧栏、自动模式边框、外观切换开关、自定义按钮、壁纸选中框和应用按钮均随该强调色显示；最终截图没有出现原固定蓝色残留。
-- Menu behavior: 顶部菜单项目的 `:hover` 与 `:focus-visible` 都直接使用 `var(--theme-accent)`，不再把主题色与固定 `#2e7cf6` 混合；因此绿色主题不会再得到截图中的偏青色选中态。
-- Light/dark behavior: 图库暗色选中背景为强调色 `88%` 透明混合，浅色为强调色约 `14%` 的柔和底；实测暗色和浅色均保持 `#427e59` 根强调色，文字对比与现有 Finder 风格一致。
-- Brand isolation: PluginLinks 微信绿保持 `#07c160`，追番保持 `#fb7299`，Steam 保持 `#66c0f4`，微信朋友圈交互绿保持 `#07c160`。这些品牌/产品皮肤没有改接主题强调色。
-- Semantic and data colors: 通知类型图形、成功/警告/错误/信息状态、天气插画、统计图数据系列和交通灯继续使用固定语义色；避免强调色覆盖真实状态含义。
-- Runtime evidence: `/links?view=friends`、`/bangumis`、`/steam`、`/moments` 真页均能读取对应固定品牌 token；最终浏览器 `console.error` 为 `0`。
+本轮限定布局未发现剩余P0/P1/P2。见[实图及记录](docs/2026-10-09-商城类别页排版.md)。
 
-## Comparison history
-
-- Pass 1: 系统设置和顶部菜单仍存在 `#0a84ff / #007aff / #0077ed / #409cff / #2e7cf6` 等固定蓝色或蓝色混合；图库暗色选中态固定为 `#2d7ff9`；登录/注册页还把主题色与固定靛蓝、粉色混合。
-- Fix 1: 建立通用强调色派生 token，并把通用导航、选择、开关、主按钮、焦点环和图库选择迁移到主题 token。
-- Pass 2: 同屏比较确认绿色主题已覆盖系统设置的主要交互状态；明暗色图库计算样式、品牌页面固定 token、Reload、PJAX smoke 与完整检查均通过。
-
-## Verification
-
-- [x] `pnpm run build-only`
-- [x] `pnpm run check`
-- [x] `node scripts/verify-theme-settings.mjs`
-- [x] `node scripts/verify-links-adaptation.mjs`
-- [x] `node scripts/verify-steam-adaptation.mjs`
-- [x] `node scripts/verify-widget-bangumis.mjs`
-- [x] `pnpm run verify:reload`
-- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
-- [x] 真页暗色/浅色图库、系统设置强调色计算样式、四类品牌模板固定 token 与 `console.error: 0`
-
-final result: passed
+**final result: passed**（本轮类别布局范围）
 
 ---
 
-# 附件静态 HTML 到真实 Halo 登录页 Design QA
+## 当前商城细节复核（adae5d4b2aad）
 
-## 对照目标
+当前主题 **0.9.47 / adae5d4b2aad**，Halo 2.26.1，商城独立构建号 unknown。本轮范围为探索、目录、详情、手机边界及分类外观。历史证据保留在后文。
 
-- Source HTML: `/Users/sky/.codex/attachments/f1e25275-eb0b-44f3-b5b2-b9931b18851f/pasted-text.txt`
-- Source render:
-  - 桌面：`/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/login-reference-804x686.png`
-  - 手机：`/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/login-reference-mobile-390x844.png`
-- Implementation URL: `http://127.0.0.1:8090/login?method=local&_qa=static-html-adaptation`
-- Browser-rendered implementation:
-  - 桌面暗色：`/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/login-implementation-final-804x686.png`
-  - 桌面亮色：`/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/login-implementation-final-light-804x686.png`
-  - 手机暗色：`/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/login-implementation-mobile-final-390x844.png`
-  - 密码步骤：`/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/login-password-final-390x844.png`
-- Desktop normalization: 来源与实现均为 `804 × 686 CSS px` / `804 × 686 px`，密度 `1x`。
-- Mobile normalization: 来源与实现均为 `390 × 844 CSS px` / `390 × 844 px`，密度 `1x`。
-- State: 本地登录账号步骤、暗色；输入框为空且未被密码管理器自动填充。亮色、密码步骤和返回步骤另行验证。
+### 参考和实图
 
-## 对照证据
+用户 App Store 参考包含完整横幅、紧凑商品行和三列分类；真实站点保持其浅色与粉色强调色。截图 38–42 为 1280×720，43–44 为 390×844，45 为 1180×724 隔离分类样例，见[商城图集](docs/商城/README.md)。
 
-- Full-view comparison: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/login-comparison-final.png`
-  - 左侧为附件静态原型，右侧为真实 Halo 页面；两侧均保持 `804 × 686px` 原始尺寸，未缩放。
-- Focused comparison: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/login-comparison-focus.png`
-  - 对照头像、站点名、凭据框、主操作按钮、登录方式标题和提供方图标区域。
-- 手机端通过同一浏览器运行时逐项读取几何值；来源与实现的头像、输入框、提供方区域和底部链接坐标误差均小于 `0.1px`，页面 `scrollWidth = innerWidth = 390`。
+主代理已回看本机并排图 `output/macos-polish-2026-10-09/before-after-home.png`、`before-after-detail.png`、`reference-categories.png`。前后同为 1280×720 视口，但窗口经过窄屏切换后宽度由 1178 变为 1146 且位置变化，因此不宣称逐像素一致；几何结论基于 DOM 实测。
 
-## Findings
+| 维度 | 复核结论 |
+| --- | --- |
+| 字体与层级 | 延用系统字体，减少购买区标签，名称／简介／价格层级清晰；320px 固定标题有 154px 可用宽度，避免只剩省略号。 |
+| 排列与间距 | 首页标题到主图 34→14px；桌面分段控件与选择框均32px；卡片价格对齐；手机筛选与展示独立成行且无横溢。 |
+| 配色与反馈 | 链接对比度专项通过，侧栏 hover／选中／pressed 有区别；140ms 标题与材质过渡尊重减少动态效果。站点品牌颜色与 Apple 参考不同，作为既有主题选择保留。 |
+| 图片与资产 | 宣传图铺满并叠加渐变，商品封面完整呈现；分类使用线性 Lucide 图标及自定义颜色。图片优先和失败回退经真实 Java 模板隔离样例验证；不复制 Apple 分类符号。 |
+| 结构与操作 | 详情预览从约578px提前到368px；滚动471px后返回仍在y30.5、高40px，保留来源；390px 窗口顶部44px与站点菜单对齐，商店菜单top49px全可见。 |
 
-- No actionable P0/P1/P2 findings remain.
-- Fonts and typography: 来源与实现均使用 `-apple-system / BlinkMacSystemFont / SF Pro / PingFang SC` 系统字体链。桌面紧凑状态为头像 `108px`、标题 `28px / 33px`、输入文字 `16px`；手机为头像 `92px`、标题 `26px / 31.2px`、输入文字 `16px`，字号、行高与字重层级一致。站点名宽度差异来自真实文案“5ee博客”与原型“示例用户”，不是排版漂移。
-- Spacing and layout rhythm: 桌面来源与实现的头像、标题、输入框、登录方式区域坐标分别对齐到 `y=146.2 / 270.2 / 341.2 / 420.2`；输入框均为 `500 × 60px`、`14px` 圆角。手机来源与实现分别对齐到 `92px` 头像、`350 × 58px` 输入框、`13px` 圆角和 `y=778px` 底部链接，没有横向溢出或底部遮挡。
-- Colors and visual tokens: 页面继续消费主题真实强调色、选择色、浅/深 Shell 色和当前桌面壁纸；暗色输入框计算值与原型同为 `rgba(26, 21, 39, 0.78)`，亮色为浅色 Shell `82%` 混合。移除了渐变主按钮、过强背景去饱和和常驻自动填充焦点环，改为原型中的实色强调按钮、`0.5px` 边界和短阴影。
-- Image quality and asset fidelity: 实现保留真实站点 Logo、真实 Halo 动态登录提供方 Logo 和项目既有 Lucide/Iconify 图标；没有复制原型的示例头像、硬编码 GitHub/Google/Microsoft 提供方、手绘 SVG 或占位资源。头像与 Logo 均保持原始比例、圆形裁切和高优先级加载。
-- Copy and content: “用户名或邮箱 / 其他登录 / 忘记密码 / 创建账户”与原型一致；站点名称、提供方数量和图标来自当前 Halo 数据。密码步骤继续显示真实“保持登录”和账号回退能力，这是认证功能约束，不是静态文案漂移。
-- States and interactions: 账号→密码使用 `280–320ms` 的 opacity / translate / blur 过渡，焦点延迟 `160ms` 后落到密码框；返回会恢复账号步骤且不提交请求。深/浅色切换、账号步骤、密码步骤、移动端和 `prefers-reduced-motion` 均保留。
-- Accessibility: 输入框保留 `name`、`autocomplete`、`required`、label 和密码管理器语义；非活动步骤使用 `aria-hidden + inert`，状态区使用 `aria-live`。桌面工具按钮为 `36px`，触屏和手机为 `44px`，键盘焦点环仅在真实 `focus-visible` 状态显示。
-- Authentication contract: 表单仍为 `POST /login`，`autocomplete=on`，用户名字段为 `username`，密码字段为 `password / current-password`；RSA `jsencrypt` 脚本和 `formdata` 加密流程仍在。验证期间未输入、读取或提交真实密码，也没有把测试账号写入源码。
-- Runtime: 桌面与手机内置浏览器 `console.error` 均为 `0`；最终桌面和手机页面均无溢出。
+### 迭代、门禁与边界
 
-## Comparison history
+- 旧编译 polish 为 1通过／8失败；修复后最终编译 9／9，CSS SHA256 `3c2640252373`。
+- 最终固定标题栏 24／24，覆盖320／360／390px标题空间，以及320／390／640／641px真实外壳菜单边界与退出恢复。
+- 中间候选完整 check 通过；最后两项 CSS 修复追加专项和最终构建。设置113、运行时41、展示22、媒体18、PJAX 8场景140断言，Java分类／账户模板通过；Halo重载13页通过。
+- 最终资源预算：Shell CSS gzip65528 bytes，静态JS合计gzip144119 bytes，未放宽预算。
+- 最终全站冒烟仍失败：24路由中21项外部图标 ORB、1项阅读页初始化超时。该问题尚未定位，本设计复核不替代全站门禁。
+- 分类外观新增配置未做真实保存；截图45为隔离数据。实际登录、订单和交易未执行。6项DEMO不代表完整运营内容。
+- 本轮限定视觉范围未发现剩余 P0／P1／P2。未暂存、提交或发布。详见[实施记录](docs/2026-10-09-商城细节完善.md)。
 
-- Pass 1: 现有真实实现使用 `154px` 头像、`38px` 标题、`68px` 输入框、较重的长阴影与渐变按钮；`686px` 高度没有进入紧凑布局，自动填充还会常驻焦点外圈，记为 P2 视觉密度与状态偏差。
-- Fix 1: 按附件 token 重设暗/亮表面、按钮、边框和阴影；桌面恢复 `140 / 60 / 46px` 基础尺寸，增加 `max-height: 720px` 紧凑布局，移除自动填充常驻焦点环，并将切换位移收口到 `18px / blur(4px)`。
-- Pass 2: `804 × 686` 同屏量化发现表单已经对齐，但登录提供方区域比原型低约 `12px`；原因是位移只作用于表单本体，未包含其同级提供方，记为 P2 纵向节奏偏差。
-- Fix 2: 将整体位移提升到真实 `.halo-form-wrapper`，并把提供方标题行恢复为 `20px`。桌面头像、标题、输入框和提供方区域随后与来源坐标完全一致。
-- Pass 3: `390 × 844` 手机复核发现内容轴与底部链接仍有 `2–4px` 误差，记为 P2 响应式细节偏差。
-- Fix 3: 校准手机整体位移、账号步骤内部垂直对齐和底部安全区。最终手机关键坐标误差小于 `0.1px`；同屏桌面对照未发现新的 P0/P1/P2。
-
-## Primary interactions tested
-
-- 账号输入后点击箭头进入密码步骤；未提交登录表单。
-- 密码步骤在 `160ms` 后获得焦点，隐藏步骤的 `aria-hidden / inert` 状态正确。
-- 点击账号回退按钮恢复账号步骤，密码值保持为空。
-- 暗色与亮色双向切换；最终恢复暗色交付状态。
-- `804 × 686` 桌面与 `390 × 844` 手机均完成真实 Halo 截图、尺寸读取和控制台错误检查。
-
-## Verification
-
-- [x] `git diff --check`
-- [x] `pnpm run typecheck`
-- [x] `pnpm run smoke`
-- [x] `pnpm run build-only`
-- [x] `pnpm run verify:reload`
-- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
-- [x] 浏览器认证契约、账号/密码步骤、暗亮色、桌面/手机响应式与 `console.error: 0`
-
-## Follow-up polish
-
-- P3：真实提供方数量为 4，原型示例为 3；实现按 Halo 当前安装状态动态渲染，不应为了静态对称隐藏真实登录入口。
-
-final result: passed
+**final result: passed**（本轮限定设计复核；全站冒烟未通过）
 
 ---
 
-# macOS 锁屏式 Halo 登录 Design QA
+## 前轮头像与订单入口复核（c26db29dfd37）
 
-## 对照目标
+本轮用户指定登录后使用头像、显示名，点击整行直接进入订单。当前本地主题0.9.47 / c26db29dfd37、Halo 2.26.1；商城独立构建号unknown。后文为前轮历史，账户菜单已被本轮取代。
 
-- Source visual truth: `/Users/sky/.codex/generated_images/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/exec-fefd12db-10f8-4664-9d26-4ea58ee9f710.png`
-- Implementation URL: `http://localhost:8090/login?method=local`
-- Browser-rendered implementation:
-  - 暗色账号步骤：`/private/tmp/theme-login-redesign/qa/login-desktop-dark-final.png`
-  - 亮色账号步骤：`/private/tmp/theme-login-redesign/qa/login-desktop-light-final.png`
-  - 手机暗色：`/private/tmp/theme-login-redesign/qa/login-mobile-dark-final.png`
-  - 密码步骤：`/private/tmp/theme-login-redesign/qa/login-password-step-dark.png`
-  - 错误状态：`/private/tmp/theme-login-redesign/qa/login-error-dark.png`
-  - Passkey：`/private/tmp/theme-login-redesign/qa/login-passkey-dark-final.png`
-- Full-view comparison: `/private/tmp/theme-login-redesign/qa/login-source-implementation-comparison.png`
-- Focused comparison: `/private/tmp/theme-login-redesign/qa/login-source-implementation-focus.png`
-- Desktop normalization: 来源与实现均为 `1487 × 1058px`，CSS viewport `1487 × 1058`，device density `1x`，没有缩放或设备外框。
-- Mobile normalization: 实现为 `390 × 844px`，CSS viewport `390 × 844`，device density `1x`。
-- State: 暗色本地登录账号步骤；实现截图仅使用脱敏演示账号，真实凭据只由浏览器密码管理器用于成功登录验证，未写入源码、报告或截图。
+### 参考与捕获
 
-## Findings
+- 源图：`/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-a42293e7-f347-4ea2-9b47-e22ebe13a01a.png`，254×92。用户授权已登录界面显示公开头像与显示名，登录页仍避免展示真实账号标识。
+- 当前桌面示例：`docs/商城/截图/35-已登录头像与订单入口-隔离.png`，254×92；选定Codex Browser 3捕获真实Java模板Footer与最终CSS。虚构显示名及本机已有自然图片用于测试，不冒充用户真实账户。
+- 当前手机示例：`36-手机头像与订单入口-隔离.png`，314×92。选定浏览器390×844下完整捕获为 `output/appstore-account-direct-order-2026-10-09/account-phone-cua.png`，按真实Footer区域 `(0,752,314,844)` 原像素裁出；该工具clip初次返回了上部空图，完整捕获确认头像可见后重拍，未因此修改业务CSS。
+- 真实匿名页面：`37-登录入口-新版.png`，1280×720，内容区958/958无横溢、无订单链接，当前tab console errors为0。现有站点已经选了三项侧栏分类并显示商店Dock，本轮未写这些配置。
+- 原图和当前示例并排：`output/appstore-account-direct-order-2026-10-09/reference-comparison.png` 已打开。两幅均254×92，无缩放；直接对照底部区域，不需要重复大页面对比头像细节。
 
-- No actionable P0/P1/P2 findings remain.
-- Fonts and typography: 使用项目现有 `SF Pro / -apple-system / PingFang SC` 字体栈；站点名、账号输入、Passkey 与底部操作的层级已按目标比例收口。真实字体受当前 macOS 字体渲染影响，属于预期差异。
-- Spacing and layout rhythm: 头像、站点名、`500 × 68px` 凭据框、Passkey 和“其他登录选项”的中心轴与目标同尺寸对照一致；底部辅助链接改为 `13vh` 锁屏式位置。页面不再出现登录窗口、标题栏卡片或额外内容容器。
-- Colors and visual tokens: 暗色使用低透明深色遮罩与玻璃凭据框，亮色使用浅色玻璃和深色文字；焦点、链接和动作状态继续从主题强调色派生。背景保留当前 Halo 配置的 `wallpaper-alpine-lilac`，没有为了设计稿写死另一张紫色壁纸。
-- Image quality and asset fidelity: 使用真实站点 Logo，圆形裁切、比例和清晰度正常；箭头与返回/主题图标来自项目既有 Iconify/Lucide 管线，没有新增手绘 SVG、CSS 图形或占位头像。
-- Copy and content: “使用通行密钥”“其他登录选项”“忘记密码？”“创建账户”与目标一致；Passkey 页面回退入口改为“密码登录”，不再暴露内部 provider 名称 `Local`。
-- States and interactions: 本地登录采用账号到密码的两步切换；支持按钮与 Enter 继续、返回修改账号、原生必填校验、错误提示、暗亮色切换和 reduced-motion。集成箭头仅增强交互，不改变 Halo 字段名、表单 action、RSA `formdata` 加密或密码管理器 autocomplete。
-- Accessibility: 两步区域使用 `aria-hidden + inert` 管理非活动步骤，状态通过 `aria-live` 通知；所有图标按钮有可读标签。`390 × 844` 下 `scrollWidth = innerWidth = 390`、`scrollHeight = innerHeight = 844`，没有横向溢出或底部遮挡。
-- Intentional differences: 设计稿没有返回和暗亮色按钮；实现为保留站点导航与主题切换，在左右上角提供弱化的圆形工具按钮。设计稿背景与当前主题壁纸不同，实装遵循用户现有主题配置。这两项均为产品约束，不是未完成视觉缺陷。
+### 五项复核
 
-## Comparison history
+| 范围 | 结果 |
+| --- | --- |
+| 字体与文案 | 使用系统字体13px/600；展示Halo displayName，空白去除、空值回退“我的账户”，长名称单行省略，头像不挤压。显示名通过th:text转义；账户入口不输出内部登录name。 |
+| 排列与间距 | 36px圆形头像与文字横排、间隔10px，底部12px内边距；整行点击高度至少48px。参考头像约x50/y39、当前示例x51/y38，圆形尺寸相同。 |
+| 配色与状态 | 延用主题变量：静止状态无整块高亮，悬停使用既有背景。参考背景与主题深色变量略不同，属于现有配色，不增加固定品牌色。 |
+| 图片与资产 | 服务端读取实际avatar，36×36 object-fit:cover和圆形裁切；示例使用本机既有图片，姓名虚构，头像内容差异属于隔离数据。无头像、非法URL、请求失败或hydrate前已失败均回退现有Lucide图标。 |
+| 操作与结构 | 唯一锚点直接/uc/shop/orders，无details／菜单。选定浏览器点击示例行后，完整文档导航到隔离订单路径；没有真实订单数据读取。匿名保持/login?redirect_uri=/shop/products。 |
 
-- Pass 1: 同尺寸对照发现中心内容比例偏小、Passkey/其他选项纵向节奏过紧，底部链接比目标低约 40px，记为 P2。
-- Fix 1: 头像提升至 `154px`，站点名提升至 `38px`，凭据框提升至 `68px`；放大 provider 文本与箭头，重设 provider 两段间距，并将底部操作改为 `13vh`。
-- Pass 2: 聚焦对照发现主内容整体比目标高约 14px，Passkey 与其他选项仍提前，记为 P2。
-- Fix 2: 登录主流程下移 `14px`，provider 视觉位移收口到 `30px`；手机断点显式取消这些桌面位移。
-- Pass 3: `1487 × 1058` 全屏与 `760 × 700` 聚焦同屏比较确认头像、标题、凭据框、Passkey 和其他选项的尺寸与垂直基线一致；剩余背景与顶部工具按钮差异均为明确产品约束。
+### 迭代与验证
 
-## Primary interactions tested
+- P2：旧通用菜单与用户指定头像直达交互不一致。先用真实Thymeleaf模板复现两条菜单链接违反单入口要求，再改为公开头像与显示名单锚点。
+- 新模板17种账户状态及原分类断言通过；编译CSS与真实Footer片段的38个DOM场景通过，覆盖长名、手机Tab、匿名零资料查询、空头像、异常头像和重复hydrate；所有测试请求被本机隔离。
+- 官方Halo2.26.1 ContributorFinder直接User→ContributorVo，没有作者角色限制；仅取displayName/avatar，未新增浏览器资料请求或订单API。
+- 全check `check.log`、13页重载 `reload.log` 通过。最终smoke `smoke.log` exit1，22项均为外部图标ERR_BLOCKED_BY_ORB，报告副本存本轮output。
+- Bearer只读页面探针200，但前台仍返回匿名HTML；该探针不能证明已认证资料的真实页面。没有继续尝试登录、读取真实账户或实际订单。
 
-- 点击账号箭头进入密码步骤；Enter 同样可进入；返回按钮恢复账号步骤。
-- 真实 Halo 登录成功跳转 `/uc/profile`；测试凭据未被读取或输出。
-- `invalid-credential` 错误正确显示“用户名或密码错误，请重试”。
-- Passkey 插件 `1.0.4` 页面成功渲染“使用通行密钥登录”，并保留“密码登录”回退入口。
-- 暗色、亮色、`1487 × 1058` 桌面与 `390 × 844` 手机状态均完成截图复核。
-- 内置浏览器最终异常日志计数为 `0`。
+本轮头像／订单入口展示范围内无尚待修复的P0/P1/P2。真实浏览器登录账户和订单页面未验收，图片为明确的示例状态。源码与截图均未暂存、提交或发布。
 
-## Verification
-
-- [x] `git diff --check`
-- [x] `pnpm run smoke`
-- [x] `pnpm run typecheck`
-- [x] `pnpm run verify:theme-settings`
-- [x] `pnpm run build-only`
-- [x] `pnpm run verify:reload`
-- [x] Playwright 全站报告中的 `auth` 路由：HTTP 200、协议字段正确、`pageErrors / consoleErrors / requestFailures` 均为空
-- [ ] 全站 Playwright 总结果受友链页外部 `PluginCommentWidget` 静态资源 HTTP 500 阻断；认证路由本身已通过，且该失败不在本轮认证代码范围内
-
-## Follow-up polish
-
-- P3：未来若锁屏专用壁纸成为独立主题设置，可在不破坏现有桌面壁纸配置的前提下补充单独选项；本轮不新增后台字段。
-
-final result: passed
+**final result: passed**
 
 ---
 
-# 静态主题设置五分区落地与真实桌面联动 Design QA
+## 前轮分类与账户复核（181fed51ff76）
 
-## 对照目标
+2026-10-09 用户要求分类按 App Store 对齐、后台可选具体子分类、账户和订单入口更自然。本轮目标为本地 Halo 2.26.1、主题 0.9.47 / 181fed51ff76，商城独立构建号仍为 unknown。后文 cbbd05ae148a 和 861db10f3d2c 均为历史。
 
-- Source visual truth:
-  - `/private/tmp/theme-settings-redesign/shots/01-appearance-dark.png`
-  - `/private/tmp/theme-settings-redesign/shots/02-appearance-light.png`
-  - `/private/tmp/theme-settings-redesign/shots/03-dock-dark.png`
-  - `/private/tmp/theme-settings-redesign/shots/04-widgets-dark.png`
-  - `/private/tmp/theme-settings-redesign/shots/05-menubar-dark.png`
-  - `/private/tmp/theme-settings-redesign/shots/06-notifications-dark.png`
-  - `/private/tmp/theme-settings-redesign/shots/07-mobile-notifications.png`
-  - `/private/tmp/theme-settings-redesign/shots/08-mobile-drawer.png`
-- Implementation URL: `http://localhost:8090/`
-- Browser-rendered implementation:
-  - `/private/tmp/theme-settings-redesign/qa/implementation-appearance-dark-full.png`
-  - `/private/tmp/theme-settings-redesign/qa/implementation-appearance-light-full.png`
-  - `/private/tmp/theme-settings-redesign/qa/implementation-dock-dark.png`
-  - `/private/tmp/theme-settings-redesign/qa/implementation-widgets-dark.png`
-  - `/private/tmp/theme-settings-redesign/qa/implementation-menubar-dark-v2.png`
-  - `/private/tmp/theme-settings-redesign/qa/implementation-notifications-dark.png`
-  - `/private/tmp/theme-settings-redesign/qa/implementation-mobile-notifications-v2.jpg`
-  - `/private/tmp/theme-settings-redesign/qa/implementation-mobile-drawer.png`
-- Desktop normalization: 来源图片为 `2880 × 1800px @2x`，归一为 `1440 × 900 CSS px`；实现为 `1440 × 900px`、`devicePixelRatio: 1`。设置窗口目标与实现均为 `1060 × 748 CSS px`，侧栏均为 `232px`。
-- Mobile normalization: 来源图片为 `780 × 1688px @2x`，归一为 `390 × 844 CSS px`；实现为 `390 × 844px`、`devicePixelRatio: 1`。
-- States: 桌面深色外观、浅色未保存预览、Dock、小组件、菜单栏、通知；手机通知与分类抽屉展开。浏览器操作结束前均恢复到 Halo 当前配置，没有点击“应用”。
+### 视觉依据与状态
 
-## 对照证据
+- 源图：用户附件 `codex-clipboard-269a60d5-2574-46bb-8180-6c394ab6a253.png`（1180×724，分类页）及 `codex-clipboard-b949d429-36c5-4132-bf5b-b2c674fae31d.png`（333×142，此前账户入口），原路径在 `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/`。
+- 真页：`docs/商城/截图/32-分类对齐与登录入口.png`（1280×720），`33-手机分类对齐.png`、`34-手机侧栏登录入口.png`（390×844）。均为匿名、本地既有 3 类／DEMO 商品；无账号标识。
+- 隔离：`output/appstore-category-account-2026-10-09/category-20-isolated.png`（1280×844，窗口宽1180）及 `account-menu-isolated.png`（220×200，已认证显示状态）。不代表站点有20类或真实账号登录。
+- 比较：同目录 `full-reference-comparison.png`、`category-grid-comparison.png`、`category-row-comparison.png`、`account-comparison.png` 已逐一打开。未缩放像素；全局视图从真页裁出1180×592窗口，参考排除账户区域后为1180×660，画布补白仅标明不同视口高度。分类区域同为约880px宽，单行按48px裁剪；头像入口以原尺寸对照。系统预览自动缩小全图，因此以局部原像素图核对字距和行距。
 
-- Full-view comparisons:
-  - `/private/tmp/theme-settings-redesign/qa/compare-appearance-dark.jpg`
-  - `/private/tmp/theme-settings-redesign/qa/compare-appearance-light.jpg`
-  - `/private/tmp/theme-settings-redesign/qa/compare-dock-dark.jpg`
-  - `/private/tmp/theme-settings-redesign/qa/compare-widgets-dark.jpg`
-  - `/private/tmp/theme-settings-redesign/qa/compare-menubar-dark.jpg`
-  - `/private/tmp/theme-settings-redesign/qa/compare-notifications-dark.jpg`
-  - `/private/tmp/theme-settings-redesign/qa/compare-mobile-notifications-v2.jpg`
-  - `/private/tmp/theme-settings-redesign/qa/compare-mobile-drawer.jpg`
-- Focused comparisons:
-  - `/private/tmp/theme-settings-redesign/qa/focus-appearance-controls.jpg`：外观模式、强调色、自定义颜色和壁纸控件。
-  - `/private/tmp/theme-settings-redesign/qa/focus-menubar-controls.jpg`：菜单开关、文案、日期格式和 12/24 小时语义控件。
-  - `/private/tmp/theme-settings-redesign/qa/focus-mobile-notifications-v2.jpg`：手机通知字段、开关、权限行与行高。
-- 所有对照图均为左侧来源、右侧真实实现；桌面来源先降采样至 CSS 尺寸，手机来源先降采样至 `390 × 844px`，避免把像素密度差异误判为设计偏差。
+### 五项复核
 
-## Findings
+| 范围 | 结果 |
+| --- | --- |
+| 字体与层级 | 沿用系统字体，分类名称15px/600，单行省略而完整可访问名称保留；一个页面大标题，类别说明不再增加可见层级。账户13px/600。 |
+| 间距与对齐 | 分类入口48px、图标28px、间距20px，分隔线从文字列开始。三列按列7/7/6，两列10/10，手机单列；共享Grid行轨道，子孙展开后下一行跨列对齐。真页三列276.66px，每行48px；主内容桌面958/958、手机388/388无横溢。 |
+| 颜色与状态 | 保留现有浅／深色及用户主题强调色；参考深色与真页浅色不视为错色。账户底色静止时透明，仅悬停／展开显现背景；弹出菜单使用既有背景、边框及阴影变量。 |
+| 图片与图标 | 继续使用真实商品素材及既有分类图标；账户使用现有Lucide图标，32px容器。不复制Apple品牌／多色分类资产，不展示真实头像或账号标识。20项样例使用同一主题分类图标，未用文字符号替代。 |
+| 文案与结构 | 分类行只显示名称，说明在title提示，子孙分类保留按需展开。匿名“登录”，认证后“我的账户”；订单与账户中心从底部菜单进入，商品nav不再常驻订单。 |
 
-- No actionable P0/P1/P2 findings remain.
-- Fonts and typography: 窗口统一使用 `-apple-system / BlinkMacSystemFont / SF Pro / PingFang SC` 系统栈；五个分区的标题、分组标题、主标签、辅助说明和只读值保持来源中的字号、字重与行高层级。桌面长文案不碰撞，手机简单文本字段隐藏重复说明后与来源密度一致。
-- Spacing and layout rhythm: 桌面固定 `1060 × 748px` 窗口、`48px` 标题栏和 `232px` 侧栏；分组圆角、行高、分隔线、内容边距和分区间距与静态设计对齐。手机窗口无横向溢出，`304px` 抽屉默认隐藏，展开、遮罩、选择后收起和关闭过渡均完整。
-- Colors and visual tokens: 浅色、深色均使用固定的 macOS 中性表面层级，不使用窗口渐变和背景虚化；强调色继续从主题 `--theme-accent` 派生选中、开关、焦点和主操作状态。Steam、追番、微信朋友圈等固定品牌色模板不在本轮通用设置样式作用域内。
-- Image quality and asset fidelity: 壁纸缩略图复用主题已有真实 SVG 背景资源；导航和控件图标复用项目既有 Iconify/Lucide 管线，没有新增 Emoji、CSS 绘图、手绘 SVG 或占位图片。真实桌面 Dock 与小组件继续显示当前站点数据和图标，不用静态稿中的假数据替代。
-- Copy and content: 现有 `39` 个可写主题配置路径全部有对应的语义控件；没有新增后台字段。通知默认展开说明收敛为“首次进入桌面时展开一次，页面切换不会重复”，与真实 PJAX 行为一致；权限项继续明确由 Halo 用户权限控制。
-- States and interactions: 自动/浅色/深色、强调色、壁纸、开关、单选、下拉、文本、颜色和滑块均使用原生语义输入。草稿只做增量合并，保留管理员鉴权、CSRF、保存前刷新、还原、关闭确认、成功/错误状态和需要刷新提示。
-- Actual Dock linkage: 删除重复的 Dock 预览块；图标大小、间距、内边距、放大倍率、虚化和不透明度直接写入真实 Dock。实测图标大小 `46px → 64px` 时，真实 Dock 的 dataset、CSS 变量、图标宽度和面板尺寸同步变化，随后恢复原值。
-- Actual widgets linkage: 删除重复的小组件预览块；启用、手机隐藏、编辑能力、天气城市和刷新频率通过专用运行时事件直接同步到真实小组件层，天气刷新带 `600ms` 防抖。实测关闭后真实 `.desktop-widgets-layer` 立即隐藏，恢复后重新显示。
-- Menu and notification behavior: 菜单分区最终内容高度与可视区域只剩 `7px` 的亚像素/底部留白差，没有控件被裁切；12/24 小时改为真实 radio 分段控件。通知分区桌面无滚动溢出，手机字段和开关没有挤压或横向滚动。
-- Accessibility and motion: 对话框、标题、导航、radio group、checkbox、label、只读值和按钮均保留可访问名称；键盘焦点使用强调色环，隐藏抽屉不会进入焦点循环，Escape 和遮罩均可关闭；窗口、抽屉、遮罩和控件支持 `prefers-reduced-motion`。
+### 修复历史与验收
 
-## Comparison history
+- P2：分类按行填充且说明／长名字改变行高。先复现3个布局失败；固定行高、按列共享行轨道后，18个媒体／分类场景通过。层级分类的额外展开入口占用空间属于保留的功能，原生无层级分类参考不包含此状态。
+- P2：登录与账户混用标签、订单混入商品导航。分开匿名／认证模板，使用官方登录回跳和UC入口；Java模板覆盖父／子／孙配置序、20项整数行数及两种账户显示状态，已通过。
+- P2：新增details的手机焦点循环会误纳入关闭菜单内链接。红态复现，过滤关闭details内链接并保留summary后，运行时31个场景通过。覆盖外部点击、Esc先关闭账户菜单、重复hydrate与dispose；菜单项至少44px。
+- 静态图片一度抓取到daisyUI打开过渡的中间帧；隔离截图等待opacity达到1后重拍，当前菜单文字清晰。
+- 第一次普通刷新仍观察到旧HTML；后台新请求已返回当前模板，带验证参数重新进入后真页显示当前入口，随后标准分类PJAX继续保持新模板。未将该观察记为缓存机制已修复。
+- 完整检查 `check-final-verified.log`、13页 `reload.log`、分类 `categories-ssr.log`、7组 `alignment-ssr.log` 通过。最终运行时／媒体fixture修改仅补充截图证据，已再跑31/31、18/18，业务源码候选未变。
+- 真页分类跳转与手机菜单切换通过，当前测试tab的console error为0；未登录／未读取真实订单。后台深层选择保存、认证账户真页、实际交易仍未验证。
+- 最后全站冒烟 `smoke.log` exit1：22项均为外部图标ERR_BLOCKED_BY_ORB，没有其他失败；报告已复制到本轮output目录。此失败不记为全站通过。
 
-- Pass 1: 真页首次对照发现“菜单栏与控制中心”内容比可视区域多约 `42px`，底部说明和双重小时制控件造成密度漂移；手机通知的两个简单文本字段仍显示桌面说明，行高明显大于来源，记为 P2。
-- Fix 1: 删除菜单分区重复说明，把小时制改成 12/24 小时语义分段 radio；为通知分区增加独立作用域，手机端隐藏两个简单文本字段的重复说明，并缩短默认展开说明。
-- Pass 2: `/private/tmp/theme-settings-redesign/qa/implementation-menubar-dark-v2.png` 的内容高度为 `707px`、可视高度为 `700px`，无控件裁切；`/private/tmp/theme-settings-redesign/qa/focus-mobile-notifications-v2.jpg` 显示两行文本字段恢复为与来源一致的单行节奏。最终同屏对照未发现新的 P0/P1/P2。
+### 剩余边界
 
-## Primary interactions tested
+真实站点仅3个根分类，20项/深层与认证菜单由隔离样例补证；保持站点配置不变。现有类目图标与Apple分类语义图标不同，属于本次保留的主题资产。未发现本轮分类／账户展示范围内尚待修复的P0/P1/P2。
 
-- 通过真实菜单栏“打开系统设置”进入窗口，并切换五个分区。
-- 深色、浅色和自动外观预览；强调色与壁纸选择；未应用时关闭并恢复运行时状态。
-- Dock 开关、六个参数滑块与真实 Dock 尺寸/材质联动。
-- 小组件启用状态与真实桌面层联动；天气参数进入运行时同步通道。
-- 手机 `390 × 844px` 下展开抽屉、切换通知分区、自动收起、无横向溢出。
-- Halo reload 后关键页面协议、插件页面、RSS、PJAX 与浏览器控制台错误检查。
-
-## Runtime notes
-
-- 首次最终 Smoke 遇到外部 `PluginCommentWidget` 动态资源瞬时 `HTTP 500`；紧接着直接请求该资源恢复 `200 text/javascript`，原命令完整重跑通过。该瞬时插件资源错误未由本轮主题设置代码引入。
-- 本机 Node 为 `v26.0.0`，高于项目声明的 `>=24.18.0 <25`；所有本轮 pnpm 门禁均通过，正式发布仍应使用 Node 24。
-- 手机来源含独立设备状态栏和 Home Indicator；真实主题保留站点菜单栏与窗口关闭按钮，没有在网页中伪造系统状态栏。浅色对照中的实现处于未保存预览态，因此显示真实操作栏，未写入 Halo 配置。
-
-## Verification
-
-- [x] `git diff --check`
-- [x] `pnpm run verify:theme-settings`
-- [x] `pnpm run lint`
-- [x] `pnpm run typecheck`
-- [x] `pnpm run build-only`
-- [x] `pnpm run verify:reload`
-- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
-- [x] 桌面深/浅色、五个分区、`390 × 844px` 手机通知与抽屉、真实 Dock/小组件联动、同屏完整与局部设计对照
-
-## Follow-up polish
-
-- P3：浏览器原生 range 拇指比静态稿中的装饰滑块略小，但保留了真实键盘、读屏和拖动语义，不建议为像素仿真换成伪控件。
-- P3：真实 Dock、小组件位置和内容来自当前用户桌面，必然与静态稿示例数据不同；这是用户明确要求的真实联动，不属于设计漂移。
-
-final result: passed
+**final result: passed**
 
 ---
 
-# Dock 真实桌面联动 Design QA
+## 上一轮参考复核（cbbd05ae148a）
 
-## 对照目标
+2026-10-09 用户追加六张 App Store 截图，要求删除“查看商品”，继续对齐商品行、分类与滚动毛玻璃小标题。当前本地候选为 **0.9.47 / cbbd05ae148a**；下方 `861db10f3d2c` 章节为前一轮历史。本轮未配置业务数据、未暂存或提交。
 
-- Source visual truth:
-  - `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-edfda4ef-b24d-4d04-bc40-efd11e96fe2a.png`
-- Implementation URL: `http://localhost:8090/docs`
-- Browser-rendered implementation:
-  - `/private/tmp/theme-settings-dock-live-965.png`
-- Desktop viewport / pixels: `965 × 965 CSS px` / `965 × 965 px`。
-- State: 管理员打开“桌面与 Dock”；Halo 当前配置保持 `46px / 12px / 10px / 1.4× / 100px / 10%`，未执行“应用”。
+### 源图与实际截图
 
-## 对照证据
+源图均为用户附件，目录 `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/`：
 
-- Full-view comparison: `/private/tmp/theme-settings-dock-comparison.png`
-  - 用户参考与实现按 `965 × 965` 画布归一后横向拼接，结果 `1930 × 965 px`。
+| 源图文件 | 对照内容 | 实际截图 |
+| --- | --- | --- |
+| `codex-clipboard-a9957497-7cd2-402f-bc66-0c5ffb2af16e.png` | 52px 小商品行、右侧价格 | `docs/商城/截图/28-小商品行-桌面.png` |
+| `codex-clipboard-241b5d52-76da-4c4e-9bdd-aa362e589ebd.png` | 双列紧凑商品、滚动顶栏 | `docs/商城/截图/27-滚动标题与精选商品.png` |
+| `codex-clipboard-4108ec22-7d89-4f71-aaa6-c7ebd5a975d8.png` | 三列分类与下方精选 | `docs/商城/截图/30-分类与精选商品.png` |
+| `codex-clipboard-0e130b16-9055-413f-b811-7ea6c49f17a1.png` | 84px 大行、文字下方价格 | `docs/商城/截图/29-大商品行-桌面.png` |
+| `codex-clipboard-7c8c51eb-645e-402d-ab38-04e6a1129d89.png` | 16:9 预览、独立下方文案 | `docs/商城/截图/27-滚动标题与精选商品.png` |
+| `codex-clipboard-c679ad25-9521-4346-a0b3-07beeffdadcc.png` | 分类滚动后的居中小标题 | 标题专项、分类真页和 `docs/商城/截图/31-手机滚动商品目录.png` |
 
-## Findings
+桌面截图为 1280×900 px，窗口外框 `(50,24)`、1180×724 CSS px；与完整源图 1180×724 px 按 1:1 图像像素比较，无缩放。手机为 390×844 px。系统菜单栏、品牌、商品内容不同，不声称像素一致；全页源图截去账户区域。原生分类很多，本地只有 3 个分类；首页精选仅配置 2 件，商品目录有 6 件。没有虚构补齐数量。
 
-- No actionable P0/P1/P2 findings remain.
-- 重复的“Dock 预览”卡片已删除，设置内容直接从显示标签和放大开关开始，真实桌面 Dock 始终保留在窗口下方作为唯一预览对象。
-- 图标大小、图标间距、面板内边距、放大倍率、背景虚化和背景不透明度均直接写入真实 `.dock-container`；Dock 放大引擎会即时重读参数，不再用初始化时的旧尺寸覆盖预览。
-- Dock 玻璃表面已真正消费 `--dock-blur` 与 `--dock-opacity`，不再出现滑块数值变化但视觉材质不变的假联动。
-- `390 × 844` 下设置内容没有横向溢出，侧栏默认隐藏并可正常展开；移动端不额外创建重复 Dock 预览。
+已打开并同时比较本机 `output/appstore-refinement-2026-10-09/` 中的 `after-reference-comparison.png`、`categories-comparison.png`（整体），以及 `rows-comparison.png`、`previews-comparison.png`（细节）。商品行比较裁成相同 425×84／425×132 px，16:9 图片与文案一起比较，未用分开查看代替并排检查。
 
-## Primary interactions tested
+### 五项复核与修复迭代
 
-- 将图标大小由 `46px` 改为 `64px`，真实 Dock 的 dataset、CSS 变量、图标内联宽度和计算宽度均同步为 `64px`。
-- 将间距、内边距、放大倍率、虚化和不透明度调整到边界值后，真实 Dock 分别同步为 `2px / 16px / 2× / 20px / 80%`。
-- 关闭名称标签和放大效果后，真实 Dock dataset、提示标签可见性及面板高度即时同步。
-- 有未应用修改时连续关闭，全部运行时参数恢复为打开设置前的 Halo 配置。
-- 未点击“应用”，本轮浏览器验证没有写入 Halo 主题配置。
-- `node scripts/verify-theme-settings.mjs`、架构 lint、协议 typecheck、Vite build、`pnpm run verify:reload` 与 `pnpm run smoke:playwright` 均通过。
+| 项目 | 当前结果 |
+| --- | --- |
+| 字体与层级 | 实测系统字体栈含 `-apple-system`、`SF Pro Text`；列表名称 15/16px，简介 12/13px，小标题 14px、宣传卡标题 20px。只有一个页面 h1，固定栏文字 `aria-hidden`；长名称可换行／截断，完整可访问名称仍在链接中。 |
+| 间距与布局 | 小／中／大行图为 52/64/84px，行高 84/96/132px；宽目录双列，小屏单列。分隔线从文字列起。三列分类图标 28px，实际带说明行高 53.39px。桌面／手机各六种组合均无整体横溢；固定栏 52/44px，桌面标题居中误差 0。 |
+| 颜色与状态 | 价格胶囊与源图采用浅色底，实测 `rgb(242,242,247)` 配主题深强调 `rgb(158,70,104)`，对比度约 5.33:1，明暗均检查。侧栏、链接继续使用主题配色；滚动毛玻璃 `blur(24px)`，大标题仍可见时不重复显示小标题。 |
+| 图片与质量 | 商品身份图与详情完整 `contain`；宣传预览 429×241.3125px、16:9 `cover`，无侧边空带；文案在图片下方。继续使用真实 DEMO 图片，未复制参考品牌图或伪造分类图像字段。无图商品保留明确占位语义。 |
+| 文案与操作 | 商品“查看商品”全部移除；胶囊为真实价格文本，整行进入详情，未照搬“获取”安装语义。保留免费／起始价格、可选简介、SKU／库存与官方购买入口。仅精选分区提供“查看全部”。 |
 
-## Runtime notes
+1. **[P2，已修复] 滚动后没有标题。** `before-reference-comparison.png` 中旧候选滚动后 h1 已离开且无固定栏。新增独立滚动栏、标题阈值和 PJAX 清理；`after-reference-comparison.png` 及真页 `scroll-home-browser.json` 显示滚动 650px 时“探索”居中、52px 毛玻璃固定。返回手机目录时 280px 原位、小标题继续可见。
+2. **[P2，已修复] 重复操作与商品行密度不符。** 旧图同一行有价格加“查看商品”，图标与行高过大。改为右侧价格胶囊／大行下方价格，`rows-comparison.png` 的同尺寸并排及十二组实际布局验证确认修复。
+3. **[P2，已修复] 分类与宣传预览比例不符。** 改三列紧凑行、分类下复用后台精选、16:9 上图下文；首候选仍有预览空带和深色价格底，最终候选已调整为铺满预览及浅色胶囊。`categories-comparison.png`、`previews-comparison.png` 与最终截图确认，颜色、完整详情图片与数据数量差异按上述产品边界保留。
+4. **[P2，已修复] 交易组件小标题可能提前出现。** 源码核对确认三种官方交易组件都有 `h1.shop-entry__title`，旧判断未识别该类。隔离场景先复现大标题仍可见时小标题已显示，再纳入真实标题类；最后固定栏专项 15/15 通过。此项只验证标题行为，不发起交易。
 
-- 页面没有新增控制台 error。
-- 观察到既有的 `[desktop] repaired corrupt node placements` warning；来源为桌面节点布局自修复，与本轮 Dock 设置联动无关。
-- 本机 Node 为 `v26.0.0`，高于项目声明的 `>=24.18.0 <25`；本轮 pnpm 脚本均完成，但正式发布仍应使用项目声明的 Node 24。
+### 验证边界
 
-final result: passed
+最终完整检查、13 页重载、7 组真实 SSR 与商城专项通过；固定栏 15 场景、展示 22、媒体 17 场景、编译组件 PJAX 8 场景／140 断言通过。真实手机菜单可打开，价格点击仅进入详情，返回 URL 与滚动 `280→280` 保留。十二组真页过程观察及价格返回在前一候选完成；最后只扩充交易标题识别，最终候选重新捕获截图 26–31，并确认手机标题和 `388/388` 无横溢。商城标签 error 日志为空。
 
----
+最后全站 smoke 保留失败：20 个外部 favicon ORB，另有 1 个 Photos 初始化超时，快照仍等待 AI 脚本 `button-Ch2yFHNu.js`，原因未定位。前次 `5d9b0ba77753` 的 21 个 ORB 和 Steam 超时同样保留；后续该次脚本 GET 为 200、Steam 只读重看可显示，不改写失败。没有真实交易／真机触摸验证。无剩余可行动的 P0/P1/P2 商城视觉问题；详细结果见 `docs/2026-10-09-商城滚动标题与紧凑列表.md`。
 
-# 通知中心数据完整性、操作语义与响应式细节 QA
+## 前一轮复核（861db10f3d2c，历史）
 
-## 对照目标
+## 对照与状态
 
-- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-beeb37d9-306c-453c-903e-9b0a6d918e36.png`
-- Before implementation: `/private/tmp/theme-sky-blog-3-notification-fix-20260723/01-before-desktop-dark.png`
-- Final desktop dark collapsed: `/private/tmp/theme-sky-blog-3-notification-fix-20260723/02-after-desktop-dark-collapsed.png`
-- Final desktop dark expanded: `/private/tmp/theme-sky-blog-3-notification-fix-20260723/03-after-desktop-dark-expanded.png`
-- Final desktop light: `/private/tmp/theme-sky-blog-3-notification-fix-20260723/05-after-desktop-light-collapsed.png`
-- Final mobile light: `/private/tmp/theme-sky-blog-3-notification-fix-20260723/07-after-mobile-390-light-expanded.png`
-- Final mobile dark: `/private/tmp/theme-sky-blog-3-notification-fix-20260723/08-after-mobile-390-dark-collapsed.png`
-- Final 320px single-column layout: `/private/tmp/theme-sky-blog-3-notification-fix-20260723/10-after-mobile-320-dark-single-column.png`
-- Source/final material comparison: `/private/tmp/theme-sky-blog-3-notification-fix-20260723/11-reference-vs-after.png`
-- Same-viewport before/final comparison: `/private/tmp/theme-sky-blog-3-notification-fix-20260723/12-before-vs-after-same-viewport.png`
-- Route: `http://localhost:8090/?_qa=notification-details-final`
-- State: 登录通知可见；分别复核未读/全部、折叠/展开、继续加载、组菜单、关闭/重开、亮色/暗色以及 `390px`、`320px`。
-- Viewports: 桌面 CSS `1250 × 1169px`；移动端 CSS `390 × 844px` 与 `320 × 740px`。修复前后同视口裁图均来自桌面右侧 `420 × 520px` 区域。
+- 源图：用户提供的 `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-f45be229-37d6-4042-a43d-b4f76292e615.png`，1180×724 px，Mac App Store 深色探索页。
+- 实现：`docs/商城/截图/19-推荐首页-深色.png`，1280×900 px 浏览器截图，商城窗口位于 `(50,24)`，尺寸 1180×724 CSS px；本地候选 `0.9.47 / 861db10f3d2c`。
+- 密度：源图与实现窗口均按 1 CSS px／图像像素比较，无缩放。源图为原生 App Store，实现为主题内商店窗口；系统标题栏、商品内容及认证状态不同，不对其作像素相等断言。
+- 整体并排证据：本机 `output/appstore-alignment-2026-10-09/appstore-home-comparison.png`。截取实现窗口后，与源图同宽并排；两侧截到 660px，排除源图账户名。
+- 细节并排证据：同目录 `featured-comparison.png`，原图双推荐与实际双推荐的文字、图片、卡片间距一起比较。
+- 手机证据：`docs/商城/截图/24-推荐首页-手机.png`，390×844；同目录 `mobile-width-comparison.png` 是同样深色状态的修复前／后真实截图并排对照。
 
-## Findings
+## 五项复核
 
-- No actionable P0/P1/P2 findings remain in the notification data, interaction semantics, focus, motion and responsive scope.
-- Data completeness: Halo 通知列表不再永久固定在第一页。真页首批加载 `50 / 52`，点击后补齐到 `52 / 52` 并隐藏入口；未读总数通过独立的小页统计请求获取，不再用当前页样本冒充全量。
-- Long-list control: 通知组展开默认只显示 10 条，当前账号组真页显示「继续显示 20 条」；每次再增量显示 10 条，避免 30 张卡一次占满通知中心并把小组件推到不可预期的位置。
-- Operation semantics: 单条未读操作明确为「标为已读」，已读操作明确为「删除此通知」；组头只保留折叠和省略号操作，组内「清除已读通知」增加二次确认，不再用同一个 `x` 同时表达已读、删除和整组清理。
-- Accessibility: 对话框补齐 `aria-modal`、Tab 焦点约束和关闭后回焦；真页关闭后焦点回到「打开通知中心」，重新打开后焦点进入关闭按钮。通知卡主链接与操作按钮改为兄弟节点，不再形成嵌套交互控件。
-- Open state: 通知中心每次重新打开都会收起通知组、关闭组菜单并回到 `scrollTop: 0`；异步通知返回期间关闭滚动锚定，避免打开后被后加载内容带离顶部。
-- Time and readability: 七天后的通知继续显示月日，跨年通知补全年份；真实 `<time>` 同时保留机器可读时间和完整日期提示。已读通知只通过轻微字重/文本对比降低辨识，不增加装饰线或彩色底。
-- Light/dark material: 保留用户确认的中性图标壳与低饱和语义色，面板仍由带遮罩的柔和虚化承担边界；亮暗色均没有重新引入贯穿页面的硬直线。面板空气层从 `28px` 收敛到 `32px` 柔化，透明度只做小幅提升。
-- Responsive: `390px` 下通知内容无横向溢出，展开态卡片间距稳定；`320px` 下通知栏小组件改为单列，实测 `bodyScrollWidth: 320px`、内容区 `236.8px`，站点统计不再被双列压缩成碎片。
-- Motion: 打开/关闭只对前 10 个主要内容节点做分层动画，其余内容随面板整体过渡；最终自动化动效审计为 `10/10`，8 个场景均无超阈值 findings。审计同时修正了游客态误跑和页面常驻动画被计入通知动画的基线误差。
-- Safety: 真页只执行读取、分页、筛选、展开/收起和焦点检查，没有删除或标记真实通知；PUT/DELETE 分流由隔离的动效审计路由验证。
+| 项目 | 判断与产品边界 |
+| --- | --- |
+| 字体与层级 | 复用 macOS 系统字体栈，一个页面标题；主推、商品名、简介及价格有清楚层级。双推荐可读，长简介按行截断；手机标题两行平衡，无单字孤行。原生／网页文字栅格差异可接受。 |
+| 排版与间距 | 220px 侧栏、约 40px 内容边距、878×339px 主推与原图 880×340px 接近；主推至双推荐 36px。双推荐高 208px，保留价格和操作，与原图 230px 的内容不同。手机主推修正为 348px，主区域没有横溢，推荐轮播独立横滑。 |
+| 颜色与控件 | 沿用主题明暗背景和粉色强调色；不写死 App Store 蓝色。侧栏选中态、正文／次要说明、价格及焦点各有区分。原生选择框和布局按钮标签可访问；明暗页面均实际检查。 |
+| 图片与质量 | 主推使用已有 DEMO 宣传图，商品身份图完整 `contain`，宽幅预览承担展示；不强制将所有封面裁成圆形。没有复制 App Store 商标、Canva 或 djay 商品资产，也没有以 CSS 图形替代这些参考图。内容更换是商城适配的既定范围。 |
+| 文案与内容 | 使用真实 DEMO 名称、简介、免费／起始价格；无“编辑最爱”或评分等未获数据支持的标签。后台可换主推文案及关闭简介；商品 SKU、库存与购买入口仍由官方组件决定。 |
 
-## Comparison history
+## 问题与修复历史
 
-- Pass 1: 真页确认总数为 52、DOM 只加载 50；账号组一次展开 30 张未读卡，重开仍保留展开状态；组头「更少内容 + x」和单卡 `x` 的语义不明确，卡片链接内部还嵌套按钮。
-- Fix 1: 增加通知分页、全量未读统计、组内 10 条增量显示、重开状态复位、焦点恢复与有效对话框语义；拆分主链接和操作按钮。
-- Pass 2: 桌面明暗色、`390px`、`320px` 真页确认分页、折叠、组菜单和回焦有效；发现 `320px` 下双列小组件被压缩。
-- Fix 2: `350px` 以下切换为单列小组件；优化触控按钮、安全区、通知/小组件节奏与面板空气层。
-- Pass 3: 同视口修复前后与用户参考图均已放入合并输入复核；最终 `320px` 无横向溢出，Reload、Playwright smoke、完整 check 与通知动效审计全部通过。
+1. **[P2，已修复] 主推与双推荐没有分隔。** 原图约 36px 间距；直接首页主推失去旧轮播容器间距。增加桌面 36px／手机 20px 的直接主推底边距。最终真页测得 36px，整体及双推荐并排证据确认分组清楚；几何回归进入媒体专项。
+2. **[P2，已修复] 手机首页主推横溢。** 初次 390px 真页主区域 `clientWidth/scrollWidth=388/420`，主推右缘被屏幕裁掉，修复前图保留为本机 `home-mobile-overflow-before.png`。`min-height:300px` 配合 4:3 比例把 block 主推宽度推到 400px；只为手机直接主推加 `width:100%`。重新构建、重载后实测主推 348px，主区域 `388/388`；轮播 `348/668` 保持自身可滑。`mobile-width-comparison.png` 确认右缘完整，不用隐藏主区域溢出来掩盖问题。
+3. **[P2，已修复] 同商品多次访问的返回记录覆盖。** 来源记录按商品及详情历史条目保存，取消／失败导航不入账；11 场景上下文回归通过。真页排序目录返回 URL 保留，滚动 `751→751`。此项为交互修复，不以截图证明历史行为。
 
-## Verification
+## 页面与交互复核
 
-- [x] `node scripts/verify-desktop-state-and-url-safety.mjs`
-- [x] `pnpm run check`
-- [x] `pnpm run verify:reload`
-- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
-- [x] `pnpm run audit:notification-motion`：`10/10`，0 findings
-- [x] 真页 `50 → 52` 分页、默认 10 条展开、折叠/重开/回焦、组菜单
-- [x] 桌面亮色/暗色、`390 × 844px`、`320 × 740px` 与横向溢出检查
+- 探索：深色、浅色、手机；独立宣传图、双推荐、商品行，首页无展示切换。
+- 目录：桌面与手机各六种卡片／列表／尺寸组合，无整体横溢；每组一个可见搜索框。
+- 分类：完整分类入口、实际分类标题、未精选分类对应“全部分类”父入口高亮、浏览器后退。
+- 详情：虚拟商品身份图和独立预览；手机实物名称、价格、库存与数量先于图册，官方操作在底部保留。
+- 空配置／失效配置：无空推荐模块，最新商品回退可见；简介关闭后价格仍显示，临时配置已恢复 DEMO 预设。
 
-final result: passed
+本轮浏览器收集的 error 日志为空；全站独立 smoke 仍被外部 favicon 的 `ERR_BLOCKED_BY_ORB` 阻断，单列于验证文档。未执行真实加购、下单、付款和履约，也没有真机触摸验收。没有剩余可行动的 P0／P1／P2 视觉问题；上述图片、颜色、文案差异为既定主题与真实商品边界。
 
----
+## 交付清单
 
-# 通知中心背景边界柔化 QA
-
-## 对照目标
-
-- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-69cb0ea8-ec60-49ca-8c70-68e7a5b80f0e.png`
-- Before implementation: `/private/tmp/theme-sky-blog-3-notification-edge-20260723/01-before.png`
-- Final desktop light implementation: `/private/tmp/theme-sky-blog-3-notification-edge-20260723/06-final-desktop-light.png`
-- Final desktop dark implementation: `/private/tmp/theme-sky-blog-3-notification-edge-20260723/07-final-desktop-dark.png`
-- Final narrow implementation: `/private/tmp/theme-sky-blog-3-notification-edge-20260723/05-final-narrow.png`
-- Focused final implementation: `/private/tmp/theme-sky-blog-3-notification-edge-20260723/08-final-edge-crop.png`
-- Same-input comparison: `/private/tmp/theme-sky-blog-3-notification-edge-20260723/09-source-vs-final.png`
-- Route: `http://localhost:8090/?_qa=notification-boundary-edge-final`
-- State: 通知中心打开；分别复核亮色、暗色和 `390px` 窄屏。
-- Viewports and normalization: 桌面真页为 CSS `1280 × 720px`、窄屏为 CSS `390 × 844px`，`devicePixelRatio: 1`。用户问题图为 `317 × 596px`；最终暗色真页按通知面板左边界等高裁出 `318 × 596px`，横向合并为 `635 × 596px`，专门比较桌面与通知中心之间的竖向过渡。
-
-## Findings
-
-- No actionable P0/P1/P2 findings remain in the notification-center background edge scope.
-- Root cause: 通知中心根容器原来对完整 `516px` 宽矩形应用 `blur(10px) saturate(108%)`，该滤镜没有遮罩，因此在面板左侧 `x=764px` 形成贯穿页面的硬直线；已有 `::before` 渐变蒙层虽然带遮罩，但无法覆盖根容器自身的滤镜边界。
-- Colors and visual tokens: 根容器现在保持透明且不再承担背景滤镜；明暗色原有面板空气色、卡片材质、语义色与阴影完全保留，虚化只由既有 `28px` 渐变蒙层提供。
-- Spacing and layout rhythm: 没有修改通知卡、标题、控件、小组件或面板内容的宽高、间距和定位；桌面面板仍为 `516px`，内容区与 `120px` 过渡带尺寸不变。
-- Responsive: 窄屏原有遮罩停靠点会出现 `60px > 42.9px` 的逆序计算；现调整为 `10 / 20 / 28 / 42.9px` 单调递进，`390 × 844px` 下抽屉仍为 `x=8px / 382px`，左缘没有硬带或横向溢出。
-- Fonts and typography: 没有修改字体、字号、字重、行高和截断规则。
-- Image quality and assets: 没有新增或替换图像、图标与小组件资源；背景虚化仍作用于真实桌面内容，没有使用静态图片伪造。
-- Copy and content: 没有改写任何通知或小组件文案。
-- Accessibility and interaction: 通知中心打开、关闭、筛选和卡片行为均未修改；亮暗色通过真实关闭通知中心、切换外观、重新打开的路径复核，最终浏览器 `console.error` 为 `0`。
-
-## Comparison history
-
-- Pass 1: 来源问题图和修复前真页都能看到与 `.notification-center` 左边界完全对齐的竖线；计算样式确认根容器为 `backdrop-filter: blur(10px) saturate(1.08)`，而带渐变遮罩的 `::before` 为独立的 `blur(28px)`。
-- Fix 1: 将根容器改为透明并移除矩形 `backdrop-filter`，让唯一的背景虚化来源回到带透明遮罩的 `::before`。
-- Pass 2: 桌面明暗色真页中，根容器计算样式均为 `background: transparent / backdrop-filter: none`，来源与最终聚焦区域同屏后不再出现贯穿页面的直线。
-- Fix 2: 将窄屏遮罩停靠点收敛为 `10 / 20 / 28px`，确保任何 `32–52px` 过渡带宽度下都按透明到不透明的顺序递进。
-- Pass 3: `390 × 844px` 真页计算为 `0 / 10 / 20 / 28 / 42.9px`，桌面亮色、暗色及窄屏均无新的 P0/P1/P2。
-
-## Verification
-
-- [x] `pnpm run check`
-- [x] `pnpm run verify:reload`
-- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
-- [x] 桌面亮色/暗色、`1280 × 720px`、`390 × 844px`
-- [x] 根容器与伪元素计算样式、遮罩停靠顺序、来源/最终同屏比较及 `console.error: 0`
-
-final result: passed
-
----
-
-# 通知中心折叠卡间距与内容收纳 QA
-
-## 对照目标
-
-- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-ac1d0209-1713-48dc-b575-685ceaf23ccf.png`
-- Before implementation: `/private/tmp/theme-sky-blog-3-notification-spacing-20260723/01-before-all.png`
-- Final implementation: `/private/tmp/theme-sky-blog-3-notification-spacing-20260723/02-after-all.png`
-- Final expanded implementation: `/private/tmp/theme-sky-blog-3-notification-spacing-20260723/03-after-expanded.png`
-- Final dark implementation: `/private/tmp/theme-sky-blog-3-notification-spacing-20260723/04-after-dark-all.png`
-- Final narrow implementation: `/private/tmp/theme-sky-blog-3-notification-spacing-20260723/05-after-narrow.png`
-- Focused implementation: `/private/tmp/theme-sky-blog-3-notification-spacing-20260723/06-after-focused.png`
-- Same-input comparison: `/private/tmp/theme-sky-blog-3-notification-spacing-20260723/07-source-after-comparison.png`
-- Route: `http://localhost:8090/?_qa=notification-spacing-round`
-- State: 登录数据可见、「全部」筛选、四组通知折叠；另行复核「未读」、瞬间互动展开/收起、明暗色和窄屏。
-- Viewports and normalization: 真页全图为 CSS `1280 × 720px`、`devicePixelRatio: 1`；窄屏为 CSS `390 × 844px`。用户问题图为 `424 × 380px`，最终实现从同一右上区域裁出 `420 × 380px`，并与来源等高横向合并为 `844 × 380px`，聚焦比较卡片内容收纳、叠层尾部和相邻组节奏。
-
-## Findings
-
-- No actionable P0/P1/P2 findings remain in the collapsed notification-card spacing and content-containment scope.
-- Root cause: 折叠卡片固定为 `64px`，但允许两行摘要后卡片 `scrollHeight` 达到 `72px`，两行内容底部几乎贴住卡片边缘；「全部」状态又把包装高度压到 `68px`，最底层叠卡与下一张主卡之间只剩约 `0.3px`，共同造成视觉挤压。
-- Spacing and layout rhythm: 折叠卡摘要改为单行省略，四张可见卡片现在均为 `clientHeight: 64px / scrollHeight: 64px`；「全部」状态包装高度恢复到 `72px`，主卡之间为 `12px`，最底层叠卡与下一张主卡之间保留约 `4.3px` 的可见空气。
-- Expanded state: 展开态不继承单行限制，真实两行摘要保持 `white-space: normal`；两张样本卡高度约 `79.6px`，卡间距 `7px`，内容完整且无覆盖。收起后恢复四组折叠列表。
-- Responsive: `390 × 844px` 下四组顶部位置依次为 `64.84 / 140.84 / 216.84 / 292.84px`，节奏稳定；通知面板宽 `382px`、左右边距 `8px`，页面横向溢出为 `0px`。
-- Fonts and typography: 保留原有字体、标题字号、正文层级和截断样式；只把折叠预览的摘要从两行改为单行省略，展开态仍提供更多上下文。
-- Colors and visual tokens: 未修改明暗材质、语义色、阴影和图标壳。明色与暗色真页中卡片高度和间距计算一致。
-- Image quality and assets: 没有新增、替换或压缩任何头像、图标和小组件图像；现有真实图标资源保持不变。
-- Copy and content: 没有改写通知标题或正文；折叠态只改变可见截断，展开后仍能读取原摘要。
-- Accessibility and interaction: 卡片按钮/链接语义、键盘入口、筛选与展开/收起行为均保留；本轮真页 `console.error` 为 `0`。截图不能单独证明完整辅助技术兼容，本轮仅确认现有语义未被间距修复改变。
-
-## Comparison history
-
-- Pass 1: 来源和修复前真页都显示中间通知的两行摘要贴近底边，叠卡尾部几乎触碰下一张主卡；实测长摘要卡 `scrollHeight: 72px` 大于固定 `64px`，叠卡尾部间距约 `0.3px`，记录为 P2 内容收纳与垂直节奏问题。
-- Fix 1: 折叠态摘要改为单行省略；「全部」状态叠卡包装高度由 `68px` 调整为 `72px`。展开态规则保持不变。
-- Pass 2: 来源与最终聚焦区域已放入同一视觉输入。最终四张卡均为 `scrollHeight: 64px`，叠层尾部间距约 `4.3px`；明暗色、展开/收起与 `390px` 窄屏无新的 P0/P1/P2。
-
-## Verification
-
-- [x] `pnpm run check`
-- [x] `pnpm run verify:reload`
-- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
-- [x] 「全部 / 未读」、四组折叠、瞬间互动展开/收起
-- [x] 明色/暗色、`1280 × 720px`、`390 × 844px`
-- [x] 卡片 `clientHeight / scrollHeight`、叠层尾部距离、横向溢出与 `console.error: 0`
-
-final result: passed
-
----
-
-# 通知中心跳转、明暗材质与可逆开关动效 QA
-
-## 对照目标
-
-- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-beeb37d9-306c-453c-903e-9b0a6d918e36.png`
-- Before light implementation: `/private/tmp/theme-sky-blog-3-notification-audit-20260723/01-before-light-open.png`
-- Before dark implementation: `/private/tmp/theme-sky-blog-3-notification-audit-20260723/02-before-dark-open.png`
-- Final light implementation: `/private/tmp/theme-sky-blog-3-notification-audit-20260723/03-after-light-open.jpg`
-- Final dark implementation: `/private/tmp/theme-sky-blog-3-notification-audit-20260723/04-after-dark-open.jpg`
-- Final narrow implementation: `/private/tmp/theme-sky-blog-3-notification-audit-20260723/06-after-narrow.jpg`
-- Same-input comparison: `/private/tmp/theme-sky-blog-3-notification-audit-20260723/07-reference-vs-implementation.jpg`
-- Route: `http://localhost:8090/?_qa=notification-navigation-theme-motion`
-- State: 登录态；明色与暗色分别复核账号通知展开；「全部」状态复核真实通知跳转；另行复核无目标通知、关闭后重开、关闭途中反向打开及减少动态效果。
-- Viewports: 桌面 CSS `1250 × 1169px`、窄屏 CSS `390 × 844px`，`devicePixelRatio: 1`。来源是 `884 × 1778px` 的概念级近景，合并比较时等高缩放；只比较材质、图标壳、语义色、层级与动效方向，不把来源的放大比例套到真实通知密度。
-
-## Findings
-
-- No actionable P0/P1/P2 findings remain in the notification navigation, light/dark material and reversible center motion scope.
-- Navigation semantics: 只有存在真实 `targetUrl` 的通知卡才暴露 `link` 角色、键盘焦点及点击行为；无目标的账号通知保持 `article` 且点击不关闭、不跳转。真页已点击瞬间通知进入本地 `/moments/moment-9roi1c7n`，并用浏览器后退/前进复核历史记录。
-- URL routing: 主题站点配置中的绝对同站链接会重定位到当前 Halo 主机，避免本地验证被带到 `www.5ee.net`；主题内容路由继续使用 PJAX，`/console` 等管理路径改为整页跳转。真页系统通知已进入 `http://localhost:8090/console/backup?tab=synchronization`。
-- Light/dark material: 明色卡片使用 `rgba(244, 247, 252, 0.76)` 的浅玻璃、深色正文与柔和中性阴影；暗色卡片使用 `rgba(24, 25, 28, 0.60)` 的石墨玻璃、浅色正文与低亮阴影。图标壳随明暗材质切换，类型色仍是固定、低饱和的语义色，不继承主题强调色。
-- Open/close motion: 通知中心由单段显隐改为面板、背景和内容的分层过渡；打开使用较长减速，关闭使用更短收束。关闭途中在 `90ms` 反向打开可从当前视觉状态连续接管，不再被 `notificationCenterVisible` 阻断。
-- Motion root cause: Web Animations 的关闭动画使用 `fill: forwards`，完成后仍覆盖新的内联打开状态，造成下一次打开短暂保持 `opacity: 0` 与关闭位移。关闭完成时现在显式固化最终样式并取消已结束动画，真页重开后计算样式为 `opacity: 1`、`transform: none`，无遗留动画。
-- Reduced motion and responsive: `prefers-reduced-motion: reduce` 下打开/关闭即时完成且无动画实例；`390 × 844px` 下抽屉 `x=8px`、宽 `382px`，无横向溢出。
-- Visual comparison: 来源近景与最终暗色真页已放入同一视觉输入。两者都采用中性深色图标壳、单一语义色图形、低边界对比和透明黑玻璃；真页保留了真实 `344px` 级紧凑信息密度，没有机械复制概念图的夸张放大比例。
-- Runtime evidence: 当前真页 `console.error` 为 `0`。
-
-## Comparison history
-
-- Pass 1: 明暗状态沿用近似相同的深色卡片；无目标通知仍表现为链接；配置域名绝对地址会离开当前 Halo；控制台路径被当作 PJAX；快速关闭后重开会发生状态竞争。
-- Fix 1: 补齐通知卡语义、同站 URL 归一化与主题路由/管理路由分流；建立明色与暗色独立材质；将通知中心改为可从当前视觉状态反向接管的分层动画。
-- Pass 2: 真页正常关闭后重开仍出现透明状态，定位为关闭动画的 `fill: forwards` 持续覆盖新状态。
-- Fix 2: 关闭完成时写入最终样式并取消已完成动画，消除 Web Animations 样式泄漏。
-- Pass 3: 真页正常开关、`90ms` 反向开关、真实 PJAX 跳转、控制台整页跳转、无目标通知、后退/前进、明暗切换、减少动态效果与窄屏均通过。
-
-## Verification
-
-- [x] `node scripts/verify-desktop-state-and-url-safety.mjs`
-- [x] `node --check src/shell/desktop-shell/runtime/desktop/notification-center-motion.js`
-- [x] `node --check src/shell/desktop-shell/runtime/desktop/window-manager.js`
-- [x] `pnpm run check`
-- [x] `pnpm run verify:reload`
-- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
-- [x] 真页真实目标跳转、无目标通知、浏览器后退/前进、正常开关与 `90ms` 反向开关
-- [x] 明色/暗色计算样式、`390 × 844px` 窄屏、减少动态效果与 `console.error: 0`
-
-final result: passed
-
----
-
-# 通知中心第五阶段语义色图形与柔和玻璃 QA
-
-## 对照目标
-
-- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-beeb37d9-306c-453c-903e-9b0a6d918e36.png`
-- Browser-rendered implementation: `/private/tmp/theme-sky-blog-3-notification-semantic-glyph/01-implementation-desktop.jpg`
-- Focused implementation: `/private/tmp/theme-sky-blog-3-notification-semantic-glyph/02-implementation-focus.jpg`
-- Same-input comparison: `/private/tmp/theme-sky-blog-3-notification-semantic-glyph/03-source-implementation-comparison.jpg`
-- Route: `http://localhost:8090/?_qa=notification-semantic-glyph-final`
-- State: 登录态、「全部」筛选、账号/瞬间互动/评论回复/系统通知四组折叠；另行复核账号组展开与收起。
-- Viewport: 实现为 CSS `1280 × 720px`、`devicePixelRatio: 1`。来源为 `884 × 1778px` 聚焦图；比较时裁去顶部空白为 `884 × 1640px`，等比缩放至约 `226 × 420px`，实现聚焦区域为 `400 × 420px`。两者只比较通知卡材质、图标底座、语义色分配和列表节奏，不对不同真实数据文本逐像素判定。
-
-## Findings
-
-- No actionable P0/P1/P2 findings remain in the selected semantic-glyph and soft-glass scope.
-- Colors and visual tokens: 图标底座统一为 `rgba(31, 32, 35, 0.72)` 的中性石墨色，类型色只作用于真实 Lucide 图形。账号为 `#88abf4`、瞬间互动为 `#67d38a`、评论回复为 `#a779ee`、内容与系统通知为 `#eda04c`、插件通知为 `#62bcc5`，未知类型回退到银灰 `#a7adb6`；没有彩色底、彩色投影或主题强调色继承。
-- Card material: 通知卡改为 `rgba(24, 25, 28, 0.58)` 的柔和局部玻璃，未读仅轻微增加到 `0.60`。卡片与叠层均取消硬描边、顶部亮线和内高光，边界由 `24px` 背景虚化及两层短而散的中性阴影形成；计算样式为 `border: 0`，`::after` 为 `none`。
-- Icon material: 图标壳保留所选视觉中的 `30px` 中性深色方块与低对比半像素边界，移除双层高光、彩色渐变和染色阴影；类型辨识完全来自图形形状与单一语义色。
-- Spacing and layout rhythm: 「全部」状态四张主卡可见间距实测均为 `8px`，与上一阶段确认的紧凑节奏一致；页面横向溢出为 `0px`。
-- Interaction: 真页已执行「未读 → 全部」、账号组展开、收起；收起后恢复四组，展开动画结束后没有遗留 `opacity / transform / clip-path / overflow` 内联样式。
-- Typography, images and copy: 没有改变通知字体、字重、截断、真实通知文本、桌面小组件或图像资源。来源图为概念级放大稿，实际真页继续遵循既有 `11 / 12 / 13px` 信息层级和真实数据密度。
-- Runtime evidence: 当前浏览器日志 `console.error` 为 `0`；仍存在既有 `[desktop] repaired corrupt node placements Object` warning，与本轮通知视觉修改无关。
-
-## Comparison history
-
-- Pass 1: 上一阶段真页使用彩色图标底与顶部高光，类型色承担了大面积装饰；卡片还存在 `0.5px` 外框、顶部 `::after` 亮线和内高光，记录为 P2 语义色使用过量与玻璃材质硬边。
-- Fix 1: 用户从三套方向中选定“中性图标底 + 彩色语义图形”；将类型色从图标底迁移到 Lucide 图形，统一中性底座；同时移除卡片和叠层硬边、顶线及内高光，恢复淡透明背景和软阴影。
-- Pass 2: 来源与真页聚焦区域已放入同一视觉输入复核。四类语义色可快速识别，图标底保持一致，卡片边缘不再出现硬线；展开/收起、间距、横向溢出和日志均无新的 P0/P1/P2。
-
-## Verification
-
-- [x] `pnpm exec vite build`
-- [x] `pnpm run check`
-- [x] `pnpm run verify:reload`
-- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
-- [x] 当前真页「未读 / 全部」、四种类型色、展开/收起、动画样式清理、横向溢出与浏览器日志
-
-final result: passed
-
----
-
-# 通知中心第四阶段固定类型色与「全部」间距 QA
-
-## 对照目标
-
-- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-c1e3b0a3-5d8e-4643-822a-618bd93f4832.png`
-- Before implementation: `/private/tmp/theme-sky-blog-3-notification-colors-spacing-round4/01-before-all.png`
-- Final desktop implementation: `/private/tmp/theme-sky-blog-3-notification-colors-spacing-round4/02-after-all.png`
-- Focused final implementation: `/private/tmp/theme-sky-blog-3-notification-colors-spacing-round4/03-after-all-focus.png`
-- Same-input comparison: `/private/tmp/theme-sky-blog-3-notification-colors-spacing-round4/04-before-after-focus.png`
-- Final mobile implementation: `/private/tmp/theme-sky-blog-3-notification-colors-spacing-round4/05-after-mobile-all.png`
-- Route: `http://localhost:8090/?_qa=notification-colors-spacing-round4-after`
-- State: 登录态、「全部」筛选、账号/瞬间互动/评论回复/系统通知四组折叠；另行复核账号组展开/收起。
-- Viewports: 桌面 `1280 × 720px`、移动 `430 × 820px`。
-
-## Findings
-
-- No actionable P0/P1/P2 findings remain in the fixed notification-type color and collapsed-list spacing scope.
-- Fixed semantic colors: 类型色改为通知中心内部的固定常量，不读取主题强调色。账号为蓝色、瞬间为绿色、评论为紫色、内容为橙色、系统为石墨灰、插件为青色；未知类型回退到石墨灰。真页四种已出现类型的计算渐变分别为蓝 `#5c9df5 → #2964c8`、绿 `#48c77a → #1c8a4c`、紫 `#9c7bdc → #6543aa`、灰 `#7b8796 → #464e59`。
-- Root cause: `data-notification-type` 一直正确，但默认色变量原先定义在图标壳自身，覆盖了通知卡父级的类型变量，导致所有图标都显示为蓝色；默认值已上移到通知卡，类型选择器现在能正常继承。
-- Icon material: 保留真实 Lucide 类型图标，将 `32px` 的强高光厚阴影壳收敛为 `30px`、`7.5px` 圆角的轻量渐变图标；移除顶部亮斑胶囊，仅保留半像素边界、短阴影和细内描边。
-- All-filter spacing: 「全部」折叠列表单独采用 `4px` 组间距和 `68px` 包装高度，主卡之间的可见间距由 `15px` 降为 `8px`；未读筛选及展开列表继续使用原有节奏，避免全局压缩。
-- Responsive and interaction: 桌面与 `430px` 窄屏均无横向溢出；账号组展开后只显示该组，收起后恢复四组及 `8px` 间距，动画结束没有残留 `opacity / transform / clip-path / overflow` 内联样式。
-
-## Comparison history
-
-- Pass 1: 真页确认四组 `data-notification-type` 正确，但四个图标的计算背景完全相同；「全部」主卡间距实测均为 `15px`。
-- Fix 1: 将默认图标色 token 上移到通知卡，加入六类固定颜色；收敛图标高光和阴影；仅为「全部」折叠状态增加紧凑几何。
-- Pass 2: 参考与实现同屏复核，四类真实通知颜色可清楚区分，主卡间距实测均为 `8px`；移动端、展开/收起和动画清理没有回归。
-
-## Verification
-
-- [x] `pnpm exec vite build`
-- [x] `pnpm run check`
-- [x] `pnpm run verify:reload`
-- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
-- [x] 真实通知数据、四类计算色、桌面/移动无横向溢出、展开/收起与动画样式清理
-
-final result: passed
-
----
-
-# 通知中心第三阶段图标材质与分组动效 QA
-
-## 对照目标
-
-- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-1e545883-1b19-4e4a-83d4-c7bea11f5b31.png`
-- Rejected collapsed baseline: `/private/tmp/theme-sky-blog-3-notification-motion-round3/01-before-collapsed.png`
-- Rejected expanded baseline: `/private/tmp/theme-sky-blog-3-notification-motion-round3/02-before-expanded.png`
-- Final collapsed implementation: `/private/tmp/theme-sky-blog-3-notification-motion-round3/03-after-collapsed.png`
-- Expand keyframes: `/private/tmp/theme-sky-blog-3-notification-motion-round3/04-expand-mid-a.png`、`/private/tmp/theme-sky-blog-3-notification-motion-round3/05-expand-mid-b.png`
-- Final expanded implementation: `/private/tmp/theme-sky-blog-3-notification-motion-round3/06-after-expanded.png`
-- Collapse keyframes: `/private/tmp/theme-sky-blog-3-notification-motion-round3/07-collapse-mid-a.png`、`/private/tmp/theme-sky-blog-3-notification-motion-round3/08-collapse-mid-b.png`
-- Final mobile implementation: `/private/tmp/theme-sky-blog-3-notification-motion-round3/14-mobile-expanded.png`
-- Focused icon detail: `/private/tmp/theme-sky-blog-3-notification-motion-round3/12-icon-detail.png`
-- Same-input comparison: `/private/tmp/theme-sky-blog-3-notification-motion-round3/11-reference-after-comparison.png`
-- Route: `http://localhost:8090/?_qa=notification-motion-round3-after`
-- State: 登录态、账号通知折叠/展开、重复快速展开、减少动态效果分支；桌面 `1280 × 720px` 与移动 `430 × 820px`。
-
-## Findings
-
-- No actionable P0/P1/P2 findings remain in the icon material and notification-group transition scope.
-- Icon material: 保留真实 Lucide 通知类型图形，不新增伪造图标；图标壳由单层纯色块改为分类型上下色阶、顶部局部高光、双层内描边、底部压暗和短距离染色阴影。账号、瞬间、评论、内容、系统和插件拥有独立语义色，透明抽屉上的边缘仍清楚。
-- Motion continuity: 修复 `expandStack()` 与 `collapseExpandedGroup()` 原先直接返回空 Promise 的问题。展开现在依次执行“叠层收拢 → 第一张卡接续 → 列表遮罩向下释放 → 前 12 张可见卡片短错峰落位”；收起按相反方向合拢，再恢复两层卡片背板。
-- Interaction rhythm: 进入使用 `cubic-bezier(0.16, 1, 0.3, 1)` 的 Apple 式减速曲线，退出使用 `cubic-bezier(0.32, 0, 0.67, 0)` 的短促加速曲线；展开主遮罩为 430ms，收起主遮罩为 250ms，收起后的叠层回弹为 280ms。
-- Race safety: 分组切换新增独立 motion token；重复快速点击、筛选切换和关闭通知中心都会取消旧动画，避免旧 Promise 在新状态上继续写入。真页双击展开后稳定停在展开态，列表、卡片和叠层没有残留 `opacity / transform / clip-path / overflow` 内联样式。
-- Responsive: `430 × 820px` 下通知卡宽约 `335px`，页面无横向溢出；展开后首屏可见 10 张真实账号通知，控制按钮、卡片和滚动区域没有遮挡。
-- Reduced motion: 四个分组动画入口均在 `prefers-reduced-motion: reduce` 下直接完成状态切换且不访问动画 DOM，专项 Node 分支验证通过。
-
-## Comparison history
-
-- Pass 1: 当前源码和真页确认图标仅为单层蓝色圆角底；`expandStack()`、`collapseExpandedGroup()` 是空实现，DOM 先瞬间换态，再补 120–140ms 淡入，记录为 P2 图标材质不足和 P1 状态连续性缺失。
-- Fix 1: 重做图标材质 token；补齐叠卡离场、列表遮罩展开、卡片错峰、反向收拢与叠层回弹；在窗口管理器加入分组动效 token 和筛选/关闭取消逻辑。
-- Pass 2: 桌面、移动、展开中段、收起中段和最终状态同屏复核；快速重复展开能稳定收敛，减少动态效果分支不创建动画，无剩余 P0/P1/P2。
-
-## Verification
-
-- [x] `node --check src/shell/desktop-shell/runtime/desktop/notification-center-motion.js`
-- [x] `node --check src/shell/desktop-shell/runtime/desktop/window-manager.js`
-- [x] `pnpm exec vite build`
-- [x] `pnpm run check`
-- [x] `pnpm run verify:reload`
-- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
-- [x] 真实通知数据、展开/收起关键帧、快速重复展开、动画样式清理、移动端无横向溢出
-- [x] 减少动态效果四个分组动效入口专项验证
-
-final result: passed
-
----
-
-# PluginLinks 留言板提交评论按钮配色 QA
-
-## 对照目标
-
-- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-2cd0379b-2d8b-4141-80da-a4d55a083c2a.png`
-- Mobile implementation: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-comment-button/after-mobile.jpg`
-- Desktop regression: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-comment-button/after-desktop.jpg`
-- Route: `http://localhost:8090/links?view=board`
-- State: 暗色、已登录、评论编辑器和 3 条真实评论已加载
-- Viewport: CSS `390 × 844px`，`devicePixelRatio: 1`；桌面回归 `1280 × 720px`
-- Pixel normalization: 参考截图为 `588 × 757px` 的移动端问题裁切，实现在 `390 × 844px` 真页中按 1x CSS 像素检查。两者外框比例不同，因此只比较留言板评论区、按钮层级和配色，不进行跨画布逐像素判断。
-- Full-view comparison evidence: 参考截图与 `after-mobile.jpg` 已放入同一视觉输入，蓝色按钮问题、评论区层级、底部导航和移动端边界均清晰可辨。
-- Focused region evidence: 不需要额外裁切；两张全图中的 `91 × 37px`“提交评论”按钮均可直接辨认，并以真页计算样式补充核对背景、边框和文字色。
-
-## Findings
-
-- No actionable P0/P1/P2 findings remain.
-- Fonts and typography: 按钮继续使用评论组件原有 14px 系统字体、白色文字和当前字重，没有改变评论正文、作者或时间信息层级。
-- Spacing and layout rhythm: 保留原有 `91 × 37px` 圆角按钮、编辑器间距与右对齐位置；390px 下页面 `scrollWidth` 等于视口宽度，没有横向溢出。
-- Colors and visual tokens: 留言板范围内的评论组件主色由主题蓝 `#2e5fbd` 改为微信绿 `#07c160`，按压色为 `#06ad56`，按钮背景与边框计算值均为 `rgb(7, 193, 96)`，文字保持白色。
-- Image quality and assets: 没有修改头像、评论内容、图标或其他图像资源。
-- Copy and content: “提交评论”、评论数量和已有留言完全保留，没有改写或创建测试评论。
-- Scope: 配色通过 `.links-comments comment-widget` 的局部变量覆盖实现，不影响文章、文档、图库或其他页面的评论组件，也没有改变评论接口和提交行为。
-- Interaction and accessibility: 评论按钮仍由原组件处理悬停、聚焦和提交；主题提供绿色主态、深绿色按压 token 与白色文字。手机真页控制台错误为 0。
-
-## Comparison history
-
-- Pass 1: 参考截图及修复前真页显示“提交评论”为主题蓝 `rgb(46, 95, 189)`，与留言导航及友链应用的微信绿主色不一致，记录为 P2 配色漂移。
-- Fix 1: 仅在 `.links-comments` 内覆盖 CommentWidget 的主色、按压色、浅色状态和表情选择器强调色，并增加适配契约断言。
-- Pass 2: 390px 真页按钮变为 `rgb(7, 193, 96)`，评论区布局和底部导航保持稳定；桌面真页同样生效，无剩余 P0/P1/P2。
-
-## Verification
-
-- [x] `pnpm run verify:links`
-- [x] `pnpm run build`
-- [x] `pnpm run check`
-- [x] `pnpm run verify:reload`
-- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
-- [x] 390px 手机真页、桌面真页、计算样式、无横向溢出与 console error 复核
-
-final result: passed
-
----
-
-# 通知中心第二阶段 macOS 精细化设计 QA
-
-## 对照目标
-
-- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-1e545883-1b19-4e4a-83d4-c7bea11f5b31.png`
-- Rejected baseline: `/private/tmp/theme-sky-blog-3-notification-macos-round2-audit/01-before-expanded.png`
-- Final mobile implementation: `/private/tmp/theme-sky-blog-3-notification-macos-round2-audit/05-final-compact-expanded.png`
-- Final desktop implementation: `/private/tmp/theme-sky-blog-3-notification-macos-round2-audit/07-final-desktop-expanded.png`
-- Alternate widget appearance: `/private/tmp/theme-sky-blog-3-notification-macos-round2-audit/08-final-dark-expanded.png`
-- Same-input comparison: `/private/tmp/theme-sky-blog-3-notification-macos-round2-audit/06-reference-before-after.png`
-- Route: `http://localhost:8090/?_qa=notification-macos-round2-audit`
-- State: 登录态、全部通知、账号通知展开；复核折叠预览、未读/全部筛选、关闭后重开、两种小组件外观。
-- Viewports: 移动窄窗 `441 × 571px`；桌面 `1280 × 900px`。
-
-## 对照结论
-
-- Cards: 从偏灰、厚描边、宽泛投影的 `307px` 卡片，调整为 `344 × 66px` 的局部深色玻璃；采用 `18px` 圆角、半像素弱边、短距离阴影和顶部局部高光，不再出现塑料胶囊感。
-- Information hierarchy: 账号通知不再重复显示两遍完整标题；正文压缩为 `浏览器 · 月/日 时间 · IP`，应用类型、时间、标题和详情形成四级但低噪声的信息层级。
-- Background depth: 抽屉仍透明，小组件和桌面继续透出；内容区只增加轻量背景虚化与色彩收敛，没有恢复整块黑色面板。
-- Responsive density: `441px` 窄窗下缩短左侧渐隐区，卡片恢复到与 macOS 参考一致的 `344px` 内容宽度；桌面端保持右对齐且无横向溢出。
-- Theme surfaces: 深色通知卡不跟随小组件底色切换，两种外观下均保持稳定对比度，符合真实 macOS 通知卡在不同壁纸上的表现。
-
-## Findings
-
-- No actionable P0/P1/P2 visual findings remain in the agreed notification material, density, responsive and information-hierarchy scope.
-- `pnpm run verify:notification-center` 的访客专项脚本仍被既有桌面布局修复警告 `[desktop] repaired corrupt node placements {}` 拦截；该警告来自桌面节点完整性检查，不由本轮通知卡改动引入，已单独保留为验证说明，没有通过修改断言掩盖。
-
-## Comparison history
-
-- Pass 1: 用户真页证明第一阶段仍存在灰塑料材质、重边重影、重复正文、统一蓝色图标壳和窄窗内容宽度不足，第一阶段结论作废。
-- Fix 1: 收紧描边、阴影、高光和控制按钮；加入通知类型色调、展开卡片自适应高度、账号通知详情摘要及空正文隐藏。
-- Pass 2: `441 × 571px` 真页显示材质改善，但卡片仅约 `307px`，账号摘要仍折成两行。
-- Fix 2: 将窄窗渐隐区改为 `clamp(32px, 11vw, 52px)`，恢复 `344px` 卡片；日期压缩为 `MM/DD HH:mm`，账号详情稳定为一行。
-- Pass 3: 参考、被拒基线和最终真页同屏复核；移动与桌面均无内容溢出，展开列表、折叠预览及两种小组件外观可用。
-
-## Verification
-
-- [x] `pnpm run check`
-- [x] `pnpm run verify:reload`
-- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
-- [x] 登录态真实通知数据、未读/全部筛选、折叠/展开、关闭/重开
-- [x] `441 × 571px` 与 `1280 × 900px`，两种小组件外观，无横向溢出
-- [ ] `pnpm run verify:notification-center`（被既有桌面布局修复 warning 拦截，非本轮回归）
-
-final result: passed
-
----
-
-# 通知中心第一阶段局部玻璃质感设计 QA（已由第二阶段取代）
-
-## 对照目标
-
-- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-1e545883-1b19-4e4a-83d4-c7bea11f5b31.png`
-- Restored baseline: `/private/tmp/theme-sky-blog-3-notification-macos-audit/01-restored-current.jpg`
-- Browser-rendered implementation: `/private/tmp/theme-sky-blog-3-notification-macos-stage1/05-final-preview.jpg`
-- Expanded-list evidence: `/private/tmp/theme-sky-blog-3-notification-macos-stage1/03-expanded.jpg`
-- Light-surface evidence: `/private/tmp/theme-sky-blog-3-notification-macos-stage1/04-dark.jpg`
-- Same-input focused comparison: `/private/tmp/theme-sky-blog-3-notification-macos-stage1/02-reference-before-after.png`
-- Route: `http://localhost:8090/?_qa=notification-macos-stage1`
-- State: 通知中心打开、暗色桌面小组件、未读筛选、账号通知折叠；另外复核全部通知展开和亮色小组件背景。
-- Viewport: CSS `1280 × 900px`，`devicePixelRatio: 1`；实现截图为 `1280 × 900px`。
-- Pixel normalization: 参考图为 `652 × 1386px` 的 macOS 通知中心长截图；聚焦比较将参考通知区域 `358 × 138px` 等比缩放为 `378 × 146px`，与修复前、修复后的 `378 × 146px` 真页裁切水平并排。只判断本阶段约定的卡片材质、边缘、阴影和叠层，不把参考图中不同的数据高度误判为像素偏差。
-
-## 对照证据
-
-- Full-view comparison: `05-final-preview.jpg` 与 `03-expanded.jpg` 证明右侧抽屉仍保持透明，壁纸、桌面图标和小组件可透出；局部对比不依赖整块深色遮罩。
-- Focused comparison: `02-reference-before-after.png` 从左到右依次为 macOS 参考、恢复后的基线、本次实现；卡片底色、顶部高光、短阴影和后层玻璃唇均在同一输入中清晰可辨。
-
-## Findings
-
-- No actionable P0/P1/P2 findings remain within the agreed stage-one material scope.
-- Fonts and typography: 本阶段没有修改应用名、时间、标题、正文的字体、字重、截断或行高；真页仍为 `11 / 13 / 13px` 的现有层级，避免把质感修复扩成内容重排。
-- Spacing and layout rhythm: 卡片继续保持 `344 × 70px`、`22px` 圆角和既有列表间距，展开/折叠几何没有回归。参考图的自适应内容高度属于已明确留给第二阶段的内容结构优化，不是本阶段未完成的视觉缺陷。
-- Colors and visual tokens: 抽屉空气层仍为原有 `rgba(0,0,0,.15)` 与 `34px` 背景虚化；卡片局部底色调整为 `rgba(26,27,30,.58)`，使用 `30px` 模糊、`145%` 饱和度、`104%` 对比度、较清晰的半像素边缘和短距离双层阴影。未读蓝只保留为轻微语义染色。
-- Image quality and assets: 没有修改、替换或伪造通知图标及桌面资源；原有图标仅增加局部高光、细边和更短的投影。
-- Copy and content: 通知标题、正文、来源、时间和所有真实数据均原样保留。
-- Interaction and accessibility: 已验证未读/全部切换、通知组展开和关闭/重新打开；31 张可见通知卡均保持 `344 × 70px`，页面无横向溢出，浏览器日志中没有 `console.error`。
-- Responsive and theme surfaces: 暗色小组件背景与亮色小组件背景下卡片均保持可读，面板没有变为整块黑底；本阶段没有改变移动端断点或触控行为。
-
-## Comparison history
-
-- Pass 1: 参考图与恢复基线的同屏对照显示，基线卡片底色偏灰、背景穿透过强，边缘与叠层深度不足，记录为 P2 材质漂移。
-- Fix 1: 只调整通知卡、后层玻璃唇和图标壳的局部材质；收紧阴影，增加顶部高光与内外细边，降低过强的 `42px` 卡片模糊，同时完全保留抽屉透明空气层和小组件。
-- Pass 2: 参考、基线、修复后聚焦图再次同屏比较；修复后卡片的局部黑玻璃、边缘分离和叠层关系已接近参考，本阶段无剩余 P0/P1/P2。
-
-## Verification
-
-- [x] `pnpm run check`
-- [x] `pnpm run verify:reload`
-- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
-- [x] 1280 × 900 暗/亮背景、折叠/展开、筛选交互、横向溢出与浏览器错误复核
-- [x] macOS 参考、恢复基线和真页实现同一视觉输入复核
-
-final result: superseded
-
----
-
-# PluginLinks 手机端全屏响应式设计 QA
-
-## 对照目标
-
-- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-d6e2dc87-08eb-4b85-ab45-06d2dae63215.png`
-- Mobile before: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-mobile-responsive/01-before-source.png`
-- Mobile implementation: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-mobile-responsive/02-after-source-390.png`
-- Narrow implementation: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-mobile-responsive/08-after-source-320.png`
-- Mobile list: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-mobile-responsive/03-after-list-390.png`
-- Mobile apply: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-mobile-responsive/07-after-apply-320.png`
-- Mobile more menu: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-mobile-responsive/09-after-more-menu-320.png`
-- Desktop regression: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-mobile-responsive/10-desktop-regression.png`
-- Route: `http://localhost:8090/links?view=friends&linkName=link-QDUTJ`
-- State: 暗色、PluginLinks 真实来源和 20 条 RSS 动态、管理员能力已加载
-- Viewports: CSS `390 × 844px`、`320 × 640px`、桌面 `1250 × 1169px`；`devicePixelRatio: 1`
-- Pixel normalization: 桌面目标是页头聚焦裁切 `720 × 213px`；移动实现分别为 `390 × 844px` 与 `320 × 640px`。这是同一设计语言的响应式重排，不进行跨形态逐像素比较；所有实现截图按 1x CSS 像素检查。
-- Full-view comparison evidence: 桌面视觉目标、手机端修复前和 `02-after-source-390.png` 已放入同一视觉输入，确认信息层级、微信配色和来源动态语义保持一致，并修复整窗不可见问题。
-- Focused region evidence: `08-after-source-320.png`、`03-after-list-390.png`、`07-after-apply-320.png` 与桌面回归图已放入同一视觉输入，逐项核对 320px Header、底部导航、表单、真实头像、文本换行和桌面布局。
-
-## Findings
-
-- No actionable P0/P1/P2 findings remain.
-- Fonts and typography: 继续使用系统字体与原有 10–14px 信息层级；320px 下来源标题、日期和摘要可自然换行，Header 标题与域名/动态数保持两行，不发生逐字换行或遮挡。
-- Spacing and layout rhythm: 手机端窗口改为完整 `100dvh` 沉浸式画布，390px 与 320px 均无横向溢出；底部导航为 64px 并显示图标与短标签，详情按钮和主要表单控件提升到 40px 触控尺寸。
-- Colors and visual tokens: 微信绿只用于当前导航、访问入口和状态动作；暗色背景、边界与弱化文本全部继续复用 links app 自有 token，不受主题强调色影响。
-- Image quality and assets: 左侧来源与动态作者继续使用 PluginLinks 的真实头像；透明 Logo 背景保持透明，没有新增、替换或伪造图像资产。
-- Copy and content: “5ee博客 / 5ee.net · 20 条动态”“访问网站”“收藏 / 稍后读 / 未读”等桌面信息在移动端保留；访问网站在窄 Header 中仅隐藏文字、保留语义完整的图标入口。
-- Interaction and accessibility: 390px 下已验证来源详情返回列表、朋友圈与链接标签切换、友链详情、添加友链；320px 下更多菜单边界为 `x=86..303`，没有越出视口。底部导航显示文字标签，触控入口拥有明确语义，真页 `console.error` 为 0。
-- Desktop regression: 桌面窗口仍为 `1120 × 652px`，来源 Header 仍为 78px，菜单栏和 Dock 保持显示，用户确认的桌面布局未变化。
-- Framework boundary: 仅扩展现有响应式 CSS 和静态契约测试，没有新增 DaisyUI、依赖、接口、权限或路由。
-
-## Comparison history
-
-- Pass 1: 390px 修复前截图中友链窗口收缩为约 `2 × 60px`，整个应用不可见，属于 P0 响应式阻断。
-- Fix 1: 为 links 页面补齐移动端全屏窗口契约：隐藏桌面菜单栏/Dock/拖拽控件，令 `#window-frame-root` 和 `.links-window` 占满 `100dvh`；同时优化底部导航标签、Header、动态操作和表单触控尺寸。
-- Pass 2: 390px 来源详情、来源列表与 320px 来源详情、添加表单、更多菜单均可见且无横向溢出；桌面回归保持原布局，无剩余 P0/P1/P2。
-
-## Primary interactions tested
-
-- 来源详情返回朋友圈来源列表，URL 正确移除 `linkName`。
-- 朋友圈切换到链接列表后，`view=links` 状态在 2.1 秒复核中保持稳定。
-- 点击真实“5ee博客”友链进入资料详情。
-- 点击底部“添加”进入管理员直连表单。
-- 320px 下展开首条动态三点菜单，收藏、稍后读、未读操作完整可见且未越界。
-- 390px、320px 均无 body 横向溢出；当前页控制台错误为 0。
-
-## Verification
-
-- [x] `pnpm run build`
-- [x] `pnpm run verify:links`
-- [x] `pnpm run check`
-- [x] `pnpm run verify:reload`
-- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
-- [x] 390px、320px 和桌面真页视觉及交互复核
-
-final result: passed
-
----
-
-# PluginLinks 来源详情页头精简设计 QA
-
-## 对照目标
-
-- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-d6e2dc87-08eb-4b85-ab45-06d2dae63215.png`
-- Browser-rendered implementation: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-header-final/implementation.png`
-- Route: `http://localhost:8090/links?view=friends&linkName=link-QDUTJ`
-- State: 暗色、朋友圈、单一 RSS 来源、20 条真实动态已加载
-- Viewport: CSS `1250 × 1169px`，`devicePixelRatio: 1`
-- Pixel normalization: 参考图是页头聚焦裁切 `720 × 213px`；实现全页截图为 `1250 × 1169px`。两者均按 1x 像素查看，不做缩放后的亚像素推断；实现页头的 DOM 实测区域为 `618 × 78px`。
-- Full-view comparison evidence: 参考图与 `implementation.png` 已放入同一个视觉比较输入，核对应用窗口比例、详情页头层级、首条动态衔接及左右栏关系。
-- Focused region comparison evidence: 参考图本身就是目标页头的聚焦区域；同一比较输入中实现页头文字与控件可清晰辨认，并辅以真页 DOM 实测：页头图片 `0`、旧简介节点 `0`、标题为“5ee博客”、第二行为“5ee.net · 20 条动态”。浏览器后端不支持元素局部截图，因此未伪造额外裁切图。
-
-## Findings
-
-- No actionable P0/P1/P2 findings remain.
-- Fonts and typography: 标题继续使用 14px/600 系统字体，第二行使用 10px 弱化元数据；两行层级与参考图一致，没有重复简介、换行或截断异常。
-- Spacing and layout rhythm: 来源页头维持 `78px` 高度、`0 12px 0 18px` 内边距和 `8px` 控件间距；删除页头头像后，标题左对齐更干净，首条动态仍按原间距衔接。
-- Colors and visual tokens: 暗色面板、弱化文字、微信绿访问按钮与参考图一致，继续复用现有 links app token，没有受主题强调色影响。
-- Image quality and assets: 只移除了页头内重复 Logo；左侧来源列表和 20 条动态中的真实头像全部保留，真页统计为 20 个动态图片节点，没有新增或伪造资源。
-- Copy and content: 页头仅保留“5ee博客”“5ee.net · 20 条动态”和“访问网站”；刷新与收起控件保持不变，信息噪点与参考图一致。
-- Interaction and accessibility: “访问来源网站”“刷新动态”“收起详情”均保留明确语义；`links` 与 `links-interactions` 冒烟页的 page error、console error、request failure 均为空，当前真页额外检查 `console.error` 为 0。
-- Framework boundary: 只修改现有 Thymeleaf 模板和原生 CSS，没有引入 daisyUI、依赖、接口、权限或路由变化。
-
-## Comparison history
-
-- Pass 1: 将用户确认的页头截图与重载后的真实页面放入同一视觉输入，未发现 P0/P1/P2 差异；本轮没有因视觉 QA 产生二次修复。
-
-## Verification
-
-- [x] `pnpm run build`
-- [x] `pnpm run verify:reload`
-- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
-- [x] 真页 DOM、动态头像保留、控件语义和 console error 核对
-- [x] 参考图与浏览器实现同一视觉输入复核
-
-final result: passed
-
----
-
-# PluginLinks 来源页头、外链层级与暗色下拉设计 QA
-
-## 对照目标
-
-- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-f961f4b5-8d64-40a6-ae4f-8c0063472daf.png`
-- Select problem evidence: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-b80f3dac-7fbb-44a4-a543-2ea04b7d52fe.png`
-- Browser-rendered implementation: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-source-header/02-after.png`
-- Same-size implementation: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-source-header/03-after-1068x826.png`
-- All-feed action state: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-source-header/05-after-actions-all.png`
-- Route: `http://localhost:8090/links?view=friends&linkName=link-QDUTJ`
-- State: 暗色、朋友圈、单一 RSS 来源、真实动态与管理员操作已加载
-- Pixel normalization: 参考图 `1068 × 826px`；同尺寸实现 `1068 × 826px`，CSS viewport `1068 × 826`、`devicePixelRatio: 1`。参考图不携带 CSS viewport 元数据，因此只按相同像素画布、相同暗色来源状态比较，不做亚像素密度推断。
-- Full-view comparison evidence: 用户问题图与 `03-after-1068x826.png` 已在同一视觉比较输入中检查。
-- Focused region evidence: 用户问题图本身已是来源页头与首批动态的聚焦截图；实现页头在同尺寸截图中保持清晰可读，因此没有再以不同裁切制造第二组比较。
-
-## Findings
-
-- No actionable P0/P1/P2 findings remain.
-- Fonts and typography: 延续系统字体与微信式紧凑字级；来源名称、简介、域名和动态计数在 `78px` 页头内形成清楚的三级信息，不再上下重复，长内容保持单行截断。
-- Spacing and layout rhythm: 来源头像为 `40 × 40px`，访问入口为 `83 × 32px`；旧 `.links-feed-profile` 节点数量为 `0`，首条动态直接衔接页头，重复资料卡与过重留白均已移除。
-- Colors and visual tokens: 访问入口改为低饱和微信绿轻底，不再使用大面积实心绿色；暗色应用和分组下拉的计算 `color-scheme` 均为 `dark`，选项背景为 `rgb(51, 51, 51)`、文字为 `rgb(231, 231, 231)`。
-- Image quality and assets: 页头继续使用 PluginLinks 的真实站点 Logo；缺图只回退到项目已有 Lucide/Iconify RSS 图标，没有新增、替换或伪造图片资源。
-- Copy and content: 来源名称、原简介、域名与真实动态数量完整保留；“只看此来源”增加轻量方向提示，当前已经处于该来源时自动隐藏，避免重复动作。
-- Interaction and accessibility: 从“全部动态”点击首条“只看此来源”可回到 `linkName=link-QDUTJ`，页头同步出现；来源网站与原文入口保持 `_blank` 和 `noopener noreferrer`，原文图标命中区为 `28 × 28px`，页面 `console.error` 为 `0`。
-- Framework boundary: 继续使用现有 Thymeleaf、Alpine、Lucide/Iconify 与原生 CSS；没有新增 daisyUI、依赖、接口、权限或路由。
-
-## Comparison history
-
-- Pass 1: 用户问题图显示顶部标题与下方来源资料卡重复；“访问网站”实心绿按钮过重，“只看此来源 / 阅读原文”层级割裂；暗色原生下拉仍以亮色选项面板出现。
-- Fix 1: 将真实头像、名称、简介、域名、数量和访问入口合并到来源页头；删除独立资料卡；统一站内来源跳转、原文图标和页头外链的尺寸、方向提示与按压反馈；为应用和选项补齐原生暗色契约。
-- Pass 2: 同尺寸暗色真页复核中没有重复名称块、裁切、溢出或明显层级漂移；来源跳转、外链属性、原生选项计算样式和控制台均通过，无剩余 P0/P1/P2。
-
-## Verification
-
-- [x] `node --check src/apps/links/runtime.js`
-- [x] `pnpm run verify:links`
-- [x] `pnpm run check`
-- [x] `pnpm run verify:reload`
-- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
-- [x] 同尺寸暗色截图、来源跳转、外链属性、暗色下拉计算样式与 console error 真页复核
-
-final result: passed
-
----
-
-# PluginLinks 微信式三点操作菜单设计 QA
-
-## 对照目标
-
-- Source visual truth: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-2b886c48-c9d2-407b-ba6d-04d0d048bea2.png`
-- Browser-rendered closed state: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-more-menu/02-after-closed.png`
-- Browser-rendered open state: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-audit/links-more-menu/03-after-open.png`
-- Route: `http://localhost:8090/links?view=friends&scope=all`
-- Viewport: `1250 × 1169`
-- State: 暗色、朋友圈、全部动态、真实 RSS 与受保护状态操作已加载
-- 对照说明：参考微信朋友圈的右下角三点入口与横向深色浮层，不复制参考图中 PluginLinks 不提供的点赞、评论或图片字段。
-
-## Findings
-
-- No actionable P0/P1/P2 findings remain.
-- 默认层级：每条动态只常显“只看此来源”、原文图标和 `36 × 24px` 三点按钮；收藏、稍后阅读与未读状态不再形成常驻管理工具栏。
-- 展开层级：三项操作以 `237 × 40px` 横向深色浮层出现，菜单完全位于详情滚动区内，页面没有横向溢出；同一时间只允许一个菜单展开。
-- 文案与状态：可见短标签固定为“收藏 / 稍后读 / 未读”，微信绿只表达已选状态；完整的“取消收藏 / 移出稍后阅读 / 设为未读”等操作说明保留在 `title` 与无障碍语义中。
-- 交互：鼠标点击三点切换菜单，点击外部或按 `Escape` 均可收起；键盘打开时自动聚焦首项，并支持方向键、Home 与 End 导航。
-- Framework boundary: 复用现有 Thymeleaf、Alpine、Lucide/Iconify 与原生 CSS，没有新增 UI 框架、依赖、接口或路由。
-
-## Verification
-
-- [x] `pnpm run verify:links`
-- [x] `pnpm run check`
-- [x] `pnpm run verify:reload`
-- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
-- [x] 真页菜单唯一性、矩形边界、点外部、`Escape`、无横向溢出与 console error 复核
-- [x] 微信参考图、收起态与展开态同一视觉比较输入复核
-
-final result: passed
-
----
-
-# PluginLinks 窗口控件与全部动态比例修正设计 QA
-
-## 对照目标
-
-- Source problem evidence: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-4a021984-7c1d-4214-9239-3c872a0cc568.png`
-- Browser-rendered controls: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/links-controls-scale-after.png`
-- Browser-rendered all-feed row: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/links-all-feed-icon-after.png`
-- Route: `http://localhost:8090/links?view=friends&scope=all`
-- Viewport: `1250 × 1169`
-- State: 暗色、朋友圈、全部动态选中、真实 RSS 来源已加载
-- 对照说明：用户截图用于指出“全部动态”图标比例问题；最终目标同时遵循用户文字约束——恢复系统窗口按钮比例、放大全部动态图标、删除侧栏设置入口。
-
-## 对照证据
-
-- Same-input comparison: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/links-all-feed-icon-comparison.png`
-- 对比图左侧为用户问题截图，右侧为真实页面修正后选中态。
-
-## Findings
-
-- No actionable P0/P1/P2 findings remain.
-- 窗口控件：友链应用不再对全局三色按钮做 `0.72` 倍缩放；关闭、最小化、最大化按钮真页尺寸均恢复为 `12 × 12px`，与桌面窗口系统规格一致。
-- 全部动态：光圈图标从通用 `21 × 21px` 提升为 `26 × 26px`；选中态计算颜色为 `rgb(7, 193, 96)`，绿色只作用于图标并保留克制的行背景。
-- 侧栏设置：模板和真页中 `.links-rail-settings` 与侧栏 `/console` 链接数量均为 `0`；其他链接、朋友圈、添加和留言入口不受影响。
-- 布局：应用继续使用原有 `60px + 440px` 左侧结构，页面无横向溢出；没有改动全局桌面窗口控件或引入 UI 依赖。
-
-## Verification
-
-- [x] `pnpm run verify:links`
-- [x] `pnpm run typecheck`
-- [x] `pnpm run build-only`
-- [x] `pnpm run verify:reload`
-- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
-- [x] 暗色真页尺寸、节点缺失与并排截图复核
-
-final result: passed
-
----
-
-# PluginLinks 选中图标与透明头像修正设计 QA
-
-## 对照目标
-
-- Source problem evidence: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-f3affd5c-2f21-4ac9-a5da-f92519a077ad.png`
-- Source problem evidence: `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-b131f7fa-0793-4e84-bf2f-b9fb7964cd85.png`
-- Browser-rendered implementation: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/links-selected-icons-after.png`
-- Route: `http://localhost:8090/links?view=friends&scope=all`
-- State: 暗色、朋友圈、全部动态选中、真实透明站点 Logo 可见
-- 对照说明：两张用户截图是问题区域证据，不是继续复刻的目标；修正目标以用户明确约束为准——透明像素不填绿，选中态只让图标本身变绿。
-
-## 对照证据
-
-- Same-input comparison: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/output/design-qa/links-icon-avatar-comparison.png`
-- 对比图左侧为修正前问题区域，右侧为同一真实页面修正后实现。
-
-## Findings
-
-- No actionable P0/P1/P2 findings remain.
-- 透明头像：来源资料头像与动态头像的计算背景均为 `rgba(0, 0, 0, 0)`，透明 PNG 直接透出当前列表或详情面板；缺图时才使用中性面板占位，不再使用绿色底。
-- 选中图标：朋友圈轨道图标和“全部动态”图标的计算颜色均为 `rgb(7, 193, 96)`，计算背景为透明，绿色方块已移除。
-- 版本证据：前台可见文本不再包含 `PluginLinks 2.2.1`；版本仍由 `templates/modules/links-app/list.html` 的 `plugin-contract` 注释和 `docs/插件适配契约.md` 维护。
-- Framework boundary: 延续项目现有 Thymeleaf、Alpine、Iconify 与原生 CSS，没有新增或引用 UI 框架。
-
-## Verification
-
-- [x] `pnpm run verify:links`
-- [x] `pnpm run build-only`
-- [x] `pnpm run verify:reload`
-- [x] `SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright`
-- [x] 暗色真页计算样式与合并对照图复核
-
-final result: passed
-
----
-
-# PluginLinks 微信式链接应用初版设计 QA
-
-## 对照目标
-
-- Source visual truth: `/Users/sky/.codex/generated_images/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/exec-81e45e0b-9849-4fbb-9dba-251d69034510.png`
-- Browser-rendered implementation: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/links-wechat-initial/05-source-profile-dark.png`
-- Route: `http://localhost:8090/links?view=friends&linkName=link-QDUTJ`
-- Viewport: `1120 × 832`
-- State: 暗色、朋友圈、单一 RSS 来源、来源资料头与动态列表展开
-- 对照说明：参考图按中心裁切归一到 `1120 × 832`；实现使用 PluginLinks 2.2.1 的真实来源与动态，不补造点赞、评论、图片或不存在的 RSS 字段。
-
-## 对照证据
-
-- Same-viewport reference: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/links-wechat-initial/06-reference-1120x832.png`
-- Side-by-side comparison: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/links-wechat-initial/07-reference-vs-implementation.png`
-- Compact default state: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/links-wechat-initial/01-compact-dark.png`
-- All-feed state: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/links-wechat-initial/03-feed-dark.png`
-
-## Findings
-
-- No actionable P0/P1/P2 findings remain.
-- Fonts and density: 使用系统字体、紧凑 `68px` 会话行、14px 主标题和克制的 10–13px 元数据；长标题与真实简介均截断，不改变左栏几何。
-- Layout: 默认窗口固定为 `60px + 440px` 紧凑列表；点击链接、RSS 来源、添加或留言后只向右展开，左侧栏与列表不重建。参考图左栏比例更窄，但这里保留用户确认的 `500px` 默认窗口约束。
-- Colors: links app 固定使用 `#07C160 / #95EC69 / #DFF7E8`，暗亮切换实测只替换中性表面；微信绿在两种模式下都保持 `#07C160`，不读取主题或系统强调色。
-- Assets: 头像和站点 Logo 全部来自 PluginLinks 或站点真实资源；缺图使用项目现有 Lucide/Iconify 图标，没有 CSS 图形、内联 SVG、emoji 或占位图片。
-- Content hierarchy: 单来源详情补齐来源头像、名称、简介、域名和访问入口，再展示动态；全部动态不伪造来源资料头。公开 RSS 缺少的点赞、评论与图片字段不在 UI 中伪造。
-- Interaction and accessibility: 默认列表、链接详情、全部动态、单来源、添加助手、留言板、收起详情、刷新、前进/后退与暗亮切换均可操作；键盘焦点使用 3px 左侧绿线，避免鼠标点击产生过重整圈描边。
-- Framework boundary: 只使用项目现有 Thymeleaf、Alpine、Tailwind/Iconify 管线与原生 CSS/控件，没有引入 daisyUI 或其他 UI 框架。
-
-## Primary interactions tested
-
-- `/links` 默认保持 500px 紧凑列表，不提前请求 RSS 正文。
-- 点击友链展开资料详情；收起后恢复列表宽度。
-- `/links?view=friends` 显示公开来源且插件描述 HTML 只以纯文本展示。
-- “全部动态”与单一来源使用真实 PluginLinks 2.2.1 RSS 数据、刷新与继续加载。
-- `/links?view=apply` 展示权限感知的内嵌提交助手；`/links?view=board` 展示留言兜底。
-- 浏览器后退从留言板恢复添加助手，前进重新恢复留言板。
-- 暗色 `#1F1F1F` 与亮色 `#F5F7F5` 表面切换时，主绿色保持 `#07C160`。
-- Playwright 中 `links` 与 `links-interactions` 的 page error、console error、request failure 均为 0。
-
-## Comparison history
-
-- Pass 1: 真页基线确认默认紧凑列表和按需展开成立，但发现插件来源描述中的 HTML 标签会短暂以源码显示。
-- Fix 1: 来源描述在运行时统一转成纯文本并回写列表节点，复测不再出现 `<br>`、`<strong>` 等标记。
-- Pass 2: 详情截图发现鼠标点击后的选中行仍继承整圈焦点描边，视觉重量高于微信列表。
-- Fix 2: 提高链接行焦点覆盖规则的特异性，只保留左侧 3px 微信绿焦点线。
-- Pass 3: 同视口对照发现单来源详情缺少参考图中的来源资料层级。
-- Fix 3: 增加真实来源头像、名称、简介、域名与访问入口；全部动态仍保持纯时间流。
-- Pass 4: 同视口并排复核后无剩余 P0/P1/P2；真实数据差异、500px 默认左栏宽度和不伪造社交字段属于明确产品约束。
-
-## Implementation checklist
-
-- [x] 500px 默认会话列表和按需展开详情
-- [x] 微信固定绿与独立暗亮中性色
-- [x] 链接、RSS 来源、添加助手和留言板完整路由状态
-- [x] 单来源资料头与真实 RSS 时间流
-- [x] 移动端列表到全屏详情规则
-- [x] 无新增 UI 框架，daisyUI 零引用
-- [x] 构建、Halo Reload、静态契约、全站 Playwright 与同视口设计 QA
-
-final result: passed
-
----
-
-# 图库胶片坞显隐与切图层级设计 QA
-
-## 对照目标
-
-- Source visual truth: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/gallery-motion-polish/01-before-visible.png`
-- Browser-rendered implementation: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/gallery-motion-polish/03-after-visible.png`
-- Route: `http://localhost:8090/photos/photo-gtulnjy1?group=photo-group-8ruj7awi`
-- Viewport: `1280 × 720`
-- State: 图库详情、星空相簿、第 3/17 张、胶片坞显示
-- 对照说明：本轮只优化显隐的时间曲线与合成层，不改变胶片坞的静态布局、材质、内容或路由行为。
-
-## 对照证据
-
-- Full-view comparison: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/gallery-motion-polish/06-same-viewport-comparison.png`
-- Hidden-state implementation: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/gallery-motion-polish/04-after-hidden.png`
-- Mid-exit implementation (`180ms`): `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/gallery-motion-polish/07-gradual-exit-midpoint.png`
-- Mid-maximize implementation (`180ms`): `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/gallery-motion-polish/08-maximize-no-occlusion-midpoint.png`
-- Large-photo transition midpoint (`129ms`): `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/gallery-motion-polish/09-large-photo-transition-filmstrip-above.png`
-- List-to-detail transition midpoint (`195ms`): `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/gallery-motion-polish/10-list-to-detail-filmstrip-above.png`
-- Focused region comparison was not required: the component's pixels, typography and geometry intentionally remain unchanged; temporal fidelity was instead checked from actual `requestAnimationFrame` samples across opacity、translateY、scale、visibility、主舞台和主图矩形。
-
-## Findings
-
-- No actionable P0/P1/P2 findings remain.
-- Fonts and typography: 标题、计数、侧栏和胶片缩略图没有改动；同视口对照未出现字重、换行、截断或抗锯齿漂移。
-- Spacing and layout rhythm: 胶片坞位置、宽度、圆角、缩略图间距和主图比例保持一致；逐帧样本中主舞台与主图的 `top/left/width/height` 漂移均未超过 `0.75px`。
-- Colors and visual tokens: 半透明背景、边框、阴影和选中态完全复用原有 Photos token；没有动画 blur、filter、阴影或尺寸，避免玻璃材质重绘掉帧。
-- Image quality and assets: 主照片及缩略图沿用同一真实资源、裁切和解码路径；没有新增、替换或降级任何可见资源。
-- Copy and content: 文件名、`3 / 17` 计数、相簿名称、导航和辅助文本均未变化。
-- Motion and accessibility: 显示采用 `220ms` 柔和透明度与 `340ms` 弹性位移；隐藏改用 `360ms` 渐进透明度与 `400ms` 渐进位移，两者均使用对称 `cubic-bezier(0.33, 0, 0.67, 1)`。真页退场 `180ms` 时透明度为 `0.501`、下沉约 `2.55px`、缩放约 `0.9966` 且仍为 `visible`，`visibility` 延迟到 `400ms` 后切换；隐藏时继续同步 `inert/aria-hidden`，触屏常显，减少动态效果时无过渡。
-
-## Primary interactions tested
-
-- 约 3.2 秒空闲后自动隐藏，移动指针后重新显示。
-- 显示与隐藏均产生至少 4 个不同的 opacity、translateY 和 scale 中间态，且方向连续单调。
-- 胶片坞隐藏后最大化及还原图库窗口，全程保持 `opacity: 0`、`visibility: hidden`、`pointer-events: none`，不再遮挡主图底部；随后回到主图仍可正常唤醒。
-- 大竖图与横图双向详情切换期间，主图从新快照首帧开始保持居中；胶片栏使用独立 `photos-detail-filmstrip` 过渡层，始终位于主图过渡层上方，中央缩略图不再被大图快照覆盖。
-- 从列表中后段照片进入详情时，新胶片栏同样位于主图过渡层上方；当前缩略图在新快照前已居中，过渡完成后横向滚动位置不再二次跳动。
-- 悬停和键盘聚焦保持显示；触屏设备空闲时保持常显。
-- `prefers-reduced-motion`、详情 PJAX 切换、旧节点计时器与监听器清理。
-- 真页运行时错误与 `console.error`: none in `verify:photos:view-transition`。
-
-## Comparison history
-
-- Pass 1: 基线实测发现退场使用 `140ms opacity + 200ms` 末段加速曲线，同时下沉 `9px`、缩放至 `0.985`；透明度先结束而位移继续，形成突然消失的 P2 动效问题。
-- Fix 1: 显隐统一复用 Photos 的 soft/spring 曲线，延长渐隐、减小位移和缩放，并只为桌面自动隐藏场景预提升 `transform/opacity` 合成层。
-- Pass 2: 用户真页复测仍感到消失生硬；逐帧复核发现旧 soft 曲线在 `50ms / 76ms / 128ms` 时透明度已降至约 `0.357 / 0.155 / 0.041`，虽然存在过渡，但视觉信息过早耗尽。
-- Fix 2: 退场单独改用 `360ms / 400ms` 对称渐进曲线，并新增动画中段仍为 `visible`、透明度保持 `0.3–0.7` 的回归门禁。
-- Pass 3: 同视口静态界面无漂移；真页 `180ms` 中间态透明度实测 `0.501`，逐帧、终态、辅助技术、触屏、减少动态效果和 PJAX 生命周期全部通过。
-- Pass 4: 用户截图与真页时间轴确认，标题栏最大化按钮被整个窗口级活动监听器误判为照片区操作，点击后 `80ms` 胶片坞透明度已达 `0.91`，`1000ms` 仍完全显示并覆盖主图底部。
-- Fix 3: 胶片坞活动范围收窄到 `.photos-detail-main`；最大化/还原意图会在窗口 300ms 尺寸过渡期间锁定隐藏态并暂时关闭胶片坞自身 transition，避免任何遮挡帧。
-- Pass 5: 真页最大化时间轴在 `0 / 80 / 180 / 320 / 1000ms` 均保持隐藏、透明度 `0`、不可命中；还原后同样保持隐藏，主图唤醒回归继续通过。
-- Pass 6: 用户局部截图和真页逐帧确认，大图详情切换的新 DOM 在 Alpine 接管前缺少居中 transform；同时 `photos-active-photo` 快照位于 View Transition 顶层，约 300ms 内会盖住普通层胶片栏中央缩略图。
-- Fix 4: 主图增加 `translate(-50%, -50%) scale(1)` 静态兜底；详情切换时胶片栏加入独立命名过渡层并使用 `z-index: 2`，主图过渡层固定为 `z-index: 1`，旧胶片快照立即退出、新快照保持不混色常显。
-- Pass 7: `photo-nbgx3edf ↔ photo-lglk3ors` 双向真页复测通过；正向 `129ms` 中段截图中胶片栏中央缩略图完整，反向 `11–279ms` 活动帧层级、透明度和矩形均稳定，约 `305ms` 完成，主图中心始终与 figure 中心一致。
-- Pass 8: 用户继续指出 `/photos` 列表进入详情仍有同类遮挡；复现确认该路径使用 `list-to-detail`，此前胶片命名层只覆盖 `detail-step`，因此新胶片栏仍位于主图顶层快照下方。
-- Fix 5: 胶片命名层显式覆盖 `detail-step` 与 `list-to-detail` 两类共享过渡；PJAX 在生成目标快照前同步居中 `.is-current` 缩略图，避免列表中后段照片进入详情后再由 Alpine 二次滚动。
-- Pass 9: 列表下滚后点击第 15 张 `2EB6AAD4.jpg` 真页复测通过；`195ms` 中段截图中主图与胶片栏虽有 `22px` 几何重叠，但缩略图和选中边框完整位于上层；手工逐帧采样中 `scrollLeft` 从首个活动帧到结束始终为 `255`，无收尾跳变。自动化专项同时锁定两类过渡的新快照居中、命名层唯一性与清理、`z-index 1/2`、中后段当前项可见及结束前后滚动偏差不超过 `1px`。
-
-## Implementation checklist
-
-- [x] Spring entry and symmetric gradual exit motion language
-- [x] Subtle translate and scale range
-- [x] Compositor hints without filter animation
-- [x] Frame-by-frame motion and geometry assertions
-- [x] Maximize and restore occlusion regression
-- [x] Large-photo first-frame centering and filmstrip stacking regression
-- [x] List-to-detail filmstrip stacking and scroll-position regression
-- [x] Halo reload and live Photos regression
-
-final result: passed
-
----
-
-# 历史记录：分类 Finder 设计 QA
-
-## 对照目标
-
-- Source visual truth: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/category-finder-audit/02-archives.png`
-- Browser-rendered implementation: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/category-finder-implementation/root-1280x720.png`
-- Route: `http://localhost:8090/categories`
-- Viewport: `1280 × 720`
-- State: 浅色主题、全部分类、全部文档第 1 页、第一篇文档默认选中并展示预览
-- 对照说明：归档页是视觉语言和 Finder 交互基准，不是分类页的一比一信息架构稿；分类页按业务约束采用“分类 / 文档 / 预览”三栏。
-
-## 对照证据
-
-- Full-view comparison: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/category-finder-implementation/full-comparison.png`
-- Focused Finder comparison: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/category-finder-implementation/finder-content-comparison.png`
-- Tablet evidence: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/category-finder-implementation/root-700x900.png`
-- Mobile evidence: `/Users/sky/.codex/visualizations/2026/07/19/019f78b0-cdc9-7b81-9e9a-f1795cde72f6/category-finder-implementation/root-390x844.png`
-- Focused evidence was required because the full-view text and divider details were too small to judge reliably. The focused comparison uses the same Finder content crop from both 1280 × 720 captures.
-
-## Findings
-
-- No actionable P0/P1/P2 findings remain.
-- Fonts and typography: small toolbar labels, row titles, metadata hierarchy, weights, truncation and line density follow the archive Finder baseline; long real article titles remain readable without changing column geometry.
-- Spacing and layout rhythm: the implementation preserves the same 1086px Finder frame, 40px pane headers, quiet dividers, list-row rhythm and preview spacing. The intentional three-column split is `220 / 526 / 340px` at the reference viewport.
-- Colors and visual tokens: sidebar tint, selected-row fill, muted metadata, borders and preview surfaces reuse the existing Finder tokens and match the archive visual balance in light mode.
-- Image quality and assets: this screen has no photographic or illustrative target assets. Folder/file icons use the project's existing Lucide icon pipeline; no placeholder imagery, emoji, CSS drawings or custom SVG substitutes were introduced.
-- Copy and content: “分类 / 文档 / 预览”“全部分类”“全部文档” and pagination labels describe the actual behavior. The preview path identifies the active scope and publication date.
-- States and accessibility: one category tree is exposed; the active category and page use `aria-current`; all navigation uses real same-origin links; default preview, disabled pagination, focus styles and reduced-motion rules are present. Mobile category, document and pagination targets are at least 44px high.
-- Responsive behavior: 1280px shows three panes, 700px shows two panes with preview hidden, and 390px uses a horizontally scrollable category strip above the document list. No tested viewport has horizontal page overflow.
-
-## Primary interactions tested
-
-- Default first-document preview and preview URL synchronization.
-- Category selection and return to “全部分类” through PJAX.
-- Root pagination at `/categories?page=2`, including previous/next, direct access and browser back/forward.
-- Category pagination at `/categories/{slug}/page/2`, including direct access and browser back/forward.
-- Root and category overflow recovery at page `999999`.
-- 1280 × 720, 700 × 900 and 390 × 844 responsive layouts.
-- Browser console warnings/errors: none in the final in-app browser capture.
-- Automated page errors and `console.error`: none in `verify:categories:live`.
-
-## Comparison history
-
-- Pass 1: final browser render and archive visual baseline were combined at the same viewport and compared at full-view and focused-region levels. No P0/P1/P2 mismatch was found, so no visual fix-and-recapture loop was required.
-
-## Implementation checklist
-
-- [x] Unified root/detail Finder structure
-- [x] One category tree and one “全部分类” entry
-- [x] All-document query pagination and category native pagination
-- [x] Default preview and real document links
-- [x] Desktop, tablet and mobile breakpoint coverage
-- [x] Static contracts, full check, Halo reload and live browser validation
-
-final result: passed
-
----
-
-# 主题设置初版 Design QA
-
-## 对照目标
-
-- Source visual truth: `https://www.figma.com/design/VqifaKK2P49jUtiWMT6vbG`
-- Implementation URL: `http://localhost:8090/`
-- Desktop screenshots:
-  - `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/theme-settings-appearance-desktop.png`
-  - `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/theme-settings-dock-desktop.png`
-  - `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/theme-settings-widgets-desktop.png`
-  - `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/theme-settings-appearance-dark.png`
-- Mobile screenshot: `/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/theme-settings-mobile-final.png`
-- Desktop viewport / pixels: `1060 × 749 CSS px` / `1060 × 749 px`，deviceScaleFactor `1`
-- Mobile viewport / pixels: `390 × 820 CSS px` / `390 × 820 px`，deviceScaleFactor `1`
-- Source dimensions / density normalization: unavailable；Figma 源截图无法抓取，因为连接端调用额度已耗尽且浏览器会话未登录。
-- State: 设置窗口的外观、桌面与 Dock、小组件三页；浅色、深色与 `390px` 手机布局。
-
-## Full-view comparison evidence
-
-本地实现已在真实 Halo 页面捕获桌面浅色、桌面深色和手机宽度状态，窗口层级、三栏结构、底部操作区、低饱和表面、背景图预览与移动端折叠均可见。由于本轮无法取得 Figma 源图，不能把源设计与实现放入同一比较输入，因此不作像素级相似度结论。
-
-## Focused region comparison evidence
-
-未执行源图与实现的局部对照。实现侧已单独检查标题栏、侧边导航、模式卡片、滑杆、开关、壁纸缩略图、底部按钮和移动端底部区域，但这些检查不能替代与源图的同屏对照。
-
-## Findings
-
-- [P1] 缺少可验证的 Figma 源图对照
-  - Location: 整个主题设置窗口。
-  - Evidence: 本地实现截图完整，但 Figma 源截图不可用。
-  - Impact: 无法确认字体、精确间距、色值、阴影、圆角和图标比例是否达到源设计级保真。
-  - Fix: Figma 调用额度恢复或登录后，按相同桌面与移动端状态抓取源图，并与上述实现截图组成同一比较输入重新执行 QA。
-
-## Required fidelity surfaces
-
-- Fonts and typography: 实现使用系统字体栈，层级、行高与截断在本地截图中正常；与源图的字重和字号精确匹配未验证。
-- Spacing and layout rhythm: 桌面三栏、卡片间距、底部操作区和手机折叠均无重叠或横向溢出；源图精确间距未验证。
-- Colors and visual tokens: 浅色与深色均使用低饱和 macOS 风格表面，主题设置未受站点强调色污染；源图色值与透明度未验证。
-- Image quality and asset fidelity: 使用项目真实壁纸资产，缩略图清晰，无占位图或自绘替代；源图裁切一致性未验证。
-- Copy and content: 三个设置分区及操作文案清晰，保存、恢复默认与未保存关闭提示均有明确含义。
-- Icons: 使用项目既有 Iconify/Lucide 图标体系，未引入自绘 SVG；与源图图标尺寸和光学位置未验证。
-- Accessibility: 支持键盘焦点约束、Escape、明确标签、移动端可点击区域和 `prefers-reduced-motion`；仍需在源图可用后复核视觉焦点一致性。
-
-## Primary interactions tested
-
-- 未登录访客点击品牌按钮不会请求受保护接口，也不会打开设置。
-- 权限允许时首次点击才请求配置；保存前重新读取最新配置，并只合并白名单内的脏字段。
-- 保存模拟验证保留未编辑的 header、桌面文章、小组件网格及调试配置。
-- 有未保存修改时第一次关闭给出确认状态，第二次关闭丢弃并恢复主题与 Dock 预览。
-- PJAX 从首页切换到分类页后，设置 store、挂载层和协议保持唯一且可用。
-- `390px` 手机布局无横向溢出，设置底部操作区不被 Dock 覆盖。
-
-## Console and runtime evidence
-
-- 最终新开真页控制台错误：`0`。
-- `pnpm run check`、`pnpm run verify:reload`、`SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright` 均通过。
-
-## Comparison history
-
-- Pass 1: 实现侧桌面浅色、桌面深色、三分区与手机状态均已捕获；源图捕获失败，因此未形成有效的设计对照迭代。
-
-## Implementation checklist
-
-- [x] 管理员权限探测与访客零受保护请求。
-- [x] 配置增量合并、保存前刷新和白名单限制。
-- [x] 外观、桌面与 Dock、小组件三页。
-- [x] 浅色、深色、响应式、PJAX 与键盘交互。
-- [x] 构建、重载、路由和真实页面验证。
-- [ ] 恢复 Figma 源图后完成同视口同状态的视觉对照。
-
-## Follow-up polish
-
-- 在源图可用后，仅针对可见差异调整字体光学重量、控件间距、阴影扩散和图标基线，避免在缺少视觉证据时继续主观微调。
-
-final result: blocked
-
----
-
-# 主题设置原生 macOS 材质与移动侧栏 Design QA
-
-## 对照目标
-
-- Source visual truth:
-  - `/private/tmp/macos-system-settings-reference.png`（Apple 官方 macOS“外观”设置参考）
-  - `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-d9fd2bdd-0077-4c57-ad93-f5444b731b09.png`（用户指定的控制中心入口图标）
-  - `/var/folders/l6/smy8mmk15898tpm0vddrbyt00000gn/T/codex-clipboard-a01971c0-19ef-477d-bb2b-bf61552dcea5.png`（本轮修正前的材质基线）
-- Implementation URL: `http://localhost:8090/`
-- Browser-rendered implementation:
-  - `/private/tmp/theme-settings-native-desktop-final.png`
-  - `/private/tmp/theme-settings-native-desktop-light-final.png`
-  - `/private/tmp/theme-settings-native-mobile-final.png`
-  - `/private/tmp/theme-settings-native-mobile-drawer.png`
-- Desktop viewport / pixels: `1250 × 1169 CSS px` / `1250 × 1169 px`，deviceScaleFactor `1`。
-- Mobile viewport / pixels: `390 × 844 CSS px` / `390 × 844 px`，deviceScaleFactor `1`。
-- Source pixels: Apple 参考图 `1144 × 1224 px`；图标参考 `42 × 30 px`。Apple 图像未声明 CSS 尺寸，因此只按可见窗口材质、结构和控件语言比较，不作伪精确像素结论。
-- State: 管理员打开主题设置；外观页；桌面浅色、桌面深色；手机侧栏收起与展开。
-
-## 对照证据
-
-- Full-view comparison: `/private/tmp/theme-settings-design-comparison.png`
-  - Apple 参考窗口裁切为 `1144 × 1065 px`，实现窗口裁切为 `1062 × 748 px`，分别等比归一到 `900 px` 高后横向拼接，结果 `2244 × 900 px`。
-- Focused icon comparison: `/private/tmp/theme-settings-icon-comparison.png`
-  - 用户图标与实现菜单栏区域分别等比归一到 `240 px` 高后拼接，结果 `1402 × 240 px`。
-- Responsive state comparison: `/private/tmp/theme-settings-mobile-comparison.png`
-  - 同一 `390 × 844` 视口下的默认收起和抽屉展开状态直接拼接，结果 `780 × 844 px`。
-
-## Findings
-
-- No actionable P0/P1/P2 findings remain.
-- Fonts and typography: 使用 `-apple-system / BlinkMacSystemFont / SF Pro / PingFang SC` 系统字体栈；标题、分组标题、说明和状态文本形成清楚的 macOS 层级。侧栏已删除二级说明，只保留“外观 / 桌面与 Dock / 小组件”标题，不再出现拥挤的双行导航。
-- Spacing and layout rhythm: 桌面窗口保留 48px 标题栏、236px 侧栏、安静的 0.5px 分隔线和 11px 分组圆角；内容卡片取消边框与装饰阴影。手机端不再常驻三项横栏，默认使用完整内容宽度，侧栏以 286px 抽屉展开，选择后自动收起；`390 × 844` 未出现横向溢出、底部操作区遮挡或文字碰撞。
-- Colors and visual tokens: 浅色使用 `#F5F5F6 / #EDEDEE / #E9E9EA / #FFFFFF`，深色使用 `#242426 / #2B2B2D / #2D2D2F / #2C2C2E`。设置窗口、标题栏、侧栏、内容卡片和页面背景均为纯色；没有 `linear-gradient`，没有全屏、窗口或侧栏 `backdrop-filter`，背景桌面也不再被模糊或压暗。
-- Image quality and asset fidelity: 壁纸缩略图继续使用主题真实 SVG 资源；界面图标统一复用既有 Iconify/Lucide 管线，没有新增手绘 SVG、Emoji 或占位资源。右上角控制中心入口由两个同族 toggle 图标组合，尺寸、线宽和上下排列与用户参考图一致。
-- Copy and content: 导航只保留功能名；设置项说明仍位于对应内容组内，不把后端字段名、权限实现或版本信息暴露给用户。标题栏始终显示当前分区名称。
-- States and interactions: 桌面导航、深浅色预览、选中、禁用和焦点态均可见；系统原生琥珀焦点外圈已被统一为设置窗口的 macOS 蓝焦点。手机右上角按钮提供 `aria-expanded / aria-controls`，抽屉有独立关闭遮罩，选择项目和 Escape 均先收起抽屉。
-- Accessibility and motion: 焦点约束会排除 `visibility: hidden` 的抽屉控件；窗口、抽屉、遮罩均支持减少动态效果。最终真页切换三个分区后 `Runtime.exceptionThrown` 与 `Log.entryAdded` 均为 `0`。
-
-## Comparison history
-
-- Pass 1: 用户基线图显示入口位于错误区域，窗口大量使用泛白渐变、背景虚化、强边线和双行侧栏说明，形成明显 P1 视觉偏差。
-- Fix 1: 入口移到菜单栏右侧并使用用户指定的控制中心图标；窗口改成浅/深两套固定纯色层级，移除设置界面的渐变、背景虚化、卡片边框与装饰阴影；侧栏删除说明文本。
-- Pass 2: `390 × 844` 真页复核发现侧栏仍作为顶部三项横栏常驻，占用首屏并削弱 macOS 窗口层级，记为 P2 响应式偏差。
-- Fix 2: 手机端改为默认隐藏的左侧抽屉；标题栏右侧使用图标库中的 panel 控件展开，遮罩点击、Escape 和分类选择均可收起，同时从焦点循环中排除隐藏侧栏。
-- Pass 3: Apple 参考与桌面实现同屏对照、用户图标与实现局部对照、手机收起/展开同视口对照均未发现剩余 P0/P1/P2。功能范围少于系统设置、内容文案为主题自身配置，属于明确产品约束。
-
-## Primary interactions tested
-
-- 管理员通过菜单栏右侧控制中心图标打开主题设置。
-- 外观、桌面与 Dock、小组件三分区切换，并在切换后回到内容顶部。
-- 深色、浅色、自动三种预览；测试结束后恢复原有 `dark` 本地偏好且未保存 Halo 配置。
-- 手机端默认隐藏侧栏、展开抽屉、点击遮罩收起、选择分类后自动收起。
-- 有未保存修改时双重关闭确认，并恢复运行时预览。
-- 桌面与手机真页无控制台异常；`pnpm run check`、`pnpm run verify:reload`、`SMOKE_BASE_URL=http://localhost:8090 pnpm run smoke:playwright` 均通过。
-
-## Implementation checklist
-
-- [x] 右上角控制中心入口
-- [x] 固定浅色/深色 macOS 表面
-- [x] 无窗口背景虚化、无泛白渐变
-- [x] 侧栏仅保留标题
-- [x] 手机侧栏默认隐藏、可展开和自动收起
-- [x] 键盘、焦点、Escape 与 reduced-motion
-- [x] 构建、Halo Reload、全路由 Smoke、控制台与同屏 Design QA
-
-## Follow-up polish
-
-- P3：如果未来增加更多前端可编辑分区，可按 Apple 参考补充分组搜索结果和更细的键盘方向键导航；当前只有三项，不应提前增加视觉噪点。
+- [x] 真实源图与实际截图同时并排比较，并核对细节。
+- [x] 五项视觉复核、桌面／手机、明暗与关键交互完成。
+- [x] P2 问题修复后重新捕获、比较并保留证据。
+- [x] 验证与真实业务测试边界见 `docs/2026-10-09-商城AppStore对齐.md`。
 
 final result: passed

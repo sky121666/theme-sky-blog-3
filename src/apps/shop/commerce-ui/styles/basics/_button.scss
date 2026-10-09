@@ -1,0 +1,62 @@
+.shop-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  font-size: var(--shop-font-size-base);
+  font-weight: 500;
+  line-height: 1.5;
+  text-align: center;
+  text-decoration: none;
+  border: 1px solid transparent;
+  border-radius: var(--shop-border-radius);
+  cursor: pointer;
+  transition: var(--shop-transition);
+  white-space: nowrap;
+
+  &:disabled,
+  &.shop-btn--disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.shop-btn-primary {
+  background-color: var(--shop-color-primary);
+  color: var(--shop-color-primary-content);
+  border-color: var(--shop-color-primary);
+
+  &:hover:not(:disabled):not(.shop-btn--disabled) {
+    background-color: var(--shop-color-accent);
+  }
+}
+
+.shop-btn-secondary {
+  background-color: var(--shop-color-secondary);
+  color: var(--shop-color-secondary-content);
+  border-color: var(--shop-gray-300);
+
+  &:hover:not(:disabled):not(.shop-btn--disabled) {
+    background-color: var(--shop-gray-200);
+  }
+}
+
+.shop-btn-danger {
+  background-color: var(--shop-color-error);
+  color: var(--shop-color-error-content);
+  border-color: var(--shop-color-error);
+
+  &:hover:not(:disabled):not(.shop-btn--disabled) {
+    background-color: hsl(0, 10%, 25%);
+  }
+}
+
+.shop-btn-sm {
+  padding: 6px 12px;
+  font-size: var(--shop-font-size-sm);
+}
+
+.shop-btn-lg {
+  padding: 14px 28px;
+  font-size: var(--shop-font-size-lg);
+}

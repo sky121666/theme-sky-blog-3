@@ -1,0 +1,116 @@
+.shop-app-shell {
+  position: relative;
+}
+
+.shop-titlebar {
+  position: absolute;
+  z-index: 6;
+  inset: 0 0 auto var(--shop-sidebar-width);
+  display: grid;
+  height: 52px;
+  align-items: center;
+  justify-items: center;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  pointer-events: none;
+  transition: background-color 140ms ease-out, border-color 140ms ease-out;
+}
+
+.shop-titlebar[data-scrolled="true"] {
+  border-bottom-color: var(--shop-border);
+  background: color-mix(in srgb, var(--shop-bg) 84%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(1.35);
+  backdrop-filter: blur(24px) saturate(1.35);
+}
+
+.shop-titlebar-title {
+  max-width: calc(100% - 96px);
+  overflow: hidden;
+  color: var(--shop-text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 140ms ease-out;
+}
+
+.shop-titlebar[data-title-visible="true"] .shop-titlebar-title {
+  opacity: 1;
+}
+
+.shop-titlebar[data-has-return="true"] .shop-titlebar-title {
+  max-width: calc(100% - 320px);
+}
+
+.shop-titlebar .shop-back-link {
+  position: absolute;
+  inset-inline-start: 16px;
+  display: block;
+  box-sizing: border-box;
+  max-width: 136px;
+  height: 40px;
+  overflow: hidden;
+  padding: 0 8px;
+  border-radius: 8px;
+  line-height: 40px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: auto;
+}
+
+.shop-titlebar .shop-back-link:hover {
+  background: color-mix(in srgb, var(--shop-text) 5%, transparent);
+}
+
+.shop-titlebar .shop-back-link:active {
+  background: color-mix(in srgb, var(--shop-text) 9%, transparent);
+}
+
+.shop-app[data-shop-scene="product"] .shop-main-header:not(:has([data-shop-return])) {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .shop-titlebar {
+    inset-inline-start: 0;
+    height: 44px;
+  }
+
+  .shop-titlebar .shop-mobile-menu {
+    position: absolute;
+    inset: 4px auto auto 12px;
+    border: 0;
+    background: transparent;
+    pointer-events: auto;
+  }
+
+  .shop-titlebar .shop-back-link {
+    inset-inline-start: 52px;
+    max-width: 92px;
+  }
+
+  .shop-titlebar[data-has-return="true"] .shop-titlebar-title {
+    width: calc(100% - 164px);
+    max-width: none;
+    justify-self: end;
+    margin-inline-end: 12px;
+  }
+
+  .shop-app[data-app-root="shop"] .shop-main {
+    padding-top: max(64px, env(safe-area-inset-top));
+  }
+
+  .shop-main-header:empty {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shop-titlebar,
+  .shop-titlebar-title {
+    transition: none;
+  }
+}

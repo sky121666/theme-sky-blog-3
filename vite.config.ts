@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 import { gzipSync } from "node:zlib";
 import tailwindcss from "@tailwindcss/vite";
+import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { defineConfig } from "vite";
 import { getAppAssetSegment, getAppEntryPaths, getEntryJsPath, getEntryCssPath } from "./src/shell-core/runtime/app-manifests.js";
 import { renderBuildStyles } from "./scripts/theme-build-styles.mjs";
@@ -452,7 +453,9 @@ export default defineConfig({
     __THEME_BUILD_VERSION__: JSON.stringify(buildVersion),
     __THEME_BUILD_REVISION__: JSON.stringify(buildRevision),
   },
-  plugins: [tailwindcss(), maintainBuildOutputHygiene()],
+  plugins: [svelte({
+    dynamicCompileOptions: ({ filename }) => ({ customElement: filename.includes('/src/apps/shop/commerce-ui/') })
+  }), tailwindcss(), maintainBuildOutputHygiene()],
   build: {
     outDir,
     emptyOutDir: false,

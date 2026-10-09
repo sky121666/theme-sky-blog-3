@@ -1,0 +1,116 @@
+<!-- Halo Pro 2.26.1 ProductFinder only exposes list(Map), for published products.
+     Resolve configured IDs across every page; never promote a catalogue position. -->
+<th:block th:fragment="home (fallbackPage, showDescription)"
+          th:with="
+            rawHero=${theme.config.shop?.home?.hero_product},
+            heroId=${rawHero == null ? '' : #strings.trim(#strings.toString(rawHero))},
+            heroImage=${theme.config.shop?.home?.hero_image ?: ''},
+            heroTitle=${theme.config.shop?.home?.hero_title ?: ''},
+            heroDescription=${theme.config.shop?.home?.hero_description ?: ''},
+            rawFeatured=${theme.config.shop?.home?.featured_products},
+            featuredIds=${rawFeatured instanceof T(java.util.List) ? rawFeatured : {}},
+            rawCompact=${theme.config.shop?.home?.compact_products},
+            compactIds=${rawCompact instanceof T(java.util.List) ? rawCompact : {}},
+            rawPreview=${theme.config.shop?.home?.preview_products},
+            previewIds=${rawPreview instanceof T(java.util.List) ? rawPreview : {}},
+            configured=${!#strings.isEmpty(heroId) or !#lists.isEmpty(featuredIds) or !#lists.isEmpty(compactIds) or !#lists.isEmpty(previewIds)},
+            firstPage=${configured and productFinder != null ? productFinder.list({'page':1,'size':999,'sort':{'id,asc'}}) : null}">
+  <div class="shop-home" data-shop-home data-shop-explore>
+    <th:block th:if="${!#strings.isEmpty(heroId) and firstPage != null}">
+      <th:block th:replace="~{::renderConfiguredProduct(page=${firstPage},targetId=${heroId},variant='hero',showDescription=${showDescription},customTitle=${heroTitle},promotionImage=${heroImage},customDescription=${heroDescription})}"></th:block>
+    </th:block>
+    <div class="shop-home-featured shop-editorial-carousel" th:if="${!#lists.isEmpty(featuredIds) and firstPage != null}" aria-label="推荐商品">
+      <th:block th:each="selectedId, iter : ${featuredIds}" th:if="${iter.index < 2}">
+        <th:block th:replace="~{::renderConfiguredProduct(page=${firstPage},targetId=${#strings.trim(#strings.toString(selectedId))},variant='featured',showDescription=${showDescription},customTitle='',promotionImage='',customDescription='')}"></th:block>
+      </th:block>
+    </div>
+    <th:block th:replace="~{::compactSelection(showDescription=${showDescription})}"></th:block>
+    <section class="shop-home-preview shop-home-section" th:if="${!#lists.isEmpty(previewIds) and firstPage != null}" aria-label="商品预览">
+      <div class="shop-home-section-header"><h2 class="shop-home-section-title">商品预览</h2></div>
+      <div class="shop-gallery-carousel">
+        <th:block th:each="selectedId : ${previewIds}">
+          <th:block th:replace="~{::renderConfiguredProduct(page=${firstPage},targetId=${#strings.trim(#strings.toString(selectedId))},variant='preview',showDescription=${showDescription},customTitle='',promotionImage='',customDescription='')}"></th:block>
+        </th:block>
+      </div>
+    </section>
+    <th:block th:replace="~{::latestProducts(page=${productFinder != null ? productFinder.list({'page':1,'size':12,'sort':{'createdAt,desc','id,desc'}}) : fallbackPage},showDescription=${showDescription})}"></th:block>
+  </div>
+</th:block>
+
+<th:block th:fragment="compactSelection (showDescription)"
+          th:with="compactTitle=${#vars.isCategoryOverview == true ? '编辑精选' : '精选商品'},rawCompact=${theme.config.shop?.home?.compact_products},compactIds=${rawCompact instanceof T(java.util.List) ? rawCompact : {}},compactPage=${!#lists.isEmpty(compactIds) and productFinder != null ? (#vars.firstPage != null ? #vars.firstPage : productFinder.list({'page':1,'size':999,'sort':{'id,asc'}})) : null}">
+  <section class="shop-home-compact shop-home-section" th:attr="aria-label=${compactTitle}" th:if="${!#lists.isEmpty(compactIds) and compactPage != null}">
+    <div class="shop-home-section-header">
+      <h2 class="shop-home-section-title" th:text="${compactTitle}">精选商品</h2>
+      <a href="/shop/products?view=all" class="shop-home-section-link pjax-link" data-shop-browse data-shop-view="all" data-shop-category="" data-shop-keyword="" data-shop-sort="">查看全部</a>
+    </div>
+    <div class="shop-compact-list">
+      <th:block th:each="selectedId : ${compactIds}">
+        <th:block th:replace="~{::renderConfiguredProduct(page=${compactPage},targetId=${#strings.trim(#strings.toString(selectedId))},variant='compact',showDescription=${showDescription},customTitle='',promotionImage='',customDescription='')}"></th:block>
+      </th:block>
+    </div>
+  </section>
+</th:block>
+
+<th:block th:fragment="renderConfiguredProduct (page, targetId, variant, showDescription, customTitle, promotionImage, customDescription)"
+          th:if="${page != null and !#strings.isEmpty(targetId)}"
+          th:with="match=${page.items != null ? page.items.^[#strings.toString(id) == #vars.targetId] : null}">
+  <th:block th:if="${match != null}">
+    <th:block th:replace="~{::configuredCard(item=${match},variant=${variant},showDescription=${showDescription},customTitle=${customTitle},promotionImage=${promotionImage},customDescription=${customDescription})}"></th:block>
+  </th:block>
+  <th:block th:if="${match == null and page.hasNext()}">
+    <th:block th:replace="~{::renderConfiguredProduct(page=${productFinder.list({'page':page.page + 1,'size':999,'sort':{'id,asc'}})},targetId=${targetId},variant=${variant},showDescription=${showDescription},customTitle=${customTitle},promotionImage=${promotionImage},customDescription=${customDescription})}"></th:block>
+  </th:block>
+</th:block>
+
+<th:block th:fragment="configuredCard (item, variant, showDescription, customTitle, promotionImage, customDescription)"
+          th:with="variants=${item.productVariants instanceof T(java.util.List) ? item.productVariants : {}},publishedVariants=${variants.?[status != null and #strings.toString(status) == 'PUBLISHED']},soldOut=${!#lists.isEmpty(publishedVariants) and #lists.size(publishedVariants.?[trackInventory == true and stock != null and stock <= 0]) == #lists.size(publishedVariants)},hasImage=${!#strings.isEmpty(item.coverImageUrl)}">
+  <a th:if="${variant == 'hero' and !soldOut and (hasImage or !#strings.isEmpty(promotionImage))}"
+     class="shop-hero pjax-link" th:attr="data-shop-home-product=${item.id}" th:href="@{/shop/product/{id}(id=${item.id})}">
+    <img th:if="${!#strings.isEmpty(promotionImage)}" class="shop-hero-image" data-shop-media="promotion" th:src="${promotionImage}" alt="" decoding="async" fetchpriority="high" />
+    <th:block th:if="${#strings.isEmpty(promotionImage)}">
+      <th:block th:replace="~{modules/shop-app/media :: productImage(item=${item},mediaClass='shop-hero-identity-image',mediaRole='identity')}"></th:block>
+    </th:block>
+    <div class="shop-hero-content">
+      <p class="shop-hero-name" th:text="${!#strings.isEmpty(customTitle) ? customTitle : item.title}">主推商品</p>
+      <p class="shop-product-description" th:if="${showDescription and (!#strings.isEmpty(customDescription) or !#strings.isEmpty(item.description))}" th:text="${!#strings.isEmpty(customDescription) ? customDescription : item.description}">商品简介</p>
+      <th:block th:replace="~{modules/shop-app/products :: price(item=${item})}"></th:block>
+    </div>
+  </a>
+  <a th:if="${variant == 'featured' and !soldOut}" class="shop-editorial-card pjax-link" th:attr="data-shop-home-product=${item.id}" th:href="@{/shop/product/{id}(id=${item.id})}">
+    <div class="shop-editorial-content">
+      <p class="shop-product-name" th:text="${item.title}">商品名称</p>
+      <p class="shop-product-description" th:if="${showDescription and !#strings.isEmpty(item.description)}" th:text="${item.description}">商品简介</p>
+      <th:block th:replace="~{modules/shop-app/products :: price(item=${item})}"></th:block>
+    </div>
+    <th:block th:replace="~{modules/shop-app/media :: productImage(item=${item},mediaClass='shop-editorial-image',mediaRole='identity')}"></th:block>
+  </a>
+  <th:block th:if="${variant == 'compact'}">
+    <th:block th:replace="~{::compactCard(item=${item},showDescription=${showDescription},soldOut=${soldOut},configured=true)}"></th:block>
+  </th:block>
+  <a th:if="${variant == 'preview' and hasImage}" class="shop-gallery-card pjax-link" th:attr="data-shop-home-product=${item.id}" th:href="@{/shop/product/{id}(id=${item.id})}">
+    <th:block th:replace="~{modules/shop-app/media :: productImage(item=${item},mediaClass='shop-gallery-image',mediaRole='preview')}"></th:block>
+    <div class="shop-gallery-caption"><p class="shop-product-name" th:text="${item.title}">商品名称</p><p class="shop-product-description" th:if="${showDescription and !#strings.isEmpty(item.description)}" th:text="${item.description}">商品简介</p><th:block th:replace="~{modules/shop-app/products :: price(item=${item})}"></th:block></div>
+  </a>
+</th:block>
+
+<section th:fragment="latestProducts (page, showDescription)" class="shop-home-fallback" aria-label="最新商品">
+  <p class="shop-home-fallback-title">最新商品</p>
+  <div th:if="${page != null and page.items != null and !#lists.isEmpty(page.items)}" class="shop-compact-list">
+    <th:block th:each="item : ${page.items}">
+      <th:block th:replace="~{::compactCard(item=${item},showDescription=${showDescription},soldOut=false,configured=false)}"></th:block>
+    </th:block>
+  </div>
+  <p th:if="${page == null or page.items == null or #lists.isEmpty(page.items)}" class="shop-empty">商店暂时没有商品。</p>
+  <a href="/shop/products?view=all" class="shop-card-action pjax-link" th:if="${page != null and page.total > 12}">浏览所有商品 <span aria-hidden="true">›</span></a>
+</section>
+
+<a th:fragment="compactCard (item, showDescription, soldOut, configured)" class="shop-compact-card pjax-link" th:attr="data-shop-home-product=${configured ? item.id : null}" th:href="@{/shop/product/{id}(id=${item.id})}"
+   th:with="knownVariants=${item.productVariants instanceof T(java.util.List) ? item.productVariants : {}},publishedVariants=${knownVariants.?[status != null and #strings.toString(status) == 'PUBLISHED']},knownSoldOut=${!#lists.isEmpty(publishedVariants) and #lists.size(publishedVariants.?[trackInventory == true and stock != null and stock <= 0]) == #lists.size(publishedVariants)}">
+  <th:block th:replace="~{modules/shop-app/media :: productImage(item=${item},mediaClass='shop-compact-image',mediaRole='identity')}"></th:block>
+  <div class="shop-compact-content"><p class="shop-product-name" th:text="${item.title}">商品名称</p><p class="shop-product-description" th:if="${showDescription and !#strings.isEmpty(item.description)}" th:text="${item.description}">商品简介</p></div>
+  <div class="shop-compact-offer">
+    <th:block th:replace="~{modules/shop-app/products :: price(item=${item})}"></th:block>
+    <small class="shop-compact-stock" th:if="${soldOut or knownSoldOut}">暂时缺货</small>
+  </div>
+</a>

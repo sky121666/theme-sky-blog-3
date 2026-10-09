@@ -1,0 +1,27 @@
+<section th:fragment="overview (categories)" class="shop-category-overview" aria-label="商品类别">
+  <div th:if="${categories == null or #lists.isEmpty(categories)}" class="shop-empty" data-shop-categories-empty>
+    <p>商店暂时没有类别。</p>
+    <a href="/shop/products?view=all" class="shop-ui-btn pjax-link" data-shop-browse data-shop-view="all" data-shop-category="" data-shop-keyword="" data-shop-sort="">浏览商品</a>
+  </div>
+  <th:block th:if="${categories != null and !#lists.isEmpty(categories)}">
+    <th:block th:replace="~{::categoryTree(categories=${categories})}"></th:block>
+  </th:block>
+</section>
+
+<ul th:fragment="categoryTree (categories)" class="shop-category-tree"
+    th:style="|--shop-category-rows-wide:${(#lists.size(categories) + 2) / 3};--shop-category-rows-medium:${(#lists.size(categories) + 1) / 2};|">
+  <li th:each="category : ${categories}" class="shop-category-branch">
+    <a class="shop-category-link pjax-link" data-shop-browse data-shop-view="all" data-shop-keyword="" data-shop-sort="" th:data-shop-category="${category.id}"
+       th:href="@{/shop/products(categoryId=${category.id},view='all')}"
+       th:title="${#strings.isEmpty(category.description) ? category.name : category.name + '：' + category.description}">
+      <th:block th:replace="~{modules/shop-app/category-appearance :: icon(category=${category},sidebar=false)}"></th:block>
+      <span class="shop-category-copy">
+        <span class="shop-category-name" th:text="${category.name}">分类名称</span>
+      </span>
+    </a>
+    <details th:if="${category.children != null and !#lists.isEmpty(category.children)}" class="shop-category-children">
+      <summary th:text="${#lists.size(category.children) + ' 个子分类'}">查看子分类</summary>
+      <th:block th:replace="~{::categoryTree(categories=${category.children})}"></th:block>
+    </details>
+  </li>
+</ul>

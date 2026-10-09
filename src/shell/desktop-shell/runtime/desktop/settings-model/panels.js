@@ -1,10 +1,11 @@
 import { SETTINGS_FIELDS, SETTINGS_PANES } from './schema.js';
+import { CATEGORY_ICON_OPTIONS } from './category-appearances.js';
 
 const CONTENT_FIELDS = { categories: 'categories', tags: 'tags', posts: 'posts', singlepages: 'single_pages' };
 const normalize = (value) => String(value || '').trim().toLocaleLowerCase('zh-CN');
 const selectionName = (value) => typeof value === 'string' ? value : value?.name ?? value?.metadata?.name ?? value?.value;
-const APP_LABELS = Object.freeze({ moments: '瞬间', douban: '豆瓣', links: '友链', steam: 'Steam', equipments: '装备' });
-const APP_ALIASES = Object.freeze({ moments: '瞬间', douban: '豆瓣 书影音', links: '友链', steam: 'Steam', equipments: '装备' });
+const APP_LABELS = Object.freeze({ moments: '瞬间', douban: '豆瓣', links: '友链', steam: 'Steam', equipments: '装备', shop: '商店' });
+const APP_ALIASES = Object.freeze({ moments: '瞬间', douban: '豆瓣 书影音', links: '友链', steam: 'Steam', equipments: '装备', shop: '商店 商城' });
 
 // Resource requests live outside Alpine proxies; switching panes never owns config persistence.
 export function createSettingsPanelMethods(Alpine) {
@@ -75,6 +76,7 @@ export function createSettingsPanelMethods(Alpine) {
         if (restoreFocus) document.querySelector('[data-theme-settings-sidebar-toggle]')?.focus?.({ preventScroll: true });
       }));
       if ((pane === 'navigation' || pane === 'desktop-dock') && !this.resourceState('menus').loaded) void this.loadResources('menus');
+      if (nextApp === 'shop' && !this.resourceState('shopCategories').loaded) void this.loadResources('shopCategories');
       if (pane === 'widgets') {
         Object.keys(CONTENT_FIELDS).forEach((kind) => {
           if (!this.resourceState(kind).loaded) void this.loadResources(kind);
@@ -106,16 +108,18 @@ export function createSettingsPanelMethods(Alpine) {
     searchResources(kind, query) {
       this.resources = { ...this.resources, [kind]: { ...this.resourceState(kind), query: String(query || '') } };
     },
-    resourceOptions(kind) {
+    resourceOptions(kind, filter = true) {
       const state = this.resourceState(kind);
       const items = [...state.items];
       const selected = kind === 'menus'
         ? [this.value('navigation.header.menu_name'), this.value('navigation.dock.menu_name')]
+        : kind === 'shopCategories' ? [...this.value('shop.navigation.sidebar_categories', []), ...this.value('shop.navigation.category_appearances', []).map((item) => item.category_id)]
+        : kind === 'shopProducts' ? SETTINGS_FIELDS.filter((field) => field.source === kind).flatMap((field) => this.value(field.path, field.default))
         : this.value(`desktop.icons.${CONTENT_FIELDS[kind]}`, []);
       for (const name of selected.map(selectionName)) {
         if (name && !items.some((item) => item.name === name)) items.push({ name, label: `${name}（未加载或已不可用）`, disabled: true });
       }
-      const query = normalize(state.query);
+      const query = filter ? normalize(state.query) : '';
       return items.filter((item) => !query || normalize(`${item.name} ${item.label}`).includes(query));
     },
     async loadResources(kind, more = false) {
@@ -143,6 +147,13 @@ export function createSettingsPanelMethods(Alpine) {
       this.resources = {};
     },
     resourceSelected(path, name) { return (this.value(path, []) || []).some((item) => selectionName(item) === name); },
+    selectResource(path, name) {
+      const field = SETTINGS_FIELDS.find((item) => item.path === path && item.type === 'text' && item.source);
+      if (!field || typeof name !== 'string') return;
+      const resource = this.resourceState(field.source).items.find((item) => item.name === name);
+      if (name && (!resource || resource.disabled)) return;
+      this.update(path, name);
+    },
     toggleResource(path, name) {
       const field = SETTINGS_FIELDS.find((item) => item.path === path && item.type === 'content-list');
       if (!field) return;
@@ -150,7 +161,18 @@ export function createSettingsPanelMethods(Alpine) {
       const resource = this.resourceState(field.source).items.find((item) => item.name === name);
       const selected = current.some((item) => selectionName(item) === name);
       if (!selected && (!resource || resource.disabled)) return;
+      if (!selected && field.maxCount && current.length >= field.maxCount) return;
       this.update(path, selected ? current.filter((value) => selectionName(value) !== name) : [...current, name]);
+    },
+    moveResource(path, name, direction) {
+      const field = SETTINGS_FIELDS.find((item) => item.path === path && item.type === 'content-list');
+      if (!field || ![-1, 1].includes(direction)) return;
+      const current = [...this.value(path, [])];
+      const index = current.findIndex((item) => selectionName(item) === name);
+      const next = index + direction;
+      if (index < 0 || next < 0 || next >= current.length) return;
+      [current[index], current[next]] = [current[next], current[index]];
+      this.update(path, current);
     },
     customIconNameLocked(index) {
       const name = this.value('desktop.icons.custom_icons', [])[index]?.name;
@@ -173,6 +195,25 @@ export function createSettingsPanelMethods(Alpine) {
       this.update('desktop.icons.custom_icons', items.map((item, i) => i === index ? { ...item, [field]: value } : item));
     },
     removeCustomIcon(index) { this.update('desktop.icons.custom_icons', this.value('desktop.icons.custom_icons', []).filter((_item, i) => i !== index)); },
+    categoryIconOptions: CATEGORY_ICON_OPTIONS,
+    addCategoryAppearance() {
+      const path = 'shop.navigation.category_appearances';
+      this.update(path, [...this.value(path, []), { category_id: '', icon: 'folder', color: '' }]);
+    },
+    updateCategoryAppearance(index, field, value) {
+      const path = 'shop.navigation.category_appearances';
+      const items = this.value(path, []);
+      if (!items[index] || !['category_id', 'icon', 'color'].includes(field)) return;
+      if (field === 'category_id' && value) {
+        const resource = this.resourceState('shopCategories').items.find((item) => item.name === value);
+        if (!resource || resource.disabled || items.some((item, i) => i !== index && item.category_id === value)) return;
+      }
+      this.update(path, items.map((item, i) => i === index ? { ...item, [field]: value } : item));
+    },
+    removeCategoryAppearance(index) {
+      const path = 'shop.navigation.category_appearances';
+      this.update(path, this.value(path, []).filter((_item, i) => i !== index));
+    },
     async openLayoutEditor() {
       if (this.layoutOpening) return false;
       if (this.desktopLayoutReloadRequired) {

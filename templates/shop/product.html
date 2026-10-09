@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html xmlns:th="https://www.thymeleaf.org" th:replace="~{modules/shell/layout :: html(
+    title=${product.title + ' - ' + site.title},
+    description=${product.description},
+    ssrContent=~{modules/shop-app/product :: content},
+    canonical=${'/shop/product/' + product.id},
+    image=${!#lists.isEmpty(product.images) ? product.images[0] : site.logo},
+    type='website',
+    seoFallback='meta',
+    robots='',
+    serverDescription=true,
+    serverSocialIdentity=true,
+    pageMode='browser-shop-product',
+    pageApp='shop',
+    windowVariant='shop',
+    windowScene='product',
+    windowTitle=${product.title},
+    windowResizable=true,
+    windowMaximizable=true,
+    windowMetricsKey='shop'
+  )}"></html>

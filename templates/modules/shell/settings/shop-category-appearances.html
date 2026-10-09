@@ -1,0 +1,23 @@
+<div th:fragment="editor" class="theme-settings-group">
+  <details class="theme-settings-resource-picker" data-setting-path="shop.navigation.category_appearances"
+           @toggle="if ($event.target.open &amp;&amp; !$store.themeSettings.resourceState('shopCategories').loaded) $store.themeSettings.loadResources('shopCategories')">
+    <summary><span class="theme-settings-copy"><strong>分类图标与颜色</strong></span><span class="theme-settings-resource-count" x-text="$store.themeSettings.value('shop.navigation.category_appearances', []).length + ' 项配置'"></span><span class="icon-[lucide--chevron-right]" aria-hidden="true"></span></summary>
+    <div class="theme-settings-resource-body">
+      <p class="theme-settings-resource-message">全部分类页优先展示商城分类图片，无图片时显示图标。侧栏图标始终使用主题强调色。</p>
+      <p class="theme-settings-resource-message" x-show="$store.themeSettings.resourceState('shopCategories').busy" role="status">正在加载分类…</p>
+      <div class="theme-settings-resource-error" x-show="$store.themeSettings.resourceState('shopCategories').error" role="alert"><span x-text="$store.themeSettings.resourceState('shopCategories').error"></span><button type="button" class="theme-settings-text-button" @click="$store.themeSettings.loadResources('shopCategories')">重试</button></div>
+      <template x-for="(item, index) in $store.themeSettings.value('shop.navigation.category_appearances', [])" :key="index">
+        <div class="theme-settings-custom-icon-editor">
+          <div class="theme-settings-row-heading"><strong x-text="$store.themeSettings.resourceOptions('shopCategories', false).find(option => option.name === item.category_id)?.label || '选择商品分类'"></strong><button type="button" class="theme-settings-text-button is-danger" @click="$store.themeSettings.removeCategoryAppearance(index)">移除配置</button></div>
+          <label class="theme-settings-input-row"><span>商品分类</span><select :value="item.category_id" @change="$store.themeSettings.updateCategoryAppearance(index, 'category_id', $event.target.value)"><option value="" :selected="!item.category_id">请选择分类</option><template x-for="option in $store.themeSettings.resourceOptions('shopCategories', false)" :key="option.name"><option :value="option.name" :selected="item.category_id === option.name" :disabled="option.disabled || $store.themeSettings.value('shop.navigation.category_appearances', []).some((row, rowIndex) => rowIndex !== index &amp;&amp; row.category_id === option.name)" x-text="option.label"></option></template></select></label>
+          <label class="theme-settings-input-row"><span>图标</span><select :value="item.icon" @change="$store.themeSettings.updateCategoryAppearance(index, 'icon', $event.target.value)"><template x-for="option in $store.themeSettings.categoryIconOptions" :key="option.value"><option :value="option.value" :selected="item.icon === option.value" x-text="option.label"></option></template></select></label>
+          <label class="theme-settings-input-row"><span>内容区图标颜色</span><input type="color" :value="item.color || '#2E5FBD'" @change="$store.themeSettings.updateCategoryAppearance(index, 'color', $event.target.value)" /></label>
+          <div class="theme-settings-group-row"><span class="theme-settings-copy"><small x-text="item.color || '跟随主题强调色'"></small></span><button type="button" class="theme-settings-text-button" :disabled="!item.color" @click="$store.themeSettings.updateCategoryAppearance(index, 'color', '')">恢复主题颜色</button></div>
+        </div>
+      </template>
+      <button type="button" class="theme-settings-text-button" x-show="$store.themeSettings.resourceState('shopCategories').hasNext" :disabled="$store.themeSettings.resourceState('shopCategories').busy" @click="$store.themeSettings.loadResources('shopCategories', true)">加载更多分类</button>
+      <div class="theme-settings-group-row"><span class="theme-settings-copy"><small x-show="!$store.themeSettings.value('shop.navigation.category_appearances', []).length">未配置的分类使用默认文件夹图标。</small></span><button type="button" class="theme-settings-secondary-button" @click="$store.themeSettings.addCategoryAppearance()"><span class="icon-[lucide--plus]" aria-hidden="true"></span>添加分类外观</button></div>
+      <p class="theme-settings-field-error" x-show="$store.themeSettings.validationError('shop.navigation.category_appearances')" x-text="$store.themeSettings.validationError('shop.navigation.category_appearances')" role="alert"></p>
+    </div>
+  </details>
+</div>

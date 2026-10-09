@@ -154,6 +154,8 @@
       })();
     </script>
 
+    <!-- 商城组件随独立 Shop 模块登记，PJAX 进入与返回复用同一模块实例。 -->
+
 	    <!-- 同次构建提供 CSS 身份；Halo 资源 token 继续用于清单与故障回退。 -->
 	    <th:block th:replace="~{assets/build-styles :: styles(${pageAppValue})}" />
 		    <script type="application/json" data-initial-app-script
@@ -462,6 +464,10 @@
       headerMenuName = ${!#strings.isEmpty(navigationHeaderMenuName) ? navigationHeaderMenuName : (!#strings.isEmpty(legacyHeaderMenuName) ? legacyHeaderMenuName : 'primary')},
       headerMenu = ${widgetsSourceRequest ? null : (!#strings.isEmpty(headerMenuName) ? menuFinder.getByName(headerMenuName) : menuFinder.getByName('primary'))},
       dockMenu = ${widgetsSourceRequest ? null : (!#strings.isEmpty(rawMenuName) ? menuFinder.getByName(rawMenuName) : menuFinder.getByName('primary'))},
+      dockShopEnabled = ${#strings.toLowerCase(#strings.trim(#strings.toString(theme.config.shop?.display?.dock_entry_enabled))) == 'true'},
+      dockShopSiteBase = ${site.url != null ? #strings.trim(site.url.toString()).replaceAll('/+$', '') : ''},
+      dockMenuHrefs = ${dockMenu != null and dockMenu.menuItems != null ? dockMenu.menuItems.![#strings.trim(status?.href ?: '').replaceAll('[?#].*$', '').replaceAll('/+$', '')] : {}},
+      dockMenuHasShop = ${#lists.contains(dockMenuHrefs, '/shop/products') or (!#strings.isEmpty(dockShopSiteBase) and (#lists.contains(dockMenuHrefs, dockShopSiteBase + '/shop/products') or #lists.contains(dockMenuHrefs, dockShopSiteBase.replaceFirst('^https?:', '') + '/shop/products')))},
       desktopAppearance = ${theme.config.desktop?.appearance},
       legacyCustomScheme = ${(desktopAppearance?.mode == null) and (desktopAppearance?.accent_color != null or desktopAppearance?.selection_color != null or desktopAppearance?.folder_color1 != null or desktopAppearance?.folder_color2 != null or desktopAppearance?.folder_color3 != null or desktopAppearance?.glass_light_color != null or desktopAppearance?.glass_dark_color != null)},
       schemeMode = ${desktopAppearance?.mode ?: (legacyCustomScheme ? 'custom' : 'preset')},
@@ -835,6 +841,16 @@
                       metricsKey=${windowMetricsKey != null ? windowMetricsKey : 'docsme'}
                     )}" />
         </th:block>
+
+        <th:block th:if="${windowVariant == 'shop'}">
+          <th:block th:replace="~{modules/shop-app/window :: frame(
+                      titleText=${windowTitle},
+                      subtitleText='',
+                      contentFragment=${ssrContent},
+                      windowResizable=${windowResizable != null ? windowResizable : 'y'},
+                      metricsKey=${windowMetricsKey != null ? windowMetricsKey : 'shop'}
+                    )}" />
+        </th:block>
         
         <!-- 默认浏览器窗口变体 -->
         <th:block th:if="${windowVariant == 'browser'}">
@@ -942,6 +958,21 @@
             </th:block>
           </th:block>
         </th:block>
+
+        <a th:if="${dockShopEnabled and !dockMenuHasShop}"
+           class="dock-icon group pjax-link" th:href="@{/shop/products}" data-pjax-app="shop"
+           aria-label="商店" data-dock-label="商店">
+          <div class="dock-tooltip" x-show="$el.closest('.dock-container').dataset.showLabels === 'true'">商店</div>
+          <div class="dock-icon-face">
+            <img class="dock-icon-img" th:src="@{/assets/images/shop.svg}" alt="" aria-hidden="true" loading="eager" decoding="async" draggable="false" />
+          </div>
+          <div class="dock-dot"
+               x-show="$store.windowManager.show &amp;&amp; /^\/shop(?:\/|$)/.test(window.location.pathname)"
+               x-transition:enter="transition ease-out duration-150"
+               x-transition:enter-start="opacity-0 scale-50"
+               x-transition:enter-end="opacity-100 scale-100"
+               style="display: none;"></div>
+        </a>
 
         <button type="button" class="dock-icon dock-settings-icon group"
                 aria-label="系统设置" data-dock-label="系统设置"

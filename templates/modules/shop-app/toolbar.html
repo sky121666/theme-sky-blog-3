@@ -1,0 +1,44 @@
+<div th:fragment="toolbar (categories, currentKeyword, currentCategory, currentSort, isCatalog)" class="shop-catalog-toolbar" th:classappend="${!isCatalog} ? 'shop-explore-toolbar' : ''">
+  <form class="shop-search shop-mobile-search" action="/shop/products" method="get" role="search" data-shop-search>
+    <label class="shop-ui-input">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m16 16 5 5"></path></svg>
+      <input type="search" name="keyword" aria-label="搜索商品" placeholder="搜索商品" th:value="${currentKeyword}" />
+    </label>
+    <input type="hidden" name="view" value="all" />
+    <input th:if="${!#strings.isEmpty(currentCategory)}" type="hidden" name="categoryId" th:value="${currentCategory}" />
+    <input th:if="${!#strings.isEmpty(currentSort)}" type="hidden" name="sort" th:value="${currentSort}" />
+  </form>
+  <div class="shop-filterbar" th:if="${isCatalog}">
+    <form class="shop-sort" action="/shop/products" method="get" data-shop-filter>
+      <input type="hidden" name="view" value="all" />
+      <input th:if="${!#strings.isEmpty(currentKeyword)}" type="hidden" name="keyword" th:value="${currentKeyword}" />
+      <label for="shop-category">分类</label>
+      <select id="shop-category" name="categoryId" class="shop-ui-select">
+        <option value="" th:selected="${#strings.isEmpty(currentCategory)}">全部分类</option>
+        <th:block th:replace="~{modules/shop-app/sidebar :: categoryOptions(categories=${categories},currentCategory=${currentCategory},prefix='')}"></th:block>
+      </select>
+      <label for="shop-sort">排序</label>
+      <select id="shop-sort" name="sort" class="shop-ui-select">
+        <option value="" th:selected="${#strings.isEmpty(currentSort)}">默认排序</option>
+        <option value="minPrice,asc" th:selected="${currentSort == 'minPrice,asc'}">价格从低到高</option>
+        <option value="minPrice,desc" th:selected="${currentSort == 'minPrice,desc'}">价格从高到低</option>
+        <option value="title,asc" th:selected="${currentSort == 'title,asc'}">按名称排序</option>
+      </select>
+    </form>
+  </div>
+  <div class="shop-display-toolbar" th:if="${isCatalog}" data-shop-display-controls aria-label="商品展示设置">
+    <div class="shop-display-group" role="group" aria-label="商品布局">
+      <button type="button" class="shop-ui-btn shop-display-button" data-shop-display-layout="cards" aria-label="卡片展示" aria-pressed="true">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>
+      </button>
+      <button type="button" class="shop-ui-btn shop-display-button" data-shop-display-layout="list" aria-label="列表展示" aria-pressed="false">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 5h12M9 12h12M9 19h12"></path><rect x="3" y="3" width="3" height="4" rx="1"></rect><rect x="3" y="10" width="3" height="4" rx="1"></rect><rect x="3" y="17" width="3" height="4" rx="1"></rect></svg>
+      </button>
+    </div>
+    <label class="shop-size-control">尺寸
+      <select class="shop-ui-select" data-shop-display-size-select aria-label="商品尺寸">
+        <option value="large">大</option><option value="medium" selected>中</option><option value="small">小</option>
+      </select>
+    </label>
+  </div>
+</div>

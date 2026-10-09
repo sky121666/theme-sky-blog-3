@@ -7,6 +7,10 @@
 /* Build classes from runtime sources only; reports and fixtures are not UI. */
 @source "../../../../../templates/**/*.html";
 @source "../../../../";
+/* Commerce components provide their own CSS; their source is not Shell utilities. */
+@source not "../../../../apps/shop/commerce-ui";
+/* Category glyphs are compiled into Shop's stylesheet with its own Iconify plugin. */
+@source not "../../../../../templates/modules/shop-app/category-appearance.html";
 
 @custom-variant dark (&:where(.dark, .dark *));
 

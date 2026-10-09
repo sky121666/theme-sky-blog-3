@@ -1,0 +1,20 @@
+<h1 th:fragment="title (currentKeyword, currentCategory, isExplore, isCategoryOverview)" id="shop-page-title" class="shop-page-title">
+  <span th:if="${isCategoryOverview}">类别</span>
+  <span th:if="${!isCategoryOverview and isExplore}">探索</span>
+  <span th:if="${!isCategoryOverview and !isExplore and !#strings.isEmpty(currentKeyword)}" th:text="${'搜索：' + currentKeyword}">搜索结果</span>
+  <th:block th:if="${!isCategoryOverview and !isExplore and #strings.isEmpty(currentKeyword) and !#strings.isEmpty(currentCategory)}">
+    <th:block th:if="${productCategoryFinder != null}">
+      <th:block th:replace="~{::categoryName(page=${productCategoryFinder.list({'page':1,'size':999})},categoryId=${currentCategory})}"></th:block>
+    </th:block>
+    <span th:if="${productCategoryFinder == null}">分类商品</span>
+  </th:block>
+  <span th:if="${!isCategoryOverview and !isExplore and #strings.isEmpty(currentKeyword) and #strings.isEmpty(currentCategory)}">商品</span>
+</h1>
+
+<th:block th:fragment="categoryName (page, categoryId)" th:with="match=${page.content.^[#strings.toString(id) == #vars.categoryId]}">
+  <span th:if="${match != null}" th:text="${match.name}">分类</span>
+  <th:block th:if="${match == null and page.hasNext()}">
+    <th:block th:replace="~{::categoryName(page=${productCategoryFinder.list({'page':page.number + 2,'size':999})},categoryId=${categoryId})}"></th:block>
+  </th:block>
+  <span th:if="${match == null and !page.hasNext()}">分类商品</span>
+</th:block>

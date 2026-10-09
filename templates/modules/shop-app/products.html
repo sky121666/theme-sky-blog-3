@@ -1,0 +1,89 @@
+<!-- Commerce contract: shop-templates 7a1fb04dd4796e412aa94fc9d19f94f45b80459b. -->
+<th:block th:fragment="content"
+          th:with="
+            currentKeyword=${param.keyword != null and !#lists.isEmpty(param.keyword) ? param.keyword[0] : ''},
+            currentCategory=${param.categoryId != null and !#lists.isEmpty(param.categoryId) ? param.categoryId[0] : ''},
+            currentSort=${param.sort != null and !#lists.isEmpty(param.sort) ? param.sort[0] : ''},
+            currentView=${param.view != null and !#lists.isEmpty(param.view) ? param.view[0] : ''},
+            hasProducts=${productPage != null and productPage.items != null and !#lists.isEmpty(productPage.items)},
+            isCategoryOverview=${currentView == 'categories'},
+            isExplore=${!isCategoryOverview and currentView != 'all' and #strings.isEmpty(currentKeyword) and #strings.isEmpty(currentCategory) and #strings.isEmpty(currentSort) and (param.page == null or #lists.isEmpty(param.page) or param.page[0] == '1')},
+            isCatalog=${!isExplore and !isCategoryOverview},
+            displayView=${isCategoryOverview ? 'categories' : (isExplore ? 'explore' : 'catalog')},
+            chromeTitle=${isCategoryOverview ? '类别' : (isExplore ? '探索' : (!#strings.isEmpty(currentKeyword) ? '搜索结果' : '商品'))},
+            rawDescriptionFlag=${theme.config.shop?.display?.show_description},
+            showDescription=${rawDescriptionFlag == null or #strings.toLowerCase(#strings.toString(rawDescriptionFlag)) != 'false'}">
+  <div class="shop-app" data-app-root="shop" data-shop-scene="products" data-menu-open="false"
+       data-shop-layout="cards" data-shop-size="medium"
+       th:attr="data-shop-site-title=${site.title},data-shop-chrome-title=${chromeTitle},data-shop-descriptions=${showDescription},data-shop-entry-view=${displayView},data-shop-display-view=${displayView}">
+    <script type="application/json" data-app-props="shop">{"version":1,"appId":"shop","data":{"scene":"products"}}</script>
+    <div class="shop-app-shell">
+      <th:block th:replace="~{modules/shop-app/sidebar :: sidebar(categories=${categoryTree},scene='products',currentKeyword=${currentKeyword},currentCategory=${currentCategory},currentSort=${currentSort},currentView=${currentView})}"></th:block>
+      <th:block th:replace="~{modules/shop-app/sidebar :: menuBackdrop}"></th:block>
+      <th:block th:replace="~{modules/shop-app/chrome :: titlebar}"></th:block>
+      <main class="shop-main" aria-labelledby="shop-page-title">
+        <div class="shop-main-header">
+          <th:block th:replace="~{modules/shop-app/browse-title :: title(currentKeyword=${currentKeyword},currentCategory=${currentCategory},isExplore=${isExplore},isCategoryOverview=${isCategoryOverview})}"></th:block>
+        </div>
+
+        <th:block th:if="${isCategoryOverview}">
+          <th:block th:replace="~{modules/shop-app/categories :: overview(categories=${categoryTree})}"></th:block>
+          <th:block th:replace="~{modules/shop-app/home :: compactSelection(showDescription=${showDescription})}"></th:block>
+        </th:block>
+
+        <th:block th:if="${!isCategoryOverview}">
+          <th:block th:replace="~{modules/shop-app/toolbar :: toolbar(categories=${categoryTree},currentKeyword=${currentKeyword},currentCategory=${currentCategory},currentSort=${currentSort},isCatalog=${isCatalog})}"></th:block>
+        </th:block>
+
+        <div class="shop-empty" th:if="${isCatalog and !hasProducts}">
+          <p th:text="${!#strings.isEmpty(currentKeyword) or !#strings.isEmpty(currentCategory) ? '没有找到匹配的商品。' : '商店暂时没有商品。'}">商店暂时没有商品。</p>
+          <a href="/shop/products?view=all" class="shop-card-action" th:if="${!#strings.isEmpty(currentKeyword) or !#strings.isEmpty(currentCategory)}">浏览商品</a>
+        </div>
+
+        <th:block th:if="${isExplore}">
+          <th:block th:replace="~{modules/shop-app/home :: home(fallbackPage=${productPage},showDescription=${showDescription})}"></th:block>
+        </th:block>
+
+        <th:block th:if="${isCatalog and hasProducts}">
+          <div class="shop-catalog-grid" data-shop-catalog th:if="${isCatalog}" aria-label="商品列表">
+            <th:block th:each="item : ${productPage.items}">
+              <th:block th:replace="~{::catalogCard(item=${item},showDescription=${showDescription})}"></th:block>
+            </th:block>
+          </div>
+
+          <nav class="shop-pagination" th:if="${isCatalog and productPage.totalPages > 1}" aria-label="商品分页">
+            <a th:if="${productPage.hasPrevious()}" class="shop-ui-btn pjax-link" data-shop-browse th:data-shop-page="${productPage.page - 1}"
+               th:href="@{/shop/products(page=${productPage.page - 1},view=${!#strings.isEmpty(currentView) ? currentView : null},keyword=${!#strings.isEmpty(currentKeyword) ? currentKeyword : null},categoryId=${!#strings.isEmpty(currentCategory) ? currentCategory : null},sort=${!#strings.isEmpty(currentSort) ? currentSort : null})}">上一页</a>
+            <span th:text="|${productPage.page} / ${productPage.totalPages}|">1 / 1</span>
+            <a th:if="${productPage.hasNext()}" class="shop-ui-btn pjax-link" data-shop-browse th:data-shop-page="${productPage.page + 1}"
+               th:href="@{/shop/products(page=${productPage.page + 1},view=${!#strings.isEmpty(currentView) ? currentView : null},keyword=${!#strings.isEmpty(currentKeyword) ? currentKeyword : null},categoryId=${!#strings.isEmpty(currentCategory) ? currentCategory : null},sort=${!#strings.isEmpty(currentSort) ? currentSort : null})}">下一页</a>
+          </nav>
+        </th:block>
+      </main>
+    </div>
+  </div>
+</th:block>
+
+<a th:fragment="catalogCard (item, showDescription)" class="shop-catalog-card pjax-link" th:href="@{/shop/product/{id}(id=${item.id})}">
+  <img th:if="${!#strings.isEmpty(item.coverImageUrl)}" th:src="${item.coverImageUrl}" alt="" loading="lazy" decoding="async" />
+  <th:block th:if="${#strings.isEmpty(item.coverImageUrl)}">
+    <th:block th:replace="~{::imagePlaceholder(imageTitle=${item.title})}"></th:block>
+  </th:block>
+  <div class="shop-catalog-content">
+    <h2 class="shop-product-name" th:text="${item.title}">商品名称</h2>
+    <p class="shop-product-description" th:if="${showDescription and !#strings.isEmpty(item.description)}" th:text="${item.description}">商品简介</p>
+  </div>
+  <th:block th:replace="~{::price(item=${item})}"></th:block>
+</a>
+
+<p th:fragment="price (item)" class="shop-product-price">
+  <span th:if="${item.minPrice != null}" th:text="${item.minPrice == 0 ? (item.maxPrice != null and item.maxPrice > item.minPrice ? '免费起' : '免费') : '¥' + #numbers.formatDecimal(item.minPrice, 1, 2) + (item.maxPrice != null and item.maxPrice > item.minPrice ? ' 起' : '')}">价格</span>
+  <span th:if="${item.minPrice == null}">查看价格</span>
+  <s th:if="${item.minOriginalPrice != null and item.minPrice != null and item.minOriginalPrice > item.minPrice}" th:text="${'¥' + #numbers.formatDecimal(item.minOriginalPrice, 1, 2)}">原价</s>
+</p>
+
+<svg th:fragment="imagePlaceholder (imageTitle)" class="shop-image-placeholder shop-gallery-image" viewBox="0 0 160 120" role="img" th:attr="aria-label=${imageTitle + '：暂无商品图片'}" fill="none" aria-hidden="false">
+  <rect x="48" y="32" width="64" height="52" rx="8" stroke="currentColor" stroke-width="2" opacity="0.35"></rect>
+  <circle cx="65" cy="49" r="6" stroke="currentColor" stroke-width="2" opacity="0.35"></circle>
+  <path d="m51 77 17-18 13 12 12-13 16 19" stroke="currentColor" stroke-width="2" opacity="0.35"></path>
+</svg>

@@ -5,9 +5,26 @@
     "@alpinejs/morph": "浏览器交互运行时",
     "@iconify-json/lucide": "随主题 CSS 分发的 Lucide 图标数据",
     "alpinejs": "浏览器交互运行时",
+    "daisyui": "随商城 App CSS 分发的表单控件样式",
+    "@tanstack/svelte-query": "商城组件查询与取消运行时",
+    "decimal.js": "商城金额计算运行时",
+    "i18next": "商城国际化运行时",
+    "iconify-icon": "商城联系方式图标运行时",
+    "ky": "商城请求运行时",
+    "svelte": "商城组件运行时",
+    "svelte-i18next": "商城国际化状态桥接",
+    "svelte-sonner": "商城提示组件运行时",
     "nprogress": "PJAX 进度条运行时",
     "pjax": "站内导航运行时",
     "qrcode": "二维码生成运行时"
+  },
+  "browserDependencyScopes": {
+    "svelte": {
+      "version": "5.53.10",
+      "dependencies": ["clsx", "esm-env"],
+      "source": "https://github.com/sveltejs/svelte/tree/svelte%405.53.10/packages/svelte/src/internal/client",
+      "reason": "Shop uses Svelte browser runtime, stores and transitions; installed client/shared imports require clsx and esm-env. Compiler/parser/type-only dependencies are build tools and are not distributed in browser assets."
+    }
   },
   "licenseOverrides": {
     "@alpinejs/intersect": {

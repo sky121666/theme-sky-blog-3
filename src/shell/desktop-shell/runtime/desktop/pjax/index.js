@@ -72,6 +72,7 @@ import { prepareMomentsFeedNavigation } from './moments-feed.js';
 import { prepareNavigation, commitNavigation, abandonNavigation, prepareNativeHandoff,
   revokeNativeHandoff } from './navigation-admission.js';
 import { isAuthenticationResponse } from '../../../../../shared/navigation-response.js';
+import { requiresCommerceDocumentNavigation } from '../../../../../shared/commerce-navigation.js';
 
 const { log: pjaxLog, warn: pjaxWarn } = createLogger('pjax');
 const NAVIGATION_INTENT_OPTION = '__themeNavigationIntent';
@@ -1021,8 +1022,15 @@ export function initPjax(Alpine) {
       if (!isNavigationCurrent(record)) return;
       const fallbackHref = resolveNavigationHref(request, href);
       if ((responseText === null || responseText === false) && request && request.status >= 400) {
-        pjaxWarn('handleResponse: status', request.status, '→ full redirect', fallbackHref);
-        handoffNavigation(record, fallbackHref);
+        const requestMethod = String(options.requestOptions?.requestMethod || 'GET').toUpperCase();
+        if (requestMethod !== 'GET') {
+          // A failed write cannot be retried as a GET to the form action.
+          pjaxWarn('handleResponse: form status', request.status, '→ keep source', fallbackHref);
+          failNavigation(record, 'form-response');
+        } else {
+          pjaxWarn('handleResponse: status', request.status, '→ full redirect', fallbackHref);
+          handoffNavigation(record, fallbackHref);
+        }
         return;
       }
       if (responseText === false) {
@@ -1036,6 +1044,12 @@ export function initPjax(Alpine) {
           ...options,
           [FAILED_RESPONSE_OPTION]: true
         });
+        return;
+      }
+      // Redirects can enter commerce through an ordinary blog URL. Do not
+      // hydrate its response or load its app into the current document.
+      if (requiresCommerceDocumentNavigation(record.sourceEntry?.url || window.location.href, fallbackHref)) {
+        handoffNavigation(record, fallbackHref);
         return;
       }
       const responseDocument = new DOMParser().parseFromString(responseText, 'text/html');
@@ -1316,6 +1330,11 @@ export function initPjax(Alpine) {
     function executeFullNavigation({ href: url, options = {}, intentId, permit }) {
       const record = activeNavigation;
       if (!isNavigationCurrent(record) || record.intentId !== intentId || record.permit !== permit) return false;
+      // During popstate location already points to the target; the committed
+      // source entry still identifies the document whose components must exit.
+      if (requiresCommerceDocumentNavigation(record.sourceEntry?.url || window.location.href, url)) {
+        return handoffNavigation(record, url);
+      }
       record.mode = 'full';
       const isPopstateIntent = options.history === false;
       const intentGeneration = intentId;
@@ -1360,12 +1379,63 @@ export function initPjax(Alpine) {
       } catch (error) { return failAssetNavigation(error); }
     }
 
+    // Clicks and component-driven navigation share the same admission and route
+    // policy. Popstate and form writes retain the full executor: the same-app
+    // executor owns a forward GET and must never turn a POST into a GET.
+    function requestNavigation({ href, triggerElement = null, options = {}, acceptedRecord = null }) {
+      const started = (record, completion) => ({ kind: 'started', intentId: record.intentId, completion });
+      const cancelled = (reason = 'leave-veto') => ({ kind: 'cancelled', reason, completion: Promise.resolve(false) });
+      let url;
+      try {
+        url = new URL(href, window.location.href);
+        href = url.href;
+      } catch (_error) { return cancelled('invalid-url'); }
+      const requestMethod = String(options.requestOptions?.requestMethod || 'GET').toUpperCase();
+      if (options.history === false || requestMethod !== 'GET') {
+        const record = acceptedRecord || beginNavigation(href, options);
+        if (!record) return cancelled();
+        return started(record, Promise.resolve(executeFullNavigation({ href, options,
+          intentId: record.intentId, permit: record.permit })));
+      }
+      if (requiresCommerceDocumentNavigation(window.location.href, href)) {
+        const record = acceptedRecord || beginNavigation(href, options);
+        if (!record) return cancelled();
+        return started(record, Promise.resolve(handoffNavigation(record, href)));
+      }
+      const local = prepareLocalView(href);
+      if (local) {
+        const record = acceptedRecord || beginNavigation(href, options, 'local');
+        if (!record) return cancelled();
+        return started(record, executeLocalNavigation(record, local));
+      }
+      const currentVariant = document.body.dataset.windowVariant || '';
+      const targetVariant = inferWindowVariantFromUrl(url);
+      const currentApp = getCurrentPageApp() || '';
+      const targetApp = inferPageAppForNavigation(url, triggerElement) || '';
+      const sameRoute = url.pathname === window.location.pathname && url.search === window.location.search;
+      const feedRefresh = sameRoute && currentApp === 'moments' && targetApp === 'moments'
+        && prepareMomentsFeedNavigation(document.querySelector('[data-window-content-root]'), href);
+      const same = url.pathname !== '/' && (!sameRoute || feedRefresh) && currentVariant && currentVariant !== 'none'
+        && currentVariant === targetVariant
+        && isContentSwitchAllowed(currentApp, document.body.dataset.pageMode || '')
+        && supportsSameVariantContentSwitch(targetApp);
+      const record = acceptedRecord || beginNavigation(href, options, same ? 'same' : 'full');
+      if (!record) return cancelled();
+      if (same) {
+        return started(record, navigateWithinVariant(href, triggerElement, record).catch((error) => {
+          pjaxWarn('same navigation failed:', error);
+          return failNavigation(record, 'execution');
+        }));
+      }
+      return started(record, Promise.resolve(executeFullNavigation({ href, options,
+        intentId: record.intentId, permit: record.permit })));
+    }
+
     pjax.loadUrl = function(url, options = {}) {
-      const record = options.history === false && pendingPopstateNavigation
-        ? pendingPopstateNavigation : beginNavigation(url, options);
+      const acceptedRecord = options.history === false ? pendingPopstateNavigation : null;
       pendingPopstateNavigation = null;
-      if (!record) return Promise.resolve(false);
-      return Promise.resolve(executeFullNavigation({ href: url, options, intentId: record.intentId, permit: record.permit }));
+      return requestNavigation({ href: url, triggerElement: options.triggerElement || null,
+        options, acceptedRecord }).completion;
     };
 
     initializeBrowserNavDepth();
@@ -2011,38 +2081,7 @@ export function initPjax(Alpine) {
         void windowManager.restore();
         return true;
       },
-      requestNavigation: ({ href, triggerElement, options }) => {
-        const local = prepareLocalView(href);
-        if (local) {
-          const record = beginNavigation(href, options, 'local');
-          if (!record) return { kind: 'cancelled', reason: 'leave-veto' };
-          void executeLocalNavigation(record, local);
-          return { kind: 'started', intentId: record.intentId };
-        }
-        const url = new URL(href);
-        const currentVariant = document.body.dataset.windowVariant || '';
-        const targetVariant = inferWindowVariantFromUrl(url);
-        const currentApp = getCurrentPageApp() || '';
-        const targetApp = inferPageAppForNavigation(url, triggerElement) || '';
-        const sameRoute = url.pathname === window.location.pathname && url.search === window.location.search;
-        const feedRefresh = sameRoute && currentApp === 'moments' && targetApp === 'moments'
-          && prepareMomentsFeedNavigation(document.querySelector('[data-window-content-root]'), href);
-        const same = url.pathname !== '/' && (!sameRoute || feedRefresh) && currentVariant && currentVariant !== 'none'
-          && currentVariant === targetVariant
-          && isContentSwitchAllowed(currentApp, document.body.dataset.pageMode || '')
-          && supportsSameVariantContentSwitch(targetApp);
-        const record = beginNavigation(href, options, same ? 'same' : 'full');
-        if (!record) return { kind: 'cancelled', reason: 'leave-veto' };
-        if (same) {
-          void navigateWithinVariant(href, triggerElement, record).catch((error) => {
-            pjaxWarn('same navigation failed:', error);
-            failNavigation(record, 'execution');
-          });
-        } else {
-          executeFullNavigation({ href, options, intentId: record.intentId, permit: record.permit });
-        }
-        return { kind: 'started', intentId: record.intentId };
-      }
+      requestNavigation
     });
 
   }, 0);

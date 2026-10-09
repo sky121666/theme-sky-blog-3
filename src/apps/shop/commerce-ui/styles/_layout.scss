@@ -1,0 +1,35 @@
+.shop-entry {
+  &__header {
+    text-align: left;
+    margin-bottom: var(--shop-spacing-xl);
+  }
+
+  &__title {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--shop-gray-900);
+    margin: 0 0 var(--shop-spacing-sm) 0;
+  }
+
+  &__subtitle {
+    font-size: var(--shop-font-size-lg);
+    color: var(--shop-gray-600);
+    margin: 0;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@media (max-width: 768px) {
+  .shop-entry {
+    &__title {
+      font-size: 28px;
+    }
+
+    &__subtitle {
+      font-size: var(--shop-font-size-base);
+    }
+  }
+}

@@ -1,0 +1,12 @@
+.shop-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--shop-spacing-sm);
+  margin-bottom: var(--shop-spacing-md);
+}
+
+.shop-label {
+  font-size: var(--shop-font-size-base);
+  font-weight: 500;
+  color: var(--shop-gray-900);
+}

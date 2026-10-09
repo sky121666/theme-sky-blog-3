@@ -11,6 +11,7 @@ import { linksAppManifest } from '../../apps/links/manifest.js';
 import { momentsAppManifest } from '../../apps/moments/manifest.js';
 import { photosAppManifest } from '../../apps/photos/manifest.js';
 import { readerAppManifest } from '../../apps/reader/manifest.js';
+import { shopAppManifest } from '../../apps/shop/manifest.js';
 import { steamAppManifest } from '../../apps/steam/manifest.js';
 
 export const APP_MANIFESTS = [
@@ -23,6 +24,7 @@ export const APP_MANIFESTS = [
   steamAppManifest,
   equipmentsAppManifest,
   photosAppManifest,
+  shopAppManifest,
   authAppManifest,
   explorerTagsAppManifest,
   explorerCategoriesAppManifest,

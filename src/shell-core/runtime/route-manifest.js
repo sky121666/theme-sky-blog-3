@@ -133,6 +133,13 @@ const ROUTE_RULES = [
     matches: (pathname) => pathname === '/photos' || pathname === '/photos/' || /^\/photos\/(?:page\/)?[^/]+\/?$/.test(pathname)
   },
   {
+    id: 'shop',
+    appId: 'shop',
+    windowVariant: 'shop',
+    pjaxMode: 'same-app',
+    matches: (pathname) => /^\/shop(?:\/|$)/.test(pathname)
+  },
+  {
     id: 'auth',
     appId: 'auth',
     windowVariant: NONE_VARIANT,

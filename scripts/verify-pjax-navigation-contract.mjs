@@ -607,9 +607,13 @@ try {
   const beginEnd = pjaxSource.indexOf('function finishNavigationUi(', beginStart);
   assert.ok(beginStart >= 0 && voteIndex > beginStart && snapshotIndex > voteIndex && snapshotIndex < beginEnd,
     'full/same 必须先完成离页投票，再快照前进导航的 history/滚动状态');
-  assert.match(pjaxSource,
-    /pjax\.loadUrl = function\(url, options = \{\}\)[\s\S]*?beginNavigation\(url, options\)[\s\S]*?executeFullNavigation\(/,
-    '公开 full 入口必须共用准入并继续执行原请求');
+  const publicLoadStart = pjaxSource.indexOf('pjax.loadUrl = function(url, options = {})');
+  const publicLoadEnd = pjaxSource.indexOf('initializeBrowserNavDepth()', publicLoadStart);
+  const publicLoadSource = pjaxSource.slice(publicLoadStart, publicLoadEnd);
+  assert.match(publicLoadSource, /requestNavigation\(\{/,
+    '公开 loadUrl 入口必须复用点击与程序跳转的统一导航决策');
+  assert.doesNotMatch(publicLoadSource, /beginNavigation\(|executeFullNavigation\(/,
+    '公开 loadUrl facade 不得自行投票或绕过同应用导航分流');
   assert.match(pjaxSource,
     /async function navigateWithinVariant\(targetUrl, triggerElement = null, acceptedRecord = null\) \{\s*const record = acceptedRecord \|\| beginNavigation\(targetUrl, \{ triggerElement \}, 'same'\);\s*if \(!record\) return false;/,
     'same-variant 被否决时必须在发请求和清理旧页面前退出');

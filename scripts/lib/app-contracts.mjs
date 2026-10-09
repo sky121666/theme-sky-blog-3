@@ -8,7 +8,8 @@ const MANIFEST_KEYS = new Set([
 const PAGE_MODES = new Set([
   'browser-reader', 'browser-list', 'browser-moments', 'browser-links',
   'browser-bangumis', 'browser-douban', 'browser-docsme', 'browser-steam',
-  'browser-equipments', 'auth'
+  'browser-equipments', 'auth', 'browser-shop-products', 'browser-shop-product',
+  'browser-shop-cart', 'browser-shop-checkout', 'browser-shop-payments'
 ]);
 
 // This validates the executable manifest contract, not JavaScript expression types.

@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { getDistributedDependencyNames } from './lib/distributed-dependency-scope.mjs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
@@ -147,11 +148,7 @@ function discoverPackages() {
       licenseText
     });
 
-    const childDependencies = {
-      ...(metadata.dependencies || {}),
-      ...(metadata.optionalDependencies || {})
-    };
-    for (const childName of Object.keys(childDependencies).sort()) {
+    for (const childName of getDistributedDependencyNames(metadata, manifest.browserDependencyScopes)) {
       const childDirectory = packageDirectoryFrom(packageDirectory, childName);
       if (!childDirectory) {
         if (metadata.optionalDependencies?.[childName]) continue;
@@ -172,6 +169,7 @@ function renderNotice(packages) {
     '',
     'Sky Blog 3 的浏览器产物包含或派生自下列第三方软件。清单从',
     '`security/distributed-dependencies.json` 声明的运行时根递归解析当前已安装依赖生成；',
+    '声明中固定版本的浏览器依赖范围区分运行时代码与未分发的编译器依赖，版本变化时必须重新核验。',
     '每项均随附 npm 发布包或分发清单中固定上游来源提供的完整许可文本。版本以锁文件和当前干净安装为准。',
     '',
     '| 软件包 | 版本 | 许可证 | 作者 / 上游 |',

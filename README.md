@@ -2,7 +2,8 @@
 
 Sky Blog 3 是面向 Halo 的 macOS 桌面风格博客主题。把文章、生活记录和兴趣收藏放进一张桌面：通过 Dock 打开内容，在窗口中浏览，再回到桌面。
 
-- 当前正式版本：[v0.9.47](https://github.com/sky121666/theme-sky-blog-3/releases/tag/v0.9.47)，要求 Halo `>=2.26.0`
+- 本次版本：[v0.9.48](https://github.com/sky121666/theme-sky-blog-3/releases/tag/v0.9.48)，要求 Halo `>=2.26.0`
+- 本次新增 Halo 商城版的商店窗口；[更新说明](docs/发布说明.md#v0948) · [商城使用与截图](docs/商城/README.md)
 - 获取主题：[GitHub Releases](https://github.com/sky121666/theme-sky-blog-3/releases) · [Halo 应用市场](https://www.halo.run/store/apps/app-gqnoxtpt)
 - 使用指南：[文档索引](docs/文档索引.md) · [完整功能截图](docs/功能展示.md)
 
@@ -53,6 +54,7 @@ Sky Blog 3 是面向 Halo 的 macOS 桌面风格博客主题。把文章、生�
 | 全部截图与功能操作 | [功能展示](docs/功能展示.md) · [文档索引](docs/文档索引.md) |
 | 外观、墙纸、导航与首屏加载 | [前端系统设置](docs/设置/前端系统设置.md) |
 | 图片、图标与桌面布局 | [素材选择](docs/设置/前端图片与图标设置.md) · [小组件指南](docs/桌面小组件.md) |
+| 商城探索、商品、类别与展示配置 | [商城使用与截图](docs/商城/README.md) |
 | Halo 应用市场介绍与精选素材 | [展示文案](docs/Halo应用市场展示文案.md) |
 | 当前实现、验证范围与已知限制 | [项目进度](docs/项目进度.md) · [验证矩阵](docs/验证与审计矩阵.md) |
 | 架构、开发约束与发布历史 | [架构总览](docs/架构总览.md) · [开发约束](docs/开发约束.md) · [发布说明](docs/发布说明.md) |

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createSettingsPanelMethods } from '../src/shell/desktop-shell/runtime/desktop/settings-model/panels.js';
+import { buildThemeSettingsDraft, updateThemeSettingsDraft, themeSettingsValueAt } from '../src/shell/desktop-shell/runtime/desktop/theme-settings-core.js';
 
 function setup() {
   const content = { scrollTop: 0, scrollTo({ top }) { this.scrollTop = top; } };
@@ -62,6 +63,27 @@ test('应用入口校验且 paneLabel 显示当前详情', () => {
   } finally { cleanup(); }
 });
 
+test('商店入口与商城搜索都进入商店详情并定位对应设置', () => {
+  const { store, focused, cleanup } = setup();
+  try {
+    store.openApp('shop');
+    assert.equal(store.activePane, 'apps');
+    assert.equal(store.activeApp, 'shop');
+    assert.equal(store.paneLabel(), '商店');
+    for (const query of ['商店', '商城']) {
+      store.query = query;
+      const results = store.searchResults();
+      assert.deepEqual(results.map((field) => field.path), ['shop.display.show_description', 'shop.display.dock_entry_enabled', 'shop.navigation.sidebar_categories', 'shop.navigation.category_appearances', 'shop.home.hero_product', 'shop.home.hero_image', 'shop.home.hero_title', 'shop.home.hero_description', 'shop.home.featured_products', 'shop.home.compact_products', 'shop.home.preview_products']);
+      assert.ok(results.every((field) => field.app === 'shop' && field.paneLabel === '商店'));
+    }
+    store.switchPane('appearance');
+    store.focusSetting('shop.display.show_description');
+    assert.equal(store.activeApp, 'shop');
+    assert.equal(store.query, '');
+    assert.equal(focused.count, 1);
+  } finally { cleanup(); }
+});
+
 test('菜单资源在菜单栏和 Dock 加载，桌面内容资源在小组件加载', () => {
   const { store, cleanup } = setup();
   try {
@@ -90,8 +112,47 @@ test('应用搜索仅匹配本应用别名和字段，应用泛搜覆盖全部',
     store.query = '视频';
     assert.deepEqual(store.searchResults().map((field) => field.path), ['moments.publish.video_upload']);
     store.query = '应用';
-    assert.equal(store.searchResults().filter((field) => field.pane === 'apps').length, 16);
+    assert.equal(store.searchResults().filter((field) => field.pane === 'apps').length, 27);
   } finally { cleanup(); }
+});
+
+test('仅进入商店详情时加载商城分类，已加载分类复用', () => {
+  const { store, cleanup } = setup();
+  try {
+    const loaded = [];
+    store.loadResources = (kind) => loaded.push(kind);
+    store.resourceState = () => ({ loaded: false });
+    store.openApp('moments');
+    assert.deepEqual(loaded, []);
+    store.openApp('shop');
+    assert.deepEqual(loaded, ['shopCategories']);
+    store.resourceState = () => ({ loaded: true });
+    store.switchPane('apps');
+    store.openApp('shop');
+    assert.deepEqual(loaded, ['shopCategories']);
+  } finally { cleanup(); }
+});
+
+test('商店分类勾选写入 ID 数组，不可用旧项仍可取消', () => {
+  const store = {
+    ...createSettingsPanelMethods({}),
+    draft: buildThemeSettingsDraft({ shop: { navigation: { sidebar_categories: ['missing'] } } }),
+    value(path, fallback) { return themeSettingsValueAt(this.draft, path, fallback); },
+    update(path, value) { this.draft = updateThemeSettingsDraft(this.draft, path, value); }
+  };
+  store.resources.shopCategories = { items: [{ name: '12', label: '设计', disabled: false }, { name: '24', label: '已停用', disabled: true }] };
+  assert.deepEqual(store.resourceOptions('shopCategories'), [
+    { name: '12', label: '设计', disabled: false },
+    { name: '24', label: '已停用', disabled: true },
+    { name: 'missing', label: 'missing（未加载或已不可用）', disabled: true }
+  ]);
+  store.toggleResource('shop.navigation.sidebar_categories', '12');
+  store.toggleResource('shop.navigation.sidebar_categories', '24');
+  assert.deepEqual(store.value('shop.navigation.sidebar_categories'), ['missing', '12']);
+  assert.equal(store.resourceSelected('shop.navigation.sidebar_categories', '12'), true);
+  store.toggleResource('shop.navigation.sidebar_categories', 'missing');
+  store.toggleResource('shop.navigation.sidebar_categories', '12');
+  assert.deepEqual(store.value('shop.navigation.sidebar_categories'), []);
 });
 
 test('切换详情取消开窗延迟焦点，避免覆盖搜索字段焦点', () => {

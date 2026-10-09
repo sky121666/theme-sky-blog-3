@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html xmlns:th="https://www.thymeleaf.org" th:replace="~{modules/shell/layout :: html(
+    title=${'结算 - ' + site.title},
+    description='',
+    ssrContent=~{modules/shop-app/transaction :: content(scene='checkout',chromeTitle='结算')},
+    canonical='/shop/checkout',
+    image=${site.logo},
+    type='website',
+    seoFallback='meta',
+    robots='noindex,nofollow',
+    serverDescription=false,
+    serverSocialIdentity=false,
+    pageMode='browser-shop-checkout',
+    pageApp='shop',
+    windowVariant='shop',
+    windowScene='checkout',
+    windowTitle='结算',
+    windowResizable=true,
+    windowMaximizable=true,
+    windowMetricsKey='shop'
+  )}"></html>

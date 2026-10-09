@@ -1,8 +1,8 @@
 {
   "__meta": {
-    "version": "0.9.47",
-    "revision": "79c9ed2a8831",
-    "query": "v=0.9.47&r=79c9ed2a8831"
+    "version": "0.9.48",
+    "revision": "e10979704e65",
+    "query": "v=0.9.48&r=e10979704e65"
   },
   "explorer-archives": {
     "js": [
@@ -98,6 +98,14 @@
     ],
     "css": [
       "/themes/theme-sky-blog-3/assets/css/apps/reader/index.css"
+    ]
+  },
+  "shop": {
+    "js": [
+      "/themes/theme-sky-blog-3/assets/js/apps/shop/index.js"
+    ],
+    "css": [
+      "/themes/theme-sky-blog-3/assets/css/apps/shop/index.css"
     ]
   },
   "steam": {

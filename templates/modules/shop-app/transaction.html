@@ -1,0 +1,18 @@
+<th:block th:fragment="content (scene, chromeTitle)">
+  <div class="shop-app" data-app-root="shop" data-menu-open="false"
+       th:data-shop-scene="${scene}" th:attr="data-shop-site-title=${site.title},data-shop-chrome-title=${chromeTitle}">
+    <script th:if="${scene == 'cart'}" type="application/json" data-app-props="shop">{"version":1,"appId":"shop","data":{"scene":"cart"}}</script>
+    <script th:if="${scene == 'checkout'}" type="application/json" data-app-props="shop">{"version":1,"appId":"shop","data":{"scene":"checkout"}}</script>
+    <script th:if="${scene == 'payments'}" type="application/json" data-app-props="shop">{"version":1,"appId":"shop","data":{"scene":"payments"}}</script>
+    <div class="shop-app-shell">
+      <th:block th:replace="~{modules/shop-app/sidebar :: sidebar(categories=${categoryTree},scene=${scene},currentKeyword='',currentCategory='',currentSort='',currentView='')}"></th:block>
+      <th:block th:replace="~{modules/shop-app/sidebar :: menuBackdrop}"></th:block>
+      <th:block th:replace="~{modules/shop-app/chrome :: titlebar}"></th:block>
+      <main class="shop-main" th:attr="aria-label=${chromeTitle}">
+        <shop-page-cart th:if="${scene == 'cart'}" th:csrfToken="${_csrf.token}"></shop-page-cart>
+        <shop-page-checkout th:if="${scene == 'checkout'}" th:contextId="${context.id}" th:csrfToken="${_csrf.token}"></shop-page-checkout>
+        <shop-page-payments th:if="${scene == 'payments'}" th:orderCode="${orderCode}" th:csrfToken="${_csrf.token}"></shop-page-payments>
+      </main>
+    </div>
+  </div>
+</th:block>

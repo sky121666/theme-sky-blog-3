@@ -1,4 +1,5 @@
 import { SETTINGS_FIELDS, SETTINGS_PANES } from './settings-model/schema.js';
+import { normalizeCategoryAppearances, validateCategoryAppearances } from './settings-model/category-appearances.js';
 
 export { SETTINGS_FIELDS, SETTINGS_PANES };
 
@@ -131,6 +132,7 @@ function isRecord(value) {
 }
 
 function validateThemeSettingValue(field, value) {
+  if (field.type === 'category-appearances') validateCategoryAppearances(value);
   if (field.type === 'image' && value && (typeof value !== 'string' || !isThemeImageUrl(value.trim()))) {
     throw new Error('请输入有效的图片地址（HTTP、HTTPS 或站内路径）');
   }
@@ -160,6 +162,8 @@ export function normalizeThemeSettingValue(path, value, fallback = undefined) {
   if (!field) return value;
   const defaultValue = fallback === undefined ? field.default : fallback;
   switch (field.type) {
+    case 'category-appearances':
+      return normalizeCategoryAppearances(value);
     case 'icon':
       if (!isRecord(value) || typeof value.value !== 'string') return '';
       // Console owns the icon object. Preserve its complete metadata and SVG;

@@ -35,3 +35,62 @@ test('不支持的资源和无权限明确失败，不能成为空列表', async
   globalThis.fetch = async () => new Response('{}', { status: 403 });
   await assert.rejects(() => api.listSettingResources('tags'), /权限/);
 });
+
+test('商城分类读取完整树并展开成字符串 ID 选项，不使用文章分类分页', async () => {
+  globalThis.fetch = async (href, options) => {
+    assert.equal(href, '/apis/console.api.ecommerce.halo.run/v1alpha1/product-categories');
+    assert.equal(options.method, 'GET');
+    assert.equal(options.credentials, 'same-origin');
+    return new Response(JSON.stringify([
+      { id: 12, name: '设计', children: [{ id: '18', name: '图标', children: [] }] },
+      { id: '24', name: '工具', children: [] }
+    ]), { headers: { 'Content-Type': 'application/json' } });
+  };
+  const result = await api.listSettingResources('shopCategories');
+  assert.deepEqual(result, {
+    items: [
+      { name: '12', label: '设计', disabled: false },
+      { name: '18', label: '设计 / 图标', disabled: false },
+      { name: '24', label: '工具', disabled: false }
+    ], page: 1, total: 3, hasNext: false
+  });
+});
+
+test('商城空分类树可读取，错误响应不可伪装为无分类', async () => {
+  globalThis.fetch = async () => new Response('[]', { headers: { 'Content-Type': 'application/json' } });
+  assert.deepEqual(await api.listSettingResources('shopCategories'), { items: [], page: 1, total: 0, hasNext: false });
+  for (const malformed of [{ items: [] }, [{ id: 'one', children: [] }], [{ id: 'one', name: '一级', children: {} }]]) {
+    globalThis.fetch = async () => new Response(JSON.stringify(malformed), { headers: { 'Content-Type': 'application/json' } });
+    await assert.rejects(() => api.listSettingResources('shopCategories'), /无效.*分类/);
+  }
+  globalThis.fetch = async () => new Response('{}', { status: 403 });
+  await assert.rejects(() => api.listSettingResources('shopCategories'), /权限/);
+});
+
+test('商城商品使用已发布过滤与 Spring Page 分页，下一页不会漏商品', async () => {
+  globalThis.fetch = async (href, options) => {
+    const url = new URL(href, 'https://site.test');
+    assert.equal(url.pathname, '/apis/console.api.ecommerce.halo.run/v1alpha1/products');
+    assert.equal(url.searchParams.get('page'), '2');
+    assert.equal(url.searchParams.get('sort'), 'id,asc');
+    assert.equal(url.searchParams.get('statuses'), 'PUBLISHED');
+    assert.equal(options.method, 'GET');
+    return new Response(JSON.stringify({ content: [
+      { id: 210, title: '第二页商品', status: 'PUBLISHED' },
+      { id: '211', title: '已下架', status: 'DRAFT' }
+    ], number: 1, size: 50, totalElements: 151 }), { headers: { 'Content-Type': 'application/json' } });
+  };
+  assert.deepEqual(await api.listSettingResources('shopProducts', { page: 2 }), {
+    items: [{ name: '210', label: '第二页商品', disabled: false }, { name: '211', label: '已下架', disabled: true }],
+    page: 2, total: 151, hasNext: true
+  });
+});
+
+test('商城商品末页和空页可读取，错误分页不能伪装为空', async () => {
+  globalThis.fetch = async () => new Response(JSON.stringify({ content: [], number: 0, size: 50, totalElements: 0 }), { headers: { 'Content-Type': 'application/json' } });
+  assert.deepEqual(await api.listSettingResources('shopProducts'), { items: [], page: 1, total: 0, hasNext: false });
+  for (const malformed of [{ items: [] }, { content: [], number: -1, size: 50, totalElements: 0 }, { content: [{ id: 1 }], number: 0, size: 50, totalElements: 1 }]) {
+    globalThis.fetch = async () => new Response(JSON.stringify(malformed), { headers: { 'Content-Type': 'application/json' } });
+    await assert.rejects(() => api.listSettingResources('shopProducts'), /无效.*商品/);
+  }
+});

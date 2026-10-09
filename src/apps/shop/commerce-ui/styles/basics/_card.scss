@@ -1,0 +1,12 @@
+.shop-card {
+  padding: var(--shop-spacing-lg);
+  background-color: var(--shop-color-base-100);
+  border: 1px solid var(--shop-gray-200);
+  border-radius: var(--shop-border-radius);
+  &__title {
+    font-size: var(--shop-font-size-xl);
+    font-weight: 700;
+    color: var(--shop-gray-900);
+    margin: 0 0 var(--shop-spacing-lg) 0;
+  }
+}

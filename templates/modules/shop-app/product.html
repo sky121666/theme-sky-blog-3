@@ -1,0 +1,66 @@
+<th:block th:fragment="content"
+          th:with="
+            rawDescriptionFlag=${theme.config.shop?.display?.show_description},
+            showDescription=${rawDescriptionFlag == null or #strings.toLowerCase(#strings.toString(rawDescriptionFlag)) != 'false'},
+            hasImages=${product.images != null and !#lists.isEmpty(product.images)},
+            productKind=${#strings.toString(product.productType)},
+            isVirtual=${productKind == 'VIRTUAL'},
+            isPhysical=${productKind == 'PHYSICAL'},
+            identityImage=${!#strings.isEmpty(product.coverImageUrl) ? product.coverImageUrl : (hasImages ? product.images[0] : '')}">
+  <div class="shop-app" data-app-root="shop" data-shop-scene="product" data-menu-open="false"
+       th:attr="data-shop-site-title=${site.title},data-shop-chrome-title=${product.title},data-shop-descriptions=${showDescription},data-shop-product-kind=${isVirtual ? 'virtual' : (isPhysical ? 'physical' : 'unknown')},data-shop-product-id=${product.id}">
+    <script type="application/json" data-app-props="shop">{"version":1,"appId":"shop","data":{"scene":"product"}}</script>
+    <div class="shop-app-shell">
+      <th:block th:replace="~{modules/shop-app/sidebar :: sidebar(categories=${categoryTree},scene='product',currentKeyword='',currentCategory='',currentSort='',currentView='')}"></th:block>
+      <th:block th:replace="~{modules/shop-app/sidebar :: menuBackdrop}"></th:block>
+      <th:block th:replace="~{modules/shop-app/chrome :: titlebar}"></th:block>
+      <main class="shop-main" aria-labelledby="shop-product-title">
+        <div class="shop-main-header">
+          <a href="/shop/products" class="shop-back-link pjax-link" data-shop-return><span aria-hidden="true">‹</span> 返回商店</a>
+        </div>
+        <div class="shop-product-layout">
+          <div th:if="${isVirtual}" class="shop-product-identity" aria-label="商品身份图片">
+            <img th:if="${!#strings.isEmpty(identityImage)}" class="shop-product-identity-image" th:src="${identityImage}" th:alt="${product.title}" decoding="async" fetchpriority="high" />
+            <th:block th:if="${#strings.isEmpty(identityImage)}">
+              <th:block th:replace="~{modules/shop-app/media :: productImage(item=${product},mediaClass='shop-product-identity-image',mediaRole='identity')}"></th:block>
+            </th:block>
+          </div>
+          <div th:unless="${isVirtual}" class="shop-product-gallery" aria-label="商品图片">
+            <div class="shop-gallery-main">
+              <img th:if="${hasImages}" th:src="${product.images[0]}" th:alt="${product.title}" data-shop-gallery-main decoding="async" fetchpriority="high" />
+              <th:block th:unless="${hasImages}">
+                <th:block th:replace="~{modules/shop-app/products :: imagePlaceholder(imageTitle=${product.title})}"></th:block>
+              </th:block>
+            </div>
+            <div class="shop-gallery-thumbs" th:if="${hasImages and #lists.size(product.images) > 1}" aria-label="选择商品图片">
+              <button th:each="image, iter : ${product.images}" type="button" th:data-shop-thumbnail="${image}" th:attr="aria-pressed=${iter.first},aria-label=${'查看第 ' + iter.count + ' 张商品图片'}">
+                <img th:src="${image}" alt="" loading="lazy" decoding="async" />
+              </button>
+            </div>
+          </div>
+          <div class="shop-product-purchase">
+            <h1 id="shop-product-title" class="shop-product-title" th:text="${product.title}">商品名称</h1>
+            <p class="shop-product-description" th:if="${showDescription and !#strings.isEmpty(product.description)}" th:text="${product.description}">商品简介</p>
+            <shop-buy-box th:id="${product.id}" th:csrfToken="${_csrf.token}"></shop-buy-box>
+          </div>
+        </div>
+        <section class="shop-product-previews" th:if="${isVirtual and hasImages and (#lists.size(product.images) > 1 or product.images[0] != identityImage)}" aria-label="商品预览">
+          <div class="shop-product-preview-track">
+            <img th:each="image, iter : ${product.images}" th:if="${image != identityImage}" class="shop-product-preview-image" th:src="${image}" th:alt="${product.title + '：预览 ' + iter.count}" loading="lazy" decoding="async" />
+          </div>
+        </section>
+        <div class="shop-product-content" th:if="${!#strings.isEmpty(product.content) or !#lists.isEmpty(product.specDefinition)}">
+          <div th:if="${!#strings.isEmpty(product.content)}" th:utext="${product.content}"></div>
+          <table class="shop-spec-table" th:if="${!#lists.isEmpty(product.specDefinition)}" aria-label="商品规格">
+            <tbody>
+              <tr th:each="spec : ${product.specDefinition}">
+                <th scope="row" th:text="${spec.name}">规格</th>
+                <td><span th:each="specValue, iter : ${spec.values}" th:text="${specValue.value} + ${iter.last ? '' : '、'}">选项</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </main>
+    </div>
+  </div>
+</th:block>

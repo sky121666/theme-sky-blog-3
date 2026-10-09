@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html xmlns:th="https://www.thymeleaf.org" th:replace="~{modules/shell/layout :: html(
+    title=${'商店 - ' + site.title},
+    description='浏览商店商品。',
+    ssrContent=~{modules/shop-app/products :: content},
+    canonical='/shop/products',
+    image=${site.logo},
+    type='website',
+    seoFallback='meta',
+    robots='',
+    serverDescription=true,
+    serverSocialIdentity=true,
+    pageMode='browser-shop-products',
+    pageApp='shop',
+    windowVariant='shop',
+    windowScene='products',
+    windowTitle='商店',
+    windowResizable=true,
+    windowMaximizable=true,
+    windowMetricsKey='shop'
+  )}"></html>

@@ -46,14 +46,14 @@ function backendFields() {
   return fields;
 }
 
-test('frontend schema covers all 77 backend paths with the same defaults and input constraints', () => {
+test('frontend schema covers all 88 backend paths with the same defaults and input constraints', () => {
   const backend = backendFields();
-  assert.equal(backend.length, 77);
+  assert.equal(backend.length, 88);
   assert.ok(Array.isArray(core.SETTINGS_FIELDS), 'core exposes the shared settings registry');
   assert.deepEqual(core.SETTINGS_PANES.map(({ id }) => id), [
     'appearance', 'wallpaper', 'desktop-dock', 'menu-control', 'navigation', 'widgets', 'notifications', 'startup', 'apps', 'advanced'
   ]);
-  assert.equal(new Set(core.SETTINGS_FIELDS.map(({ path }) => path)).size, 77);
+  assert.equal(new Set(core.SETTINGS_FIELDS.map(({ path }) => path)).size, 88);
   assert.deepEqual(core.SETTINGS_FIELDS.map(({ path }) => path).sort(), backend.map(({ path }) => path).sort());
   const draft = core.buildThemeSettingsDraft({});
   for (const field of backend) {
@@ -70,6 +70,76 @@ test('frontend schema covers all 77 backend paths with the same defaults and inp
   assert.equal(core.SETTINGS_FIELDS.find(({ path }) => path === 'default_layout.layout_json').type, 'external-editor');
   assert.equal(core.SETTINGS_FIELDS.find(({ path }) => path === 'default_layout.layout_json').editor, 'desktop-layout');
   assert.throws(() => core.updateThemeSettingsDraft(draft, 'default_layout.layout_json', '{}'));
+});
+
+test('shop settings default to visible descriptions and a disabled Dock entry', () => {
+  const draft = core.buildThemeSettingsDraft({});
+  assert.equal(core.themeSettingsValueAt(draft, 'shop.display.show_description'), true);
+  assert.equal(core.themeSettingsValueAt(draft, 'shop.display.dock_entry_enabled'), false);
+  assert.deepEqual(core.themeSettingsValueAt(draft, 'shop.navigation.sidebar_categories'), []);
+});
+
+test('商城侧栏使用 Halo 商城分类多选，默认留空并允许清空和排序', () => {
+  const backend = backendFields().find(({ path }) => path === 'shop.navigation.sidebar_categories');
+  assert.ok(backend);
+  assert.equal(backend.formkit, 'ecommerceProductCategorySelect');
+  assert.equal(backend.multiple, true);
+  assert.equal(backend.sortable, true);
+  assert.equal(backend.clearable, true);
+  assert.equal(backend.searchable, true);
+  assert.equal(backend.allowCreate, false);
+  assert.deepEqual(backend.value, []);
+  const frontend = core.SETTINGS_FIELDS.find(({ path }) => path === backend.path);
+  assert.equal(frontend.type, 'content-list');
+  assert.equal(frontend.source, 'shopCategories');
+});
+
+test('首页使用真实商城商品选择器，单选与排序多选保持值类型一致', () => {
+  for (const name of ['hero_product', 'featured_products', 'compact_products', 'preview_products']) {
+    const backend = backendFields().find(({ path }) => path === `shop.home.${name}`);
+    assert.equal(backend.formkit, 'ecommerceProductSelect');
+    assert.equal(backend.multiple, name !== 'hero_product');
+    assert.equal(backend.clearable, true);
+    assert.equal(backend.allowCreate, false);
+    assert.deepEqual(backend.value, name === 'hero_product' ? '' : []);
+    if (name !== 'hero_product') assert.equal(backend.sortable, true);
+    if (name === 'featured_products') assert.equal(backend.maxCount, 2);
+  }
+});
+
+test('shop settings round-trip through every config envelope while preserving future values', () => {
+  const updates = { 'shop.display.show_description': false, 'shop.display.dock_entry_enabled': true, 'shop.navigation.sidebar_categories': ['12', '18'] };
+  for (const wrap of [(value) => value, (value) => ({ spec: { value }, metadata: { resourceVersion: '7' } }), (data) => ({ data })]) {
+    const config = wrap({
+      shop: { display: { show_description: 'true', dock_entry_enabled: 'false', future_flag: 'kept' }, navigation: { sidebar_categories: ['24'], future_flag: 'keep' }, future_group: { value: 42 } },
+      custom: { untouched: 42 }
+    });
+    let draft = core.buildThemeSettingsDraft(config);
+    assert.equal(core.themeSettingsValueAt(draft, 'shop.display.show_description'), true);
+    assert.equal(core.themeSettingsValueAt(draft, 'shop.display.dock_entry_enabled'), false);
+    for (const [path, value] of Object.entries(updates)) draft = core.updateThemeSettingsDraft(draft, path, value);
+    const saved = core.applyThemeSettingsDraftToConfig(config, draft, Object.keys(updates));
+    const reloaded = core.buildThemeSettingsDraft(saved);
+    for (const [path, value] of Object.entries(updates)) assert.deepEqual(core.themeSettingsValueAt(reloaded, path), value, path);
+    assert.equal(core.resolveThemeConfigContainer(saved).shop.display.future_flag, 'kept');
+    assert.deepEqual(core.resolveThemeConfigContainer(saved).shop.future_group, { value: 42 });
+    assert.equal(core.resolveThemeConfigContainer(saved).shop.navigation.future_flag, 'keep');
+    assert.equal(core.resolveThemeConfigContainer(saved).custom.untouched, 42);
+    assert.equal(core.resolveThemeConfigContainer(config).shop.display.show_description, 'true');
+    assert.equal(core.resolveThemeConfigContainer(config).shop.display.dock_entry_enabled, 'false');
+    assert.deepEqual(core.resolveThemeConfigContainer(config).shop.navigation.sidebar_categories, ['24']);
+  }
+});
+
+test('商城侧栏分类只更新所选字段，清空后保留未来导航配置', () => {
+  const original = { shop: { navigation: { sidebar_categories: ['12'], future: { keep: true } } } };
+  const draft = core.buildThemeSettingsDraft(original);
+  const cleared = core.updateThemeSettingsDraft(draft, 'shop.navigation.sidebar_categories', []);
+  assert.deepEqual(core.applyThemeSettingsDraftToConfig(original, cleared, ['shop.navigation.sidebar_categories']), {
+    shop: { navigation: { sidebar_categories: [], future: { keep: true } } }
+  });
+  assert.throws(() => core.updateThemeSettingsDraft(draft, 'shop.navigation.sidebar_categories', '12'));
+  assert.throws(() => core.updateThemeSettingsDraft(draft, 'shop.navigation.sidebar_categories', [12]));
 });
 
 test('startup settings default to direct and round-trip only the changed paths', () => {

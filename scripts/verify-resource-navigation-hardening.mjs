@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import { getAppAssetSegment } from '../src/shell-core/runtime/app-manifests.js';
+import { getAppAssetSegment, getKnownAppIds, isContentSwitchAllowed, supportsSameVariantContentSwitch } from '../src/shell-core/runtime/app-manifests.js';
 import { createNavigationAdmission } from '../src/shell/desktop-shell/runtime/desktop/pjax/navigation-admission.js';
 import { markStartupRecoveryReload } from '../src/shared/startup-signals.js';
 import { isAuthenticationResponse } from '../src/shared/navigation-response.js';
+import { requiresCommerceDocumentNavigation } from '../src/shared/commerce-navigation.js';
 
 // Execute production functions with in-memory network/DOM fixtures. No server,
 // generated assets or file writes are needed for these failure-path tests.
@@ -272,6 +273,13 @@ async function verifyPrefetchFailure() {
 }
 
 async function verifyFullPjaxAssetGate() {
+  const origin = 'https://example.test';
+  const readerHref = `${origin}/archives/cold-reader`;
+  const photosHref = `${origin}/photos`;
+  const linksHref = `${origin}/links`;
+  const docsHref = `${origin}/docs`;
+  const shopHref = `${origin}/shop/product/1`;
+  const customerHref = `${origin}/uc/orders`;
   const source = read('src/shell/desktop-shell/runtime/desktop/pjax/index.js');
   const responseStart = source.indexOf('pjax.handleResponse = async function');
   const responseEnd = source.indexOf('\n    };', responseStart) + '\n    };'.length;
@@ -286,7 +294,7 @@ async function verifyFullPjaxAssetGate() {
   const loadCode = source.slice(loadStart, loadEnd);
   const sameCode = source.slice(sameStart, sameEnd);
   const events = [], gates = new Map(), ready = new Set(), requests = new Map();
-  let requestCssState, currentApp = 'categories', aborts = 0, snapshots = 0;
+  let requestCssState, currentApp = 'explorer-categories', aborts = 0, snapshots = 0;
   let historyWrites = 0, votes = 0, sameNavigation = null;
   const noOp = () => {};
   const draft = { version: 0, saving: false, allowed: false, cleanups: 0 };
@@ -300,6 +308,11 @@ async function verifyFullPjaxAssetGate() {
   });
   const { context } = registryFixture(async () => response(manifest()));
   vm.runInContext(loaderSource, context);
+  Object.assign(context, { getKnownAppIds });
+  vm.runInContext(executable(read('src/shell-core/runtime/route-manifest.js')), context);
+  // There is no mounted app-local view in this fixture. Use its real registry
+  // and local preparation so the common entry naturally selects network PJAX.
+  vm.runInContext(executable(read('src/shell/desktop-shell/runtime/shared/page-app.js')), context);
   const stageCss = vm.runInContext('stageAppCssForNavigation', context);
   const warmStyle = context.document.createElement('link');
   Object.assign(warmStyle, { href: '/assets/css/apps/reader/index.css?v=0.9.46&r=old', disabled: true });
@@ -307,14 +320,15 @@ async function verifyFullPjaxAssetGate() {
   context.document.head.appendChild(warmStyle);
   const currentStyle = context.document.createElement('link');
   Object.assign(currentStyle, { href: '/assets/css/apps/categories/index.css?v=0.9.46&r=old', disabled: false });
-  Object.assign(currentStyle.dataset, { appCss: 'categories', appCssState: 'ready' });
+  Object.assign(currentStyle.dataset, { appCss: 'explorer-categories', appCssState: 'ready' });
   context.document.head.appendChild(currentStyle);
   context.document.getElementById = () => null;
   const queryAll = context.document.querySelectorAll;
   context.document.querySelectorAll = (selector) => ['title', '#window-frame-root'].includes(selector) ? [{}] : queryAll(selector);
-  context.document.body = { dataset: {} };
+  context.document.body = { dataset: { appId: 'explorer-categories', pageApp: 'explorer-categories',
+    windowVariant: 'browser', pageMode: 'browser-list' } };
   context.document.dispatchEvent = (event) => { events.push(event.type); return true; };
-  context.window.location.href = 'https://example.test/categories';
+  context.window.location = new URL(`${origin}/categories`);
   context.window.history = {
     state: null,
     pushState: () => { historyWrites++; },
@@ -328,7 +342,7 @@ async function verifyFullPjaxAssetGate() {
     for (const style of [warmStyle, currentStyle]) style.disabled = style.dataset.appCss !== app;
   };
   Object.assign(context, {
-    AbortController, DOMException, Promise, isAuthenticationResponse,
+    AbortController, DOMException, Promise, isAuthenticationResponse, requiresCommerceDocumentNavigation,
     CustomEvent,
     DOMParser: class { parseFromString() { return { querySelectorAll: (selector) =>
       selector === '#window-frame-root' || selector === 'title' ? [{}] : [] }; } },
@@ -337,7 +351,7 @@ async function verifyFullPjaxAssetGate() {
       loadUrl(url, options) {
         requests.set(url, options);
         events.push(`html-start:${url}`);
-        if (url === '/reader') {
+        if (url === readerHref) {
           requestCssState = { targetDisabled: warmStyle.disabled, currentDisabled: currentStyle.disabled };
         }
       }
@@ -366,7 +380,9 @@ async function verifyFullPjaxAssetGate() {
     closeTransientNavigationUi: noOp, clearTransientNavigationUi: noOp,
     startTopProgress: noOp, stopTopProgress: noOp, perfMark: noOp,
     pjaxLog: noOp, pjaxWarn: noOp, syncAppCss: syncCss,
-    getCurrentPageApp: () => currentApp, inferPageAppForNavigation: (url) => url.slice(1),
+    getCurrentPageApp: () => currentApp,
+    inferPageAppForNavigation: (url) => context.inferPageAppFromUrl(url),
+    isContentSwitchAllowed, supportsSameVariantContentSwitch,
     parsePageAppFromResponse: (html) => html, resolveNavigationHref: (_request, href) => href,
     isCurrentNavigationIntent: (intent, current) => intent === current,
     stageAppCssForNavigation: (app) => { stageCss(app); events.push(`css-stage:${app}`); },
@@ -380,9 +396,12 @@ async function verifyFullPjaxAssetGate() {
     prepareNativeHandoff: admission.prepareNativeHandoff,
     revokeNativeHandoff: admission.revokeNativeHandoff,
     hardNavigate: (url) => events.push(`hard:${url}`),
-    _origHandleResponse: (html) => {
+    _origHandleResponse: (html, _request, href) => {
       currentApp = html;
-      context.window.history.pushState({ url: `/${html}` }, '', `/${html}`);
+      context.window.location.href = href;
+      Object.assign(context.document.body.dataset, { appId: html, pageApp: html,
+        windowVariant: context.inferWindowVariantFromUrl(href), pageMode: html === 'shop' ? 'browser-shop-product' : 'browser-reader' });
+      context.window.history.pushState({ url: href }, '', href);
       events.push(`swap:${html}`);
     },
     ensureAppAssetsLoaded(app, { signal } = {}) {
@@ -393,8 +412,10 @@ async function verifyFullPjaxAssetGate() {
       return gate.promise.then(() => ready.add(app));
     }
   });
+  assert.equal(context.inferPageAppFromUrl(`${origin}/categories`), 'explorer-categories');
+  assert.equal(context.inferPageAppFromUrl(readerHref), 'reader', '冷资源主场景应使用真实跨应用路由');
   vm.runInContext(responseCode + '\n' + loadCode + '\n' + sameCode, context);
-  const vetoResult = await context.pjax.loadUrl('/reader');
+  const vetoResult = await context.pjax.loadUrl('/archives/cold-reader');
   assert.equal(vetoResult, false, '离页否决应保持 loadUrl 原有的 false 返回语义');
   assert.equal(requests.size, 0, '离页否决不得发送 HTML 请求');
   assert.equal(context.navigationIntentGeneration, 0, '否决尝试不得取得导航 intent');
@@ -404,17 +425,17 @@ async function verifyFullPjaxAssetGate() {
   assert.equal(draft.cleanups, 0, '离页否决不得丢弃草稿');
 
   draft.allowed = true;
-  await context.pjax.loadUrl('/reader');
-  const readerOptions = requests.get('/reader');
+  await context.pjax.loadUrl('/archives/cold-reader');
+  const readerOptions = requests.get(readerHref);
   assert.equal(readerOptions.__themeNavigationIntent, 1, 'full 请求必须携带已接受的逻辑 intent');
-  assert.equal(readerOptions.requestOptions.requestUrl, '/reader');
+  assert.equal(readerOptions.requestOptions.requestUrl, readerHref);
   assert.equal(events.filter((event) => event === 'theme:navigation-accepted').length, 1,
     '通过守卫后才发送一次 accepted');
   assert.equal(requestCssState.targetDisabled, false, 'HTML 请求及同步 pjax:send 前必须启用 warm 目标 CSS');
   assert.equal(requestCssState.currentDisabled, false, '请求期间旧页面 CSS 必须保持启用');
-  assert.ok(events.includes('html-start:/reader'), 'CSS/JS 未完成也必须已经开始 HTML 请求');
-  assert.ok(events.indexOf('css-stage:reader') < events.indexOf('html-start:/reader'));
-  const first = context.pjax.handleResponse('reader', { status: 200 }, '/reader', readerOptions);
+  assert.ok(events.includes(`html-start:${readerHref}`), 'CSS/JS 未完成也必须已经开始 HTML 请求');
+  assert.ok(events.indexOf('css-stage:reader') < events.indexOf(`html-start:${readerHref}`));
+  const first = context.pjax.handleResponse('reader', { status: 200 }, readerHref, readerOptions);
   await flush();
   assert.ok(!events.includes('swap:reader'));
   gates.get('reader').resolve();
@@ -429,22 +450,22 @@ async function verifyFullPjaxAssetGate() {
   assert.equal(events.filter((event) => event === 'css-stage:reader').length, 2, '响应资源就绪后仍须在 DOM 替换前再次 staging');
   assert.ok(events.lastIndexOf('css-stage:reader') < events.indexOf('swap:reader'));
   await context.pjax.loadUrl('/photos');
-  const photosOptions = requests.get('/photos');
+  const photosOptions = requests.get(photosHref);
   assert.equal(photosOptions.__themeNavigationIntent, 2);
-  assert.ok(events.includes('html-start:/photos'), '没有缓存 CSS/JS 的冷页面也必须立即开始 HTML 请求');
-  const stale = context.pjax.handleResponse('photos', { status: 200 }, '/photos', photosOptions);
+  assert.ok(events.includes(`html-start:${photosHref}`), '没有缓存 CSS/JS 的冷页面也必须立即开始 HTML 请求');
+  const stale = context.pjax.handleResponse('photos', { status: 200 }, photosHref, photosOptions);
   await flush();
   assert.ok(!events.includes('swap:photos'), '冷页面 HTML 已返回仍须等待资产后才能替换 DOM');
   await context.pjax.loadUrl('/links');
-  assert.equal(requests.get('/links').__themeNavigationIntent, 3);
+  assert.equal(requests.get(linksHref).__themeNavigationIntent, 3);
   await stale;
   assert.ok(!events.includes('swap:photos'), '较旧导航取消后不得替换 DOM');
-  assert.ok(!events.includes('hard:/photos'), '取消不能触发旧导航的硬刷新');
+  assert.ok(!events.includes(`hard:${photosHref}`), '取消不能触发旧导航的硬刷新');
   const cleanupsBeforeFailure = draft.cleanups;
   const linksGateResult = context._fullAssetGate.promise;
   gates.get('links').reject(new Error('module download failed'));
   assert.equal(await linksGateResult, false, '当前资源失败必须可控地结束 asset gate');
-  assert.ok(!events.includes('hard:/links'), '尚未替换 DOM 的资源失败必须保留源页与草稿');
+  assert.ok(!events.includes(`hard:${linksHref}`), '尚未替换 DOM 的资源失败必须保留源页与草稿');
   assert.ok(!events.includes('swap:links'));
   assert.equal(draft.cleanups, cleanupsBeforeFailure, '资源失败不得额外清理草稿');
   assert.equal(events.at(-1), 'theme:navigation-settled', '资源失败必须结束已接受的 intent');
@@ -453,14 +474,14 @@ async function verifyFullPjaxAssetGate() {
   assert.equal(historyWrites, 1, '旧请求及当前资产失败均不得新增 history entry');
 
   await context.pjax.loadUrl('/docs');
-  const docsOptions = requests.get('/docs');
-  const waitingResponse = context.pjax.handleResponse('docs', { status: 200 }, '/docs', docsOptions);
+  const docsOptions = requests.get(docsHref);
+  const waitingResponse = context.pjax.handleResponse('docsme', { status: 200 }, docsHref, docsOptions);
   await flush();
   const protocolCount = events.filter((event) => event === 'protocol').length;
   const swapCount = events.filter((event) => event.startsWith('swap:')).length;
   const cleanupsBeforeChange = draft.cleanups;
   draft.version++;
-  gates.get('docs').resolve();
+  gates.get('docsme').resolve();
   await waitingResponse;
   assert.equal(events.filter((event) => event === 'protocol').length, protocolCount,
     '等待资源期间草稿变化后不得覆盖持久桌面协议');
@@ -470,7 +491,7 @@ async function verifyFullPjaxAssetGate() {
   assert.equal(warmStyle.disabled, false, '许可撤回后必须恢复源页 CSS');
   assert.equal(historyWrites, 1, '资源失败与许可撤回均不得写入额外 history entry');
 
-  const sameTarget = '/photos';
+  const sameTarget = photosHref;
   const previousSameRequest = requests.get(sameTarget);
   const votesBeforeSame = votes;
   const acceptedBeforeSame = events.filter((event) => event === 'theme:navigation-accepted').length;
@@ -504,6 +525,38 @@ async function verifyFullPjaxAssetGate() {
   assert.ok(!events.includes('assets:auth'), '登录响应不得在旧桌面加载 Auth 并绑定旧 body');
   assert.equal(events.filter((event) => event.startsWith('swap:')).length, swapsBeforeLogin,
     '登录表单不得作为普通应用 HTML 替换');
+
+  const requestsBeforeShop = requests.size;
+  const assetsBeforeShop = events.filter((event) => event.startsWith('assets:')).length;
+  const cleanupsBeforeShop = draft.cleanups;
+  const votesBeforeShop = votes;
+  await context.pjax.loadUrl('/shop/product/1');
+  const shopOptions = requests.get(shopHref);
+  assert.ok(!events.includes(`hard:${shopHref}`), '主题商城跳转必须保持 PJAX 导航');
+  assert.equal(requests.size, requestsBeforeShop + 1, '商城跳转必须开始 PJAX HTML 请求');
+  assert.equal(shopOptions.__themeNavigationIntent, context.activeNavigation.intentId,
+    '商城请求必须保留已接受的导航 intent');
+  assert.equal(votes, votesBeforeShop + 1, '商城跳转必须经过现有离页守卫');
+  assert.equal(events.filter((event) => event.startsWith('assets:')).length, assetsBeforeShop + 1,
+    '商城跳转必须并行加载独立 App 资源');
+  assert.equal(events.at(-1), `html-start:${shopHref}`);
+  const shopResponse = context.pjax.handleResponse('shop', { status: 200 }, shopHref, shopOptions);
+  await flush();
+  assert.ok(!events.includes('swap:shop'), '商城响应必须等待 App 资源再替换 DOM');
+  assert.equal(draft.cleanups, cleanupsBeforeShop, '等待商城资源期间不得提前提交离页许可');
+  gates.get('shop').resolve();
+  await shopResponse;
+  assert.ok(events.includes('swap:shop'), '商城资源就绪后必须通过 PJAX 提交响应');
+  assert.equal(draft.cleanups, cleanupsBeforeShop + 1, '商城 DOM 提交必须使用原有离页许可');
+  assert.ok(events.lastIndexOf('draft-commit') < events.indexOf('swap:shop'));
+
+  const requestsBeforeCustomerCenter = requests.size;
+  const assetsBeforeCustomerCenter = events.filter((event) => event.startsWith('assets:')).length;
+  await context.pjax.loadUrl('/uc/orders');
+  assert.ok(events.includes(`hard:${customerHref}`), '独立客户中心必须保留完整文档交接');
+  assert.equal(requests.size, requestsBeforeCustomerCenter, '客户中心交接不得开始 PJAX HTML 请求');
+  assert.equal(events.filter((event) => event.startsWith('assets:')).length, assetsBeforeCustomerCenter,
+    '客户中心交接不得在主题文档加载 App 资源');
 }
 
 await verifyBuildIdentity();

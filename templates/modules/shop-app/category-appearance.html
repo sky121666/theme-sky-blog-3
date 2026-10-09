@@ -1,0 +1,35 @@
+<!-- ProductCategory owns image only; theme appearance overrides are matched by its stable ID. -->
+<span th:fragment="icon (category, sidebar)"
+      th:class="${sidebar ? 'shop-nav-icon' : 'shop-category-icon'}" aria-hidden="true"
+      th:with="
+        rawAppearances=${theme.config.shop?.navigation != null ? theme.config.shop.navigation['category_appearances'] : null},
+        appearances=${rawAppearances instanceof T(java.util.List) ? rawAppearances : {}},
+        matches=${appearances.?[#this instanceof T(java.util.Map) and #this['category_id'] != null and #strings.trim(#strings.toString(#this['category_id'])) == #strings.toString(#vars.category.id)]},
+        appearance=${#lists.isEmpty(matches) ? null : matches[0]},
+        rawIcon=${appearance != null ? appearance['icon'] : null},
+        glyph=${#lists.contains({'folder','sparkles','code','palette','book-open','music','gamepad-2','camera','package','wrench'},rawIcon) ? rawIcon : 'folder'},
+        rawColor=${appearance != null and appearance['color'] instanceof T(java.lang.String) ? #strings.trim(appearance['color']) : ''},
+        color=${rawColor matches '^#[0-9a-fA-F]{6}$' ? rawColor : ''},
+        rawImage=${category instanceof T(java.util.Map) ? category['image'] : category.image},
+        categoryImage=${!sidebar and rawImage instanceof T(java.lang.String) ? #strings.trim(rawImage) : ''},
+        safeImage=${#strings.length(categoryImage) &lt;= 2048 and (categoryImage matches '^/(?!/)[^\x00-\x20\x7f\\]*$' or categoryImage matches '^(?i:https?://)[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?(?::[0-9]{1,5})?(?:[/?#][^\x00-\x20\x7f\\]*)?$')}"
+      th:style="${!sidebar and !#strings.isEmpty(color) ? '--shop-category-color:' + color : null}">
+  <img th:if="${safeImage}" class="shop-category-image" data-shop-category-image
+       th:src="${categoryImage}" alt="" width="28" height="28" loading="lazy" decoding="async"
+       referrerpolicy="no-referrer" />
+  <span class="shop-category-glyph" th:data-shop-category-glyph="${glyph}" th:switch="${glyph}">
+    <span th:case="'sparkles'" class="icon-[lucide--sparkles]"></span>
+    <span th:case="'code'" class="icon-[lucide--code]"></span>
+    <span th:case="'palette'" class="icon-[lucide--palette]"></span>
+    <span th:case="'book-open'" class="icon-[lucide--book-open]"></span>
+    <span th:case="'music'" class="icon-[lucide--music]"></span>
+    <span th:case="'gamepad-2'" class="icon-[lucide--gamepad-2]"></span>
+    <span th:case="'camera'" class="icon-[lucide--camera]"></span>
+    <span th:case="'package'" class="icon-[lucide--package]"></span>
+    <span th:case="'wrench'" class="icon-[lucide--wrench]"></span>
+    <svg th:case="*" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.7">
+      <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"></path>
+      <path d="M7 12h10M7 16h6"></path>
+    </svg>
+  </span>
+</span>

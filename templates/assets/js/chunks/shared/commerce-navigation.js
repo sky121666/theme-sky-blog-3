@@ -1,0 +1,1 @@
+var o=new Set(["http:","https:"]),i=/^\/uc(?:\/|$)/;function s(t){return t instanceof URL||typeof t=="string"&&t.trim().length>0}function a(t,r){if(!s(t)||!s(r))return!1;try{const n=new URL(t),e=new URL(r,n);return!o.has(n.protocol)||!o.has(e.protocol)||n.origin!==e.origin?!1:i.test(n.pathname)||i.test(e.pathname)}catch{return!1}}export{a as t};

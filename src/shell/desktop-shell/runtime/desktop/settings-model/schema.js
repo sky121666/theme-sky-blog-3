@@ -9,7 +9,7 @@ export const SETTINGS_PANES = Object.freeze([
   { id: 'widgets', label: '小组件', detail: '管理桌面小组件、图标与布局', keywords: ['组件', '天气', '城市', '封面', '桌面', '分类', '标签', '文章', '单页', '布局'], icon: 'icon-[lucide--layout-grid]', color: 'green', group: 'desktop' },
   { id: 'notifications', label: '通知中心', detail: '设置通知中心名称与展开方式', keywords: ['侧边栏', '通知', '访客'], icon: 'icon-[lucide--bell]', color: 'red', group: 'desktop' },
   { id: 'startup', label: '首屏加载', detail: '选择首屏显示方式与开机效果', keywords: ['首屏', '加载', '开机', '动画', '启动'], icon: 'icon-[lucide--power]', color: 'gray', group: 'system' },
-  { id: 'apps', label: '应用', detail: '自定义瞬间、书影音、友链和装备页面', keywords: ['瞬间', '豆瓣', '书影音', '友链', 'Steam', '装备'], icon: 'icon-[lucide--app-window]', color: 'orange', group: 'system' },
+  { id: 'apps', label: '应用', detail: '自定义瞬间、书影音、友链、装备和商店页面', keywords: ['瞬间', '豆瓣', '书影音', '友链', 'Steam', '装备', '商城', '商店'], icon: 'icon-[lucide--app-window]', color: 'orange', group: 'system' },
   { id: 'advanced', label: '高级', detail: '管理调试选项', keywords: ['调试', '日志'], icon: 'icon-[lucide--settings-2]', color: 'gray', group: 'system' }
 ].map(Object.freeze));
 
@@ -108,6 +108,17 @@ export const SETTINGS_FIELDS = Object.freeze([
   field('steam.cover.image_url', 'apps', 'Steam 背景图片', 'image', '', { accepts: IMAGE_TYPES, app: 'steam' }),
   field('equipments.profile.display_name', 'apps', '全部装备标题', 'text', '', { app: 'equipments' }),
   field('equipments.profile.subtitle', 'apps', '全部装备描述', 'textarea', '', { app: 'equipments' }),
+  field('shop.display.show_description', 'apps', '显示商品简介', 'boolean', true, { app: 'shop' }),
+  field('shop.display.dock_entry_enabled', 'apps', '显示商店Dock入口', 'boolean', false, { app: 'shop' }),
+  field('shop.navigation.sidebar_categories', 'apps', '侧栏精选分类', 'content-list', [], { app: 'shop', source: 'shopCategories' }),
+  field('shop.navigation.category_appearances', 'apps', '分类图标与颜色', 'category-appearances', [], { app: 'shop' }),
+  field('shop.home.hero_product', 'apps', '首页主推商品', 'text', '', { app: 'shop', source: 'shopProducts' }),
+  field('shop.home.hero_image', 'apps', '主推宣传图', 'image', '', { app: 'shop', accepts: IMAGE_TYPES }),
+  field('shop.home.hero_title', 'apps', '主推标题', 'text', '', { app: 'shop' }),
+  field('shop.home.hero_description', 'apps', '主推简介', 'textarea', '', { app: 'shop' }),
+  field('shop.home.featured_products', 'apps', '首页双推荐', 'content-list', [], { app: 'shop', source: 'shopProducts', maxCount: 2 }),
+  field('shop.home.compact_products', 'apps', '首页商品行', 'content-list', [], { app: 'shop', source: 'shopProducts' }),
+  field('shop.home.preview_products', 'apps', '首页预览图集', 'content-list', [], { app: 'shop', source: 'shopProducts' }),
   field('default_layout.layout_json', 'widgets', '默认桌面布局', 'external-editor', '', { editor: 'desktop-layout', writable: false }),
   field('developer.debug_mode', 'advanced', '调试模式', 'boolean', false)
 ]);

@@ -975,6 +975,183 @@ spec:
               help: 留空时显示默认装备页描述。
               value: ""
 
+    - group: shop
+      label: 商城
+      formSchema:
+        - $formkit: group
+          id: shop_display_group
+          name: display
+          label: 显示
+          value:
+            show_description: true
+            dock_entry_enabled: false
+          children:
+            - $formkit: switch
+              id: shop_display_show_description
+              name: show_description
+              label: 显示商品简介
+              help: 控制主推和商品列表的短简介，不影响价格和完整详情正文。
+              value: true
+            - $formkit: switch
+              id: shop_display_dock_entry_enabled
+              name: dock_entry_enabled
+              label: 显示商店Dock入口
+              help: 已启用 Halo 商城时显示商店 Dock 入口；关闭入口后仍可直接访问商店页面。
+              value: false
+        - $formkit: group
+          id: shop_navigation_group
+          name: navigation
+          label: 分类导航
+          value:
+            sidebar_categories: []
+            category_appearances: []
+          children:
+            - $formkit: ecommerceProductCategorySelect
+              id: shop_navigation_sidebar_categories
+              name: sidebar_categories
+              label: 侧栏精选分类
+              help: 可选择父分类、子分类或更深层级分类，只展示选中的项。支持搜索、拖动排序与清空；留空时仅保留全部分类入口。
+              multiple: true
+              sortable: true
+              clearable: true
+              searchable: true
+              allowCreate: false
+              value: []
+
+            - $formkit: array
+              id: shop_navigation_category_appearances
+              name: category_appearances
+              label: 分类图标与颜色
+              help: 按分类 ID 设置外观，每个分类添加一次。全部分类页优先展示商城分类图片，无图片时使用图标；侧栏图标始终跟随主题强调色。未配置时使用默认文件夹图标。
+              value: []
+              itemLabels:
+                - type: text
+                  label: $value.category_id
+              children:
+                - $formkit: ecommerceProductCategorySelect
+                  id: shop_navigation_category_appearance_id
+                  name: category_id
+                  label: 商品分类
+                  multiple: false
+                  searchable: true
+                  clearable: true
+                  allowCreate: false
+                  validation: required
+                  value: ""
+                - $formkit: select
+                  id: shop_navigation_category_appearance_icon
+                  name: icon
+                  label: 图标
+                  value: folder
+                  options:
+                    - label: 文件夹
+                      value: folder
+                    - label: 灵感
+                      value: sparkles
+                    - label: 代码
+                      value: code
+                    - label: 设计
+                      value: palette
+                    - label: 阅读
+                      value: book-open
+                    - label: 音乐
+                      value: music
+                    - label: 游戏
+                      value: gamepad-2
+                    - label: 摄影
+                      value: camera
+                    - label: 商品
+                      value: package
+                    - label: 工具
+                      value: wrench
+                - $formkit: color
+                  id: shop_navigation_category_appearance_color
+                  name: color
+                  label: 内容区图标颜色
+                  help: "留空跟随主题强调色，支持六位十六进制颜色（例如 #2E5FBD）。不改变侧栏颜色或分类图片。"
+                  value: ""
+
+        - $formkit: group
+          id: shop_home_group
+          name: home
+          label: 首页运营
+          help: 按商品 ID 固定首页编排，不受商品目录分页或排序影响。清空某组即隐藏该模块；全部留空时显示最新商品目录。
+          value:
+            hero_product: ""
+            hero_image: ""
+            hero_title: ""
+            hero_description: ""
+            featured_products: []
+            compact_products: []
+            preview_products: []
+          children:
+            - $formkit: ecommerceProductSelect
+              id: shop_home_hero_product
+              name: hero_product
+              label: 主推商品
+              help: 选择一个已发布商品。留空或商品下架后隐藏主推，不会自动用目录第一项替换。
+              multiple: false
+              clearable: true
+              searchable: true
+              allowCreate: false
+              value: ""
+            - $formkit: attachment
+              id: shop_home_hero_image
+              name: hero_image
+              label: 主推宣传图
+              help: 可选的横幅宣传图。留空时以商品封面完整呈现，不拉伸裁切商品图。
+              accepts:
+                - image/png
+                - image/jpeg
+                - image/webp
+              value: ""
+            - $formkit: text
+              id: shop_home_hero_title
+              name: hero_title
+              label: 主推标题
+              help: 留空时使用主推商品名称。
+              value: ""
+            - $formkit: textarea
+              id: shop_home_hero_description
+              name: hero_description
+              label: 主推简介
+              help: 留空时使用商品简介；仍受“显示商品简介”控制。
+              value: ""
+            - $formkit: ecommerceProductSelect
+              id: shop_home_featured_products
+              name: featured_products
+              label: 双推荐
+              help: 最多两个已发布商品，支持拖动排序。无有效商品时隐藏。
+              multiple: true
+              maxCount: 2
+              sortable: true
+              clearable: true
+              searchable: true
+              allowCreate: false
+              value: []
+            - $formkit: ecommerceProductSelect
+              id: shop_home_compact_products
+              name: compact_products
+              label: 商品行
+              help: 以完整商品封面、名称、简介与价格展示，按选择顺序排列；留空时隐藏。
+              multiple: true
+              sortable: true
+              clearable: true
+              searchable: true
+              allowCreate: false
+              value: []
+            - $formkit: ecommerceProductSelect
+              id: shop_home_preview_products
+              name: preview_products
+              label: 预览图集
+              help: 按选择顺序展示商品预览图片；留空或无有效图片时隐藏。
+              multiple: true
+              sortable: true
+              clearable: true
+              searchable: true
+              allowCreate: false
+              value: []
+
     - group: default_layout
       label: 默认布局
       formSchema:

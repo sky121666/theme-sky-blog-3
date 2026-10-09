@@ -114,6 +114,14 @@ assert(doubanManifest?.windowVariant === 'douban', 'Douban manifest.windowVarian
 assert(doubanManifest?.supportsSameAppPjax === true, 'Douban 必须支持 same-app PJAX');
 assert(doubanManifest?.sameVariantPageModes?.includes('browser-douban'), 'Douban 必须声明 browser-douban 页面模式');
 
+const shopManifest = getAppManifest('shop');
+assert(shopManifest?.windowVariant === 'shop', '商城必须使用独立 shop 窗口');
+assert(shopManifest?.supportsSameAppPjax === true, '商城必须支持 same-app PJAX');
+nodeAssert.deepEqual(shopManifest?.sameVariantPageModes, [
+  'browser-shop-products', 'browser-shop-product', 'browser-shop-cart',
+  'browser-shop-checkout', 'browser-shop-payments'
+], '商城内容切换必须覆盖五个主题页面模式');
+
 assert(getSameAppPjaxLoadingMode('explorer-categories') === 'progress', '分类同应用 PJAX 必须使用轻量进度');
 assert(getSameAppPjaxLoadingMode('explorer-archives') === 'progress', '归档同应用 PJAX 必须使用轻量进度');
 assert(getSameAppPjaxLoadingMode('explorer-tags') === 'progress', '标签同应用 PJAX 必须使用轻量进度');
@@ -161,6 +169,13 @@ const routeSamples = [
   ['https://example.com/docs/docsme/start', 'docsme', 'docsme'],
   ['https://example.com/photos', 'photos', 'photos'],
   ['https://example.com/photos/photo-demo', 'photos', 'photos'],
+  ['https://example.com/shop', 'shop', 'shop'],
+  ['https://example.com/shop/products?category=demo', 'shop', 'shop'],
+  ['https://example.com/shop/product/demo', 'shop', 'shop'],
+  ['https://example.com/shop/products/demo', 'shop', 'shop'],
+  ['https://example.com/shop/cart', 'shop', 'shop'],
+  ['https://example.com/shop/checkout?contextId=demo', 'shop', 'shop'],
+  ['https://example.com/shop/payments?orderCode=demo', 'shop', 'shop'],
   ['https://example.com/tags', 'explorer-tags', 'browser'],
   ['https://example.com/tags/demo', 'explorer-tags', 'browser'],
   ['https://example.com/tags/demo/page/2', 'explorer-tags', 'browser'],
@@ -185,10 +200,16 @@ for (const [url, expectedApp, expectedVariant] of routeSamples) {
   if (expectedApp) {
     assert(resolved?.appId === expectedApp, `resolveRoute(${url}) appId 错误`);
   }
+  if (expectedApp === 'shop') {
+    assert(resolved?.pjaxMode === 'same-app', `resolveRoute(${url}) 必须允许商城 PJAX`);
+  }
 }
 
 const unknownRouteSamples = [
   'https://example.com/about',
+  'https://example.com/shopper',
+  'https://example.com/uc',
+  'https://example.com/uc/orders',
   'https://example.com/archives/page/2',
   'https://example.com/archives/2024/page/2',
   'https://example.com/archives/2024/13',
