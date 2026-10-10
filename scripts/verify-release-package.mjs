@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 
 const root = process.cwd();
 const forbiddenSegments = new Set(['.env.local', '.git', '.agents', 'node_modules']);
+const developmentOnlyPrefixes = ['templates/assets/images/shop-demo'];
 const requiredEntries = [
   'LICENSE',
   'THIRD_PARTY_NOTICES.md',
@@ -100,6 +101,10 @@ function verifyEntryPaths(entries) {
     const folded = normalized.toLowerCase();
     assert(!seenCaseInsensitive.has(folded), `ZIP 包含大小写冲突条目: ${normalized}`);
     seenCaseInsensitive.add(folded);
+    assert(
+      !developmentOnlyPrefixes.some((prefix) => folded === prefix || folded.startsWith(`${prefix}/`)),
+      `ZIP 包含本地演示素材: ${entry}`
+    );
 
     for (const segment of segments) {
       assert(!forbiddenSegments.has(segment.toLowerCase()), `ZIP 包含禁止路径 ${segment}: ${entry}`);

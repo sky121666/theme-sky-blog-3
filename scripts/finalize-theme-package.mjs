@@ -49,6 +49,15 @@ function main() {
   }
   assert(result.status === 0, `写入第三方声明失败: ${(result.stderr || result.stdout || '').trim()}`);
   console.log(`发布包已写入第三方声明: ${path.relative(root, zipPath)}`);
+
+  const verification = spawnSync(process.execPath, [path.join(import.meta.dirname, 'verify-release-package.mjs'), zipPath], {
+    cwd: root,
+    stdio: 'inherit'
+  });
+  if (verification.error) {
+    throw new Error(`无法校验发布包: ${verification.error.message}`);
+  }
+  assert(verification.status === 0, '发布包校验失败');
 }
 
 try {
