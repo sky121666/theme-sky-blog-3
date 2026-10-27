@@ -2,7 +2,7 @@
 
 Sky Blog 3 是面向 Halo 的 macOS 桌面风格博客主题。把文章、生活记录和兴趣收藏放进一张桌面：通过 Dock 打开内容，在窗口中浏览，再回到桌面。
 
-- 当前版本：[v0.9.50](https://github.com/sky121666/theme-sky-blog-3/releases/tag/v0.9.50)，要求 Halo `>=2.26.0`
+- 当前正式版本：[v0.9.50](https://github.com/sky121666/theme-sky-blog-3/releases/tag/v0.9.50)，要求 Halo `>=2.26.0`
 - 支持 Halo 商城版的商店窗口；[更新说明](docs/发布说明.md#v0950) · [商城使用与截图](docs/商城/README.md)
 - 获取主题：[GitHub Releases](https://github.com/sky121666/theme-sky-blog-3/releases) · [Halo 应用市场](https://www.halo.run/store/apps/app-gqnoxtpt)
 - 使用指南：[文档索引](docs/文档索引.md) · [完整功能截图](docs/功能展示.md)
