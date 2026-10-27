@@ -19,6 +19,87 @@ const deferred = () => {
 };
 const manifest = { __meta: { version: '1', revision: 'build-2', query: 'v=1&r=build-2' } };
 
+// Optional real-parser regression, entirely intercepted: no Halo service or
+// generated assets are needed. Run with pnpm exec node ... --browser.
+async function verifyDeferredModuleReadiness() {
+  const { chromium } = await import('playwright');
+  const browser = await chromium.launch({ headless: true });
+  const parserGate = deferred();
+  const pluginGate = deferred();
+  const errors = [];
+  try {
+    const page = await browser.newPage({ serviceWorkers: 'block' });
+    page.on('pageerror', (error) => errors.push(error.message));
+    const html = `<!doctype html><html><head>
+      <link rel="stylesheet" href="/assets/css/shell-core/index.css?v=1&r=build-2">
+      <link rel="stylesheet" data-app-css="reader" href="/assets/css/apps/reader/index.css?v=1&r=build-2">
+      <script type="application/json" data-initial-app-script data-src="/assets/js/apps/reader/index.js?v=1&r=build-2">{}</script>
+      <script>
+        window.__fixtureBoots = [];
+        window.__fixtureDcl = false;
+        document.addEventListener('DOMContentLoaded', () => { window.__fixtureDcl = true; });
+        const addListener = document.addEventListener.bind(document);
+        document.addEventListener = (type, listener, options) => {
+          if (type === 'DOMContentLoaded') window.__fixtureWaiting = true;
+          return addListener(type, listener, options);
+        };
+      </script>
+      <script>${bootstrap}</script>
+      <script type="module" src="/plugins/fixture/deferred.js"></script>
+      </head><body><script src="/parser-gate.js"></script>
+      <main id="ssr-end">Complete SSR DOM</main></body></html>`;
+    await page.route('**/*', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.pathname === '/') return route.fulfill({ contentType: 'text/html', body: html });
+      if (url.pathname === '/assets/asset-manifest.json') {
+        return route.fulfill({ contentType: 'application/json', body: JSON.stringify(manifest) });
+      }
+      if (url.pathname.endsWith('.css')) return route.fulfill({ contentType: 'text/css', body: '' });
+      if (url.pathname === '/parser-gate.js') {
+        await parserGate.promise;
+        return route.fulfill({ contentType: 'application/javascript', body: '' });
+      }
+      if (url.pathname === '/plugins/fixture/deferred.js') {
+        await pluginGate.promise;
+        return route.fulfill({ contentType: 'application/javascript', body: 'window.__fixturePluginReady = true;' });
+      }
+      if (['/assets/js/apps/reader/index.js', '/assets/js/shell-core/index.js'].includes(url.pathname)) {
+        const stage = url.pathname.includes('/reader/') ? 'app' : 'shell';
+        return route.fulfill({ contentType: 'application/javascript', body: `
+          window.__fixtureBoots.push({ stage: ${JSON.stringify(stage)}, state: document.readyState,
+            completeDom: Boolean(document.getElementById('ssr-end')), dcl: window.__fixtureDcl });` });
+      }
+      errors.push(`unexpected fixture request: ${url.pathname}`);
+      return route.abort('blockedbyclient');
+    });
+    await page.goto('https://bootstrap.example.test/', { waitUntil: 'commit' });
+    await page.waitForFunction(() => window.__fixtureWaiting, undefined, { timeout: 5000 });
+    assert.equal(await page.evaluate(() => document.readyState), 'loading', '夹具必须先进入真实 parser 等待');
+    assert.deepEqual(await page.evaluate(() => window.__fixtureBoots), [], 'SSR 未解析完整时不得启动');
+    parserGate.resolve();
+    await page.waitForFunction(() => document.readyState === 'interactive', undefined, { timeout: 5000 });
+    await page.waitForFunction(() => window.__fixtureBoots.length === 2, undefined, { timeout: 5000 });
+    await page.evaluate(() => window.__THEME_BOOTSTRAP_READY__);
+    assert.deepEqual(await page.evaluate(() => window.__fixtureBoots), [
+      { stage: 'app', state: 'interactive', completeDom: true, dcl: false },
+      { stage: 'shell', state: 'interactive', completeDom: true, dcl: false }
+    ], '插件 module 阻塞 DCL 时，完整 DOM 已可用于 App→Shell 启动');
+    assert.equal(await page.evaluate(() => Boolean(window.__fixturePluginReady)), false);
+    pluginGate.resolve();
+    await page.waitForLoadState('domcontentloaded');
+    assert.equal(await page.evaluate(() => window.__fixtureBoots.length), 2, '迟到 DCL 不得重复启动');
+    assert.equal(await page.evaluate(() => window.__THEME_BOOTSTRAP_ERROR__), undefined);
+    assert.deepEqual(errors, []);
+    console.log('shell bootstrap deferred-module browser fixture passed');
+  } finally {
+    parserGate.resolve();
+    pluginGate.resolve();
+    await browser.close();
+  }
+}
+
+if (process.argv.includes('--browser')) await verifyDeferredModuleReadiness();
+
 function harness(fetchResult, { withApp = true, appImport = Promise.resolve(), shellImport = Promise.resolve(), currentRevision = 'halo-12', autoStyleLoad = true, domLoading = false } = {}) {
   const timers = new Map();
   const imports = [];
@@ -109,8 +190,9 @@ function harness(fetchResult, { withApp = true, appImport = Promise.resolve(), s
     .replace("'/assets/js/shell-core/index.js'", "'/assets/js/shell-core/index.js?v=1&r=halo-12'")
     .replace("'/assets/css/shell-core/index.css'", "'/assets/css/shell-core/index.css?v=1&r=halo-12'");
   vm.runInNewContext(source, context);
-  return { window, timers, imports, fetches, errors, writes, appScript, shellStyle, appStyle, nodes, events, alerts, preloads,
-    finishDom() { document.readyState = 'interactive'; domListeners.get('DOMContentLoaded')?.(); },
+  return { window, timers, imports, fetches, errors, writes, appScript, shellStyle, appStyle, nodes, events, alerts, preloads, domListeners,
+    setDocumentState(state) { document.readyState = state; domListeners.get('readystatechange')?.(); },
+    finishDom() { domListeners.get('DOMContentLoaded')?.(); },
     get reloads() { return reloads; },
     fireDeadline(ms = 4000) { const timer = [...timers.values()].find((entry) => entry.ms === ms); assert.ok(timer, `missing ${ms}ms deadline`); timer.fn(); } };
 }
@@ -165,9 +247,36 @@ assert.deepEqual(parsing.preloads.map((node) => node.href).sort(), [
   '/assets/js/apps/reader/index.js?v=1&r=build-2',
   '/assets/js/shell-core/index.js?v=1&r=build-2'
 ], 'DOM 解析期间应提前下载同构建模块');
-parsing.finishDom();
+parsing.setDocumentState('loading');
+assert.deepEqual(parsing.imports, [], 'loading 状态的事件不能提前解除解析等待');
+parsing.setDocumentState('interactive');
+await tick();
+assert.equal(parsing.imports.length, 2, 'interactive 时不得依赖插件延迟的 DOMContentLoaded');
 await parsing.window.__THEME_BOOTSTRAP_READY__;
 assert.equal(parsing.imports.length, 2, 'DOM 可用后仍按 App→Shell 完成初始化');
+assert.equal(parsing.domListeners.size, 0, '成功后必须清理全部文档就绪监听器');
+assert.equal(parsing.timers.size, 0, '成功后必须清理解析 deadline');
+parsing.finishDom();
+parsing.setDocumentState('complete');
+await tick();
+assert.equal(parsing.imports.length, 2, '迟到 DCL 和 complete 事件不得重复启动');
+
+const unparsed = harness(Promise.resolve({ ok: true, json: async () => manifest }), {
+  currentRevision: 'build-2', domLoading: true
+});
+await tick();
+unparsed.fireDeadline(15000);
+await unparsed.window.__THEME_BOOTSTRAP_READY__;
+assert.equal(unparsed.window.__THEME_BOOTSTRAP_ERROR__, 'Theme document parsing timed out');
+assert.equal(unparsed.window.__THEME_BOOTSTRAP_CANCELLED__, true);
+assert.equal(unparsed.imports.length, 0, '15 秒仍未完成解析时不得启动模块');
+assert.equal(unparsed.domListeners.size, 0, '解析超时也必须清理全部文档就绪监听器');
+assert.equal(unparsed.timers.size, 0, '解析超时必须清理 deadline');
+assert.equal(unparsed.alerts.length, 1, '解析超时保留恢复提示');
+unparsed.setDocumentState('interactive');
+unparsed.finishDom();
+await tick();
+assert.equal(unparsed.imports.length, 0, '超时后的迟到就绪事件不得恢复已取消的启动');
 
 const unchangedCss = harness(Promise.resolve({ ok: true, json: async () => manifest }), { currentRevision: 'build-2' });
 await unchangedCss.window.__THEME_BOOTSTRAP_READY__;

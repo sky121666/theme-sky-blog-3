@@ -1,3 +1,4 @@
+import { assertCurrentBuild } from './lib/build-identity.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -7,6 +8,7 @@ import { chromium } from 'playwright';
 // Local sources and inert markup only. Every request is intercepted, so this
 // fixture cannot read an account or contact a Commerce/Halo service.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+assertCurrentBuild(root);
 const origin = 'https://theme.test';
 const optionalRead = (file) => readFile(path.join(root, file), 'utf8').catch((error) => {
   if (error.code === 'ENOENT') return '';

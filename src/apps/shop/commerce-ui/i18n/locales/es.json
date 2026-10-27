@@ -12,7 +12,8 @@
       "alipay": "Alipay",
       "wechat": "WeChat",
       "stripe": "Stripe"
-    }
+    },
+    "retry": "Reintentar"
   },
   "buyBox": {
     "loadFailed": "Error al cargar: {{message}}",
@@ -25,7 +26,8 @@
     "buyNow": "Comprar ahora",
     "externalBuyNow": "Comprar en sitio externo",
     "externalRedirectHint": "Se abrirá el sitio externo en una pestaña nueva",
-    "contactSales": "Contactar ventas"
+    "contactSales": "Contactar ventas",
+    "perOrderLimit": "Límite de {{count}} por pedido"
   },
   "cart": {
     "title": "Carrito",
@@ -38,11 +40,23 @@
     "pendingCalculation": "Por calcular",
     "total": "Total",
     "proceedToCheckout": "Proceder al pago",
-    "continueShopping": "Continuar comprando"
+    "continueShopping": "Continuar comprando",
+    "loadFailed": "No se pudo cargar el carrito. Inténtalo de nuevo.",
+    "emptyTitle": "Tu carrito está vacío",
+    "emptyDesc": "Explora y encuentra algo que te guste.",
+    "emptyAction": "Ver productos",
+    "inquiryExcluded": "{{count}} artículo(s) de consulta deben pedirse por ventas y se excluyeron del pago"
   },
   "cartItem": {
     "updateQuantityFailed": "Error al actualizar la cantidad. Inténtelo de nuevo.",
-    "remove": "Eliminar"
+    "remove": "Eliminar",
+    "removeConfirm": "¿Eliminar este artículo del carrito?",
+    "removeFailed": "No se pudo eliminar el artículo. Inténtalo de nuevo.",
+    "inquiryBadge": "Consulta",
+    "inquiryNote": "Contacta a ventas para ordenar",
+    "quantity": "Cantidad",
+    "increaseQuantity": "Aumentar cantidad",
+    "decreaseQuantity": "Disminuir cantidad"
   },
   "checkout": {
     "title": "Finalizar compra",
@@ -64,6 +78,7 @@
     "discountTip": "El sistema calculará automáticamente el mejor descuento.",
     "discountApplySuccess": "Código de descuento aplicado con éxito",
     "discountRemoveSuccess": "Código de descuento eliminado",
+    "discountRemoveError": "No se pudo eliminar el código de descuento. Inténtalo de nuevo.",
     "discountApplyError": "Código de descuento inválido o vencido",
     "coupons": "Cupones",
     "couponsPlaceholder": "Selecciona cupones para aplicar",
@@ -86,7 +101,13 @@
     "couponMaxDiscount": "máx. {{amount}}",
     "couponMinOrder": "pedido mínimo {{amount}}",
     "couponExpiresAt": "Vence el {{date}}",
-    "couponRejectedFallback": "Este cupón no está disponible para este pedido."
+    "couponRejectedFallback": "Este cupón no está disponible para este pedido.",
+    "email": "Correo",
+    "emailHelp": "La confirmación del pedido y el enlace de acceso se envían a este correo.",
+    "guestLoginPrompt": "Si este correo ya pertenece a una cuenta, inicie sesión antes de pagar.",
+    "subscriptionRequiresLogin": "Los productos de suscripción requieren iniciar sesión.",
+    "contextLoadFailed": "No se pudo cargar el pago. Inténtalo de nuevo.",
+    "submitting": "Enviando…"
   },
   "addressForm": {
     "lastName": "Apellido *",
@@ -118,10 +139,25 @@
     "payableTotal": "Importe a pagar",
     "discount": "Descuento",
     "paymentTitle": "Pago",
-    "loadPaymentResponseFailed": "Error al cargar la respuesta de pago. Actualice e intente de nuevo.",
+    "loadPaymentResponseFailed": "No se pudo cargar la información de pago. Inténtalo de nuevo.",
     "unsupportedPaymentMethod": "Este método de pago aún no es compatible. Póngase en contacto con el administrador.",
     "paymentTransactionNumber": "Número de transacción de pago *",
-    "paymentConfirmed": "He completado el pago"
+    "paymentConfirmed": "He completado el pago",
+    "wechatPayReentry": "Este pedido ya tiene un pago de WeChat sin terminar. Vuelve a la página original para completarlo o crea un pedido nuevo para pagar aquí.",
+    "accessEmail": "Correo",
+    "accessEmailHelp": "Introduzca el correo usado al pagar. Le enviaremos un enlace de acceso al pedido.",
+    "sendAccessLink": "Enviar enlace de acceso",
+    "accessLinkSent": "Si el correo coincide, se ha enviado un enlace de acceso.",
+    "accessLinkFailed": "No se pudo enviar el enlace. Inténtelo de nuevo.",
+    "pollTimeout": "No se detectó el pago; se detuvo la actualización automática.",
+    "pollResume": "Verificar de nuevo",
+    "orderStatusUnavailable": "No se pudo confirmar el estado del pedido. Consúltalo de nuevo antes de volver a pagar.",
+    "recheckOrder": "Consultar el estado del pedido",
+    "sessionStatus": {
+      "FAILED": "El pago ha fallado. Puedes volver a intentarlo.",
+      "EXPIRED": "Este pago ha caducado. Vuelve a intentarlo para obtener nuevos datos de pago.",
+      "CANCELLED": "Este pago se ha cancelado. Puedes volver a intentarlo."
+    }
   },
   "paymentMethods": {
     "scanToPay": "Utilice {{provider}} para escanear el código QR y completar el pago",
@@ -137,6 +173,60 @@
     "bankAddress": "Dirección del banco: {{value}}",
     "accountName": "Nombre de la cuenta: {{value}}",
     "accountNumber": "Número de cuenta: {{value}}",
-    "notes": "Notas: {{value}}"
+    "notes": "Notas: {{value}}",
+    "wechatH5RedirectTip": "WeChat Pay se abre en esta página. Al terminar, volverás aquí."
+  },
+  "subscription": {
+    "badge": "Suscripción",
+    "switchHint": "Toca otro plan para cambiarlo en el centro de usuario.",
+    "noPlans": "No hay planes disponibles",
+    "tierTabsLabel": "Nivel",
+    "periodTabsLabel": "Período",
+    "period": {
+      "MONTHLY": "Mensual",
+      "YEARLY": "Anual",
+      "LIFETIME": "Permanente",
+      "OTHER": "Otro"
+    },
+    "billingMode": {
+      "SUBSCRIPTION": "Recurrente",
+      "ONE_TIME": "Período único",
+      "LIFETIME": "Permanente"
+    },
+    "billingPeriod": {
+      "MONTHLY": "Mensual",
+      "YEARLY": "Anual"
+    },
+    "perMonth": "/mes",
+    "perYear": "/año",
+    "savePercent": "Ahorra {{percent}}%",
+    "trial": "Prueba gratuita de {{days}} días",
+    "resubscribeNotice": "Al comprar de nuevo se restablecerá tu suscripción. La prueba gratuita no se volverá a ofrecer.",
+    "quantityRange": "{{min}} - {{max}}",
+    "decreaseQuantity": "Disminuir cantidad",
+    "increaseQuantity": "Aumentar cantidad",
+    "summaryTrialNow": "Prueba gratuita {{days}} días · a pagar ahora",
+    "summaryDueNow": "A pagar ahora",
+    "summaryAfterTrial": "Después",
+    "summaryAfterEach": "Después por período",
+    "currentPlan": "Plan actual",
+    "goSwitch": "Cambiar",
+    "addingToCart": "Agregando...",
+    "addCartFailed": "Error al agregar al carrito",
+    "manageTitle": "Suscripción actual",
+    "manageTitleMultiple": "Tus suscripciones ({{count}})",
+    "manageMultipleHint": "Cada suscripción se renueva y cambia por su cuenta. Gestiónala en el centro de usuario.",
+    "managePlan": "Plan",
+    "manageStatus": "Estado",
+    "managePeriodEnd": "Fin del período actual",
+    "manageGoUc": "Gestionar en el centro de usuario",
+    "forever": "De por vida",
+    "status": {
+      "TRIALING": "En prueba",
+      "ACTIVE": "Activa",
+      "PAST_DUE": "Vencida",
+      "CANCELLED": "Cancelada",
+      "EXPIRED": "Caducada"
+    }
   }
 }

@@ -66,7 +66,7 @@
 <th:block th:fragment="configuredCard (item, variant, showDescription, customTitle, promotionImage, customDescription)"
           th:with="variants=${item.productVariants instanceof T(java.util.List) ? item.productVariants : {}},publishedVariants=${variants.?[status != null and #strings.toString(status) == 'PUBLISHED']},soldOut=${!#lists.isEmpty(publishedVariants) and #lists.size(publishedVariants.?[trackInventory == true and stock != null and stock <= 0]) == #lists.size(publishedVariants)},hasImage=${!#strings.isEmpty(item.coverImageUrl)}">
   <a th:if="${variant == 'hero' and !soldOut and (hasImage or !#strings.isEmpty(promotionImage))}"
-     class="shop-hero pjax-link" th:attr="data-shop-home-product=${item.id}" th:href="@{/shop/product/{id}(id=${item.id})}">
+     class="shop-hero pjax-link" th:attr="data-shop-home-product=${item.id}" th:href="@{${#halo != null and !#strings.equals(site.version, '0.0.0') and #halo.matchVersion('>=2.27.0') and !#strings.isEmpty(item.permalink) ? item.permalink : '/shop/product/' + item.id}}">
     <img th:if="${!#strings.isEmpty(promotionImage)}" class="shop-hero-image" data-shop-media="promotion" th:src="${promotionImage}" alt="" decoding="async" fetchpriority="high" />
     <th:block th:if="${#strings.isEmpty(promotionImage)}">
       <th:block th:replace="~{modules/shop-app/media :: productImage(item=${item},mediaClass='shop-hero-identity-image',mediaRole='identity')}"></th:block>
@@ -77,7 +77,7 @@
       <th:block th:replace="~{modules/shop-app/products :: price(item=${item})}"></th:block>
     </div>
   </a>
-  <a th:if="${variant == 'featured' and !soldOut}" class="shop-editorial-card pjax-link" th:attr="data-shop-home-product=${item.id}" th:href="@{/shop/product/{id}(id=${item.id})}">
+  <a th:if="${variant == 'featured' and !soldOut}" class="shop-editorial-card pjax-link" th:attr="data-shop-home-product=${item.id}" th:href="@{${#halo != null and !#strings.equals(site.version, '0.0.0') and #halo.matchVersion('>=2.27.0') and !#strings.isEmpty(item.permalink) ? item.permalink : '/shop/product/' + item.id}}">
     <div class="shop-editorial-content">
       <p class="shop-product-name" th:text="${item.title}">商品名称</p>
       <p class="shop-product-description" th:if="${showDescription and !#strings.isEmpty(item.description)}" th:text="${item.description}">商品简介</p>
@@ -88,7 +88,7 @@
   <th:block th:if="${variant == 'compact'}">
     <th:block th:replace="~{::compactCard(item=${item},showDescription=${showDescription},soldOut=${soldOut},configured=true)}"></th:block>
   </th:block>
-  <a th:if="${variant == 'preview' and hasImage}" class="shop-gallery-card pjax-link" th:attr="data-shop-home-product=${item.id}" th:href="@{/shop/product/{id}(id=${item.id})}">
+  <a th:if="${variant == 'preview' and hasImage}" class="shop-gallery-card pjax-link" th:attr="data-shop-home-product=${item.id}" th:href="@{${#halo != null and !#strings.equals(site.version, '0.0.0') and #halo.matchVersion('>=2.27.0') and !#strings.isEmpty(item.permalink) ? item.permalink : '/shop/product/' + item.id}}">
     <th:block th:replace="~{modules/shop-app/media :: productImage(item=${item},mediaClass='shop-gallery-image',mediaRole='preview')}"></th:block>
     <div class="shop-gallery-caption"><p class="shop-product-name" th:text="${item.title}">商品名称</p><p class="shop-product-description" th:if="${showDescription and !#strings.isEmpty(item.description)}" th:text="${item.description}">商品简介</p><th:block th:replace="~{modules/shop-app/products :: price(item=${item})}"></th:block></div>
   </a>
@@ -105,7 +105,7 @@
   <a href="/shop/products?view=all" class="shop-card-action pjax-link" th:if="${page != null and page.total > 12}">浏览所有商品 <span aria-hidden="true">›</span></a>
 </section>
 
-<a th:fragment="compactCard (item, showDescription, soldOut, configured)" class="shop-compact-card pjax-link" th:attr="data-shop-home-product=${configured ? item.id : null}" th:href="@{/shop/product/{id}(id=${item.id})}"
+<a th:fragment="compactCard (item, showDescription, soldOut, configured)" class="shop-compact-card pjax-link" th:attr="data-shop-home-product=${configured ? item.id : null}" th:href="@{${#halo != null and !#strings.equals(site.version, '0.0.0') and #halo.matchVersion('>=2.27.0') and !#strings.isEmpty(item.permalink) ? item.permalink : '/shop/product/' + item.id}}"
    th:with="knownVariants=${item.productVariants instanceof T(java.util.List) ? item.productVariants : {}},publishedVariants=${knownVariants.?[status != null and #strings.toString(status) == 'PUBLISHED']},knownSoldOut=${!#lists.isEmpty(publishedVariants) and #lists.size(publishedVariants.?[trackInventory == true and stock != null and stock <= 0]) == #lists.size(publishedVariants)}">
   <th:block th:replace="~{modules/shop-app/media :: productImage(item=${item},mediaClass='shop-compact-image',mediaRole='identity')}"></th:block>
   <div class="shop-compact-content"><p class="shop-product-name" th:text="${item.title}">商品名称</p><p class="shop-product-description" th:if="${showDescription and !#strings.isEmpty(item.description)}" th:text="${item.description}">商品简介</p></div>

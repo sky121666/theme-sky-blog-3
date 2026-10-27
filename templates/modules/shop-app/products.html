@@ -64,7 +64,7 @@
   </div>
 </th:block>
 
-<a th:fragment="catalogCard (item, showDescription)" class="shop-catalog-card pjax-link" th:href="@{/shop/product/{id}(id=${item.id})}">
+<a th:fragment="catalogCard (item, showDescription)" class="shop-catalog-card pjax-link" th:href="@{${#halo != null and !#strings.equals(site.version, '0.0.0') and #halo.matchVersion('>=2.27.0') and !#strings.isEmpty(item.permalink) ? item.permalink : '/shop/product/' + item.id}}">
   <img th:if="${!#strings.isEmpty(item.coverImageUrl)}" th:src="${item.coverImageUrl}" alt="" loading="lazy" decoding="async" />
   <th:block th:if="${#strings.isEmpty(item.coverImageUrl)}">
     <th:block th:replace="~{::imagePlaceholder(imageTitle=${item.title})}"></th:block>

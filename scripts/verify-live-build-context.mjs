@@ -4,6 +4,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import vm from 'node:vm';
 import { EventEmitter } from 'node:events';
+import { buildRootFiles, computeBuildRevisionFromContents } from './lib/build-identity.mjs';
 import { installReadOnlyGuard } from './lib/browser-runtime-errors.mjs';
 
 const source = fs.readFileSync(new URL('./lib/live-build-context.mjs', import.meta.url), 'utf8')
@@ -16,6 +17,10 @@ function fixture() {
     'theme.yaml': 'version: 1', 'settings.yaml': '[]', 'package.json': '{}',
     'pnpm-lock.yaml': '{}', 'pnpm-workspace.yaml': '{}', 'vite.config.ts': '// fixture', 'tsconfig.json': '{}',
     'annotation-setting.yaml': '[]',
+    'scripts/lib/build-identity.mjs': '// shared build contract fixture',
+    'scripts/theme-build-styles.mjs': '// fixture style generator',
+    'scripts/theme-startup.mjs': '// fixture startup generator',
+    'scripts/theme-desktop-preview.mjs': '// fixture desktop generator',
     'templates/assets/js/shell-core/index.js': 'export const shell = 1;',
     'templates/assets/css/shell-core/index.css': 'body{color:black}',
     '.env.local': 'HALO_BASE_URL=https://example.test\nFIVEEE_PAT=fixture-only-secret'
@@ -36,7 +41,7 @@ function fixture() {
   const scenario = { badAsset: false, truncated: false };
   const missing = () => Object.assign(new Error('missing fixture file'), { code: 'ENOENT' });
   const context = vm.createContext({
-    assert, path, crypto, URL, AbortSignal, Date, Map, JSON,
+    assert, path, crypto, URL, AbortSignal, Date, Map, JSON, buildRootFiles, computeBuildRevisionFromContents,
     process: { cwd: () => '/fixture', env: {} },
     fs: {
       readFile: async (name) => { const key = path.relative('/fixture', name); if (!files.has(key)) throw missing(); return files.get(key); },

@@ -166,7 +166,7 @@ overrides:
   archiver: 8.0.0
 
 patchedDependencies:
-  '@halo-dev/theme-package-cli@1.1.1': e923ffa14a178ed34183386e3cb2a4ee4fd1e904dc83ff4a32a3c80f5542e331
+  '@halo-dev/theme-package-cli@1.1.1': af3f7f7ce9b6c495598b52a4df983a0e0bd9694bbbf22be9f6a35a92caccb702
 
 importers:
 
@@ -190,7 +190,7 @@ importers:
         version: 3.17.3
       '@halo-dev/theme-package-cli':
         specifier: 1.1.1
-        version: 1.1.1(patch_hash=e923ffa14a178ed34183386e3cb2a4ee4fd1e904dc83ff4a32a3c80f5542e331)
+        version: 1.1.1(patch_hash=af3f7f7ce9b6c495598b52a4df983a0e0bd9694bbbf22be9f6a35a92caccb702)
       '@iconify-json/lucide':
         specifier: 1.2.134
         version: 1.2.134
@@ -1559,7 +1559,7 @@ snapshots:
   '@esbuild/win32-x64@0.28.2':
     optional: true
 
-  '@halo-dev/theme-package-cli@1.1.1(patch_hash=e923ffa14a178ed34183386e3cb2a4ee4fd1e904dc83ff4a32a3c80f5542e331)':
+  '@halo-dev/theme-package-cli@1.1.1(patch_hash=af3f7f7ce9b6c495598b52a4df983a0e0bd9694bbbf22be9f6a35a92caccb702)':
     dependencies:
       archiver: 8.0.0
       commander: 13.1.0

@@ -10,6 +10,8 @@ const [hydrateSource, interactionsSource, publishSource] = await Promise.all([
   fs.readFile(path.join(momentsRoot, 'interactions.js'), 'utf8'),
   fs.readFile(path.join(momentsRoot, 'publish.js'), 'utf8')
 ]);
+const commentPermalinkSource = await fs.readFile(path.join(root, 'src/shared/comment-permalink.js'), 'utf8');
+const commentPermalinkModuleUrl = `data:text/javascript;base64,${Buffer.from(commentPermalinkSource).toString('base64')}`;
 
 assert.doesNotMatch(hydrateSource, /cleanupDeferred|notificationFrame/,
   'Moments hydrate 不得在下一帧重复安装通知、发布和评论控制器');
@@ -25,9 +27,13 @@ async function createPage(browser, html) {
 }
 
 async function exposeModule(page, source, exportName, globalName) {
+  const executableSource = source.replace(
+    "from '../../shared/comment-permalink.js'",
+    `from ${JSON.stringify(commentPermalinkModuleUrl)}`
+  );
   await page.addScriptTag({
     type: 'module',
-    content: `${source}\nwindow.${globalName} = ${exportName};`
+    content: `${executableSource}\nwindow.${globalName} = ${exportName};`
   });
   await page.waitForFunction((name) => typeof window[name] === 'function', globalName);
 }
@@ -576,12 +582,166 @@ async function verifyViewerRefCountCleanup(browser) {
   await page.close();
 }
 
+async function verifyCommentPermalinkHistoryAndVisibility(browser) {
+  const page = await createPage(browser, `
+    <main data-app-root="moments" data-pjax-target-url="/moments/destination#halo-comment=destination-comment&reply=destination-reply">
+      <section class="moment-comments--custom">
+        <article data-moment-card data-moment-name="destination" data-moment-detail-comments data-comment-count="0">
+          <div data-moment-comments-panel>
+            <div data-moment-comments-list></div>
+            <p data-moment-comments-status></p>
+          </div>
+          <div data-moment-official-comments hidden style="display:none">
+            <halo-comment>Official component container fixture</halo-comment>
+          </div>
+        </article>
+      </section>
+    </main>
+  `);
+  const pageErrors = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  try {
+    await page.evaluate(() => {
+      history.replaceState({}, '', '/moments/source#halo-comment=source-comment');
+      window.__permalinkRequests = [];
+      window.fetch = (input, init = {}) => {
+        window.__permalinkRequests.push({ input: String(input), signal: init.signal });
+        return Promise.resolve(new Response(JSON.stringify({
+          items: [], page: 1, total: 0, hasNext: false
+        }), { status: 200, headers: { 'content-type': 'application/json' } }));
+      };
+      window.__containerScrolls = 0;
+      document.querySelector('[data-moment-official-comments]').scrollIntoView = () => {
+        window.__containerScrolls += 1;
+      };
+    });
+    await exposeModule(page, interactionsSource, 'setupMomentInteractions', '__setupMomentInteractions');
+    await page.evaluate(() => {
+      window.__permalinkCleanup = window.__setupMomentInteractions(document);
+    });
+    assert.equal(await page.locator('[data-moment-official-comments]').isVisible(), false,
+      '先挂载的新根节点不得采用上一页评论目标');
+    await page.evaluate(() => {
+      history.pushState({}, '', '/moments/destination#halo-comment=destination-comment&reply=destination-reply');
+      delete document.querySelector('[data-app-root="moments"]').dataset.pjaxTargetUrl;
+      document.dispatchEvent(new CustomEvent('theme:navigation-settled'));
+    });
+    await page.waitForFunction(() => window.__containerScrolls === 1);
+    assert.equal(await page.locator('[data-moment-official-comments]').isVisible(), true);
+    assert.equal(await page.locator('[data-moment-comments-panel]').isVisible(), false);
+    assert.equal(await page.evaluate(() => window.__permalinkRequests.length), 0,
+      '新固定链接须直接交由官方组件，不扫描自定义评论列表');
+
+    await page.evaluate(() => {
+      history.pushState({}, '', '/moments/destination#moment-comments');
+      document.dispatchEvent(new CustomEvent('theme:navigation-settled'));
+    });
+    await page.waitForFunction(() => window.__permalinkRequests.length === 1
+      && !document.querySelector('[data-moment-comments-panel]').classList.contains('is-loading'));
+    assert.equal(await page.locator('[data-moment-official-comments]').isVisible(), false);
+    assert.equal(await page.locator('[data-moment-comments-panel]').isVisible(), true);
+
+    await page.evaluate(() => history.back());
+    await page.waitForFunction(() => location.hash.includes('halo-comment=destination-comment')
+      && !document.querySelector('[data-moment-official-comments]').hidden);
+    assert.equal(await page.locator('[data-moment-comments-panel]').isVisible(), false);
+    await page.evaluate(() => history.forward());
+    await page.waitForFunction(() => location.hash === '#moment-comments'
+      && document.querySelector('[data-moment-official-comments]').hidden);
+    assert.equal(await page.locator('[data-moment-comments-panel]').isVisible(), true);
+    assert.equal(await page.evaluate(() => window.__permalinkRequests.length), 1,
+      '历史返回已加载列表须复用现有结果');
+
+    await page.evaluate(() => {
+      window.__permalinkCleanup();
+      history.pushState({}, '', '/moments/destination#halo-comment=after-disposal');
+      document.dispatchEvent(new CustomEvent('theme:navigation-settled'));
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    });
+    assert.equal(await page.locator('[data-moment-official-comments]').isVisible(), false,
+      'cleanup 后连接中的旧节点不得响应后续 URL');
+    assert.deepEqual(pageErrors, []);
+  } finally { await page.close(); }
+}
+
+async function verifyCommentPermalinkKeyboardExit(browser) {
+  const page = await createPage(browser, `
+    <button data-outside-focus>外部入口</button>
+    <main data-app-root="moments">
+      <section class="moment-comments--custom">
+        <article data-moment-card data-moment-name="keyboard-exit" data-moment-detail-comments data-comment-count="0">
+          <div data-moment-comments-panel>
+            <div data-moment-comments-list></div>
+            <p data-moment-comments-status></p>
+          </div>
+          <div data-moment-official-comments hidden style="display:none"><comment-widget></comment-widget></div>
+        </article>
+      </section>
+    </main>
+  `);
+  const pageErrors = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  try {
+    await page.evaluate(() => {
+      history.replaceState({}, '', '/moments/keyboard-exit#halo-comment=public-comment');
+      window.fetch = () => Promise.resolve(new Response(JSON.stringify({
+        items: [], page: 1, total: 0, hasNext: false
+      }), { status: 200, headers: { 'content-type': 'application/json' } }));
+      const widget = document.querySelector('comment-widget');
+      const shadow = widget.attachShadow({ mode: 'open' });
+      window.__officialExitCount = 0;
+      window.__renderOfficialDetail = () => {
+        shadow.innerHTML = '<comment-detail style="display:block"><button class="back">返回评论列表</button></comment-detail>';
+        shadow.querySelector('button').addEventListener('click', async () => {
+          // CommentWidget 3.4 synchronously dispatches hashchange before its
+          // asynchronous render/focus of the replacement comment-list.
+          const restoreFocus = shadow.querySelector('comment-detail').matches(':focus-within');
+          history.pushState({}, '', '/moments/keyboard-exit');
+          window.dispatchEvent(new Event('hashchange'));
+          await Promise.resolve();
+          shadow.innerHTML = '<comment-list style="display:block" tabindex="-1">官方评论列表</comment-list>';
+          if (restoreFocus) shadow.querySelector('comment-list').focus({ preventScroll: true });
+          window.__officialExitCount += 1;
+        });
+      };
+      window.__renderOfficialDetail();
+    });
+    await exposeModule(page, interactionsSource, 'setupMomentInteractions', '__setupMomentInteractions');
+    await page.evaluate(() => { window.__permalinkCleanup = window.__setupMomentInteractions(document); });
+    const back = page.locator('comment-widget button.back');
+    await back.focus();
+    assert.equal(await page.evaluate(() => document.activeElement.localName), 'comment-widget',
+      '回归须从 Shadow DOM 内的官方返回按钮触发');
+    await back.press('Enter');
+    await page.waitForFunction(() => window.__officialExitCount === 1);
+    assert.equal(await page.locator('[data-moment-official-comments]').isVisible(), false);
+    assert.equal(await page.locator('[data-moment-comments-list]').isVisible(), true);
+    assert.equal(await page.evaluate(() => document.activeElement.matches('[data-moment-comments-list]')), true,
+      '键盘退出官方详情后，焦点须保留在恢复可见的自定义评论列表，不能掉到 BODY');
+
+    await page.evaluate(() => {
+      history.pushState({}, '', '/moments/keyboard-exit#halo-comment=public-comment');
+      window.__renderOfficialDetail();
+      window.dispatchEvent(new Event('hashchange'));
+    });
+    await page.locator('[data-outside-focus]').focus();
+    await back.dispatchEvent('click');
+    await page.waitForFunction(() => window.__officialExitCount === 2);
+    assert.equal(await page.evaluate(() => document.activeElement.matches('[data-outside-focus]')), true,
+      '退出定位时，原本在官方组件之外的焦点不得被抢走');
+    await page.evaluate(() => window.__permalinkCleanup());
+    assert.deepEqual(pageErrors, []);
+  } finally { await page.close(); }
+}
+
 const browser = await chromium.launch({ headless: true });
 try {
   await verifyNotificationNavigationAndCleanup(browser);
   await verifyPublishCancellation(browser);
   await verifyCommentGenerationAndViewerCleanup(browser);
   await verifyViewerRefCountCleanup(browser);
+  await verifyCommentPermalinkHistoryAndVisibility(browser);
+  await verifyCommentPermalinkKeyboardExit(browser);
   console.log('Moments lifecycle verification passed');
 } finally {
   await browser.close();

@@ -1,3 +1,4 @@
+import { assertCurrentBuild } from './lib/build-identity.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -8,11 +9,12 @@ import { chromium } from 'playwright';
 // Every request is intercepted; this fixture cannot contact a Halo instance.
 // Official Commerce components are deliberately absent: no orders are created.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+assertCurrentBuild(root);
 const origin = 'https://theme.test';
 const image = (color) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80"><rect width="120" height="80" fill="${color}"/></svg>`)}`;
 const firstImage = image('#4a90e2');
 const secondImage = image('#e2a54a');
-const accountAvatar = await readFile(path.join(root, 'templates/assets/images/shop-demo/wallpaper.png'));
+const accountAvatar = await readFile(path.join(root, 'scripts/fixtures/images/avatar-category.png'));
 const categoryCss = await readFile(path.join(root, 'src/apps/shop/styles/category-appearance.css'), 'utf8');
 const categoryTemplate = await readFile(path.join(root, 'templates/modules/shop-app/category-appearance.html'), 'utf8');
 const categoryFallback = categoryTemplate.match(/<svg\b[\s\S]*?<\/svg>/)?.[0].replace(/\s+th:[\w:-]+="[^"]*"/g, '') || '';
@@ -676,6 +678,37 @@ try {
         { name: 'commit', value: 'buy%20%26%20now' }
       ]);
     }
+  });
+
+  await test('order cancellation and access recovery use PJAX while preserving a declined confirmation', async (page) => {
+    const result = await page.evaluate(async () => {
+      const calls = [], prevented = [];
+      window.pjax = { loadUrl(href, options) {
+        calls.push({ path: new URL(href).pathname, params: options.requestOptions.requestParams });
+        return Promise.resolve(false);
+      } };
+      document.addEventListener('submit', (event) => { prevented.push(event.defaultPrevented); event.preventDefault(); });
+      for (const [action, allow] of [
+        ['/shop/order/fixture-order/cancel', false],
+        ['/shop/order/fixture-order/cancel', true],
+        ['/shop/order/fixture-order/access-link', true]
+      ]) {
+        const form = document.createElement('form');
+        form.method = 'post'; form.action = action;
+        form.innerHTML = '<input name="_csrf" value="fixture-csrf"><input name="email" value="buyer@example.test"><button>提交</button>';
+        form.onsubmit = () => allow;
+        window.__shopRoot.querySelector('.shop-main').append(form);
+        form.requestSubmit(form.querySelector('button'));
+        await Promise.resolve(); await Promise.resolve();
+        form.remove();
+      }
+      return { calls, prevented };
+    });
+    assert.deepEqual(result.prevented, [true, true, true], 'none of the order forms may reload the document');
+    assert.deepEqual(result.calls.map(call => call.path), ['/shop/order/fixture-order/cancel', '/shop/order/fixture-order/access-link']);
+    for (const call of result.calls) assert.deepEqual(call.params, [
+      { name: '_csrf', value: 'fixture-csrf' }, { name: 'email', value: 'buyer%40example.test' }
+    ]);
   });
 
   await test('POST admission cancellation, pending duplication and disposal release buttons without native fallback', async (page) => {

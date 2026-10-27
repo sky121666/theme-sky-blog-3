@@ -1201,6 +1201,16 @@
   vertical-align: top;
 }
 
+.docsme-article th > :first-child,
+.docsme-article td > :first-child {
+  margin-top: 0;
+}
+
+.docsme-article th > :last-child,
+.docsme-article td > :last-child {
+  margin-bottom: 0;
+}
+
 .docsme-article th {
   background: color-mix(in srgb, var(--docsme-accent) 15%, var(--docsme-surface));
   color: var(--docsme-strong);

@@ -5,11 +5,13 @@ index 3122f78118ffcef7604bd6be34f2c39b9a380b99..6c100c2d00d71cc51c6732c5e961f890
 @@ -5 +5 @@
 -import archiver from "archiver";
 +import { ZipArchive } from "archiver";
-@@ -12,3 +12,4 @@
+@@ -12,3 +12,6 @@
  const ignorePatterns = [
 +  "templates/assets/images/shop-demo/**",
++  "docs/**",
++  "scripts/**",
    "dist/**",
    "node_modules/**",
-@@ -78 +79 @@ async function main() {
+@@ -78 +81 @@ async function main() {
 -    const archive = archiver("zip", {
 +    const archive = new ZipArchive({

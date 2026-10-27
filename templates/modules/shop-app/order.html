@@ -1,0 +1,14 @@
+<th:block th:fragment="content">
+  <div class="shop-app" data-app-root="shop" data-menu-open="false" data-shop-scene="order"
+       th:attr="data-shop-site-title=${site.title},data-shop-chrome-title='订单详情'">
+    <script type="application/json" data-app-props="shop">{"version":1,"appId":"shop","data":{"scene":"order"}}</script>
+    <div class="shop-app-shell">
+      <th:block th:replace="~{modules/shop-app/sidebar :: sidebar(categories=${categoryTree},scene='order',currentKeyword='',currentCategory='',currentSort='',currentView='')}"></th:block>
+      <th:block th:replace="~{modules/shop-app/sidebar :: menuBackdrop}"></th:block>
+      <th:block th:replace="~{modules/shop-app/chrome :: titlebar}"></th:block>
+      <main class="shop-main" aria-label="订单详情">
+        <th:block th:replace="~{modules/shop-app/order-detail :: detail}"></th:block>
+      </main>
+    </div>
+  </div>
+</th:block>

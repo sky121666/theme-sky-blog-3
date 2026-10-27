@@ -1,0 +1,150 @@
+/* Halo Commerce 2.27 subscription controls, using the Shop app's existing tokens. */
+.shop-app .shop-subscription {
+  gap: 16px;
+  min-width: 0;
+}
+.shop-app .shop-subscription__picker,
+.shop-app .shop-subscription__plan-body,
+.shop-app .shop-subscription__plan-main,
+.shop-app .shop-subscription-manage,
+.shop-app .shop-subscription-manage__item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.shop-app .shop-subscription__axes {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: 8px 12px;
+}
+.shop-app .shop-subscription__axis-label,
+.shop-app .shop-subscription__qty-label {
+  color: var(--shop-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+.shop-app .shop-subscription__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 8px;
+  background: var(--shop-active-bg);
+}
+.shop-app .shop-subscription__tab {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--shop-muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.shop-app .shop-subscription__tab.is-active {
+  background: var(--shop-bg);
+  color: var(--shop-text);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
+}
+.shop-app .shop-subscription__plans {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.shop-app .shop-subscription__plan {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--shop-border);
+  border-radius: 10px;
+  background: var(--shop-bg);
+  color: var(--shop-text);
+  text-decoration: none;
+  cursor: pointer;
+}
+.shop-app .shop-subscription__plan:only-child { grid-column: 1 / -1; }
+.shop-app .shop-subscription__plan:hover { background: var(--shop-hover-bg); }
+.shop-app .shop-subscription__plan.is-selected {
+  border-color: var(--shop-accent);
+  box-shadow: 0 0 0 1px var(--shop-accent);
+  background: var(--shop-accent-soft);
+}
+.shop-app .shop-subscription__plan.is-current { cursor: default; }
+.shop-app .shop-subscription__plan input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.shop-app .shop-subscription__plan:has(input:focus-visible),
+.shop-app .shop-subscription__tab:focus-visible,
+.shop-app a.shop-subscription__plan:focus-visible {
+  outline: 2px solid var(--shop-accent);
+  outline-offset: 3px;
+}
+.shop-app .shop-subscription__plan-body { width: 100%; }
+.shop-app .shop-subscription__plan-main { gap: 3px; }
+.shop-app .shop-subscription__plan-name { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.shop-app .shop-subscription__plan-billing,
+.shop-app .shop-subscription__qty-hint,
+.shop-app .shop-subscription__plan-original { color: var(--shop-muted); font-size: 12px; }
+.shop-app .shop-subscription__plan-aside { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 8px; }
+.shop-app .shop-subscription__plan-price { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.shop-app .shop-subscription__plan-interval { color: var(--shop-muted); font-size: 12px; font-weight: 400; }
+.shop-app .shop-subscription__plan-original { text-decoration: line-through; }
+.shop-app .shop-subscription__plan-save,
+.shop-app .shop-subscription__plan-trial,
+.shop-app .shop-subscription__plan-current,
+.shop-app .shop-subscription__plan-action,
+.shop-app .shop-subscription-status {
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: var(--shop-active-bg);
+  color: var(--shop-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.shop-app .shop-subscription__plan-save,
+.shop-app .shop-subscription__plan-current,
+.shop-app .shop-subscription-status--success { color: var(--shop-success); }
+.shop-app .shop-subscription-status--warning { color: var(--shop-warning); }
+.shop-app .shop-subscription__qty { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.shop-app .shop-subscription__notice,
+.shop-app .shop-subscription__error,
+.shop-app .shop-subscription__empty,
+.shop-app .shop-subscription__summary,
+.shop-app .shop-subscription-manage {
+  padding: 12px 14px;
+  border: 1px solid var(--shop-border);
+  border-radius: 10px;
+  background: var(--shop-card-bg);
+  color: var(--shop-text);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.shop-app .shop-subscription__error { color: var(--shop-error); }
+.shop-app .shop-subscription__switch-hint,
+.shop-app .buy-box__limit-hint { margin: 0; color: var(--shop-muted); font-size: 12px; line-height: 1.6; }
+.shop-app .shop-subscription__summary-row { display: flex; justify-content: space-between; gap: 16px; }
+.shop-app .shop-subscription__summary-row--muted { color: var(--shop-muted); }
+.shop-app .shop-subscription__summary-row--total { font-weight: 600; }
+.shop-app .shop-subscription-manage__head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.shop-app .shop-subscription-manage__title { margin: 0; font-size: 14px; font-weight: 600; }
+.shop-app .shop-subscription-manage__summary { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 0; }
+.shop-app .shop-subscription-manage__dot { color: var(--shop-muted); }
+.shop-app .shop-subscription-manage__item + .shop-subscription-manage__item { border-top: 1px solid var(--shop-border); padding-top: 10px; }
+.shop-app .shop-subscription-manage .shop-btn { width: fit-content; }
+.shop-app .shop-subscription-line { color: var(--shop-muted); font-size: 12px; line-height: 1.5; }
+.shop-app .shop-subscription-line__period::before { content: "·"; margin: 0 4px; }
+@media (max-width: 600px) {
+  .shop-app .shop-subscription__axes { grid-template-columns: minmax(0, 1fr); }
+  .shop-app .shop-subscription__plans { grid-template-columns: minmax(0, 1fr); }
+  .shop-app .shop-subscription__actions { flex-direction: column; }
+  .shop-app .shop-subscription__actions .shop-btn,
+  .shop-app .shop-subscription__actions form { width: 100%; }
+}

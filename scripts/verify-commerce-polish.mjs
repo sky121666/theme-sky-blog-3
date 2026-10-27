@@ -1,3 +1,4 @@
+import { assertCurrentBuild } from './lib/build-identity.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -8,6 +9,7 @@ import { chromium } from 'playwright';
 // Compiled assets and in-memory DTOs only. Every request is intercepted, so
 // these layout checks cannot reach Halo, an account or a purchase endpoint.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+assertCurrentBuild(root);
 const origin = 'https://theme.test';
 const prefix = '/themes/theme-sky-blog-3/assets/';
 const manifest = JSON.parse(await readFile(path.join(root, 'templates/assets/asset-manifest.json'), 'utf8'));

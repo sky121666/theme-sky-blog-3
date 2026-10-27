@@ -358,6 +358,141 @@ registerLinksExplorer({
 });
 assert.equal(typeof explorerFactory, 'function');
 {
+  // Regressions: a valid official permalink must reveal the comment container;
+  // missing hash/history lifecycle handling must not pass by testing only parsing.
+  const originals = new Map(['window', 'document'].map((name) => [
+    name, Object.getOwnPropertyDescriptor(globalThis, name)
+  ]));
+  const commentHash = '#halo-comment=246ac2f9-a3ff-4339-b17f-b51705b3f9a3';
+  const instances = [];
+  let checks = 0;
+  function environment(path, pendingTarget = '') {
+    const doc = Object.assign(new EventTarget(), { title: '', querySelector: () => null });
+    const win = Object.assign(new EventTarget(), {
+      location: new URL(path, 'https://halo.test'), clearTimeout, innerWidth: 390
+    });
+    const historyWrites = [];
+    win.history = { state: {} };
+    for (const [method, mode] of [['pushState', 'push'], ['replaceState', 'replace']]) {
+      win.history[method] = (state, title, url) => {
+        win.history.state = state;
+        win.location = new URL(url, win.location);
+        historyWrites.push({ mode, url: win.location.href });
+      };
+    }
+    const root = {
+      ownerDocument: doc, isConnected: true, dataset: {}, pendingTarget,
+      querySelector: () => null, querySelectorAll: () => [],
+      closest(selector) {
+        return selector === '[data-pjax-target-url]' && this.pendingTarget
+          ? { dataset: { pjaxTargetUrl: this.pendingTarget } } : null;
+      }
+    };
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: win });
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: doc });
+    const explorer = explorerFactory();
+    Object.assign(explorer, {
+      $root: root, $nextTick: (callback) => callback(),
+      // Account requests are independent of URL-driven view selection.
+      ensureLinkCapabilities() {}
+    });
+    explorer.init();
+    instances.push({ explorer, win, doc });
+    return { explorer, win, doc, root, historyWrites };
+  }
+  function expectView(explorer, view, label) {
+    assert.equal(explorer.activeView, view, label);
+    assert.equal(explorer.mobileDetailOpen, ['board', 'apply'].includes(view), `${label}: mobile pane`);
+    checks++;
+  }
+  try {
+    for (const [path, view] of [
+      [`/links${commentHash}`, 'board'],
+      [`/links${commentHash}&reply=reply-1`, 'board'],
+      [`/links?view=friends${commentHash}`, 'board'],
+      ['/links#halo-comment=', 'links'],
+      ['/links#halo-comment=a&halo-comment=b', 'links'],
+      ['/links#halo-comment=a&reply=', 'links'],
+      ['/links#halo-comment=%ZZ', 'links'],
+      ['/links#halo-comment=%20', 'links'],
+      ['/links#reply=reply-1', 'links'],
+      ['/links#comments', 'links'],
+      ['/links?view=friends#comments', 'friends'],
+      ['/links?view=apply', 'apply'],
+      ['/links?view=board', 'board'],
+      ['/links', 'links']
+    ]) {
+      const { explorer, win, historyWrites } = environment(path);
+      expectView(explorer, view, `cold ${path}`);
+      assert.equal(win.location.href, `https://halo.test${path}`, 'opening a permalink preserves its address');
+      assert.deepEqual(historyWrites, [], 'opening a permalink must not create or rewrite history');
+      explorer.destroy();
+    }
+
+    const { explorer, win, doc } = environment('/links');
+    const visit = (path, type = 'hashchange') => {
+      win.location = new URL(path, 'https://halo.test');
+      (type === 'theme:navigation-settled' ? doc : win).dispatchEvent(new Event(type));
+    };
+    visit(`/links${commentHash}`);
+    expectView(explorer, 'board', 'native hash opens the board');
+    visit('/links');
+    expectView(explorer, 'links', 'removing the hash restores links');
+    explorer.showFriends();
+    expectView(explorer, 'friends', 'ordinary friends navigation');
+    visit(`/links?view=friends${commentHash}&reply=reply-1`);
+    expectView(explorer, 'board', 'hash after a local query change opens the board');
+    visit('/links?view=friends');
+    expectView(explorer, 'friends', 'removing the hash restores the queried view');
+    visit(`/links${commentHash}`, 'popstate');
+    expectView(explorer, 'board', 'history back restores the board');
+    visit('/links?view=friends', 'popstate');
+    expectView(explorer, 'friends', 'history forward restores friends');
+    visit(`/links?view=friends${commentHash}`, 'theme:navigation-settled');
+    expectView(explorer, 'board', 'PJAX History API commit opens the board');
+    let permalinkResetEvents = 0;
+    win.addEventListener('hashchange', () => {
+      if (!win.location.hash) permalinkResetEvents++;
+    });
+    explorer.showApply();
+    expectView(explorer, 'apply', 'application remains navigable from a permalink');
+    assert.equal(win.location.hash, '', 'leaving the board clears the official permalink');
+    assert.equal(permalinkResetEvents, 1, 'leaving the permalink resets the mounted official widget');
+    explorer.showLinks();
+    expectView(explorer, 'links', 'ordinary links navigation');
+    visit('/links#section');
+    explorer.showFriends();
+    assert.equal(win.location.hash, '#section', 'ordinary hashes are not removed by navigation');
+    explorer.destroy();
+    visit(`/links?view=friends${commentHash}`);
+    expectView(explorer, 'friends', 'destroy removes the permalink lifecycle');
+
+    const pending = environment('/about#halo-comment=outgoing', `/links${commentHash}&reply=reply-1`);
+    expectView(pending.explorer, 'board', 'same-app hydration reads the pending destination');
+    pending.win.dispatchEvent(new Event('hashchange'));
+    expectView(pending.explorer, 'board', 'outgoing hash cannot override the pending destination');
+    let widgetLocationEvents = 0;
+    pending.win.addEventListener('hashchange', () => widgetLocationEvents++);
+    pending.root.pendingTarget = '';
+    pending.win.location = new URL(`/links${commentHash}&reply=reply-1`, 'https://halo.test');
+    pending.doc.dispatchEvent(new Event('theme:navigation-settled'));
+    expectView(pending.explorer, 'board', 'committed same-app permalink remains open');
+    assert.equal(widgetLocationEvents, 1, 'PJAX completion notifies the mounted official widget');
+    pending.explorer.destroy();
+    console.log(`Links official permalink behavior checks passed (${checks} view assertions)`);
+  } finally {
+    for (const { explorer, win, doc } of instances) {
+      Object.defineProperty(globalThis, 'window', { configurable: true, value: win });
+      Object.defineProperty(globalThis, 'document', { configurable: true, value: doc });
+      explorer.destroy();
+    }
+    for (const [name, descriptor] of originals) {
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+      else delete globalThis[name];
+    }
+  }
+}
+{
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
   const calls = [];
   const component = {

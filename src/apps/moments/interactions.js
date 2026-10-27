@@ -1,3 +1,5 @@
+import { parseCommentPermalink, scrollCommentContainer, watchCommentPermalink } from '../../shared/comment-permalink.js';
+
 const UPVOTED_STORAGE_KEY = 'halo.upvoted.moment.names';
 const COMMENT_ENDPOINT = '/apis/api.halo.run/v1alpha1/comments';
 const UPVOTE_ENDPOINT = '/apis/api.halo.run/v1alpha1/trackers/upvote';
@@ -20,6 +22,7 @@ const autoCommentQueue = [];
 let autoCommentActive = 0;
 let photoViewer = null;
 let photoViewerRefCount = 0;
+let officialCommentModuleRetry = 0;
 
 function escapeHtml(value = '') {
   return String(value || '')
@@ -178,13 +181,20 @@ function createState(card) {
     comments: [],
     replyTarget: null,
     submitting: false,
+    submitController: null,
+    officialRecovery: null,
+    officialDraftTransfers: new WeakMap(),
+    disposed: false,
     message: '',
     tone: '',
     upvoting: false,
     abortController: null,
     commentsRequestGeneration: 0,
     detailFallback: false,
+    permalinkActive: isDetail && Boolean(parseCommentPermalink(window.location.hash)),
     hashFocusHandled: false,
+    hashFocusFrame: 0,
+    hashHighlightTimer: 0,
     replyLoading: new Set()
   };
 }
@@ -299,7 +309,7 @@ function renderComments(card) {
   const submit = card.querySelector('[data-moment-comment-submit]');
   const form = card.querySelector('[data-moment-comment-form]');
 
-  if (panel) panel.hidden = !shouldShowPanel;
+  if (panel) panel.hidden = state.permalinkActive || !shouldShowPanel;
   card.classList.toggle('is-comments-open', state.commentsOpen);
   card.classList.toggle('has-upvotes-only', hasUpvotes && !state.commentsOpen && state.comments.length === 0);
   if (panel) {
@@ -310,6 +320,16 @@ function renderComments(card) {
     status.textContent = state.message;
     status.dataset.tone = state.tone;
     status.hidden = !state.message;
+    if (state.officialRecovery?.ready) {
+      for (const [action, label] of [['return', '返回草稿'], ['discard', '丢弃原稿']]) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'moment-feed-comments-load-more';
+        button.dataset.momentRecoveryAction = action;
+        button.textContent = label;
+        status.appendChild(button);
+      }
+    }
   }
   if (list) {
     const hideEmptyList = !state.commentsOpen && state.comments.length === 0;
@@ -347,9 +367,9 @@ function renderComments(card) {
     input.placeholder = state.replyTarget ? `回复 ${state.replyTarget.author || '评论'}` : '评论...';
   }
   card.querySelector('[data-moment-comment-editor]')?.classList.toggle('is-replying', !!state.replyTarget);
-  if (form) form.hidden = !state.composerOpen;
+  if (form) form.hidden = !state.composerOpen || Boolean(state.officialRecovery?.ready);
   if (submit) {
-    submit.textContent = state.submitting ? '发送中' : '发送';
+    submit.textContent = state.submitting ? '发送中' : state.officialRecovery ? '继续验证' : '发送';
     submit.disabled = state.submitting || !(input?.value || '').trim();
   }
 }
@@ -363,7 +383,7 @@ function syncCommentSubmit(card) {
     input.style.height = `${Math.min(input.scrollHeight, 92)}px`;
   }
   if (submit) {
-    submit.textContent = state.submitting ? '发送中' : '发送';
+    submit.textContent = state.submitting ? '发送中' : state.officialRecovery ? '继续验证' : '发送';
     submit.disabled = state.submitting || !(input?.value || '').trim();
   }
 }
@@ -880,7 +900,8 @@ function renderCard(card) {
 }
 
 function wantsCommentsHashFocus() {
-  const hash = decodeURIComponent(window.location.hash || '').replace(/^#/, '');
+  let hash;
+  try { hash = decodeURIComponent(window.location.hash || '').replace(/^#/, ''); } catch { return false; }
   return hash === COMMENTS_HASH || hash.startsWith(COMMENT_HASH_PREFIX);
 }
 
@@ -909,9 +930,18 @@ function scrollTargetIntoMomentsView(target) {
   scroller.scrollTo({ top: offset, behavior: 'smooth' });
 }
 
+function clearCommentsHashFocus(card) {
+  const state = getState(card);
+  window.cancelAnimationFrame(state.hashFocusFrame);
+  window.clearTimeout(state.hashHighlightTimer);
+  state.hashFocusFrame = 0;
+  state.hashHighlightTimer = 0;
+  card.querySelector('[data-moment-comments-panel]')?.classList.remove('is-hash-target');
+}
+
 function focusCommentsFromHash(card, { force = false } = {}) {
   const state = getState(card);
-  if (!state.isDetail || !wantsCommentsHashFocus()) return;
+  if (!state.isDetail || state.permalinkActive || !wantsCommentsHashFocus()) return;
   if (state.hashFocusHandled && !force) return;
   state.hashFocusHandled = true;
 
@@ -919,13 +949,25 @@ function focusCommentsFromHash(card, { force = false } = {}) {
   state.composerOpen = false;
   renderComments(card);
 
-  requestAnimationFrame(() => {
+  clearCommentsHashFocus(card);
+  const address = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  const frame = window.requestAnimationFrame(() => {
+    if (state.hashFocusFrame !== frame) return;
+    state.hashFocusFrame = 0;
+    // History may move to another page with the same legacy comment anchor
+    // before PJAX disposes this card.
+    if (!card.isConnected
+      || `${window.location.pathname}${window.location.search}${window.location.hash}` !== address) return;
     const target = commentsHashTarget(card);
     scrollTargetIntoMomentsView(target);
     const panel = card.querySelector('[data-moment-comments-panel]');
     panel?.classList.add('is-hash-target');
-    window.setTimeout(() => panel?.classList.remove('is-hash-target'), 1400);
+    state.hashHighlightTimer = window.setTimeout(() => {
+      state.hashHighlightTimer = 0;
+      panel?.classList.remove('is-hash-target');
+    }, 1400);
   });
+  state.hashFocusFrame = frame;
 }
 
 function closeMenu(card) {
@@ -1020,7 +1062,7 @@ async function requestComments(state, page, { preview = false, signal } = {}) {
 
 async function loadComments(card, { page = 1, append = false, force = false, preview = false } = {}) {
   const state = getState(card);
-  if (!state.name || state.commentsLoading) return;
+  if (!state.name || state.commentsLoading || state.permalinkActive) return;
   if (!append && state.commentsLoaded && !force) return;
 
   const previewMode = append ? state.commentsPreview : preview;
@@ -1114,6 +1156,11 @@ function enqueueAutoCommentPreview(card) {
 
 async function openComments(card, root) {
   const state = getState(card);
+  if (state.officialRecovery) {
+    state.officialRecovery.cleanup?.();
+    state.officialRecovery = null;
+    state.replyTarget = null;
+  }
   closeMenu(card);
   state.commentsOpen = true;
   state.composerOpen = true;
@@ -1178,13 +1225,142 @@ function replyPayload(text, replyTarget) {
   };
 }
 
+function findOfficialCommentElement(root, selector, matches = () => true) {
+  for (const element of root?.querySelectorAll(selector) || []) {
+    if (matches(element)) return element;
+  }
+  for (const element of root?.querySelectorAll('*') || []) {
+    const found = element.shadowRoot && findOfficialCommentElement(element.shadowRoot, selector, matches);
+    if (found) return found;
+  }
+  return null;
+}
+
+function waitForOfficialCommentElement(find, signal) {
+  return new Promise((resolve, reject) => {
+    const deadline = Date.now() + 8000;
+    let timer;
+    const finish = (error, element) => {
+      window.clearTimeout(timer);
+      signal.removeEventListener('abort', aborted);
+      if (error) reject(error);
+      else resolve(element);
+    };
+    const aborted = () => finish(new DOMException('Comment recovery disposed', 'AbortError'));
+    const check = () => {
+      if (signal.aborted) return aborted();
+      const element = find();
+      if (element) return finish(null, element);
+      if (Date.now() >= deadline) return finish(new Error('评论组件暂未就绪，草稿已保留，请重试'));
+      timer = window.setTimeout(check, 50);
+    };
+    signal.addEventListener('abort', aborted, { once: true });
+    check();
+  });
+}
+
+async function continueOfficialComment(card) {
+  const state = getState(card);
+  const input = card.querySelector('[data-moment-comment-input]');
+  const text = input?.value || '';
+  const replyTarget = state.replyTarget;
+  state.officialRecovery?.cleanup?.();
+  const controller = new AbortController();
+  const recovery = { controller, ready: false, cleanup: () => controller.abort() };
+  state.officialRecovery = recovery;
+  state.detailFallback = true;
+  setMessage(state, '此评论需要验证码，正在保留草稿并打开评论组件…');
+  renderComments(card);
+  const current = () => !state.disposed && card.isConnected && !controller.signal.aborted;
+  try {
+    let shell = card.querySelector('[data-moment-official-comments]');
+    if (!shell) {
+      shell = document.createElement('div');
+      shell.className = 'moment-comments-shell';
+      shell.dataset.momentOfficialComments = 'true';
+      card.appendChild(shell);
+    }
+    showOfficialCommentsFallback(card);
+    if (!window.customElements.get('comment-widget')) {
+      // The feed can have no server-rendered halo:comment tag. Load the official
+      // entry on demand; it remains responsible for captcha and submission.
+      const moduleUrl = `/plugins/PluginCommentWidget/assets/static/comment-widget.js${officialCommentModuleRetry ? `?theme-retry=${officialCommentModuleRetry}` : ''}`;
+      try { await import(/* @vite-ignore */ moduleUrl); }
+      catch (error) { officialCommentModuleRetry += 1; throw error; }
+    }
+    if (!current()) return;
+    let widget = shell.querySelector('comment-widget');
+    if (!widget) {
+      widget = document.createElement('comment-widget');
+      for (const [key, value] of Object.entries({ ...SUBJECT_REF, name: state.name })) widget.setAttribute(key, value);
+      // halo:comment leaves this host empty until the official lazy init runs.
+      // Share its child-count guard so a later inline init cannot mount twice.
+      const mountId = ['comment', SUBJECT_REF.group.replaceAll('.', '-'), SUBJECT_REF.kind, state.name]
+        .join('-').replace(/-+/g, '-');
+      const mount = shell.querySelector(`#${escapeCssIdent(mountId)}`) || shell;
+      mount.appendChild(widget);
+    }
+    await waitForOfficialCommentElement(() => widget.isInitialized && widget, controller.signal);
+    // This small adapter is checked against the actual CommentWidget 3.4 JAR.
+    // Its detail component validates the root/reply ownership before rendering.
+    if (replyTarget && !('commentTarget' in widget)) throw new Error('Official reply handoff is unavailable');
+    if ('commentTarget' in widget) {
+      widget.commentTarget = replyTarget
+        ? { commentName: replyTarget.commentName, replyName: replyTarget.quoteReply || undefined }
+        : undefined;
+    }
+    await widget.fetchConfigMapData();
+    if (!current()) return;
+    let form;
+    if (replyTarget) {
+      const item = await waitForOfficialCommentElement(() => findOfficialCommentElement(widget.shadowRoot,
+        replyTarget.quoteReply ? 'reply-item' : 'comment-item', (node) =>
+          (replyTarget.quoteReply ? node.reply?.metadata.name : node.comment?.metadata.name)
+            === (replyTarget.quoteReply || replyTarget.commentName)), controller.signal);
+      if (!item.showReplyForm) item.shadowRoot.querySelector('.reply-button')?.click();
+      form = await waitForOfficialCommentElement(() => findOfficialCommentElement(item.shadowRoot, 'reply-form'), controller.signal);
+    } else {
+      form = await waitForOfficialCommentElement(() => widget.shadowRoot?.querySelector('comment-form'), controller.signal);
+    }
+    const editorHost = await waitForOfficialCommentElement(() => findOfficialCommentElement(form.shadowRoot,
+      'comment-editor', (node) => Boolean(node.editor?.commands)), controller.signal);
+    if (!current()) return;
+    const editor = editorHost.editor;
+    const content = `<p>${escapeHtml(text).replace(/\n/g, '<br>')}</p>`;
+    // Do not overwrite an existing official draft. Both drafts remain available.
+    if (editor.isEmpty) state.officialDraftTransfers.delete(editor);
+    if (state.officialDraftTransfers.get(editor) !== text) {
+      if (editor.isEmpty) editor.commands.setContent(content);
+      else if (editor.getText() !== text) editor.commands.insertContentAt(editor.state.doc.content.size, content);
+      state.officialDraftTransfers.set(editor, text);
+    }
+    await editorHost.updateComplete;
+    if (!current()) return;
+    recovery.ready = true;
+    // The plugin's global success events have no subject/form identity. Never
+    // discard a theme draft in response to another widget's submission.
+    setMessage(state, '草稿已复制，请在下方完成验证后发送。原稿已保留。');
+    renderComments(card);
+    editor.commands.focus('end');
+    form.scrollIntoView({ block: 'nearest' });
+  } catch (error) {
+    if (!current() || error?.name === 'AbortError') return;
+    setMessage(state, '自动接续未完成，草稿和回复对象已保留；可点击“继续验证”重试，或复制到下方评论组件继续', 'error');
+    renderComments(card);
+  }
+}
+
 async function submitComment(card) {
   const state = getState(card);
   const input = card.querySelector('[data-moment-comment-input]');
   const text = input?.value || '';
-  if (!state.name || !text.trim() || state.submitting) return;
+  if (!state.name || !text.trim() || state.submitting || state.disposed) return;
+  if (state.officialRecovery) return continueOfficialComment(card);
 
   const beforeCommentCount = getCount(card, 'comment');
+  const controller = new AbortController();
+  state.submitController = controller;
+  const current = () => !state.disposed && card.isConnected && state.submitController === controller && !controller.signal.aborted;
   state.submitting = true;
   setMessage(state, '正在发送...');
   renderComments(card);
@@ -1197,17 +1373,25 @@ async function submitComment(card) {
     const response = await fetch(endpoint, {
       method: 'POST',
       credentials: 'same-origin',
+      signal: controller.signal,
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify(replyTarget ? replyPayload(text, replyTarget) : commentPayload(state, text))
     });
+    if (!current()) return;
 
     if (!response.ok) {
-      if (response.status === 401 || response.status === 403) throw new Error('登录后评论');
+      if (response.status === 403 && response.headers.get('X-Require-Captcha')) {
+        await continueOfficialComment(card);
+        return;
+      }
+      if (response.status === 401) throw new Error('登录后评论');
+      if (response.status === 403) throw new Error('没有权限发表评论，请检查登录账号');
       if (response.status === 404) throw new Error('评论暂不可用，请打开详情页评论');
       throw new Error(replyTarget ? '回复发送失败' : '评论发送失败');
     }
 
     const data = await response.json().catch(() => null);
+    if (!current()) return;
     const approved = data?.spec?.approved === true;
     if (input) {
       input.value = '';
@@ -1228,15 +1412,21 @@ async function submitComment(card) {
     state.composerOpen = false;
     setEmojiPanel(card, false);
   } catch (error) {
+    if (!current() || error?.name === 'AbortError') return;
     setMessage(state, error.message || '发送失败', 'error');
   } finally {
-    state.submitting = false;
-    renderComments(card);
+    if (state.submitController === controller) {
+      state.submitController = null;
+      state.submitting = false;
+      if (!state.disposed && card.isConnected) renderComments(card);
+    }
   }
 }
 
 function setReplyTarget(card, button) {
   const state = getState(card);
+  state.officialRecovery?.cleanup?.();
+  state.officialRecovery = null;
   const commentNode = button.closest('[data-moment-comment]');
   const commentName = button.dataset.momentReplyTo || commentNode?.dataset?.momentComment || '';
   const author = button.dataset.replyAuthor || commentNode?.dataset?.author || '';
@@ -1255,6 +1445,8 @@ function setReplyTarget(card, button) {
 
 function clearReplyTarget(card) {
   const state = getState(card);
+  state.officialRecovery?.cleanup?.();
+  state.officialRecovery = null;
   state.replyTarget = null;
   renderComments(card);
 }
@@ -1268,6 +1460,8 @@ function syncSubmitState(input) {
 function initCards(root = document, { autoCommentObserver = null } = {}) {
   getCards(root).forEach((card) => {
     const state = getState(card);
+    state.disposed = false;
+    if (state.officialRecovery?.controller.signal.aborted) state.officialRecovery = null;
     const panel = card.querySelector('[data-moment-emoji-panel]');
     if (panel && !panel.dataset.ready) {
       panel.dataset.ready = 'true';
@@ -1329,6 +1523,43 @@ export function setupMomentInteractions(root = document) {
     })
     : null;
   initCards(container, { autoCommentObserver });
+  const cleanupPermalink = watchCommentPermalink(container, (target) => {
+    const card = getCards(container).find((item) => getState(item).isDetail);
+    const fallback = card?.querySelector('[data-moment-official-comments]');
+    if (!card || !fallback) return;
+    clearCommentsHashFocus(card);
+    const state = getState(card);
+    const wasActive = state.permalinkActive;
+    state.permalinkActive = Boolean(target);
+    if (target) {
+      state.commentsRequestGeneration += 1;
+      state.abortController?.abort();
+      state.abortController = null;
+      state.commentsLoading = false;
+      showOfficialCommentsFallback(card);
+      renderComments(card);
+      return scrollCommentContainer(fallback, container);
+    }
+    if (wasActive) {
+      const restoreFocus = !state.detailFallback && fallback.contains(ownerDocument.activeElement);
+      fallback.hidden = !state.detailFallback;
+      fallback.style.display = state.detailFallback ? '' : 'none';
+      state.hashFocusHandled = false;
+      renderComments(card);
+      void loadComments(card);
+      if (restoreFocus) {
+        // The widget restores focus after hashchange; its new list is now
+        // hidden, so hand keyboard focus to the visible theme list first.
+        const focusTarget = [
+          card.querySelector('[data-moment-comments-list]'),
+          card.querySelector('[data-moment-comments-toggle]')
+        ].find((element) => element?.getClientRects().length);
+        if (focusTarget?.matches('[data-moment-comments-list]')) focusTarget.tabIndex = -1;
+        focusTarget?.focus({ preventScroll: true });
+      }
+    }
+    focusCommentsFromHash(card, { force: true });
+  });
   retainPhotoViewerLifecycle();
 
   function onClick(event) {
@@ -1343,6 +1574,27 @@ export function setupMomentInteractions(root = document) {
     const card = getCard(target);
     if (!card) {
       closeAllMenus(container);
+      return;
+    }
+
+    const recoveryAction = target.closest?.('[data-moment-recovery-action]');
+    if (recoveryAction) {
+      event.preventDefault();
+      const state = getState(card);
+      state.officialRecovery?.cleanup?.();
+      state.officialRecovery = null;
+      const input = card.querySelector('[data-moment-comment-input]');
+      if (recoveryAction.dataset.momentRecoveryAction === 'discard') {
+        if (input) input.value = '';
+        state.replyTarget = null;
+        state.composerOpen = false;
+        setMessage(state, '保留的原稿已丢弃，下方评论组件不受影响');
+      } else {
+        state.composerOpen = true;
+        setMessage(state, '已恢复保留的草稿');
+      }
+      renderComments(card);
+      if (state.composerOpen) input?.focus();
       return;
     }
 
@@ -1479,9 +1731,16 @@ export function setupMomentInteractions(root = document) {
   const cleanup = () => {
     if (cleaned) return;
     cleaned = true;
+    cleanupPermalink();
     photoViewer?.close();
     getCards(container).forEach((card) => {
+      clearCommentsHashFocus(card);
       const state = getState(card);
+      state.disposed = true;
+      state.submitController?.abort();
+      state.submitController = null;
+      state.submitting = false;
+      state.officialRecovery?.cleanup?.();
       state.commentsRequestGeneration += 1;
       state.abortController?.abort();
       state.abortController = null;

@@ -66,7 +66,9 @@ export function hydrateShop(root) {
     let url;
     try { url = new URL(attribute('action') || win.location.href, doc.baseURI); } catch { return null; }
     if (!['http:', 'https:'].includes(url.protocol) || url.origin !== win.location.origin
-      || !(/^\/shop\/(cart|checkout\/prepare)$/.test(url.pathname) || /^\/shop\/checkout\/[^/]+\/submit$/.test(url.pathname))) return null;
+      || !(/^\/shop\/(cart|checkout\/prepare)$/.test(url.pathname)
+        || /^\/shop\/checkout\/[^/]+\/submit$/.test(url.pathname)
+        || /^\/shop\/order\/[^/]+\/(cancel|access-link)$/.test(url.pathname))) return null;
     const fields = new win.FormData(form, submitter);
     const requestOptions = { requestMethod: 'POST' };
     if (enctype === 'multipart/form-data') requestOptions.formData = fields;

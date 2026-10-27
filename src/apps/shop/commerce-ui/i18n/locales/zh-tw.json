@@ -12,7 +12,8 @@
       "alipay": "支付寶",
       "wechat": "微信",
       "stripe": "Stripe"
-    }
+    },
+    "retry": "重試"
   },
   "buyBox": {
     "loadFailed": "載入失敗：{{message}}",
@@ -25,7 +26,8 @@
     "buyNow": "立即購買",
     "externalBuyNow": "前往購買",
     "externalRedirectHint": "點擊後將在新視窗開啟外部網站",
-    "contactSales": "聯絡銷售"
+    "contactSales": "聯絡銷售",
+    "perOrderLimit": "限購 {{count}} 件"
   },
   "cart": {
     "title": "購物車",
@@ -38,11 +40,23 @@
     "pendingCalculation": "待計算",
     "total": "總計",
     "proceedToCheckout": "前往結算",
-    "continueShopping": "繼續購物"
+    "continueShopping": "繼續購物",
+    "loadFailed": "購物車載入失敗，請稍後重試",
+    "emptyTitle": "購物車是空的",
+    "emptyDesc": "去挑選一些喜歡的商品吧",
+    "emptyAction": "去逛逛",
+    "inquiryExcluded": "{{count}} 件詢價商品需聯絡客服下單，已從結算中排除"
   },
   "cartItem": {
     "updateQuantityFailed": "更新數量失敗，請重試",
-    "remove": "刪除"
+    "remove": "刪除",
+    "removeConfirm": "確定從購物車中刪除該商品嗎？",
+    "removeFailed": "刪除失敗，請重試",
+    "inquiryBadge": "詢價商品",
+    "inquiryNote": "請聯絡客服詢價下單",
+    "quantity": "數量",
+    "increaseQuantity": "增加數量",
+    "decreaseQuantity": "減少數量"
   },
   "checkout": {
     "title": "結算",
@@ -64,6 +78,7 @@
     "discountTip": "系統將自動計算最優優惠。",
     "discountApplySuccess": "優惠碼應用成功",
     "discountRemoveSuccess": "優惠碼已移除",
+    "discountRemoveError": "優惠碼移除失敗，請重試",
     "discountApplyError": "優惠碼無效或已過期",
     "coupons": "優惠券",
     "couponsPlaceholder": "選擇要使用的優惠券",
@@ -86,7 +101,13 @@
     "couponMaxDiscount": "最高減 {{amount}}",
     "couponMinOrder": "滿 {{amount}} 可用",
     "couponExpiresAt": "{{date}} 到期",
-    "couponRejectedFallback": "該優惠券不適用於當前訂單。"
+    "couponRejectedFallback": "該優惠券不適用於當前訂單。",
+    "email": "郵箱",
+    "emailHelp": "訂單確認和訪問連結會發到這個郵箱。",
+    "guestLoginPrompt": "如果這個郵箱已經註冊，請先登入後再結帳。",
+    "subscriptionRequiresLogin": "訂閱商品需要登入後購買。",
+    "contextLoadFailed": "結算資訊載入失敗，請重試",
+    "submitting": "提交中…"
   },
   "addressForm": {
     "lastName": "姓 *",
@@ -118,10 +139,25 @@
     "payableTotal": "應付總額",
     "discount": "優惠",
     "paymentTitle": "支付",
-    "loadPaymentResponseFailed": "載入支付響應失敗，請刷新重試",
+    "loadPaymentResponseFailed": "載入付款資訊失敗，請重試。",
     "unsupportedPaymentMethod": "暫不支援該支付方式，請聯絡管理員",
     "paymentTransactionNumber": "支付交易號 *",
-    "paymentConfirmed": "已確認支付"
+    "paymentConfirmed": "已確認支付",
+    "wechatPayReentry": "這筆訂單已有一筆未完成的微信支付。請回到原來的頁面完成支付；如需改在這裡支付，請重新下單。",
+    "accessEmail": "郵箱",
+    "accessEmailHelp": "填寫下單時使用的郵箱，我們會把訂單訪問連結發到這個郵箱。",
+    "sendAccessLink": "發送訪問連結",
+    "accessLinkSent": "如果郵箱匹配，訪問連結已發送。",
+    "accessLinkFailed": "發送失敗，請稍後重試。",
+    "pollTimeout": "長時間未檢測到支付結果，已停止自動刷新。",
+    "pollResume": "重新檢測",
+    "orderStatusUnavailable": "無法確認訂單狀態，請重新查詢後再付款。",
+    "recheckOrder": "重新查詢訂單狀態",
+    "sessionStatus": {
+      "FAILED": "付款失敗。你可以重試付款。",
+      "EXPIRED": "本次付款已過期。請重試以取得新的付款資訊。",
+      "CANCELLED": "本次付款已取消。你可以重試付款。"
+    }
   },
   "paymentMethods": {
     "scanToPay": "請使用 {{provider}} 掃描二維碼完成支付",
@@ -137,6 +173,60 @@
     "bankAddress": "銀行地址：{{value}}",
     "accountName": "帳戶名稱：{{value}}",
     "accountNumber": "帳戶號碼：{{value}}",
-    "notes": "備註：{{value}}"
+    "notes": "備註：{{value}}",
+    "wechatH5RedirectTip": "將在目前頁面跳轉至微信完成支付，支付完成後會回到此頁。"
+  },
+  "subscription": {
+    "badge": "訂閱",
+    "switchHint": "點擊其他方案可前往使用者中心切換。",
+    "noPlans": "暫無上架方案",
+    "tierTabsLabel": "檔次",
+    "periodTabsLabel": "週期",
+    "period": {
+      "MONTHLY": "按月",
+      "YEARLY": "按年",
+      "LIFETIME": "永久",
+      "OTHER": "其他"
+    },
+    "billingMode": {
+      "SUBSCRIPTION": "連續購買",
+      "ONE_TIME": "單期購買",
+      "LIFETIME": "永久買斷"
+    },
+    "billingPeriod": {
+      "MONTHLY": "按月",
+      "YEARLY": "按年"
+    },
+    "perMonth": "/月",
+    "perYear": "/年",
+    "savePercent": "省 {{percent}}%",
+    "trial": "試用 {{days}} 天",
+    "resubscribeNotice": "再次購買將恢復訂閱，試用不會再觸發。",
+    "quantityRange": "{{min}} - {{max}} 份",
+    "decreaseQuantity": "減少數量",
+    "increaseQuantity": "增加數量",
+    "summaryTrialNow": "試用 {{days}} 天 · 現在應付",
+    "summaryDueNow": "應付",
+    "summaryAfterTrial": "之後",
+    "summaryAfterEach": "之後每期",
+    "currentPlan": "目前方案",
+    "goSwitch": "去切換",
+    "addingToCart": "加入中…",
+    "addCartFailed": "加入購物車失敗",
+    "manageTitle": "當前訂閱",
+    "manageTitleMultiple": "我的訂閱（{{count}} 個）",
+    "manageMultipleHint": "每條訂閱獨立續費與變更，請在使用者中心逐條管理。",
+    "managePlan": "計劃",
+    "manageStatus": "狀態",
+    "managePeriodEnd": "當前週期至",
+    "manageGoUc": "去使用者中心管理",
+    "forever": "永久",
+    "status": {
+      "TRIALING": "試用中",
+      "ACTIVE": "生效中",
+      "PAST_DUE": "已逾期",
+      "CANCELLED": "已取消",
+      "EXPIRED": "已過期"
+    }
   }
 }

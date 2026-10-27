@@ -3,7 +3,7 @@
     title=${product.title + ' - ' + site.title},
     description=${product.description},
     ssrContent=~{modules/shop-app/product :: content},
-    canonical=${'/shop/product/' + product.id},
+    canonical=${#halo != null and !#strings.equals(site.version, '0.0.0') and #halo.matchVersion('>=2.27.0') and !#strings.isEmpty(product.permalink) ? product.permalink : '/shop/product/' + product.id},
     image=${!#lists.isEmpty(product.images) ? product.images[0] : site.logo},
     type='website',
     seoFallback='meta',

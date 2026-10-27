@@ -2311,6 +2311,7 @@
 }
 
 .photos-detail-comment-drawer {
+  order: 2;
   flex: 0 0 auto;
   width: 0;
   min-width: 0;

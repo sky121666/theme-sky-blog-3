@@ -3,7 +3,7 @@
     title=${'结算 - ' + site.title},
     description='',
     ssrContent=~{modules/shop-app/transaction :: content(scene='checkout',chromeTitle='结算')},
-    canonical='/shop/checkout',
+    canonical=${'/shop/checkout/' + context.id},
     image=${site.logo},
     type='website',
     seoFallback='meta',

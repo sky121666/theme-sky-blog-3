@@ -212,6 +212,7 @@ body {
   --mac-comment-input-border: 1px solid rgba(15, 23, 42, 0.08);
   --mac-comment-primary-bg: var(--theme-accent);
   --mac-comment-primary-text: #ffffff;
+  --halo-cw-primary-contrast-color: var(--mac-comment-primary-text);
   --mac-comment-focus-ring: color-mix(in srgb, var(--theme-accent) 20%, transparent);
   --halo-cw-primary-1-color: var(--theme-accent);
   --halo-cw-primary-2-color: var(--theme-accent);
@@ -265,12 +266,6 @@ body {
   --shell-dock-icon-bg: rgba(255, 255, 255, 0.08);
   --shell-dock-icon-border: rgba(255, 255, 255, 0.10);
   --shell-dock-tooltip-bg: rgba(58, 58, 60, 0.94);
-  --halo-search-widget-base-bg-color: #1c1c1e;
-  --halo-search-widget-muted-color: #98989d;
-  --halo-search-widget-content-color: #f5f5f7;
-  --halo-search-widget-modal-bg-color: rgba(28, 28, 30, 0.84);
-  --halo-search-widget-divider-color: rgba(255, 255, 255, 0.08);
-  --halo-search-widget-kbd-border-color: rgba(255, 255, 255, 0.12);
   --mac-comment-shell-bg: rgba(36, 36, 38, 0.92);
   --mac-comment-shell-border: rgba(255, 255, 255, 0.08);
   --mac-comment-shell-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -351,19 +346,6 @@ body {
   --halo-cw-emoji-picker-rgb-input: 44, 44, 46;
   --halo-cw-emoji-picker-color-border: rgba(255, 255, 255, 0.1);
   --halo-cw-emoji-picker-color-border-over: rgba(255, 255, 255, 0.2);
-}
-
-.mac-comment-shell halo-comment {
-  --halo-comment-bg: transparent !important;
-  --halo-comment-card-bg: var(--mac-comment-card-bg) !important;
-  --halo-comment-border-color: var(--mac-comment-card-border) !important;
-  --halo-comment-font-family: var(--font-sans) !important;
-  --halo-comment-text-color: var(--mac-comment-text) !important;
-  --halo-comment-secondary-text-color: var(--mac-comment-muted) !important;
-  --halo-comment-input-bg: var(--mac-comment-input-bg) !important;
-  --halo-comment-input-border: var(--mac-comment-input-border) !important;
-  --halo-comment-btn-primary-bg: var(--mac-comment-primary-bg) !important;
-  --halo-comment-btn-primary-color: var(--mac-comment-primary-text) !important;
 }
 
 /* 搜索弹框只保留原生阴影感，不再强行套主题玻璃底色 */

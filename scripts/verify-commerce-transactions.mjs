@@ -1,3 +1,4 @@
+import { assertCurrentBuild } from './lib/build-identity.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -9,6 +10,7 @@ import { origin, api, csrf, contextId, orderCode, sessionCode, cartItems, checko
 // Every browser response is fulfilled locally at theme.test. There is no live
 // API fallback. JS/CSS come from the current repository build manifest.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+assertCurrentBuild(root);
 const output = path.join(root, 'output/commerce-adaptation-2026-10-08');
 const assetPrefix = '/themes/theme-sky-blog-3/assets/';
 const manifest = JSON.parse(await readFile(path.join(root, 'templates/assets/asset-manifest.json'), 'utf8'));
@@ -39,7 +41,7 @@ const sidebar = (scene) => sidebarTemplate.match(/<aside\b[\s\S]*?<\/aside>/)[0]
   .replace('href="/shop/cart"', `href="/shop/cart" ${scene === 'cart' ? 'aria-current="page"' : ''}`);
 const documentHtml = (scene) => {
   const props = scene === 'checkout' ? ` contextid="${contextId}"` : scene === 'payments' ? ` ordercode="${orderCode}"` : '';
-  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Commerce transaction fixture</title><link rel="stylesheet" href="/fixture/shell.css"><link rel="stylesheet" href="/fixture/theme.css"><style>body{background:#e9edf2}#window-frame-root{position:relative;width:min(1180px,100%);height:min(860px,100%)}</style></head><body data-page-mode="browser-shop-${scene}" data-page-app="shop"><div class="window-layer fixed inset-x-0 bottom-0 top-[28px] md:top-0 z-10 pointer-events-none p-0 md:p-8 flex items-start md:items-center justify-center" style="display:flex"><div id="window-frame-root"><div class="macos-window shop-window flex flex-col pointer-events-auto relative md:absolute w-full h-full md:w-auto md:h-auto rounded-none md:rounded-[14px] overflow-hidden origin-center" style="width:100%;height:100%;left:0;top:0" data-window-surface data-window-variant="shop" data-window-metrics-key="shop" data-window-resizable="true" data-window-maximizable="true" data-window-width="1180"><div class="shop-window-content" data-window-scroll data-window-content-root><div id="pjax-container" data-window-content-variant="shop" class="shop-window-content"><div class="shop-app" data-app-root="shop" data-menu-open="false" data-shop-scene="${scene}" data-shop-site-title="本地演示" data-shop-chrome-title="${scene}"><script type="application/json" data-app-props="shop">{"version":1,"appId":"shop","data":{"scene":"${scene}"}}</script><div class="shop-app-shell">${sidebar(scene)}<button type="button" class="shop-menu-backdrop" aria-label="关闭商店导航"></button><main class="shop-main" aria-label="${scene}"><div class="shop-main-header"><button type="button" class="shop-ui-btn shop-mobile-menu" aria-label="打开商店导航" aria-expanded="false" aria-controls="shop-sidebar">☰</button></div><shop-page-${scene} csrftoken="${csrf}"${props}></shop-page-${scene}></main></div></div></div></div></div></div></div><script type="module" src="${compiledShopUrl}"></script></body></html>`;
+  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Commerce transaction fixture</title><link rel="stylesheet" href="/fixture/shell.css"><link rel="stylesheet" href="/fixture/theme.css"><style>body{background:#e9edf2}#window-frame-root{position:relative;width:min(1180px,100%);height:min(860px,100%)}</style></head><body data-page-mode="browser-shop-${scene}" data-page-app="shop"><div class="window-layer fixed inset-x-0 bottom-0 top-[28px] md:top-0 z-10 pointer-events-none p-0 md:p-8 flex items-start md:items-center justify-center" style="display:flex"><div id="window-frame-root"><div class="macos-window shop-window flex flex-col pointer-events-auto relative md:absolute w-full h-full md:w-auto md:h-auto rounded-none md:rounded-[14px] overflow-hidden origin-center" style="width:100%;height:100%;left:0;top:0" data-window-surface data-window-variant="shop" data-window-metrics-key="shop" data-window-resizable="true" data-window-maximizable="true" data-window-width="1180"><div class="shop-window-content" data-window-scroll data-window-content-root><div id="pjax-container" data-window-content-variant="shop" class="shop-window-content"><div class="shop-app" data-app-root="shop" data-menu-open="false" data-shop-scene="${scene}" data-shop-site-title="本地演示" data-shop-chrome-title="${scene}"><script type="application/json" data-app-props="shop">{"version":1,"appId":"shop","data":{"scene":"${scene}"}}</script><div class="shop-app-shell">${sidebar(scene)}<button type="button" class="shop-menu-backdrop" aria-label="关闭商店导航"></button><main class="shop-main" aria-label="${scene}"><div class="shop-main-header"><button type="button" class="shop-ui-btn shop-mobile-menu" aria-label="打开商店导航" aria-expanded="false" aria-controls="shop-sidebar">☰</button></div><shop-page-${scene} csrftoken="${csrf}" authenticated="true"${props}></shop-page-${scene}></main></div></div></div></div></div></div></div><script type="module" src="${compiledShopUrl}"></script></body></html>`;
 };
 
 await mkdir(output, { recursive: true });
@@ -54,8 +56,13 @@ const report = {
 const browser = await chromium.launch({ headless: true });
 try {
   for (const viewport of [{ name: 'desktop', width: 1440, height: 1000 }, { name: 'mobile', width: 390, height: 844 }]) {
-    for (const caseName of ['cart-empty', 'cart-items', 'checkout', 'payments', 'payments-success', 'payments-success-leave'].filter((name) => !process.env.SHOP_TRANSACTION_CASE || name === process.env.SHOP_TRANSACTION_CASE)) {
+    for (const caseName of ['cart-empty', 'cart-items', 'cart-inquiry-mixed', 'cart-inquiry-only', 'checkout', 'payments', 'payments-success', 'payments-success-leave'].filter((name) => !process.env.SHOP_TRANSACTION_CASE || name === process.env.SHOP_TRANSACTION_CASE)) {
       const scene = caseName.startsWith('cart') ? 'cart' : caseName.startsWith('payments') ? 'payments' : caseName;
+      const scenarioCart = caseName === 'cart-empty' ? [] : structuredClone(cartItems);
+      if (caseName.startsWith('cart-inquiry')) {
+        scenarioCart[0].productVariant.pricingType = 'INQUIRY';
+        if (caseName === 'cart-inquiry-only') scenarioCart.splice(1);
+      }
       let paymentStatus = 'PENDING';
       const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height }, locale: 'zh-CN', serviceWorkers: 'block' });
       const requests = [];
@@ -101,10 +108,10 @@ try {
         if (url.pathname === '/fixture/shell.css') return respond(shellCss, 'text/css');
         if (url.pathname === '/fixture/theme.css') return respond(themeCss, 'text/css');
         if (url.pathname === '/fixture/images/payment-placeholder.svg') return respond(qrPlaceholder, 'image/svg+xml');
-        if (url.pathname === '/fixture/images/desktop-resources.png' || url.pathname === '/fixture/images/wallpaper.png') {
-          return respond(await readFile(path.join(root, 'templates/assets/images/shop-demo', path.basename(url.pathname))), 'image/png');
+        if (url.pathname === '/fixture/images/product-physical.png' || url.pathname === '/fixture/images/product-virtual.png') {
+          return respond(await readFile(path.join(root, 'scripts/fixtures/images', path.basename(url.pathname))), 'image/png');
         }
-        if (url.pathname === `${api}/cart-items`) return respond(caseName === 'cart-empty' ? [] : cartItems);
+        if (url.pathname === `${api}/cart-items`) return respond(scenarioCart);
         if (url.pathname === `${api}/checkout/${contextId}`) return respond(checkout);
         if (url.pathname === `${api}/user-addresses`) return respond(addresses);
         if (url.pathname === '/shop/coupons/mine') return respond([]);
@@ -121,7 +128,7 @@ try {
       try {
         await page.goto(`${origin}/fixture/page`, { waitUntil: 'networkidle' });
         await page.waitForFunction((tag) => !!customElements.get(tag) && !!document.querySelector(`${tag} .shop-entry__title`), `shop-page-${scene}`);
-        if (caseName === 'cart-items') await page.locator('.shop-cart-item').first().waitFor();
+        if (scene === 'cart' && caseName !== 'cart-empty') await page.locator('.shop-cart-item').first().waitFor();
         if (scene === 'checkout') await page.locator('#address-selector option').first().waitFor({ state: 'attached' });
         if (scene === 'payments') await page.locator('.shop-qrcode-image').waitFor();
         await page.evaluate(() => document.fonts.ready);
@@ -159,6 +166,19 @@ try {
         } else if (caseName === 'cart-items') {
           check('both fixture cart items rendered', mounted.mountedItems === 2);
           check('cart amount rendered from quantities and variant prices', await page.locator('.shop-cart-summary__row--total').innerText().then((value) => value.includes('76.00')));
+        } else if (caseName.startsWith('cart-inquiry')) {
+          const mixed = caseName === 'cart-inquiry-mixed';
+          check('inquiry price excluded from payable total', await page.locator('.shop-cart-summary__row--total span').last().innerText() === (mixed ? '¥18.00' : '¥0.00'));
+          const fields = await page.locator('.shop-cart-summary form').evaluate((form) => Object.fromEntries(new FormData(form)));
+          check('only eligible cart IDs and contiguous indices reach checkout', JSON.stringify(fields) === JSON.stringify(mixed
+            ? { _csrf: csrf, source: 'CART', 'items[0].cartItemId': '2902', 'items[0].quantity': '1' }
+            : { _csrf: csrf, source: 'CART' }), fields);
+          check('checkout requires at least one eligible item', await page.getByRole('button', { name: '前往结算' }).isDisabled() === !mixed);
+          const inquiryRow = page.locator('.shop-cart-item').first();
+          check('inquiry row explains contact-sales path', await inquiryRow.getByText('询价商品', { exact: true }).count() === 1 && await inquiryRow.getByText('请联系客服询价下单', { exact: true }).count() === 1);
+          check('inquiry row cannot change quantity or present a payable price', await inquiryRow.locator('.shop-quantity,.shop-cart-item__price,.shop-cart-item__total').count() === 0);
+          check('inquiry item remains removable', await inquiryRow.getByRole('button', { name: '删除', exact: true }).isEnabled());
+          check('cart explains excluded item', await page.getByText('1 件询价商品需联系客服下单，已从结算中排除', { exact: true }).count() === 1);
         } else if (scene === 'checkout') {
           check('accurate contextid reaches official prop', mounted.contextProp === contextId);
           check('shipping selector renders synthetic default address', await page.locator('#address-selector').inputValue() === '3901');
@@ -195,7 +215,7 @@ try {
         }
         if (caseName.startsWith('payments-success')) {
           paymentStatus = 'SUCCESS';
-          await page.getByText('支付成功', { exact: true }).waitFor();
+          await page.getByRole('status').filter({ hasText: '支付成功' }).waitFor();
           if (caseName === 'payments-success-leave') {
             await page.locator('shop-page-payments').evaluate((element) => element.remove());
             await page.waitForTimeout(1250); // Exceeds the component's real 1s success timer.

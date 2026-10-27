@@ -2405,14 +2405,16 @@
 /* 评论组件主题适配 */
 .moment-comments-shell comment-widget,
 .moment-comments-shell .halo-comment-widget {
-  --halo-cw-bg-color: transparent;
-  --halo-cw-text-color: var(--wc-text);
-  --halo-cw-secondary-text-color: var(--wc-text-secondary);
-  --halo-cw-border-color: var(--wc-border);
-  --halo-cw-input-bg-color: var(--wc-action-bg);
-  --halo-cw-link-color: var(--wc-comment-name);
-  --halo-cw-button-bg-color: var(--wc-interaction-accent);
-  --halo-cw-button-text-color: #fff;
+  --halo-cw-primary-1-color: var(--wc-interaction-accent);
+  --halo-cw-primary-2-color: var(--wc-interaction-accent);
+  --halo-cw-primary-3-color: var(--wc-action-bg);
+  --halo-cw-primary-contrast-color: #fff;
+  --halo-cw-text-1-color: var(--wc-text);
+  --halo-cw-text-2-color: var(--wc-text-secondary);
+  --halo-cw-text-3-color: var(--wc-text-secondary);
+  --halo-cw-muted-1-color: var(--wc-border);
+  --halo-cw-muted-2-color: var(--wc-action-bg);
+  --halo-cw-muted-3-color: transparent;
 }
 
 .dark .moment-comments-shell comment-widget,

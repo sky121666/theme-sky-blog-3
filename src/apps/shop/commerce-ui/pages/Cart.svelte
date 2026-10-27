@@ -31,6 +31,8 @@ const query = createQuery(
   }),
   () => queryClient
 );
+const checkoutableItems = $derived((query.data ?? []).filter((item) => item.productVariant?.pricingType !== 'INQUIRY'));
+const excludedCount = $derived((query.data ?? []).length - checkoutableItems.length);
 function calculateItemTotal(item) {
   const price = new Decimal(item.productVariant?.price || 0);
   const quantity = new Decimal(item.quantity || 1);
@@ -38,7 +40,7 @@ function calculateItemTotal(item) {
 }
 const total = $derived.by(() => {
   let result = new Decimal(0);
-  for (const item of query.data ?? []) {
+  for (const item of checkoutableItems) {
     result = result.add(calculateItemTotal(item));
   }
   return result.toNumber();
@@ -72,6 +74,9 @@ const total = $derived.by(() => {
 
     <div class="shop-cart-summary shop-card">
       <h2 class="shop-card__title">{$i18n.t('cart.summaryTitle')}</h2>
+      {#if excludedCount > 0}
+        <p class="shop-tip" role="status">{$i18n.t('cart.inquiryExcluded', { count: excludedCount })}</p>
+      {/if}
       <div class="shop-cart-summary__row">
         <span>{$i18n.t('cart.itemsTotal')}</span>
         <span>{formatPrice(total || 0)}</span>
@@ -89,13 +94,13 @@ const total = $derived.by(() => {
         <form action="/shop/checkout/prepare" method="POST">
           <input type="hidden" name="_csrf" value={csrfToken} />
           <input type="hidden" name="source" value="CART" />
-          {#each query.data ?? [] as item, index}
+          {#each checkoutableItems as item, index}
             <input type="hidden" name="items[{index}].cartItemId" value={item.id} />
             <input type="hidden" name="items[{index}].quantity" value={item.quantity} />
           {/each}
           <button
             class="shop-btn shop-btn-primary shop-btn-lg"
-            disabled={!query.data?.length || query.isLoading || query.isFetching}
+            disabled={!checkoutableItems.length || query.isLoading || query.isFetching}
           >
             {$i18n.t('cart.proceedToCheckout')}
           </button>

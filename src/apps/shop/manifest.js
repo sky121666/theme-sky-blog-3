@@ -8,7 +8,8 @@ export const shopAppManifest = {
     'browser-shop-product',
     'browser-shop-cart',
     'browser-shop-checkout',
-    'browser-shop-payments'
+    'browser-shop-payments',
+    'browser-shop-order'
   ],
   entry: 'src/apps/shop/entry.js',
   assetDirectory: 'shop'

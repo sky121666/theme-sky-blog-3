@@ -12,7 +12,8 @@
       "alipay": "支付宝",
       "wechat": "微信",
       "stripe": "Stripe"
-    }
+    },
+    "retry": "重试"
   },
   "buyBox": {
     "loadFailed": "加载失败：{{message}}",
@@ -25,7 +26,8 @@
     "buyNow": "立即购买",
     "externalBuyNow": "前往购买",
     "externalRedirectHint": "点击后将在新窗口打开外部站点",
-    "contactSales": "联系销售"
+    "contactSales": "联系销售",
+    "perOrderLimit": "限购 {{count}} 件"
   },
   "cart": {
     "title": "购物车",
@@ -38,11 +40,23 @@
     "pendingCalculation": "待计算",
     "total": "总计",
     "proceedToCheckout": "前往结算",
-    "continueShopping": "继续购物"
+    "continueShopping": "继续购物",
+    "loadFailed": "购物车加载失败，请稍后重试",
+    "emptyTitle": "购物车是空的",
+    "emptyDesc": "去挑选一些喜欢的商品吧",
+    "emptyAction": "去逛逛",
+    "inquiryExcluded": "{{count}} 件询价商品需联系客服下单，已从结算中排除"
   },
   "cartItem": {
     "updateQuantityFailed": "更新数量失败，请重试",
-    "remove": "删除"
+    "remove": "删除",
+    "removeConfirm": "确定从购物车中删除该商品吗？",
+    "removeFailed": "删除失败，请重试",
+    "inquiryBadge": "询价商品",
+    "inquiryNote": "请联系客服询价下单",
+    "quantity": "数量",
+    "increaseQuantity": "增加数量",
+    "decreaseQuantity": "减少数量"
   },
   "checkout": {
     "title": "结算",
@@ -64,6 +78,7 @@
     "discountTip": "系统将自动计算最优优惠。",
     "discountApplySuccess": "折扣码应用成功",
     "discountRemoveSuccess": "折扣码已移除",
+    "discountRemoveError": "折扣码移除失败，请重试",
     "discountApplyError": "折扣码无效或已过期",
     "coupons": "优惠券",
     "couponsPlaceholder": "选择要使用的优惠券",
@@ -86,7 +101,13 @@
     "couponMaxDiscount": "最高减 {{amount}}",
     "couponMinOrder": "满 {{amount}} 可用",
     "couponExpiresAt": "{{date}} 到期",
-    "couponRejectedFallback": "该优惠券不适用于当前订单。"
+    "couponRejectedFallback": "该优惠券不适用于当前订单。",
+    "email": "邮箱",
+    "emailHelp": "订单确认和访问链接会发到这个邮箱。",
+    "guestLoginPrompt": "如果这个邮箱已经注册，请先登录后再结账。",
+    "subscriptionRequiresLogin": "订阅商品需要登录后购买。",
+    "contextLoadFailed": "结算信息加载失败，请重试",
+    "submitting": "提交中…"
   },
   "addressForm": {
     "lastName": "姓 *",
@@ -118,10 +139,25 @@
     "payableTotal": "应付总额",
     "discount": "优惠",
     "paymentTitle": "支付",
-    "loadPaymentResponseFailed": "加载支付响应失败，请刷新重试",
+    "loadPaymentResponseFailed": "加载支付信息失败，请重试。",
     "unsupportedPaymentMethod": "暂不支持该支付方式，请联系管理员",
     "paymentTransactionNumber": "支付交易号 *",
-    "paymentConfirmed": "已确认支付"
+    "paymentConfirmed": "已确认支付",
+    "wechatPayReentry": "这笔订单已有一笔未完成的微信支付。请回到原来的页面完成支付；如需改在这里支付，请重新下单。",
+    "accessEmail": "邮箱",
+    "accessEmailHelp": "填写下单时使用的邮箱，我们会把订单访问链接发到这个邮箱。",
+    "sendAccessLink": "发送访问链接",
+    "accessLinkSent": "如果邮箱匹配，访问链接已发送。",
+    "accessLinkFailed": "发送失败，请稍后重试。",
+    "pollTimeout": "长时间未检测到支付结果，已停止自动刷新。",
+    "pollResume": "重新检测",
+    "orderStatusUnavailable": "无法确认订单状态，请重新查询后再付款。",
+    "recheckOrder": "重新查询订单状态",
+    "sessionStatus": {
+      "FAILED": "支付失败。你可以重试付款。",
+      "EXPIRED": "本次支付已过期。请重试以获取新的支付信息。",
+      "CANCELLED": "本次支付已取消。你可以重试付款。"
+    }
   },
   "paymentMethods": {
     "scanToPay": "请使用 {{provider}} 扫描二维码完成支付",
@@ -137,6 +173,60 @@
     "bankAddress": "银行地址：{{value}}",
     "accountName": "账户名称：{{value}}",
     "accountNumber": "账户号码：{{value}}",
-    "notes": "备注：{{value}}"
+    "notes": "备注：{{value}}",
+    "wechatH5RedirectTip": "将在当前页面跳转至微信完成支付，支付完成后会回到此页。"
+  },
+  "subscription": {
+    "badge": "订阅",
+    "switchHint": "点击其他套餐可前往用户中心切换。",
+    "noPlans": "暂无上架计划",
+    "tierTabsLabel": "档次",
+    "periodTabsLabel": "周期",
+    "period": {
+      "MONTHLY": "按月",
+      "YEARLY": "按年",
+      "LIFETIME": "永久",
+      "OTHER": "其他"
+    },
+    "billingMode": {
+      "SUBSCRIPTION": "连续购买",
+      "ONE_TIME": "单期购买",
+      "LIFETIME": "永久买断"
+    },
+    "billingPeriod": {
+      "MONTHLY": "按月",
+      "YEARLY": "按年"
+    },
+    "perMonth": "/月",
+    "perYear": "/年",
+    "savePercent": "省 {{percent}}%",
+    "trial": "试用 {{days}} 天",
+    "resubscribeNotice": "再次购买将恢复订阅，试用不会再触发。",
+    "quantityRange": "{{min}} - {{max}} 份",
+    "decreaseQuantity": "减少数量",
+    "increaseQuantity": "增加数量",
+    "summaryTrialNow": "试用 {{days}} 天 · 现在应付",
+    "summaryDueNow": "应付",
+    "summaryAfterTrial": "之后",
+    "summaryAfterEach": "之后每期",
+    "currentPlan": "当前套餐",
+    "goSwitch": "去切换",
+    "addingToCart": "加入中…",
+    "addCartFailed": "加入购物车失败",
+    "manageTitle": "当前订阅",
+    "manageTitleMultiple": "我的订阅（{{count}} 个）",
+    "manageMultipleHint": "每条订阅独立续费与变更，请在用户中心逐条管理。",
+    "managePlan": "计划",
+    "manageStatus": "状态",
+    "managePeriodEnd": "当前周期至",
+    "manageGoUc": "去用户中心管理",
+    "forever": "永久",
+    "status": {
+      "TRIALING": "试用中",
+      "ACTIVE": "生效中",
+      "PAST_DUE": "已逾期",
+      "CANCELLED": "已取消",
+      "EXPIRED": "已过期"
+    }
   }
 }

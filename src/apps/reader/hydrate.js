@@ -1,6 +1,7 @@
 import { cleanupPostOutline, initPostOutline } from './runtime/post-outline.js';
 import { registerPostComponents } from './runtime/upvote.js';
 import { resolveReaderAppProtocol } from './protocol.js';
+import { scrollCommentContainer, watchCommentPermalink } from '../../shared/comment-permalink.js';
 import {
   queuePageAppRegistrar,
   registerPageAppLifecycle
@@ -73,8 +74,20 @@ registerPageAppLifecycle('reader', {
   hydrate(root, context) {
     initPostOutline(root);
     const cleanupCommentAnchor = initColdCommentAnchor(root, context);
+    const cleanupPermalink = watchCommentPermalink(root, (target) => {
+      if (!target) return;
+      const section = root?.querySelector?.('#post-comments');
+      if (!section) return;
+      const hidden = section.querySelector('[data-comment-hidden]');
+      if (hidden) {
+        hidden.removeAttribute('data-comment-hidden');
+        hidden.style.display = '';
+      }
+      return scrollCommentContainer(section, root);
+    });
     return () => {
       cleanupCommentAnchor();
+      cleanupPermalink();
       cleanupPostOutline();
     };
   },

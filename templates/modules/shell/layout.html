@@ -3,7 +3,7 @@
 <!-- plugin-contract: PluginLightGallery; surface: reader-lightbox; contract-version: 1.2.1; status: confirmed; source: docs/插件适配契约.md#pc-lightgallery -->
 <!-- plugin-contract: online; surface: page-monitor; contract-version: 1.0.5; status: confirmed; source: docs/插件适配契约.md#pc-online -->
 <!-- plugin-contract: PluginFeed; surface: rss-discovery; contract-version: 1.5.0; status: confirmed; source: docs/插件适配契约.md#pc-feed -->
-<!-- plugin-contract: PluginContactForm; surface: global-resources; contract-version: 1.6.4; status: confirmed; source: docs/插件适配契约.md#pc-contact-form-resources -->
+<!-- plugin-contract: PluginContactForm; surface: global-resources; contract-version: 2.1.0; status: confirmed; source: docs/插件适配契约.md#pc-contact-form-resources -->
 <!-- plugin-contract: editor-hyperlink-card; surface: global-resources; contract-version: 1.9.2; status: confirmed; source: docs/插件适配契约.md#pc-hyperlink-resources -->
 <!-- plugin-contract: lottery; surface: global-resources; contract-version: 1.0.2; status: confirmed; source: docs/插件适配契约.md#pc-lottery-resources -->
 <!-- plugin-contract: restricted-reading; surface: global-resources; contract-version: 1.8.1; status: confirmed; source: docs/插件适配契约.md#pc-restricted-reading-resources -->
@@ -193,15 +193,24 @@
               if (document.readyState !== 'loading') return Promise.resolve();
               return new Promise((resolve, reject) => {
                 let timeoutId;
+                let settled = false;
                 const finish = (error) => {
+                  if (settled) return;
+                  settled = true;
                   clearTimeout(timeoutId);
                   document.removeEventListener('DOMContentLoaded', onReady);
+                  document.removeEventListener('readystatechange', onReady);
                   if (error) reject(error);
                   else resolve();
                 };
-                const onReady = () => finish();
+                // Deferred plugin modules can delay DOMContentLoaded after parsing ends.
+                const onReady = () => {
+                  if (document.readyState !== 'loading') finish();
+                };
                 document.addEventListener('DOMContentLoaded', onReady, { once: true });
+                document.addEventListener('readystatechange', onReady);
                 timeoutId = setTimeout(() => finish(new Error('Theme document parsing timed out')), moduleDeadlineMs);
+                onReady();
               });
             };
 

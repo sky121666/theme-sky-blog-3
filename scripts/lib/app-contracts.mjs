@@ -9,7 +9,7 @@ const PAGE_MODES = new Set([
   'browser-reader', 'browser-list', 'browser-moments', 'browser-links',
   'browser-bangumis', 'browser-douban', 'browser-docsme', 'browser-steam',
   'browser-equipments', 'auth', 'browser-shop-products', 'browser-shop-product',
-  'browser-shop-cart', 'browser-shop-checkout', 'browser-shop-payments'
+  'browser-shop-cart', 'browser-shop-checkout', 'browser-shop-payments', 'browser-shop-order'
 ]);
 
 // This validates the executable manifest contract, not JavaScript expression types.

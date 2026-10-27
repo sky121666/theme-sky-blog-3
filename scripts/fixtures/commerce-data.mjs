@@ -6,8 +6,8 @@ export const contextId = 'fixture-checkout-context';
 export const orderCode = 'FIXTURE-ORDER-0001';
 export const sessionCode = 'fixture-payment-session';
 export const products = [
-  { id: 901, title: '桌面资源精选套装 · 实体演示商品', coverImageUrl: '/fixture/images/desktop-resources.png', productType: 'PHYSICAL', status: 'PUBLISHED' },
-  { id: 902, title: '高清壁纸与图标资源合集 · 虚拟演示商品', coverImageUrl: '/fixture/images/wallpaper.png', productType: 'VIRTUAL', status: 'PUBLISHED' },
+  { id: 901, title: '桌面资源精选套装 · 实体演示商品', coverImageUrl: '/fixture/images/product-physical.png', productType: 'PHYSICAL', status: 'PUBLISHED' },
+  { id: 902, title: '高清壁纸与图标资源合集 · 虚拟演示商品', coverImageUrl: '/fixture/images/product-virtual.png', productType: 'VIRTUAL', status: 'PUBLISHED' },
 ];
 export const variants = products.map((product, index) => ({ id: 1901 + index, productId: product.id, price: index ? 18 : 29, originalPrice: index ? 24 : 39, imageUrl: product.coverImageUrl, specValues: [{ name: '版本', value: '演示标准版' }], shippingRequired: !index, trackInventory: true, stock: 20, status: 'PUBLISHED' }));
 export const cartItems = products.map((product, index) => ({ id: 2901 + index, product, productVariant: variants[index], productVariantId: variants[index].id, quantity: index ? 1 : 2 }));

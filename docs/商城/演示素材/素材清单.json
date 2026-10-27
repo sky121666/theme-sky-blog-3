@@ -1,0 +1,22 @@
+{
+  "generatedOn": "2026-10-08",
+  "generator": "image_gen",
+  "purpose": "商城 DEMO 商品封面，非功能截图或真实商品交付",
+  "assets": [
+    {
+      "file": "desktop-resources.png",
+      "sha256": "9b356b23770d9e34ff3ad0a9a10ed96e0152ad3dce7d7dbd8b17501d0bac4ba4",
+      "bytes": 2055669
+    },
+    {
+      "file": "icons.png",
+      "sha256": "925c4d21c309a6d8333af0b6eb4a7c4191cf5d1503a32e6f843d51c04117fe3c",
+      "bytes": 1721746
+    },
+    {
+      "file": "wallpaper.png",
+      "sha256": "fbc43ecb31d720144b2470b9366b47798e5d6a24689969485ff000b5966500b2",
+      "bytes": 2926315
+    }
+  ]
+}

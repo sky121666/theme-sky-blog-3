@@ -20,7 +20,7 @@ const origin = 'https://theme.test';
 globalThis.window = { location: { origin } };
 
 test('shop routes share an independent App and support same-app PJAX', () => {
-  for (const pathname of ['/shop', '/shop/', '/shop/products?category=demo&page=2', '/shop/product/demo', '/shop/products/demo', '/shop/cart', '/shop/checkout?contextId=demo', '/shop/payments?orderCode=demo', '/shop/future-scene']) {
+  for (const pathname of ['/shop', '/shop/', '/shop/products?category=demo&page=2', '/shop/product/demo', '/shop/products/demo', '/shop/cart', '/shop/checkout/demo', '/shop/order/demo/payments', '/shop/order/demo', '/shop/future-scene']) {
     const route = resolveRoute(`${origin}${pathname}`);
     assert.equal(route?.appId, 'shop', pathname);
     assert.equal(route?.windowVariant, 'shop', pathname);
@@ -28,7 +28,7 @@ test('shop routes share an independent App and support same-app PJAX', () => {
     assert.deepEqual(route?.preloadAssets, ['shop'], pathname);
   }
   assert.equal(supportsSameVariantContentSwitch('shop'), true);
-  for (const mode of ['browser-shop-products', 'browser-shop-product', 'browser-shop-cart', 'browser-shop-checkout', 'browser-shop-payments']) {
+  for (const mode of ['browser-shop-products', 'browser-shop-product', 'browser-shop-cart', 'browser-shop-checkout', 'browser-shop-payments', 'browser-shop-order']) {
     assert.equal(isContentSwitchAllowed('shop', mode), true, mode);
   }
   assert.equal(isContentSwitchAllowed('shop', 'browser-shop-orders'), false);
@@ -59,7 +59,7 @@ const cases = [
   ['customer center to shop', `${origin}/uc/orders`, '/shop/cart', true],
   ['customer center to desktop', `${origin}/uc`, '/', true],
   ['customer center internal navigation', `${origin}/uc`, '/uc/orders', true],
-  ['same-origin http shop', 'http://theme.test/links', 'http://theme.test/shop/payments', false],
+  ['same-origin http shop', 'http://theme.test/links', 'http://theme.test/shop/order/demo/payments', false],
   ['same-origin http customer center', 'http://theme.test/links', 'http://theme.test/uc/orders', true],
   ['ordinary blog navigation', `${origin}/links`, '/archives/example', false],
   ['shopper is not shop', `${origin}/shopper`, '/shopper/cart', false],
@@ -347,7 +347,7 @@ test('same-shop popstate reuses its accepted permit and suppresses the same exec
 });
 
 test('popstate leaving shop stays in PJAX and retains history suppression', () => {
-  const f = coordinatorFixture({ current: '/links', source: '/shop/payments' });
+  const f = coordinatorFixture({ current: '/links', source: '/shop/order/demo/payments' });
   f.load('/links', { history: false });
   assert.deepEqual(f.navigations, []);
   assert.equal(f.requests[0]?.url, `${origin}/links`);

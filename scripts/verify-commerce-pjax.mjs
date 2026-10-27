@@ -1,3 +1,4 @@
+import { assertCurrentBuild } from './lib/build-identity.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -13,6 +14,7 @@ import {
 // The default mode reads only current repo assets/source. --baseline-sdk is an
 // explicit negative control using the old public SDK, never a green dependency.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+assertCurrentBuild(root);
 const baseline = process.argv.includes('--baseline-sdk');
 const option = (name, fallback = '') => process.argv.find((arg) => arg.startsWith(`--${name}=`))?.slice(name.length + 3) || fallback;
 const label = option('label', baseline ? 'baseline-sdk' : 'current-build');
@@ -35,13 +37,13 @@ const oldSdk = baseline ? await readFile(path.join(root, 'output/commerce-adapta
 const withVersion = (url) => `${url}?${manifest.__meta.query}`;
 const tags = ['shop-buy-box', 'shop-page-cart', 'shop-page-checkout', 'shop-page-payments'];
 const scenes = ['gallery', 'product', 'cart', 'checkout', 'payments'];
-const scenePath = (scene) => ({ gallery: '/shop', product: '/shop/product/901', cart: '/shop/cart', checkout: `/shop/checkout/${contextId}`, payments: `/shop/payments/${orderCode}`, blog: '/archives' })[scene];
+const scenePath = (scene) => ({ gallery: '/shop', product: '/shop/product/901', cart: '/shop/cart', checkout: `/shop/checkout/${contextId}`, payments: `/shop/order/${orderCode}/payments`, blog: '/archives' })[scene];
 const component = (scene) => ({
   gallery: '<h1 class="shop-page-title">商品画廊</h1><a data-shop-browse data-shop-view="all" href="/shop/products?view=all">所有商品</a>',
   product: `<h1 class="shop-page-title">演示商品</h1><shop-buy-box id="901" csrftoken="${csrf}"></shop-buy-box>`,
   cart: `<shop-page-cart csrftoken="${csrf}"></shop-page-cart>`,
-  checkout: `<shop-page-checkout contextid="${contextId}" csrftoken="${csrf}"></shop-page-checkout>`,
-  payments: `<shop-page-payments ordercode="${orderCode}" csrftoken="${csrf}"></shop-page-payments>`,
+  checkout: `<shop-page-checkout contextid="${contextId}" csrftoken="${csrf}" authenticated="true"></shop-page-checkout>`,
+  payments: `<shop-page-payments ordercode="${orderCode}" csrftoken="${csrf}" authenticated="true"></shop-page-payments>`,
 })[scene];
 const appHtml = (scene) => scene === 'blog'
   ? '<article data-app-root="reader"><h1 id="blog-marker">隔离博客页</h1><p>离开商城后保留的内容</p></article>'
@@ -218,7 +220,10 @@ async function test(name, action, { hold = '', status = 'PENDING' } = {}) {
     const mounted = async (scene) => {
       if (scene === 'cart') await page.locator('.shop-cart-item').first().waitFor();
       if (scene === 'checkout') await page.locator('#address-selector').waitFor();
-      if (scene === 'payments') await page.locator('.shop-qrcode-image').waitFor();
+      if (scene === 'payments') {
+        if (status === 'SUCCESS') await page.getByRole('status').filter({ hasText: '支付成功' }).waitFor();
+        else await page.locator('.shop-qrcode-image').waitFor();
+      }
       if (scene === 'product') await page.locator('shop-buy-box .shop-quantity').waitFor();
     };
     const screenshot = async (suffix) => {
@@ -273,7 +278,7 @@ try {
   await test('success-leave', async ({ page, check, commit, mounted, screenshot, result, marker }) => {
     await commit('payments');
     await mounted('payments');
-    await page.getByText('支付成功', { exact: true }).waitFor();
+    await page.getByRole('status').filter({ hasText: '支付成功' }).waitFor();
     check('payment success scheduled a real 1s redirect', await page.evaluate(() => window.__fixtureTimers.some((timer) => timer.delay === 1000 && !timer.fired && !timer.cancelled)));
     await commit('blog');
     await page.waitForTimeout(1250); // Exceeds the actual payment success timer.

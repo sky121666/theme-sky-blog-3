@@ -6,6 +6,7 @@
             productKind=${#strings.toString(product.productType)},
             isVirtual=${productKind == 'VIRTUAL'},
             isPhysical=${productKind == 'PHYSICAL'},
+            isSubscription=${productKind == 'SUBSCRIPTION'},
             identityImage=${!#strings.isEmpty(product.coverImageUrl) ? product.coverImageUrl : (hasImages ? product.images[0] : '')}">
   <div class="shop-app" data-app-root="shop" data-shop-scene="product" data-menu-open="false"
        th:attr="data-shop-site-title=${site.title},data-shop-chrome-title=${product.title},data-shop-descriptions=${showDescription},data-shop-product-kind=${isVirtual ? 'virtual' : (isPhysical ? 'physical' : 'unknown')},data-shop-product-id=${product.id}">
@@ -51,7 +52,7 @@
         </section>
         <div class="shop-product-content" th:if="${!#strings.isEmpty(product.content) or !#lists.isEmpty(product.specDefinition)}">
           <div th:if="${!#strings.isEmpty(product.content)}" th:utext="${product.content}"></div>
-          <table class="shop-spec-table" th:if="${!#lists.isEmpty(product.specDefinition)}" aria-label="商品规格">
+          <table class="shop-spec-table" th:if="${!isSubscription and !#lists.isEmpty(product.specDefinition)}" aria-label="商品规格">
             <tbody>
               <tr th:each="spec : ${product.specDefinition}">
                 <th scope="row" th:text="${spec.name}">规格</th>

@@ -209,8 +209,8 @@ public class ShopCategoryTemplateFixture {
     }
     if(args.length>1) {
       Path evidence=Files.createDirectories(Path.of(args[1]));
-      var imageCategory=new HashMap<>(category(15,"图片优先",List.of()));imageCategory.put("image","/themes/theme-sky-blog-3/assets/images/shop-demo/icons.png");
-      var brokenImageCategory=new HashMap<>(category(16,"图片失效回退",List.of()));brokenImageCategory.put("image","/themes/theme-sky-blog-3/assets/images/shop-demo/category-fixture-missing.png");
+      var imageCategory=new HashMap<>(category(15,"图片优先",List.of()));imageCategory.put("image","/fixture-category.png");
+      var brokenImageCategory=new HashMap<>(category(16,"图片失效回退",List.of()));brokenImageCategory.put("image","/fixture-broken-category.png");
       var appearanceTree=List.of(category(11,"设计素材",List.of()),category(12,"开发工具",List.of()),category(13,"阅读资料",List.of()),category(14,"默认分类",List.of()),imageCategory,brokenImageCategory);
       var displayRows=List.of(Map.of("category_id","11","icon","palette","color","#8B5CF6"),Map.of("category_id","12","icon","code","color","#D97706"),Map.of("category_id","13","icon","book-open","color","#059669"),Map.of("category_id","15","icon","package","color","#2563EB"),Map.of("category_id","16","icon","camera","color","#DB2777"));
       var appearanceDoc=Jsoup.parse(engine.process("modules/shop-app/products",Set.of("content"),context(List.of("11","12","13"),appearanceTree,new Finder(List.of()),"categories",displayRows)));

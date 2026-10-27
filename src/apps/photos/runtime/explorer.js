@@ -13,6 +13,7 @@
  */
 import { initLazyImages } from '../../../shell/desktop-shell/runtime/shared/lazy-media.js';
 import { warnApiCall } from '../../../shell/desktop-shell/runtime/shared/debug.js';
+import { watchCommentPermalink } from '../../../shared/comment-permalink.js';
 
 const PHOTOS_PREFS_KEY = 'theme-photos-explorer-prefs';
 const MIN_COL_COUNT = 2;
@@ -110,6 +111,7 @@ export function registerPhotosExplorer(Alpine) {
     _paginationGeneration: 0,
     _paginationLoadMore: null,
     _paginationRetryCleanup: null,
+    _commentPermalinkCleanup: null,
     _destroyed: false,
     _lifecycleGeneration: 0,
     _engine: null,
@@ -1451,6 +1453,21 @@ export function registerPhotosExplorer(Alpine) {
         this._installSurfaceControls();
         if (this.isDetailView()) {
           this._installDetailViewerControls();
+          this._commentPermalinkCleanup?.();
+          let permalinkOpened = false;
+          let previousCommentsOpen = this.commentsOpen;
+          this._commentPermalinkCleanup = watchCommentPermalink(this.$el, (target) => {
+            if (target) {
+              if (!permalinkOpened) previousCommentsOpen = this.commentsOpen;
+              permalinkOpened = true;
+              this.commentsOpen = true;
+              this.syncDetailChromeControls();
+            } else if (permalinkOpened) {
+              permalinkOpened = false;
+              this.commentsOpen = previousCommentsOpen;
+              this.syncDetailChromeControls();
+            }
+          });
         }
         if (!this.isDetailView()) {
           this._captureInitialCards();
@@ -1467,6 +1484,8 @@ export function registerPhotosExplorer(Alpine) {
     destroy() {
       const engine = this._getEngine();
       this._destroyed = true;
+      this._commentPermalinkCleanup?.();
+      this._commentPermalinkCleanup = null;
       this._lifecycleGeneration += 1;
       this._paginationGeneration += 1;
       this._paginationController?.abort();

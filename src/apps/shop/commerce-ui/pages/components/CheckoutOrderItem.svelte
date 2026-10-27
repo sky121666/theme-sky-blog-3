@@ -3,6 +3,8 @@ import { fade } from "svelte/transition";
 import { getThumbnailUrl } from "../../utils/thumbnail";
 import { formatPrice } from "../../utils/price";
 import Decimal from "decimal.js";
+import SubscriptionLineMeta from "./SubscriptionLineMeta.svelte";
+import { productPermalink } from "../../utils/purchase.js";
 let { item } = $props();
 let imageUrl = $derived(item.productVariant?.imageUrl || item.product?.coverImageUrl);
 let specValueText = $derived(
@@ -24,9 +26,14 @@ let total = $derived.by(() => {
     />
   {/if}
   <div class="shop-order-item__info">
-    <a href={`/shop/product/${item.product?.id}`} target="_blank" class="shop-order-item__name">
+    <a href={productPermalink(item.product)} target="_blank" rel="noopener noreferrer" class="shop-order-item__name">
       {item.product?.title}
     </a>
+    <SubscriptionLineMeta
+      productId={item.product?.id}
+      variantId={item.productVariant?.id}
+      enabled={item.product?.productType === 'SUBSCRIPTION'}
+    />
     {#if specValueText}
       <span class="shop-order-item__variant">{specValueText}</span>
     {/if}

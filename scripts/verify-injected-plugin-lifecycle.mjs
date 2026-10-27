@@ -28,7 +28,7 @@ const expectedOnlinePathSequence = [
 ];
 
 const globalPluginAssets = {
-  contactForm: { selector: 'script[src*="/plugins/PluginContactForm/"]' },
+  contactForm: { selector: 'script[src*="/plugins/PluginContactForm/"]', splitRuntime: true },
   hyperlinkCard: { selector: 'script[src*="/plugins/editor-hyperlink-card/"]' },
   lottery: { selector: 'script[src*="/plugins/lottery/"]' },
   restrictedReading: { selector: 'script[src*="/plugins/restricted-reading/"]' },
@@ -205,11 +205,18 @@ try {
       const matches = descriptor.text
         ? elements.filter((element) => element.textContent.includes(descriptor.text))
         : elements;
-      return [key, matches.length];
+      return [key, descriptor.splitRuntime ? matches.map((element) => element.src) : matches.length];
     })
   ), globalPluginAssets);
   const assertSingleGlobalAssets = (snapshot, label) => {
     Object.entries(snapshot).forEach(([key, count]) => {
+      if (globalPluginAssets[key].splitRuntime) {
+        assert.ok(count.length >= 1, `${label}: ${key} should load its runtime`);
+        assert.equal(new Set(count).size, count.length, `${label}: ${key} should load each runtime URL once`);
+        assert.equal(count.filter((url) => /\/contact-form-loader\.iife\.js(?:\?|$)/.test(url)).length, 1,
+          `${label}: ${key} should keep exactly one loader`);
+        return;
+      }
       assert.equal(count, 1, `${label}: ${key} should keep exactly one injected runtime`);
     });
   };

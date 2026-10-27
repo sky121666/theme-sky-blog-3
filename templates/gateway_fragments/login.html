@@ -1,4 +1,4 @@
-<!-- plugin-contract: auth-passkey; surface: auth-fragment; contract-version: 1.0.4; status: confirmed; source: docs/插件适配契约.md#pc-passkey -->
+<!-- plugin-contract: auth-passkey; surface: auth-fragment; contract-version: 2.0.0; status: confirmed; source: docs/插件适配契约.md#pc-passkey -->
 <!-- ========================================== -->
 <!--    Gateway Fragments - Login              -->
 <!--    登录表单片段                            -->
@@ -84,7 +84,7 @@
         <div th:replace="~{__${fragmentTemplateName}__::form}"></div>
 
         <!-- 动作区: 保持登录与提交按钮 -->
-        <div class="auth-action-row">
+        <div class="auth-action-row pill-items">
             <div class="auth-action-meta">
                 <div th:if="${authProvider.spec.rememberMeSupport}" class="auth-checkbox-row">
                     <input type="checkbox" id="remember-me" name="remember-me" value="true" th:checked="${rememberMe}" />
@@ -104,6 +104,7 @@
 </div>
 
 <!-- 其他登录方式 -->
-<div th:remove="tag" th:fragment="formAuthProviders">
+<!-- Keep the plugin's selector ancestor without adding a layout box. -->
+<div th:fragment="formAuthProviders" class="pill-items" style="display: contents">
     <th:block th:replace="~{gateway_fragments/common::loginProviderSection}"></th:block>
 </div>

@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { assertCurrentBuild } from './lib/build-identity.mjs';
 
 const root = process.cwd();
 
@@ -31,6 +32,7 @@ function parseThemeIdentity(yaml) {
 }
 
 function main() {
+  assertCurrentBuild(root);
   const themePath = path.join(root, 'theme.yaml');
   const noticePath = path.join(root, 'THIRD_PARTY_NOTICES.md');
   assert(fs.existsSync(themePath), '缺少 theme.yaml');

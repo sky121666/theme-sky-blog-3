@@ -1,7 +1,7 @@
 // Protocol values used by this UI, verified against Commerce DTO declarations.
 // No generated API client runtime is imported or distributed.
-export const ProductResponseProductTypeEnum = Object.freeze({ External: 'EXTERNAL' });
-export const OrderResponsePaymentStatusEnum = Object.freeze({ Pending: 'PENDING' });
+export const ProductResponseProductTypeEnum = Object.freeze({ External: 'EXTERNAL', Subscription: 'SUBSCRIPTION' });
+export const OrderResponsePaymentStatusEnum = Object.freeze({ Pending: 'PENDING', Paid: 'PAID' });
 export const PaymentInitiateRequestPreferredResponseTypeEnum = Object.freeze({
   RedirectUrl: 'REDIRECT_URL', QrcodeUrl: 'QRCODE_URL'
 });

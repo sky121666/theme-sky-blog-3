@@ -183,9 +183,12 @@
     <!-- Altcha Captcha Scripts (Halo Pro only, guarded for open-source compatibility) -->
     <th:block th:if="${globalInfo != null and #strings.contains(globalInfo.toString(), 'captchaProvider')}">
     <th:block th:if="${#strings.equalsIgnoreCase(globalInfo.captchaProvider, 'ALTCHA')}">
-        <script async defer src="/webjars/altcha/dist/altcha.i18n.js" type="module"></script>
-        <script src="/js/altcha-lib.iife.js"></script>
+    <th:block th:with="altchaV2=${#halo != null and !#strings.equals(site.version, '0.0.0') and #halo.matchVersion('>=2.27.0')}">
+        <!-- Halo 2.27 bundles the solver in the widget; 2.26 needs its standalone library. -->
+        <script async defer th:src="${altchaV2 ? '/webjars/altcha/dist/main/altcha.i18n.min.js' : '/webjars/altcha/dist/altcha.i18n.js'}" type="module"></script>
+        <script th:unless="${altchaV2}" src="/js/altcha-lib.iife.js"></script>
         <script src="/js/altcha-utils.js"></script>
+    </th:block>
     </th:block>
     </th:block>
 </th:block>

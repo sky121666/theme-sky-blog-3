@@ -169,6 +169,7 @@ assert.equal('style' in attributesFor(momentShell, states[1]), false);
 assert.equal('data-moment-official-comments' in attributesFor(momentShell, states[1]), false);
 
 const interactionsSource = fs.readFileSync('src/apps/moments/interactions.js', 'utf8');
+const commentPermalink = await import('../src/shared/comment-permalink.js');
 let momentsChecks = 0;
 for (const name of ['moment', 'moments']) {
   const cardNode = find(name, (node) => node.attrs['th:attr']?.includes('data-moment-card='));
@@ -185,6 +186,7 @@ for (const name of ['moment', 'moments']) {
     const requests = [];
     const context = vm.createContext({
       URL, AbortController, Element: class Element {},
+      ...commentPermalink,
       window: { location: { origin: 'https://comments.test', hash: '' } },
       fetch: async (url) => {
         requests.push(String(url));
@@ -193,7 +195,9 @@ for (const name of ['moment', 'moments']) {
     });
     // Keep actual initialization, state, queue and HTTP request logic; visual DOM
     // rendering is outside this offline fixture and is replaced by no-op sinks.
-    vm.runInContext(`${interactionsSource.replace('export function setupMomentInteractions', 'function setupMomentInteractions')}
+    vm.runInContext(`${interactionsSource
+      .replace(/^import .* from '\.\.\/\.\.\/shared\/comment-permalink\.js';\n/m, '')
+      .replace('export function setupMomentInteractions', 'function setupMomentInteractions')}
       renderCard = () => {};
       renderComments = () => {};
       focusCommentsFromHash = () => {};

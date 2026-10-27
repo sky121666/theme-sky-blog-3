@@ -5,12 +5,20 @@ import { spawnSync } from 'node:child_process';
 
 const root = process.cwd();
 const forbiddenSegments = new Set(['.env.local', '.git', '.agents', 'node_modules']);
-const developmentOnlyPrefixes = ['templates/assets/images/shop-demo'];
+const developmentOnlyPrefixes = [
+  'templates/assets/images/shop-demo',
+  'docs',
+  'scripts'
+];
+const runtimeConfigFiles = ['theme.yaml', 'settings.yaml', 'annotation-setting.yaml', 'theme-setting.yaml'];
 const requiredEntries = [
   'LICENSE',
   'THIRD_PARTY_NOTICES.md',
   'theme.yaml',
+  'settings.yaml',
+  'annotation-setting.yaml',
   'templates/layout.html',
+  'templates/assets/asset-manifest.json',
   'templates/assets/licenses/THIRD_PARTY_NOTICES.md'
 ];
 
@@ -103,7 +111,7 @@ function verifyEntryPaths(entries) {
     seenCaseInsensitive.add(folded);
     assert(
       !developmentOnlyPrefixes.some((prefix) => folded === prefix || folded.startsWith(`${prefix}/`)),
-      `ZIP 包含本地演示素材: ${entry}`
+      `ZIP 包含开发专用路径: ${entry}`
     );
 
     for (const segment of segments) {
@@ -120,8 +128,37 @@ function verifyRequiredEntries(entries) {
   assert(entries.some((entry) => entry.startsWith('templates/') && !entry.endsWith('/')), 'ZIP 缺少 templates 文件');
 }
 
-function verifyEmbeddedFiles(zipPath, localFiles) {
+function collectRuntimeFiles() {
+  const files = new Map();
+  const visit = (entry) => {
+    const localPath = path.join(root, entry);
+    const folded = entry.toLowerCase();
+    if (path.basename(entry) === '.DS_Store'
+      || developmentOnlyPrefixes.some((prefix) => folded === prefix || folded.startsWith(`${prefix}/`))) return;
+    const stat = fs.statSync(localPath);
+    if (stat.isDirectory()) {
+      for (const child of fs.readdirSync(localPath).sort()) visit(`${entry}/${child}`);
+    } else if (stat.isFile()) {
+      files.set(entry, localPath);
+    }
+  };
+  // Include shared chunks, generated fragments and static assets, not only manifest entry points.
+  visit('templates');
+  for (const entry of runtimeConfigFiles) {
+    if (fs.existsSync(path.join(root, entry))) visit(entry);
+  }
+  return files;
+}
+
+function verifyEmbeddedFiles(zipPath, entries, localFiles) {
+  const entrySet = new Set(entries);
+  for (const entry of entries) {
+    if ((entry.startsWith('templates/') || runtimeConfigFiles.includes(entry)) && !entry.endsWith('/')) {
+      assert(localFiles.has(entry), `ZIP 包含工作区不存在的运行文件: ${entry}`);
+    }
+  }
   for (const [entry, localPath] of localFiles) {
+    assert(entrySet.has(entry), `ZIP 缺少运行文件: ${entry}`);
     const local = fs.readFileSync(localPath);
     const embedded = readZipEntry(zipPath, entry);
     assert(embedded.equals(local), `ZIP 内 ${entry} 与工作区文件不一致`);
@@ -165,13 +202,12 @@ function main() {
   assert(entries.length > 0, 'ZIP 没有任何条目');
   verifyEntryPaths(entries);
   verifyRequiredEntries(entries);
-  verifyEmbeddedFiles(zipPath, [
-    ['theme.yaml', themePath],
-    ['templates/layout.html', path.join(root, 'templates/layout.html')],
+  verifyEmbeddedFiles(zipPath, entries, new Map([
+    ...collectRuntimeFiles(),
     ['LICENSE', licensePath],
     ['THIRD_PARTY_NOTICES.md', noticePath],
     ['templates/assets/licenses/THIRD_PARTY_NOTICES.md', packagedNoticePath]
-  ]);
+  ]));
 
   const sha256 = crypto.createHash('sha256').update(fs.readFileSync(zipPath)).digest('hex');
   console.log('发布包供应链校验通过');

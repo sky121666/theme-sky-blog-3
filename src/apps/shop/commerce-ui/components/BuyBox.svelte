@@ -21,8 +21,11 @@ import { minusIcon as MingcuteMinimizeLine } from "../icons.js";
 import { formatPrice } from "../utils/price";
 import { fade } from "svelte/transition";
 import SpecButton from "./SpecButton.svelte";
+import SubscriptionBuyBox from "./SubscriptionBuyBox.svelte";
+import { getVariantQuantityLimit, normalizePurchaseQuantity, readPurchaseQuantityInput } from "../utils/purchase.js";
 import i18n from "../i18n";
 let { id, csrfToken } = $props();
+const currentUrl = $host().closest('[data-pjax-target-url]')?.dataset.pjaxTargetUrl || window.location.href;
 const queryClient = new QueryClient();
 const lifecycle = createCommerceScope(queryClient);
 const productQuery = createQuery(
@@ -41,6 +44,17 @@ const shopConfigQuery = createQuery(
     queryFn: async ({ signal }) => {
       return await ky.get("/apis/uc.api.ecommerce.halo.run/v1alpha1/ecommerceconfigs/shop", { signal }).json();
     }
+  }),
+  () => queryClient
+);
+const isSubscription = $derived(productQuery.data?.productType === ProductResponseProductTypeEnum.Subscription);
+const subscriptionQuery = createQuery(
+  () => ({
+    queryKey: ["shop:subscription-product", id],
+    queryFn: async ({ signal }) => ky.get(
+      `/apis/uc.api.ecommerce.halo.run/v1alpha1/subscription-products/${id}`, { signal }
+    ).json(),
+    enabled: isSubscription,
   }),
   () => queryClient
 );
@@ -98,7 +112,7 @@ let isSelectedVariantAvailable = $derived.by(() => {
   if (!selectedVariant.trackInventory) {
     return true;
   }
-  return !!selectedVariant.stock;
+  return getVariantQuantityLimit(selectedVariant) > 0;
 });
 let isInquiry = $derived(selectedVariant?.pricingType === "INQUIRY");
 let contactSalesUrl = $derived(shopConfigQuery.data?.inquiryRedirectUrl || null);
@@ -133,15 +147,15 @@ function selectSpec(specName, specValue) {
   }
   selectedSpecs = { ...selectedSpecs, [specName]: specValue };
 }
-let canIncreaseQuantity = $derived.by(() => {
-  if (!selectedVariant) {
-    return false;
-  }
-  if (!selectedVariant.trackInventory) {
-    return true;
-  }
-  return quantity < (selectedVariant.stock || 0);
+let maxQuantity = $derived(getVariantQuantityLimit(selectedVariant));
+let maxPerOrderLimit = $derived(selectedVariant?.maxPerOrder > 0 ? selectedVariant.maxPerOrder : undefined);
+let canIncreaseQuantity = $derived(quantity < maxQuantity);
+$effect(() => {
+  quantity = normalizePurchaseQuantity(quantity, { max: maxQuantity });
 });
+function handleQuantityInput(event) {
+  quantity = readPurchaseQuantityInput(event.currentTarget, { max: maxQuantity });
+}
 let canDecreaseQuantity = $derived.by(() => {
   return quantity > 1;
 });
@@ -166,6 +180,20 @@ function handleContactSales() {
   {$i18n.t('common.loading')}
 {:else if productQuery.isError}
   {$i18n.t('buyBox.loadFailed', { message: productQuery.error.message })}
+{:else if isSubscription}
+  {#if subscriptionQuery.isLoading}
+    {$i18n.t('common.loading')}
+  {:else if subscriptionQuery.isError}
+    {$i18n.t('buyBox.loadFailed', { message: subscriptionQuery.error.message })}
+  {:else if subscriptionQuery.data}
+    <SubscriptionBuyBox
+      {csrfToken}
+      {currentUrl}
+      plans={subscriptionQuery.data.plans ?? []}
+      subscriptions={subscriptionQuery.data.subscriptions ?? []}
+      singleSubscription={subscriptionQuery.data.singleSubscription ?? true}
+    />
+  {/if}
 {:else}
   <div class="buy-box" transition:fade={{ duration: 200 }}>
     {#if isExternal}
@@ -320,9 +348,10 @@ function handleContactSales() {
               type="number"
               class="shop-quantity__input"
               aria-label={$i18n.t('buyBox.quantity')}
-              bind:value={quantity}
+              value={quantity}
+              oninput={handleQuantityInput}
               min="1"
-              max={selectedVariant?.stock || 1}
+              max={Number.isFinite(maxQuantity) ? maxQuantity : undefined}
             />
             <button
               class="shop-quantity__btn"
@@ -335,8 +364,11 @@ function handleContactSales() {
           </div>
         </div>
 
+        {#if maxPerOrderLimit}
+          <span class="buy-box__limit-hint">{$i18n.t('buyBox.perOrderLimit', { count: maxPerOrderLimit })}</span>
+        {/if}
         <div class="buy-box__actions">
-          <form action={`/shop/cart?redirect_uri=${window.location.href}`} method="post">
+          <form action={`/shop/cart?redirect_uri=${encodeURIComponent(currentUrl)}`} method="post">
             <input type="hidden" name="_csrf" value={csrfToken} />
             <input type="hidden" name="productVariantId" value={selectedVariant?.id} />
             <input type="hidden" name="quantity" value={quantity} />
@@ -349,7 +381,7 @@ function handleContactSales() {
             </button>
           </form>
           <form
-            action={`/shop/checkout/prepare?redirect_uri=${window.location.href}`}
+            action={`/shop/checkout/prepare?redirect_uri=${encodeURIComponent(currentUrl)}`}
             method="post"
           >
             <input type="hidden" name="_csrf" value={csrfToken} />

@@ -1,10 +1,10 @@
 import fs from "node:fs";
-import crypto from "node:crypto";
 import path from "node:path";
 import { gzipSync } from "node:zlib";
 import tailwindcss from "@tailwindcss/vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { defineConfig } from "vite";
+import { computeBuildRevision } from "./scripts/lib/build-identity.mjs";
 import { getAppAssetSegment, getAppEntryPaths, getEntryJsPath, getEntryCssPath } from "./src/shell-core/runtime/app-manifests.js";
 import { renderBuildStyles } from "./scripts/theme-build-styles.mjs";
 import { renderStartupTemplate } from "./scripts/theme-startup.mjs";
@@ -25,7 +25,7 @@ const themeNameMatch = themeYaml.match(/^\s*name:\s*(.+)$/m);
 const themeName = themeNameMatch ? themeNameMatch[1].trim() : "theme-sky-blog-3";
 const themeAssetBase = `/themes/${themeName}/assets/`;
 const buildVersion = JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, "package.json"), "utf-8")).version;
-const buildRevision = computeBuildRevision();
+const buildRevision = computeBuildRevision(import.meta.dirname);
 const buildVersionQuery = `v=${encodeURIComponent(buildVersion)}&r=${encodeURIComponent(buildRevision)}`;
 const entryNames = new Set(Object.keys(getAppEntryPaths()));
 
@@ -43,69 +43,6 @@ function entryCssPath(entryName: string): string {
 
 function normalizeRelPath(filePath: string): string {
   return path.relative(import.meta.dirname, filePath).replace(/\\/g, "/");
-}
-
-function shouldHashBuildInput(filePath: string): boolean {
-  const rel = normalizeRelPath(filePath);
-  if (rel.startsWith("templates/assets/")) {
-    return false;
-  }
-  if (rel.startsWith("node_modules/") || rel.startsWith("dist/") || rel.startsWith("output/")) {
-    return false;
-  }
-
-  return [
-    "src/",
-    "templates/",
-    "package.json",
-    "pnpm-lock.yaml",
-    "pnpm-workspace.yaml",
-    "patches/",
-    "theme.yaml",
-    "settings.yaml",
-    "theme-setting.yaml",
-    "vite.config.ts",
-    "tsconfig.json"
-  ].some((prefix) => rel === prefix || rel.startsWith(prefix));
-}
-
-function collectBuildInputFiles(): string[] {
-  const roots = [
-    path.resolve(import.meta.dirname, "src"),
-    path.resolve(import.meta.dirname, "templates"),
-    path.resolve(import.meta.dirname, "package.json"),
-    path.resolve(import.meta.dirname, "pnpm-lock.yaml"),
-    path.resolve(import.meta.dirname, "pnpm-workspace.yaml"),
-    path.resolve(import.meta.dirname, "patches"),
-    path.resolve(import.meta.dirname, "theme.yaml"),
-    path.resolve(import.meta.dirname, "settings.yaml"),
-    path.resolve(import.meta.dirname, "theme-setting.yaml"),
-    path.resolve(import.meta.dirname, "vite.config.ts"),
-    path.resolve(import.meta.dirname, "tsconfig.json")
-  ];
-
-  return roots
-    .flatMap((root) => {
-      if (!fs.existsSync(root)) {
-        return [];
-      }
-      const stat = fs.statSync(root);
-      return stat.isDirectory() ? walkFiles(root) : [root];
-    })
-    .filter((filePath) => fs.existsSync(filePath) && fs.statSync(filePath).isFile())
-    .filter(shouldHashBuildInput)
-    .sort((a, b) => normalizeRelPath(a).localeCompare(normalizeRelPath(b)));
-}
-
-function computeBuildRevision(): string {
-  const hash = crypto.createHash("sha256");
-  for (const filePath of collectBuildInputFiles()) {
-    hash.update(normalizeRelPath(filePath));
-    hash.update("\0");
-    hash.update(fs.readFileSync(filePath));
-    hash.update("\0");
-  }
-  return hash.digest("hex").slice(0, 12);
 }
 
 function sanitizeChunkSegment(value: string): string {

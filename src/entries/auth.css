@@ -1814,7 +1814,9 @@ html.dark body.auth-gateway-page--lockscreen .auth-theme-toggle {
   align-items: center;
   display: flex;
   flex-direction: column;
-  transform: translateY(-3.2vh);
+  /* Keep ALTCHA's fixed floating panel relative to the viewport. */
+  position: relative;
+  top: -3.2vh;
 }
 
 .auth-gateway-page--lockscreen .auth-login-flow {
@@ -2476,7 +2478,7 @@ html.dark .auth-gateway-page--lockscreen a[href*="method=passkey"] .auth-provide
   }
 
   .auth-gateway-page--lockscreen .halo-form-wrapper {
-    transform: translateY(-2.45vh);
+    top: -2.45vh;
   }
 
   .auth-gateway-page--lockscreen .auth-lockscreen-step-identity {
@@ -2540,7 +2542,7 @@ html.dark .auth-gateway-page--lockscreen a[href*="method=passkey"] .auth-provide
   }
 
   .auth-gateway-page--lockscreen .halo-form-wrapper {
-    transform: translateY(-1.5vh);
+    top: -1.5vh;
   }
 }
 
@@ -2569,7 +2571,7 @@ html.dark .auth-gateway-page--lockscreen a[href*="method=passkey"] .auth-provide
   }
 
   .auth-gateway-page--lockscreen .halo-form-wrapper {
-    transform: none;
+    top: 0;
   }
 
   .auth-gateway-page--lockscreen .auth-provider-section {

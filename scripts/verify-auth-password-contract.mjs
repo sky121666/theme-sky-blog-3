@@ -5,6 +5,21 @@ import { chromium } from 'playwright';
 const localTemplate = await fs.readFile(new URL('../templates/login_local.html', import.meta.url), 'utf8');
 const commonTemplate = await fs.readFile(new URL('../templates/gateway_fragments/common.html', import.meta.url), 'utf8');
 
+// Halo Pro 2.27 ships the bundled ALTCHA widget under dist/main and removes
+// altcha-lib.iife.js; Halo 2.26 still needs both legacy resources.
+assert.match(commonTemplate, /th:if="\$\{globalInfo != null and #strings\.contains\(globalInfo\.toString\(\), 'captchaProvider'\)\}"/,
+  'community editions must not evaluate a paid captcha property');
+assert.match(commonTemplate, /th:if="\$\{#strings\.equalsIgnoreCase\(globalInfo\.captchaProvider, 'ALTCHA'\)\}"/,
+  'ALTCHA assets must follow the server captcha provider');
+assert.match(commonTemplate, /altchaV2=\$\{#halo != null and !#strings\.equals\(site\.version, '0\.0\.0'\) and #halo\.matchVersion\('>=2\.27\.0'\)\}/,
+  'new captcha resources need the Halo 2.27 boundary while preserving 2.26');
+assert.match(commonTemplate, /<script\b[^>]*th:src="\$\{altchaV2 \? '\/webjars\/altcha\/dist\/main\/altcha\.i18n\.min\.js' : '\/webjars\/altcha\/dist\/altcha\.i18n\.js'\}"[^>]*type="module"/,
+  'captcha module paths must match the actual old and new Halo resources');
+assert.match(commonTemplate, /<script\b[^>]*th:unless="\$\{altchaV2\}"[^>]*src="\/js\/altcha-lib\.iife\.js"/,
+  'the removed standalone solver must only load before Halo 2.27');
+assert.equal((commonTemplate.match(/src="\/js\/altcha-utils\.js"/g) || []).length, 1,
+  'use the matching server-provided challenge helper exactly once');
+
 const visiblePassword = localTemplate.match(/<input id="password"[\s\S]*?\/>/)?.[0];
 const encryptedPassword = localTemplate.match(/<input[^>]*id="encrypted-password"[\s\S]*?\/>/)?.[0];
 assert.ok(visiblePassword, 'local login needs its visible password field');

@@ -10,10 +10,13 @@ import { formatPrice } from "../../utils/price";
 import { toast } from "svelte-sonner";
 import { get } from "svelte/store";
 import i18n from "../../i18n";
+import SubscriptionLineMeta from "./SubscriptionLineMeta.svelte";
+import { getVariantQuantityLimit, readPurchaseQuantityInput, productPermalink } from "../../utils/purchase.js";
 let { item } = $props();
 const queryClient = getQueryClientContext();
 const lifecycle = createCommerceScope();
 let imageUrl = $derived(item.productVariant?.imageUrl || item.product?.coverImageUrl);
+let isInquiry = $derived(item.productVariant?.pricingType === 'INQUIRY');
 let specValueText = $derived(
   item.productVariant?.specValues?.map((specValue) => specValue.name + ": " + specValue.value).join(" / ")
 );
@@ -53,12 +56,12 @@ const updateQuantityMutation = createMutation(
 );
 const fetchingCount = useIsFetching({}, queryClient);
 let isBusy = $derived(fetchingCount.current > 0 || updateQuantityMutation.isPending);
-let canIncreaseQuantity = $derived.by(() => {
-  if (!item.productVariant?.trackInventory) {
-    return true;
-  }
-  return (item.quantity || 1) < (item.productVariant?.stock || 0);
-});
+let maxQuantity = $derived(getVariantQuantityLimit(item.productVariant));
+let canIncreaseQuantity = $derived((item.quantity || 1) < maxQuantity);
+function handleQuantityInput(event) {
+  const quantity = readPurchaseQuantityInput(event.currentTarget, { max: maxQuantity });
+  if (quantity > 0 && quantity !== item.quantity) updateQuantityMutation.mutate(quantity);
+}
 let canDecreaseQuantity = $derived.by(() => {
   return (item.quantity || 1) > 1;
 });
@@ -73,50 +76,61 @@ let canDecreaseQuantity = $derived.by(() => {
     />
   {/if}
   <div class="shop-cart-item__info">
-    <a href={`/shop/product/${item.product?.id}`} class="shop-cart-item__name">
+    <a href={productPermalink(item.product)} class="shop-cart-item__name">
       {item.product?.title}
     </a>
+    <SubscriptionLineMeta
+      productId={item.product?.id}
+      variantId={item.productVariant?.id}
+      enabled={item.product?.productType === 'SUBSCRIPTION'}
+    />
     {#if specValueText}
       <p class="shop-cart-item__variant">{specValueText}</p>
     {/if}
-    <div>
-      <span class="shop-cart-item__price">
-        {formatPrice(item.productVariant?.price || 0)}
-      </span>
-      {#if item.productVariant?.originalPrice}
-        <s class="shop-cart-item__price-original">
-          {formatPrice(item.productVariant?.originalPrice || 0)}
-        </s>
-      {/if}
+    {#if isInquiry}
+      <p>{$i18n.t('cartItem.inquiryBadge')}</p>
+      <p class="shop-tip">{$i18n.t('cartItem.inquiryNote')}</p>
+    {:else}
+      <div>
+        <span class="shop-cart-item__price">
+          {formatPrice(item.productVariant?.price || 0)}
+        </span>
+        {#if item.productVariant?.originalPrice}
+          <s class="shop-cart-item__price-original">
+            {formatPrice(item.productVariant?.originalPrice || 0)}
+          </s>
+        {/if}
+      </div>
+    {/if}
+  </div>
+  {#if !isInquiry}
+    <div class="shop-quantity">
+      <button
+        class="shop-quantity__btn"
+        onclick={() => updateQuantityMutation.mutate((item.quantity ?? 1) - 1)}
+        disabled={isBusy || !canDecreaseQuantity}
+      >
+        {@html MingcuteMinimizeLine}
+      </button>
+      <input
+        type="number"
+        class="shop-quantity__input"
+        value={item.quantity || 1}
+        min="1"
+        max={Number.isFinite(maxQuantity) ? maxQuantity : undefined}
+        onchange={handleQuantityInput}
+        disabled={isBusy}
+      />
+      <button
+        class="shop-quantity__btn"
+        onclick={() => updateQuantityMutation.mutate((item.quantity ?? 1) + 1)}
+        disabled={isBusy || !canIncreaseQuantity}
+      >
+        {@html MingcuteAddLine}
+      </button>
     </div>
-  </div>
-  <div class="shop-quantity">
-    <button
-      class="shop-quantity__btn"
-      onclick={() => updateQuantityMutation.mutate((item.quantity ?? 1) - 1)}
-      disabled={isBusy || !canDecreaseQuantity}
-    >
-      {@html MingcuteMinimizeLine}
-    </button>
-    <input
-      type="number"
-      class="shop-quantity__input"
-      value={item.quantity || 1}
-      min="1"
-      max={item.productVariant?.stock || 1}
-      onchange={(e) =>
-        updateQuantityMutation.mutate(Number(e.target?.value || 1))}
-      disabled={isBusy}
-    />
-    <button
-      class="shop-quantity__btn"
-      onclick={() => updateQuantityMutation.mutate((item.quantity ?? 1) + 1)}
-      disabled={isBusy || !canIncreaseQuantity}
-    >
-      {@html MingcuteAddLine}
-    </button>
-  </div>
-  <div class="shop-cart-item__total">{formatPrice(total || 0)}</div>
+    <div class="shop-cart-item__total">{formatPrice(total || 0)}</div>
+  {/if}
   <button class="shop-cart-item__remove" onclick={() => handleDelete(item)} disabled={isBusy}>
     {$i18n.t('cartItem.remove')}
   </button>

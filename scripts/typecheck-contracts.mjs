@@ -119,7 +119,7 @@ assert(shopManifest?.windowVariant === 'shop', '商城必须使用独立 shop �
 assert(shopManifest?.supportsSameAppPjax === true, '商城必须支持 same-app PJAX');
 nodeAssert.deepEqual(shopManifest?.sameVariantPageModes, [
   'browser-shop-products', 'browser-shop-product', 'browser-shop-cart',
-  'browser-shop-checkout', 'browser-shop-payments'
+  'browser-shop-checkout', 'browser-shop-payments', 'browser-shop-order'
 ], '商城内容切换必须覆盖五个主题页面模式');
 
 assert(getSameAppPjaxLoadingMode('explorer-categories') === 'progress', '分类同应用 PJAX 必须使用轻量进度');

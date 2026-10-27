@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { chromium } from 'playwright';
+import { assertCurrentBuild } from './lib/build-identity.mjs';
 
 // Served theme interaction regression. Authorization and config storage are
 // intercepted fixtures; every other write is blocked before forwarding.
@@ -18,6 +19,7 @@ const initial = {
   douban: { profile: { display_name: '原书影音名称' } },
   links: { profile: { display_name: '原友链名称' } },
   widgets: { behavior: { enabled: true } },
+  shop: { future: 'retained-shop' },
   fixtureFuture: { preserved: 42 },
 };
 let config = structuredClone(initial);
@@ -25,12 +27,14 @@ let revision = 1;
 let authenticated = true;
 let configReads = 0;
 let blockQr = false;
+let denyShopCategories = true;
 const report = { fixture: true, boundary: '真实主题页面；仅文档授权和配置 GET/PUT 使用隔离 fixture。所有其他写请求阻断，未读取账号或凭据，不代表真实 Halo 持久化验收。', checks: [], screenshots: [], errors: [], fixtureWrites: [], blockedWrites: [], realWriteRequestsForwarded: 0 };
 const browser = await chromium.launch({ headless: true });
 let context;
 let page;
 try {
   const manifest = JSON.parse(await fs.readFile('templates/assets/asset-manifest.json', 'utf8'));
+  assertCurrentBuild(process.cwd(), manifest);
   const remoteManifest = await (await fetch(new URL('/themes/theme-sky-blog-3/assets/asset-manifest.json', site))).json();
   assert.deepEqual(remoteManifest.__meta, manifest.__meta, 'served build metadata must match the current local build');
   report.build = manifest.__meta;
@@ -77,6 +81,10 @@ try {
       report.blockedWrites.push({ method, origin: url.origin, path: url.pathname });
       return route.abort('blockedbyclient');
     }
+    if (local && url.pathname === '/apis/console.api.ecommerce.halo.run/v1alpha1/product-categories') {
+      if (denyShopCategories) return json({ title: 'Fixture unavailable' }, 503);
+      return json([{ id: 101, name: '模拟创作', children: [{ id: 102, name: '模拟设计', children: [] }] }, { id: 103, name: '模拟工作', children: [] }]);
+    }
     if (local && (url.pathname === '/api/v1alpha1/menus' || /^\/apis\/content\.halo\.run\/v1alpha1\/(categories|tags|posts|singlepages)$/.test(url.pathname))) {
       const kind = url.pathname.split('/').at(-1);
       return json({ page: 1, size: 50, total: 1, items: [{ metadata: { name: `fixture-${kind}` }, spec: { title: `测试 ${kind}`, displayName: `测试 ${kind}`, publish: true }, status: { permalink: '/' } }] });
@@ -105,7 +113,7 @@ try {
     const search = settings.getByRole('searchbox', { name: '搜索设置' });
     if (await search.inputValue()) await search.fill('');
     await settings.locator('.theme-settings-navigation').getByRole('button').filter({ has: page.getByText(label, { exact: true }) }).click();
-    const ids = { '外观': 'appearance', '墙纸': 'wallpaper', 'Dock': 'desktop-dock', '菜单栏': 'menu-control', '导航菜单': 'navigation', '小组件': 'widgets', '通知中心': 'notifications', '应用': 'apps', '高级': 'advanced' };
+    const ids = { '外观': 'appearance', '首屏加载': 'startup', '墙纸': 'wallpaper', 'Dock': 'desktop-dock', '菜单栏': 'menu-control', '导航菜单': 'navigation', '小组件': 'widgets', '通知中心': 'notifications', '应用': 'apps', '高级': 'advanced' };
     await pane(ids[label]).waitFor({ state: 'visible' });
   };
   const value = (key) => page.evaluate((key) => window.Alpine.store('themeSettings').value(key), key);
@@ -166,12 +174,12 @@ try {
     assert.equal(await value('dock.appearance.settings_enabled'), true);
   });
 
-  await test('Five application rows open one detail each and preserve a draft through back/search', async () => {
+  await test('Six application rows including Commerce open one detail each and preserve a draft through back/search', async () => {
     await choose('应用');
     const rows = pane('apps').locator('[data-settings-app-entry]');
-    assert.equal(await rows.count(), 5);
+    assert.equal(await rows.count(), 6);
     await capture('applications-list-desktop');
-    for (const app of ['moments', 'douban', 'links', 'steam', 'equipments']) {
+    for (const app of ['moments', 'douban', 'links', 'steam', 'equipments', 'shop']) {
       await pane('apps').locator(`[data-settings-app-entry="${app}"]`).click();
       await pane('apps').locator(`[data-settings-app="${app}"]`).waitFor({ state: 'visible' });
       assert.equal(await pane('apps').locator('[data-settings-app]:visible').count(), 1);
@@ -232,6 +240,58 @@ try {
     assert.equal(report.fixtureWrites.length, 0);
   });
 
+  await test('Shop category selection recovers from an API error; icon/color save, reopen and cancellation preserve config', async () => {
+    await choose('应用');
+    await pane('apps').locator('[data-settings-app-entry="shop"]').click();
+    const selection = field('shop.navigation.sidebar_categories');
+    await page.waitForFunction(() => !window.Alpine.store('themeSettings').resourceState('shopCategories').busy);
+    await Promise.all([
+      page.waitForResponse((response) => new URL(response.url()).pathname === '/apis/console.api.ecommerce.halo.run/v1alpha1/product-categories'),
+      selection.locator('summary').click()
+    ]);
+    await selection.getByText('资源加载失败（HTTP 503），请重试。', { exact: true }).waitFor();
+    await page.waitForFunction(() => {
+      const state = window.Alpine.store('themeSettings').resourceState('shopCategories');
+      return !state.busy && Boolean(state.error);
+    });
+    assert.equal(report.fixtureWrites.length, 0);
+    denyShopCategories = false;
+    await selection.getByRole('button', { name: '重试', exact: true }).click();
+    await selection.getByLabel('模拟创作 / 模拟设计', { exact: true }).check();
+    assert.deepEqual(await value('shop.navigation.sidebar_categories'), ['102']);
+    const appearance = field('shop.navigation.category_appearances');
+    await appearance.locator('summary').click();
+    await appearance.getByRole('button', { name: '添加分类外观', exact: true }).click();
+    const apply = settings.locator('.theme-settings-actions').getByRole('button', { name: '应用', exact: true });
+    // An incomplete row must never write a configuration with an empty category.
+    if (!(await apply.isDisabled())) await apply.click();
+    assert.equal(report.fixtureWrites.length, 0);
+    await page.waitForFunction(() => !window.Alpine.store('themeSettings').saving);
+    await appearance.locator('label').filter({ has: page.locator('span').getByText('商品分类', { exact: true }) }).locator('select').selectOption('102');
+    await appearance.locator('label').filter({ has: page.locator('span').getByText('图标', { exact: true }) }).locator('select').selectOption('palette');
+    await appearance.getByLabel('内容区图标颜色', { exact: true }).fill('#ff8800');
+    await capture('shop-category-appearance-desktop');
+    await apply.click();
+    await page.waitForFunction(() => !window.Alpine.store('themeSettings').saving && !window.Alpine.store('themeSettings').hasDirtyChanges());
+    assert.equal(report.fixtureWrites.length, 1);
+    assert.deepEqual(config.shop.navigation, { sidebar_categories: ['102'], category_appearances: [{ category_id: '102', icon: 'palette', color: '#FF8800' }] });
+    assert.equal(config.shop.future, 'retained-shop');
+    assert.deepEqual(config.desktop, initial.desktop);
+    await page.keyboard.press('Escape');
+    await settings.waitFor({ state: 'hidden' });
+    await page.locator('.dock-settings-icon').click();
+    await settings.waitFor({ state: 'visible' });
+    await choose('应用');
+    await pane('apps').locator('[data-settings-app-entry="shop"]').click();
+    assert.deepEqual(await value('shop.navigation.category_appearances'), config.shop.navigation.category_appearances);
+    if (!(await appearance.evaluate((element) => element.open))) await appearance.locator('summary').click();
+    await appearance.getByRole('button', { name: '恢复主题颜色', exact: true }).click();
+    assert.equal((await value('shop.navigation.category_appearances'))[0].color, '');
+    await settings.getByRole('button', { name: '取消', exact: true }).click();
+    assert.equal((await value('shop.navigation.category_appearances'))[0].color, '#FF8800');
+    assert.equal(report.fixtureWrites.length, 1);
+  });
+
   await test('Global Apply saves only changed values and retains unknown and unrelated fields', async () => {
     await choose('应用');
     await pane('apps').locator('[data-settings-app-entry="moments"]').click();
@@ -243,13 +303,15 @@ try {
     await field('header.dropdown.light_bg').locator('input[type="text"]').fill('rgba(255, 255, 255, 0.5)');
     await settings.locator('.theme-settings-actions').getByRole('button', { name: '应用', exact: true }).click();
     await page.waitForFunction(() => !window.Alpine.store('themeSettings').hasDirtyChanges() && !window.Alpine.store('themeSettings').saving);
-    assert.equal(report.fixtureWrites.length, 1);
+    assert.equal(report.fixtureWrites.length, 2);
     assert.equal(config.moments.profile.display_name, '已保存瞬间名称');
     assert.equal(config.douban.profile.display_name, '已保存书影音名称');
     assert.equal(config.header.dropdown.light_bg, 'rgba(255, 255, 255, 0.5)');
     assert.equal(config.moments.untouched, 'retained');
     assert.equal(config.dock.future, 'retained');
     assert.equal(config.fixtureFuture.preserved, 42);
+    assert.equal(config.shop.future, 'retained-shop');
+    assert.equal(config.shop.navigation.category_appearances[0].color, '#FF8800');
     assert.deepEqual(config.desktop, initial.desktop);
   });
 
@@ -266,7 +328,7 @@ try {
       await settings.getByRole('button', { name: '展开设置分类', exact: true }).click();
       await choose(label);
     };
-    for (const label of ['外观', '墙纸', 'Dock', '菜单栏', '导航菜单', '小组件', '通知中心', '应用', '高级']) {
+    for (const label of ['外观', '首屏加载', '墙纸', 'Dock', '菜单栏', '导航菜单', '小组件', '通知中心', '应用', '高级']) {
       await mobileChoose(label);
       const overflow = await settings.evaluate((element) => element.scrollWidth - element.clientWidth);
       assert.ok(overflow <= 2, `${label} overflows horizontally: ${overflow}`);
@@ -275,6 +337,18 @@ try {
     await capture('applications-list-mobile');
     await pane('apps').locator('[data-settings-app-entry="moments"]').click();
     await capture('moments-detail-mobile');
+    await settings.locator('.theme-settings-back-button').click();
+    await pane('apps').locator('[data-settings-app-entry="shop"]').click();
+    const mobileAppearance = field('shop.navigation.category_appearances');
+    if (!(await mobileAppearance.evaluate((element) => element.open))) await mobileAppearance.locator('summary').click();
+    await mobileAppearance.getByRole('button', { name: '移除配置', exact: true }).click();
+    assert.deepEqual(await value('shop.navigation.category_appearances'), []);
+    await settings.getByRole('button', { name: '取消', exact: true }).click();
+    assert.equal((await value('shop.navigation.category_appearances'))[0].color, '#FF8800');
+    assert.equal(report.fixtureWrites.length, 2);
+    assert.ok(await settings.evaluate((element) => element.scrollWidth - element.clientWidth) <= 2);
+    await mobileAppearance.scrollIntoViewIfNeeded();
+    await capture('shop-category-appearance-mobile');
     await mobileChoose('菜单栏');
     await capture('menu-colors-mobile');
     const footer = await settings.locator('.theme-settings-actions').boundingBox();

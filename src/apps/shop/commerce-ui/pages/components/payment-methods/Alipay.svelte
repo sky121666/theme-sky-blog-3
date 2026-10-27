@@ -1,7 +1,9 @@
 <script>
 import QRCode from "qrcode";
+import { paymentRedirectTarget } from "../../../utils/transactions.js";
 import i18n from "../../../i18n";
 let { paymentResponse } = $props();
+const redirectTarget = paymentRedirectTarget(typeof navigator === "undefined" ? "" : navigator.userAgent);
 let responseType = $derived(paymentResponse.payload?.responseType);
 let alipay = $derived(paymentResponse.payload?.payload?.alipay);
 </script>
@@ -49,7 +51,7 @@ let alipay = $derived(paymentResponse.payload?.payload?.alipay);
     </div>
   {:else if responseType === 'REDIRECT_URL'}
     <div class="shop-redirect-container">
-      <a href={alipay.redirectUrl} target="_blank" class="shop-redirect-link">
+      <a href={alipay.redirectUrl} target={redirectTarget} rel="noopener noreferrer" class="shop-redirect-link">
         {$i18n.t('paymentMethods.redirectToProvider', {
           provider: $i18n.t('common.providers.alipay'),
         })}

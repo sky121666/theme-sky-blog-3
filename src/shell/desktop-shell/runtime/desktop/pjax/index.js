@@ -654,7 +654,21 @@ function pushBrowserNavState(index, title, url, chromeOverrides = {}, { preserve
 
 function hardNavigate(url, { replace = false } = {}) {
   const target = String(url || window.location.href);
+  // Replacing the current fragment entry can synchronously dispatch popstate
+  // again. An unknown entry needs a document handoff, not another traversal.
+  if (target === window.location.href) {
+    window.location.reload();
+    return;
+  }
   window.location[replace ? 'replace' : 'assign'](target);
+}
+
+function isSameDocumentUrl(left, right) {
+  try {
+    const source = new URL(left);
+    const target = new URL(right);
+    return source.origin === target.origin && source.pathname === target.pathname && source.search === target.search;
+  } catch { return false; }
 }
 
 function syncBrowserNavDepth(index) {
@@ -982,6 +996,12 @@ export function initPjax(Alpine) {
         return;
       }
       const recovered = browserNavStateStore.recover(targetState);
+      const fragmentView = prepareFragmentHistoryView(recovered, record.sourceEntry?.url);
+      if (fragmentView) {
+        event.stopImmediatePropagation();
+        void executeLocalNavigation(record, fragmentView);
+        return;
+      }
       const known = uid && Number.isFinite(readBrowserNavIndexFromState(recovered))
         && typeof targetState?.url === 'string' && targetState.url === window.location.href;
       if (!known) {
@@ -1151,6 +1171,9 @@ export function initPjax(Alpine) {
         window.history.replaceState(sourceEntry, sourceEntry.title || document.title, sourceEntry.url);
         syncBrowserNavDepth(sourceIndex ?? 0);
         applyBrowserNavChromeState(sourceEntry);
+        if (targetHref !== sourceEntry.url && isSameDocumentUrl(targetHref, sourceEntry.url)) {
+          window.dispatchEvent(new HashChangeEvent('hashchange', { oldURL: targetHref, newURL: sourceEntry.url }));
+        }
       }, delta ? 1000 : 0);
     };
 
@@ -1279,6 +1302,31 @@ export function initPjax(Alpine) {
       }
     }
 
+    function prepareFragmentHistoryView(state, sourceUrl) {
+      const href = window.location.href;
+      // Native anchor entries can have null state. Reuse only this document's
+      // known metadata; unrelated null entries still take the native fallback.
+      if (state == null && sourceUrl !== href && isSameDocumentUrl(sourceUrl, href)) {
+        state = { ...committedBrowserEntry, url: href };
+      }
+      if (!state?.uid || readBrowserNavIndexFromState(state) === null
+        || !isSameDocumentUrl(sourceUrl, href) || !isSameDocumentUrl(state.url, href)
+        || (sourceUrl === href && state.url === href)) return null;
+      const root = document.querySelector('[data-window-content-root]') || document;
+      return {
+        root,
+        nativeHashChange: true,
+        commit() {
+          if (window.location.href !== href || root.isConnected === false) return false;
+          const restored = { ...state, url: href };
+          window.history.replaceState(restored, restored.title || document.title, href);
+          syncOnlineMonitorMetaFromHistoryState(restored);
+          applyBrowserNavChromeState(restored);
+          return true;
+        }
+      };
+    }
+
     async function executeLocalNavigation(record, plan) {
       if (!isNavigationCurrent(record)) return false;
       record.mode = 'local';
@@ -1298,6 +1346,9 @@ export function initPjax(Alpine) {
         syncBrowserNavDepth(readBrowserNavIndexFromState() ?? 0);
         rememberCommittedBrowserEntry();
         pjax.lastUid = window.history.state?.uid || pjax.lastUid;
+        // The traversal's native hashchange must reach mounted widgets before
+        // settled listeners consider sending a History-API fallback event.
+        if (plan.nativeHashChange) await new Promise((resolve) => window.setTimeout(resolve, 0));
         await window.Alpine?.nextTick?.();
         if (!isNavigationCurrent(record)) return false;
         readyNavigation(record, plan.root);
@@ -1442,6 +1493,15 @@ export function initPjax(Alpine) {
     rememberCommittedBrowserEntry();
     installBrowserNavHelpers();
 
+    window.addEventListener('hashchange', () => {
+      // Plugins can push a copied history.state and then emit hashchange.
+      // Keep the committed address current for a later veto/rollback without
+      // inventing a new UID/index or sampling an uncommitted traversal.
+      if (rollbackPopstateUid || (activeNavigation && !activeNavigation.settled)
+        || !isSameDocumentUrl(committedBrowserEntry?.url, window.location.href)
+        || !isSameDocumentUrl(window.history.state?.url, window.location.href)) return;
+      snapshotCurrentBrowserEntry();
+    });
 
     window.addEventListener('popstate', (event) => {
       if (cancelledPopstateUid && String(event.state?.uid || '') === cancelledPopstateUid) {

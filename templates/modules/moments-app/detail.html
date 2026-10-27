@@ -1,5 +1,5 @@
 <!-- plugin-contract: PluginMoments; surface: detail; contract-version: 1.16.0; status: confirmed; source: docs/插件适配契约.md#pc-moments-detail -->
-<!-- plugin-contract: PluginCommentWidget; surface: moments-comments; contract-version: 3.1.1; status: confirmed; source: docs/插件适配契约.md#pc-comment-moments -->
+<!-- plugin-contract: PluginCommentWidget; surface: moments-comments; contract-version: 3.4.0; status: confirmed; source: docs/插件适配契约.md#pc-comment-moments -->
 <!-- plugin-contract: shiki; surface: moments-rich-content; contract-version: 1.4.1; status: confirmed; source: docs/插件适配契约.md#pc-shiki-moments -->
 <th:block th:fragment="content"
           th:with="momentText=${(moment.spec.content != null and (!#strings.isEmpty(moment.spec.content.raw) or !#strings.isEmpty(moment.spec.content.html))) ? ((!#strings.isEmpty(moment.spec.content.raw) ? moment.spec.content.raw : moment.spec.content.html).replaceAll('(?s)&#96;{3}.*$', ' ').replaceAll('&lt;[^&gt;]+&gt;', ' ').replaceAll('&amp;nbsp;', ' ').replaceAll('\s+', ' ').trim()) : ''},

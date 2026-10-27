@@ -6,6 +6,7 @@ import {
   initAuthToasts
 } from '../../entries/auth.js';
 import { resolveAuthAppProtocol } from './protocol.js';
+import { initAuthPasskeyAdapter } from './passkey.js';
 
 function syncAuthDocumentState(root, context) {
   const title = context?.documentTitle || document.title;
@@ -28,6 +29,7 @@ function syncAuthDocumentState(root, context) {
 
 export function hydrateAuthApp(root = document, extra = {}) {
   const protocol = resolveAuthAppProtocol(root);
+  initAuthPasskeyAdapter(root);
   const cleanup = initAuthScrollbars(root);
   const themeCleanup = initAuthThemeToggle(root);
   const backCleanup = initAuthBackLink(root);

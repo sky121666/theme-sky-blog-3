@@ -3,8 +3,11 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { THEME_PLUGIN_MANIFEST, resolvePluginId } from './audit-plugin-inventory.mjs';
 
 export const CONTRACT_DOCUMENT = 'docs/插件适配契约.md';
+export const TARGET_MANIFEST = 'scripts/audit-plugin-inventory.mjs';
+// Historical scope/exclusion evidence only; current versions live in TARGET_MANIFEST.
 export const TARGET_DOCUMENT = 'docs/2026-09-25-插件适配核验.md';
 const CURRENT_COLUMNS = ['ID', 'Plugin', 'Surface', 'Contract version', 'Tested version', 'Status', 'Hosts', 'Files', 'Test record', 'Scope', 'Exclusions', 'Evidence'];
 const TEST_COLUMNS = ['ID', 'Plugin', 'Surface', 'Tested version', 'Result', 'Kind', 'Date', 'Site', 'Halo', 'Inventory', 'Theme revision', 'Hosts', 'Scope', 'Scenarios', 'Evidence', 'Exclusions'];
@@ -58,7 +61,7 @@ function targetTable(document, title) {
   return table(section, columns);
 }
 
-export function parseContract(document, targetsDocument) {
+export function parseContract(document, targetsDocument, manifest = THEME_PLUGIN_MANIFEST) {
   const current = region(document, 'current');
   const rows = table(current, CURRENT_COLUMNS).map((row) => {
     const id = row.ID.match(/^<a id="([a-z0-9-]+)"><\/a>`([^`]+)`$/);
@@ -67,11 +70,7 @@ export function parseContract(document, targetsDocument) {
   });
   const tests = table(region(current, 'tests'), TEST_COLUMNS);
   const exclusions = table(region(current, 'exclusions'), EXCLUSION_COLUMNS);
-  const targets = targetTable(targetsDocument, '## 已纳入主题契约的 24 个插件').map((row) => {
-    const identity = row['插件（环境名）'].match(/^`([^`]+)`（`([^`]+)`）$/);
-    assert.ok(identity, `target canonical environment ID missing: ${row['插件（环境名）']}`);
-    return { alias: identity[1], plugin: identity[2], version: row['本轮目标'] };
-  });
+  const targets = manifest.map((entry) => ({ plugin: entry.id, version: entry.expectedVersion }));
   const excludedTargets = [
     ...targetTable(targetsDocument, '## 已安装但不进入本主题契约的 21 个插件'),
     ...targetTable(targetsDocument, '## 未安装但历史契约或决策中出现的插件')
@@ -91,17 +90,18 @@ export function suggestedMarkers(rows) {
   return result;
 }
 
-export function validateContract(provider, { matrixOnly = false, expectedTargetCount = 24 } = {}) {
+export function validateContract(provider, { matrixOnly = false, expectedTargetCount = 24, manifest = THEME_PLUGIN_MANIFEST } = {}) {
   const errors = [];
   const report = (code, location, detail) => errors.push({ code, location, detail });
   const document = provider.read(CONTRACT_DOCUMENT);
   let parsed;
   try {
-    parsed = parseContract(document, provider.read(TARGET_DOCUMENT));
+    parsed = parseContract(document, provider.read(TARGET_DOCUMENT), manifest);
   } catch (error) {
     return { ok: false, mode: matrixOnly ? 'matrix-only' : 'complete', errors: [{ code: 'SCHEMA', location: CONTRACT_DOCUMENT, detail: error.message }] };
   }
   const { rows, tests, exclusions, targets, excludedTargets } = parsed;
+  const targetId = (plugin) => resolvePluginId(plugin, manifest);
   const ids = new Map();
   const surfaces = new Map();
   const targetById = new Map();
@@ -132,16 +132,16 @@ export function validateContract(provider, { matrixOnly = false, expectedTargetC
     }
     reference(ref, location);
   };
-  if (targets.length !== expectedTargetCount) report('TARGET_COUNT', TARGET_DOCUMENT, `${targets.length}, expected ${expectedTargetCount}`);
+  if (targets.length !== expectedTargetCount) report('TARGET_COUNT', TARGET_MANIFEST, `${targets.length}, expected ${expectedTargetCount}`);
   for (const target of targets) {
-    if (targetById.has(target.plugin)) report('DUPLICATE_TARGET', TARGET_DOCUMENT, target.plugin);
-    if (!VERSION.test(target.version)) report('TARGET_VERSION', TARGET_DOCUMENT, `${target.plugin}: ${target.version}`);
+    if (targetById.has(target.plugin)) report('DUPLICATE_TARGET', TARGET_MANIFEST, target.plugin);
+    if (!VERSION.test(target.version)) report('TARGET_VERSION', TARGET_MANIFEST, `${target.plugin}: ${target.version}`);
     targetById.set(target.plugin, target);
   }
   for (const row of exclusions) {
     if (excludedById.has(row.Plugin)) report('DUPLICATE_EXCLUSION', CONTRACT_DOCUMENT, row.Plugin);
     if (!['not-adapted', 'not-applicable'].includes(row.Status) || !row.Surface || !row.Reason) report('INVALID_EXCLUSION', CONTRACT_DOCUMENT, row.Plugin);
-    if (targetById.has(row.Plugin)) report('TARGET_EXCLUDED', CONTRACT_DOCUMENT, row.Plugin);
+    if (targetById.has(targetId(row.Plugin))) report('TARGET_EXCLUDED', CONTRACT_DOCUMENT, row.Plugin);
     excludedById.set(row.Plugin, row);
   }
   for (const plugin of excludedTargets) if (!excludedById.has(plugin)) report('MISSING_EXCLUSION', CONTRACT_DOCUMENT, plugin);
@@ -152,13 +152,13 @@ export function validateContract(provider, { matrixOnly = false, expectedTargetC
     if (surfaces.has(key(row.Plugin, row.Surface))) report('DUPLICATE_SURFACE', location, `${row.Plugin}/${row.Surface}`);
     ids.set(row.ID, row);
     surfaces.set(key(row.Plugin, row.Surface), row);
-    if (!targetById.has(row.Plugin)) report('UNKNOWN_PLUGIN', location, row.Plugin);
+    if (!targetById.has(targetId(row.Plugin))) report('UNKNOWN_PLUGIN', location, row.Plugin);
     if (excludedById.has(row.Plugin)) report('EXCLUDED_SURFACE', location, row.Plugin);
     if (!/^[a-z0-9][a-z0-9:.-]*$/.test(row.Surface)) report('INVALID_SURFACE', location, row.Surface);
     if (!['confirmed', 'compatible-tested', 'inferred', 'unconfirmed'].includes(row.Status)) report('INVALID_STATUS', location, row.Status);
     const contract = row['Contract version'];
     if (row.Status === 'unconfirmed' ? contract !== 'pending' : !VERSION.test(contract)) report('CONTRACT_VERSION', location, contract);
-    const target = targetById.get(row.Plugin);
+    const target = targetById.get(targetId(row.Plugin));
     if (target && VERSION.test(contract)) {
       const left = contract.split(/[.+-]/).slice(0, 3).map(Number);
       const right = target.version.split(/[.+-]/).slice(0, 3).map(Number);
@@ -177,7 +177,7 @@ export function validateContract(provider, { matrixOnly = false, expectedTargetC
     list(row.Files).forEach((file) => reference(file, location, true));
     list(row.Evidence).forEach((file) => evidenceReference(file, location));
   }
-  for (const target of targets) if (!rows.some((row) => row.Plugin === target.plugin)) report('MISSING_PLUGIN', CONTRACT_DOCUMENT, target.plugin);
+  for (const target of targets) if (!rows.some((row) => targetId(row.Plugin) === target.plugin)) report('MISSING_PLUGIN', CONTRACT_DOCUMENT, target.plugin);
   for (const test of tests) {
     const location = `${CONTRACT_DOCUMENT}:test:${test.ID}`;
     if (!/^[a-z0-9][a-z0-9.-]*$/.test(test.ID) || testById.has(test.ID)) report('TEST_ID', location, test.ID);
@@ -315,9 +315,32 @@ export function selfTest() {
     'src/widgets/plugin/demo/manifest.js': "export const manifest = { widgetId: 'demo.card' };",
     'docs/evidence.md': 'Reviewed implementation. No business writes tested.'
   };
-  const check = (files, options = {}) => validateContract(memoryProvider(files), { expectedTargetCount: 1, ...options });
+  const manifest = [{ id: 'Demo', expectedVersion: '2.0.0', aliases: ['repo-demo'] }];
+  const check = (files, options = {}) => validateContract(memoryProvider(files), { expectedTargetCount: 1, manifest, ...options });
   assert.equal(check(fixture).ok, true, JSON.stringify(check(fixture)));
   let count = 1;
+  const upgraded = structuredClone(fixture);
+  upgraded[CONTRACT_DOCUMENT] = upgraded[CONTRACT_DOCUMENT].replace('| 1.0.0 | — | confirmed |', '| 2.1.0 | — | confirmed |');
+  upgraded['templates/demo.html'] = upgraded['templates/demo.html'].replace('version: 1.0.0', 'version: 2.1.0');
+  const upgradedManifest = [{ id: 'CanonicalDemo', expectedVersion: '2.1.0', aliases: ['Demo'] }];
+  const currentTarget = check(upgraded, { manifest: upgradedManifest });
+  assert.equal(currentTarget.ok, true, `current inventory target must supersede the historical audit ceiling: ${JSON.stringify(currentTarget.errors)}`);
+  assert.equal(upgraded[TARGET_DOCUMENT], fixture[TARGET_DOCUMENT], 'a current target must not rewrite historical evidence');
+  count += 1;
+  const beyondCurrent = { ...upgraded,
+    [CONTRACT_DOCUMENT]: upgraded[CONTRACT_DOCUMENT].replace('| 2.1.0 | — | confirmed |', '| 2.2.0 | — | confirmed |'),
+    [TARGET_DOCUMENT]: upgraded[TARGET_DOCUMENT].replace('`2.0.0`', '`9.0.0`'),
+    'templates/demo.html': upgraded['templates/demo.html'].replace('version: 2.1.0', 'version: 2.2.0')
+  };
+  assert.ok(check(beyondCurrent, { manifest: upgradedManifest }).errors.some(error => error.code === 'CONTRACT_AFTER_TARGET'),
+    'a newer historical value must not override the current inventory ceiling');
+  count += 1;
+  assert.ok(check(fixture, { manifest: [...manifest, { id: 'NewPlugin', expectedVersion: '1.0.0', aliases: [] }], expectedTargetCount: 2 }).errors
+    .some(error => error.code === 'MISSING_PLUGIN' && error.detail === 'NewPlugin'), 'current inventory additions require contract coverage');
+  count += 1;
+  assert.ok(check(fixture, { manifest: [], expectedTargetCount: 0 }).errors.some(error => error.code === 'UNKNOWN_PLUGIN'),
+    'a plugin only listed in historical evidence is not an active target');
+  count += 1;
   const rejected = (name, mutate, code) => {
     const files = structuredClone(fixture);
     mutate(files);
@@ -376,7 +399,7 @@ export function selfTest() {
   }
   const untrackedSummary = memoryProvider(tested);
   untrackedSummary.isTracked = (file) => file !== 'docs/evidence.md';
-  assert.ok(validateContract(untrackedSummary, { expectedTargetCount: 1 }).errors
+  assert.ok(validateContract(untrackedSummary, { expectedTargetCount: 1, manifest }).errors
     .some((error) => error.code === 'NONPORTABLE_EVIDENCE'),
   'contract evidence must be committed, not merely present in the local workspace');
   count += 1;

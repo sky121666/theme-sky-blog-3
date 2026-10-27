@@ -1,4 +1,5 @@
-<th:block th:fragment="content (scene, chromeTitle)">
+<th:block th:fragment="content (scene, chromeTitle)"
+          th:with="authenticated=${authenticated != null ? authenticated : #authorization.expression('isAuthenticated()')},storefrontApi=${#halo != null and !#strings.equals(site.version,'0.0.0') and #halo.matchVersion('>=2.27.0')}">
   <div class="shop-app" data-app-root="shop" data-menu-open="false"
        th:data-shop-scene="${scene}" th:attr="data-shop-site-title=${site.title},data-shop-chrome-title=${chromeTitle}">
     <script th:if="${scene == 'cart'}" type="application/json" data-app-props="shop">{"version":1,"appId":"shop","data":{"scene":"cart"}}</script>
@@ -10,8 +11,8 @@
       <th:block th:replace="~{modules/shop-app/chrome :: titlebar}"></th:block>
       <main class="shop-main" th:attr="aria-label=${chromeTitle}">
         <shop-page-cart th:if="${scene == 'cart'}" th:csrfToken="${_csrf.token}"></shop-page-cart>
-        <shop-page-checkout th:if="${scene == 'checkout'}" th:contextId="${context.id}" th:csrfToken="${_csrf.token}"></shop-page-checkout>
-        <shop-page-payments th:if="${scene == 'payments'}" th:orderCode="${orderCode}" th:csrfToken="${_csrf.token}"></shop-page-payments>
+        <shop-page-checkout th:if="${scene == 'checkout'}" th:contextId="${context.id}" th:authenticated="${authenticated}" th:storefrontApi="${storefrontApi}" th:csrfToken="${_csrf.token}"></shop-page-checkout>
+        <shop-page-payments th:if="${scene == 'payments'}" th:orderCode="${orderCode}" th:authenticated="${authenticated}" th:storefrontApi="${storefrontApi}" th:csrfToken="${_csrf.token}"></shop-page-payments>
       </main>
     </div>
   </div>

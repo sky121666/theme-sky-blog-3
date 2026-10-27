@@ -5,22 +5,21 @@
     props: {
       orderCode: { reflect: true, type: 'String', attribute: 'ordercode' },
       csrfToken: { reflect: true, type: 'String', attribute: 'csrftoken' },
+      authenticated: { reflect: true, type: 'String', attribute: 'authenticated' },
+      storefrontApi: { reflect: true, type: 'String', attribute: 'storefrontapi' },
     },
   }}
 />
 
 <script>
 import { createCommerceScope } from "../lifecycle.js";
-import { createQuery, QueryClient } from "@tanstack/svelte-query";
-import ky from "ky";
+import { createQuery, QueryClient, setQueryClientContext } from "@tanstack/svelte-query";
 import { formatPrice } from "../utils/price";
 import { fade } from "svelte/transition";
 import { checkIcon as MingcuteCheckLine } from "../icons.js";
 import {
   OrderResponsePaymentStatusEnum,
-  PaymentInitiateRequestPreferredResponseTypeEnum,
-  PaymentInitiateResponsePaymentProviderEnum,
-  PaymentMethodPublicResponseProviderEnum
+  PaymentInitiateResponsePaymentProviderEnum
 } from "../api-contract.js";
 import PaymentOrderItem from "./components/PaymentOrderItem.svelte";
 import { toast, Toaster } from "svelte-sonner";
@@ -33,18 +32,44 @@ import WeChat from "./components/payment-methods/WeChat.svelte";
 import Stripe from "./components/payment-methods/Stripe.svelte";
 import EasyPay from "./components/payment-methods/EasyPay.svelte";
 import i18n from "../i18n";
-let { orderCode, csrfToken } = $props();
+import { createTransactionApi, isOrderAccessLocked, preferredPaymentResponse, paymentInitiateError,
+  isPaymentSessionTerminal, paymentPollingInterval, PAYMENT_POLL_TIMEOUT_MS } from "../utils/transactions.js";
+let { orderCode, csrfToken, authenticated, storefrontApi } = $props();
+// Same-app PJAX initializes this component before committing the target URL.
+const currentUrl = $host().closest('[data-pjax-target-url]')?.dataset.pjaxTargetUrl || window.location.href;
+const currentPath = new URL(currentUrl, window.location.href).pathname;
+const transactionApi = $derived(createTransactionApi({ authenticated, storefrontApi, orderCode, csrfToken, currentPath }));
+const orderUrl = $derived(transactionApi.orderUrl);
+let accessEmail = $state("");
+let accessLinkSent = $state(false);
+let accessLinkPending = $state(false);
 const queryClient = new QueryClient();
+setQueryClientContext(queryClient);
 const lifecycle = createCommerceScope(queryClient);
+async function sendAccessLink() {
+  if (accessLinkPending || !accessEmail.trim() || !lifecycle.isActive()) return;
+  accessLinkPending = true;
+  accessLinkSent = false;
+  try {
+    await transactionApi.sendAccessLink(accessEmail.trim(), lifecycle.signal);
+    if (lifecycle.isActive()) accessLinkSent = true;
+  } catch {
+    if (lifecycle.isActive()) toast.error(get(i18n).t("payments.accessLinkFailed"));
+  } finally {
+    if (lifecycle.isActive()) accessLinkPending = false;
+  }
+}
 const orderQuery = createQuery(
   () => ({
     queryKey: ["shop:order", orderCode],
     queryFn: async ({ signal }) => {
-      return await ky.get(`/apis/uc.api.ecommerce.halo.run/v1alpha1/orders/${orderCode}`, { signal }).json();
-    }
+      return await transactionApi.order(signal);
+    },
+    retry: false
   }),
   () => queryClient
 );
+const orderAccessLocked = $derived(storefrontApi === "true" && isOrderAccessLocked(orderQuery.error));
 let isPendingPayment = $derived(
   orderQuery.data?.paymentStatus === OrderResponsePaymentStatusEnum.Pending
 );
@@ -79,7 +104,7 @@ const paymentMethodsQuery = createQuery(
   () => ({
     queryKey: ["shop:payment:methods", orderCode],
     queryFn: async ({ signal }) => {
-      return await ky.get(`/apis/uc.api.ecommerce.halo.run/v1alpha1/orders/${orderCode}/payment-methods`, { signal }).json();
+      return await transactionApi.paymentMethods(signal);
     },
     enabled: isPendingPayment
   }),
@@ -93,57 +118,113 @@ let selectedPaymentMethod = $derived.by(() => {
   return paymentMethodsQuery.data?.find((method) => method.id === selectedPaymentMethodId);
 });
 $effect(() => {
-  if (paymentMethodsQuery.isFetched) {
+  if (paymentMethodsQuery.isSuccess && !paymentMethodsQuery.data?.some((method) => method.id === selectedPaymentMethodId)) {
     selectedPaymentMethodId = paymentMethodsQuery.data?.[0]?.id;
   }
 });
+let paymentAttempt = $state(0);
 const paymentResponseQuery = createQuery(
   () => ({
-    queryKey: ["shop:payment:response", orderCode, selectedPaymentMethodId],
+    queryKey: ["shop:payment:response", orderCode, selectedPaymentMethodId, paymentAttempt],
     queryFn: async ({ signal }) => {
-      let preferredResponseType = PaymentInitiateRequestPreferredResponseTypeEnum.RedirectUrl;
-      if (selectedPaymentMethod?.provider === PaymentMethodPublicResponseProviderEnum.WechatPay || selectedPaymentMethod?.provider === PaymentMethodPublicResponseProviderEnum.EasyPay) {
-        preferredResponseType = PaymentInitiateRequestPreferredResponseTypeEnum.QrcodeUrl;
+      const preferredResponseType = preferredPaymentResponse(
+        selectedPaymentMethod?.provider, typeof navigator === "undefined" ? "" : navigator.userAgent
+      );
+      try {
+        return await transactionApi.initiate({
+          paymentMethodId: selectedPaymentMethodId,
+          returnUrl: currentUrl,
+          preferredResponseType
+        }, signal);
+      } catch (error) {
+        throw await paymentInitiateError(error, (key) => get(i18n).t(key));
       }
-      return await ky.post(
-        `/apis/uc.api.ecommerce.halo.run/v1alpha1/orders/${orderCode}/initiate-payment`,
-        {
-          signal,
-          json: {
-            paymentMethodId: selectedPaymentMethodId,
-            returnUrl: window.location.href,
-            preferredResponseType
-          }
-        }
-      ).json();
     },
-    enabled: !!selectedPaymentMethodId
+    enabled: isPendingPayment && !!selectedPaymentMethodId,
+    staleTime: 60_000,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false
   }),
   () => queryClient
 );
+function retryPayment() {
+  if (!lifecycle.isActive() || !isPendingPayment || paymentSucceeded || terminalOrderQuery.isFetching || paymentResponseQuery.isFetching || !selectedPaymentMethodId) return;
+  if (paymentSessionFailed && !paymentNeedsRetry) return;
+  // A user action starts a fresh query, including when a provider reuses a code.
+  // Never auto-replay an initialization write or retain its old status cache.
+  paymentAttempt += 1;
+}
+const pollingSessionCode = $derived(paymentResponseQuery.data?.sessionCode);
+let pollingStartedAt = $state(null);
+let pollTimedOut = $state(false);
+let pollingRevision = $state(0);
+$effect(() => {
+  const sessionCode = pollingSessionCode;
+  void pollingRevision;
+  const terminal = paymentSessionTerminal;
+  pollingStartedAt = sessionCode && !terminal ? Date.now() : null;
+  pollTimedOut = false;
+  if (!sessionCode || terminal) return;
+  const timer = setTimeout(() => {
+    if (lifecycle.isActive()) pollTimedOut = true;
+  }, PAYMENT_POLL_TIMEOUT_MS);
+  return () => clearTimeout(timer);
+});
 const paymentStatusQuery = createQuery(
   () => ({
     queryKey: [
       "shop:payment:status",
       orderCode,
       selectedPaymentMethodId,
-      paymentResponseQuery.data?.sessionCode
+      paymentResponseQuery.data?.sessionCode,
+      paymentAttempt
     ],
     queryFn: async ({ signal }) => {
-      return await ky.get(
-        `/apis/uc.api.ecommerce.halo.run/v1alpha1/payment-sessions/${paymentResponseQuery.data?.sessionCode}/status`, { signal }).json();
+      return await transactionApi.status(pollingSessionCode, signal);
     },
-    enabled: !!paymentResponseQuery.data?.sessionCode,
-    refetchInterval: 2e3
+    enabled: isPendingPayment && !!pollingSessionCode && !pollTimedOut,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchInterval: (query) => paymentPollingInterval({
+      startedAt: pollingStartedAt, status: query.state.data, active: lifecycle.isActive()
+    })
   }),
   () => queryClient
 );
+const paymentSessionTerminal = $derived(isPaymentSessionTerminal(paymentStatusQuery.data));
+const paymentSessionFailed = $derived(paymentSessionTerminal && paymentStatusQuery.data !== "SUCCESS");
+// Administrative payment confirmation cancels the old provider session in Halo.
+// Re-read the authoritative order before offering another payment attempt.
+const terminalOrderQuery = createQuery(
+  () => ({
+    queryKey: ["shop:order:payment-terminal", orderCode, pollingSessionCode, paymentAttempt, selectedPaymentMethodId],
+    queryFn: async ({ signal }) => transactionApi.order(signal),
+    enabled: isPendingPayment && paymentSessionFailed,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false
+  }),
+  () => queryClient
+);
+const paymentSucceeded = $derived(
+  paymentStatusQuery.data === "SUCCESS" || terminalOrderQuery.data?.paymentStatus === OrderResponsePaymentStatusEnum.Paid
+);
+const paymentNeedsRetry = $derived(paymentSessionFailed && !paymentSucceeded
+  && terminalOrderQuery.isSuccess && !terminalOrderQuery.isFetching
+  && terminalOrderQuery.data?.paymentStatus === OrderResponsePaymentStatusEnum.Pending);
+function recheckOrder() {
+  if (!lifecycle.isActive() || !paymentSessionFailed || terminalOrderQuery.isFetching) return;
+  // Retry only the read. Payment initialization still requires a separate action.
+  void terminalOrderQuery.refetch();
+}
 $effect(() => {
-  if (paymentStatusQuery.data === "SUCCESS" && lifecycle.isActive()) {
+  if (paymentSucceeded && lifecycle.isActive()) {
     toast.success(get(i18n).t("payments.paymentSuccess"));
     const timer = setTimeout(() => {
       if (!lifecycle.isActive()) return;
-      const href = `/uc/shop/orders/${orderCode}`;
+      const href = orderUrl;
       if (typeof window.pjax?.loadUrl === 'function') window.pjax.loadUrl(href);
       else window.location.href = href;
     }, 1e3);
@@ -175,11 +256,31 @@ let PaymentMethodComponent = $derived(
   {#if orderQuery.isLoading}
     <div>{$i18n.t('common.loading')}</div>
   {:else if orderQuery.isError}
-    <div>{$i18n.t('payments.loadOrderFailed')}</div>
+    {#if orderAccessLocked}
+      <div class="shop-card shop-order-locked">
+        <h2 class="shop-card__title">{$i18n.t('payments.accessEmail')}</h2>
+        <p class="shop-tip">{$i18n.t('payments.accessEmailHelp')}</p>
+        <form class="shop-address-form" onsubmit={(event) => { event.preventDefault(); sendAccessLink(); }}>
+          <div class="shop-form-group">
+            <label class="shop-label" for="access-email">{$i18n.t('payments.accessEmail')}</label>
+            <input class="shop-input" id="access-email" type="email" required autocomplete="email" bind:value={accessEmail} />
+          </div>
+          <button type="submit" class="shop-btn shop-btn-primary" disabled={accessLinkPending || !accessEmail.trim()}>
+            {$i18n.t('payments.sendAccessLink')}
+          </button>
+        </form>
+        {#if accessLinkSent}<p class="shop-tip" role="status">{$i18n.t('payments.accessLinkSent')}</p>{/if}
+      </div>
+    {:else}
+      <div class="shop-empty">
+        <p class="shop-empty__title">{$i18n.t('payments.loadOrderFailed')}</p>
+        <button type="button" class="shop-btn shop-btn-secondary" onclick={() => orderQuery.refetch()}>{$i18n.t('common.retry')}</button>
+      </div>
+    {/if}
   {:else if !isPendingPayment}
     <div>
       {$i18n.t('payments.orderNotPayablePrefix')}
-      <a href={`/uc/shop/orders/${orderCode}`}>{$i18n.t('common.viewOrderDetails')}</a>
+      <a href={orderUrl}>{$i18n.t('common.viewOrderDetails')}</a>
       {$i18n.t('payments.orderNotPayableSuffix')}
     </div>
   {:else if orderQuery.data}
@@ -206,6 +307,7 @@ let PaymentMethodComponent = $derived(
                     value={paymentMethod.id}
                     bind:group={selectedPaymentMethodId}
                     class="shop-payment-method__radio"
+                    disabled={paymentSucceeded || (paymentSessionFailed && !paymentNeedsRetry)}
                   />
                   <div class="shop-payment-method__content">
                     {#if paymentMethod.icon}
@@ -290,7 +392,30 @@ let PaymentMethodComponent = $derived(
           {#if paymentResponseQuery.isLoading}
             <div>{$i18n.t('common.loading')}</div>
           {:else if paymentResponseQuery.isError}
-            <div>{$i18n.t('payments.loadPaymentResponseFailed')}</div>
+            <p role="alert">{paymentResponseQuery.error?.message || $i18n.t('payments.loadPaymentResponseFailed')}</p>
+            <button type="button" class="shop-btn shop-btn-secondary" onclick={retryPayment} disabled={paymentResponseQuery.isFetching}>
+              {$i18n.t('common.retry')}
+            </button>
+          {:else if paymentSucceeded}
+            <p role="status">{$i18n.t('payments.paymentSuccess')}</p>
+          {:else if paymentSessionFailed && terminalOrderQuery.isFetching}
+            <p role="status">{$i18n.t('common.loading')}</p>
+          {:else if paymentSessionFailed && terminalOrderQuery.isError}
+            <p role="alert">{$i18n.t('payments.orderStatusUnavailable')}</p>
+            <button type="button" class="shop-btn shop-btn-secondary" onclick={recheckOrder}>
+              {$i18n.t('payments.recheckOrder')}
+            </button>
+          {:else if paymentNeedsRetry}
+            <p role="status">{$i18n.t('payments.sessionStatus.' + paymentStatusQuery.data)}</p>
+            <button type="button" class="shop-btn shop-btn-secondary" onclick={retryPayment} disabled={paymentResponseQuery.isFetching}>
+              {$i18n.t('common.retry')}
+            </button>
+          {:else if paymentSessionFailed && terminalOrderQuery.isSuccess}
+            <p role="status">
+              {$i18n.t('payments.orderNotPayablePrefix')}
+              <a href={orderUrl}>{$i18n.t('common.viewOrderDetails')}</a>
+              {$i18n.t('payments.orderNotPayableSuffix')}
+            </p>
           {:else if paymentResponseQuery.data}
             {#if PaymentMethodComponent}
               <PaymentMethodComponent paymentResponse={paymentResponseQuery.data} />
@@ -300,8 +425,16 @@ let PaymentMethodComponent = $derived(
           {/if}
         </div>
 
+        {#if pollTimedOut && !paymentSessionTerminal}
+          <div class="shop-tip" role="status">
+            <p>{$i18n.t('payments.pollTimeout')}</p>
+            <button type="button" class="shop-btn shop-btn-secondary" onclick={() => { pollingRevision += 1; }}>
+              {$i18n.t('payments.pollResume')}
+            </button>
+          </div>
+        {/if}
         <div class="shop-payments__actions">
-          {#if selectedPaymentMethod?.provider === 'BANK_TRANSFER' || selectedPaymentMethod?.provider === 'PAYMENT_QRCODE'}
+          {#if paymentResponseQuery.data?.sessionCode && !paymentSessionTerminal && !paymentResponseQuery.isError && !paymentResponseQuery.isFetching && (selectedPaymentMethod?.provider === 'BANK_TRANSFER' || selectedPaymentMethod?.provider === 'PAYMENT_QRCODE')}
             <form
               action={`/apis/api.ecommerce.halo.run/v1alpha1/payment-sessions/${paymentResponseQuery.data?.sessionCode}/callback`}
               method="POST"
@@ -318,7 +451,7 @@ let PaymentMethodComponent = $derived(
                 {$i18n.t('payments.paymentConfirmed')}
               </button>
               <a
-                href={`/uc/shop/orders/${orderCode}`}
+                href={orderUrl}
                 class="shop-btn shop-btn-secondary shop-btn-lg"
               >
                 {$i18n.t('common.viewOrderDetails')}
@@ -326,7 +459,7 @@ let PaymentMethodComponent = $derived(
             </form>
           {:else}
             <a
-              href={`/uc/shop/orders/${orderCode}`}
+              href={orderUrl}
               class="shop-btn shop-btn-secondary shop-btn-lg"
             >
               {$i18n.t('common.viewOrderDetails')}

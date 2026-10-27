@@ -1,4 +1,5 @@
 import { warnApiCall } from '../../shell/desktop-shell/runtime/shared/debug.js';
+import { parseCommentPermalink, watchCommentPermalink } from '../../shared/comment-permalink.js';
 
 export const LINK_FEED_API = '/apis/api.link.halo.run/v1alpha1/linkfeeds';
 export const LINK_FEED_CONSOLE_API = '/apis/console.api.link.halo.run/v1alpha1/rss/items';
@@ -859,6 +860,7 @@ export function registerLinksExplorer(Alpine) {
     destroyed: false,
     _showBoardHandler: null,
     _popstateHandler: null,
+    _commentPermalinkCleanup: null,
     _sameVariantCompleteHandler: null,
     _pendingCanonicalUrl: false,
     _windowResizeHandler: null,
@@ -871,7 +873,10 @@ export function registerLinksExplorer(Alpine) {
       this.readDataset();
       this.applyLocationState(true);
       this._showBoardHandler = () => this.showBoard(true);
-      this._popstateHandler = () => this.applyLocationState(false);
+      this._popstateHandler = () => {
+        this.applyLocationState(false);
+        this.watchLocationPermalink();
+      };
       this._sameVariantCompleteHandler = () => {
         if (!this._pendingCanonicalUrl) return;
         this._pendingCanonicalUrl = false;
@@ -890,6 +895,7 @@ export function registerLinksExplorer(Alpine) {
       window.addEventListener('resize', this._windowResizeHandler);
       document.addEventListener('click', this._documentClickHandler);
       document.addEventListener('keydown', this._documentKeydownHandler);
+      this.watchLocationPermalink();
       if (this.activeView === 'friends' && this.detailOpen() && !this.isSavedFeedScope()) this.ensureFeedState();
       this.ensureLinkCapabilities();
       this.$nextTick(() => {
@@ -902,6 +908,8 @@ export function registerLinksExplorer(Alpine) {
       this.cancelFeedRequest();
       this.capabilityController?.abort();
       this.capabilityController = null;
+      this._commentPermalinkCleanup?.();
+      this._commentPermalinkCleanup = null;
       if (this._showBoardHandler) window.removeEventListener('links:show-board', this._showBoardHandler);
       if (this._popstateHandler) window.removeEventListener('popstate', this._popstateHandler);
       if (this._sameVariantCompleteHandler) {
@@ -1205,8 +1213,13 @@ export function registerLinksExplorer(Alpine) {
     },
 
     commitNavigation({ historyMode = 'push', scrollToTop = true, targetUrl = '' } = {}) {
+      const previousPermalink = parseCommentPermalink(window.location.hash);
       this.mobileDetailOpen = this.detailOpen();
       if (historyMode !== 'none') this.syncUrl(historyMode, targetUrl);
+      this.watchLocationPermalink();
+      if (previousPermalink && !parseCommentPermalink(window.location.hash)) {
+        window.dispatchEvent(new Event('hashchange'));
+      }
       this.syncDocumentChrome();
       if (scrollToTop) this.scrollActivePaneToTop();
       this.$nextTick(() => this.syncWindowLayout());
@@ -1255,6 +1268,18 @@ export function registerLinksExplorer(Alpine) {
       }, reduceMotion ? 0 : 280);
     },
 
+    watchLocationPermalink() {
+      this._commentPermalinkCleanup?.();
+      let permalinkActive = false;
+      // Local Links navigation changes the query on the same root. Rebind the
+      // shared watcher so its page ownership follows that committed address.
+      this._commentPermalinkCleanup = watchCommentPermalink(this.$root, (target) => {
+        const wasActive = permalinkActive;
+        permalinkActive = Boolean(target);
+        if (target || wasActive) this.applyLocationState(false);
+      });
+    },
+
     applyLocationState(canonicalize = false) {
       if (typeof window === 'undefined') return;
       const previousFeedKey = currentFilterKey(
@@ -1285,7 +1310,10 @@ export function registerLinksExplorer(Alpine) {
       this.selectedFeedItemId = '';
       this.selectedFeedItem = null;
 
-      if (requestedView === 'board' || requestedView === 'apply') {
+      if (parseCommentPermalink(url.hash)) {
+        this.activeView = 'board';
+        needsCanonicalUrl = false;
+      } else if (requestedView === 'board' || requestedView === 'apply') {
         this.activeView = requestedView;
         needsCanonicalUrl = needsCanonicalUrl
           || ['group', 'link', 'scope', 'groupName', 'linkName', 'itemId'].some((name) => url.searchParams.has(name));
@@ -1343,6 +1371,7 @@ export function registerLinksExplorer(Alpine) {
     syncUrl(mode = 'push', targetUrl = '') {
       if (typeof window === 'undefined') return;
       const url = new URL(targetUrl || window.location.href);
+      if (this.activeView !== 'board' && parseCommentPermalink(url.hash)) url.hash = '';
       for (const name of ['view', 'group', 'link', 'scope', 'groupName', 'linkName', 'itemId']) {
         url.searchParams.delete(name);
       }

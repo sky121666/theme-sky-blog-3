@@ -3,7 +3,7 @@
     title=${'支付 - ' + site.title},
     description='',
     ssrContent=~{modules/shop-app/transaction :: content(scene='payments',chromeTitle='支付')},
-    canonical='/shop/payments',
+    canonical=${'/shop/order/' + orderCode + '/payments'},
     image=${site.logo},
     type='website',
     seoFallback='meta',

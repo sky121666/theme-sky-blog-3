@@ -1,3 +1,5 @@
+import { installCommentEditReadiness } from '../../../../shared/comment-edit-readiness.js';
+
 const LIGHT_GALLERY_ROOT_SELECTOR = '#article-content';
 const LIGHT_GALLERY_UID_ATTRIBUTE = 'lg-uid';
 const LIGHT_GALLERY_ASSET_PATTERN = /\/plugins\/PluginLightGallery\/assets\/static\//i;
@@ -13,6 +15,157 @@ let lightGalleryAssetsReady = Promise.resolve();
 const loadedPluginScripts = new Map();
 const observedPluginScripts = new WeakMap();
 let stagedOnlineHistoryState = null;
+const CONTACT_FORM_AUTO_SELECTOR = 'body > halo-contact-form-auto-loader, body > halo-contact-form-auto-display';
+const contactFormAssets = new Map();
+let contactFormIntentId = null;
+let stagedContactForms = null;
+let committedContactForms = null;
+let contactFormGeneration = 0;
+
+function contactFormAutoNodes() {
+  return Array.from(document.querySelectorAll(CONTACT_FORM_AUTO_SELECTOR));
+}
+
+function clearAutomaticContactForms() {
+  // Plugin-generated roots live directly under body. Embedded forms and their
+  // answers belong to the content lifecycle and must not be removed here.
+  contactFormAutoNodes().forEach((node) => node.remove());
+}
+
+function stageContactFormsFromResponse(responseText) {
+  if (!responseText || typeof DOMParser !== 'function') return;
+  const targetDoc = new DOMParser().parseFromString(responseText, 'text/html');
+  let forms = null;
+  for (const script of targetDoc.querySelectorAll('script:not([src])')) {
+    // AutoContactFormWidget emits JSON, not executable theme code. Never replay
+    // arbitrary inline scripts from a response to recover this page-local data.
+    const match = (script.textContent || '').match(/^\s*var\s+autoContactFrom\s*=\s*(\[[\s\S]*\])\s*;?\s*$/);
+    if (!match) continue;
+    try {
+      const value = JSON.parse(match[1]);
+      if (Array.isArray(value)) forms = value.filter((item) => item && typeof item === 'object');
+    } catch (_error) { /* Invalid configuration must not execute. */ }
+  }
+  if (forms === null && !Array.isArray(window.autoContactFrom)) return;
+  forms ??= [];
+  committedContactForms ??= Array.isArray(window.autoContactFrom) ? window.autoContactFrom : [];
+  stagedContactForms = { forms, intentId: contactFormIntentId };
+  contactFormGeneration += 1;
+  // Keep the connected source instances while the response is staged. Reconnecting
+  // an official display element rebuilds its form and loses the open draft, so
+  // rollback must reuse the live tree rather than recreate or reattach it.
+  // The plugin's own pjax:success handler must see the target page's data.
+  window.autoContactFrom = forms;
+}
+
+function ensureContactFormElement(file, tag) {
+  if (window.customElements?.get(tag)) return Promise.resolve();
+  const loader = document.querySelector('script[src*="/PluginContactForm/assets/static/contact-form-loader.iife.js"]');
+  if (!loader?.src || !window.customElements) return Promise.reject(new Error('ContactForm loader is unavailable'));
+  const url = new URL(file, loader.src);
+  url.search = new URL(loader.src).search;
+  const src = url.href;
+  if (contactFormAssets.has(src)) return contactFormAssets.get(src);
+  let script = Array.from(document.querySelectorAll('script[src]')).find((node) => {
+    if (node.src !== src) return false;
+    // The official loader leaves failed assets in the DOM. Such a node cannot
+    // register its element, so a later navigation must request the URL again.
+    if (node.dataset.contactFormScriptState === 'error') {
+      node.remove();
+      return false;
+    }
+    return true;
+  });
+  const created = !script;
+  script ||= document.createElement('script');
+  const pending = new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (error) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      script.removeEventListener('error', onError);
+      if (error) {
+        contactFormAssets.delete(src);
+        if (created) script.remove();
+        reject(error);
+      } else resolve();
+    };
+    const onError = () => finish(new Error(`ContactForm asset failed: ${file}`));
+    const timeout = window.setTimeout(() => finish(new Error(`ContactForm asset timed out: ${file}`)), 15000);
+    script.addEventListener('error', onError, { once: true });
+    window.customElements.whenDefined(tag).then(() => finish());
+    if (created) {
+      script.src = src;
+      script.dataset.themePluginCompat = 'contact-form';
+      document.head.appendChild(script);
+    }
+  });
+  contactFormAssets.set(src, pending);
+  return pending;
+}
+
+async function refreshAutomaticContactForms() {
+  const generation = ++contactFormGeneration;
+  const forms = window.autoContactFrom;
+  if (!Array.isArray(forms)) return;
+  if (!forms.length) {
+    clearAutomaticContactForms();
+    return;
+  }
+  try {
+    await ensureContactFormElement('contact-form.iife.js', 'halo-contact-form');
+    await ensureContactFormElement('contact-form-display.iife.js', 'halo-contact-form-auto-display');
+  } catch (error) {
+    if (generation === contactFormGeneration) console.warn('ContactForm asset load failed:', error);
+    return;
+  }
+  if (generation !== contactFormGeneration) return;
+  // Match the official display scheduler: one popup and 56px stacking per side.
+  let hasPopup = false;
+  const positions = new Map();
+  const desired = forms.flatMap((config) => {
+    const display = config.displayFormConfig;
+    if (display?.displayForm === 'page_popup') {
+      if (hasPopup) return [];
+      hasPopup = true;
+      return [{ config, offset: 0 }];
+    }
+    if (display?.displayForm !== 'aside_button') return [];
+    const position = ['left_bottom', 'left_center', 'right_bottom', 'right_center', 'center'].includes(display.displayPosition)
+      ? display.displayPosition : 'right_center';
+    const index = positions.get(position) || 0;
+    positions.set(position, index + 1);
+    return [{ config, offset: index * 56 }];
+  });
+  const existing = contactFormAutoNodes();
+  if (existing.length === desired.length && existing.every((node, index) =>
+    node.localName === 'halo-contact-form-auto-display'
+    && node.config === JSON.stringify(desired[index].config)
+    && node.style.getPropertyValue('--halo-contact-form-stack-offset') === `${desired[index].offset}px`
+  )) return;
+  clearAutomaticContactForms();
+  desired.forEach(({ config, offset }) => {
+    const node = document.createElement('halo-contact-form-auto-display');
+    node.style.setProperty('--halo-contact-form-stack-offset', `${offset}px`);
+    node.config = config;
+    document.body.appendChild(node);
+  });
+}
+
+function settleContactForms(event, rollback = false) {
+  if (!stagedContactForms || (stagedContactForms.intentId !== null
+    && event?.detail?.intentId !== stagedContactForms.intentId)) return;
+  window.autoContactFrom = rollback ? committedContactForms : stagedContactForms.forms;
+  if (!rollback) {
+    committedContactForms = stagedContactForms.forms;
+    // A successful target owns a fresh form even when its placement is equal.
+    // Only rollback may reuse the previous page's open dialog and draft.
+    clearAutomaticContactForms();
+  }
+  stagedContactForms = null;
+  void refreshAutomaticContactForms();
+}
 
 function collectElements(root, selector) {
   const elements = [];
@@ -351,6 +504,7 @@ function installOnlineMonitorHistoryBridge() {
 }
 
 export function preparePluginCompatibilityFromResponse(responseText, options = {}) {
+  stageContactFormsFromResponse(responseText);
   if (options.stageOnlineHistory) {
     stageOnlineMonitorHistoryState(responseText, options.targetUrl);
   } else {
@@ -405,10 +559,12 @@ function scheduleLightGalleryRefresh(root = document) {
 export function initPluginCompatibility() {
   if (window[PLUGIN_COMPAT_GUARD]) return;
   window[PLUGIN_COMPAT_GUARD] = true;
+  void installCommentEditReadiness(window);
   installOnlineMonitorHistoryBridge();
 
   const refreshAfterNavigation = (event) => {
     if (event?.detail?.mode === 'local') return;
+    settleContactForms(event);
     scheduleLightGalleryRefresh(event?.detail?.root || document);
   };
   const recoverAfterNavigationError = (event) => {
@@ -418,9 +574,13 @@ export function initPluginCompatibility() {
 
   const recoverAfterSettledNavigation = (event) => {
     if (!['cancelled', 'failed', 'native'].includes(event?.detail?.outcome)) return;
+    settleContactForms(event, true);
     recoverAfterNavigationError(event);
   };
 
+  document.addEventListener('theme:navigation-accepted', (event) => {
+    contactFormIntentId = event?.detail?.intentId ?? null;
+  });
   document.addEventListener('theme:navigation-settled', recoverAfterSettledNavigation);
   document.addEventListener('theme:pjax-ready', refreshAfterNavigation);
   window.addEventListener('pageshow', refreshAfterNavigation);

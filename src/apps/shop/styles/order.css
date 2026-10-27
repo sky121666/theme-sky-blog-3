@@ -1,0 +1,75 @@
+/* The 2.27 SSR order module uses the existing Shop tokens and transaction controls. */
+.shop-app .shop-order__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.shop-app .shop-order__main,
+.shop-app .shop-order__aside {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 20px;
+}
+.shop-app .shop-order__aside { position: sticky; top: 20px; }
+.shop-app .shop-order-header__top,
+.shop-app .shop-order-fulfillment__head,
+.shop-app .shop-order-header__actions,
+.shop-app .shop-order-header__badges,
+.shop-app .shop-order-fulfillment__label,
+.shop-app .shop-order-fulfillment__cdk {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.shop-app .shop-order-header__top,
+.shop-app .shop-order-fulfillment__head { justify-content: space-between; align-items: start; }
+.shop-app .shop-order-header__code { margin: 0 0 8px; font-size: 20px; font-weight: 650; overflow-wrap: anywhere; }
+.shop-app .shop-order-header__date,
+.shop-app .shop-order-header__notes,
+.shop-app .shop-order-header__amount-label,
+.shop-app .shop-order-address__contact,
+.shop-app .shop-order-locked__desc,
+.shop-app .shop-tip { color: var(--shop-muted); font-size: 13px; line-height: 1.6; }
+.shop-app .shop-order-header__amount { display: flex; align-items: baseline; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--shop-border); }
+.shop-app .shop-order-header__amount-value { font-size: 24px; font-weight: 650; }
+.shop-app .shop-order-header__actions { margin-top: 20px; }
+.shop-app .shop-order__cancel-btn { color: var(--shop-error); }
+.shop-app .shop-order-badge {
+  display: inline-flex;
+  padding: 4px 9px;
+  border: 1px solid var(--shop-border);
+  border-radius: 999px;
+  background: var(--shop-hover-bg);
+  color: var(--shop-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.shop-app .shop-order-badge--success { color: var(--shop-success); background: color-mix(in srgb, var(--shop-success) 10%, transparent); }
+.shop-app .shop-order-badge--warning { color: var(--shop-warning); background: color-mix(in srgb, var(--shop-warning) 10%, transparent); }
+.shop-app .shop-order-badge--danger { color: var(--shop-error); background: color-mix(in srgb, var(--shop-error) 10%, transparent); }
+.shop-app .shop-order-item__image--placeholder { display: flex; align-items: center; justify-content: center; background: var(--shop-hover-bg); color: var(--shop-muted); }
+.shop-app .shop-order-item__image--placeholder svg { width: 28px; height: 28px; }
+.shop-app .shop-order-fulfillment__head .shop-card__title { margin-bottom: 0; }
+.shop-app .shop-order-fulfillment__head,
+.shop-app .shop-order-fulfillment__labels { margin-bottom: 16px; }
+.shop-app .shop-order-fulfillment__items { display: grid; gap: 12px; }
+.shop-app .shop-order-fulfillment__item { min-width: 0; padding: 14px; border-radius: 8px; background: var(--shop-hover-bg); }
+.shop-app .shop-order-fulfillment__item-title { margin: 0 0 8px; font-weight: 600; }
+.shop-app .shop-order-fulfillment__instructions { margin: 0; white-space: pre-wrap; }
+.shop-app :is(.shop-order-fulfillment__instructions, .shop-order-fulfillment__tracking, .shop-order-fulfillment__resource, .shop-order-address__line, .shop-order-fulfillment__cdk-code, .shop-order-fulfillment__cdk-secret) { overflow-wrap: anywhere; }
+.shop-app :is(.shop-order-fulfillment__resource, .shop-order-fulfillment__tracking[href]) { color: var(--shop-link); text-decoration: underline; text-underline-offset: 2px; }
+.shop-app .shop-order-fulfillment__resources,
+.shop-app .shop-order-fulfillment__cdk { margin-top: 8px; }
+.shop-app .shop-order-fulfillment__cdk-label { color: var(--shop-muted); font-size: 12px; }
+.shop-app :is(.shop-order-fulfillment__cdk-code, .shop-order-fulfillment__cdk-secret) { min-width: 0; padding: 2px 8px; border: 1px solid var(--shop-border); border-radius: 4px; user-select: all; }
+.shop-app .shop-order-locked { width: 100%; max-width: 480px; margin: 24px auto; }
+.shop-app .shop-order-locked__sent { padding: 12px; color: var(--shop-success); background: color-mix(in srgb, var(--shop-success) 10%, transparent); border-radius: 8px; }
+.shop-app .shop-order-locked__form .shop-btn { width: 100%; }
+@media (max-width: 767px) {
+  .shop-app .shop-order__grid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .shop-app .shop-order__aside { position: static; }
+  .shop-app .shop-order-header__amount { flex-wrap: wrap; }
+}

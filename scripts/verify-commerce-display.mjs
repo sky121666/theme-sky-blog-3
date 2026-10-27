@@ -1,3 +1,4 @@
+import { assertCurrentBuild } from './lib/build-identity.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -8,6 +9,7 @@ import { chromium } from 'playwright';
 // component is loaded. Source CSS overlays the existing build so this can run
 // before the single repository build owned by the integration task.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+assertCurrentBuild(root);
 const origin = 'https://theme.test';
 const manifest = JSON.parse(await readFile(path.join(root, 'templates/assets/asset-manifest.json'), 'utf8'));
 const prefix = '/themes/theme-sky-blog-3/assets/';

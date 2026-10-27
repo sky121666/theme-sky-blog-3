@@ -5,13 +5,15 @@
     props: {
       contextId: { reflect: true, type: 'String', attribute: 'contextid' },
       csrfToken: { reflect: true, type: 'String', attribute: 'csrftoken' },
+      authenticated: { reflect: true, type: 'String', attribute: 'authenticated' },
+      storefrontApi: { reflect: true, type: 'String', attribute: 'storefrontapi' },
     },
   }}
 />
 
 <script>
 import { createCommerceScope } from "../lifecycle.js";
-import { createQuery, createMutation, QueryClient } from "@tanstack/svelte-query";
+import { createQuery, createMutation, QueryClient, setQueryClientContext } from "@tanstack/svelte-query";
 import ky from "ky";
 import { formatPrice } from "../utils/price";
 import { fade } from "svelte/transition";
@@ -20,15 +22,19 @@ import AddressForm from "./components/AddressForm.svelte";
 import { toast, Toaster } from "svelte-sonner";
 import { get } from "svelte/store";
 import i18n from "../i18n";
-let { contextId, csrfToken } = $props();
+import { createTransactionApi } from "../utils/transactions.js";
+import { resolveCheckoutAddressId } from "../utils/checkout-address.js";
+let { contextId, csrfToken, authenticated, storefrontApi } = $props();
+const isAuthenticated = $derived(authenticated === "true");
+const transactionApi = $derived(createTransactionApi({ authenticated, storefrontApi, contextId, csrfToken }));
 const queryClient = new QueryClient();
+setQueryClientContext(queryClient);
 const lifecycle = createCommerceScope(queryClient);
 const contextQuery = createQuery(
   () => ({
     queryKey: ["shop:checkout:context", contextId],
     queryFn: async ({ signal }) => {
-      return await ky.get(
-        `/apis/uc.api.ecommerce.halo.run/v1alpha1/checkout/${contextId}`, { signal }).json();
+      return await transactionApi.context(signal);
     }
   }),
   () => queryClient
@@ -38,11 +44,14 @@ const addressQuery = createQuery(
     queryKey: ["shop:user:addresses"],
     queryFn: async ({ signal }) => {
       return await ky.get("/apis/uc.api.ecommerce.halo.run/v1alpha1/user-addresses", { signal }).json();
-    }
+    },
+    enabled: isAuthenticated
   }),
   () => queryClient
 );
 let selectedAddressId = $state(void 0);
+let addressSelectionContext = $state(void 0);
+let addressSelectionInitialized = $state(false);
 let discountCodeInput = $state("");
 let discountCodeInitialized = $state(false);
 $effect(() => {
@@ -61,6 +70,7 @@ const myCouponsQuery = createQuery(
     queryFn: async ({ signal }) => {
       return await ky.get("/shop/coupons/mine", { signal }).json();
     },
+    enabled: isAuthenticated,
     staleTime: 3e4
   }),
   () => queryClient
@@ -158,7 +168,7 @@ const applyCouponsMutation = createMutation(
   () => queryClient
 );
 function applyCoupons() {
-  applyCouponsMutation.mutate(selectedCouponIds);
+  if (isAuthenticated) applyCouponsMutation.mutate(selectedCouponIds);
 }
 const applyDiscountMutation = createMutation(
   () => ({
@@ -193,7 +203,12 @@ const removeDiscountMutation = createMutation(
     onSuccess: () => {
       if (!lifecycle.isActive()) return;
       toast.success(get(i18n).t("checkout.discountRemoveSuccess"));
+      discountCodeInput = "";
       queryClient.invalidateQueries({ queryKey: ["shop:checkout:context", contextId] });
+    },
+    onError: () => {
+      if (!lifecycle.isActive()) return;
+      toast.error(get(i18n).t("checkout.discountRemoveError"));
     }
   }),
   () => queryClient
@@ -210,8 +225,6 @@ function handleDiscountCodeKeydown(event) {
 }
 function removeDiscount() {
   removeDiscountMutation.mutate(void 0);
-  discountCodeInput = "";
-  discountCodeInitialized = false;
 }
 const hasDiscount = $derived(
   (contextQuery.data?.calculateResult?.discountAmount ?? 0) > 0
@@ -277,11 +290,16 @@ function rejectedCouponReason(coupon) {
   return coupon.reasonMessage || coupon.reasonCode || get(i18n).t("checkout.couponRejectedFallback");
 }
 $effect(() => {
-  if (addressQuery.isFetched) {
-    const addresses = addressQuery.data ?? [];
-    const defaultAddress = addresses.find((address) => address.isDefault);
-    selectedAddressId = defaultAddress?.id || addresses[0]?.id;
+  if (addressSelectionContext !== contextId) {
+    addressSelectionContext = contextId;
+    addressSelectionInitialized = false;
+    selectedAddressId = void 0;
   }
+  if (addressSelectionInitialized || !isAuthenticated || !contextQuery.isSuccess || !addressQuery.isSuccess) return;
+  const context = contextQuery.data;
+  if (context?.id !== contextId) return;
+  selectedAddressId = resolveCheckoutAddressId(addressQuery.data ?? [], context.selectedAddressId);
+  addressSelectionInitialized = true;
 });
 </script>
 
@@ -292,14 +310,22 @@ $effect(() => {
     <h1 class="shop-entry__title">{$i18n.t('checkout.title')}</h1>
   </div>
 
+  {#if contextQuery.isLoading}
+    <div class="shop-empty">{$i18n.t('common.loading')}</div>
+  {:else if contextQuery.isError}
+    <div class="shop-empty">
+      <p class="shop-empty__title">{$i18n.t('checkout.contextLoadFailed')}</p>
+      <button type="button" class="shop-btn shop-btn-secondary" onclick={() => contextQuery.refetch()}>{$i18n.t('common.retry')}</button>
+    </div>
+  {:else if contextQuery.data}
   <form action={`/shop/checkout/${contextId}/submit`} method="POST" class="shop-checkout">
     <input type="hidden" name="_csrf" value={csrfToken} />
 
-    {#if contextQuery.data?.isShippingRequired}
+    {#if isAuthenticated && contextQuery.data?.isShippingRequired}
       <input type="hidden" name="saveAsNewAddress" value={!selectedAddressId} />
     {/if}
 
-    {#each contextQuery.data?.items as item, index}
+    {#each contextQuery.data?.items ?? [] as item, index}
       <input type="hidden" name="items[{index}].productVariantId" value={item.productVariant?.id} />
       <input type="hidden" name="items[{index}].quantity" value={item.quantity} />
       <!-- TODO: 选择配送方式 -->
@@ -307,13 +333,25 @@ $effect(() => {
     {/each}
 
     <div class="shop-checkout__form">
+      {#if !isAuthenticated}
+        <div class="shop-card">
+          <h2 class="shop-card__title">{$i18n.t('checkout.email')}</h2>
+          <div class="shop-form-group">
+            <label class="shop-label" for="guest-email">{$i18n.t('checkout.email')}</label>
+            <input class="shop-input" id="guest-email" type="email" name="email" required autocomplete="email" />
+          </div>
+          <p class="shop-tip">{$i18n.t('checkout.emailHelp')}</p>
+          <p class="shop-tip">{$i18n.t('checkout.guestLoginPrompt')}</p>
+        </div>
+      {/if}
       {#if contextQuery.data?.isShippingRequired}
         <div class="shop-card">
           <h2 class="shop-card__title">{$i18n.t('checkout.shippingAddress')}</h2>
-          {#if addressQuery.isLoading}
+          {#if isAuthenticated && addressQuery.isLoading}
             {$i18n.t('common.loading')}
           {:else}
             <div class="shop-address-form" in:fade={{ duration: 200 }}>
+              {#if isAuthenticated}
               <div class="shop-form-group">
                 <label class="shop-label" for="address-selector">
                   {$i18n.t('checkout.selectShippingAddress')}
@@ -336,7 +374,8 @@ $effect(() => {
                   <option value="">{$i18n.t('checkout.fillNewAddress')}</option>
                 </select>
               </div>
-              {#if !selectedAddressId}
+              {/if}
+              {#if !isAuthenticated || !selectedAddressId}
                 <AddressForm />
               {/if}
             </div>
@@ -388,6 +427,7 @@ $effect(() => {
         <p class="shop-checkout-discount-card__tip">{$i18n.t('checkout.discountTip')}</p>
       </div>
 
+      {#if isAuthenticated}
       <div class="shop-card shop-checkout-discount-card">
         <h2 class="shop-card__title">{$i18n.t('checkout.coupons')}</h2>
         {#if myCouponsQuery.isLoading}
@@ -486,6 +526,7 @@ $effect(() => {
         {/if}
       </div>
 
+      {/if}
       <div class="shop-card">
         <h2 class="shop-card__title">{$i18n.t('checkout.notes')}</h2>
         <div>
@@ -552,4 +593,5 @@ $effect(() => {
       </div>
     </div>
   </form>
+  {/if}
 </div>

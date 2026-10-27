@@ -12,7 +12,8 @@
       "alipay": "Alipay",
       "wechat": "WeChat",
       "stripe": "Stripe"
-    }
+    },
+    "retry": "Retry"
   },
   "buyBox": {
     "loadFailed": "Failed to load: {{message}}",
@@ -25,7 +26,8 @@
     "buyNow": "Buy now",
     "externalBuyNow": "Buy on external site",
     "externalRedirectHint": "Opens the external site in a new tab",
-    "contactSales": "Contact Sales"
+    "contactSales": "Contact Sales",
+    "perOrderLimit": "Limit {{count}} per order"
   },
   "cart": {
     "title": "Cart",
@@ -38,11 +40,23 @@
     "pendingCalculation": "To be calculated",
     "total": "Total",
     "proceedToCheckout": "Proceed to checkout",
-    "continueShopping": "Continue shopping"
+    "continueShopping": "Continue shopping",
+    "loadFailed": "Failed to load the cart. Please try again.",
+    "emptyTitle": "Your cart is empty",
+    "emptyDesc": "Browse and find something you like.",
+    "emptyAction": "Browse products",
+    "inquiryExcluded": "{{count}} inquiry item(s) must be ordered via sales and have been excluded from checkout"
   },
   "cartItem": {
     "updateQuantityFailed": "Failed to update quantity. Please try again.",
-    "remove": "Remove"
+    "remove": "Remove",
+    "removeConfirm": "Remove this item from your cart?",
+    "removeFailed": "Failed to remove the item. Please try again.",
+    "inquiryBadge": "Inquiry",
+    "inquiryNote": "Contact sales to order",
+    "quantity": "Quantity",
+    "increaseQuantity": "Increase quantity",
+    "decreaseQuantity": "Decrease quantity"
   },
   "checkout": {
     "title": "Checkout",
@@ -64,6 +78,7 @@
     "discountTip": "System will automatically calculate the best discount.",
     "discountApplySuccess": "Discount code applied successfully",
     "discountRemoveSuccess": "Discount code removed",
+    "discountRemoveError": "Failed to remove the discount code. Please try again.",
     "discountApplyError": "Invalid or expired discount code",
     "coupons": "Coupons",
     "couponsPlaceholder": "Select coupons to apply",
@@ -86,7 +101,13 @@
     "couponMaxDiscount": "max {{amount}}",
     "couponMinOrder": "min order {{amount}}",
     "couponExpiresAt": "Expires {{date}}",
-    "couponRejectedFallback": "This coupon is not available for this order."
+    "couponRejectedFallback": "This coupon is not available for this order.",
+    "email": "Email",
+    "emailHelp": "Order confirmation and the access link are sent to this email.",
+    "guestLoginPrompt": "If this email already belongs to an account, log in before checking out.",
+    "subscriptionRequiresLogin": "Subscription products require you to log in.",
+    "contextLoadFailed": "Failed to load checkout. Please try again.",
+    "submitting": "Submitting…"
   },
   "addressForm": {
     "lastName": "Last name *",
@@ -118,10 +139,25 @@
     "payableTotal": "Amount due",
     "discount": "Discount",
     "paymentTitle": "Payment",
-    "loadPaymentResponseFailed": "Failed to load payment response. Please refresh and try again.",
+    "loadPaymentResponseFailed": "Failed to load payment information. Please try again.",
     "unsupportedPaymentMethod": "This payment method is not supported yet. Please contact the administrator.",
     "paymentTransactionNumber": "Payment transaction number *",
-    "paymentConfirmed": "I have completed the payment"
+    "paymentConfirmed": "I have completed the payment",
+    "wechatPayReentry": "This order already has an unfinished WeChat payment. Return to the original page to finish it, or place a new order to pay here.",
+    "accessEmail": "Email",
+    "accessEmailHelp": "Enter the email used at checkout. We will send an order access link to it.",
+    "sendAccessLink": "Send access link",
+    "accessLinkSent": "If the email matches, an access link has been sent.",
+    "accessLinkFailed": "Could not send the link. Please try again.",
+    "pollTimeout": "No payment detected for a while; auto-refresh has stopped.",
+    "pollResume": "Check again",
+    "orderStatusUnavailable": "The order status could not be confirmed. Check it again before making another payment.",
+    "recheckOrder": "Check order status again",
+    "sessionStatus": {
+      "FAILED": "Payment failed. You can retry the payment.",
+      "EXPIRED": "This payment has expired. Retry to get new payment information.",
+      "CANCELLED": "This payment was cancelled. You can retry the payment."
+    }
   },
   "paymentMethods": {
     "scanToPay": "Please use {{provider}} to scan the QR code and complete the payment",
@@ -137,6 +173,60 @@
     "bankAddress": "Bank address: {{value}}",
     "accountName": "Account name: {{value}}",
     "accountNumber": "Account number: {{value}}",
-    "notes": "Notes: {{value}}"
+    "notes": "Notes: {{value}}",
+    "wechatH5RedirectTip": "WeChat Pay opens in this page. After payment you return here."
+  },
+  "subscription": {
+    "badge": "Subscription",
+    "switchHint": "Tap another plan to switch it in the user center.",
+    "noPlans": "No plans available",
+    "tierTabsLabel": "Tier",
+    "periodTabsLabel": "Period",
+    "period": {
+      "MONTHLY": "Monthly",
+      "YEARLY": "Yearly",
+      "LIFETIME": "Lifetime",
+      "OTHER": "Other"
+    },
+    "billingMode": {
+      "SUBSCRIPTION": "Recurring",
+      "ONE_TIME": "Single period",
+      "LIFETIME": "Lifetime"
+    },
+    "billingPeriod": {
+      "MONTHLY": "Monthly",
+      "YEARLY": "Yearly"
+    },
+    "perMonth": "/mo",
+    "perYear": "/yr",
+    "savePercent": "Save {{percent}}%",
+    "trial": "{{days}}-day free trial",
+    "resubscribeNotice": "Buying again will restore your subscription. The free trial will not be offered again.",
+    "quantityRange": "{{min}} - {{max}}",
+    "decreaseQuantity": "Decrease quantity",
+    "increaseQuantity": "Increase quantity",
+    "summaryTrialNow": "Free trial {{days}} days · due now",
+    "summaryDueNow": "Due now",
+    "summaryAfterTrial": "Then",
+    "summaryAfterEach": "Then per period",
+    "currentPlan": "Current plan",
+    "goSwitch": "Switch",
+    "addingToCart": "Adding...",
+    "addCartFailed": "Failed to add to cart",
+    "manageTitle": "Current subscription",
+    "manageTitleMultiple": "Your subscriptions ({{count}})",
+    "manageMultipleHint": "Each subscription renews and changes on its own. Manage one of them in the user center.",
+    "managePlan": "Plan",
+    "manageStatus": "Status",
+    "managePeriodEnd": "Current period ends",
+    "manageGoUc": "Manage in user center",
+    "forever": "Lifetime",
+    "status": {
+      "TRIALING": "Trialing",
+      "ACTIVE": "Active",
+      "PAST_DUE": "Past due",
+      "CANCELLED": "Cancelled",
+      "EXPIRED": "Expired"
+    }
   }
 }

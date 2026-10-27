@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { buildRootFiles, computeBuildRevisionFromContents } from './build-identity.mjs';
 
 function envValues(text) {
   return Object.fromEntries(text.split(/\r?\n/).flatMap((line) => {
@@ -64,7 +65,6 @@ export async function readLiveBuildContext(base) {
     }
   }
   await walk('src'); await walk('templates'); await walk('patches');
-  const buildRootFiles = ['theme.yaml', 'settings.yaml', 'theme-setting.yaml', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'vite.config.ts', 'tsconfig.json'];
   for (const file of [...buildRootFiles, 'annotation-setting.yaml']) {
     const content = await fs.readFile(path.join(root, file)).catch((error) => {
       if (error.code === 'ENOENT' && ['theme-setting.yaml', 'annotation-setting.yaml'].includes(file)) return null;
@@ -75,12 +75,7 @@ export async function readLiveBuildContext(base) {
   const ordered = Object.fromEntries(Object.entries(hashes).sort(([a], [b]) => a.localeCompare(b)));
   // Mirror Vite's build input contract, excluding generated assets. A current
   // source snapshot beside an old local build must never masquerade as tested.
-  const buildInputs = [...contents.keys()].filter((file) => file.startsWith('src/')
-    || (file.startsWith('templates/') && !file.startsWith('templates/assets/'))
-    || file.startsWith('patches/') || buildRootFiles.includes(file)).sort((a, b) => a.localeCompare(b));
-  const revisionHash = crypto.createHash('sha256');
-  for (const file of buildInputs) revisionHash.update(file).update('\0').update(contents.get(file)).update('\0');
-  const buildInputRevision = revisionHash.digest('hex').slice(0, 12);
+  const buildInputRevision = computeBuildRevisionFromContents(contents);
   assert.equal(buildInputRevision, local.__meta.revision, 'local build is stale relative to current source/configuration');
   const verifiedAssets = [];
   for (const asset of [...new Set([...(local['shell-core'].js || []), ...(local['shell-core'].css || [])])]) {
