@@ -122,8 +122,8 @@ function createGenieGhost(sourceWindowEl) {
   return { ghostWrapper, ghostInner };
 }
 
-export function runGenieAnimation({ windowEl, dockEl, action, duration = 480, onBeforeFinish }) {
-  if (!windowEl || !dockEl) return Promise.resolve(false);
+export function runGenieAnimation({ windowEl, dockEl, action, duration = 480, onBeforeFinish, signal }) {
+  if (!windowEl || !dockEl || signal?.aborted) return Promise.resolve(false);
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) {
     onBeforeFinish?.();
     return Promise.resolve(true);
@@ -184,20 +184,24 @@ export function runGenieAnimation({ windowEl, dockEl, action, duration = 480, on
   });
 
   return new Promise((resolve) => {
-    innerAnimation.onfinish = () => {
-      if (typeof onBeforeFinish === 'function') {
+    let settled = false;
+    const finish = (completed) => {
+      if (settled) return;
+      settled = true;
+      signal?.removeEventListener('abort', abort);
+      if (completed && typeof onBeforeFinish === 'function') {
         onBeforeFinish();
       }
       wrapperAnimation.cancel();
       innerAnimation.cancel();
       ghostWrapper.remove();
-      resolve(true);
+      resolve(completed);
     };
-
-    innerAnimation.oncancel = () => {
-      ghostWrapper.remove();
-      resolve(false);
-    };
+    const abort = () => finish(false);
+    innerAnimation.onfinish = () => finish(true);
+    innerAnimation.oncancel = abort;
+    signal?.addEventListener('abort', abort, { once: true });
+    if (signal?.aborted) abort();
   });
 }
 
@@ -205,6 +209,7 @@ export function registerWindowComponents(Alpine) {
   Alpine.data('windowTitlebar', () => ({
     title: document.title,
     shareOpen: false,
+    shareFocusGeneration: 0,
     shareView: 'actions',
     shareFeedback: '',
     shareFeedbackTimer: null,
@@ -252,11 +257,33 @@ export function registerWindowComponents(Alpine) {
       this.sync();
       this.shareView = 'actions';
       this.shareOpen = true;
+      this.focusShareAction();
     },
 
-    closeSharePanel() {
+    focusShareAction(selector = '.share-panel-actions button') {
+      if (!this.shareOpen) return;
+      const generation = ++this.shareFocusGeneration;
+      this.$nextTick(() => {
+        if (!this.shareOpen || generation !== this.shareFocusGeneration) return;
+        const target = Array.from(this.$refs.sharePanel?.querySelectorAll(selector) || [])
+          .find((element) => !element.disabled && element.getClientRects().length > 0);
+        target?.focus({ preventScroll: true });
+      });
+    },
+
+    closeSharePanel({ restoreFocus = true } = {}) {
+      const ownsFocus = this.$refs.sharePanel?.contains(document.activeElement);
+      this.shareFocusGeneration += 1;
       this.shareOpen = false;
       this.shareView = 'actions';
+      if (restoreFocus && ownsFocus) this.$refs.shareTrigger?.focus({ preventScroll: true });
+    },
+
+    handleShareEscape(event) {
+      if (!this.shareOpen) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.closeSharePanel();
     },
 
     toggleSharePanel() {
@@ -284,12 +311,14 @@ export function registerWindowComponents(Alpine) {
 
     backToShareActions() {
       this.shareView = 'actions';
+      this.focusShareAction();
     },
 
     async openWeChatShare() {
       this.sync();
       this.shareView = 'wechat';
       this.wechatQrError = '';
+      this.focusShareAction('.share-panel-back');
 
       if (this.wechatQrDataUrl || this.wechatQrLoading) {
         return;
@@ -401,6 +430,7 @@ export function registerWindowComponents(Alpine) {
     },
 
     destroy() {
+      this.shareFocusGeneration += 1;
       if (this.shareFeedbackTimer) {
         window.clearTimeout(this.shareFeedbackTimer);
         this.shareFeedbackTimer = null;

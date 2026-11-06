@@ -125,6 +125,8 @@
           </nav>
 
           <section class="photos-detail-popover"
+                   id="photos-detail-info-panel"
+                   tabindex="-1"
                    x-cloak
                    x-show="infoOpen"
                    x-transition:enter="photos-popover-enter"
@@ -133,7 +135,7 @@
                    x-transition:leave="photos-popover-leave"
                    x-transition:leave-start="photos-popover-leave-start"
                    x-transition:leave-end="photos-popover-leave-end"
-                   @click.outside="infoOpen = false"
+                   @click.outside="setInfoOpen(false)"
                    aria-label="图片详情">
             <div class="photos-detail-popover-head">
               <span>信息</span>
@@ -166,6 +168,8 @@
         </main>
 
         <aside class="photos-detail-comment-drawer"
+               id="photos-detail-comments-panel"
+               aria-label="图片评论"
                x-cloak
                x-show="commentsOpen"
                x-transition:enter="photos-drawer-enter"
@@ -176,7 +180,7 @@
                x-transition:leave-end="photos-drawer-leave-end">
           <div class="photos-detail-comment-head">
             <strong>评论</strong>
-            <button type="button" class="photos-detail-icon-btn" @click="commentsOpen = false; syncDetailChromeControls()" aria-label="关闭评论">
+            <button type="button" class="photos-detail-icon-btn" @click="setCommentsOpen(false, { restoreFocus: true })" aria-label="关闭评论">
               <span class="icon-[lucide--x]" aria-hidden="true"></span>
             </button>
           </div>

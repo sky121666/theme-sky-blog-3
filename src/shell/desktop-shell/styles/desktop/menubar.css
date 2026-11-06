@@ -107,9 +107,7 @@ button.menubar-mobile-trigger {
   transition: background-color 0.1s ease, box-shadow 0.1s ease;
 }
 
-.menubar-item:hover,
-.menubar-icon-btn:hover,
-.menubar-auth-btn:hover {
+:is(.menubar-item, .menubar-icon-btn, .menubar-auth-btn, .menubar-time):is(:hover, :active) {
   background: var(--shell-menubar-hover-bg);
 }
 

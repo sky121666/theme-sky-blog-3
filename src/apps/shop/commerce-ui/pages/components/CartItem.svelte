@@ -1,4 +1,5 @@
 <script>
+import { onDestroy } from "svelte";
 import { createCommerceScope } from "../../lifecycle.js";
 import { createMutation, getQueryClientContext, useIsFetching } from "@tanstack/svelte-query";
 import { getThumbnailUrl } from "../../utils/thumbnail";
@@ -12,7 +13,9 @@ import { get } from "svelte/store";
 import i18n from "../../i18n";
 import SubscriptionLineMeta from "./SubscriptionLineMeta.svelte";
 import { getVariantQuantityLimit, readPurchaseQuantityInput, productPermalink } from "../../utils/purchase.js";
-let { item } = $props();
+let { item, onBusyChange = () => {} } = $props();
+let isDeleting = $state(false);
+let deleteFailed = $state(false);
 const queryClient = getQueryClientContext();
 const lifecycle = createCommerceScope();
 let imageUrl = $derived(item.productVariant?.imageUrl || item.product?.coverImageUrl);
@@ -26,11 +29,19 @@ let total = $derived.by(() => {
   return price.times(quantity).toNumber();
 });
 async function handleDelete(item2) {
+  if (isBusy || !lifecycle.isActive()) return;
+  isDeleting = true;
+  deleteFailed = false;
   try {
-    await ky.delete(`/apis/uc.api.ecommerce.halo.run/v1alpha1/cart-items/${item2.id}`, { signal: lifecycle.signal }).json();
-    if (lifecycle.isActive()) queryClient.invalidateQueries({ queryKey: ["shop:cart:items"] });
+    await ky.delete(`/apis/uc.api.ecommerce.halo.run/v1alpha1/cart-items/${item2.id}`, { signal: lifecycle.signal, retry: 0 });
   } catch (error) {
-    if (lifecycle.isActive()) throw error;
+    if (lifecycle.isActive()) deleteFailed = true;
+  } finally {
+    // A failed transport can still mean the server deleted the item. Keep the
+    // submission gate closed until its state has been read again; query errors
+    // remain owned by Cart's visible retry state. Never replay DELETE here.
+    if (lifecycle.isActive()) await queryClient.invalidateQueries({ queryKey: ["shop:cart:items"] });
+    if (lifecycle.isActive()) isDeleting = false;
   }
 }
 const updateQuantityMutation = createMutation(
@@ -54,11 +65,14 @@ const updateQuantityMutation = createMutation(
   }),
   () => queryClient
 );
-const fetchingCount = useIsFetching({}, queryClient);
-let isBusy = $derived(fetchingCount.current > 0 || updateQuantityMutation.isPending);
+const fetchingCount = useIsFetching({ queryKey: ["shop:cart:items"] }, queryClient);
+let isBusy = $derived(fetchingCount.current > 0 || updateQuantityMutation.isPending || isDeleting);
+$effect(() => onBusyChange(item.id, isDeleting || updateQuantityMutation.isPending));
+onDestroy(() => onBusyChange(item.id, false));
 let maxQuantity = $derived(getVariantQuantityLimit(item.productVariant));
 let canIncreaseQuantity = $derived((item.quantity || 1) < maxQuantity);
 function handleQuantityInput(event) {
+  if (isBusy) return;
   const quantity = readPurchaseQuantityInput(event.currentTarget, { max: maxQuantity });
   if (quantity > 0 && quantity !== item.quantity) updateQuantityMutation.mutate(quantity);
 }
@@ -106,7 +120,9 @@ let canDecreaseQuantity = $derived.by(() => {
   {#if !isInquiry}
     <div class="shop-quantity">
       <button
+        type="button"
         class="shop-quantity__btn"
+        aria-label={$i18n.t('cartItem.decreaseQuantity')}
         onclick={() => updateQuantityMutation.mutate((item.quantity ?? 1) - 1)}
         disabled={isBusy || !canDecreaseQuantity}
       >
@@ -115,6 +131,7 @@ let canDecreaseQuantity = $derived.by(() => {
       <input
         type="number"
         class="shop-quantity__input"
+        aria-label={$i18n.t('cartItem.quantity')}
         value={item.quantity || 1}
         min="1"
         max={Number.isFinite(maxQuantity) ? maxQuantity : undefined}
@@ -122,7 +139,9 @@ let canDecreaseQuantity = $derived.by(() => {
         disabled={isBusy}
       />
       <button
+        type="button"
         class="shop-quantity__btn"
+        aria-label={$i18n.t('cartItem.increaseQuantity')}
         onclick={() => updateQuantityMutation.mutate((item.quantity ?? 1) + 1)}
         disabled={isBusy || !canIncreaseQuantity}
       >
@@ -131,7 +150,19 @@ let canDecreaseQuantity = $derived.by(() => {
     </div>
     <div class="shop-cart-item__total">{formatPrice(total || 0)}</div>
   {/if}
-  <button class="shop-cart-item__remove" onclick={() => handleDelete(item)} disabled={isBusy}>
-    {$i18n.t('cartItem.remove')}
-  </button>
+  <div class="shop-cart-item__actions">
+    <button type="button" class="shop-cart-item__remove" onclick={() => handleDelete(item)} disabled={isBusy} aria-busy={isDeleting}>
+      {isDeleting ? $i18n.t('common.loading') : deleteFailed ? $i18n.t('common.retry') : $i18n.t('cartItem.remove')}
+    </button>
+    {#if deleteFailed}
+      <p class="shop-cart-item__error" role="alert">{$i18n.t('cartItem.removeFailed')}</p>
+    {/if}
+  </div>
 </div>
+
+<style>
+  .shop-cart-item__actions { display: grid; grid-column: 3; justify-self: end; justify-items: end; gap: 6px; min-width: 0; }
+  .shop-cart-item__actions .shop-cart-item__remove { grid-column: auto; }
+  .shop-cart-item__error { max-width: 15em; margin: 0; color: var(--shop-color-error); font-size: var(--shop-font-size-sm, 14px); }
+  .shop-cart-item__remove:disabled { cursor: wait; opacity: 0.6; }
+</style>

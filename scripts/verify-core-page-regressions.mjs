@@ -191,6 +191,8 @@ class OutlineNode {
   appendChild(child) { this.children.push(child); }
   set innerHTML(_value) { this.children = []; }
   querySelectorAll() { return this.children; }
+  closest() { return null; }
+  contains(node) { return node === this || this.children.some((child) => child.contains(node)); }
   listenerCount() { return [...this.listeners.values()].reduce((sum, entries) => sum + entries.size, 0); }
 }
 

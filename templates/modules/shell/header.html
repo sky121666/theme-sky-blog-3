@@ -29,7 +29,7 @@
       <span data-icon-path="header.icons.theme_dark"><th:block th:replace="~{modules/shell/icons :: header_theme_dark}" /></span>
     </template>
     <div class="menubar-left">
-      <a href="javascript:void(0)" class="menubar-icon-btn menubar-brand-icon" title="System">
+      <a th:href="@{/}" class="menubar-icon-btn menubar-brand-icon pjax-link" title="返回桌面" aria-label="返回桌面">
         <th:block th:if="${#strings.isEmpty(logoIcon)}">
           &#63743;
         </th:block>
@@ -50,13 +50,13 @@
                menuItemHref = ${menuItem.status.href != null ? menuItem.status.href.toString() : ''},
                menuDropdownId = ${'menubar-submenu-' + menuItemStat.index}"
              class="menubar-menu-group"
-             x-data="{ open: false }"
-             @mouseenter="open = true"
-             @mouseleave="open = false"
-             @focusout="if (!$el.contains($event.relatedTarget)) open = false"
-             @keydown.escape.stop.prevent="open = false; $refs.trigger?.focus()"
-             @click.away="open = false"
-             @theme-menubar-close.window="open = false">
+             x-data="desktopMenu"
+             @pointerenter="openOnHover($event)"
+             @pointerleave="closeOnLeave()"
+             @focusout="if (!$el.contains($event.relatedTarget)) closeMenu()"
+             @keydown="handleMenuKeydown($event)"
+             @click.outside="closeMenu()"
+             @theme-menubar-close.window="closeMenu()">
           <a th:if="${#lists.isEmpty(menuItem.children)}"
              th:href="${menuItem.status.href}"
              th:target="${menuItem.spec.target?.name() == 'BLANK' ? '_blank' : '_self'}"
@@ -72,8 +72,7 @@
                   :aria-expanded="open.toString()"
                   th:attr="aria-controls=${menuDropdownId}"
                   aria-haspopup="menu"
-                  @click="open = !open"
-                  @keydown.arrow-down.prevent="open = true; $nextTick(() => $el.parentElement.querySelector('.menubar-dropdown-item')?.focus())"
+                  @click="toggleMenu($event)"
                   th:text="${menuItem.status.displayName}"></button>
 
           <th:block th:replace="~{modules/shell/header :: submenu(menuItem=${menuItem}, dropdownId=${menuDropdownId})}"></th:block>
@@ -86,9 +85,11 @@
               class="menubar-icon-btn menubar-mobile-trigger"
               x-cloak
               x-show="mobileMenuAvailable && mobileMenuEnabled"
-              @click="toggleMobileMenu()"
+              x-ref="mobileMenuTrigger"
+              @click="toggleMobileMenu($event)"
               :aria-expanded="mobileMenuOpen.toString()"
-              aria-label="打开菜单"
+              aria-controls="menubar-mobile-menu"
+              :aria-label="mobileMenuOpen ? '关闭菜单' : '打开菜单'"
               title="菜单">
         <th:block th:if="${!#strings.isEmpty(iconMobileMenu)}" th:utext="${iconMobileMenu}" />
         <th:block th:unless="${!#strings.isEmpty(iconMobileMenu)}">
@@ -225,7 +226,8 @@
            x-ref="notificationCenterPanel"
            x-show="notificationCenterVisible"
            tabindex="-1"
-           aria-modal="true"
+           :aria-modal="notificationCenterOpen.toString()"
+           :inert="!notificationCenterOpen"
            :class="{
              'is-animating': notificationCenterAnimating,
              'is-opening': notificationCenterMotionPhase === 'opening',
@@ -574,7 +576,7 @@
        th:if="${!#lists.isEmpty(menuItem.children)}"
        th:id="${dropdownId}"
        x-show="open"
-       x-transition.opacity.duration.75ms
+       x-transition.opacity.duration.100ms
        style="display: none;"
        class="menubar-dropdown"
        role="menu">
@@ -598,7 +600,7 @@
          class="menubar-dropdown-item"
          role="menuitem"
          th:classappend="${child.spec.target?.name() == 'BLANK' ? '' : 'pjax-link'}"
-         @click="open = false; $dispatch('theme-menubar-close')">
+         @click="closeMenu(); $dispatch('theme-menubar-close')">
         <span class="menubar-dropdown-leading">
           <img th:if="${childIconType == 'image' and childImageAllowed}"
                class="menubar-dropdown-icon-image"
@@ -628,6 +630,10 @@
   <div th:fragment="mobile_dropdown (headerMenu, searchWidgetAvailable, searchEnabled, authEnabled, mobileMenuEnabled)"
        th:if="${headerMenu != null and !#lists.isEmpty(headerMenu.menuItems)}"
        x-show="mobileMenuOpen && mobileMenuEnabled"
+       id="menubar-mobile-menu"
+       x-ref="mobileMenuPanel"
+       @keydown="handleMobileMenuKeydown($event)"
+       @focusout="if (!$el.contains($event.relatedTarget) && $event.relatedTarget !== $refs.mobileMenuTrigger) closeMobileMenu()"
        x-transition.opacity.duration.100ms
        @click.outside="closeMobileMenu()"
        style="display: none;"

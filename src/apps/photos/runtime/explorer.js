@@ -244,8 +244,7 @@ export function registerPhotosExplorer(Alpine) {
       const onInfoToggle = () => this.toggleInfo();
       const onCommentsToggle = () => this.toggleComments();
       const onCommentsClose = () => {
-        this.commentsOpen = false;
-        this.syncDetailChromeControls();
+        this.setCommentsOpen(false, { restoreFocus: true });
       };
 
       surface.addEventListener('click', onControlClick);
@@ -648,15 +647,56 @@ export function registerPhotosExplorer(Alpine) {
         image.setAttribute('aria-hidden', 'true');
       };
       const currentFilmstripItem = this.$el?.querySelector('.photos-detail-neighbor.is-current');
+      // PJAX moves focus to this heading after each detail navigation.
+      const detailHeading = shell.querySelector(':scope > h1');
+      const isBrowsingTarget = (target) => Boolean(
+        target?.nodeType === 1 && (stage.contains(target) || filmstrip?.contains(target)
+          || target === detailHeading || target === shell || target === windowSurface
+          || (target.matches?.('[data-window-content-root]') && windowSurface.contains(target)))
+      );
+      const isDocumentTarget = (target) => target === document.body || target === document.documentElement;
+      // Clicking a non-focusable photo leaves focus on body. Keep that browsing
+      // intent until pointer or keyboard focus moves to another desktop region.
+      let bodyNavigationOwned = isDocumentTarget(document.activeElement) || isBrowsingTarget(document.activeElement);
+      const onKeyboardRegionChange = (event) => {
+        bodyNavigationOwned = isBrowsingTarget(event.target);
+      };
       const onKeyDown = (event) => {
-        wakeFilmstrip({ force: true });
         if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
-        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
-        if (event.target?.closest?.('input, textarea, select, button, [contenteditable="true"]')) return;
+        if (event.key === 'Escape' && this._getWindowSurface()?.contains(event.target)) {
+          if (this.commentsOpen && (!this.infoOpen || event.target.closest('.photos-detail-comment-drawer'))) {
+            this.setCommentsOpen(false, { restoreFocus: true });
+          } else if (this.infoOpen) this.setInfoOpen(false, { restoreFocus: true });
+          else return;
+          wakeFilmstrip({ force: true });
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+        if (event.key !== 'Tab' && event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+        if (event.repeat) return;
+        const manager = this.$store?.windowManager;
+        if (this._destroyed || !shell.isConnected || document.hidden
+          || manager?.show === false || manager?.minimized || manager?.isAnimating
+          || windowSurface.closest('[inert]') || !windowSurface.getClientRects().length
+          || window.getComputedStyle(windowSurface).visibility !== 'visible') return;
+        if (event.key === 'Tab') {
+          if (windowSurface.contains(event.target) || (isDocumentTarget(event.target) && bodyNavigationOwned)) {
+            wakeFilmstrip({ force: true });
+          }
+          return;
+        }
+        if (!isBrowsingTarget(event.target)
+          && !(isDocumentTarget(event.target) && bodyNavigationOwned)) return;
+        // Official comment editors live in Shadow DOM; event.target alone is
+        // retargeted to the widget host and cannot identify its text controls.
+        const eventPath = event.composedPath?.() || [event.target];
+        if (eventPath.some((node) => node?.matches?.('input, textarea, select, button, [contenteditable]:not([contenteditable="false"])'))) return;
 
         const direction = event.key === 'ArrowLeft' ? '上一张' : '下一张';
         const adjacentLink = stage.querySelector(`.photos-detail-adjacent-btn[aria-label="${direction}"]:not(.is-disabled)`);
         if (!adjacentLink) return;
+        wakeFilmstrip({ force: true });
         event.preventDefault();
         adjacentLink.click();
       };
@@ -673,6 +713,8 @@ export function registerPhotosExplorer(Alpine) {
         else onImageError();
       }
       window.addEventListener('keydown', onKeyDown);
+      document.addEventListener('pointerdown', onKeyboardRegionChange, true);
+      document.addEventListener('focusin', onKeyboardRegionChange, true);
       if (filmstrip) {
         shell.dataset.photosFilmstripIdleDelay = String(DETAIL_FILMSTRIP_IDLE_DELAY_MS);
         setFilmstripHidden(false);
@@ -716,6 +758,8 @@ export function registerPhotosExplorer(Alpine) {
         image.removeEventListener('load', onImageLoad);
         image.removeEventListener('error', onImageError);
         window.removeEventListener('keydown', onKeyDown);
+        document.removeEventListener('pointerdown', onKeyboardRegionChange, true);
+        document.removeEventListener('focusin', onKeyboardRegionChange, true);
         if (filmstrip) {
           activitySurface?.removeEventListener('pointermove', onPointerMoveActivity);
           activitySurface?.removeEventListener('pointerdown', onDirectActivity);
@@ -742,13 +786,35 @@ export function registerPhotosExplorer(Alpine) {
     },
 
     toggleInfo() {
-      this.infoOpen = !this.infoOpen;
+      this.setInfoOpen(!this.infoOpen, { restoreFocus: this.infoOpen });
+    },
+
+    setInfoOpen(open, { restoreFocus = false } = {}) {
+      this.infoOpen = open;
       this.syncDetailChromeControls();
+      if (open) {
+        this._queueLayoutUpdate(() => {
+          if (this.infoOpen) this.$el.querySelector('.photos-detail-popover')?.focus({ preventScroll: true });
+        });
+      } else if (restoreFocus) {
+        this._getWindowSurface()?.querySelector('[data-photos-detail-info-btn]')?.focus({ preventScroll: true });
+      }
     },
 
     toggleComments() {
-      this.commentsOpen = !this.commentsOpen;
+      this.setCommentsOpen(!this.commentsOpen, { restoreFocus: this.commentsOpen });
+    },
+
+    setCommentsOpen(open, { restoreFocus = false } = {}) {
+      this.commentsOpen = open;
       this.syncDetailChromeControls();
+      if (open) {
+        this._queueLayoutUpdate(() => {
+          if (this.commentsOpen) this.$el.querySelector('.photos-detail-comment-head button')?.focus({ preventScroll: true });
+        });
+      } else if (restoreFocus) {
+        this._getWindowSurface()?.querySelector('[data-photos-detail-comments-btn]')?.focus({ preventScroll: true });
+      }
     },
 
     syncDetailChromeControls() {
@@ -780,12 +846,14 @@ export function registerPhotosExplorer(Alpine) {
       if (infoButton) {
         infoButton.classList.toggle('is-active', this.infoOpen);
         infoButton.setAttribute('aria-pressed', this.infoOpen ? 'true' : 'false');
+        infoButton.setAttribute('aria-expanded', this.infoOpen ? 'true' : 'false');
       }
 
       const commentsButton = surface.querySelector('[data-photos-detail-comments-btn]');
       if (commentsButton) {
         commentsButton.classList.toggle('is-active', this.commentsOpen);
         commentsButton.setAttribute('aria-pressed', this.commentsOpen ? 'true' : 'false');
+        commentsButton.setAttribute('aria-expanded', this.commentsOpen ? 'true' : 'false');
       }
     },
 

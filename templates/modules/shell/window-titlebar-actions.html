@@ -47,9 +47,20 @@
     <span th:classappend="${feedbackClasses != null ? feedbackClasses : 'window-toolbar-feedback'}"
           x-show="shareFeedback"
           x-text="shareFeedback"
+          role="status"
+          aria-live="polite"
           style="display: none;"></span>
-    <div class="window-share relative flex items-center">
+    <div class="window-share relative flex items-center"
+         x-id="['share-panel']"
+         @keydown.escape="handleShareEscape($event)"
+         @focusout="if ($event.relatedTarget && !$el.contains($event.relatedTarget)) closeSharePanel({ restoreFocus: false })">
       <button @click.stop="toggleSharePanel()"
+              type="button"
+              x-ref="shareTrigger"
+              :aria-expanded="shareOpen.toString()"
+              :aria-controls="$id('share-panel')"
+              aria-haspopup="dialog"
+              aria-label="分享链接"
               th:classappend="${buttonClasses != null ? buttonClasses : 'window-toolbar-btn window-accent-action p-1.5 rounded-md'}"
               title="分享">
         <span class="icon-[lucide--share]"
@@ -58,6 +69,10 @@
       </button>
 
       <div class="share-panel"
+           :id="$id('share-panel')"
+           x-ref="sharePanel"
+           role="dialog"
+           aria-label="分享链接"
            x-show="shareOpen"
            x-transition:enter="transition ease-out duration-180"
            x-transition:enter-start="opacity-0 translate-y-1 scale-[0.98]"
@@ -65,8 +80,7 @@
            x-transition:leave="transition ease-in duration-120"
            x-transition:leave-start="opacity-100 translate-y-0 scale-100"
            x-transition:leave-end="opacity-0 translate-y-1 scale-[0.98]"
-           @click.outside="closeSharePanel()"
-           @keydown.escape.window="closeSharePanel()"
+           @click.outside="closeSharePanel({ restoreFocus: false })"
            style="display: none;">
         <div class="share-panel-preview">
           <div class="share-panel-host" x-text="shareMeta.host || '分享链接'"></div>

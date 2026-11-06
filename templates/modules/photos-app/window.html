@@ -127,6 +127,9 @@
                           class="photos-titlebar-btn"
                           data-photos-detail-info-btn
                           data-photos-control="info-toggle"
+                          aria-label="图片详情"
+                          aria-controls="photos-detail-info-panel"
+                          aria-expanded="false"
                           title="详情">
                     <span class="icon-[lucide--info] w-[16px] h-[16px]" aria-hidden="true"></span>
                   </button>
@@ -135,6 +138,8 @@
                           th:if="${haloCommentEnabled}"
                           data-photos-detail-comments-btn
                           data-photos-control="comments-toggle"
+                          aria-controls="photos-detail-comments-panel"
+                          aria-expanded="false"
                           aria-label="评论"
                           title="评论">
                     <span class="icon-[lucide--message-circle] w-[16px] h-[16px]" aria-hidden="true"></span>

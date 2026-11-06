@@ -1844,6 +1844,11 @@ try {
       set src(value) {
         this.currentSrc = value;
       }
+
+      removeAttribute(name) {
+        if (name === 'src') this.currentSrc = '';
+        if (name === 'srcset') this.srcset = '';
+      }
     };
   });
   try {

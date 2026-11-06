@@ -3620,6 +3620,16 @@ html.photos-shared-view-transition {
 
   html.photos-shared-view-transition::view-transition-image-pair(photos-active-photo) {
     isolation: isolate;
+    overflow: clip;
+  }
+
+  /* Portrait cards and wide figures have different snapshot aspect ratios.
+     Bound both replaced images to the animated group without stretching them. */
+  html.photos-shared-view-transition::view-transition-old(photos-active-photo),
+  html.photos-shared-view-transition::view-transition-new(photos-active-photo) {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
   }
 
   html.photos-shared-view-transition::view-transition-old(root) {

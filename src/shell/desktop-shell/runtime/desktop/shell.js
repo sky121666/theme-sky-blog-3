@@ -27,7 +27,7 @@ const FLOATING_SCROLLBAR_SELECTOR = [
   '.categories-preview-scroll',
   '.category-posts-scroll',
   '.category-preview-scroll',
-  '.desktop-widgets-grid-shell',
+  '.desktop-widgets-grid-shell:not([data-early-desktop-grid-shell])',
   '.desktop-widget-center-grid'
 ].join(', ');
 
@@ -348,7 +348,10 @@ export function registerShellComponents(Alpine) {
   window.addEventListener('keydown', (event) => {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
       if (!isHeaderSearchEnabled()) return;
-      if (openSearchWidget()) {
+      const menubar = document.querySelector('.menubar');
+      const menu = menubar ? Alpine.$data(menubar) : null;
+      const opened = typeof menu?.openSearch === 'function' ? menu.openSearch() : openSearchWidget();
+      if (opened) {
         event.preventDefault();
       }
     }

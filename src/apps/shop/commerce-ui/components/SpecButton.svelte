@@ -20,12 +20,16 @@ function closePreview() {
 onDestroy(() => zoomDialog?.close());
 </script>
 
+<div class="buy-box__spec-choice">
 <button
+  type="button"
   class="buy-box__spec-option"
   class:buy-box__spec-option--selected={isSelected}
   class:buy-box__spec-option--disabled={!isAvailable}
   class:buy-box__spec-option--with-image={imageUrl}
   disabled={!isAvailable}
+  aria-label={value}
+  aria-pressed={!!isSelected}
   {onclick}
 >
   {#if imageUrl}
@@ -35,19 +39,22 @@ onDestroy(() => zoomDialog?.close());
       alt={value}
       class="buy-box__spec-option-image"
     />
-    <div
-      role="button"
-      tabindex="0"
-      class="buy-box__spec-option-zoom"
-      aria-label={$i18n.t('common.viewLargeImage')}
-      onclick={handleZoomClick}
-      onkeydown={(e) => e.key === 'Enter' && handleZoomClick(e)}
-    >
-      {@html MingcuteSearch3Line}
-    </div>
   {/if}
   <span class="buy-box__spec-option-text">{value}</span>
 </button>
+  {#if imageUrl}
+    <button
+      type="button"
+      class="buy-box__spec-option-zoom"
+      aria-label={`${$i18n.t('common.viewLargeImage')}：${value}`}
+      aria-haspopup="dialog"
+      aria-expanded={previewOpen}
+      onclick={handleZoomClick}
+    >
+      {@html MingcuteSearch3Line}
+    </button>
+  {/if}
+</div>
 
 
 <dialog bind:this={zoomDialog} class="shop-spec-preview" aria-label={$i18n.t('common.viewLargeImage')} onclose={() => previewOpen = false}>
@@ -60,6 +67,14 @@ onDestroy(() => zoomDialog?.close());
 </dialog>
 
 <style>
+  .buy-box__spec-choice { position: relative; display: inline-flex; max-width: 100%; }
+  .buy-box__spec-choice:hover .buy-box__spec-option-zoom,
+  .buy-box__spec-choice:focus-within .buy-box__spec-option-zoom { opacity: 1; }
+  .buy-box__spec-option-zoom { border: 0; cursor: zoom-in; }
+  .buy-box__spec-option:focus-visible,
+  .buy-box__spec-option-zoom:focus-visible,
+  .shop-spec-preview__close:focus-visible { outline: 2px solid var(--shop-accent, var(--shop-color-primary)); outline-offset: 3px; }
+  @media (hover: none) { .buy-box__spec-option-zoom { opacity: 1; } }
   .shop-spec-preview {
     width: fit-content;
     max-width: min(90vw, 960px);

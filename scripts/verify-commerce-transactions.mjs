@@ -205,7 +205,7 @@ try {
         if (scene === 'checkout') {
           await page.locator('#address-selector').selectOption('');
           await page.locator('#lastName').waitFor();
-          await page.locator('#province option').waitFor({ state: 'attached' });
+          await page.locator('#province option[value="990000"]').waitFor({ state: 'attached' });
           check('official new shipping address fields render', await page.locator('[name="userAddress.lastName"]').count() === 1 && await page.locator('[name="userAddress.streetAddress"]').count() === 1);
           const formWidth = await page.evaluate(() => { const main = document.querySelector('.shop-main'); return [main.scrollWidth, main.clientWidth]; });
           check('new address form has no horizontal overflow', formWidth[0] <= formWidth[1] + 1, formWidth);

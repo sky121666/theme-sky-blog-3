@@ -1002,7 +1002,7 @@
               <!-- 最小化的应用图标 -->
               <button id="minimized-dock-icon" type="button" class="dock-icon group cursor-pointer relative shrink-0" 
                  :aria-label="'恢复：' + $store.windowManager.title"
-                 @click.stop="$store.windowManager.restore()">
+                 @click.stop="$store.windowManager.open($store.windowManager.title)">
                <!-- Hover Label -->
                <div class="dock-tooltip" x-show="$el.closest('.dock-container').dataset.showLabels === 'true'" x-text="$store.windowManager.title"></div>
                <!-- 缩略图图标 (macOS 窗口微缩) -->

@@ -483,6 +483,122 @@ export function registerWindowManager(Alpine) {
     }
   });
 
+  // Each desktop dropdown owns pointer intent and keyboard navigation together.
+  Alpine.data('desktopMenu', () => ({
+    open: false,
+    hoverOpened: false,
+    focusGeneration: 0,
+    typeahead: '',
+    typeaheadAt: 0,
+    menuItems() {
+      return Array.from(this.$el.querySelectorAll('.menubar-dropdown-item')).filter((item) => (
+        item.getAttribute('aria-disabled') !== 'true' && item.getClientRects().length > 0
+      ));
+    },
+    openMenu({ focus = '' } = {}) {
+      const generation = ++this.focusGeneration;
+      const siblings = this.$el.parentElement?.querySelectorAll('.menubar-menu-group') || [];
+      for (const group of siblings) {
+        if (group !== this.$el) Alpine.$data(group)?.closeMenu();
+      }
+      this.open = true;
+      if (!focus) return;
+      this.hoverOpened = false;
+      this.$nextTick(() => {
+        if (!this.open || generation !== this.focusGeneration) return;
+        const items = this.menuItems();
+        (focus === 'last' ? items.at(-1) : items[0])?.focus({ preventScroll: true });
+      });
+    },
+    closeMenu({ restoreFocus = false } = {}) {
+      this.focusGeneration += 1;
+      this.open = false;
+      this.hoverOpened = false;
+      this.typeahead = '';
+      if (restoreFocus) this.$refs.trigger?.focus({ preventScroll: true });
+    },
+    openOnHover(event) {
+      if (event.pointerType !== 'mouse' || !window.matchMedia?.('(hover: hover) and (pointer: fine)').matches) return;
+      if (!this.$refs.trigger || this.open) return;
+      this.hoverOpened = true;
+      this.openMenu();
+    },
+    closeOnLeave() {
+      if (!this.$el.contains(document.activeElement)) this.closeMenu();
+    },
+    toggleMenu(event) {
+      // A click confirms the pointer preview; it must not immediately reverse it.
+      if (this.open && this.hoverOpened && event.detail > 0) {
+        this.hoverOpened = false;
+        return;
+      }
+      this.hoverOpened = false;
+      if (this.open) this.closeMenu({ restoreFocus: true });
+      else this.openMenu({ focus: event.detail === 0 ? 'first' : '' });
+    },
+    moveToSiblingMenu(direction) {
+      const groups = Array.from(this.$el.parentElement.querySelectorAll('.menubar-menu-group'));
+      const index = groups.indexOf(this.$el);
+      if (index < 0 || groups.length < 2) return;
+      const nextGroup = groups[(index + direction + groups.length) % groups.length];
+      const trigger = nextGroup.querySelector('.menubar-item--desktop');
+      this.closeMenu();
+      trigger?.focus({ preventScroll: true });
+      const nextMenu = Alpine.$data(nextGroup);
+      if (nextMenu?.$refs?.trigger) nextMenu.openMenu({ focus: 'first' });
+    },
+    handleMenuKeydown(event) {
+      if (event.altKey || event.metaKey || event.ctrlKey || event.isComposing) return;
+      const key = event.key;
+      if (key === 'Escape') {
+        if (!this.open) return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.closeMenu({ restoreFocus: true });
+        return;
+      }
+      if (key === 'Tab') {
+        if (this.open) this.closeMenu({ restoreFocus: true });
+        return;
+      }
+      if (key === 'ArrowRight' || key === 'ArrowLeft') {
+        event.preventDefault();
+        this.moveToSiblingMenu(key === 'ArrowRight' ? 1 : -1);
+        return;
+      }
+      if (!this.$refs.trigger) return;
+      if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(key)) {
+        event.preventDefault();
+        if (!this.open || document.activeElement === this.$refs.trigger) {
+          this.openMenu({ focus: key === 'ArrowUp' || key === 'End' ? 'last' : 'first' });
+          return;
+        }
+        const items = this.menuItems();
+        if (!items.length) return;
+        const index = items.indexOf(document.activeElement);
+        const nextIndex = key === 'Home' ? 0 : key === 'End' ? items.length - 1
+          : (index + (key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+        items[nextIndex]?.focus({ preventScroll: true });
+        return;
+      }
+      if (this.open && key.length === 1 && key.trim()) {
+        const now = Date.now();
+        this.typeahead = now - this.typeaheadAt < 600 ? this.typeahead + key.toLocaleLowerCase() : key.toLocaleLowerCase();
+        this.typeaheadAt = now;
+        const items = this.menuItems();
+        const index = items.indexOf(document.activeElement);
+        const ordered = items.slice(index + 1).concat(items.slice(0, index + 1));
+        const query = Array.from(this.typeahead).every((letter) => letter === this.typeahead[0])
+          ? this.typeahead[0] : this.typeahead;
+        const match = ordered.find((item) => item.textContent.trim().toLocaleLowerCase().startsWith(query));
+        if (match) {
+          event.preventDefault();
+          match.focus({ preventScroll: true });
+        }
+      }
+    }
+  }));
+
   // =========== 菜单栏 ===========
   Alpine.data('menuBar', () => ({
     timeStr: '',
@@ -689,8 +805,8 @@ export function registerWindowManager(Alpine) {
         this.draggingWidgetKey = active ? event.detail?.key || null : null;
       };
       this.handleEscape = (event) => {
-        if (event.key === 'Escape') {
-          this.closeMobileMenu();
+        if (event.key === 'Escape' && !event.defaultPrevented) {
+          this.closeMobileMenu({ restoreFocus: true });
           if (this.notificationGroupMenuKey) {
             this.closeNotificationGroupMenu();
             return;
@@ -759,16 +875,45 @@ export function registerWindowManager(Alpine) {
       document.body.classList.remove('notification-center-open');
     },
     openSearch() {
-      if (!this.searchEnabled) return;
-      this.closeMobileMenu();
-      openSearchWidget();
+      if (!this.searchEnabled || typeof window.SearchWidget?.open !== 'function') return false;
+      this.closeMobileMenu({ restoreFocus: false });
+      void this.closeNotificationCenter({ restoreFocus: false });
+      return openSearchWidget();
     },
-    toggleMobileMenu() {
+    toggleMobileMenu(event) {
       if (!this.mobileMenuEnabled) return;
-      this.mobileMenuOpen = !this.mobileMenuOpen;
+      if (this.mobileMenuOpen) {
+        this.closeMobileMenu({ restoreFocus: true });
+        return;
+      }
+      void this.closeNotificationCenter({ restoreFocus: false });
+      this.mobileMenuOpen = true;
+      if (event?.detail !== 0) return;
+      this.$nextTick(() => {
+        if (this.mobileMenuOpen) this.$refs.mobileMenuPanel?.querySelector('a[href]')?.focus({ preventScroll: true });
+      });
     },
-    closeMobileMenu() {
+    closeMobileMenu({ restoreFocus = false } = {}) {
+      const ownsFocus = this.$refs.mobileMenuPanel?.contains(document.activeElement);
       this.mobileMenuOpen = false;
+      if (restoreFocus && ownsFocus) this.$refs.mobileMenuTrigger?.focus({ preventScroll: true });
+    },
+    handleMobileMenuKeydown(event) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        this.closeMobileMenu({ restoreFocus: true });
+        return;
+      }
+      if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+      const items = Array.from(this.$refs.mobileMenuPanel?.querySelectorAll('a[href]') || [])
+        .filter((item) => item.getClientRects().length > 0);
+      if (!items.length) return;
+      event.preventDefault();
+      const index = items.indexOf(document.activeElement);
+      const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1
+        : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+      items[nextIndex]?.focus({ preventScroll: true });
     },
     toggleNotificationCenter() {
       if (this.notificationCenterOpen) {
@@ -805,8 +950,9 @@ export function registerWindowManager(Alpine) {
       }
       const activeElement = document.activeElement;
       this.notificationCenterRestoreFocusEl = activeElement && activeElement !== document.body
+        && !this.$refs.notificationCenterPanel?.contains(activeElement)
         ? activeElement
-        : this.$refs.notificationCenterTrigger || null;
+        : this.notificationCenterRestoreFocusEl || this.$refs.notificationCenterTrigger || this.$refs.notificationCenterFallbackTrigger || null;
       const token = ++this.notificationMotionToken;
       this.notificationExpandedGroupKey = '';
       this.notificationGroupDisplayLimits = {};
@@ -820,6 +966,7 @@ export function registerWindowManager(Alpine) {
       this.notificationCenterMotionPhase = 'opening';
       document.body.classList.add('notification-center-open');
       await this.$nextTick();
+      if (token !== this.notificationMotionToken || !this.notificationCenterOpen) return;
       if (this.$refs.notificationCenterScroll) {
         this.$refs.notificationCenterScroll.scrollTop = 0;
       } else if (this.$refs.notificationCenterPanel) {
@@ -839,8 +986,9 @@ export function registerWindowManager(Alpine) {
       this.notificationCenterAnimating = false;
       this.notificationCenterMotionPhase = 'idle';
     },
-    async closeNotificationCenter() {
+    async closeNotificationCenter({ restoreFocus = true } = {}) {
       if (!this.notificationCenterVisible && !this.notificationCenterOpen) return;
+      if (!restoreFocus) this.notificationCenterRestoreFocusEl = null;
       const token = ++this.notificationMotionToken;
       this.notificationGroupMotionToken += 1;
       this.notificationOpenScrollPending = false;
@@ -850,6 +998,7 @@ export function registerWindowManager(Alpine) {
       this.notificationCenterAnimating = true;
       this.notificationCenterMotionPhase = 'closing';
       await this.$nextTick();
+      if (token !== this.notificationMotionToken) return;
       await this.notificationMotion?.close(this.$refs.notificationCenterPanel);
       if (token !== this.notificationMotionToken) return;
       this.notificationCenterVisible = false;
@@ -863,7 +1012,10 @@ export function registerWindowManager(Alpine) {
       document.body.classList.remove('notification-center-open');
       const restoreTarget = this.notificationCenterRestoreFocusEl;
       this.notificationCenterRestoreFocusEl = null;
-      if (restoreTarget?.isConnected && typeof restoreTarget.focus === 'function') {
+      const activeElement = document.activeElement;
+      const panelOwnsFocus = activeElement === document.body
+        || this.$refs.notificationCenterPanel?.contains(activeElement);
+      if (restoreFocus && panelOwnsFocus && restoreTarget?.isConnected && typeof restoreTarget.focus === 'function') {
         restoreTarget.focus({ preventScroll: true });
       }
     },
@@ -2029,6 +2181,7 @@ export function registerWindowManager(Alpine) {
     title: document.title,
     isAnimating: false,
     animationToken: 0,
+    animationController: null,
     pendingOpenTitle: '',
     pendingOpenRequested: false,
     desktopFocusResizeHandler: null,
@@ -2054,6 +2207,7 @@ export function registerWindowManager(Alpine) {
     },
 
     destroy() {
+      this.invalidateAnimation();
       if (this.desktopFocusResizeHandler) window.removeEventListener('resize', this.desktopFocusResizeHandler);
       this.desktopFocusResizeHandler = null;
       const surface = document.querySelector('.desktop-surface');
@@ -2140,6 +2294,8 @@ export function registerWindowManager(Alpine) {
 
     invalidateAnimation() {
       this.animationToken += 1;
+      this.animationController?.abort();
+      this.animationController = null;
       this.isAnimating = false;
     },
 
@@ -2158,8 +2314,7 @@ export function registerWindowManager(Alpine) {
       wmLog('showDesktop');
       this.show = false;
       this.minimized = false;
-      this.isAnimating = false;
-      this.animationToken += 1;
+      this.invalidateAnimation();
       this.pendingOpenRequested = false;
       this.pendingOpenTitle = '';
       this.sync();
@@ -2181,7 +2336,9 @@ export function registerWindowManager(Alpine) {
       this.minimized = false;
       this.sync();
 
+      const animationToken = this.animationToken;
       setTimeout(() => {
+        if (animationToken !== this.animationToken || !this.show || this.minimized) return;
         const winEl = this.restoreWindowSurface();
         if (winEl) {
           winEl.style.transition = 'none';
@@ -2193,7 +2350,7 @@ export function registerWindowManager(Alpine) {
       wmLog('hide');
       this.show = false;
       this.minimized = false;
-      this.isAnimating = false;
+      this.invalidateAnimation();
       this.pendingOpenRequested = false;
       this.pendingOpenTitle = '';
       this.sync();
@@ -2205,12 +2362,15 @@ export function registerWindowManager(Alpine) {
       const winEl = document.querySelector('[data-window-surface]');
       if (!winEl) return;
       const animationToken = ++this.animationToken;
+      const controller = new AbortController();
+      this.animationController = controller;
 
       this.minimized = true;
       this.sync();
       this.isAnimating = true;
 
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      if (animationToken !== this.animationToken || !this.minimized || !this.show || winEl.isConnected === false) return;
 
       const dockIcon = document.getElementById('minimized-dock-icon');
       if (!dockIcon) {
@@ -2218,6 +2378,7 @@ export function registerWindowManager(Alpine) {
         winEl.style.opacity = '1';
         winEl.style.transform = 'none';
         winEl.style.pointerEvents = 'none';
+        this.animationController = null;
         this.isAnimating = false;
         this.flushPendingOpen();
         return;
@@ -2226,7 +2387,8 @@ export function registerWindowManager(Alpine) {
       const animPromise = runGenieAnimation({
         windowEl: winEl,
         dockEl: dockIcon,
-        action: 'minimize'
+        action: 'minimize',
+        signal: controller.signal
       });
       winEl.style.visibility = 'hidden';
       const titlebar = winEl.querySelector('[data-window-titlebar]');
@@ -2250,14 +2412,21 @@ export function registerWindowManager(Alpine) {
       }
 
       this.isAnimating = false;
+      this.animationController = null;
       this.flushPendingOpen();
     },
 
     async restore(nextTitle) {
        wmLog('restore', { nextTitle });
        if (nextTitle) this.title = nextTitle;
-       if (this.isAnimating || !this.minimized) return;
+       if (this.isAnimating) {
+         if (this.minimized) this.queueOpen(nextTitle);
+         return;
+       }
+       if (!this.minimized) return;
        const animationToken = ++this.animationToken;
+       const controller = new AbortController();
+       this.animationController = controller;
        this.isAnimating = true;
        this.show = true;
 
@@ -2277,6 +2446,7 @@ export function registerWindowManager(Alpine) {
            windowEl: winEl,
            dockEl: dockIcon,
            action: 'restore',
+           signal: controller.signal,
            onBeforeFinish: () => {
              if (animationToken === this.animationToken) {
                this.restoreWindowSurface();
@@ -2290,6 +2460,7 @@ export function registerWindowManager(Alpine) {
 
          this.minimized = false;
          this.isAnimating = false;
+         this.animationController = null;
          this.sync();
        } else {
          if (animationToken !== this.animationToken) {
@@ -2298,6 +2469,7 @@ export function registerWindowManager(Alpine) {
          this.restoreWindowSurface();
          this.minimized = false;
          this.isAnimating = false;
+         this.animationController = null;
          this.sync();
        }
 

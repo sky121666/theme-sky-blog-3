@@ -44,6 +44,19 @@ export function initPostOutline(root = document) {
   }
 
   const mobileManaged = !!(mobileTrigger && mobileSheet && mobileBackdrop && mobileList && mobileHandle);
+  const windowSurface = frame.closest('.macos-window');
+  const isolatedSiblings = new Map();
+  let sheetOpenFrame = 0;
+  let narrowObserver = null;
+
+  const focusReaderTarget = (target) => {
+    if (!target?.isConnected) return;
+    if (!target.hasAttribute('tabindex')) {
+      target.setAttribute('tabindex', '-1');
+      target.addEventListener('blur', () => target.removeAttribute('tabindex'), { once: true });
+    }
+    target.focus({ preventScroll: true });
+  };
 
   const headings = Array.from(article.querySelectorAll('h2, h3, h4'))
     .filter((heading) => extractTextPreview(heading.textContent || ''));
@@ -53,8 +66,14 @@ export function initPostOutline(root = document) {
     mobileList.innerHTML = '';
   }
 
-  const closeMobileOutline = () => {
+  const closeMobileOutline = ({ restoreFocus = true } = {}) => {
     if (!mobileManaged) return;
+    const wasOpen = !mobileSheet.hidden;
+    const ownedFocus = mobileSheet.contains(document.activeElement);
+    if (sheetOpenFrame) window.cancelAnimationFrame(sheetOpenFrame);
+    sheetOpenFrame = 0;
+    isolatedSiblings.forEach((inert, node) => { node.inert = inert; });
+    isolatedSiblings.clear();
     mobileSheet.style.removeProperty('transform');
     mobileBackdrop.style.removeProperty('opacity');
     mobileSheet.hidden = true;
@@ -62,15 +81,31 @@ export function initPostOutline(root = document) {
     mobileSheet.removeAttribute('data-open');
     mobileBackdrop.removeAttribute('data-open');
     mobileSheet.removeAttribute('data-dragging');
+    mobileTrigger.setAttribute('aria-expanded', 'false');
     document.body.classList.remove('post-outline-mobile-open');
+    if (wasOpen && restoreFocus && ownedFocus) {
+      if (mobileTrigger.getClientRects().length) mobileTrigger.focus({ preventScroll: true });
+      else focusReaderTarget(frame);
+    }
   };
 
   const openMobileOutline = () => {
     if (!mobileManaged) return;
+    if (windowSurface && windowSurface.dataset.windowNarrow !== 'true') return;
+    if (!mobileSheet.hidden) return;
     window.dispatchEvent(new CustomEvent('reader:outline-open'));
     mobileSheet.hidden = false;
     mobileBackdrop.hidden = false;
-    requestAnimationFrame(() => {
+    mobileTrigger.setAttribute('aria-expanded', 'true');
+    // Only isolate this window while its compact directory sheet is open.
+    Array.from(mobileSheet.parentElement?.children || []).forEach((node) => {
+      if (node === mobileSheet || node === mobileBackdrop) return;
+      isolatedSiblings.set(node, node.inert);
+      node.inert = true;
+    });
+    mobileHandle.focus({ preventScroll: true });
+    sheetOpenFrame = window.requestAnimationFrame(() => {
+      sheetOpenFrame = 0;
       mobileSheet.style.removeProperty('transform');
       mobileBackdrop.style.removeProperty('opacity');
       mobileSheet.setAttribute('data-open', '');
@@ -78,6 +113,8 @@ export function initPostOutline(root = document) {
     });
     document.body.classList.add('post-outline-mobile-open');
   };
+
+  if (mobileManaged) mobileTrigger.setAttribute('aria-expanded', 'false');
 
   if (!headings.length) {
     outline.hidden = true;
@@ -161,7 +198,9 @@ export function initPostOutline(root = document) {
     target.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
     setActive(button.dataset.targetId || '');
     history.replaceState(history.state, '', `#${button.dataset.targetId}`);
-    closeMobileOutline();
+    const wasMobileOpen = mobileManaged && !mobileSheet.hidden;
+    closeMobileOutline({ restoreFocus: false });
+    if (wasMobileOpen) focusReaderTarget(target);
   };
 
   let mobileDragActive = false;
@@ -224,9 +263,24 @@ export function initPostOutline(root = document) {
     }
   };
 
-  const handleEscape = (event) => {
+  const handleSheetKeydown = (event) => {
+    if (!mobileManaged || mobileSheet.hidden || event.defaultPrevented) return;
     if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
       closeMobileOutline();
+    } else if (event.key === 'Tab') {
+      const controls = Array.from(mobileSheet.querySelectorAll('button, a[href], input, select, textarea, [tabindex]'))
+        .filter((node) => !node.disabled && node.tabIndex >= 0 && node.getClientRects().length);
+      const first = controls[0] || mobileSheet;
+      const last = controls.at(-1) || mobileSheet;
+      if (event.shiftKey && (document.activeElement === first || !mobileSheet.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !mobileSheet.contains(document.activeElement))) {
+        event.preventDefault();
+        first.focus();
+      }
     }
   };
   let observer = null;
@@ -240,13 +294,14 @@ export function initPostOutline(root = document) {
       mobileBackdrop.removeEventListener('click', closeMobileOutline);
       mobileHandle.removeEventListener('click', closeMobileOutline);
       mobileHandle.removeEventListener('pointerdown', handleMobileDragStart);
+      mobileSheet.removeEventListener('keydown', handleSheetKeydown);
       window.removeEventListener('pointermove', handleMobileDragMove);
       window.removeEventListener('pointerup', handleMobileDragEnd);
       window.removeEventListener('pointercancel', handleMobileDragEnd);
       resetMobileDrag();
-      closeMobileOutline();
+      closeMobileOutline({ restoreFocus: false });
     }
-    window.removeEventListener('keydown', handleEscape);
+    narrowObserver?.disconnect();
     if (observer) observer.disconnect();
   };
 
@@ -258,11 +313,17 @@ export function initPostOutline(root = document) {
       mobileBackdrop.addEventListener('click', closeMobileOutline);
       mobileHandle.addEventListener('click', closeMobileOutline);
       mobileHandle.addEventListener('pointerdown', handleMobileDragStart);
+      mobileSheet.addEventListener('keydown', handleSheetKeydown);
       window.addEventListener('pointermove', handleMobileDragMove);
       window.addEventListener('pointerup', handleMobileDragEnd);
       window.addEventListener('pointercancel', handleMobileDragEnd);
     }
-    window.addEventListener('keydown', handleEscape);
+    if (mobileManaged && windowSurface && typeof MutationObserver === 'function') {
+      narrowObserver = new MutationObserver(() => {
+        if (windowSurface.dataset.windowNarrow !== 'true') closeMobileOutline();
+      });
+      narrowObserver.observe(windowSurface, { attributes: true, attributeFilter: ['data-window-narrow'] });
+    }
 
     if ('IntersectionObserver' in window) {
       observer = new IntersectionObserver((entries) => {

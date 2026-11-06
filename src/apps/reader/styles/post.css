@@ -1314,8 +1314,22 @@ body[data-page-app="reader"] .post-outline-trigger[hidden] {
   display: none !important;
 }
 
+/* Keep the official floating form mounted, but clear the directory's touch area. */
+body.post-outline-mobile-open halo-contact-form-floating {
+  display: none !important;
+}
+
+body[data-page-app="reader"] .post-outline-mobile-sheet[hidden],
+body[data-page-app="reader"] .post-outline-mobile-backdrop[hidden] {
+  display: none !important;
+}
+
 body[data-page-app="reader"] .macos-window[data-window-narrow="true"] .post-outline {
   display: none !important;
+}
+
+body[data-page-app="reader"] .macos-window[data-window-narrow="true"] .post-body-layout {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 body[data-page-app="reader"] .macos-window[data-window-narrow="true"] .post-outline-mobile-backdrop {
@@ -1360,18 +1374,39 @@ body[data-page-app="reader"] .macos-window[data-window-narrow="true"] .post-outl
   transition: none;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  body[data-page-app="reader"] .macos-window[data-window-narrow="true"] :is(.post-outline-mobile-sheet, .post-outline-mobile-backdrop) {
+    transition: none;
+  }
+}
+
 body[data-page-app="reader"] .macos-window[data-window-narrow="true"] .post-outline-mobile-sheet-handle {
   appearance: none;
-  width: 42px;
-  height: 4px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.16);
-  margin: 0 auto 10px;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 44px;
+  border-radius: 12px;
+  background: transparent;
+  margin: -10px auto -10px;
   flex: none;
   border: 0;
   padding: 0;
   cursor: ns-resize;
   touch-action: none;
+}
+
+body[data-page-app="reader"] .post-outline-mobile-sheet-handle::after {
+  content: '';
+  width: 42px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.16);
+}
+
+body[data-page-app="reader"] .post-outline-mobile-sheet-handle:focus-visible {
+  outline: 2px solid var(--theme-accent, #007aff);
+  outline-offset: 2px;
 }
 
 body[data-page-app="reader"] .macos-window[data-window-narrow="true"] .post-outline-mobile-header {
@@ -1420,7 +1455,7 @@ body[data-page-app="reader"] .macos-window[data-window-narrow="true"] .post-outl
   box-shadow: 0 -22px 52px rgba(0, 0, 0, 0.34);
 }
 
-.dark body[data-page-app="reader"] .macos-window[data-window-narrow="true"] .post-outline-mobile-sheet-handle {
+.dark body[data-page-app="reader"] .post-outline-mobile-sheet-handle::after {
   background: rgba(255, 255, 255, 0.18);
 }
 

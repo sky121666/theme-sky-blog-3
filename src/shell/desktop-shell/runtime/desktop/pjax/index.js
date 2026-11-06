@@ -211,7 +211,13 @@ function preloadPhotosDetailTransitionTarget(
       signal?.removeEventListener?.('abort', handleAbort);
       image.onload = null;
       image.onerror = null;
-      resolve(Boolean(ready && image.complete && image.naturalWidth > 0));
+      const usable = Boolean(ready && image.complete && image.naturalWidth > 0);
+      if (!image.complete) {
+        // Remove the fallback first so clearing srcset cannot start the original.
+        image.removeAttribute('src');
+        image.removeAttribute('srcset');
+      }
+      resolve(usable);
     };
     const decodeLoadedImage = async () => {
       try {
@@ -229,6 +235,9 @@ function preloadPhotosDetailTransitionTarget(
     image.decoding = 'async';
     image.onload = decodeLoadedImage;
     image.onerror = () => finish(false);
+    // Match the destination's responsive candidate before assigning its fallback.
+    image.sizes = targetImage.getAttribute('sizes') || '';
+    image.srcset = targetImage.getAttribute('srcset') || '';
     image.src = sourceUrl;
     if (image.complete) {
       if (image.naturalWidth > 0) void decodeLoadedImage();

@@ -4,20 +4,80 @@ function getDocsmeRoot(root) {
   return root?.querySelector?.('.docsme-app') || root?.closest?.('.docsme-app') || null;
 }
 
-function isCompactDocsmeToc() {
-  return window.matchMedia?.('(max-width: 1080px)').matches === true;
+function docsmeWindowWidth(app) {
+  return app?.clientWidth || window.innerWidth;
 }
 
-function syncDocsmeTocState(app) {
+function isCompactDocsmeToc(app) {
+  return docsmeWindowWidth(app) <= 1080;
+}
+
+function isCompactDocsmeSidebar(app) {
+  return !app.classList.contains('docsme-app--projects') && docsmeWindowWidth(app) <= 768;
+}
+
+function docsmeFocusable(root) {
+  return Array.from(root?.querySelectorAll('button, a[href], input, select, textarea, [tabindex]') || [])
+    .filter((node) => !node.disabled && node.tabIndex >= 0 && !node.closest('[inert]') && node.getClientRects().length);
+}
+
+function syncDocsmeSidebarState(app, { restoreHiddenFocus = true } = {}) {
+  const sidebar = app?.querySelector('.docsme-sidebar');
+  if (!sidebar) return;
+  const compact = isCompactDocsmeSidebar(app);
+  if (!compact) app.classList.remove('is-sidebar-open');
+  const open = compact && app.classList.contains('is-sidebar-open');
+  const focusWasInSidebar = sidebar.contains(document.activeElement);
+  sidebar.inert = compact && !open;
+  sidebar.setAttribute('aria-hidden', sidebar.inert ? 'true' : 'false');
+  app.querySelectorAll('[data-docsme-toggle-sidebar]').forEach((button) => {
+    button.setAttribute('aria-expanded', open ? 'true' : 'false');
+    button.setAttribute('aria-label', open ? '关闭文档目录' : '打开文档目录');
+  });
+  const main = app.querySelector('.docsme-main');
+  if (open) {
+    sidebar.setAttribute('role', 'dialog');
+    sidebar.setAttribute('aria-modal', 'true');
+    sidebar.setAttribute('aria-label', '文档目录');
+    if (main && app._docsmeMainInertBeforeSidebar === undefined) {
+      app._docsmeMainInertBeforeSidebar = main.inert;
+      main.inert = true;
+    }
+  } else {
+    sidebar.removeAttribute('role');
+    sidebar.removeAttribute('aria-modal');
+    sidebar.removeAttribute('aria-label');
+    if (main && app._docsmeMainInertBeforeSidebar !== undefined) main.inert = app._docsmeMainInertBeforeSidebar;
+    delete app._docsmeMainInertBeforeSidebar;
+    if (restoreHiddenFocus && sidebar.inert && focusWasInSidebar) {
+      app.querySelector('[data-docsme-toggle-sidebar]')?.focus({ preventScroll: true });
+    }
+  }
+}
+
+function closeDocsmeSidebar(app, { restoreFocus = true } = {}) {
+  if (!app?.querySelector('.docsme-sidebar')) return;
+  const wasOpen = app.classList.contains('is-sidebar-open');
+  app.classList.remove('is-sidebar-open');
+  syncDocsmeSidebarState(app, { restoreHiddenFocus: restoreFocus });
+  if (wasOpen && restoreFocus) app.querySelector('[data-docsme-toggle-sidebar]')?.focus({ preventScroll: true });
+}
+
+function syncDocsmeTocState(app, { restoreHiddenFocus = true } = {}) {
   if (!app) return;
   const toc = app.querySelector('[data-docsme-toc]');
   if (!toc) return;
   const hidden = app.classList.contains('is-toc-empty')
-    || (isCompactDocsmeToc()
+    || (isCompactDocsmeToc(app)
       ? !app.classList.contains('is-mobile-toc-open')
       : app.classList.contains('is-toc-collapsed'));
+  const ownedFocus = toc.contains(document.activeElement);
   toc.inert = hidden;
   toc.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+  if (hidden && ownedFocus && restoreHiddenFocus) {
+    docsmeFocusable(app).find((node) => node.matches('[data-docsme-toggle-toc]') && !toc.contains(node))
+      ?.focus({ preventScroll: true });
+  }
 }
 
 function isInternalDocsmeLink(anchor) {
@@ -96,7 +156,8 @@ function bindMobileSidebar(root) {
       if (!app.classList.contains('is-sidebar-open') && !app.classList.contains('is-mobile-toc-open')) return;
       if (event.target.closest('.docsme-sidebar, .docsme-toc, .docsme-toolbar-actions')) return;
 
-      app.classList.remove('is-sidebar-open', 'is-mobile-toc-open');
+      closeDocsmeSidebar(app);
+      app.classList.remove('is-mobile-toc-open');
       app.querySelectorAll('[data-docsme-toggle-toc]').forEach((button) => {
         button.setAttribute('aria-expanded', 'false');
       });
@@ -115,15 +176,46 @@ function bindMobileSidebar(root) {
         tocButton.setAttribute('aria-expanded', 'false');
       });
       app.classList.toggle('is-sidebar-open');
+      syncDocsmeSidebarState(app);
       syncDocsmeTocState(app);
+      if (app.classList.contains('is-sidebar-open')) {
+        docsmeFocusable(app.querySelector('.docsme-sidebar'))[0]?.focus({ preventScroll: true });
+      }
     });
   });
 
   root.querySelectorAll('.docsme-tree a').forEach((link) => {
     if (link.dataset.docsmeSidebarCloseBound === 'true') return;
     link.dataset.docsmeSidebarCloseBound = 'true';
-    link.addEventListener('click', () => getDocsmeRoot(root)?.classList.remove('is-sidebar-open'));
+    link.addEventListener('click', () => closeDocsmeSidebar(getDocsmeRoot(root), { restoreFocus: false }));
   });
+
+  if (app && !app._docsmeSidebarKeyHandler) {
+    app._docsmeSidebarKeyHandler = (event) => {
+      const open = isCompactDocsmeSidebar(app) && app.classList.contains('is-sidebar-open');
+      if (!open) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        closeDocsmeSidebar(app);
+      } else if (event.key === 'Tab') {
+        const sidebar = app.querySelector('.docsme-sidebar');
+        const controls = docsmeFocusable(sidebar);
+        const first = controls[0];
+        const last = controls.at(-1);
+        if (!first) { event.preventDefault(); return; }
+        if (event.shiftKey && (document.activeElement === first || !sidebar.contains(document.activeElement))) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !sidebar.contains(document.activeElement))) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    app.addEventListener('keydown', app._docsmeSidebarKeyHandler);
+  }
+  if (app) syncDocsmeSidebarState(app);
 }
 
 function bindTreeToggles(root) {
@@ -176,7 +268,7 @@ function bindTocToggles(root) {
     const isCollapsed = app.classList.contains('is-toc-collapsed');
     const isMobileOpen = app.classList.contains('is-mobile-toc-open');
     app.querySelectorAll('[data-docsme-toggle-toc]').forEach((button) => {
-      button.setAttribute('aria-expanded', isCompactDocsmeToc() ? (isMobileOpen ? 'true' : 'false') : (isCollapsed ? 'false' : 'true'));
+      button.setAttribute('aria-expanded', isCompactDocsmeToc(app) ? (isMobileOpen ? 'true' : 'false') : (isCollapsed ? 'false' : 'true'));
     });
     syncDocsmeTocState(app);
   };
@@ -185,8 +277,8 @@ function bindTocToggles(root) {
     if (button.dataset.docsmeTocToggleBound === 'true') return;
     button.dataset.docsmeTocToggleBound = 'true';
     button.addEventListener('click', () => {
-      if (isCompactDocsmeToc()) {
-        app.classList.remove('is-sidebar-open');
+      if (isCompactDocsmeToc(app)) {
+        closeDocsmeSidebar(app, { restoreFocus: false });
         app.classList.remove('is-toc-collapsed');
         app.classList.toggle('is-mobile-toc-open');
       } else {
@@ -197,10 +289,19 @@ function bindTocToggles(root) {
     });
   });
 
-  if (!app._docsmeTocMediaQuery) {
-    app._docsmeTocMediaQuery = window.matchMedia?.('(max-width: 1080px)') || null;
-    app._docsmeTocMediaHandler = () => syncTocButtons();
-    app._docsmeTocMediaQuery?.addEventListener?.('change', app._docsmeTocMediaHandler);
+  if (!app._docsmeLayoutCleanup) {
+    const syncLayout = () => {
+      syncDocsmeSidebarState(app);
+      syncTocButtons();
+    };
+    if (typeof ResizeObserver === 'function') {
+      const observer = new ResizeObserver(syncLayout);
+      observer.observe(app);
+      app._docsmeLayoutCleanup = () => observer.disconnect();
+    } else {
+      window.addEventListener('resize', syncLayout);
+      app._docsmeLayoutCleanup = () => window.removeEventListener('resize', syncLayout);
+    }
   }
   syncTocButtons();
 }
@@ -280,12 +381,17 @@ function renderToc(root) {
       }
       history.replaceState(history.state, '', `#${heading.id}`);
       const app = getDocsmeRoot(root);
-      if (app && isCompactDocsmeToc()) {
+      if (app && isCompactDocsmeToc(app)) {
         app.classList.remove('is-mobile-toc-open');
         app.querySelectorAll('[data-docsme-toggle-toc]').forEach((button) => {
           button.setAttribute('aria-expanded', 'false');
         });
-        syncDocsmeTocState(app);
+        syncDocsmeTocState(app, { restoreHiddenFocus: false });
+        if (!heading.hasAttribute('tabindex')) {
+          heading.setAttribute('tabindex', '-1');
+          heading.addEventListener('blur', () => heading.removeAttribute('tabindex'), { once: true });
+        }
+        heading.focus({ preventScroll: true });
       }
     });
     tocLinks.set(heading.id, link);
@@ -845,11 +951,13 @@ function disposeDocsmeEnhancements(root) {
   app._docsmeSearchHandler = null;
   app._docsmeThemeObserver?.disconnect?.();
   app._docsmeTocObserver?.disconnect?.();
-  app._docsmeTocMediaQuery?.removeEventListener?.('change', app._docsmeTocMediaHandler);
+  app._docsmeLayoutCleanup?.();
+  app._docsmeLayoutCleanup = null;
+  if (app._docsmeSidebarKeyHandler) app.removeEventListener('keydown', app._docsmeSidebarKeyHandler);
+  app._docsmeSidebarKeyHandler = null;
+  closeDocsmeSidebar(app, { restoreFocus: false });
   app._docsmeThemeObserver = null;
   app._docsmeTocObserver = null;
-  app._docsmeTocMediaQuery = null;
-  app._docsmeTocMediaHandler = null;
 }
 
 function setPjaxLoading(root, loading) {

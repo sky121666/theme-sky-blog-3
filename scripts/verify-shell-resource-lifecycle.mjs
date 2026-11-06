@@ -104,7 +104,7 @@ async function verifySearchObserverLifecycle() {
   setGlobal('document', fakeDocument);
   setGlobal('MutationObserver', FakeMutationObserver);
 
-  const searchUrl = pathToFileURL(path.join(root, 'src/shell/desktop-shell/runtime/desktop/search.js'));
+  const searchUrl = pathToFileURL(path.join(root, 'src/shell/desktop-shell/runtime/desktop/search-runtime.js'));
   const { openSearchWidget } = await import(`${searchUrl.href}?contract=search-lifecycle`);
 
   assert.equal(observers.length, 0, '导入搜索模块时不得启动首屏 document observer');
@@ -127,6 +127,10 @@ async function verifySearchObserverLifecycle() {
   assert.equal(observers.length, 2, '前一个 observer 结束后允许下一次打开重新观察');
   const styleNodes = new Map();
   const shadowRoot = {
+    addEventListener() {},
+    querySelector(selector) {
+      return selector === 'form' ? {} : null;
+    },
     getElementById(id) {
       return styleNodes.get(id) || null;
     },
@@ -144,8 +148,37 @@ async function verifySearchObserverLifecycle() {
 
   assert.equal(openSearchWidget(), true);
   assert.equal(observers.length, 2, '已有样式时不得创建新 observer');
-  assert.equal(styleNodes.size, 1, '重复打开不得重复注入样式');
+  assert.equal(styleNodes.size, 2, '重复打开不得重复注入模态框或旧版表单样式');
   assert.equal(animationFrames.length, 4, '每次成功调用仍应保留下一帧补扫');
+
+  // SearchWidget 1.8 renders the form inside a second, asynchronously-created
+  // shadow root. Styling the modal alone does not style its input or results.
+  const nestedStyles = new Map();
+  const nestedForm = { shadowRoot: null };
+  const modalStyles = new Map();
+  modals = [{ shadowRoot: {
+    addEventListener() {},
+    getElementById: (id) => modalStyles.get(id) || null,
+    appendChild: (style) => modalStyles.set(style.id, style),
+    querySelector: (selector) => selector === 'search-form' ? nestedForm : null,
+  } }];
+  openSearchWidget();
+  assert.equal(observers.at(-1).active, true, '嵌套表单未就绪时不能把仅模态框样式当作完成');
+  nestedForm.shadowRoot = {
+    getElementById: (id) => nestedStyles.get(id) || null,
+    appendChild: (style) => nestedStyles.set(style.id, style),
+    querySelector: (selector) => selector === 'form' ? {} : null,
+  };
+  const retry = [...timers.entries()].find(([, timer]) => timer.delay === 50);
+  assert.ok(retry, 'attachShadow 不冒泡 mutation，必须有有界的就绪补扫');
+  timers.delete(retry[0]);
+  retry[1].callback();
+  assert.ok(nestedStyles.has('mac-search-form-style'), '输入框和结果样式必须注入实际拥有它们的 shadow root');
+  assert.equal(modalStyles.size, 1);
+  assert.equal(observers.at(-1).active, false, '嵌套样式就绪后结束观察');
+  openSearchWidget();
+  assert.equal(nestedStyles.size, 1, '重复打开不能重复注入嵌套样式');
+  assert.equal([...timers.values()].some((timer) => timer.delay === 50 || timer.delay === 2000), false, '成功后不得残留轮询');
 }
 
 async function verifyFloatingScrollbarPruneLifecycle() {

@@ -19,12 +19,19 @@ import { Toaster } from "svelte-sonner";
 import { fade } from "svelte/transition";
 import i18n from "../i18n";
 let { csrfToken } = $props();
+let busyItems = $state({});
+function onItemBusyChange(id, busy) {
+  if (busy) busyItems[id] = true;
+  else delete busyItems[id];
+}
+const hasPendingItem = $derived(Object.values(busyItems).some(Boolean));
 const queryClient = new QueryClient();
 const lifecycle = createCommerceScope(queryClient);
 setQueryClientContext(queryClient);
 const query = createQuery(
   () => ({
     queryKey: ["shop:cart:items"],
+    retry: false,
     queryFn: async ({ signal }) => {
       return await ky.get("/apis/uc.api.ecommerce.halo.run/v1alpha1/cart-items", { signal }).json();
     }
@@ -59,15 +66,20 @@ const total = $derived.by(() => {
 
   <div class="shop-cart">
     {#if query.isLoading}
-      <span>{$i18n.t('common.loading')}</span>
+      <span role="status">{$i18n.t('common.loading')}</span>
     {:else if query.isError}
-      <span>{$i18n.t('cart.loadError', { message: query.error.message })}</span>
+      <div class="shop-cart__error" role="alert">
+        <p>{$i18n.t('cart.loadFailed')}</p>
+        <button type="button" class="shop-btn shop-btn-secondary shop-btn-sm" onclick={() => query.refetch()} disabled={query.isFetching}>
+          {query.isFetching ? $i18n.t('common.loading') : $i18n.t('common.retry')}
+        </button>
+      </div>
     {:else if query.data?.length === 0}
       <span>{$i18n.t('cart.empty')}</span>
     {:else}
       <div class="shop-cart__items" transition:fade={{ duration: 200 }}>
-        {#each query.data ?? [] as item}
-          <CartItem {item} />
+        {#each query.data ?? [] as item (item.id)}
+          <CartItem {item} onBusyChange={onItemBusyChange} />
         {/each}
       </div>
     {/if}
@@ -100,7 +112,7 @@ const total = $derived.by(() => {
           {/each}
           <button
             class="shop-btn shop-btn-primary shop-btn-lg"
-            disabled={!checkoutableItems.length || query.isLoading || query.isFetching}
+            disabled={!checkoutableItems.length || query.isLoading || query.isFetching || query.isPaused || query.isError || hasPendingItem}
           >
             {$i18n.t('cart.proceedToCheckout')}
           </button>

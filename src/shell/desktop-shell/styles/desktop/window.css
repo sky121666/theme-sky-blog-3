@@ -272,6 +272,12 @@
   transition: background 0.16s ease, color 0.16s ease;
 }
 
+.menubar :is(.menubar-item, .menubar-icon-btn, .menubar-auth-btn, .menubar-time, .menubar-mobile-item):focus-visible,
+:is(.window-nav-btn, .window-toolbar-btn, .share-panel button):focus-visible {
+  outline: 2px solid var(--theme-accent);
+  outline-offset: 2px;
+}
+
 .window-toolbar-feedback {
   color: var(--content-chrome-muted);
   letter-spacing: -0.04px;
@@ -298,6 +304,7 @@
 }
 
 .share-panel {
+  transform-origin: top right;
   position: absolute;
   top: calc(100% + 10px);
   right: 0;
@@ -502,15 +509,9 @@
   line-height: 1.35;
 }
 
-.window-nav-btn:hover,
-.window-toolbar-btn:hover {
+:is(.window-nav-btn, .window-toolbar-btn):is(:hover, :active) {
   background: var(--content-chrome-hover-bg);
   color: var(--content-chrome-hover-text);
-}
-
-.window-nav-btn:active,
-.window-toolbar-btn:active {
-  transform: translateY(0.5px);
 }
 
 .window-accent-action:hover {
@@ -737,6 +738,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .menubar-dropdown,
+  .menubar-mobile-dropdown,
+  .share-panel {
+    transition-duration: 0.01ms !important;
+    transform: none !important;
+  }
+
   .window-loading-overlay,
   .skeleton-bar,
   .skeleton-line,
