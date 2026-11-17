@@ -71,14 +71,17 @@
             <button type="button"
                     class="steam-main-nav-item"
                     :class="{ 'is-active': isView('profile') }"
+                    :aria-pressed="isView('profile')"
                     @click="switchView('profile')">资料</button>
             <button type="button"
                     class="steam-main-nav-item"
                     :class="{ 'is-active': isView('library') }"
+                    :aria-pressed="isView('library')"
                     @click="switchView('library')">游戏库</button>
             <button type="button"
                     class="steam-main-nav-item"
                     :class="{ 'is-active': isView('badges') }"
+                    :aria-pressed="isView('badges')"
                     @click="switchView('badges')">徽章</button>
           </nav>
         </div>
@@ -158,9 +161,9 @@
                            loading="lazy"
                            decoding="async"
                            referrerpolicy="no-referrer"
+                           onload="this.classList.add('is-loaded')"
                            onerror="const fallback=this.dataset.fallbackSrc;if(fallback&&this.src!==fallback){this.dataset.fallbackSrc='';this.src=fallback;return;}this.style.display='none';this.nextElementSibling.style.display='grid';">
-                      <span class="steam-game-image-fallback"
-                            th:style="${!#strings.isEmpty(gameImage) ? 'display:none' : ''}">
+                      <span class="steam-game-image-fallback" aria-hidden="true">
                         <span class="icon-[lucide--gamepad-2]" aria-hidden="true"></span>
                       </span>
                       <span class="steam-game-unavailable" th:if="${game.delisted == true}">不可用</span>
@@ -185,7 +188,7 @@
                   <div class="steam-heatmap-panel"
                        th:attr="data-steam-heatmap-days=${heatmapDays},data-steam-heatmap-theme=${heatmapColorTheme},data-steam-heatmap-show-legend=${heatmapShowLegend},data-steam-echarts-url=${echartsUrl}">
                     <div class="steam-heatmap-meta">
-                      <span data-steam-heatmap-summary>正在读取活跃记录</span>
+                      <span data-steam-heatmap-summary role="status" aria-live="polite">正在读取活跃记录</span>
                       <span data-steam-heatmap-range></span>
                     </div>
                     <div class="steam-heatmap-board">
@@ -194,7 +197,12 @@
                         <span>三</span>
                         <span>五</span>
                       </div>
-                      <div class="steam-heatmap-grid" data-steam-heatmap-grid aria-label="Steam 游玩活跃度"></div>
+                      <div class="steam-heatmap-grid" data-steam-heatmap-grid role="group" aria-label="Steam 游玩活跃度，方向键查看日期"
+                           @keydown="focusHeatmapDay($event)" @focusin="describeHeatmapDay($event)" @pointerover="describeHeatmapDay($event)"></div>
+                    </div>
+                    <div class="steam-heatmap-feedback">
+                      <span data-steam-heatmap-detail role="status" aria-live="polite">聚焦日期查看游玩记录</span>
+                      <button type="button" class="steam-heatmap-retry" x-show="heatmapError" x-cloak @click="renderHeatmap()">重新加载</button>
                     </div>
                     <div class="steam-heatmap-caption" th:if="${heatmapShowLegend == null or heatmapShowLegend}">
                       <span>少</span>
@@ -263,7 +271,7 @@
               <h2>游戏库</h2>
               <div class="steam-library-actions">
                 <label class="steam-search-wrap">
-                  <input type="search" placeholder="按名称搜索" x-model="searchQuery">
+                  <input type="search" placeholder="按名称搜索" aria-label="搜索已载入的游戏" x-model="searchQuery" @keydown.escape="clearSearch()">
                   <span class="icon-[lucide--search]" aria-hidden="true"></span>
                 </label>
                 <label class="steam-sort-wrap">
@@ -275,6 +283,11 @@
                   </select>
                 </label>
               </div>
+            </div>
+
+            <div class="steam-library-feedback" th:if="${hasGames}" x-show="searchQuery.trim()" x-cloak>
+              <span role="status" aria-live="polite" x-text="'已载入游戏中匹配 ' + visibleCount() + ' 款'"></span>
+              <button type="button" @click="clearSearch()">清除搜索</button>
             </div>
 
             <div class="steam-library-grid" th:if="${hasGames}">
@@ -309,9 +322,9 @@
                        loading="lazy"
                        decoding="async"
                        referrerpolicy="no-referrer"
+                       onload="this.classList.add('is-loaded')"
                        onerror="const fallback=this.dataset.fallbackSrc;if(fallback&&this.src!==fallback){this.dataset.fallbackSrc='';this.src=fallback;return;}this.style.display='none';this.nextElementSibling.style.display='grid';">
-                  <span class="steam-game-image-fallback"
-                        th:style="${!#strings.isEmpty(gameImage) ? 'display:none' : ''}">
+                  <span class="steam-game-image-fallback" aria-hidden="true">
                     <span class="icon-[lucide--gamepad-2]" aria-hidden="true"></span>
                   </span>
                 </div>
@@ -358,8 +371,7 @@
               <div class="steam-loadmore-indicator"
                    x-show="!loading && hasMore && !loadError"
                    data-steam-scroll-sentinel>
-                <span class="steam-loadmore-spinner" aria-hidden="true"></span>
-                <span>继续向下滚动加载</span>
+                <button type="button" class="steam-loadmore-button" @click="loadNext()">加载更多游戏</button>
               </div>
               <div class="steam-loadmore-error" x-show="loadError" x-cloak>
                 <span class="icon-[lucide--circle-alert]" aria-hidden="true"></span>

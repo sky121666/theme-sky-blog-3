@@ -189,11 +189,11 @@ async function inspectDocsPage(page, target) {
       const after = await firstCard.boundingBox();
       projectCardHover = await firstCard.evaluate((card, positions) => {
         const cardStyle = getComputedStyle(card);
-        const glow = card.querySelector('.docsme-project-card__glow');
+        const cover = card.querySelector('.docsme-volume__face');
         return {
           active: card.matches(':hover'),
           transform: cardStyle.transform,
-          glowFilter: glow ? getComputedStyle(glow).filter : '',
+          coverFilter: cover ? getComputedStyle(cover).filter : '',
           verticalShift: positions.before && positions.after
             ? Math.round((positions.after.y - positions.before.y) * 100) / 100
             : null
@@ -973,8 +973,8 @@ async function main() {
   if (projects.projectCardHover?.transform !== 'none') {
     projectFailures.push(`projects: hover transform=${projects.projectCardHover?.transform || 'missing'}`);
   }
-  if (projects.projectCardHover?.glowFilter !== 'none') {
-    projectFailures.push(`projects: glow filter=${projects.projectCardHover?.glowFilter || 'missing'}`);
+  if (projects.projectCardHover?.coverFilter !== 'none') {
+    projectFailures.push(`projects: cover filter=${projects.projectCardHover?.coverFilter || 'missing'}`);
   }
   if (Math.abs(projects.projectCardHover?.verticalShift || 0) > 0.1) {
     projectFailures.push(`projects: hover vertical shift=${projects.projectCardHover.verticalShift}`);

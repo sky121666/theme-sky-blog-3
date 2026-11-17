@@ -282,9 +282,9 @@ try {
           return false;
         },
       }, async ({ page, context, requests, state, result }) => {
-        const selector = page.locator('[name="selectedAddressId"]');
+        const selector = page.locator('#address-selector');
         await selector.waitFor();
-        await page.waitForFunction(() => document.querySelector('[name="selectedAddressId"]')?.value === '3901');
+        await page.waitForFunction(() => document.querySelector('#address-selector')?.value === '3901');
         await selector.selectOption(choice === 'existing' ? '3902' : '');
         if (choice === 'new') await fillAddress(page);
         await page.locator('[name="customerNotes"]').fill('地址选择与草稿应保留');
@@ -340,8 +340,8 @@ try {
       assert.equal(changed['userAddress.districtCode'], '980101');
     });
     await run(`member-address-existing-new-existing-${width}`, { width, authenticated: true }, async ({ page, requests, result }) => {
-      const selector = page.locator('[name="selectedAddressId"]'); await selector.waitFor();
-      await page.waitForFunction(() => document.querySelector('[name="selectedAddressId"]')?.value === '3901');
+      const selector = page.locator('#address-selector'); await selector.waitFor();
+      await page.waitForFunction(() => document.querySelector('#address-selector')?.value === '3901');
       assert.equal(await page.locator('input[name="email"]').count(), 0);
       let sent = await submitAndRecover(page, requests, result);
       assert.equal(sent.selectedAddressId, '3901'); assert.equal(sent.saveAsNewAddress, 'false');
@@ -361,12 +361,12 @@ try {
       assert.equal(Object.keys(sent).some(name => name.startsWith('userAddress.')), false, 'new-address fields cannot leak when switching to saved address');
     });
     await run(`checkout-selected-address-context-${width}`, { width, authenticated: true, checkout: { selectedAddressId: 3902 } }, async ({ page, requests, result }) => {
-      await page.locator('[name="selectedAddressId"] option[value="3902"]').waitFor({ state: 'attached' });
-      await page.waitForFunction(() => document.querySelector('[name="selectedAddressId"]')?.value);
-      result.observations.push({ contextSelectedAddressId: 3902, defaultAddressId: 3901, renderedAddressId: await page.locator('[name="selectedAddressId"]').inputValue() });
+      await page.locator('#address-selector option[value="3902"]').waitFor({ state: 'attached' });
+      await page.waitForFunction(() => document.querySelector('#address-selector')?.value);
+      result.observations.push({ contextSelectedAddressId: 3902, defaultAddressId: 3901, renderedAddressId: await page.locator('#address-selector').inputValue() });
       const sent = await submitAndRecover(page, requests, result);
       result.observations[0].submittedAddressId = sent.selectedAddressId;
-      const renderedAddressId = await page.locator('[name="selectedAddressId"]').inputValue();
+      const renderedAddressId = await page.locator('#address-selector').inputValue();
       assertBusinessEqual('checkout-context-address-preserved', renderedAddressId, '3902', 'explicit server checkout selectedAddressId must not be replaced by account default');
     });
     for (const first of ['context', 'addresses']) {
@@ -387,8 +387,8 @@ try {
         await firstResponse.promise;
         assert.deepEqual(result.observations, [{ loaded: first }], 'second response remains held until the first completed');
         releaseSecond.resolve();
-        await page.locator('[name="selectedAddressId"] option[value="3902"]').waitFor({ state: 'attached' });
-        await page.waitForFunction(() => document.querySelector('[name="selectedAddressId"]')?.value === '3902');
+        await page.locator('#address-selector option[value="3902"]').waitFor({ state: 'attached' });
+        await page.waitForFunction(() => document.querySelector('#address-selector')?.value === '3902');
         const sent = await submitAndRecover(page, requests, result);
         assert.equal(sent.selectedAddressId, '3902', 'both response orders must submit the context-selected address');
       });
@@ -405,8 +405,8 @@ try {
           await respond(addresses); return true;
         },
       }, async ({ page, result }) => {
-        await page.locator('[name="selectedAddressId"]').waitFor();
-        await page.waitForFunction(expected => document.querySelector('[name="selectedAddressId"]')?.value === expected, expected);
+        await page.locator('#address-selector').waitFor();
+        await page.waitForFunction(expected => document.querySelector('#address-selector')?.value === expected, expected);
         const data = await formData(page);
         assert.equal(data.selectedAddressId, expected);
         assert.equal(data.saveAsNewAddress, expected === '' ? 'true' : 'false');
@@ -425,8 +425,8 @@ try {
         return false;
       },
     }, async ({ page, requests, result }) => {
-      const selector = page.locator('[name="selectedAddressId"]');
-      await page.waitForFunction(() => document.querySelector('[name="selectedAddressId"]')?.value === '3902');
+      const selector = page.locator('#address-selector');
+      await page.waitForFunction(() => document.querySelector('#address-selector')?.value === '3902');
       await selector.selectOption('');
       await fillAddress(page);
       const draft = await formData(page);
@@ -437,11 +437,11 @@ try {
       assert.ok(requests.filter(request => request.path === contextPath).length > contextReads, 'context refresh really occurred');
       assert.deepEqual(await formData(page), draft, 'refresh must preserve explicit new-address choice and its draft');
       await page.locator('shop-page-checkout').evaluate((element, id) => element.setAttribute('contextid', id), `${fixture.contextId}-next`);
-      await page.waitForFunction(() => document.querySelector('[name="selectedAddressId"]')?.value === '3901');
+      await page.waitForFunction(() => document.querySelector('#address-selector')?.value === '3901');
       assert.equal((await formData(page)).selectedAddressId, '3901', 'new context initializes from its own saved address');
       assert.equal(await page.locator('[name="userAddress.streetAddress"]').count(), 0);
       await page.locator('shop-page-checkout').evaluate((element, id) => element.setAttribute('contextid', id), fixture.contextId);
-      await page.waitForFunction(() => document.querySelector('[name="selectedAddressId"]')?.value === '3902');
+      await page.waitForFunction(() => document.querySelector('#address-selector')?.value === '3902');
       assert.equal((await formData(page)).selectedAddressId, '3902', 'returning to the original context initializes it afresh');
       result.observations.push({ newAddressDraftSurvivedRefresh: true, contextSwitchSelections: ['3901', '3902'] });
     });

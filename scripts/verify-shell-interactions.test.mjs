@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { registerWindowManager } from '../src/shell/desktop-shell/runtime/desktop/window-manager.js';
 import { registerWindowComponents } from '../src/shell/desktop-shell/runtime/desktop/window.js';
+import './verify-window-motion.test.mjs';
 
 const globals = {
   window: globalThis.window,
@@ -104,6 +105,27 @@ function notificationFixture() {
   return { component, closeAnimation, trigger };
 }
 
+test('a closed notification panel keeps the newest layout without loading its renderers or weather', async () => {
+  const f = fixture();
+  const menu = f.components.get('menuBar')();
+  const loads = [];
+  const weather = { key: 'weather', widget: 'system.weather', surface: 'notification-center' };
+  const clock = { key: 'clock', widget: 'system.clock', surface: 'notification-center' };
+  menu.ensureNotificationWidgetRenderer = (type) => loads.push(type);
+  menu.loadNotificationWeather = () => loads.push('weather-data');
+  menu.$nextTick = () => Promise.resolve();
+  menu.$refs = {};
+  menu.notificationCenterAuthResolved = true;
+  document.body.classList.add = () => {};
+  menu.syncNotificationWidgets([clock]);
+  menu.syncNotificationWidgets([weather]);
+  assert.deepEqual(loads, []);
+  assert.deepEqual(menu.notificationWidgets, []);
+  await menu.openNotificationCenter();
+  assert.deepEqual(menu.notificationWidgets.map((item) => item.key), ['weather']);
+  assert.deepEqual(loads, ['system.weather', 'weather-data']);
+});
+
 test('notification exit preserves a new focus selected while the panel is closing', async () => {
   const f = notificationFixture();
   const pending = f.component.closeNotificationCenter();
@@ -199,17 +221,17 @@ test('navigation interrupts the running genie and removes its ghost without hidi
   assert.equal(f.manager.minimized, false);
 });
 
-test('a restore clicked during the running genie completes after minimize without a second click', async () => {
+test('a restore clicked during the running genie immediately replaces it without a second click', async () => {
   const f = animatedFixture();
   const pending = f.manager.minimize();
   f.paint();
   await Promise.resolve();
-  await f.manager.restore();
-  f.animations[1].onfinish();
+  const restoring = f.manager.restore();
   await pending;
   assert.equal(f.animations.length, 4);
+  assert.equal(f.animations[1].cancelled, true);
   f.animations[3].onfinish();
-  await Promise.resolve();
+  await restoring;
   assert.equal(f.ghosts.size, 0);
   assert.equal(f.manager.minimized, false);
   assert.equal(f.manager.isAnimating, false);

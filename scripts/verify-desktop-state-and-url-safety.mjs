@@ -177,14 +177,19 @@ try {
         assign(href) { notificationNavigations.push(href); }
       },
       pjax: {
-        loadUrl(href) { notificationNavigations.push(href); }
+        loadUrl(href) {
+          notificationNavigations.push(href);
+          document.dispatchEvent(new CustomEvent('theme:navigation-accepted', {
+            detail: { url: new URL(href, origin).href, source: 'programmatic', intentId: notificationNavigations.length }
+          }));
+        }
       },
       dispatchEvent() {}
     }
   });
   Object.defineProperty(globalThis, 'document', {
     configurable: true,
-    value: { title: 'Test', cookie: '', body: { dataset: {}, style: {} } }
+    value: Object.assign(new EventTarget(), { title: 'Test', cookie: '', body: { dataset: {}, style: {} } })
   });
 
   const makeClick = (target) => {
@@ -298,18 +303,18 @@ try {
   const secondOpen = menuBar.openNotificationItem({ id: 'second', href: '/new', unread: true });
   secondMark.resolve(true);
   await secondOpen;
-  assert.deepEqual(notificationNavigations, ['/new'], 'the latest notification click should navigate first');
+  assert.deepEqual(notificationNavigations, ['/old', '/new'], 'each accepted notification starts immediately while mark-as-read remains pending');
   assert.equal(notificationCloseCount, 1);
   firstMark.resolve(true);
   await firstOpen;
-  assert.deepEqual(notificationNavigations, ['/new'], 'a late mark-as-read response must not overwrite the latest navigation');
+  assert.deepEqual(notificationNavigations, ['/old', '/new'], 'a late mark-as-read response must not initiate another navigation');
   assert.equal(notificationCloseCount, 1, 'a stale notification click must not close the center again');
 
   menuBar.markNotificationAsRead = async () => true;
   await menuBar.openNotificationItem({ id: 'console', href: '/console/backup', unread: false });
   assert.deepEqual(
     notificationNavigations,
-    ['/new', `${origin}/console/backup`],
+    ['/old', '/new', `${origin}/console/backup`],
     'Halo console notifications must use a full navigation instead of PJAX'
   );
   const navigationCountBeforeNoHref = notificationNavigations.length;

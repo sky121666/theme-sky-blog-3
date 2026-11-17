@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { createRequire } from 'node:module';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,20 +7,10 @@ import { chromium } from 'playwright';
 // This is an isolated browser fixture. All https://theme.test responses come
 // from memory or local source files; no Halo instance or site data is touched.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const require = createRequire(import.meta.url);
-const pjaxEntry = require.resolve('pjax');
-const pjaxBundle = path.join(path.dirname(pjaxEntry), 'pjax.js');
 const alpineBundle = path.join(root, 'node_modules/alpinejs/dist/cdn.min.js');
 const origin = 'https://theme.test';
 
-assert.equal(path.basename(pjaxEntry), 'index.js', 'Vite must resolve the Pjax CommonJS package entry');
-
-const [entrySource, browserPjaxSource, alpineSource] = await Promise.all([
-  readFile(pjaxEntry, 'utf8'),
-  readFile(pjaxBundle, 'utf8'),
-  readFile(alpineBundle, 'utf8')
-]);
-assert.ok(browserPjaxSource.includes(entrySource.slice(0, 120)), 'browser Pjax bundle must contain the package CommonJS entry');
+const alpineSource = await readFile(alpineBundle, 'utf8');
 
 const browser = await chromium.launch({ headless: true });
 try {
@@ -56,30 +45,6 @@ try {
   const pageErrors = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));
   await page.goto(`${origin}/base`);
-  await page.addScriptTag({ content: browserPjaxSource });
-
-  const baseline = await page.evaluate(() => {
-    const attached = [];
-    const originalAttach = window.Pjax.prototype.attachLink;
-    window.Pjax.prototype.attachLink = function (link) {
-      attached.push(link.id);
-      return originalAttach.call(this, link);
-    };
-    const library = new window.Pjax({ elements: 'a:not(*)', selectors: ['title', '#fixture'], cacheBust: false });
-    library.refresh(document);
-    const disabledAttachCount = attached.length;
-    const negative = new window.Pjax({ elements: '', selectors: ['title'], cacheBust: false });
-    const emptySelector = negative.options.elements;
-    const oldAttachedIds = [...attached];
-    document.getElementById('plain').outerHTML = '<a id="plain" class="pjax-link" href="/links?view=friends">plain</a>';
-    window.Pjax.prototype.attachLink = originalAttach;
-    window.__clickFixtureLibrary = library;
-    return { disabledAttachCount, emptySelector, oldAttachedIds };
-  });
-  assert.equal(baseline.disabledAttachCount, 0, 'the real Pjax constructor and refresh must attach zero links with a nonmatching selector');
-  assert.equal(baseline.emptySelector, 'a[href], form[action]', 'empty elements selector is an unsafe Pjax default');
-  assert.ok(baseline.oldAttachedIds.includes('plain'), 'old automatic binding must be visible as a negative control');
-  console.log(`Pjax CJS baseline: disabled selector attached ${baseline.disabledAttachCount}; empty selector attached ${baseline.oldAttachedIds.join(', ')}`);
 
   await page.evaluate(() => {
     const host = document.getElementById('fixture');
@@ -117,8 +82,6 @@ try {
       trace: [],
       results: []
     };
-    const library = window.__clickFixtureLibrary;
-    library.loadUrl = (href) => { f.requests.push(href); };
     const readContext = () => ({
       currentUrl: window.location.href,
       baseTarget: document.querySelector('base[target]')?.getAttribute('target') ?? '',
@@ -131,7 +94,7 @@ try {
         f.cancelNext = false;
         return { kind: 'cancelled', reason: 'fixture veto' };
       }
-      library.loadUrl(href, options);
+      f.requests.push(href);
       return { kind: 'started', intentId: f.calls.length };
     };
     const restoreCurrentDockWindow = () => {

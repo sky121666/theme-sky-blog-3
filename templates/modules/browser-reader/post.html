@@ -84,15 +84,17 @@
               <button type="button"
                       class="post-action-chip post-action-chip--like"
                       :class="{ 'is-liked': liked, 'is-pending': pending }"
-                      :disabled="pending || liked"
+                      :disabled="pending || liked || uncertain"
+                      :aria-busy="pending.toString()"
                       :aria-pressed="liked.toString()"
                       @click="upvote()">
                 <span class="post-action-icon post-action-icon--heart icon-[lucide--heart]" aria-hidden="true"></span>
-                <span x-text="count + ' 点赞'">0 点赞</span>
+                <span x-text="pending ? '正在点赞…' : uncertain ? '等待确认' : count + ' 点赞'">0 点赞</span>
               </button>
             </div>
 
             <p class="post-action-feedback"
+               role="status"
                x-show="error"
                x-text="error"
                style="display: none;"></p>
@@ -101,7 +103,10 @@
           <p class="post-summary" th:if="${!#strings.isEmpty(post.status.excerpt)}" th:text="${post.status.excerpt}"></p>
 
           <figure class="post-cover" th:if="${!#strings.isEmpty(post.spec.cover)}">
-            <img th:src="${post.spec.cover}" loading="lazy" decoding="async" th:alt="${post.spec.title}">
+            <!-- The single reading-header image is discoverable by the preload scanner.
+                 Its decode never gates the server-rendered article. -->
+            <img th:src="${post.spec.cover}" loading="eager" fetchpriority="high" decoding="async"
+                 sizes="(max-width: 767px) calc(100vw - 32px), min(820px, 85vw)" th:alt="${post.spec.title}">
           </figure>
         </header>
 

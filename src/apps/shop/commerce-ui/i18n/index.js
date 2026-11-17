@@ -4,18 +4,17 @@ import en from "./locales/en.json";
 import es from "./locales/es.json";
 import zhCN from "./locales/zh-cn.json";
 import zhTW from "./locales/zh-tw.json";
-const allLocales = ["en", "es", "zh-CN", "zh-TW"];
-function getLanguageFromCookie() {
-  const match = document.cookie.match(/(^| )language=([^;]+)/);
-  const matchedLanguage = allLocales.find((locale) => locale === match?.[2]);
-  return matchedLanguage;
-}
-function getLanguageFromBrowser() {
-  const language = allLocales.find((locale) => locale === navigator.language);
-  return language;
+function supportedLocale(tag) {
+  if (!tag) return;
+  try {
+    const locale = new Intl.Locale(tag);
+    if (locale.language === "en" || locale.language === "es") return locale.language;
+    if (locale.language === "zh") return locale.maximize().script === "Hant" ? "zh-TW" : "zh-CN";
+  } catch { /* An invalid preference should not hide a supported browser language. */ }
 }
 export function getLocale() {
-  return getLanguageFromCookie() || getLanguageFromBrowser() || "en";
+  const cookie = document.cookie.match(/(?:^|;\s*)language=([^;]+)/)?.[1];
+  return supportedLocale(cookie) || [navigator.language, ...(navigator.languages || [])].map(supportedLocale).find(Boolean) || "en";
 }
 void i18next.init({
   lng: getLocale(),

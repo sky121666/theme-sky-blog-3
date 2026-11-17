@@ -482,6 +482,22 @@ try {
     }, `390×844 ${target.name}`);
   }
 
+  // Select the last category in a narrow, overflowing strip. The replacement
+  // workspace starts at scrollLeft=0, so a highlighted but offscreen item
+  // does not count as a restored selection.
+  const lastCategoryPath = rootTreePaths.at(-1);
+  await page.goto(absoluteUrl(categoriesBasePath), { waitUntil: 'domcontentloaded' });
+  await waitForFinder(page, { pathname: categoriesBasePath, scope: 'all' });
+  await clickCategoryPath(page, lastCategoryPath);
+  await waitForFinder(page, { pathname: lastCategoryPath, scope: 'category' });
+  await page.waitForFunction(() => {
+    const current = document.querySelector('[data-category-link][aria-current="page"]');
+    const nav = current?.closest('.categories-sidebar-nav');
+    if (!nav) return false;
+    const item = current.getBoundingClientRect(), bounds = nav.getBoundingClientRect();
+    return item.left >= bounds.left - 1 && item.right <= bounds.right + 1;
+  });
+
   await page.waitForTimeout(100);
   assert.deepEqual(runtimeErrors, [], `分类真页出现运行时错误：${runtimeErrors.join(' | ')}`);
   console.log(`分类真页验证通过：统一 Finder、全部文档 query 分页、${candidate.categoryName} 原生分页、PJAX/history/直达/越界与响应式契约正常`);

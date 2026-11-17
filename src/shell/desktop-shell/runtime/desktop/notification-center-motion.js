@@ -83,6 +83,8 @@ function clearMotionStyles(target, properties = ['opacity', 'transform', 'filter
 export function createNotificationCenterMotion() {
   let activePanelAnimations = [];
   let activeContentAnimations = [];
+  let panelMotionToken = 0;
+  let hasOpened = false;
   let dropActive = false;
   let activeDropAnimations = [];
 
@@ -99,8 +101,15 @@ export function createNotificationCenterMotion() {
     open(panel) {
       if (!panel) return Promise.resolve();
 
+      const token = ++panelMotionToken;
+      const firstOpen = !hasOpened;
+      hasOpened = true;
       const backdrop = queryBackdrop(panel);
       const items = queryContentItems(panel).slice(0, 10);
+      // A finished exit still holds its end frame until the longer panel exit
+      // settles. Include it so reopening can continue from that visible pose.
+      const interruptedItems = new Set(activeContentAnimations
+        .map((animation) => animation.effect?.target));
       const panelState = readVisualState(panel, {
         opacity: '0',
         transform: 'translateX(38px) translateY(-2px) scale(0.986)'
@@ -147,7 +156,7 @@ export function createNotificationCenterMotion() {
       ];
 
       const panelTiming = {
-        duration: 410,
+        duration: firstOpen ? 410 : 220,
         easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
         fill: 'forwards'
       };
@@ -160,7 +169,7 @@ export function createNotificationCenterMotion() {
           backdropState,
           { opacity: 1 }
         ], {
-          duration: 300,
+          duration: firstOpen ? 300 : 160,
           easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
           fill: 'forwards'
         });
@@ -171,24 +180,33 @@ export function createNotificationCenterMotion() {
         const current = itemStates.get(item);
         const isSettled = Number.parseFloat(current.opacity) > 0.98
           && (current.transform === 'none' || current.transform === 'matrix(1, 0, 0, 1, 0, 0)');
-        const from = isSettled
+        // Settled cards stay readable on subsequent opens. Only an interrupted
+        // content animation needs to return from its current visual state.
+        if (!firstOpen && (!interruptedItems.has(item) || isSettled)) {
+          clearMotionStyles(item, ['opacity', 'transform']);
+          return null;
+        }
+        const from = firstOpen && isSettled
           ? { opacity: 0.44, transform: 'translateX(9px) scale(0.994)' }
           : current;
-        applyVisualState(item, from);
+        // The first keyframe owns the stagger delay. Writing its transform as
+        // an inline style would start the card's CSS transition in reverse.
+        if (!firstOpen) applyVisualState(item, from);
         const animation = item.animate([
           from,
           { opacity: 1, transform: 'translateX(0px) scale(1)' }
         ], {
-          duration: 292,
-          delay: 44 + Math.min(index * 12, 84),
+          duration: firstOpen ? 292 : 180,
+          delay: firstOpen ? 44 + Math.min(index * 12, 84) : 0,
           easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
-          fill: 'forwards'
+          fill: 'both'
         });
         activeContentAnimations.push(animation);
         return animation;
-      });
+      }).filter(Boolean);
 
       const panelPromise = animationPromise(panelAnim, () => {
+        if (token !== panelMotionToken) return;
         panel.style.opacity = '1';
         panel.style.transform = 'none';
         panel.style.filter = 'none';
@@ -196,12 +214,14 @@ export function createNotificationCenterMotion() {
       });
       const backdropPromise = backdropAnim
         ? animationPromise(backdropAnim, () => {
+          if (token !== panelMotionToken) return;
           backdrop.style.opacity = '1';
           backdrop.style.transform = 'none';
         })
         : Promise.resolve();
       const contentPromises = contentAnimations.map((animation) => (
         animationPromise(animation, () => {
+          if (token !== panelMotionToken) return;
           const target = animation.effect?.target;
           if (target) {
             target.style.opacity = '1';
@@ -229,6 +249,7 @@ export function createNotificationCenterMotion() {
     close(panel) {
       if (!panel) return Promise.resolve();
 
+      const token = ++panelMotionToken;
       const backdrop = queryBackdrop(panel);
       const items = queryContentItems(panel).slice(0, 10);
       const panelState = readVisualState(panel, { opacity: '1', transform: 'none' });
@@ -302,6 +323,7 @@ export function createNotificationCenterMotion() {
       });
 
       const panelPromise = animationPromise(panelAnim, () => {
+        if (token !== panelMotionToken) return;
         panel.style.opacity = '0';
         panel.style.transform = 'translateX(34px) translateY(-1px) scale(0.988)';
         panel.style.filter = 'none';
@@ -309,6 +331,7 @@ export function createNotificationCenterMotion() {
       });
       const backdropPromise = backdropAnim
         ? animationPromise(backdropAnim, () => {
+          if (token !== panelMotionToken) return;
           backdrop.style.opacity = '0';
           backdrop.style.transform = 'none';
         })
@@ -318,7 +341,7 @@ export function createNotificationCenterMotion() {
       return Promise.all([panelPromise, backdropPromise, ...contentPromises]).then(() => {
         contentAnimations.forEach((animation) => {
           const target = animation.effect?.target;
-          clearMotionStyles(target, ['opacity', 'transform']);
+          if (token === panelMotionToken) clearMotionStyles(target, ['opacity', 'transform']);
           try {
             animation.cancel();
           } catch (_e) {}
@@ -341,10 +364,19 @@ export function createNotificationCenterMotion() {
     refreshContent(panel) {
       if (!panel || prefersReducedMotion()) return;
 
-      const items = queryContentItems(panel);
+      // A notification reload changes the feed, not the persistent widget
+      // cards, header or editing toolbar around it.
+      const items = Array.from(panel.querySelectorAll('.notification-center-status, .notification-center-group'));
       if (!items.length) return;
 
-      clearAnimations(activeContentAnimations);
+      const refreshedItems = new Set(items);
+      const replacedAnimations = activeContentAnimations.filter((animation) => (
+        refreshedItems.has(animation.effect?.target)
+      ));
+      activeContentAnimations = activeContentAnimations.filter((animation) => (
+        !replacedAnimations.includes(animation)
+      ));
+      clearAnimations(replacedAnimations);
 
       items.forEach((item, index) => {
         const keyframes = [
@@ -804,9 +836,11 @@ export function createNotificationCenterMotion() {
     },
 
     destroy() {
+      panelMotionToken += 1;
       clearAnimations(activePanelAnimations);
       clearAnimations(activeContentAnimations);
       clearAnimations(activeDropAnimations);
+      hasOpened = false;
       dropActive = false;
     }
   };

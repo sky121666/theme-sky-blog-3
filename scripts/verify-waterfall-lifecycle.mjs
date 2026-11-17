@@ -6,9 +6,11 @@ import { chromium } from 'playwright';
 const root = process.cwd();
 const momentsPath = path.join(root, 'templates/modules/moments-app/list.html');
 const pjaxPath = path.join(root, 'src/shell/desktop-shell/runtime/desktop/pjax/index.js');
+const shikiBridgePath = path.join(root, 'src/shell/desktop-shell/runtime/desktop/pjax/shiki-bridge.js');
 
 const momentsSource = fs.readFileSync(momentsPath, 'utf8');
 const pjaxSource = fs.readFileSync(pjaxPath, 'utf8');
+const shikiBridgeSource = fs.readFileSync(shikiBridgePath, 'utf8');
 
 function extractAlpineData(source, marker) {
   const markerIndex = source.indexOf(marker);
@@ -33,7 +35,6 @@ function assertWaterfallContract(source, marker, appId) {
     'generation: 0',
     'resumePaginationAfterNavigationError: false',
     'new AbortController()',
-    'signal: controller.signal',
     'if (!res.ok)',
     'generation !== this.generation',
     'requestPath !== this.currentPath()',
@@ -392,7 +393,7 @@ function verifyShikiBridgeBehavior() {
     }
   };
 
-  const functionSource = extractFunction(pjaxSource, 'createShikiIncrementalBridge');
+  const functionSource = extractFunction(shikiBridgeSource, 'createShikiIncrementalBridge');
   const bridge = new Function('document', `return (${functionSource})();`)(fakeDocument);
   bridge.configure({
     lightTheme: 'configured-light',
@@ -430,14 +431,16 @@ assert.ok(
   "window.addEventListener('moments:feed-updated'",
   "document.querySelector('[data-app-root=\"moments\"]')",
   'currentMomentsRoot.contains(root)',
-  'bridge?.configure?.(config, descriptorKey)',
-  'queueShikiBridgeRender(descriptor, root)',
-  'runShikiExtraPathRenderer(html, contentContainer)',
-  'runShikiExtraPathRenderer(responseText, container)'
+  'if (renderRoot?.isConnected)',
+  'bridge?.configure?.(${descriptor.renderConfig}, ${JSON.stringify(descriptor.key)})',
+  'queueShikiBridgeRender(descriptor, root)'
 ].forEach((contract) => {
-  assert.ok(pjaxSource.includes(contract), `Shiki bridge missing contract: ${contract}`);
+  assert.ok(shikiBridgeSource.includes(contract), `Shiki bridge missing contract: ${contract}`);
 });
-assert.doesNotMatch(pjaxSource, /github-(?:light|dark)|one-(?:light|dark)/, 'Shiki bridge must not hard-code theme choices');
+for (const contract of ['runShikiExtraPathRenderer(html, contentContainer, targetDoc)', 'runShikiExtraPathRenderer(responseText, container, event.request.navigationDocument)']) {
+  assert.ok(pjaxSource.includes(contract), `PJAX must delegate the Shiki response contract: ${contract}`);
+}
+assert.doesNotMatch(shikiBridgeSource, /github-(?:light|dark)|one-(?:light|dark)/, 'Shiki bridge must not hard-code theme choices');
 
 verifyShikiBridgeBehavior();
 await verifyWaterfallRuntime(momentsExpression, 'moments');

@@ -96,6 +96,7 @@ $effect(() => {
   }
 });
 function toggleCoupon(id) {
+  if (checkoutBusy) return;
   couponError = "";
   const coupon = availableCoupons.find((c) => c.id === id);
   if (selectedCouponIds.includes(id)) {
@@ -128,6 +129,13 @@ function toggleCoupon(id) {
 function couponWillReplaceSelection(coupon) {
   return !selectedCouponIds.includes(coupon.id) && selectedCouponIds.length > 0 && (coupon.combineWithCoupons === false || selectedHasNonCombinableCoupon);
 }
+async function refreshCheckoutSummary() {
+  const queryKey = ["shop:checkout:context", contextId];
+  // The write has already succeeded. The query owns read errors and its GET-only
+  // retry; never propagate a failed refresh to the mutation's rejection handler.
+  await queryClient.invalidateQueries({ queryKey });
+  return lifecycle.isActive() && queryClient.getQueryState(queryKey)?.status === "success";
+}
 const applyCouponsMutation = createMutation(
   () => ({
     mutationFn: async (ids) => {
@@ -138,18 +146,18 @@ const applyCouponsMutation = createMutation(
         headers: { "X-XSRF-TOKEN": csrfToken }
       }).json();
     },
-    onSuccess: (data, ids) => {
+    onSuccess: async (data, ids) => {
       if (!lifecycle.isActive()) return;
       const rejected = data.calculateResult?.rejectedCoupons ?? [];
       selectedCouponIds = [...ids];
       couponError = rejected.length > 0 ? get(i18n).t("checkout.couponPartialApply") : "";
       queryClient.setQueryData(["shop:checkout:context", contextId], data);
+      if (!await refreshCheckoutSummary()) return;
       if (rejected.length > 0) {
         toast.warning(get(i18n).t("checkout.couponPartialApply"));
       } else {
         toast.success(get(i18n).t("checkout.couponApplySuccess"));
       }
-      queryClient.invalidateQueries({ queryKey: ["shop:checkout:context", contextId] });
     },
     onError: async (error) => {
       if (!lifecycle.isActive()) return;
@@ -168,7 +176,7 @@ const applyCouponsMutation = createMutation(
   () => queryClient
 );
 function applyCoupons() {
-  if (isAuthenticated) applyCouponsMutation.mutate(selectedCouponIds);
+  if (isAuthenticated) void runCheckoutMutation(applyCouponsMutation, [...selectedCouponIds]);
 }
 const applyDiscountMutation = createMutation(
   () => ({
@@ -179,11 +187,10 @@ const applyDiscountMutation = createMutation(
         headers: { "X-XSRF-TOKEN": csrfToken }
       }).json();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       if (!lifecycle.isActive()) return;
-      toast.success(get(i18n).t("checkout.discountApplySuccess"));
       discountCodeInput = "";
-      queryClient.invalidateQueries({ queryKey: ["shop:checkout:context", contextId] });
+      if (await refreshCheckoutSummary()) toast.success(get(i18n).t("checkout.discountApplySuccess"));
     },
     onError: () => {
       if (!lifecycle.isActive()) return;
@@ -200,11 +207,10 @@ const removeDiscountMutation = createMutation(
         headers: { "X-XSRF-TOKEN": csrfToken }
       }).json();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       if (!lifecycle.isActive()) return;
-      toast.success(get(i18n).t("checkout.discountRemoveSuccess"));
       discountCodeInput = "";
-      queryClient.invalidateQueries({ queryKey: ["shop:checkout:context", contextId] });
+      if (await refreshCheckoutSummary()) toast.success(get(i18n).t("checkout.discountRemoveSuccess"));
     },
     onError: () => {
       if (!lifecycle.isActive()) return;
@@ -213,10 +219,40 @@ const removeDiscountMutation = createMutation(
   }),
   () => queryClient
 );
+let checkoutActionPending = $state(false);
+let checkoutSubmitting = $state(false);
+const checkoutBusy = $derived(
+  checkoutActionPending || checkoutSubmitting || contextQuery.isFetching || !contextQuery.isSuccess
+  || applyDiscountMutation.isPending || removeDiscountMutation.isPending || applyCouponsMutation.isPending
+  || (isAuthenticated && myCouponsQuery.isFetching)
+  || (isAuthenticated && contextQuery.data?.isShippingRequired
+    && (addressQuery.isFetching || !addressQuery.isSuccess || !addressSelectionInitialized))
+);
+async function runCheckoutMutation(mutation, value) {
+  if (checkoutBusy) return;
+  checkoutActionPending = true;
+  try {
+    await mutation.mutateAsync(value);
+  } catch {
+    // Mutation callbacks preserve and report the failed input or refresh state.
+  } finally {
+    if (lifecycle.isActive()) checkoutActionPending = false;
+  }
+}
+function handleCheckoutSubmit(event) {
+  if (event.defaultPrevented || checkoutBusy) {
+    event.preventDefault();
+    return;
+  }
+  checkoutSubmitting = true;
+  event.currentTarget.addEventListener('shop:submission-settled', () => {
+    if (lifecycle.isActive()) checkoutSubmitting = false;
+  }, { once: true, signal: lifecycle.signal });
+}
 function applyDiscount() {
   const code = discountCodeInput.trim();
   if (!code) return;
-  applyDiscountMutation.mutate(code);
+  void runCheckoutMutation(applyDiscountMutation, code);
 }
 function handleDiscountCodeKeydown(event) {
   if (event.key !== "Enter") return;
@@ -224,7 +260,7 @@ function handleDiscountCodeKeydown(event) {
   applyDiscount();
 }
 function removeDiscount() {
-  removeDiscountMutation.mutate(void 0);
+  void runCheckoutMutation(removeDiscountMutation, void 0);
 }
 const hasDiscount = $derived(
   (contextQuery.data?.calculateResult?.discountAmount ?? 0) > 0
@@ -312,17 +348,18 @@ $effect(() => {
 
   {#if contextQuery.isLoading}
     <div class="shop-empty">{$i18n.t('common.loading')}</div>
-  {:else if contextQuery.isError}
+  {:else if contextQuery.isError && !contextQuery.data}
     <div class="shop-empty">
       <p class="shop-empty__title">{$i18n.t('checkout.contextLoadFailed')}</p>
       <button type="button" class="shop-btn shop-btn-secondary" onclick={() => contextQuery.refetch()}>{$i18n.t('common.retry')}</button>
     </div>
   {:else if contextQuery.data}
-  <form action={`/shop/checkout/${contextId}/submit`} method="POST" class="shop-checkout">
+  <form action={`/shop/checkout/${contextId}/submit`} method="POST" class="shop-checkout" onsubmit={handleCheckoutSubmit} aria-busy={checkoutBusy}>
     <input type="hidden" name="_csrf" value={csrfToken} />
 
     {#if isAuthenticated && contextQuery.data?.isShippingRequired}
       <input type="hidden" name="saveAsNewAddress" value={!selectedAddressId} />
+      <input type="hidden" name="selectedAddressId" value={selectedAddressId ?? ''} />
     {/if}
 
     {#each contextQuery.data?.items ?? [] as item, index}
@@ -347,9 +384,13 @@ $effect(() => {
       {#if contextQuery.data?.isShippingRequired}
         <div class="shop-card">
           <h2 class="shop-card__title">{$i18n.t('checkout.shippingAddress')}</h2>
+          {#if isAuthenticated && addressQuery.isError}
+            <p role="alert">{$i18n.t('checkout.addressLoadFailed')}</p>
+            <button type="button" class="shop-btn shop-btn-secondary" onclick={() => addressQuery.refetch()}>{$i18n.t('common.retry')}</button>
+          {/if}
           {#if isAuthenticated && addressQuery.isLoading}
             {$i18n.t('common.loading')}
-          {:else}
+          {:else if !isAuthenticated || addressQuery.data}
             <div class="shop-address-form" in:fade={{ duration: 200 }}>
               {#if isAuthenticated}
               <div class="shop-form-group">
@@ -359,8 +400,8 @@ $effect(() => {
                 <select
                   class="shop-select"
                   id="address-selector"
-                  name="selectedAddressId"
                   bind:value={selectedAddressId}
+                  disabled={checkoutBusy}
                 >
                   {#each addressQuery.data ?? [] as address (address.id)}
                     <option value={address.id}>
@@ -396,11 +437,12 @@ $effect(() => {
             autocomplete="off"
             spellcheck="false"
             onkeydown={handleDiscountCodeKeydown}
+            readonly={checkoutBusy}
           />
           <button
             type="button"
             class="shop-btn shop-btn-secondary"
-            disabled={applyDiscountMutation.isPending || !discountCodeInput.trim()}
+            disabled={checkoutBusy || !discountCodeInput.trim()}
             onclick={applyDiscount}
           >
             {#if applyDiscountMutation.isPending}
@@ -413,7 +455,7 @@ $effect(() => {
             <button
               type="button"
               class="shop-btn shop-btn-secondary"
-              disabled={removeDiscountMutation.isPending}
+              disabled={checkoutBusy}
               onclick={removeDiscount}
             >
               {#if removeDiscountMutation.isPending}
@@ -467,6 +509,7 @@ $effect(() => {
                   class="shop-coupon-item__checkbox"
                   checked={selectedCouponIds.includes(coupon.id)}
                   onchange={() => toggleCoupon(coupon.id)}
+                  disabled={checkoutBusy}
                 />
                 <div class="shop-coupon-item__info">
                   <span class="shop-coupon-item__name">
@@ -513,7 +556,7 @@ $effect(() => {
             <button
               type="button"
               class="shop-btn shop-btn-secondary"
-              disabled={applyCouponsMutation.isPending || !hasCouponChanges}
+              disabled={checkoutBusy || !hasCouponChanges}
               onclick={applyCoupons}
             >
               {#if applyCouponsMutation.isPending}
@@ -584,7 +627,13 @@ $effect(() => {
       </div>
 
       <div class="shop-checkout__actions">
-        <button type="submit" class="shop-btn shop-btn-primary shop-btn-lg">
+        {#if contextQuery.isError}
+          <p role="alert">{$i18n.t('checkout.contextLoadFailed')}</p>
+          <button type="button" class="shop-btn shop-btn-secondary" onclick={() => contextQuery.refetch()}>{$i18n.t('common.retry')}</button>
+        {:else if checkoutBusy}
+          <p role="status" aria-live="polite">{checkoutSubmitting ? $i18n.t('checkout.submitting') : $i18n.t('checkout.waitForUpdates')}</p>
+        {/if}
+        <button type="submit" class="shop-btn shop-btn-primary shop-btn-lg" disabled={checkoutBusy}>
           {$i18n.t('checkout.goToPay')}
         </button>
         <a href="/shop/cart" class="shop-btn shop-btn-secondary shop-btn-lg">

@@ -52,6 +52,9 @@
     "remove": "Eliminar",
     "removeConfirm": "¿Eliminar este artículo del carrito?",
     "removeFailed": "No se pudo eliminar el artículo. Inténtalo de nuevo.",
+    "recheck": "Volver a comprobar",
+    "keep": "Conservar artículo",
+    "stillInCart": "El artículo sigue en el carrito. Vuelve a comprobarlo o elige conservarlo antes de continuar.",
     "inquiryBadge": "Consulta",
     "inquiryNote": "Contacta a ventas para ordenar",
     "quantity": "Cantidad",
@@ -107,6 +110,8 @@
     "guestLoginPrompt": "Si este correo ya pertenece a una cuenta, inicie sesión antes de pagar.",
     "subscriptionRequiresLogin": "Los productos de suscripción requieren iniciar sesión.",
     "contextLoadFailed": "No se pudo cargar el pago. Inténtalo de nuevo.",
+    "waitForUpdates": "Actualizando los datos de compra. Espera…",
+    "addressLoadFailed": "No se pudieron cargar las direcciones. Reintenta antes de finalizar la compra.",
     "submitting": "Enviando…"
   },
   "addressForm": {
@@ -213,6 +218,9 @@
     "goSwitch": "Cambiar",
     "addingToCart": "Agregando...",
     "addCartFailed": "Error al agregar al carrito",
+    "checkCart": "Revisar carrito",
+    "addCartResultUnknown": "La solicitud al carrito agotó el tiempo o perdió la conexión; el resultado es desconocido. Revisa el carrito antes de continuar la compra.",
+    "addedCheckCart": "Se agregó al carrito. Abre el carrito para continuar.",
     "manageTitle": "Suscripción actual",
     "manageTitleMultiple": "Tus suscripciones ({{count}})",
     "manageMultipleHint": "Cada suscripción se renueva y cambia por su cuenta. Gestiónala en el centro de usuario.",

@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import { readLiveBuildContext } from './lib/live-build-context.mjs';
 
 const base = process.env.SMOKE_BASE_URL || 'http://localhost:8090';
+const evidenceDir = process.env.NAVIGATION_EVIDENCE_DIR || 'docs/evidence/pjax-design-2026-09-28';
 const targetUrl = new URL('/archives', base).href;
 
 const fixtures = [
@@ -121,8 +122,8 @@ try {
   }
 
   const context = await readLiveBuildContext(base);
-  await fs.mkdir('docs/evidence/pjax-design-2026-09-28', { recursive: true });
-  await fs.writeFile('docs/evidence/pjax-design-2026-09-28/response-results.json',
+  await fs.mkdir(evidenceDir, { recursive: true });
+  await fs.writeFile(`${evidenceDir}/response-results.json`,
     JSON.stringify({ context, cases: fixtures.map(({ name }) => name) }, null, 2) + '\n');
   console.log(`navigation response handoff passed: ${fixtures.length} malformed shell cases`);
 } finally {

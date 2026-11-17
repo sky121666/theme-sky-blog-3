@@ -4,7 +4,8 @@ import { chromium } from 'playwright';
 import { readLiveBuildContext } from './lib/live-build-context.mjs';
 
 const base = process.env.SMOKE_BASE_URL || 'http://localhost:8090';
-const evidencePath = 'docs/evidence/pjax-design-2026-09-28/readiness-results.json';
+const evidenceDir = process.env.NAVIGATION_EVIDENCE_DIR || 'docs/evidence/pjax-design-2026-09-28';
+const evidencePath = `${evidenceDir}/readiness-results.json`;
 const records = [];
 
 function deferred() {
@@ -15,10 +16,22 @@ function deferred() {
 
 async function openReadyPage(browser) {
   const page = await browser.newPage();
+  const startupErrors = [];
+  page.on('pageerror', error => startupErrors.push({ type: 'pageerror', message: error.message }));
+  page.on('requestfailed', request => startupErrors.push({ type: 'requestfailed', url: request.url(), error: request.failure()?.errorText }));
   await page.goto(new URL('/links', base).href, { waitUntil: 'commit' });
-  await page.waitForFunction(() => window.pjax?.loadUrl
-    && window.Alpine?.store('themeSettings')
-    && document.body.dataset.appId === 'links');
+  try {
+    await page.waitForFunction(() => window.pjax?.loadUrl
+      && window.Alpine?.store('themeSettings')
+      && document.body.dataset.appId === 'links');
+  } catch (error) {
+    await fs.mkdir(evidenceDir, { recursive: true });
+    await fs.writeFile(`${evidenceDir}/startup-failure.json`, JSON.stringify({ startupErrors,
+      state: await page.evaluate(() => ({ url: location.href, app: document.body?.dataset.appId,
+        alpine: Boolean(window.Alpine), pjax: Boolean(window.pjax), swup: window.swup?.version })) }, null, 2));
+    await page.close();
+    throw error;
+  }
   await page.evaluate(() => {
     window.__navigationReadinessProbe = { events: [] };
     const events = window.__navigationReadinessProbe.events;
@@ -215,6 +228,7 @@ try {
         intents: window.__navigationReadinessProbe.events.filter((event) => event.type === 'accepted')
           .map((event) => event.intentId),
         loading: document.getElementById('window-frame-root')?.classList.contains('pjax-loading')
+          || document.querySelector('[data-window-content-root]')?.getAttribute('aria-busy') === 'true'
       }));
       assert.equal(beforeStale.intents.length, 2);
       assert.equal(beforeStale.loading, true, 'new intent must still own visible loading');
@@ -225,7 +239,8 @@ try {
           { __themeNavigationIntent: oldIntentId });
       }, beforeStale.intents[0]);
       const afterStale = await page.evaluate(() => ({
-        loading: document.getElementById('window-frame-root')?.classList.contains('pjax-loading'),
+        loading: document.getElementById('window-frame-root')?.classList.contains('pjax-loading')
+          || document.querySelector('[data-window-content-root]')?.getAttribute('aria-busy') === 'true',
         events: window.__navigationReadinessProbe.events
       }));
       assert.equal(afterStale.loading, true, 'late old response must not clear new intent loading');
@@ -243,7 +258,7 @@ try {
         .map((event) => event.outcome), ['superseded']);
       assert.equal(events.filter((event) => event.type === 'ready' && event.intentId === oldIntent).length, 0);
       const currentEvents = events.filter((event) => event.intentId === currentIntent);
-      assertReadySequence(currentEvents, 'full', '/links?view=friends&scope=all');
+      assertReadySequence(currentEvents, 'same', '/links?view=friends&scope=all');
     } finally {
       oldGate.release();
       newGate.release();
@@ -281,7 +296,7 @@ try {
   }
 
   const context = await readLiveBuildContext(base);
-  await fs.mkdir('docs/evidence/pjax-design-2026-09-28', { recursive: true });
+  await fs.mkdir(evidenceDir, { recursive: true });
   await fs.writeFile(evidencePath, JSON.stringify({ context, records }, null, 2) + '\n');
   console.log(`navigation readiness passed: ${records.length} scenarios; raw records saved locally`);
 } finally {

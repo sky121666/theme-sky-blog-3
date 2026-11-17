@@ -9,8 +9,9 @@ let browser;
 before(async () => { browser = await chromium.launch({ headless: true }); });
 after(async () => { await browser?.close(); });
 
-async function fixture(t, { navigation = 'navigate', motion = 'no-preference' } = {}) {
-  const page = await browser.newPage({ reducedMotion: motion });
+async function fixture(t, { navigation = 'navigate', motion = 'no-preference', touch = false } = {}) {
+  const page = await browser.newPage({ reducedMotion: motion, hasTouch: touch,
+    viewport: touch ? { width: 390, height: 844 } : { width: 1280, height: 900 } });
   t.after(() => page.close());
   await page.route('https://startup.test/**', (route) => route.fulfill({
     contentType: 'text/html; charset=utf-8',
@@ -85,6 +86,71 @@ test('desktop waits for both shell and the complete surface, then releases focus
   assert.equal(await page.locator('[data-theme-startup-layer]').count(), 0);
   assert.equal(await page.locator('#input').inputValue(), '保留输入');
   assert.equal(await page.evaluate(() => document.activeElement.id), 'origin');
+});
+
+test('entry keeps its exit quiet until keyboard focus, then Enter dismisses and restores focus', async (t) => {
+  const page = await fixture(t);
+  const layer = page.getByRole('dialog'), exit = layer.getByRole('button', { name: '跳过' });
+  await page.locator('#origin').focus();
+  await start(page);
+  assert.ok(await layer.evaluate(el => el === document.activeElement));
+  assert.ok(await exit.evaluate(el => getComputedStyle(el).opacity === '0' && getComputedStyle(el).pointerEvents === 'none'));
+  await page.keyboard.press('Shift+Tab');
+  assert.ok(await exit.evaluate(el => el === document.activeElement && getComputedStyle(el).opacity === '1'));
+  await page.keyboard.press('Tab');
+  assert.ok(await exit.evaluate(el => el === document.activeElement));
+  await page.keyboard.press('Enter');
+  assert.equal(await page.evaluate(() => window.startup.finished), 'skipped');
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'origin');
+});
+
+test('touching the entry background consumes one tap without activating the control underneath', async (t) => {
+  const page = await fixture(t, { touch: true });
+  await page.evaluate(() => {
+    const origin = document.querySelector('#origin');
+    Object.assign(origin.style, { position: 'absolute', left: '20px', top: '20px', width: '120px', height: '60px' });
+    window.underlyingClicks = 0;
+    origin.addEventListener('click', () => window.underlyingClicks++);
+  });
+  await start(page);
+  await page.touchscreen.tap(40, 40);
+  assert.equal(await page.evaluate(() => window.startup.finished), 'skipped');
+  assert.equal(await page.evaluate(() => window.underlyingClicks), 0);
+  await page.touchscreen.tap(40, 40);
+  assert.equal(await page.evaluate(() => window.underlyingClicks), 1, 'the next deliberate tap is released');
+});
+
+test('progress stays indeterminate until an actual required part is ready, and never counts it twice', async (t) => {
+  const page = await fixture(t);
+  await start(page);
+  const track = page.getByRole('progressbar');
+  const firstFrameInk = await track.evaluate(el => {
+    const fill = el.firstElementChild, animation = fill.getAnimations()[0];
+    animation.pause();
+    animation.currentTime = 0;
+    const bar = el.getBoundingClientRect(), ink = fill.getBoundingClientRect();
+    return Math.min(bar.right, ink.right) - Math.max(bar.left, ink.left);
+  });
+  assert.ok(firstFrameInk > 1, 'The waiting indicator is visible even before the animation clock advances');
+  await page.evaluate(() => window.startup.ready('unrelated'));
+  assert.equal(await track.getAttribute('aria-valuenow'), null);
+  await page.evaluate(() => { window.startup.ready('surface'); window.startup.ready('surface'); });
+  assert.equal(await track.getAttribute('aria-valuenow'), '1');
+  assert.equal(await track.getAttribute('aria-valuemax'), '2');
+  assert.equal(await page.evaluate(() => {window.startup.ready('shell'); return window.startup.finished;}), 'interactive');
+});
+
+test('preview leaves the animation visible on background tap and offers a quiet, touch-sized exit', async (t) => {
+  const page = await fixture(t, { touch: true });
+  await page.locator('#origin').focus();
+  await start(page, {}, true);
+  await page.touchscreen.tap(40, 40);
+  const exit = page.getByRole('button', { name: '结束演示' });
+  assert.ok(await exit.evaluate(el => getComputedStyle(el).opacity === '1' && getComputedStyle(el).borderTopWidth === '0px' && el.getBoundingClientRect().height >= 44));
+  await exit.tap();
+  assert.equal(await page.evaluate(() => window.startup.finished), 'skipped');
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'origin');
+  assert.equal(await page.evaluate(() => sessionStorage.length), 0);
 });
 
 test('startup exits by deadline without claiming that the page finished loading', async (t) => {

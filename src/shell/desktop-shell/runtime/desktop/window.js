@@ -1,3 +1,5 @@
+import { constrainDesktopRect, desktopBounds, initialDesktopRect } from './window-placement.js';
+
 /**
  * 窗口拖拽/缩放引擎 + 标题栏 + Genie 最小化动画
  */
@@ -122,8 +124,15 @@ function createGenieGhost(sourceWindowEl) {
   return { ghostWrapper, ghostInner };
 }
 
+const activeGenieMotions = new WeakMap();
+
 export function runGenieAnimation({ windowEl, dockEl, action, duration = 480, onBeforeFinish, signal }) {
   if (!windowEl || !dockEl || signal?.aborted) return Promise.resolve(false);
+  // Sample before cancelling: the next intent continues from the frame that is
+  // actually on screen, rather than jumping back to either endpoint.
+  const interrupted = activeGenieMotions.get(windowEl)?.interrupt();
+  const startPosition = interrupted?.position ?? (action === 'minimize' ? 0 : 1);
+  const endPosition = action === 'minimize' ? 1 : 0;
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) {
     onBeforeFinish?.();
     return Promise.resolve(true);
@@ -171,6 +180,13 @@ export function runGenieAnimation({ windowEl, dockEl, action, duration = 480, on
         { transform: 'translateX(0px) scale(1, 1)' }
       ];
 
+  if (interrupted) {
+    yFrames[0].transform = interrupted.wrapperTransform;
+    xFrames[0].transform = interrupted.innerTransform;
+    const distance = Math.abs(endPosition - startPosition);
+    duration = Math.min(duration, Math.max(120, duration * distance));
+  }
+
   const wrapperAnimation = ghostWrapper.animate(yFrames, {
     duration,
     easing: action === 'minimize' ? easeIn : easeOut,
@@ -188,6 +204,7 @@ export function runGenieAnimation({ windowEl, dockEl, action, duration = 480, on
     const finish = (completed) => {
       if (settled) return;
       settled = true;
+      if (activeGenieMotions.get(windowEl) === motion) activeGenieMotions.delete(windowEl);
       signal?.removeEventListener('abort', abort);
       if (completed && typeof onBeforeFinish === 'function') {
         onBeforeFinish();
@@ -198,7 +215,22 @@ export function runGenieAnimation({ windowEl, dockEl, action, duration = 480, on
       resolve(completed);
     };
     const abort = () => finish(false);
+    const motion = {
+      interrupt() {
+        const progress = innerAnimation.effect?.getComputedTiming()?.progress
+          ?? Math.min(1, Math.max(0, Number(innerAnimation.currentTime || 0) / duration));
+        const snapshot = {
+          wrapperTransform: window.getComputedStyle(ghostWrapper).transform,
+          innerTransform: window.getComputedStyle(ghostInner).transform,
+          position: startPosition + (endPosition - startPosition) * progress
+        };
+        finish(false);
+        return snapshot;
+      }
+    };
+    activeGenieMotions.set(windowEl, motion);
     innerAnimation.onfinish = () => finish(true);
+    wrapperAnimation.oncancel = abort;
     innerAnimation.oncancel = abort;
     signal?.addEventListener('abort', abort, { once: true });
     if (signal?.aborted) abort();
@@ -464,6 +496,7 @@ export function registerWindowComponents(Alpine) {
     windowEl: null,
     metricsKey: 'none',
     _resizeObserver: null,
+    _resizeReadFrame: 0,
     _resizeSyncTimer: 0,
     _viewportResizeTimer: 0,
     _viewportResizeHandler: null,
@@ -510,22 +543,7 @@ export function registerWindowComponents(Alpine) {
     },
 
     desktopViewportBounds({ maximized = false } = {}) {
-      const top = 24;
-      const side = maximized ? 0 : 16;
-      const dock = document.querySelector?.('.dock-container') || null;
-      const dockStyle = dock ? window.getComputedStyle(dock) : null;
-      const dockRect = dock && dockStyle?.display !== 'none' && dockStyle?.visibility !== 'hidden'
-        ? dock.getBoundingClientRect()
-        : null;
-      const dockInset = dockRect?.height > 0
-        ? Math.max(16, window.innerHeight - dockRect.top + 12)
-        : 16;
-      return {
-        left: side,
-        top,
-        width: Math.max(240, window.innerWidth - side * 2),
-        height: Math.max(240, window.innerHeight - top - dockInset)
-      };
+      return desktopBounds(window, document, maximized);
     },
 
     applyDesktopMinimumConstraints(bounds = this.desktopViewportBounds()) {
@@ -542,16 +560,7 @@ export function registerWindowComponents(Alpine) {
       this.applyDesktopMinimumConstraints(bounds);
       const minWidth = Math.min(this.getMinWidth(), bounds.width);
       const minHeight = Math.min(this.getMinHeight(), bounds.height);
-      this.width = Math.min(bounds.width, Math.max(minWidth, Number(this.width) || minWidth));
-      this.height = Math.min(bounds.height, Math.max(minHeight, Number(this.height) || minHeight));
-      this.x = Math.min(
-        bounds.left + bounds.width - this.width,
-        Math.max(bounds.left, Number.isFinite(this.x) ? this.x : bounds.left)
-      );
-      this.y = Math.min(
-        bounds.top + bounds.height - this.height,
-        Math.max(bounds.top, Number.isFinite(this.y) ? this.y : bounds.top)
-      );
+      Object.assign(this, constrainDesktopRect(this, bounds, minWidth, minHeight));
     },
 
     applyMaximizedRect() {
@@ -593,6 +602,7 @@ export function registerWindowComponents(Alpine) {
       if (!this.isDesktop) return;
       if (this.metricsKey === 'none') return;
       localStorage.setItem(`theme-window-metrics-${this.metricsKey}`, JSON.stringify({
+        minWidth: this.naturalMinWidth, minHeight: this.naturalMinHeight, viewportWidth: window.innerWidth, viewportHeight: window.innerHeight,
         x: this.x,
         y: this.y,
         width: this.width,
@@ -674,19 +684,23 @@ export function registerWindowComponents(Alpine) {
 
       if (this.isDesktop && window.ResizeObserver) {
         this._resizeObserver = new window.ResizeObserver(() => {
-          /* 视口 resize 期间跳过，防止 clipped offsetWidth 污染 this.width */
-          if (this._viewportResizing || !this.isDesktop || this.isMaximized || this.isResizing) return;
-          const newW = this.windowEl.offsetWidth;
-          const newH = this.windowEl.offsetHeight;
-          if (newW && newH && (this.width !== newW || this.height !== newH)) {
-             this.width = newW;
-             this.height = newH;
-             window.clearTimeout(this._resizeSyncTimer);
-             this._resizeSyncTimer = window.setTimeout(() => {
-               this._resizeSyncTimer = 0;
-               this.syncState();
-             }, 400);
-          }
+          // Alpine can lay out the observed window again when its dimensions
+          // change. Keep that work outside the observer delivery cycle.
+          if (this._resizeReadFrame || this._viewportResizing || !this.isDesktop || this.isMaximized || this.isResizing) return;
+          this._resizeReadFrame = window.requestAnimationFrame(() => {
+            this._resizeReadFrame = 0;
+            if (!this.windowEl?.isConnected || this._viewportResizing || !this.isDesktop || this.isMaximized || this.isResizing) return;
+            const newW = this.windowEl.offsetWidth;
+            const newH = this.windowEl.offsetHeight;
+            if (!newW || !newH || (this.width === newW && this.height === newH)) return;
+            this.width = newW;
+            this.height = newH;
+            window.clearTimeout(this._resizeSyncTimer);
+            this._resizeSyncTimer = window.setTimeout(() => {
+              this._resizeSyncTimer = 0;
+              this.syncState();
+            }, 400);
+          });
         });
         this._resizeObserver.observe(this.windowEl);
       }
@@ -782,6 +796,8 @@ export function registerWindowComponents(Alpine) {
       if (this._resizeObserver) {
         this._resizeObserver.disconnect();
       }
+      if (this._resizeReadFrame) window.cancelAnimationFrame(this._resizeReadFrame);
+      this._resizeReadFrame = 0;
 
       window.clearTimeout(this._resizeSyncTimer);
       window.clearTimeout(this._viewportResizeTimer);
@@ -808,23 +824,7 @@ export function registerWindowComponents(Alpine) {
        if (this.isDesktop) {
          const bounds = this.desktopViewportBounds();
          this.applyDesktopMinimumConstraints(bounds);
-         let width = Math.min(1200, bounds.width, window.innerWidth * 0.85);
-         let height = Math.min(900, bounds.height, Math.max(320, bounds.height * 0.9));
-         
-         if (this.windowEl.dataset.windowWidth) {
-            const w = parseInt(this.windowEl.dataset.windowWidth, 10);
-            if (!isNaN(w) && w > 0) width = Math.min(w, bounds.width);
-         }
-         
-         if (this.windowEl.dataset.windowHeight) {
-            const h = parseInt(this.windowEl.dataset.windowHeight, 10);
-            if (!isNaN(h) && h > 0) height = Math.min(h, bounds.height);
-         }
-
-         const x = bounds.left + (bounds.width - width) / 2;
-         const y = bounds.top + (bounds.height - height) / 2;
-
-         this.setWindowRect({ x, y, width, height });
+         this.setWindowRect(initialDesktopRect(window, bounds, this.windowEl.dataset.windowWidth, this.windowEl.dataset.windowHeight));
          this.applyResizeMode();
          this.syncState();
        }
@@ -1068,7 +1068,7 @@ export function registerWindowComponents(Alpine) {
         document.addEventListener('theme:navigation-accepted', this._closeHomeNavigationHandler);
         this._closeHomeTimer = window.setTimeout(() => {
           if (!this._closeHomePending || this._closeHomeGeneration !== closeGeneration) return;
-          if (window.location.pathname !== closedPath || manager.show || manager.pendingOpenRequested || window.pjax !== pjax) {
+          if (window.location.pathname !== closedPath || manager.show || window.pjax !== pjax) {
             this.cancelCloseHomeNavigation();
             return;
           }

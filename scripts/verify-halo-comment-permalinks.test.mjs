@@ -298,14 +298,17 @@ function momentFixture(hash, { pathname = '/moments/moment-a', pendingTargetUrl 
   return { ...env, root, card, custom, official, requests, cleanup, pendingTarget };
 }
 
-test('moment permalink delegates precision to the visible official component without fetching list pages', () => {
+test('moment permalink delegates precision to the visible official component without fetching list pages', async () => {
   const page = momentFixture('#halo-comment=comment-a&reply=reply-b');
   try {
+    await new Promise(setImmediate);
     assert.equal(page.official.hidden, false);
     assert.equal(page.official.style.display, '');
     assert.equal(page.custom.hidden, true);
     assert.equal(page.requests.length, 0);
     page.change('#moment-comments');
+    // Allow the bounded transport to start before observing the fetch boundary.
+    await new Promise(setImmediate);
     assert.equal(page.official.hidden, true);
     assert.equal(page.custom.hidden, false);
     assert.equal(page.requests.length, 1);
@@ -313,13 +316,15 @@ test('moment permalink delegates precision to the visible official component wit
   assert.equal(page.win.listenerCount(), 0);
 });
 
-test('moment permalink cancels stale custom-list work and disposal cancels pending scrolling', async () => {
+test('moment permalink cancels stale custom-list work and disposal cancels pending scrolling', async (t) => {
   const page = momentFixture('');
+  t.after(page.cleanup);
+  await new Promise(setImmediate);
   assert.equal(page.requests.length, 1);
   page.change('#halo-comment=comment-a');
   assert.equal(page.requests[0].signal.aborted, true);
   page.requests[0].resolve({ ok: true, json: async () => ({ items: [], page: 1, total: 0, hasNext: false }) });
-  await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+  await new Promise(setImmediate);
   assert.equal(page.custom.hidden, true);
   assert.equal(page.official.hidden, false);
   const pending = [...page.frames.values()];
@@ -400,12 +405,13 @@ test('comment container positioning waits for visibility and remains bounded whe
   }
 });
 
-test('malformed reply parameters do not reveal Moments or photo permalink containers', () => {
+test('malformed reply parameters do not reveal Moments or photo permalink containers', async () => {
   for (const hash of ['#halo-comment=a&reply=', '#halo-comment=a&reply=%00', '#halo-comment=a&reply=r&reply=s']) {
     const moment = momentFixture(hash);
     try {
       assert.equal(moment.official.hidden, true, hash);
       assert.equal(moment.custom.hidden, false, hash);
+      await new Promise(setImmediate);
       assert.equal(moment.requests.length, 1, 'invalid permalink retains ordinary comment list');
     } finally { moment.cleanup(); }
     const photo = photosFixture(hash);
@@ -414,13 +420,15 @@ test('malformed reply parameters do not reveal Moments or photo permalink contai
   }
 });
 
-test('Moments and photos wait for destination URL commit and restore their regular views', () => {
+test('Moments and photos wait for destination URL commit and restore their regular views', async () => {
   const moment = momentFixture('#halo-comment=old-comment', {
     pathname: '/moments/old', pendingTargetUrl: '/moments/moment-a#halo-comment=new-comment&reply=new-reply'
   });
   try {
     moment.tick();
+    await new Promise(setImmediate);
     assert.equal(moment.official.hidden, true, 'outgoing target must not open new root');
+    assert.equal(moment.requests.length, 0, 'pending destination ownership must not start a custom-list request');
     moment.win.location.pathname = '/moments/moment-a';
     moment.win.location.hash = '#halo-comment=new-comment&reply=new-reply';
     delete moment.pendingTarget.dataset.pjaxTargetUrl;
@@ -433,6 +441,7 @@ test('Moments and photos wait for destination URL commit and restore their regul
     moment.win.emit('popstate'); moment.win.emit('hashchange'); moment.tick();
     assert.equal(moment.official.scrollCalls.length, 1);
     moment.change('', 'popstate');
+    await new Promise(setImmediate);
     assert.equal(moment.official.hidden, true);
     assert.equal(moment.custom.hidden, false);
     assert.equal(moment.requests.length, 1);

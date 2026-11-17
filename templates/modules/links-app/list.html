@@ -88,12 +88,15 @@
 
       <section class="links-list-pane" aria-label="链接与动态列表">
         <header class="links-list-header">
-          <label class="links-search-wrap">
+          <div class="links-search-wrap">
             <span class="icon-[lucide--search]" aria-hidden="true"></span>
             <input class="links-search" type="search" x-model="searchQuery"
               :placeholder="activeView === 'friends' ? '搜索来源' : '搜索'"
               :aria-label="activeView === 'friends' ? '搜索 RSS 来源' : '搜索友链'" />
-          </label>
+            <button type="button" class="links-search-clear" x-show="searchQuery" @click="clearSearch()" aria-label="清空搜索">
+              <span class="icon-[lucide--x]" aria-hidden="true"></span>
+            </button>
+          </div>
           <button type="button" class="links-list-add" @click="showApply()" aria-label="添加友链" title="添加友链">
             <span class="icon-[lucide--plus]" aria-hidden="true"></span>
           </button>
@@ -103,7 +106,7 @@
           <strong x-text="allLinksTitle">全部友链</strong>
           <label class="links-group-filter">
             <span class="sr-only">筛选友链分组</span>
-            <select x-model="selectedGroup" @change="setGroup($event.target.value)">
+            <select x-model="selectedGroup" :class="{ 'is-filtered': selectedGroup }" @change="setGroup($event.target.value)">
               <option value="">全部分组</option>
               <option th:each="group : ${groupsData}" data-links-group
                 th:value="${group.metadata.name}"
@@ -168,6 +171,7 @@
               <span class="icon-[lucide--search-x]" aria-hidden="true"></span>
               <strong x-text="emptyTitle()">没有匹配的友链</strong>
               <p x-text="emptyText()">换一个关键词或分组继续浏览。</p>
+              <button type="button" class="links-secondary-action" x-show="searchQuery" @click="clearSearch()">清空搜索</button>
             </section>
           </div>
 
@@ -265,6 +269,12 @@
               </button>
             </th:block>
 
+            <section class="links-list-empty" x-show="searchQuery && feedSources.length > 0 && visibleFeedSourceCount() === 0" aria-live="polite">
+              <span class="icon-[lucide--search-x]" aria-hidden="true"></span>
+              <strong>没有匹配的来源</strong>
+              <button type="button" class="links-secondary-action" @click="clearSearch()">清空搜索</button>
+            </section>
+
             <section class="links-list-empty" th:if="${feedGroupsData == null or #lists.isEmpty(feedGroupsData)}">
               <span class="icon-[lucide--rss]" aria-hidden="true"></span>
               <strong>还没有公开的 RSS 来源</strong>
@@ -299,7 +309,7 @@
             <span class="links-detail-source-link-label">访问网站</span>
             <span class="icon-[lucide--arrow-up-right]" aria-hidden="true"></span>
           </a>
-          <button type="button" class="links-detail-action" x-show="activeView === 'friends' && !selectedFeedItem"
+          <button type="button" class="links-detail-action" x-show="activeView === 'friends' && (!selectedFeedItem || feedActionUncertain[selectedFeedItemId])"
             :disabled="feedLoading" @click="refreshFeed()" aria-label="刷新动态" title="刷新动态">
             <span class="icon-[lucide--refresh-cw]" :class="{ 'is-spinning': feedLoading }" aria-hidden="true"></span>
           </button>
@@ -362,21 +372,21 @@
               <div class="links-feed-reader-actions">
                 <button type="button" class="links-feed-reader-action"
                   :class="{ 'is-active': selectedFeedItem?.favorite }"
-                  :disabled="isFeedStateBusy(selectedFeedItemId, 'favorite')"
+                  :disabled="isFeedStateBusy(selectedFeedItemId) || !!feedActionUncertain[selectedFeedItemId]"
                   @click="toggleFeedFavorite()">
                   <span class="icon-[lucide--star]" aria-hidden="true"></span>
                   <span x-text="selectedFeedItem?.favorite ? '取消收藏' : '收藏'"></span>
                 </button>
                 <button type="button" class="links-feed-reader-action"
                   :class="{ 'is-active': selectedFeedItem?.readLater }"
-                  :disabled="isFeedStateBusy(selectedFeedItemId, 'later')"
+                  :disabled="isFeedStateBusy(selectedFeedItemId) || !!feedActionUncertain[selectedFeedItemId]"
                   @click="toggleFeedReadLater()">
                   <span class="icon-[lucide--bookmark]" aria-hidden="true"></span>
                   <span x-text="selectedFeedItem?.readLater ? '移出稍后阅读' : '稍后阅读'"></span>
                 </button>
                 <button type="button" class="links-feed-reader-action"
                   :class="{ 'is-active': selectedFeedItem && !selectedFeedItem.read }"
-                  :disabled="isFeedStateBusy(selectedFeedItemId, 'read')"
+                  :disabled="isFeedStateBusy(selectedFeedItemId) || !!feedActionUncertain[selectedFeedItemId]"
                   @click="toggleFeedRead()">
                   <span :class="selectedFeedItem?.read ? 'icon-[lucide--mail]' : 'icon-[lucide--mail-open]'" aria-hidden="true"></span>
                   <span x-text="selectedFeedItem?.read ? '设为未读' : '设为已读'"></span>
@@ -389,6 +399,7 @@
             </article>
 
             <div class="links-feed-list" data-feed-list x-show="!selectedFeedItem"
+              :aria-busy="feedLoading.toString()"
               :class="{ 'is-updating': feedLoading && feedReplacing }">
               <article class="links-feed-card" data-feed-item
                 th:each="feed : ${feedPageData != null ? feedPageData.items : {}}"
@@ -446,7 +457,7 @@
                 x-show="feedStatus === 'error'" @click="refreshFeed()">重试</button>
             </section>
 
-            <div class="links-feed-pagination" x-show="!selectedFeedItem && (feedHasNext || feedLoading)"
+            <div class="links-feed-pagination" x-show="!selectedFeedItem && (feedHasNext || feedLoading) && !(feedLoading && feedReplacing && feedItemCount === 0)"
               x-intersect.margin.240px="loadNextFeed({ automatic: true })">
               <button type="button" class="links-secondary-action links-feed-more"
                 :disabled="feedLoading" @click="loadNextFeed()">

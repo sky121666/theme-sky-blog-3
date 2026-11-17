@@ -51,6 +51,7 @@ export function installStartupController(win, doc, config = {}, { preview = fals
   const layer = doc.createElement('div');
   layer.className = 'theme-startup-layer';
   layer.dataset.themeStartupLayer = preview ? 'preview' : 'entry';
+  layer.tabIndex = -1;
   layer.setAttribute('role', 'dialog');
   layer.setAttribute('aria-modal', 'true');
   layer.setAttribute('aria-label', preview ? '开机效果演示' : '正在进入页面');
@@ -58,21 +59,22 @@ export function installStartupController(win, doc, config = {}, { preview = fals
   // mounting. No inert/scroll lock is applied to the document underneath.
   const style = doc.createElement('style');
   style.textContent = `
-    .theme-startup-layer{position:fixed;inset:0;z-index:2147483600;background:#080808;color:#f5f5f7;display:grid;place-items:center;font-family:system-ui,sans-serif;isolation:isolate;animation:theme-startup-enter 120ms ease-out,theme-startup-release 1ms step-end 1999ms forwards}
-    .theme-startup-center{display:flex;flex-direction:column;align-items:center;gap:28px;transform:translateY(-12px)}
-    .theme-startup-logo{position:relative;width:88px;height:88px;display:grid;place-items:center}
+    .theme-startup-layer{position:fixed;inset:0;z-index:2147483600;background:#080808;color:#f5f5f7;display:grid;place-items:center;font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;isolation:isolate;outline:0;animation:theme-startup-release 1ms step-end 1999ms forwards}
+    .theme-startup-center{display:flex;flex-direction:column;align-items:center;gap:clamp(24px,3.5vh,32px);transform:translateY(-1.5vh);pointer-events:none}
+    .theme-startup-logo{position:relative;width:clamp(68px,7vw,88px);aspect-ratio:1;display:grid;place-items:center}
     .theme-startup-logo svg,.theme-startup-logo img{width:100%;height:100%;object-fit:contain;grid-area:1/1}
     .theme-startup-logo img{position:absolute;inset:0}
-    .theme-startup-track{height:3px;width:160px;border-radius:9px;overflow:hidden;background:#ffffff30}
-    .theme-startup-track span{display:block;height:100%;width:32%;border-radius:inherit;background:#f5f5f7;animation:theme-startup-progress 1.1s ease-in-out infinite;transition:width 120ms ease}
-    .theme-startup-layer[data-startup-leaving] .theme-startup-track span{animation:none;width:100%}
-    .theme-startup-skip{position:absolute;right:max(24px,env(safe-area-inset-right));bottom:max(24px,env(safe-area-inset-bottom));min-width:72px;min-height:44px;padding:8px 16px;border:1px solid #ffffff38;border-radius:999px;background:#ffffff0d;color:#dedee3;font:13px/1.4 system-ui;cursor:pointer}
-    .theme-startup-skip:focus-visible{outline:2px solid #fff;outline-offset:4px}
-    .theme-startup-layer[data-startup-leaving]{opacity:0;transition:opacity 180ms ease;pointer-events:none}
-    @keyframes theme-startup-enter{from{opacity:0}to{opacity:1}}
-    @keyframes theme-startup-progress{0%{transform:translateX(-110%)}100%{transform:translateX(420%)}}
+    .theme-startup-track{height:3px;width:clamp(128px,13vw,160px);border-radius:3px;overflow:hidden;background:#39393b}
+    .theme-startup-track span{display:block;height:100%;border-radius:inherit;background:#ededf0;transform-origin:left;transform:scaleX(var(--startup-fill,0));transition:transform 150ms ease-out}
+    .theme-startup-track:not([aria-valuenow]) span{animation:theme-startup-progress 1.35s ease-in-out infinite}
+    .theme-startup-skip{position:absolute;right:max(16px,env(safe-area-inset-right));bottom:max(14px,env(safe-area-inset-bottom));min-width:44px;min-height:44px;padding:0 8px;appearance:none;border:0;background:transparent;color:#aaaab0;font:inherit;font-size:12px;line-height:1.4;cursor:pointer}
+    .theme-startup-skip:hover,.theme-startup-skip:focus-visible{color:#f5f5f7}
+    .theme-startup-skip:focus-visible{outline:none}
+    .theme-startup-skip:focus-visible span{outline:2px solid currentColor;outline-offset:4px;border-radius:2px}
+    .theme-startup-layer[data-theme-startup-layer="entry"] .theme-startup-skip:not(:focus){opacity:0;pointer-events:none}
+    .theme-startup-layer[data-startup-leaving]{opacity:0;transition:opacity 180ms ease-out}
+    @keyframes theme-startup-progress{from{transform:translateX(-16%) scaleX(.3)}to{transform:translateX(100%) scaleX(.3)}}
     @keyframes theme-startup-release{to{opacity:0;visibility:hidden;pointer-events:none}}
-    @media(max-width:640px){.theme-startup-logo{width:72px;height:72px}.theme-startup-center{transform:translateY(-6px)}}
     @media(prefers-reduced-motion:reduce){.theme-startup-layer{display:none}}
   `;
   const center = doc.createElement('div');
@@ -112,7 +114,10 @@ export function installStartupController(win, doc, config = {}, { preview = fals
   const skip = doc.createElement('button');
   skip.className = 'theme-startup-skip';
   skip.type = 'button';
-  skip.textContent = preview ? '结束演示' : '跳过';
+  skip.setAttribute('aria-keyshortcuts', 'Escape');
+  const label = doc.createElement('span');
+  label.textContent = preview ? '结束演示' : '跳过';
+  skip.append(label);
   layer.append(style, center, skip);
 
   function cleanup(reason) {
@@ -133,7 +138,11 @@ export function installStartupController(win, doc, config = {}, { preview = fals
     resolveFinished(reason);
   }
   function finish(reason = 'skipped') {
-    if (!active || leaving) return;
+    if (!active) return;
+    if (leaving) {
+      if (reason === 'skipped') cleanup(reason);
+      return;
+    }
     leaving = true;
     if (reason === 'interactive' && Date.now() - startedAt < 1820) {
       layer.dataset.startupLeaving = 'true';
@@ -142,10 +151,14 @@ export function installStartupController(win, doc, config = {}, { preview = fals
   }
   function onKey(event) {
     if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); finish('skipped'); }
-    else if (event.key === 'Tab' && active && !leaving) { event.preventDefault(); skip.focus({ preventScroll: true }); }
+    else if (event.key === 'Tab') {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!leaving) skip.focus({ preventScroll: true });
+    }
   }
   function onFocus(event) {
-    if (active && !leaving && !layer.contains(event.target)) skip.focus({ preventScroll: true });
+    if (active && !leaving && !layer.contains(event.target)) layer.focus({ preventScroll: true });
   }
   function onPageHide() { cleanup('navigation'); }
   function onPageShow(event) { if (event.persisted) cleanup('history'); }
@@ -153,9 +166,13 @@ export function installStartupController(win, doc, config = {}, { preview = fals
   const controller = {
     get active() { return active; },
     ready(part) {
-      if (!active || preview) return;
+      if (!active || leaving || preview || !required.includes(part) || parts.has(part)) return;
       parts.add(part);
-      if (required.every((name) => parts.has(name))) finish('interactive');
+      // These are completed readiness signals, not an estimate of network progress.
+      track.setAttribute('aria-valuemax', String(required.length));
+      track.setAttribute('aria-valuenow', String(parts.size));
+      progress.style.setProperty('--startup-fill', String(parts.size / required.length));
+      if (parts.size === required.length) finish('interactive');
     },
     finish,
     dispose() { cleanup('cancelled'); },
@@ -164,13 +181,20 @@ export function installStartupController(win, doc, config = {}, { preview = fals
   if (!preview) win.__THEME_STARTUP__ = controller;
   // The watchdog is installed before the layer is mounted or focus is changed.
   deadline = win.setTimeout(() => cleanup('timeout'), 2000);
-  skip.addEventListener('click', () => finish('skipped'));
+  // Wait for the completed click/tap: removing the overlay on pointerdown
+  // could deliver the rest of the gesture to the desktop underneath.
+  layer.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (event.button !== 0 || (preview && !skip.contains(event.target))) return;
+    event.preventDefault();
+    finish('skipped');
+  });
   doc.addEventListener('keydown', onKey, true);
   doc.addEventListener('focusin', onFocus, true);
   win.addEventListener('pagehide', onPageHide);
   win.addEventListener('pageshow', onPageShow);
   motion?.addEventListener?.('change', onMotion);
   doc.body.append(layer);
-  skip.focus({ preventScroll: true });
+  layer.focus({ preventScroll: true });
   return controller;
 }

@@ -383,6 +383,7 @@ assert.equal(typeof explorerFactory, 'function');
     const root = {
       ownerDocument: doc, isConnected: true, dataset: {}, pendingTarget,
       querySelector: () => null, querySelectorAll: () => [],
+      contains: () => false,
       closest(selector) {
         return selector === '[data-pjax-target-url]' && this.pendingTarget
           ? { dataset: { pjaxTargetUrl: this.pendingTarget } } : null;
@@ -793,6 +794,19 @@ try {
   assert.equal(failedPageRequests, 1, 'the visible continue button must still retry the failed cursor');
   assert.match(linksTemplate, /x-intersect\.margin\.240px="loadNextFeed\(\{ automatic: true \}\)"/,
     'the intersection observer must use the guarded automatic path');
+
+  refreshingFeed.feedLinkName = 'different-source';
+  let releaseSource;
+  const delayedSource = new Promise(resolve => { releaseSource = resolve; });
+  globalThis.fetch = () => delayedSource;
+  const replacement = refreshingFeed.replaceFeed();
+  assert.deepEqual(retainedFeedList.cards, [], 'switching sources must remove the old links before the response');
+  assert.deepEqual(refreshingFeed.feedItems, []);
+  assert.equal(refreshingFeed.feedNextId, '', 'the previous source cursor cannot paginate the new source');
+  assert.equal(refreshingFeed.feedStatus, 'checking');
+  releaseSource(fakeResponse(503, { detail: '切换来源失败' }));
+  assert.equal(await replacement, false);
+  assert.equal(refreshingFeed.feedStatus, 'error');
 
   const guestRequests = [];
   globalThis.fetch = async (url, options = {}) => {

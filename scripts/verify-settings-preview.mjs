@@ -17,8 +17,8 @@ const moduleStart = source.indexOf('const SETTINGS_CLOSE_DELAY');
 assert.ok(moduleStart > 0, 'Settings runtime module body missing');
 const supportingSource = ['category-appearances', 'color-controls', 'preview', 'panels', 'startup'].map((name) => fs.readFileSync(path.join(root, `src/shell/desktop-shell/runtime/desktop/settings-model/${name}.js`), 'utf8').replace(/^import .*?;\n/gm, '').replace(/export (function|const) /g, '$1 ')).join('\n');
 const runtimeSource = (supportingSource + '\n' + source.slice(moduleStart))
-  .replace('export function registerThemeSettings(Alpine)', 'function registerThemeSettings(Alpine)')
-  .concat('\nregisterThemeSettings;');
+  .replace('export function registerThemeSettings', 'function registerThemeSettings')
+  .concat('\nregisterThemeSettings.previewApi = { captureRuntimeSnapshot, restoreBodyRuntime, restoreDockRuntime, restoreHeaderIcons, restoreStoredTheme, restoreDesktopViewport, applyBodyPreview, applyDockPreview, applyMenubarPreview, applyWidgetPreview, applyHeaderIconPreview }; registerThemeSettings;');
 
 function createStyle() {
   const properties = new Map();
@@ -138,7 +138,7 @@ function createHarness(config = {}) {
     sanitizeIconSvg: () => '',
     isCoveredNativeBeforeUnload: () => false
   }, { filename: 'theme-settings.js' });
-  registerThemeSettings(Alpine);
+  registerThemeSettings(Alpine, registerThemeSettings.previewApi);
   const store = Alpine.store('themeSettings');
   store.endpoint = '/fixture';
   store.themeName = 'fixture';

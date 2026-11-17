@@ -52,6 +52,9 @@
     "remove": "删除",
     "removeConfirm": "确定从购物车中删除该商品吗？",
     "removeFailed": "删除失败，请重试",
+    "recheck": "重新核对",
+    "keep": "保留商品",
+    "stillInCart": "购物车中仍有这件商品。请重新核对，或选择保留后再结算。",
     "inquiryBadge": "询价商品",
     "inquiryNote": "请联系客服询价下单",
     "quantity": "数量",
@@ -107,6 +110,8 @@
     "guestLoginPrompt": "如果这个邮箱已经注册，请先登录后再结账。",
     "subscriptionRequiresLogin": "订阅商品需要登录后购买。",
     "contextLoadFailed": "结算信息加载失败，请重试",
+    "waitForUpdates": "正在更新结算信息，请稍候…",
+    "addressLoadFailed": "收货地址加载失败，请重试后继续结算。",
     "submitting": "提交中…"
   },
   "addressForm": {
@@ -213,6 +218,9 @@
     "goSwitch": "去切换",
     "addingToCart": "加入中…",
     "addCartFailed": "加入购物车失败",
+    "checkCart": "核对购物车",
+    "addCartResultUnknown": "加入购物车请求超时或连接中断，结果尚不确定。请先核对购物车，确认后再继续购买。",
+    "addedCheckCart": "已加入购物车，请打开购物车继续。",
     "manageTitle": "当前订阅",
     "manageTitleMultiple": "我的订阅（{{count}} 个）",
     "manageMultipleHint": "每条订阅独立续费与变更，请在用户中心逐条管理。",

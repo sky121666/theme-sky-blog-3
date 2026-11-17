@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import { readLiveBuildContext } from './lib/live-build-context.mjs';
 
 const base = process.env.SMOKE_BASE_URL || 'http://localhost:8090';
+const evidenceDir = process.env.NAVIGATION_EVIDENCE_DIR || 'docs/evidence/pjax-design-2026-09-28';
 const browser = await chromium.launch();
 const scenarios = [];
 async function ready(page) {
@@ -211,8 +212,8 @@ try {
   }
 
   const context = await readLiveBuildContext(base);
-  await fs.mkdir('docs/evidence/pjax-design-2026-09-28', { recursive: true });
-  await fs.writeFile('docs/evidence/pjax-design-2026-09-28/runtime-results.json', JSON.stringify({ context, scenarios }, null, 2) + '\n');
+  await fs.mkdir(evidenceDir, { recursive: true });
+  await fs.writeFile(`${evidenceDir}/runtime-results.json`, JSON.stringify({ context, scenarios }, null, 2) + '\n');
   console.log(`live navigation admission passed: ${scenarios.length} cases; exact build context saved locally`);
 } finally {
   await browser.close();

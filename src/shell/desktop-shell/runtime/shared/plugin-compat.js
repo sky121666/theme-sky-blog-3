@@ -1,5 +1,3 @@
-import { installCommentEditReadiness } from '../../../../shared/comment-edit-readiness.js';
-
 const LIGHT_GALLERY_ROOT_SELECTOR = '#article-content';
 const LIGHT_GALLERY_UID_ATTRIBUTE = 'lg-uid';
 const LIGHT_GALLERY_ASSET_PATTERN = /\/plugins\/PluginLightGallery\/assets\/static\//i;
@@ -16,6 +14,8 @@ const loadedPluginScripts = new Map();
 const observedPluginScripts = new WeakMap();
 let stagedOnlineHistoryState = null;
 const CONTACT_FORM_AUTO_SELECTOR = 'body > halo-contact-form-auto-loader, body > halo-contact-form-auto-display';
+const lightGalleryKeyboardBindings = new WeakMap();
+const LIGHT_GALLERY_INTERACTIVE_SELECTOR = 'a[href], button, input, select, textarea, summary, [contenteditable]:not([contenteditable="false"]), [role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="switch"], [role="tab"], [role="menuitem"], [role="option"], [role="combobox"], [role="textbox"], [role="slider"], [role="spinbutton"], [role="treeitem"]';
 const contactFormAssets = new Map();
 let contactFormIntentId = null;
 let stagedContactForms = null;
@@ -32,9 +32,8 @@ function clearAutomaticContactForms() {
   contactFormAutoNodes().forEach((node) => node.remove());
 }
 
-function stageContactFormsFromResponse(responseText) {
-  if (!responseText || typeof DOMParser !== 'function') return;
-  const targetDoc = new DOMParser().parseFromString(responseText, 'text/html');
+function stageContactFormsFromDocument(targetDoc) {
+  if (!targetDoc) return;
   let forms = null;
   for (const script of targetDoc.querySelectorAll('script:not([src])')) {
     // AutoContactFormWidget emits JSON, not executable theme code. Never replay
@@ -180,13 +179,88 @@ function collectElements(root, selector) {
   return elements;
 }
 
+function isLightGalleryKeyboardImage(image) {
+  return !image.closest(LIGHT_GALLERY_INTERACTIVE_SELECTOR)
+    && !image.closest('[inert], [hidden], [aria-hidden="true"], [data-app-root="photos"], [data-app-root="moments"]');
+}
+
+function installLightGalleryKeyboard(gallery, images) {
+  if (lightGalleryKeyboardBindings.has(gallery)) return;
+  const state = { images: new Map(), trigger: null, restoreFrame: 0 };
+  images.filter(isLightGalleryKeyboardImage).forEach((image) => {
+    const original = {
+      tabindex: image.getAttribute('tabindex'),
+      marker: image.getAttribute('data-theme-lightgallery-keyboard')
+    };
+    if (image.tabIndex < 0) image.setAttribute('tabindex', '0');
+    original.assignedTabindex = image.getAttribute('tabindex');
+    image.setAttribute('data-theme-lightgallery-keyboard', '');
+    state.images.set(image, original);
+  });
+  if (!state.images.size) return;
+
+  const cancelRestore = () => {
+    if (state.restoreFrame) window.cancelAnimationFrame(state.restoreFrame);
+    state.restoreFrame = 0;
+  };
+  const onClick = (event) => {
+    if (!state.images.has(event.target) || !isLightGalleryKeyboardImage(event.target)) return;
+    cancelRestore();
+    state.trigger = event.target;
+  };
+  const onKeyDown = (event) => {
+    if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey
+      || !['Enter', ' '].includes(event.key)
+      || !state.images.has(event.target) || !isLightGalleryKeyboardImage(event.target)) return;
+    event.preventDefault();
+    if (!event.repeat) event.target.click();
+  };
+  const onClose = () => {
+    cancelRestore();
+    const trigger = state.trigger;
+    state.trigger = null;
+    // LightGallery 1.4 focuses its article after emitting onCloseAfter. Restore
+    // in the next frame, and revoke it when navigation disposes this owner.
+    state.restoreFrame = window.requestAnimationFrame(() => {
+      state.restoreFrame = 0;
+      if (lightGalleryKeyboardBindings.get(gallery) !== state || !trigger?.isConnected) return;
+      const active = document.activeElement;
+      if (active === gallery || active === document.body || active?.closest('.lg-outer')) {
+        trigger.focus({ preventScroll: true });
+      }
+    });
+  };
+  gallery.addEventListener('click', onClick, true);
+  gallery.addEventListener('keydown', onKeyDown);
+  gallery.addEventListener('onCloseAfter', onClose);
+  state.dispose = () => {
+    cancelRestore();
+    gallery.removeEventListener('click', onClick, true);
+    gallery.removeEventListener('keydown', onKeyDown);
+    gallery.removeEventListener('onCloseAfter', onClose);
+    state.images.forEach((original, image) => {
+      if (image.getAttribute('tabindex') === original.assignedTabindex) {
+        if (original.tabindex === null) image.removeAttribute('tabindex');
+        else image.setAttribute('tabindex', original.tabindex);
+      }
+      if (image.getAttribute('data-theme-lightgallery-keyboard') === '') {
+        if (original.marker === null) image.removeAttribute('data-theme-lightgallery-keyboard');
+        else image.setAttribute('data-theme-lightgallery-keyboard', original.marker);
+      }
+    });
+    lightGalleryKeyboardBindings.delete(gallery);
+  };
+  lightGalleryKeyboardBindings.set(gallery, state);
+}
+
 export function disposeLightGallery(root = document) {
   let disposed = 0;
 
   collectElements(
     root,
-    `${LIGHT_GALLERY_ROOT_SELECTOR}[${LIGHT_GALLERY_UID_ATTRIBUTE}]`
+    LIGHT_GALLERY_ROOT_SELECTOR
   ).forEach((gallery) => {
+    lightGalleryKeyboardBindings.get(gallery)?.dispose();
     const uid = gallery.getAttribute(LIGHT_GALLERY_UID_ATTRIBUTE);
     const instance = uid ? window.lgData?.[uid] : null;
 
@@ -207,16 +281,20 @@ export function mountLightGallery(root = document) {
 
   let mounted = 0;
   collectElements(root, LIGHT_GALLERY_ROOT_SELECTOR).forEach((gallery) => {
-    if (gallery.hasAttribute(LIGHT_GALLERY_UID_ATTRIBUTE)) return;
+    if (gallery.closest?.('[data-app-root="photos"], [data-app-root="moments"]')) return;
 
     const images = Array.from(gallery.querySelectorAll('img'));
     if (!images.length) return;
 
+    installLightGalleryKeyboard(gallery, images);
+    const alreadyMounted = gallery.hasAttribute(LIGHT_GALLERY_UID_ATTRIBUTE);
+
     images.forEach((image) => {
       const source = image.currentSrc || image.src || image.getAttribute('src') || '';
-      if (source) image.dataset.src = source;
+      if (source && (!alreadyMounted || !image.dataset.src)) image.dataset.src = source;
     });
 
+    if (alreadyMounted) return;
     window.lightGallery(gallery, { selector: 'img' });
     mounted += 1;
   });
@@ -364,10 +442,8 @@ function ensureScript(src) {
   return ready;
 }
 
-function prepareLightGalleryAssets(responseText) {
-  if (!responseText || typeof DOMParser !== 'function') return Promise.resolve();
-
-  const targetDoc = new DOMParser().parseFromString(responseText, 'text/html');
+function readLightGalleryAssets(targetDoc) {
+  if (!targetDoc) return null;
   const styles = Array.from(targetDoc.querySelectorAll('link[rel~="stylesheet"][href]'))
     .map((link) => link.getAttribute('href') || '')
     .filter((href) => LIGHT_GALLERY_ASSET_PATTERN.test(href));
@@ -375,19 +451,24 @@ function prepareLightGalleryAssets(responseText) {
     .map((script) => script.getAttribute('src') || '')
     .filter((src) => LIGHT_GALLERY_ASSET_PATTERN.test(src));
 
-  styles.forEach(ensureStylesheet);
-  return scripts.reduce(
+  return styles.length || scripts.length ? { styles, scripts } : null;
+}
+
+function prepareLightGalleryAssets(assets) {
+  if (!assets) return;
+  assets.styles.forEach(ensureStylesheet);
+  return assets.scripts.reduce(
     (pending, src) => pending.then(() => ensureScript(src)),
     Promise.resolve()
   );
 }
 
-function readOnlineMonitorPrivatePageFromResponse(responseText) {
+function readOnlineMonitorPrivatePageFromResponse(responseText, parsed) {
   if (!responseText || !responseText.includes('__ONLINE_MONITOR_META__')) return null;
 
   let source = '';
-  if (typeof DOMParser === 'function') {
-    const targetDoc = new DOMParser().parseFromString(responseText, 'text/html');
+  if (parsed || typeof DOMParser === 'function') {
+    const targetDoc = parsed || new DOMParser().parseFromString(responseText, 'text/html');
     source = Array.from(targetDoc.querySelectorAll('script:not([src])'))
       .map((script) => script.textContent || '')
       .find((scriptText) => /window\.__ONLINE_MONITOR_META__\s*=\s*Object\.assign/.test(scriptText)) || '';
@@ -403,8 +484,8 @@ function readOnlineMonitorPrivatePageFromResponse(responseText) {
   return privatePageMatch[1].toLowerCase() === 'true';
 }
 
-export function syncOnlineMonitorMetaFromResponse(responseText) {
-  const privatePage = readOnlineMonitorPrivatePageFromResponse(responseText);
+export function syncOnlineMonitorMetaFromResponse(responseText, parsed) {
+  const privatePage = readOnlineMonitorPrivatePageFromResponse(responseText, parsed);
   if (typeof privatePage !== 'boolean') return false;
 
   window.__ONLINE_MONITOR_META__ = Object.assign({}, window.__ONLINE_MONITOR_META__, {
@@ -413,8 +494,8 @@ export function syncOnlineMonitorMetaFromResponse(responseText) {
   return true;
 }
 
-export function stageOnlineMonitorHistoryState(responseText, targetUrl) {
-  const privatePage = readOnlineMonitorPrivatePageFromResponse(responseText);
+export function stageOnlineMonitorHistoryState(responseText, targetUrl, parsed) {
+  const privatePage = readOnlineMonitorPrivatePageFromResponse(responseText, parsed);
   if (typeof privatePage !== 'boolean') {
     stagedOnlineHistoryState = null;
     return false;
@@ -504,15 +585,19 @@ function installOnlineMonitorHistoryBridge() {
 }
 
 export function preparePluginCompatibilityFromResponse(responseText, options = {}) {
-  stageContactFormsFromResponse(responseText);
+  const targetDoc = options.document || (responseText && typeof DOMParser === 'function'
+    ? new DOMParser().parseFromString(responseText, 'text/html') : null);
+  stageContactFormsFromDocument(targetDoc);
   if (options.stageOnlineHistory) {
-    stageOnlineMonitorHistoryState(responseText, options.targetUrl);
+    stageOnlineMonitorHistoryState(responseText, options.targetUrl, targetDoc);
   } else {
-    syncOnlineMonitorMetaFromResponse(responseText);
+    syncOnlineMonitorMetaFromResponse(responseText, targetDoc);
   }
+  // Retain URL strings only: an earlier visit may still be waiting for a plugin script.
+  const assets = readLightGalleryAssets(targetDoc);
   lightGalleryAssetsReady = lightGalleryAssetsReady
     .catch(() => {})
-    .then(() => prepareLightGalleryAssets(responseText));
+    .then(() => prepareLightGalleryAssets(assets));
   lightGalleryAssetsReady.catch((error) => {
     console.warn('LightGallery asset load failed:', error);
   });
@@ -559,7 +644,9 @@ function scheduleLightGalleryRefresh(root = document) {
 export function initPluginCompatibility() {
   if (window[PLUGIN_COMPAT_GUARD]) return;
   window[PLUGIN_COMPAT_GUARD] = true;
-  void installCommentEditReadiness(window);
+  void import('../../../../shared/comment-edit-readiness.js')
+    .then(({ installCommentEditReadiness }) => installCommentEditReadiness(window))
+    .catch((error) => console.warn('[theme] Comment edit protection unavailable:', error));
   installOnlineMonitorHistoryBridge();
 
   const refreshAfterNavigation = (event) => {

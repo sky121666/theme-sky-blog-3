@@ -93,6 +93,93 @@ test('weather loading failure retains the added layout draft and its dirty state
   assert.equal(surface.editStage, 'decorate');
 });
 
+// Uses the production recommendation loop, _doAddWidget, discard and exit.
+// Only the external weather read remains pending; no add operation is mocked.
+test('discarding recommendations during a real weather add cannot resume adding into the restored layout', async () => {
+  const surface = desktopFixture();
+  surface.isHome = true;
+  const weather = deferred();
+  surface.loadWeather = () => weather.promise;
+  const applying = surface.applyRecommendedWidgetLayout();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(surface.widgets.map(({ widget }) => widget), ['system.clock', 'system.calendar', 'system.weather']);
+  assert.equal(await surface.exitEditMode(), true);
+  assert.deepEqual(surface.widgets, []);
+  assert.equal(surface.hasUnsavedDesktopChanges(), false);
+  weather.resolve();
+  await applying;
+  assert.deepEqual(surface.widgets, [], 'the old batch must not add latest posts or site statistics after discard');
+  assert.equal(surface.hasUnsavedDesktopChanges(), false, 'the old batch must not mark the restored layout dirty');
+  assert.equal(surface.selectedDesktopKey, null);
+});
+
+test('an old recommendation waiting for weather cannot modify a newly entered editing session', async () => {
+  const surface = desktopFixture();
+  surface.isHome = true;
+  const weather = deferred();
+  surface.loadWeather = () => weather.promise;
+  const applying = surface.applyRecommendedWidgetLayout();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(await surface.exitEditMode(), true);
+  surface.enterEditMode('decorate');
+  await surface._doAddWidget('system.clock', 'small');
+  const newDraft = structuredClone(surface.widgets);
+  const newMutationVersion = surface.serverLayoutMutationVersion;
+  const newSelection = surface.selectedDesktopKey;
+  weather.resolve();
+  await applying;
+  assert.deepEqual(surface.widgets, newDraft, 'a new active edit session must not inherit the previous batch');
+  assert.equal(surface.serverLayoutMutationVersion, newMutationVersion);
+  assert.equal(surface.selectedDesktopKey, newSelection);
+});
+
+test('weather as the last missing recommendation cannot mark the discarded layout dirty on completion', async () => {
+  const surface = desktopFixture();
+  surface.isHome = true;
+  surface.widgets = ['system.clock', 'system.calendar', 'halo.latest_posts', 'halo.site_stats']
+    .map((widget, index) => ({ key: `saved-${index}`, widget, size: 'small', meta: {} }));
+  surface.defaultWidgets = structuredClone(surface.widgets);
+  const savedLayout = structuredClone(surface.defaultWidgets);
+  const weather = deferred();
+  surface.loadWeather = () => weather.promise;
+  const applying = surface.applyRecommendedWidgetLayout();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(surface.widgets.at(-1).widget, 'system.weather');
+  assert.equal(await surface.exitEditMode(), true);
+  weather.resolve();
+  await applying;
+  assert.deepEqual(surface.widgets, savedLayout);
+  assert.equal(surface.hasUnsavedDesktopChanges(), false, 'final batch status must not overwrite the discard state');
+  assert.equal(surface.serverLayoutSaveState, 'idle');
+  assert.equal(surface.serverLayoutSaveMessage, '已放弃未保存更改');
+});
+
+test('an active recommendation still completes after weather and retains its saveable draft', async () => {
+  const surface = desktopFixture();
+  surface.isHome = true;
+  surface.loadWeather = async () => {};
+  await surface.applyRecommendedWidgetLayout();
+  assert.deepEqual(surface.widgets.map(({ widget }) => widget), [
+    'system.clock', 'system.calendar', 'system.weather', 'halo.latest_posts', 'halo.site_stats'
+  ]);
+  assert.equal(surface.hasUnsavedDesktopChanges(), true);
+  assert.equal(surface.serverLayoutSaveState, 'dirty');
+  assert.equal(surface.serverLayoutSaveMessage, '推荐布局已应用，保存后生效');
+});
+
+test('a stale batch owner cannot append through the internal add entry in a new editor', async () => {
+  const surface = desktopFixture();
+  surface.isHome = true;
+  const oldGeneration = surface.widgetConfigAddGeneration || 0;
+  surface.finishDesktopEditingSync();
+  surface.enterEditMode('decorate');
+  const mutationVersion = surface.serverLayoutMutationVersion;
+  await surface._doAddWidget('halo.site_stats', 'small', null, {}, oldGeneration);
+  assert.deepEqual(surface.widgets, []);
+  assert.equal(surface.serverLayoutMutationVersion, mutationVersion);
+  assert.equal(surface.selectedDesktopKey, null);
+});
+
 function tagStage() {
   const items = [true, false].map((focused) => ({
     focused,

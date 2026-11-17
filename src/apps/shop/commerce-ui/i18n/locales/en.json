@@ -52,6 +52,9 @@
     "remove": "Remove",
     "removeConfirm": "Remove this item from your cart?",
     "removeFailed": "Failed to remove the item. Please try again.",
+    "recheck": "Check again",
+    "keep": "Keep item",
+    "stillInCart": "This item is still in your cart. Check again or keep it before checking out.",
     "inquiryBadge": "Inquiry",
     "inquiryNote": "Contact sales to order",
     "quantity": "Quantity",
@@ -107,6 +110,8 @@
     "guestLoginPrompt": "If this email already belongs to an account, log in before checking out.",
     "subscriptionRequiresLogin": "Subscription products require you to log in.",
     "contextLoadFailed": "Failed to load checkout. Please try again.",
+    "waitForUpdates": "Updating checkout details. Please wait…",
+    "addressLoadFailed": "Shipping addresses could not be loaded. Retry before checking out.",
     "submitting": "Submitting…"
   },
   "addressForm": {
@@ -213,6 +218,9 @@
     "goSwitch": "Switch",
     "addingToCart": "Adding...",
     "addCartFailed": "Failed to add to cart",
+    "checkCart": "Check cart",
+    "addCartResultUnknown": "The cart request timed out or lost its connection, so its result is unknown. Check your cart before continuing your purchase.",
+    "addedCheckCart": "Added to your cart. Open your cart to continue.",
     "manageTitle": "Current subscription",
     "manageTitleMultiple": "Your subscriptions ({{count}})",
     "manageMultipleHint": "Each subscription renews and changes on its own. Manage one of them in the user center.",

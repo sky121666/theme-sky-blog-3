@@ -1,5 +1,6 @@
 import { buildShopBrowseUrl, isShopDescriptionVisible } from './model.js';
 import { hydrateShopDisplay } from './display-runtime.js';
+import { hydrateShopMedia, selectShopImage } from './media.js';
 import { hydrateShopChrome } from './chrome.js';
 import { createShopBrowseContext, getShopProductIdentity, readShopBrowseContext, readShopBrowseSourceContext, saveShopBrowseContext, sanitizeShopBrowseSource } from './browse-context.js';
 
@@ -12,6 +13,7 @@ export function hydrateShop(root) {
   shopCleanups.get(app)?.();
   const controller = new AbortController();
   const disposeDisplay = hydrateShopDisplay(app);
+  const disposeMedia = hydrateShopMedia(app, controller.signal);
   const disposeChrome = hydrateShopChrome(app);
   const markNavigationLinks = (node) => {
     if (!node?.querySelectorAll) return;
@@ -52,6 +54,7 @@ export function hydrateShop(root) {
     if (!submission || submission !== pendingSubmission) return;
     for (const [button, disabled] of submission.buttons) button.disabled = disabled;
     pendingSubmission = null;
+    submission.form.dispatchEvent(new win.Event('shop:submission-settled'));
   }
   function getCommerceSubmission(event) {
     const form = event.target;
@@ -212,10 +215,41 @@ export function hydrateShop(root) {
     } else if (restoreFocus) previousFocus?.focus();
   }
 
-  function browse(changes) {
+  const committedFilters = new Map([...app.querySelectorAll('[data-shop-filter] select')].map(field => [field, field.value]));
+  let pendingBrowse = null;
+  function releaseBrowse(record = pendingBrowse) {
+    if (!record || pendingBrowse !== record) return;
+    pendingBrowse = null;
+    record.fields.forEach(([field, disabled]) => { field.disabled = disabled; });
+    record.form?.removeAttribute('aria-busy');
+    committedFilters.forEach((value, field) => { field.value = value; });
+  }
+  async function browse(changes, triggerElement) {
     const href = buildShopBrowseUrl(window.location.href, changes);
-    if (typeof window.pjax?.loadUrl === 'function') window.pjax.loadUrl(href);
-    else window.location.assign(href);
+    if (pendingBrowse?.href === href) return;
+    if (typeof window.pjax?.loadUrl !== 'function') { window.location.assign(href); return; }
+    // A newer search/category intent supersedes the older one through the same
+    // Swup gateway. Only its owner may release controls or report a failure.
+    releaseBrowse();
+    const fields = [...committedFilters.keys()].map(field => [field, field.disabled]);
+    const form = triggerElement?.closest?.('[data-shop-filter], [data-shop-search]');
+    const status = app.querySelector('[data-shop-browse-status]');
+    const record = { href, fields, form };
+    pendingBrowse = record;
+    fields.forEach(([field]) => { field.disabled = true; });
+    form?.setAttribute('aria-busy', 'true');
+    if (status) { status.hidden = true; status.textContent = ''; }
+    let result = false;
+    try { result = await window.pjax.loadUrl(href, { triggerElement }); }
+    catch { /* Retain the current catalog and allow the same choice to retry. */ }
+    finally {
+      if (pendingBrowse !== record) return;
+      releaseBrowse(record);
+      if (result === false && app.isConnected && !controller.signal.aborted) {
+        committedFilters.forEach((value, field) => { field.value = value; });
+        if (status) { status.hidden = false; status.textContent = '筛选未完成，请重新选择以重试。'; }
+      }
+    }
   }
 
   app.querySelectorAll('.shop-product-description').forEach((node) => {
@@ -246,12 +280,12 @@ export function hydrateShop(root) {
     for (const key of ['keyword', 'categoryId', 'sort', 'view']) {
       if (fields.has(key)) changes[key] = fields.get(key);
     }
-    browse(changes);
+    browse(changes, form);
   }, options);
   app.addEventListener('change', (event) => {
     const field = event.target.closest('[data-shop-filter] select');
     if (!field) return;
-    browse({ [field.name]: field.value });
+    browse({ [field.name]: field.value }, field);
   }, options);
   app.addEventListener('click', (event) => {
     const button = event.target.closest('button');
@@ -266,7 +300,7 @@ export function hydrateShop(root) {
     }
     if (button?.dataset.shopThumbnail) {
       const image = app.querySelector('[data-shop-gallery-main]');
-      if (image) image.src = button.dataset.shopThumbnail;
+      if (image) selectShopImage(image, button);
       app.querySelectorAll('[data-shop-thumbnail]').forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
     }
     const navigationLink = event.target.closest('a[href]');
@@ -287,7 +321,7 @@ export function hydrateShop(root) {
       const datasetKey = `shop${key[0].toUpperCase()}${key.slice(1)}`;
       if (Object.hasOwn(link.dataset, datasetKey)) changes[key === 'category' ? 'categoryId' : key] = link.dataset[datasetKey];
     }
-    browse(changes);
+    browse(changes, link);
   }, options);
   app.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && app.dataset.menuOpen === 'true') {
@@ -304,8 +338,10 @@ export function hydrateShop(root) {
     }
   }, options);
   const cleanup = () => {
+    releaseBrowse();
     releaseSubmission();
     linkObserver.disconnect();
+    disposeMedia();
     disposeDisplay();
     disposeChrome();
     cancelAnimationFrame(menuFocusFrame);

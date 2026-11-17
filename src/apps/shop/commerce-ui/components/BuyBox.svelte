@@ -19,7 +19,6 @@ import ky from "ky";
 import { plusIcon as MingcuteAddLine } from "../icons.js";
 import { minusIcon as MingcuteMinimizeLine } from "../icons.js";
 import { formatPrice } from "../utils/price";
-import { fade } from "svelte/transition";
 import SpecButton from "./SpecButton.svelte";
 import SubscriptionBuyBox from "./SubscriptionBuyBox.svelte";
 import { getVariantQuantityLimit, normalizePurchaseQuantity, readPurchaseQuantityInput } from "../utils/purchase.js";
@@ -195,7 +194,7 @@ function handleContactSales() {
     />
   {/if}
 {:else}
-  <div class="buy-box" transition:fade={{ duration: 200 }}>
+  <div class="buy-box">
     {#if isExternal}
       <div class="buy-box__external-hint">
         {$i18n.t('buyBox.externalRedirectHint')}

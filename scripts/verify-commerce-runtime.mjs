@@ -606,7 +606,7 @@ try {
     page.on('framenavigated', (frame) => { if (frame === page.mainFrame()) navigations.push(frame.url()); });
     await page.evaluate(() => {
       window.__guardCalls = [];
-      window.pjax = { loadUrl(href) { window.__guardCalls.push(href); return { kind: 'cancelled', reason: 'fixture unsaved-data guard' }; } };
+      window.pjax = { loadUrl(href) { window.__guardCalls.push(href); return Promise.resolve(false); } };
       window.__shopLifecycle.hydrate(window.__shopRoot);
     });
     await page.click('#browse-category');
@@ -627,8 +627,9 @@ try {
       { keyword: '原关键字', categoryId: 'cat-a', sort: 'minPrice,asc', view: 'all', page: '4' },
       { keyword: '原关键字', categoryId: 'cat-a', sort: 'minPrice,desc', view: 'all' },
       { keyword: '被拦截搜索', categoryId: 'cat-a', sort: 'minPrice,asc', view: 'all' },
-      { keyword: '原关键字', categoryId: 'cat-a', sort: 'minPrice,desc', view: 'all' }
+      { keyword: '原关键字', categoryId: 'cat-a', sort: 'minPrice,asc', view: 'all' }
     ]);
+    assert.equal(await page.locator('#sort').inputValue(), 'minPrice,asc', 'Veto restores the committed sort before another submission');
     assert.equal(page.url(), beforeUrl, 'A canceled gateway must not fall through to native navigation');
     assert.deepEqual(navigations, [], 'Canceled controls must not navigate the main frame');
   });

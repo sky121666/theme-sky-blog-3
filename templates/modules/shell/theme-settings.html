@@ -7,7 +7,7 @@
         th:data-app-steam="${pluginFinder.available('steam') or pluginFinder.available('halo-plugin-steam') or pluginFinder.available('PluginSteam') or pluginFinder.available('plugin-steam')}"
         th:data-app-equipments="${pluginFinder.available('equipment')}"
         th:data-app-shop="${theme.config.shop?.display?.dock_entry_enabled == true}">Halo 配置是唯一数据源</span>
-  <div class="theme-settings-layer" x-data x-cloak x-show="$store.themeSettings.visible"
+  <div th:if="${authenticated}" class="theme-settings-layer" x-data x-cloak x-show="$store.themeSettings.visible"
        :class="{ 'is-open': $store.themeSettings.open }" :data-active-pane="$store.themeSettings.activePane">
     <div class="theme-settings-backdrop" aria-hidden="true"></div>
     <section class="theme-settings-window" data-theme-settings-window tabindex="-1" role="dialog" aria-modal="false" aria-labelledby="theme-settings-title">

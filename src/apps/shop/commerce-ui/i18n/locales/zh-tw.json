@@ -52,6 +52,9 @@
     "remove": "刪除",
     "removeConfirm": "確定從購物車中刪除該商品嗎？",
     "removeFailed": "刪除失敗，請重試",
+    "recheck": "重新核對",
+    "keep": "保留商品",
+    "stillInCart": "購物車中仍有這件商品。請重新核對，或選擇保留後再結帳。",
     "inquiryBadge": "詢價商品",
     "inquiryNote": "請聯絡客服詢價下單",
     "quantity": "數量",
@@ -107,6 +110,8 @@
     "guestLoginPrompt": "如果這個郵箱已經註冊，請先登入後再結帳。",
     "subscriptionRequiresLogin": "訂閱商品需要登入後購買。",
     "contextLoadFailed": "結算資訊載入失敗，請重試",
+    "waitForUpdates": "正在更新結帳資訊，請稍候…",
+    "addressLoadFailed": "收貨地址載入失敗，請重試後繼續結帳。",
     "submitting": "提交中…"
   },
   "addressForm": {
@@ -213,6 +218,9 @@
     "goSwitch": "去切換",
     "addingToCart": "加入中…",
     "addCartFailed": "加入購物車失敗",
+    "checkCart": "核對購物車",
+    "addCartResultUnknown": "加入購物車請求逾時或連線中斷，結果尚不確定。請先核對購物車，確認後再繼續購買。",
+    "addedCheckCart": "已加入購物車，請開啟購物車繼續。",
     "manageTitle": "當前訂閱",
     "manageTitleMultiple": "我的訂閱（{{count}} 個）",
     "manageMultipleHint": "每條訂閱獨立續費與變更，請在使用者中心逐條管理。",

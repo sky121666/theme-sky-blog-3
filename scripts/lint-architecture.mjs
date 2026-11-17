@@ -38,18 +38,16 @@ const failures = [];
 const parsed = spawnSync(process.execPath, ['--experimental-vm-modules', '--disable-warning=ExperimentalWarning', '--input-type=module', '-e', `
   import fs from 'node:fs';
   import vm from 'node:vm';
-  const files = JSON.parse(fs.readFileSync(0, 'utf8'));
-  const modules = files.map(({ file, source }) => {
+  const modules = process.argv.slice(1).map((file) => {
     try {
-      const module = new vm.SourceTextModule(source, { identifier: file });
+      const module = new vm.SourceTextModule(fs.readFileSync(file, 'utf8'), { identifier: file });
       return { file, imports: module.dependencySpecifiers };
     } catch (error) {
       return { file, error: error.message };
     }
   });
   process.stdout.write(JSON.stringify(modules));
-`], {
-  input: JSON.stringify(sourceFiles.map((file) => ({ file: path.relative(root, file).split(path.sep).join('/'), source: read(file) }))),
+`, '--', ...sourceFiles.map((file) => path.relative(root, file).split(path.sep).join('/'))], {
   encoding: 'utf8', maxBuffer: 8 * 1024 * 1024
 });
 if (parsed.status !== 0) throw new Error(parsed.stderr || parsed.error?.message || 'JavaScript module parser failed');

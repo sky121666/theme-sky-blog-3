@@ -45,8 +45,8 @@ R2 `/tags?p=2` 的真实原始片段：
 
 修改文件：
 
-- [seo.js](/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/src/shell/desktop-shell/runtime/desktop/pjax/seo.js:214)：可信 canonical 检查；[当前页面身份修补](/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/src/shell/desktop-shell/runtime/desktop/pjax/seo.js:237)；[结构化数据入口](/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/src/shell/desktop-shell/runtime/desktop/pjax/seo.js:280)。
-- [verify-seo-contract.mjs](/Users/sky/Public/work/sky-blog1/themes/theme-sky-blog-3/scripts/verify-seo-contract.mjs:266)：真实反例、不能改写的边界、幂等性与 PJAX 往返回归。
+- [seo.js](../../../../src/shell/desktop-shell/runtime/desktop/pjax/seo.js)：可信 canonical 检查；[当前页面身份修补](../../../../src/shell/desktop-shell/runtime/desktop/pjax/seo.js)；[结构化数据入口](../../../../src/shell/desktop-shell/runtime/desktop/pjax/seo.js)。
+- [verify-seo-contract.mjs](../../../../scripts/verify-seo-contract.mjs)：真实反例、不能改写的边界、幂等性与 PJAX 往返回归。
 
 修补条件全部成立才修改：
 

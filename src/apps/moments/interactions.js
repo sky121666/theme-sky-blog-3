@@ -1,6 +1,10 @@
+import { withRequestDeadline } from '../../shared/request-deadline.js';
 import { parseCommentPermalink, scrollCommentContainer, watchCommentPermalink } from '../../shared/comment-permalink.js';
 
 const UPVOTED_STORAGE_KEY = 'halo.upvoted.moment.names';
+const UPVOTE_PENDING_PREFIX = 'halo.upvoted.moment.unconfirmed:';
+const unconfirmedWithoutStorage = new Set();
+const confirmedThisPage = new Set();
 const COMMENT_ENDPOINT = '/apis/api.halo.run/v1alpha1/comments';
 const UPVOTE_ENDPOINT = '/apis/api.halo.run/v1alpha1/trackers/upvote';
 const COMMENT_PAGE_SIZE = 10;
@@ -55,9 +59,27 @@ function formatTime(value = '') {
 function readUpvoted() {
   try {
     const value = JSON.parse(localStorage.getItem(UPVOTED_STORAGE_KEY) || '[]');
-    return Array.isArray(value) ? value : [];
+    return [...confirmedThisPage, ...(Array.isArray(value) ? value : [])];
   } catch {
-    return [];
+    return [...confirmedThisPage];
+  }
+}
+
+// Halo exposes the total, not an individual vote receipt. A later total
+// (even if unchanged) cannot make repeating this increment safe.
+function voteUnconfirmed(name) {
+  if (unconfirmedWithoutStorage.has(name)) return true;
+  try { return localStorage.getItem(UPVOTE_PENDING_PREFIX + name) === '1'; }
+  catch { return false; }
+}
+
+function markVoteUnconfirmed(name, pending) {
+  try {
+    if (pending) localStorage.setItem(UPVOTE_PENDING_PREFIX + name, '1');
+    else localStorage.removeItem(UPVOTE_PENDING_PREFIX + name);
+    unconfirmedWithoutStorage.delete(name);
+  } catch {
+    if (pending) unconfirmedWithoutStorage.add(name); else unconfirmedWithoutStorage.delete(name);
   }
 }
 
@@ -188,6 +210,7 @@ function createState(card) {
     message: '',
     tone: '',
     upvoting: false,
+    upvoteController: null,
     abortController: null,
     commentsRequestGeneration: 0,
     detailFallback: false,
@@ -195,7 +218,8 @@ function createState(card) {
     hashFocusHandled: false,
     hashFocusFrame: 0,
     hashHighlightTimer: 0,
-    replyLoading: new Set()
+    replyLoading: new Set(),
+    replyControllers: new Map()
   };
 }
 
@@ -283,15 +307,16 @@ function syncCounts(card) {
 function syncLiked(card) {
   const state = getState(card);
   const liked = readUpvoted().includes(state.name);
+  const unconfirmed = !liked && voteUnconfirmed(state.name);
   card.classList.toggle('is-moment-upvoted', liked);
   card.classList.toggle('is-upvote-pending', state.upvoting);
   const button = card.querySelector('[data-moment-upvote]');
   const label = card.querySelector('[data-moment-upvote-label]');
   if (button) {
-    button.disabled = liked || state.upvoting;
+    button.disabled = liked || unconfirmed || state.upvoting;
     button.setAttribute('aria-pressed', liked ? 'true' : 'false');
   }
-  if (label) label.textContent = liked ? '已赞' : '赞';
+  if (label) label.textContent = liked ? '已赞' : state.upvoting ? '发送中' : unconfirmed ? '点赞待确认' : '赞';
 }
 
 function renderComments(card) {
@@ -332,14 +357,16 @@ function renderComments(card) {
     }
   }
   if (list) {
+    list.setAttribute('aria-busy', String(state.commentsLoading));
     const hideEmptyList = !state.commentsOpen && state.comments.length === 0;
     list.hidden = hideEmptyList;
     if (hideEmptyList) {
       list.innerHTML = '';
-    } else if (state.commentsLoading && !state.commentsLoaded) {
-      list.innerHTML = '<p class="moment-feed-comments-empty">正在加载评论...</p>';
-    } else if (state.commentsOpen && !state.commentsLoaded && getCount(card, 'comment') > 0) {
-      list.innerHTML = '<p class="moment-feed-comments-empty">评论加载中...</p>';
+    } else if (!state.commentsLoaded && (state.commentsLoading || state.message)) {
+      // The status row owns first-load progress and errors. Keep a second
+      // message out, while retaining a focusable box when returning from the
+      // official widget before the first response arrives.
+      list.innerHTML = '<p class="moment-feed-comments-placeholder" aria-hidden="true">&#8203;</p>';
     } else if (state.comments.length) {
       list.innerHTML = state.comments.map((comment) => commentHtml(comment, state)).join('');
     } else {
@@ -367,7 +394,12 @@ function renderComments(card) {
     input.placeholder = state.replyTarget ? `回复 ${state.replyTarget.author || '评论'}` : '评论...';
   }
   card.querySelector('[data-moment-comment-editor]')?.classList.toggle('is-replying', !!state.replyTarget);
-  if (form) form.hidden = !state.composerOpen || Boolean(state.officialRecovery?.ready);
+  if (form) {
+    form.hidden = !state.composerOpen || Boolean(state.officialRecovery?.ready);
+    form.setAttribute('aria-busy', String(state.submitting));
+    form.dataset.momentDraftComment = state.replyTarget?.commentName || '';
+    form.dataset.momentDraftReply = state.replyTarget?.quoteReply || '';
+  }
   if (submit) {
     submit.textContent = state.submitting ? '发送中' : state.officialRecovery ? '继续验证' : '发送';
     submit.disabled = state.submitting || !(input?.value || '').trim();
@@ -437,7 +469,7 @@ function collectPhotoItems(target) {
 function getPhotoViewer(root = document.body) {
   if (photoViewer) {
     if (root && photoViewer.overlay.parentElement !== root) {
-      photoViewer.overlay.parentElement?.classList.remove('is-photo-viewer-open');
+      photoViewer.close({ restoreFocus: false });
       root.appendChild(photoViewer.overlay);
     }
     return photoViewer;
@@ -495,6 +527,7 @@ function getPhotoViewer(root = document.body) {
     pinchStartPointX: 0,
     pinchStartPointY: 0,
     previousFocus: null,
+    background: [],
     lastTapTime: 0,
     lastTapX: 0,
     lastTapY: 0,
@@ -647,7 +680,50 @@ function getPhotoViewer(root = document.body) {
     preloadAdjacent();
   }
 
-  function close() {
+  function restoreBackground() {
+    state.background.forEach(({ element, inert, ariaHidden }) => {
+      if (inert === null) element.removeAttribute('inert');
+      else element.setAttribute('inert', inert);
+      if (ariaHidden === null) element.removeAttribute('aria-hidden');
+      else element.setAttribute('aria-hidden', ariaHidden);
+    });
+    state.background = [];
+  }
+
+  function isolateBackground() {
+    // The viewer lives inside a window. Isolate siblings at every level so
+    // neither that window's content nor other desktop windows remain active.
+    let branch = overlay;
+    while (branch.parentElement) {
+      const parent = branch.parentElement;
+      Array.from(parent.children).forEach((element) => {
+        if (element === branch) return;
+        state.background.push({
+          element,
+          inert: element.getAttribute('inert'),
+          ariaHidden: element.getAttribute('aria-hidden')
+        });
+        element.setAttribute('inert', '');
+        element.setAttribute('aria-hidden', 'true');
+      });
+      if (parent === document.body) break;
+      branch = parent;
+    }
+  }
+
+  function availableControls() {
+    return Array.from(overlay.querySelectorAll('button')).filter((button) => (
+      !button.disabled
+      && button.tabIndex >= 0
+      && !button.closest('[hidden], [inert], [aria-hidden="true"]')
+      && button.getClientRects().length > 0
+      && getComputedStyle(button).visibility === 'visible'
+    ));
+  }
+
+  function close({ restoreFocus = true } = {}) {
+    const previousFocus = state.previousFocus;
+    state.previousFocus = null;
     overlay.hidden = true;
     overlay.parentElement?.classList.remove('is-photo-viewer-open');
     overlay.classList.remove('is-panning');
@@ -657,21 +733,23 @@ function getPhotoViewer(root = document.body) {
     live.pause();
     image.removeAttribute('src');
     live.removeAttribute('src');
-    if (state.previousFocus?.isConnected) {
-      state.previousFocus.focus({ preventScroll: true });
+    restoreBackground();
+    if (restoreFocus && previousFocus?.isConnected) {
+      previousFocus.focus({ preventScroll: true });
     }
-    state.previousFocus = null;
   }
 
   function show(items, index = 0, trigger = null) {
+    restoreBackground();
     state.items = items;
     state.index = index;
     state.previousFocus = trigger instanceof HTMLElement ? trigger : document.activeElement;
     overlay.hidden = false;
     overlay.parentElement?.classList.add('is-photo-viewer-open');
     render();
-    overlay.focus({ preventScroll: true });
-    requestAnimationFrame(() => closeButton?.focus({ preventScroll: true }));
+    // Focus synchronously: no queued frame may steal focus after page cleanup.
+    (closeButton || overlay).focus({ preventScroll: true });
+    isolateBackground();
   }
 
   function move(step) {
@@ -849,6 +927,16 @@ function getPhotoViewer(root = document.body) {
 
   function onViewerKeydown(event) {
     if (overlay.hidden) return;
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      const controls = availableControls();
+      const index = controls.indexOf(document.activeElement);
+      const nextIndex = event.shiftKey
+        ? (index <= 0 ? controls.length - 1 : index - 1)
+        : (index + 1) % controls.length;
+      (controls[nextIndex] || overlay).focus({ preventScroll: true });
+      return;
+    }
     if (event.key === 'Escape') {
       event.preventDefault();
       close();
@@ -864,7 +952,7 @@ function getPhotoViewer(root = document.body) {
   }
 
   function destroy() {
-    close();
+    close({ restoreFocus: false });
     window.removeEventListener('keydown', onViewerKeydown);
     overlay.remove();
   }
@@ -1009,32 +1097,55 @@ function toggleMenu(card, root) {
 
 async function upvoteMoment(card) {
   const state = getState(card);
-  if (!state.name || state.upvoting || readUpvoted().includes(state.name)) return;
+  if (!state.name || state.disposed || state.upvoting || voteUnconfirmed(state.name) || readUpvoted().includes(state.name)) return;
+  const controller = new AbortController();
+  state.upvoteController = controller;
+  const current = () => !state.disposed && card.isConnected && state.upvoteController === controller && !controller.signal.aborted;
   state.upvoting = true;
+  markVoteUnconfirmed(state.name, true);
   renderCard(card);
 
   try {
-    const response = await fetch(UPVOTE_ENDPOINT, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({
-        group: SUBJECT_REF.group,
-        plural: 'moments',
-        name: state.name
-      })
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-    writeUpvoted([...readUpvoted(), state.name]);
-    card.dataset.upvoteCount = String(getCount(card, 'upvote') + 1);
-    setMessage(state, '');
+    const outcome = await withRequestDeadline(async (signal) => {
+      const response = await fetch(UPVOTE_ENDPOINT, {
+        method: 'POST', redirect: 'error',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        signal,
+        body: JSON.stringify({ group: SUBJECT_REF.group, plural: 'moments', name: state.name })
+      });
+      if (response.redirected || (response.url && response.url !== new URL(UPVOTE_ENDPOINT, location.origin).href)) return 'unknown';
+      if (response.status >= 400 && response.status < 500 && ![408, 409].includes(response.status)) return 'rejected';
+      if (response.status === 204) return 'confirmed';
+      if (response.status === 200 && !(response.headers.get('content-type') || '').includes('html')) {
+        const body = (await response.text()).trim();
+        if (body === '' || body === '{}') return 'confirmed';
+      }
+      return 'unknown';
+    }, { signal: controller.signal });
+    if (!current()) return;
+    if (outcome === 'unknown') throw new Error('Unconfirmed vote');
+    if (outcome === 'rejected') {
+      markVoteUnconfirmed(state.name, false);
+      state.commentsOpen = true;
+      setMessage(state, '点赞失败，请稍后再试', 'error');
+    } else {
+      confirmedThisPage.add(state.name);
+      writeUpvoted(readUpvoted());
+      markVoteUnconfirmed(state.name, false);
+      card.dataset.upvoteCount = String(getCount(card, 'upvote') + 1);
+      setMessage(state, '');
+    }
   } catch {
+    if (!current()) return;
     state.commentsOpen = true;
-    setMessage(state, '点赞失败，请稍后再试', 'error');
+    setMessage(state, '点赞结果待确认，此浏览器不会重复提交。', 'error');
   } finally {
-    state.upvoting = false;
-    renderCard(card);
+    if (state.upvoteController === controller) {
+      state.upvoteController = null;
+      state.upvoting = false;
+      if (!state.disposed && card.isConnected) renderCard(card);
+    }
   }
 }
 
@@ -1048,16 +1159,17 @@ async function requestComments(state, page, { preview = false, signal } = {}) {
   url.searchParams.set('name', state.name);
   url.searchParams.set('withReplies', 'true');
   url.searchParams.set('replySize', String(preview ? REPLY_PREVIEW_PAGE_SIZE : REPLY_PAGE_SIZE));
-  const response = await fetch(url, {
-    credentials: 'same-origin',
-    headers: { Accept: 'application/json' },
-    signal
-  });
-  if (response.status === 404) throw new Error('评论暂不可用');
-  if (!response.ok) {
-    throw new Error(response.status === 401 || response.status === 403 ? '登录后查看评论' : '评论加载失败');
-  }
-  return normalizeComments(await response.json());
+  const data = await withRequestDeadline(async (requestSignal) => {
+    const response = await fetch(url, {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+      signal: requestSignal
+    });
+    if (response.status === 404) throw new Error('评论暂不可用');
+    if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? '登录后查看评论' : '评论加载失败');
+    return response.json();
+  }, { signal });
+  return normalizeComments(data);
 }
 
 async function loadComments(card, { page = 1, append = false, force = false, preview = false } = {}) {
@@ -1103,7 +1215,7 @@ async function loadComments(card, { page = 1, append = false, force = false, pre
     if (error?.name === 'AbortError' || !isCurrentRequest()) return;
     state.detailFallback = true;
     if (state.isDetail) showOfficialCommentsFallback(card);
-    setMessage(state, error.message || '评论加载失败', 'error');
+    setMessage(state, error?.name === 'TimeoutError' ? '评论加载超时，请重试' : error.message || '评论加载失败', 'error');
   } finally {
     if (state.commentsRequestGeneration === requestGeneration && state.abortController === controller) {
       state.commentsLoading = false;
@@ -1172,7 +1284,11 @@ async function openComments(card, root) {
 async function loadMoreReplies(card, commentName) {
   const state = getState(card);
   const comment = state.comments.find((item) => item.name === commentName);
-  if (!comment || !comment.replyHasMore) return;
+  if (!comment || !comment.replyHasMore || state.disposed || state.replyLoading.has(commentName)) return;
+  const controller = new AbortController();
+  state.replyControllers.set(commentName, controller);
+  const current = () => !state.disposed && card.isConnected && !controller.signal.aborted
+    && state.replyControllers.get(commentName) === controller && state.comments.includes(comment);
 
   const panel = card.querySelector('[data-moment-comments-panel]');
   state.replyLoading.add(commentName);
@@ -1184,20 +1300,31 @@ async function loadMoreReplies(card, commentName) {
     const url = new URL(`${COMMENT_ENDPOINT}/${encodeURIComponent(comment.name)}/reply`, window.location.origin);
     url.searchParams.set('page', String(nextPage));
     url.searchParams.set('size', String(REPLY_PAGE_SIZE));
-    const response = await fetch(url, {
-      credentials: 'same-origin',
-      headers: { Accept: 'application/json' }
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const result = normalizeReplies(await response.json());
+    const data = await withRequestDeadline(async (signal) => {
+      const response = await fetch(url, {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+        signal
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    }, { signal: controller.signal });
+    if (!current()) return;
+    const result = normalizeReplies(data);
     comment.replies = [...comment.replies, ...result.replies];
     comment.replyPage = result.page;
     comment.replyHasMore = result.hasMore;
     setMessage(state, '');
-  } catch {
+  } catch (error) {
+    if (!current() || error?.name === 'AbortError') return;
     setMessage(state, '回复加载失败，请稍后再试', 'error');
+  } finally {
+    if (state.replyControllers.get(commentName) === controller) {
+      state.replyControllers.delete(commentName);
+      state.replyLoading.delete(commentName);
+    }
   }
-  state.replyLoading.delete(commentName);
+  if (state.disposed || !card.isConnected) return;
   renderComments(card);
   panel?.querySelector(`[data-moment-comment="${escapeCssIdent(comment.name)}"]`)?.scrollIntoView({ block: 'nearest' });
 }
@@ -1370,13 +1497,20 @@ async function submitComment(card) {
     const endpoint = replyTarget
       ? `${COMMENT_ENDPOINT}/${encodeURIComponent(replyTarget.commentName)}/reply`
       : COMMENT_ENDPOINT;
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      credentials: 'same-origin',
-      signal: controller.signal,
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(replyTarget ? replyPayload(text, replyTarget) : commentPayload(state, text))
-    });
+    const { response, data } = await withRequestDeadline(async (signal) => {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        credentials: 'same-origin',
+        signal,
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(replyTarget ? replyPayload(text, replyTarget) : commentPayload(state, text))
+      });
+      const data = response.ok ? await response.json().catch((error) => {
+        if (error?.name === 'SyntaxError') return null;
+        throw error;
+      }) : null;
+      return { response, data };
+    }, { signal: controller.signal });
     if (!current()) return;
 
     if (!response.ok) {
@@ -1390,7 +1524,6 @@ async function submitComment(card) {
       throw new Error(replyTarget ? '回复发送失败' : '评论发送失败');
     }
 
-    const data = await response.json().catch(() => null);
     if (!current()) return;
     const approved = data?.spec?.approved === true;
     if (input) {
@@ -1413,7 +1546,7 @@ async function submitComment(card) {
     setEmojiPanel(card, false);
   } catch (error) {
     if (!current() || error?.name === 'AbortError') return;
-    setMessage(state, error.message || '发送失败', 'error');
+    setMessage(state, error?.name === 'TimeoutError' ? '发送结果待确认，草稿已保留；请刷新查看后再操作' : error.message || '发送失败', 'error');
   } finally {
     if (state.submitController === controller) {
       state.submitController = null;
@@ -1732,11 +1865,17 @@ export function setupMomentInteractions(root = document) {
     if (cleaned) return;
     cleaned = true;
     cleanupPermalink();
-    photoViewer?.close();
+    photoViewer?.close({ restoreFocus: false });
     getCards(container).forEach((card) => {
       clearCommentsHashFocus(card);
       const state = getState(card);
       state.disposed = true;
+      state.upvoteController?.abort();
+      state.upvoteController = null;
+      state.upvoting = false;
+      state.replyControllers.forEach((controller) => controller.abort());
+      state.replyControllers.clear();
+      state.replyLoading.clear();
       state.submitController?.abort();
       state.submitController = null;
       state.submitting = false;

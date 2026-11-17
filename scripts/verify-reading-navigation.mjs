@@ -18,7 +18,7 @@ async function bundle(relativePath, expose) {
 
 const [readerScript, docsmeScript, readerCss, docsmeCss, browserTemplate] = await Promise.all([
   bundle('../src/apps/reader/runtime/post-outline.js', 'window.readingTest = { initPostOutline, cleanupPostOutline };'),
-  bundle('../src/apps/docsme/runtime.js', 'window.docsmeTest = { bindMobileSidebar, bindTocToggles, renderToc, disposeDocsmeEnhancements };'),
+  bundle('../src/apps/docsme/runtime.js', 'window.docsmeTest = { bindProjectFilter, bindLibraryView, enhanceDocsmeApp, disposeDocsmeEnhancements };'),
   readFile(new URL('../src/apps/reader/styles/post.css', import.meta.url), 'utf8'),
   readFile(new URL('../src/apps/docsme/styles/index.css', import.meta.url), 'utf8'),
   readFile(new URL('../templates/modules/shell/browser-window.html', import.meta.url), 'utf8')
@@ -152,10 +152,7 @@ try {
     </body></html>`);
     await page.addScriptTag({ content: docsmeScript });
     await page.evaluate(() => {
-      const app = document.querySelector('.docsme-app');
-      window.docsmeTest.bindMobileSidebar(app);
-      window.docsmeTest.bindTocToggles(app);
-      window.docsmeTest.renderToc(app);
+      window.docsmeTest.enhanceDocsmeApp(document.querySelector('.docsme-app'));
     });
     const resizeDocs = async (width) => {
       await page.locator('.docsme-window-content').evaluate((node, value) => { node.style.width = `${value}px`; }, width);
@@ -164,7 +161,12 @@ try {
     assert.equal(await page.locator('[data-docsme-toc]').evaluate((node) => node.inert), false);
     await page.locator('#doc-two').focus();
     await page.keyboard.press('Tab');
+    assert.equal(await page.locator('.docsme-toolbar [data-docsme-toggle-toc]').evaluate((node) => node === document.activeElement), true, 'desktop keyboard navigation reaches the visible directory control');
+    await page.keyboard.press('Tab');
     assert.equal(await page.locator('#doc-body-link').evaluate((node) => node === document.activeElement), true, 'desktop parallel navigation must not trap focus');
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Shift+Tab');
+    assert.equal(await page.locator('#doc-two').evaluate((node) => node === document.activeElement), true, 'desktop keyboard navigation can return from the article to the document tree');
     await page.locator('[data-docsme-toc-list] a').first().focus();
     await resizeDocs(960);
     assert.equal(await page.locator('.docsme-toolbar [data-docsme-toggle-toc]').evaluate((node) => node === document.activeElement), true, 'narrowing a focused desktop TOC returns focus to its visible reveal button');
@@ -174,6 +176,12 @@ try {
     assert.equal(columns, 2, '960px window collapses the TOC while viewport remains 1440px');
     await page.locator('.docsme-toolbar [data-docsme-toggle-toc]').click();
     assert.equal(await page.locator('[data-docsme-toc]').isVisible(), true);
+    assert.equal(await page.locator('[data-docsme-toc] button').evaluate(node => node === document.activeElement), true, 'opening compact TOC transfers keyboard focus into the visible panel');
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('[data-docsme-toc]').isVisible(), false, 'Escape closes the compact TOC');
+    assert.equal(await page.locator('.docsme-toolbar [data-docsme-toggle-toc]').getAttribute('aria-label'), '展开本页目录');
+    assert.equal(await page.locator('.docsme-toolbar [data-docsme-toggle-toc]').evaluate(node => node === document.activeElement), true, 'Escape returns focus to the TOC trigger');
+    await page.locator('.docsme-toolbar [data-docsme-toggle-toc]').click();
     await page.locator('[data-docsme-toc] [data-docsme-toggle-toc]').click();
     assert.equal(await page.locator('.docsme-toolbar [data-docsme-toggle-toc]').evaluate((node) => node === document.activeElement), true, 'collapsing from inside the directory returns focus to the reveal button');
     await page.locator('.docsme-toolbar [data-docsme-toggle-toc]').click();
@@ -219,6 +227,8 @@ try {
     assert.equal(await page.locator('.docsme-main').evaluate((node) => node.inert), false);
     await page.locator('#doc-two').focus();
     await page.keyboard.press('Tab');
+    assert.equal(await page.locator('.docsme-toolbar [data-docsme-toggle-toc]').evaluate((node) => node === document.activeElement), true, 'widening restores the desktop toolbar to the tab sequence');
+    await page.keyboard.press('Tab');
     assert.equal(await page.locator('#doc-body-link').evaluate((node) => node === document.activeElement), true);
     await resizeDocs(700);
     await sidebarTrigger.click();
@@ -228,8 +238,7 @@ try {
     await page.evaluate(() => {
       const app = document.querySelector('.docsme-app');
       for (let index = 0; index < 2; index++) {
-        window.docsmeTest.bindMobileSidebar(app);
-        window.docsmeTest.bindTocToggles(app);
+        window.docsmeTest.enhanceDocsmeApp(app);
       }
     });
     await sidebarTrigger.click();
@@ -248,11 +257,54 @@ try {
       const app = document.querySelector('.docsme-app');
       window.docsmeTest.disposeDocsmeEnhancements(app);
       app.classList.replace('docsme-app--document', 'docsme-app--projects');
-      window.docsmeTest.bindMobileSidebar(app);
-      window.docsmeTest.bindTocToggles(app);
+      window.docsmeTest.enhanceDocsmeApp(app);
     });
-    assert.equal(await sidebar.evaluate((node) => node.inert), false, 'project index navigation remains visible and interactive on mobile');
+    assert.equal(await sidebar.evaluate((node) => node.inert), true, 'the narrow library has the same closed, unfocusable source list as the reader');
+    await sidebarTrigger.click();
+    assert.equal(await sidebar.getAttribute('aria-label'), '资料库侧栏');
+    assert.equal(await sidebar.evaluate((node) => node.inert), false, 'project navigation becomes reachable when the drawer opens');
+    await page.keyboard.press('Escape');
+    assert.equal(await sidebarTrigger.evaluate(node => node === document.activeElement), true);
   }
+  await page.setContent(`<!doctype html><html><head><style>${docsmeCss}</style></head><body>
+    <main class="docsme-app docsme-app--projects">
+      <input type="search" data-docsme-project-filter>
+      <button type="button" data-docsme-filter-clear hidden>清除筛选</button>
+      <div class="docsme-view-picker" hidden><button data-docsme-view="covers">封面</button><button data-docsme-view="list">列表</button></div>
+      <div class="docsme-project-grid">
+        <a class="docsme-project-card" href="/docs/manual"><span class="docsme-project-card__body">Sky Blog 使用说明</span></a>
+        <a class="docsme-project-card" href="/docs/api"><span class="docsme-project-card__body">接口参考 API</span></a>
+      </div>
+      <div class="docsme-filter-empty" data-docsme-filter-empty hidden>没有匹配的项目</div>
+      <footer data-docsme-library-status></footer>
+    </main></body></html>`);
+  await page.addScriptTag({ content: docsmeScript });
+  await page.evaluate(() => {
+    const app = document.querySelector('.docsme-app');
+    window.docsmeTest.bindProjectFilter(app);
+    window.docsmeTest.bindProjectFilter(app);
+    window.docsmeTest.bindLibraryView(app);
+  });
+  const filter = page.locator('[data-docsme-project-filter]');
+  await page.locator('[data-docsme-view="list"]').click();
+  assert.equal(await page.locator('.docsme-app').getAttribute('data-library-view'), 'list');
+  assert.equal(await page.locator('[data-docsme-filter-clear]').isVisible(), false);
+  await filter.fill('  sKy   说明 ');
+  assert.equal(await page.locator('.docsme-project-card:visible').count(), 1);
+  assert.equal(await page.locator('.docsme-project-card:visible').getAttribute('href'), '/docs/manual', 'filter matches title and description without navigation');
+  await filter.fill('no-matching-project');
+  assert.equal(await page.locator('.docsme-project-card:visible').count(), 0);
+  assert.equal(await page.locator('[data-docsme-filter-empty]').isVisible(), true);
+  assert.equal(await page.locator('.docsme-project-grid').isVisible(), false, 'No empty list border');
+  assert.equal(await page.locator('[data-docsme-library-status]').innerText(), '显示 0 / 2 个项目');
+  await page.locator('[data-docsme-filter-clear]').click();
+  assert.equal(await filter.inputValue(), '');
+  assert.equal(await filter.evaluate(node => node === document.activeElement), true);
+  assert.equal(await page.locator('.docsme-project-card:visible').count(), 2);
+  await filter.fill('API');
+  await filter.press('Escape');
+  assert.equal(await page.locator('.docsme-project-card:visible').count(), 2);
+  assert.equal(await page.locator('[data-docsme-filter-empty]').isVisible(), false);
   assert.deepEqual(pageErrors, []);
   console.log('Reading navigation passed in normal/reduced motion: same-frame close, outer-search focus ownership, sheet keyboard/focus, heading focus, responsive inert cleanup, Docsme container transitions and opaque light/dark content.');
 } finally {

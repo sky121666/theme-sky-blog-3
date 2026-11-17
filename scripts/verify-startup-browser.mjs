@@ -6,7 +6,7 @@ import { chromium } from 'playwright';
 // Exercise served theme assets. Boot configuration is injected only into this
 // browser's HTML response; every real write is blocked before forwarding.
 const site = new URL(process.env.SMOKE_BASE_URL || 'http://localhost:8090/');
-const output = path.resolve('output/startup-2026-09-30/browser');
+const output = path.resolve(process.env.STARTUP_BROWSER_OUTPUT || 'output/startup-2026-09-30/browser');
 await fs.mkdir(output, { recursive: true });
 const manifest = JSON.parse(await fs.readFile('templates/assets/asset-manifest.json', 'utf8'));
 const remote = await (await fetch(new URL('/themes/theme-sky-blog-3/assets/asset-manifest.json', site))).json();
@@ -36,7 +36,13 @@ async function fixture({ width = 1280, height = 900, mode = 'direct', frequency 
       const response = await route.fetch({ headers: { ...req.headers(), 'Cache-Control': 'no-cache' } });
       assert.equal(response.status(), 200, `${url.pathname} must render successfully`);
       let html = await response.text();
-      assert.ok(!html.includes('data-theme-startup data-mode="boot"'), 'site must retain its normal-display setting during isolated acceptance');
+      // Either mode can already be configured on the development site. Only
+      // replace the exact, current boot script in this browser's fixture.
+      const rendered = /<script\b(?=[^>]*\sdata-theme-startup(?:\s|=|>))[^>]*>([\s\S]*?)<\/script>/gi;
+      const scripts = [...html.matchAll(rendered)];
+      assert.ok(scripts.length <= 1, 'a served document must not install two controllers');
+      if (scripts.length) assert.equal(scripts[0][1].trim(), startup.trim(), 'served boot controller must match this build');
+      html = html.replace(rendered, '');
       if (mode === 'boot') {
         const scene = url.pathname === '/login' ? 'login' : url.pathname === '/' ? 'desktop' : 'app';
         html = html.replace(/<body\b[^>]*>/, (tag) => `${tag}<script data-theme-startup data-mode="boot" data-scene="${scene}" data-frequency="${frequency}" data-logo-mode="apple">${startup}</script>`);

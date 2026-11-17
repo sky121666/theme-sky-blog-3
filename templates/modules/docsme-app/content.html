@@ -14,55 +14,74 @@
        th:attr="data-docsme-site-title=${site.title},data-docsme-chrome-title='文档中心',data-docsme-chrome-subtitle='Docsme'">
     <script type="application/json" data-app-props="docsme">{"version":1,"appId":"docsme","data":{"scene":"projects"}}</script>
     <div class="docsme-shell">
-      <aside class="docsme-sidebar">
-        <div class="docsme-window-dragbar"
-             @pointerdown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
-          <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=true)}"></th:block>
-        </div>
-        <div class="docsme-sidebar-head">
-          <p class="docsme-kicker">Library</p>
-          <h2>文档中心</h2>
-          <p>浏览所有 Docsme 文档项目。</p>
-        </div>
-        <nav class="docsme-sidebar-nav" aria-label="文档导航">
-          <a class="docsme-sidebar-link is-active pjax-link" th:href="@{/docs}">
+      <aside class="docsme-sidebar docsme-sidebar--library">
+        <th:block th:replace="~{modules/docsme-app/content :: sidebarChrome}" />
+        <nav class="docsme-sidebar-nav docsme-library-sources" aria-label="资料库导航">
+          <span class="docsme-source-label">资料库</span>
+          <button type="button" class="docsme-sidebar-link is-active" data-docsme-all-projects aria-current="page">
             <span class="icon-[lucide--library]" aria-hidden="true"></span>
-            <span>所有文档</span>
-          </a>
+            <span>所有项目</span>
+            <span class="docsme-source-count" th:text="${projects == null ? 0 : #lists.size(projects)}">0</span>
+          </button>
+          <th:block th:if="${projects != null and !#lists.isEmpty(projects)}">
+            <span class="docsme-source-label">项目</span>
+            <a class="docsme-sidebar-link docsme-source-project pjax-link" data-pjax-app="docsme"
+               th:each="projectItem : ${projects}" th:href="${projectItem.status.permalink}">
+              <span class="icon-[lucide--book-marked]" aria-hidden="true"></span>
+              <span th:text="${projectItem.spec != null and !#strings.isEmpty(projectItem.spec.displayName) ? projectItem.spec.displayName : projectItem.metadata.name}">文档项目</span>
+            </a>
+          </th:block>
         </nav>
       </aside>
-
       <main class="docsme-main">
-        <header class="docsme-toolbar">
-          <div class="docsme-toolbar-heading">
-            <h1>项目大厅</h1>
-            <p>探索站点内的文档、API 参考与使用指南。</p>
+        <header class="docsme-toolbar docsme-toolbar--projects"
+                @pointerdown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
+          <div class="docsme-toolbar-heading docsme-library-heading">
+            <button type="button" class="docsme-icon-button" data-docsme-toggle-sidebar aria-label="打开资料库侧栏" aria-expanded="false">
+              <span class="icon-[lucide--panel-left]" aria-hidden="true"></span>
+            </button>
+            <h1>文档资料库</h1>
+          </div>
+          <div class="docsme-view-picker" role="group" aria-label="项目显示方式" th:if="${projects != null and !#lists.isEmpty(projects)}" hidden>
+            <button type="button" data-docsme-view="covers" title="封面视图" aria-label="封面视图" aria-pressed="true"><span class="icon-[lucide--layout-grid]" aria-hidden="true"></span></button>
+            <button type="button" data-docsme-view="list" title="列表视图" aria-label="列表视图" aria-pressed="false"><span class="icon-[lucide--list]" aria-hidden="true"></span></button>
+          </div>
+          <div class="docsme-project-filter" th:if="${projects != null and !#lists.isEmpty(projects)}">
+            <span class="icon-[lucide--search]" aria-hidden="true"></span>
+            <input type="search" data-docsme-project-filter aria-label="筛选文档项目" placeholder="筛选项目" autocomplete="off" />
+            <button type="button" data-docsme-filter-clear aria-label="清除筛选" title="清除筛选" hidden>
+              <span class="icon-[lucide--circle-x]" aria-hidden="true"></span>
+            </button>
           </div>
         </header>
         <section class="docsme-content docsme-content--projects">
-          <div class="docsme-hero">
-            <p class="docsme-kicker">Docsme</p>
-            <h2>文档中心</h2>
-            <p>所有公开可访问的文档项目都会显示在这里。</p>
-          </div>
-
           <div class="docsme-project-grid" th:if="${projects != null and !#lists.isEmpty(projects)}">
             <a class="docsme-project-card pjax-link"
                data-pjax-app="docsme"
                th:each="projectItem : ${projects}"
                th:href="${projectItem.status.permalink}">
-              <span class="docsme-project-card__glow" aria-hidden="true"></span>
-              <span class="docsme-project-card__icon">
-                <img th:if="${projectItem.spec != null and !#strings.isEmpty(projectItem.spec.icon)}"
-                     th:src="${projectItem.spec.icon}"
-                     th:alt="${projectItem.spec.displayName}" />
-                <span th:unless="${projectItem.spec != null and !#strings.isEmpty(projectItem.spec.icon)}"
-                      class="icon-[lucide--book-open-text]"
-                      aria-hidden="true"></span>
+              <span class="docsme-cover-stage" aria-hidden="true">
+                <span class="docsme-volume">
+                  <span class="docsme-volume__face">
+                    <svg viewBox="0 0 120 156" fill="none" class="docsme-volume__engraving" aria-hidden="true" focusable="false">
+                      <g stroke="currentColor" stroke-width="1.4">
+                        <path d="M-12 114 C21 116 29 65 64 66 S99 80 133 25"/>
+                        <path d="M-12 124 C24 128 32 72 66 73 S103 88 134 37"/>
+                        <path d="M-12 135 C27 140 34 80 69 80 S106 96 136 49"/>
+                        <path d="M-12 146 C29 150 38 87 71 87 S107 105 138 61"/>
+                        <path d="M-12 157 C32 160 41 94 74 94 S110 113 140 73"/>
+                      </g>
+                    </svg>
+                    <span class="docsme-volume__mark icon-[lucide--book-open]" aria-hidden="true"></span>
+                  </span>
+                </span>
               </span>
               <span class="docsme-project-card__body">
-                <strong th:text="${projectItem.spec != null and !#strings.isEmpty(projectItem.spec.displayName) ? projectItem.spec.displayName : projectItem.metadata.name}">文档项目</strong>
-                <span th:if="${projectItem.spec != null and !#strings.isEmpty(projectItem.spec.description)}"
+                <span class="docsme-project-title">
+                  <th:block th:replace="~{modules/docsme-app/content :: projectEmblem(item=${projectItem})}" />
+                  <strong th:text="${projectItem.spec != null and !#strings.isEmpty(projectItem.spec.displayName) ? projectItem.spec.displayName : projectItem.metadata.name}">文档项目</strong>
+                </span>
+                <span class="docsme-project-description" th:if="${projectItem.spec != null and !#strings.isEmpty(projectItem.spec.description)}"
                       th:text="${projectItem.spec.description}">项目描述</span>
                 <span class="docsme-project-card__meta">
                   <span th:text="|${projectItem.status != null ? (projectItem.status.totalDocs ?: 0) : 0} 篇文档|">0 篇文档</span>
@@ -70,8 +89,14 @@
                   <span th:if="${projectItem.spec != null and projectItem.spec.enableComment}">评论开启</span>
                 </span>
               </span>
-              <span class="docsme-project-card__arrow icon-[lucide--arrow-up-right]" aria-hidden="true"></span>
+              <span class="docsme-project-card__arrow icon-[lucide--chevron-right]" aria-hidden="true"></span>
             </a>
+          </div>
+
+          <div class="docsme-empty docsme-filter-empty" data-docsme-filter-empty role="status" hidden>
+            <span class="icon-[lucide--search]" aria-hidden="true"></span>
+            <h3>没有匹配的项目</h3>
+            <p>试试其他名称，或清除搜索框里的筛选条件。</p>
           </div>
 
           <div class="docsme-empty" th:unless="${projects != null and !#lists.isEmpty(projects)}">
@@ -80,6 +105,8 @@
             <p>当前没有可访问的 Docsme 项目。</p>
           </div>
         </section>
+        <footer class="docsme-library-status" data-docsme-library-status aria-live="polite" aria-atomic="true"
+                th:text="|${projects == null ? 0 : #lists.size(projects)} 个项目|">0 个项目</footer>
       </main>
     </div>
   </div>
@@ -96,24 +123,22 @@
 
     <div class="docsme-shell docsme-shell--reading">
       <aside class="docsme-sidebar docsme-sidebar--tree">
-        <div class="docsme-window-dragbar"
-             @pointerdown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
-          <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=true)}"></th:block>
-        </div>
+        <th:block th:replace="~{modules/docsme-app/content :: sidebarChrome}" />
         <th:block th:replace="~{modules/docsme-app/content :: sidebarHeader}" />
         <th:block th:replace="~{modules/docsme-app/content :: treeNav}" />
       </aside>
 
-      <main class="docsme-main">
-        <th:block th:replace="~{modules/docsme-app/content :: docToolbar}" />
+      <main class="docsme-main" data-reading-scroll>
+        <th:block th:replace="~{modules/docsme-app/content :: docToolbar(hasToc=true)}" />
         <section class="docsme-content docsme-content--document">
-          <header class="docsme-doc-head">
-            <p class="docsme-kicker">Document</p>
-            <h1 th:text="${docTree != null and docTree.spec != null and !#strings.isEmpty(docTree.spec.title) ? docTree.spec.title : '文档'}">文档</h1>
-            <p th:if="${docTree != null and docTree.spec != null and !#strings.isEmpty(docTree.spec.description)}"
-               th:text="${docTree.spec.description}">文档描述</p>
-          </header>
-          <article class="docsme-article" id="content" data-toc-content th:utext="${docInfo.content.content}"></article>
+          <div class="docsme-reading-sheet">
+            <header class="docsme-doc-head">
+              <h1 th:text="${docTree != null and docTree.spec != null and !#strings.isEmpty(docTree.spec.title) ? docTree.spec.title : '文档'}">文档</h1>
+              <p th:if="${docTree != null and docTree.spec != null and !#strings.isEmpty(docTree.spec.description)}"
+                 th:text="${docTree.spec.description}">文档描述</p>
+            </header>
+            <article class="docsme-article" id="content" data-toc-content th:utext="${docInfo.content.content}"></article>
+          </div>
 
           <div th:if="${haloCommentEnabled}" id="comment" class="docsme-comment">
             <halo:comment group="doc.halo.run" kind="DocTree" th:attr="name=${docTree.metadata.name}" />
@@ -129,13 +154,27 @@
             <span class="icon-[lucide--list-tree]" aria-hidden="true"></span>
             <strong>本页目录</strong>
           </span>
-          <button class="docsme-toc__collapse"
-                  type="button"
-                  data-docsme-toggle-toc
-                  aria-expanded="true"
-                  title="收起本页目录">
-            <span class="icon-[lucide--panel-right-close]" aria-hidden="true"></span>
-          </button>
+          <div class="docsme-toc__actions">
+            <button class="docsme-toc__pin"
+                    type="button"
+                    data-docsme-pin-toc
+                    aria-pressed="false"
+                    aria-label="固定本页目录"
+                    title="将本页目录固定在右侧">
+              <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4a1 1 0 0 1 1 1z"/>
+              </svg>
+            </button>
+            <button class="docsme-toc__collapse"
+                    type="button"
+                    data-docsme-toggle-toc
+                    aria-expanded="true"
+                    aria-label="收起本页目录"
+                    title="收起本页目录">
+              <span class="icon-[lucide--x]" aria-hidden="true"></span>
+            </button>
+          </div>
         </div>
         <nav class="docsme-toc__list" data-docsme-toc-list></nav>
       </aside>
@@ -154,19 +193,16 @@
 
     <div class="docsme-shell docsme-shell--catalog">
       <aside class="docsme-sidebar docsme-sidebar--tree">
-        <div class="docsme-window-dragbar"
-             @pointerdown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
-          <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=true)}"></th:block>
-        </div>
+        <th:block th:replace="~{modules/docsme-app/content :: sidebarChrome}" />
         <th:block th:replace="~{modules/docsme-app/content :: sidebarHeader}" />
         <th:block th:replace="~{modules/docsme-app/content :: treeNav}" />
       </aside>
 
       <main class="docsme-main">
-        <th:block th:replace="~{modules/docsme-app/content :: docToolbar}" />
+        <th:block th:replace="~{modules/docsme-app/content :: docToolbar(hasToc=false)}" />
         <section class="docsme-content docsme-content--catalog">
           <div class="docsme-catalog-head">
-            <p class="docsme-kicker">Catalog</p>
+            <span class="docsme-folder-art" aria-hidden="true"></span>
             <h1 th:text="${docTree != null and docTree.spec != null and !#strings.isEmpty(docTree.spec.title) ? docTree.spec.title : '目录'}">目录</h1>
             <p th:if="${docTree != null and docTree.spec != null and !#strings.isEmpty(docTree.spec.description)}"
                th:text="${docTree.spec.description}">目录描述</p>
@@ -179,7 +215,7 @@
                th:href="${node.status.permalink}">
               <span class="docsme-catalog-card__icon"
                     th:classappend="${node.spec.type == 'TREE' ? 'is-tree' : 'is-doc'}">
-                <span th:class="${node.spec.type == 'TREE' ? 'icon-[lucide--folder]' : 'icon-[lucide--file-text]'}"
+                <span th:class="${node.spec.type == 'TREE' ? 'docsme-folder-art' : 'docsme-file-art'}"
                       aria-hidden="true"></span>
               </span>
               <span class="docsme-catalog-card__body">
@@ -204,20 +240,30 @@
   </div>
 </th:block>
 
+<th:block th:fragment="sidebarChrome">
+  <div class="docsme-window-dragbar"
+       @pointerdown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
+    <th:block th:replace="~{modules/shell/window-controls :: trafficLights(maximizable=true)}"></th:block>
+  </div>
+  <button type="button" class="docsme-sidebar-close" data-docsme-close-sidebar aria-label="关闭侧栏">
+    <span class="icon-[lucide--panel-left-close]" aria-hidden="true"></span>
+  </button>
+</th:block>
+
+<span th:fragment="projectEmblem(item)" class="docsme-project-icon" aria-hidden="true">
+  <span class="docsme-project-icon__fallback icon-[lucide--book-marked]"></span>
+  <img th:if="${item != null and item.spec != null and !#strings.isEmpty(item.spec.icon)}"
+       th:src="${item.spec.icon}" alt="" decoding="async" hidden
+       x-init="$el.hidden = !$el.naturalWidth" @load="$el.hidden = false" @error="$el.hidden = true" />
+</span>
+
 <th:block th:fragment="sidebarHeader">
   <div class="docsme-sidebar-head docsme-sidebar-head--project">
     <a class="docsme-back-link pjax-link" data-pjax-app="docsme" th:href="@{/docs}">
       <span class="icon-[lucide--chevron-left]" aria-hidden="true"></span>
-      <span>项目大厅</span>
+      <span>文档资料库</span>
     </a>
-    <span class="docsme-project-icon">
-      <img th:if="${project != null and project.spec != null and !#strings.isEmpty(project.spec.icon)}"
-           th:src="${project.spec.icon}"
-           th:alt="${project.spec.displayName}" />
-      <span th:unless="${project != null and project.spec != null and !#strings.isEmpty(project.spec.icon)}"
-            class="icon-[lucide--book-marked]"
-            aria-hidden="true"></span>
-    </span>
+    <th:block th:replace="~{modules/docsme-app/content :: projectEmblem(item=${project})}" />
     <h2 th:text="${project != null and project.spec != null and !#strings.isEmpty(project.spec.displayName) ? project.spec.displayName : 'Docsme'}">Docsme</h2>
     <p th:text="${project != null and project.spec != null and !#strings.isEmpty(project.spec.description) ? project.spec.description : '文档项目'}">文档项目</p>
   </div>
@@ -243,22 +289,29 @@
                 th:text="${!#strings.isEmpty(language.label) ? language.label : language.language}">语言</option>
       </select>
     </label>
+    <p class="docsme-switch-status" data-docsme-switch-status role="status" hidden></p>
   </div>
 </th:block>
 
-<th:block th:fragment="docToolbar">
-  <header class="docsme-toolbar docsme-toolbar--doc">
+<th:block th:fragment="docToolbar(hasToc)">
+  <header class="docsme-toolbar docsme-toolbar--doc"
+          @pointerdown="$dispatch('theme-window-drag-start', { surface: $el.closest('[data-window-surface]'), sourceEvent: $event })">
     <nav class="docsme-breadcrumb" aria-label="面包屑">
       <a class="pjax-link" data-pjax-app="docsme" th:href="${project.status.permalink}">首页</a>
       <span class="icon-[lucide--chevron-right]" aria-hidden="true"></span>
-      <th:block th:each="crumb : ${crumbs}">
+      <th:block th:each="crumb : ${crumbs}" th:if="${docTree == null or crumb.metadata.name != docTree.metadata.name}">
         <a class="pjax-link" data-pjax-app="docsme" th:href="${crumb.status.permalink}" th:text="${crumb.spec.title}">节点</a>
         <span class="icon-[lucide--chevron-right]" aria-hidden="true"></span>
       </th:block>
-      <strong th:text="${docTree != null and docTree.spec != null and !#strings.isEmpty(docTree.spec.title) ? docTree.spec.title : '文档'}">文档</strong>
+      <strong aria-current="page" th:text="${docTree != null and docTree.spec != null and !#strings.isEmpty(docTree.spec.title) ? docTree.spec.title : '文档'}">文档</strong>
     </nav>
     <div class="docsme-toolbar-actions">
-      <button class="docsme-toc-reveal"
+      <button class="docsme-search-button" type="button" data-docsme-search
+              th:if="${pluginFinder.available('PluginSearchWidget')}" aria-label="搜索此项目文档" title="搜索此项目文档">
+        <span class="icon-[lucide--search]" aria-hidden="true"></span>
+        <span>搜索</span>
+      </button>
+      <button class="docsme-toc-reveal" th:if="${hasToc}"
               type="button"
               data-docsme-toggle-toc
               aria-expanded="false"
@@ -266,7 +319,7 @@
               title="展开本页目录">
         <span class="icon-[lucide--list-tree]" aria-hidden="true"></span>
       </button>
-      <button class="docsme-icon-button" type="button" data-docsme-toggle-sidebar title="目录">
+      <button class="docsme-icon-button" type="button" data-docsme-toggle-sidebar title="目录" aria-label="打开文档目录" aria-expanded="false">
         <span class="icon-[lucide--panel-left]" aria-hidden="true"></span>
       </button>
     </div>
@@ -306,6 +359,7 @@
           <a class="docsme-tree-link pjax-link"
              data-pjax-app="docsme"
              th:href="${node.status.permalink}"
+             th:attr="aria-current=${docTree != null and node.metadata.name == docTree.metadata.name ? 'page' : null}"
              th:classappend="${docTree != null and node.metadata.name == docTree.metadata.name ? 'is-active' : ''}">
             <span class="docsme-tree-type icon-[lucide--folder]" aria-hidden="true"></span>
             <span th:text="${node.spec.title}">目录</span>
@@ -320,6 +374,7 @@
          th:if="${node.spec.type == 'DOC'}"
          th:href="${node.status.permalink}"
          th:title="${node.spec.title}"
+         th:attr="aria-current=${docTree != null and node.metadata.name == docTree.metadata.name ? 'page' : null}"
          th:classappend="${docTree != null and node.metadata.name == docTree.metadata.name ? 'is-active' : ''}">
         <span class="docsme-tree-dot" aria-hidden="true"></span>
         <span class="docsme-tree-type icon-[lucide--file-text]" aria-hidden="true"></span>

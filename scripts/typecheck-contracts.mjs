@@ -30,8 +30,6 @@ const {
   APP_MANIFESTS,
   getAppManifest,
   getKnownAppIds,
-  getSameAppPjaxLoadingMode,
-  shouldUseWindowLoadingOverlay,
   getAppAssetSegment,
   getAppEntryPaths,
   getEntryJsPath,
@@ -52,7 +50,7 @@ for (const patch of [
   { assets: { js: 'missing.js', css: 'missing.css' } },
   { entry: 'src/apps/missing/entry.js' },
   { assetDirectory: '../outside' },
-  { sameAppPjaxLoading: 'invalid-policy' }
+  { sameAppPjaxLoading: 'progress' }
 ]) {
   nodeAssert.ok(validateAppManifests([{ ...APP_MANIFESTS[0], ...patch }], { root }).length,
     `无效声明必须失败: ${JSON.stringify(patch)}`);
@@ -87,16 +85,6 @@ for (const manifest of APP_MANIFESTS) {
   seenIds.add(manifest.appId);
   assert(typeof manifest.windowVariant === 'string', `${manifest.appId}.windowVariant 必须是字符串`);
   assert(typeof manifest.supportsSameAppPjax === 'boolean', `${manifest.appId}.supportsSameAppPjax 必须是布尔值`);
-  const sameAppPjaxLoading = Object.prototype.hasOwnProperty.call(manifest, 'sameAppPjaxLoading')
-    ? manifest.sameAppPjaxLoading
-    : 'window-overlay';
-  assert(
-    ['window-overlay', 'progress'].includes(sameAppPjaxLoading),
-    `${manifest.appId}.sameAppPjaxLoading 必须为 window-overlay 或 progress`
-  );
-  if (sameAppPjaxLoading === 'progress') {
-    assert(manifest.supportsSameAppPjax, `${manifest.appId} 仅在支持 same-app PJAX 时才能使用 progress`);
-  }
   assert(Array.isArray(manifest.sameVariantPageModes), `${manifest.appId}.sameVariantPageModes 必须是数组`);
   if (!manifest.supportsSameAppPjax) {
     assert(manifest.sameVariantPageModes.length === 0, `${manifest.appId} 不支持 same-app pjax 时 sameVariantPageModes 必须为空`);
@@ -121,30 +109,6 @@ nodeAssert.deepEqual(shopManifest?.sameVariantPageModes, [
   'browser-shop-products', 'browser-shop-product', 'browser-shop-cart',
   'browser-shop-checkout', 'browser-shop-payments', 'browser-shop-order'
 ], '商城内容切换必须覆盖五个主题页面模式');
-
-assert(getSameAppPjaxLoadingMode('explorer-categories') === 'progress', '分类同应用 PJAX 必须使用轻量进度');
-assert(getSameAppPjaxLoadingMode('explorer-archives') === 'progress', '归档同应用 PJAX 必须使用轻量进度');
-assert(getSameAppPjaxLoadingMode('explorer-tags') === 'progress', '标签同应用 PJAX 必须使用轻量进度');
-assert(
-  shouldUseWindowLoadingOverlay('explorer-categories', 'explorer-categories') === false,
-  '分类内部切换不得使用窗口骨架'
-);
-assert(
-  shouldUseWindowLoadingOverlay('explorer-archives', 'explorer-archives') === false,
-  '归档内部切换不得使用窗口骨架'
-);
-assert(
-  shouldUseWindowLoadingOverlay('explorer-tags', 'explorer-tags') === false,
-  '标签内部切换不得使用窗口骨架'
-);
-assert(
-  shouldUseWindowLoadingOverlay('explorer-categories', 'explorer-archives') === true,
-  '分类到归档的跨应用切换必须保留窗口加载反馈'
-);
-assert(
-  shouldUseWindowLoadingOverlay('explorer-categories', 'reader') === true,
-  '分类到正文的跨应用切换必须保留窗口加载反馈'
-);
 
 const routableIds = getRoutableAppIds();
 for (const appId of routableIds) {
@@ -199,9 +163,6 @@ for (const [url, expectedApp, expectedVariant] of routeSamples) {
   const resolved = resolveRoute(url);
   if (expectedApp) {
     assert(resolved?.appId === expectedApp, `resolveRoute(${url}) appId 错误`);
-  }
-  if (expectedApp === 'shop') {
-    assert(resolved?.pjaxMode === 'same-app', `resolveRoute(${url}) 必须允许商城 PJAX`);
   }
 }
 

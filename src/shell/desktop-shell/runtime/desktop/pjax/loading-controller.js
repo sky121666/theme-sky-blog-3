@@ -1,6 +1,6 @@
 const LOADING_OVERLAY_SHOW_DELAY = 120;
-const LOADING_OVERLAY_MIN_VISIBLE = 300;
-const LOADING_OVERLAY_FADE_DURATION = 220;
+const LOADING_OVERLAY_MIN_VISIBLE = 0;
+const LOADING_OVERLAY_FADE_DURATION = 120;
 
 export function setBusyState(target, busy) {
   if (!target) return;
@@ -100,7 +100,7 @@ export function createWindowLoadingController(scope, options = {}) {
       finished = true;
       clearShowTimer();
 
-      if (options.immediate) {
+      if (options.immediate || globalThis.window?.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
         concealImmediately();
         return Promise.resolve();
       }
@@ -117,7 +117,7 @@ export function createWindowLoadingController(scope, options = {}) {
 
       finishPromise = new Promise((resolve) => {
         resolveFinish = resolve;
-        finishTimer = setTimeout(() => {
+        const fade = () => {
           finishTimer = null;
           overlay.setAttribute('aria-hidden', 'true');
           overlay.setAttribute('data-fading', '');
@@ -128,7 +128,10 @@ export function createWindowLoadingController(scope, options = {}) {
             setBusyState(contentRoot, false);
             settleFinish();
           }, fadeDuration);
-        }, remaining);
+        };
+        // Content is ready: release hit testing now, without an artificial hold.
+        if (remaining > 0) finishTimer = setTimeout(fade, remaining);
+        else fade();
       });
       return finishPromise;
     }

@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { chromium } from 'playwright';
+import { signedInSettingsFixture } from './lib/privileged-settings-fixture.mjs';
 
 // Fixture regression on the served theme. Never loads credentials or writes to Halo.
 const base = process.env.SMOKE_BASE_URL || 'http://localhost:8090/';
@@ -52,7 +53,7 @@ const fixtureCollectionNames = {
 };
 const report = {
   fixture: true, recordedAt: new Date().toISOString(), site: site.origin,
-  boundary: '真实主题页面与交互；仅在文档中模拟设置授权。配置 GET/PUT、附件读取/上传与默认在线图标使用 fixture；liveIconify 记录单独列出的官方只读 GET（如启用）；不代表真实 Halo 上传或保存验收。未登录、未读取凭据。',
+  boundary: '真实主题页面与交互；模拟登录状态并装入当前主题的设置面板。配置 GET/PUT、附件读取/上传与默认在线图标使用 fixture；liveIconify 记录单独列出的官方只读 GET（如启用）；不代表真实 Halo 上传或保存验收。未登录、未读取凭据。',
   checks: [], screenshots: [], pageErrors: [], blockedWrites: [], fixtureWrites: [], attachmentQueries: [], resourceQueries: [],
   realWriteRequestsForwarded: 0, liveIconify: [], iconQueries: [],
 };
@@ -176,27 +177,26 @@ try {
     }
     if (local && request.isNavigationRequest() && request.resourceType() === 'document') {
       const response = await route.fetch({ headers: { ...request.headers(), 'cache-control': 'no-cache', pragma: 'no-cache' } });
-      const html = await response.text();
+      const served = await response.text();
+      const patched = await signedInSettingsFixture(served);
       report.documentState = {
-        hasPicker: html.includes('id="theme-asset-picker"'),
-        hasImageButton: html.includes('添加图片…'),
-        hasOldImageHelp: html.includes('已上传的背景图片由 Halo 后台附件组件管理'),
+        guestContainsPanel: served.includes('class="theme-settings-layer"'),
+        hasPicker: patched.includes('id="theme-asset-picker"'),
+        hasImageButton: patched.includes('添加图片…'),
+        hasOldImageHelp: patched.includes('已上传的背景图片由 Halo 后台附件组件管理'),
       };
-      assert.ok(report.documentState.hasPicker && report.documentState.hasImageButton, '服务端仍返回旧设置模板；请重新加载当前主题后重试');
-      let protocolCount = 0;
-      const patched = html.replace(/<[^>]*\bdata-theme-settings-protocol\b[^>]*>/g, (tag) => {
-        protocolCount++;
-        return /\bdata-authenticated\s*=/.test(tag)
-          ? tag.replace(/\bdata-authenticated\s*=\s*(["'])[^"']*\1/, 'data-authenticated="true"')
-          : tag.replace(/>$/, ' data-authenticated="true">');
-      });
-      assert.equal(protocolCount, 1, '真实页面必须有唯一设置协议，不得用旧页面替代本次模板');
+      assert.ok(report.documentState.hasPicker && report.documentState.hasImageButton, '设置面板缺少素材控件');
       return route.fulfill({ response, body: patched });
     }
     return route.continue();
   });
   page = await context.newPage();
   page.setDefaultTimeout(12_000);
+  report.failedLocalScripts = [];
+  page.on('requestfailed', request => {
+    const url = new URL(request.url());
+    if (url.origin === site.origin && request.resourceType() === 'script') report.failedLocalScripts.push({ path: url.pathname, error: request.failure()?.errorText });
+  });
   page.on('pageerror', (error) => report.pageErrors.push(String(error.message || error)));
   page.on('dialog', (dialog) => dialog.dismiss());
   page.on('response', (response) => {
@@ -302,7 +302,9 @@ try {
     await page.locator('.menubar').screenshot({ path: file });
     report.screenshots.push(path.basename(file));
   }
-  await page.goto(site.href, { waitUntil: 'domcontentloaded' });
+  const entry = new URL(site);
+  entry.searchParams.set('_settings-fixture', report.buildContext.build.revision);
+  await page.goto(entry.href, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => window.Alpine?.store('themeAssets') && window.Alpine?.store('themeSettings'));
 
   await scenario('真实入口在模拟授权与 fixture GET 后打开设置', async () => {
@@ -328,8 +330,8 @@ try {
     assert.equal(putCount(), 0);
     await page.emulateMedia({ reducedMotion: 'reduce' });
   });
-  await scenario('九个设置分类独立显示，添加图片只打开选择器', async () => {
-    for (const label of ['外观', '墙纸', '桌面与 Dock', '菜单栏', '导航菜单', '小组件', '通知中心', '应用', '高级']) {
+  await scenario('十个设置分类独立显示，添加图片只打开选择器', async () => {
+    for (const label of ['外观', '墙纸', 'Dock', '菜单栏', '导航菜单', '小组件', '通知中心', '首屏加载', '应用', '高级']) {
       await choosePane(label);
       assert.equal(await settings.locator('[data-settings-pane]:visible').count(), 1);
     }
@@ -385,6 +387,7 @@ try {
   });
   await scenario('正在编辑的文字立即进入草稿，Escape 保留未应用修改', async () => {
     await choosePane('应用');
+    await settings.locator('[data-settings-app-entry="equipments"]').click();
     const input = settings.locator('[data-setting-path="equipments.profile.display_name"] input');
     await input.fill('测试装备标题');
     assert.equal(await storeValue('equipments.profile.display_name'), '测试装备标题');
@@ -809,8 +812,8 @@ try {
     assert.ok(await settings.isVisible());
     assert.equal(await page.evaluate(() => document.activeElement?.textContent?.trim()), '添加图片…');
   });
-  await scenario('手机九个分类内容和操作栏均在可见宽度内', async () => {
-    for (const name of ['外观', '墙纸', '桌面与 Dock', '菜单栏', '导航菜单', '小组件', '通知中心', '应用', '高级']) {
+  await scenario('手机十个分类内容和操作栏均在可见宽度内', async () => {
+    for (const name of ['外观', '墙纸', 'Dock', '菜单栏', '导航菜单', '小组件', '通知中心', '首屏加载', '应用', '高级']) {
       await choosePane(name);
       const bounds = await settings.boundingBox();
       const menubar = await page.locator('.menubar').boundingBox();
@@ -872,6 +875,10 @@ try {
     assert.equal(await page.evaluate(() => window.Alpine.store('themeSettings').focusedSettingPath), 'steam.cover.image_url');
     const wallpaper = await storeValue('desktop.background.image_url');
     for (const field of ['steam.cover.image_url', 'moments.cover.image_url']) {
+      if (field.startsWith('moments.')) {
+        await choosePane('应用');
+        await settings.locator('[data-settings-app-entry="moments"]').click();
+      }
       const row = settings.locator(`[data-setting-path="${field}"]`);
       await row.getByRole('button', { name: '选择图片…', exact: true }).click();
       await waitPicker();
@@ -981,6 +988,8 @@ try {
 } catch (error) {
   report.passed = false;
   report.failure = { name: error.name, message: error.message };
+  if (page) report.shellAtFailure = await page.evaluate(() => ({ mode: document.body.dataset.pageMode, alpine: !!window.Alpine,
+    settings: !!window.Alpine?.store('themeSettings'), assets: !!window.Alpine?.store('themeAssets') })).catch(() => null);
   if (page) await page.screenshot({ path: path.join(output, 'failure-fixture.png'), fullPage: false }).catch(() => {});
   process.exitCode = 1;
   console.error(error.stack || error.message);

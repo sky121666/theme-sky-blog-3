@@ -15,7 +15,6 @@
 import { createCommerceScope } from "../lifecycle.js";
 import { createQuery, QueryClient, setQueryClientContext } from "@tanstack/svelte-query";
 import { formatPrice } from "../utils/price";
-import { fade } from "svelte/transition";
 import { checkIcon as MingcuteCheckLine } from "../icons.js";
 import {
   OrderResponsePaymentStatusEnum,
@@ -284,7 +283,7 @@ let PaymentMethodComponent = $derived(
       {$i18n.t('payments.orderNotPayableSuffix')}
     </div>
   {:else if orderQuery.data}
-    <div class="shop-payments" transition:fade={{ duration: 200 }}>
+    <div class="shop-payments">
       <div class="shop-payments__left">
         <div class="shop-card">
           <h2 class="shop-card__title">{$i18n.t('payments.selectPaymentMethod')}</h2>

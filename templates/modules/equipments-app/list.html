@@ -45,6 +45,7 @@
         <nav class="equipments-group-nav" aria-label="装备分组">
           <a class="equipments-group-link pjax-link"
              th:href="@{/equipments}"
+             th:attr="aria-current=${#strings.isEmpty(currentGroup) ? 'page' : null}"
              th:classappend="${#strings.isEmpty(currentGroup) ? 'is-active' : ''}">
             <span class="equipments-group-main">
               <span class="equipments-group-icon icon-[lucide--layout-grid]" aria-hidden="true"></span>
@@ -57,6 +58,7 @@
              th:each="group : ${groups}"
              th:with="groupIcon=${#annotations.getOrDefault(group, 'icon', '')}"
              th:href="@{/equipments(group=${group.metadata.name})}"
+             th:attr="aria-current=${currentGroup == group.metadata.name ? 'page' : null}"
              th:classappend="${currentGroup == group.metadata.name ? 'is-active' : ''}">
             <span class="equipments-group-main">
               <span th:if="${!#strings.isEmpty(groupIcon)}"
@@ -74,6 +76,11 @@
       </aside>
 
       <main class="equipments-stage">
+        <div class="equipments-stage-toolbar" th:if="${hasEquipments}" role="group" aria-label="浏览装备">
+          <span class="equipments-stage-position" role="status" aria-live="polite" x-text="itemCount ? (currentIndex + 1) + ' / ' + itemCount : ''"></span>
+          <button type="button" @click="stepEquipment(-1)" :disabled="currentIndex === 0 || loading" aria-label="上一件装备"><span class="icon-[lucide--chevron-up]" aria-hidden="true"></span></button>
+          <button type="button" @click="stepEquipment(1)" :disabled="loading || (currentIndex >= itemCount - 1 && !hasMore)" aria-label="下一件装备"><span class="icon-[lucide--chevron-down]" aria-hidden="true"></span></button>
+        </div>
         <span class="equipments-stage-count" th:text="${totalCount + ' 件'}">0 件</span>
 
         <section class="equipments-empty"
@@ -91,7 +98,9 @@
         </section>
 
         <div class="equipments-stage-scroller"
-             th:if="${hasEquipments}">
+             th:if="${hasEquipments}"
+             tabindex="0"
+             aria-label="装备展示列表">
           <article class="equipment-hero-card"
                    th:each="equipment, iter : ${equipments.items}"
                    data-equipment-card
@@ -152,11 +161,14 @@
 
           <div class="equipments-infinite-loader"
                data-equipments-loadmore
+               role="status"
+               :aria-busy="loading"
                th:data-next-url="${equipments.hasNext() ? equipments.nextUrl : ''}">
             <span class="equipments-loadmore-loading" x-show="loading" x-cloak>
               <span class="icon-[lucide--loader-circle] equipments-loading-icon" aria-hidden="true"></span>
               加载中...
             </span>
+            <button type="button" class="equipments-loadmore-button" x-show="hasMore && !loading && !loadError" x-cloak @click="loadNext()">加载更多装备</button>
             <button type="button" class="equipments-loadmore-error" x-show="loadError" x-cloak
                     @click="loadNext()">加载失败，点击重试</button>
             <span class="equipments-loadmore-done" x-show="!hasMore && !loading && !loadError" x-cloak>已全部加载</span>

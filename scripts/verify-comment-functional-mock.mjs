@@ -12,16 +12,25 @@ import { assertCurrentBuild } from './lib/build-identity.mjs';
 // Authentication, permissions, comments and replies are fixture DTOs, never a
 // real signed-in browser, credentials, or live private comments.
 const root = fileURLToPath(new URL('../', import.meta.url));
-const out = path.resolve(root, process.env.COMMENT_MOCK_OUTPUT || 'output/functional-mock-20261026/comments');
+const out = path.resolve(root, process.env.COMMENT_MOCK_OUTPUT || 'output/playwright/comment-functional-mock');
 const base = process.env.COMMENT_MOCK_BASE || 'http://localhost:8090';
 assert.ok(['localhost', '127.0.0.1'].includes(new URL(base).hostname));
 const docPath = '/docs/halo-theme-sky-blog-1/jianjie';
-const jar = process.env.COMMENT_WIDGET_PLUGIN_JAR || path.resolve(root, '../../plugins/PluginCommentWidget-3.4.0.jar');
+const docUrl = new URL(docPath, base);
+docUrl.searchParams.set('preview-theme', 'theme-sky-blog-3');
+const homeUrl = new URL('/', base);
+homeUrl.search = docUrl.search;
+const jar = process.env.COMMENT_WIDGET_PLUGIN_JAR || path.resolve(root, '../../plugins/PluginCommentWidget-3.5.1.jar');
+const pluginManifest = execFileSync('unzip', ['-p', jar, 'plugin.yaml'], { encoding: 'utf8' });
+assert.match(pluginManifest, /name:\s*["']?PluginCommentWidget["']?\s*$/m, 'Fixture JAR must be the official comment component');
+const pluginVersion = pluginManifest.match(/^\s+version:\s*["']?([^\s"']+)["']?\s*$/m)?.[1];
+assert.ok(pluginVersion, 'Fixture JAR must declare its actual version');
 await fs.mkdir(out, { recursive: true });
 const manifest = assertCurrentBuild(root);
 const remote = await fetch(`${base}/themes/theme-sky-blog-3/assets/asset-manifest.json`).then(r => r.json());
 assert.deepEqual(remote.__meta, manifest.__meta);
-const docHtml = await fetch(`${base}${docPath}`).then(r => { assert.equal(r.status, 200); return r.text(); });
+const docHtml = await fetch(docUrl).then(r => { assert.equal(r.status, 200); return r.text(); });
+assert.match(docHtml, /\/themes\/theme-sky-blog-3\//, 'Fixture page must use theme 3 even when another theme is active');
 const subjectName = docHtml.match(/id="comment-doc-halo-run-DocTree-([a-zA-Z0-9-]+)"/)?.[1];
 assert.ok(subjectName, 'Current Docsme page must expose its actual comment subject');
 const subject = { group: 'doc.halo.run', kind: 'DocTree', version: 'v1alpha1', name: subjectName };
@@ -41,13 +50,13 @@ assert.ok(coreName);
 const core = asset(coreName).toString();
 assert.equal(sha(await fetch(`${base}/plugins/PluginCommentWidget/assets/static/comment-widget.js`).then(r => r.arrayBuffer()).then(b => Buffer.from(b))), sha(entry), 'Live official widget entry must match installed JAR');
 assert.equal(sha(await fetch(`${base}/plugins/PluginCommentWidget/assets/static/${coreName}`).then(r => r.arrayBuffer()).then(b => Buffer.from(b))), sha(core), 'Live official widget implementation must match installed JAR');
-const sourceEvidence = ['system:comments:manage', 'comment-edit-form', 'Private replies are not publicly visible', 'Your draft has been kept.', 'version:this.version'].map(needle => {
+const sourceEvidence = ['system:comments:manage', 'comment-edit-form', 'Private replies are not publicly visible', 'Your draft has been kept.', 'version:this.version', 'url:`${this.baseUrl}/apis/api.halo.run/v1alpha1/comments`', 'subjectRef:{group:this.group,kind:this.kind,name:this.name,version:this.version}'].map(needle => {
   const at = core.indexOf(needle); assert.ok(at >= 0, `Missing official component contract: ${needle}`);
   return { needle, offset: at, excerpt: core.slice(Math.max(0, at - 180), at + needle.length + 240) };
 });
 const report = {
-  observedAt: new Date().toISOString(), base, route: docPath, subject,
-  build: manifest.__meta, jar: { path: jar, sha256: sha(await fs.readFile(jar)), entrySha256: sha(entry), coreName, coreSha256: sha(core) },
+  observedAt: new Date().toISOString(), base, route: docUrl.href, subject,
+  build: manifest.__meta, jar: { path: jar, version: pluginVersion, sha256: sha(await fs.readFile(jar)), entrySha256: sha(entry), coreName, coreSha256: sha(core) },
   scope: 'Anonymous live GET-only theme host; official JAR assets; mock comment/auth/permission DTOs; all non-GET requests locally handled; WebSockets blocked; external resources excluded.',
   host: process.env.COMMENT_MOCK_STANDALONE === '1' ? 'Official widget only, without theme scripts/styles, for fault attribution' : 'Full current Docsme theme HTML',
   sourceEvidence, results: [], network: [], errors: [], limitations: [
@@ -69,10 +78,10 @@ const save = () => fs.writeFile(path.join(out, 'report.json'), JSON.stringify(re
 async function fixture(width, label, opts = {}) {
   const context = await browser.newContext({ viewport: { width, height: width === 390 ? 844 : 960 }, serviceWorkers: 'block', locale: 'zh-CN', reducedMotion: 'reduce' });
   const page = await context.newPage(); page.setDefaultTimeout(10000);
-  const state = { ...data(), writes: [], editStatus: opts.editStatus || 200, replyStatus: opts.replyStatus || 200, privateEnabled: opts.privateEnabled !== false, denied: opts.denied || false };
+  const state = { ...data(), writes: [], createdComments: [], rootStatus: opts.rootStatus || 200, editStatus: opts.editStatus || 200, replyStatus: opts.replyStatus || 200, privateEnabled: opts.privateEnabled !== false, denied: opts.denied || false };
   const caseName = `${width}-${label}`;
   page.on('pageerror', error => report.errors.push({ case: caseName, kind: 'pageerror', message: error.message }));
-  page.on('console', message => { if (message.type() === 'error') report.errors.push({ case: caseName, kind: 'console', message: message.text(), location: message.location(), expected: /Failed to load resource: the server responded with a status of (403|404|409|503)/.test(message.text()) && /\/apis\/.*\/(mock-root|mock-reply)(\/|$)/.test(message.location().url) }); });
+  page.on('console', message => { if (message.type() === 'error') report.errors.push({ case: caseName, kind: 'console', message: message.text(), location: message.location(), expected: /Failed to load resource: the server responded with a status of (403|404|409|503)/.test(message.text()) && (/\/apis\/.*\/(mock-root|mock-reply)(\/|$)/.test(message.location().url) || (state.rootStatus === 503 && new URL(message.location().url || base, base).pathname === '/apis/api.halo.run/v1alpha1/comments')) }); });
   page.on('requestfailed', request => report.network.push({ case: caseName, kind: 'failed', method: request.method(), url: request.url(), reason: request.failure()?.errorText }));
   await context.routeWebSocket('**/*', socket => { report.network.push({ case: caseName, kind: 'blocked-websocket', url: socket.url() }); socket.close(); });
   await context.route('**/*', async route => {
@@ -80,6 +89,19 @@ async function fixture(width, label, opts = {}) {
     const record = (kind, extra = {}) => report.network.push({ case: caseName, kind, method, path: p, ...extra });
     const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
     if (method !== 'GET') {
+      if (url.origin !== new URL(base).origin) {
+        record('blocked-unexpected-write', { host: url.host });
+        return route.fulfill({ status: 405, body: '' });
+      }
+      if (method === 'POST' && p === '/apis/api.halo.run/v1alpha1/comments') {
+        const body = request.postDataJSON(), write = { method, path: p, body, status: state.rootStatus };
+        state.writes.push(write); record('mock-root-create', write);
+        if (state.rootStatus !== 200) return json({ title: '模拟根评论失败', detail: `模拟 ${state.rootStatus}` }, state.rootStatus);
+        const original = data().comment;
+        const created = { ...original, metadata: { name: `mock-created-root-${state.createdComments.length + 1}`, version: 1 }, spec: { ...original.spec, ...body, creationTime: '2026-11-15T00:00:00Z' }, status: { visibleReplyCount: 0 }, replies: pageList([]) };
+        state.createdComments.unshift(created);
+        return json(created);
+      }
       if (method === 'PUT' && /^\/apis\/api.console.halo.run\/v1alpha1\/(comments|replies)\/mock-(root|reply)\/content$/.test(p)) {
         const body = request.postDataJSON(), target = p.includes('/replies/') ? state.reply : state.comment;
         const write = { method, path: p, body, status: state.editStatus }; state.writes.push(write); record('mock-edit', write);
@@ -114,7 +136,7 @@ async function fixture(width, label, opts = {}) {
     if (p === '/apis/content.halo.run/v1alpha1/comments/mock-root') { record('mock-latest-read', { version: state.comment.metadata.version }); return json(state.comment); }
     if (p === '/apis/content.halo.run/v1alpha1/replies/mock-reply') { record('mock-latest-read', { version: state.reply.metadata.version }); return json(state.reply); }
     if (p === '/apis/api.halo.run/v1alpha1/comments/mock-root/reply') return json(state.comment.replies);
-    if (p === '/apis/api.halo.run/v1alpha1/comments') return json(pageList([state.comment]));
+    if (p === '/apis/api.halo.run/v1alpha1/comments') return json(pageList([...state.createdComments, state.comment]));
     if (p === '/apis/api.console.halo.run/v1alpha1/replies') return json(state.comment.replies);
     if (p === docPath) return route.fulfill({ contentType: 'text/html', body: fixtureHtml });
     // Remaining same-origin requests are anonymous GETs for the genuine theme.
@@ -133,11 +155,27 @@ async function stateOf(page) {
   });
 }
 async function ready(f, hash = '') {
-  await f.page.goto(base + docPath + hash, { waitUntil: 'domcontentloaded' });
+  await f.page.goto(docUrl.href + hash, { waitUntil: 'domcontentloaded' });
+  await waitForCommentHost(f);
+}
+async function waitForCommentHost(f) {
   await f.page.locator('.docsme-comment').waitFor({ state: 'visible', timeout: 30000 });
   await f.page.locator('.docsme-comment').scrollIntoViewIfNeeded();
   await f.page.locator('comment-widget comment-form [contenteditable="true"]').waitFor({ state: 'visible' });
   await f.page.locator('comment-widget comment-item').first().waitFor();
+}
+async function rootDraft(page) {
+  return page.locator('.docsme-comment comment-form base-form').evaluate(host => {
+    const draft = host.getDraftSnapshot();
+    return { ...draft, stored: localStorage.getItem(draft.key), busy: host.busy };
+  });
+}
+async function waitForRootIdle(page) {
+  await page.waitForFunction(() => {
+    const form = document.querySelector('.docsme-comment comment-widget')?.shadowRoot?.querySelector('comment-form');
+    const baseForm = form?.shadowRoot?.querySelector('base-form');
+    return baseForm && !form.submitting && !baseForm.busy;
+  });
 }
 async function evidence(f, label) {
   const file = `${f.caseName}-${label}.png`;
@@ -176,6 +214,101 @@ async function openEdit(f, resource, waitBaseline = true) {
 }
 try {
   for (const width of [1440, 390]) {
+    await run(width, 'root-submit', { role: 'author' }, async f => {
+      await ready(f);
+      const form = f.page.locator('.docsme-comment comment-form');
+      const content = '模拟根评论提交 <保留文字>';
+      await form.locator('[contenteditable="true"]').fill(content);
+      const before = await rootDraft(f.page);
+      assert.ok(before.stored, 'The official root draft must exist before submission');
+      const response = f.page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname === '/apis/api.halo.run/v1alpha1/comments');
+      await form.locator('button[type="submit"]').click();
+      assert.equal((await response).status(), 200);
+      await waitForRootIdle(f.page);
+      await f.page.locator('comment-item').filter({ hasText: content }).waitFor({ state: 'visible' });
+      assert.equal(f.state.writes.length, 1, 'One explicit submit must issue exactly one mocked root POST');
+      const write = f.state.writes[0];
+      assert.deepEqual(write.body.subjectRef, subject);
+      assert.equal(write.body.raw, '<p>模拟根评论提交 &lt;保留文字&gt;</p>');
+      assert.equal(write.body.content, write.body.raw);
+      assert.equal(write.body.hidden, false);
+      assert.equal(write.body.allowNotification, true);
+      assert.equal(f.state.createdComments.length, 1);
+      assert.equal(await form.locator('[contenteditable="true"]').textContent(), '');
+      const cleared = await rootDraft(f.page);
+      assert.equal(cleared.content, '');
+      assert.equal(cleared.stored, null, 'Successful root submission must clear the official persisted draft');
+      f.item.assertions.push('Official root POST uses the actual Docsme subjectRef and escaped content', 'One explicit POST creates one DTO and refreshes the rendered list', 'Successful submission clears editor and official draft storage');
+      f.item.evidence.push(await evidence(f, 'root-submitted'));
+    });
+    await run(width, 'root-submit-failure-swup-retry', { role: 'author', rootStatus: 503 }, async f => {
+      await ready(f);
+      let form = f.page.locator('.docsme-comment comment-form');
+      const content = '模拟根评论失败后保留 <文字>';
+      await form.locator('[contenteditable="true"]').fill(content);
+      await form.locator('input[name="hidden"]').check();
+      const before = await rootDraft(f.page);
+      const response = f.page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname === '/apis/api.halo.run/v1alpha1/comments');
+      await form.locator('button[type="submit"]').click();
+      assert.equal((await response).status(), 503);
+      await waitForRootIdle(f.page);
+      await f.page.getByText('模拟根评论失败 - 模拟 503', { exact: true }).waitFor({ state: 'visible' });
+      assert.equal(await form.locator('[contenteditable="true"]').innerText(), content);
+      assert.equal(await form.locator('input[name="hidden"]').isChecked(), true);
+      assert.equal(f.state.createdComments.length, 0);
+      assert.equal(f.state.writes.length, 1, 'A failed root POST must not automatically retry');
+      assert.equal((await rootDraft(f.page)).stored, before.stored);
+      f.item.evidence.push(await evidence(f, 'root-failed-retained'));
+
+      const documentId = await f.page.evaluate(() => window.__mockCommentDocument);
+      const leavePrompts = [];
+      f.page.once('dialog', async dialog => {
+        leavePrompts.push({ type: dialog.type(), message: dialog.message() });
+        await dialog.accept();
+      });
+      await f.page.evaluate(href => { void window.pjax.loadUrl(href); }, homeUrl.href);
+      await f.page.waitForURL(homeUrl.href, { waitUntil: 'domcontentloaded' });
+      await f.page.locator('.docsme-comment').waitFor({ state: 'detached' });
+      assert.equal(await f.page.evaluate(() => window.__mockCommentDocument), documentId, 'Swup leave must retain the browser document');
+      assert.equal(leavePrompts.length, 1, 'Leaving a failed root draft must ask once');
+      assert.equal(leavePrompts[0].type, 'confirm');
+      assert.match(leavePrompts[0].message, /评论中有未完成的内容/);
+      await f.page.evaluate(href => { void window.pjax.loadUrl(href); }, docUrl.href);
+      await f.page.waitForURL(docUrl.href, { waitUntil: 'domcontentloaded' });
+      await waitForCommentHost(f);
+      assert.equal(await f.page.evaluate(() => window.__mockCommentDocument), documentId, 'Swup return must retain the browser document');
+      form = f.page.locator('.docsme-comment comment-form');
+      assert.equal(await form.locator('[contenteditable="true"]').innerText(), content);
+      assert.equal(await form.locator('input[name="hidden"]').isChecked(), true);
+      const restored = await rootDraft(f.page);
+      assert.equal(restored.key, before.key);
+      assert.equal(restored.content, before.content);
+      assert.equal(restored.hidden, true);
+      assert.equal(f.state.writes.length, 1, 'Swup leave/return must not resubmit the failed root comment');
+      f.item.navigation = { documentId, leavePrompts, restoredDraft: restored };
+      f.item.evidence.push(await evidence(f, 'root-swup-restored'));
+
+      f.state.rootStatus = 200;
+      await form.locator('button[type="submit"]').click();
+      await waitForRootIdle(f.page);
+      const created = f.page.locator('comment-item').filter({ hasText: content });
+      await created.getByText('私密', { exact: true }).waitFor({ state: 'visible' });
+      assert.equal(f.state.writes.length, 2, 'Only the explicit retry may send a second root POST');
+      assert.deepEqual(f.state.writes.map(write => write.status), [503, 200]);
+      for (const write of f.state.writes) {
+        assert.deepEqual(write.body.subjectRef, subject);
+        assert.equal(write.body.content, '<p>模拟根评论失败后保留 &lt;文字&gt;</p>');
+        assert.equal(write.body.raw, write.body.content);
+        assert.equal(write.body.hidden, true);
+      }
+      assert.equal(f.state.createdComments.length, 1);
+      assert.equal(await form.locator('[contenteditable="true"]').textContent(), '');
+      const cleared = await rootDraft(f.page);
+      assert.equal(cleared.content, '');
+      assert.equal(cleared.stored, null);
+      f.item.assertions.push('503 shows error and retains root content, hidden flag and official draft', 'Swup leave confirms once and return restores the draft in the same document', 'Navigation never resubmits', 'Explicit retry sends one POST and renders one private root comment', 'Successful retry clears editor and official draft storage');
+      f.item.evidence.push(await evidence(f, 'root-retry-submitted'));
+    });
     if (process.env.COMMENT_MOCK_EARLY_PROBE === '1') for (const resource of ['comments', 'replies']) await run(width, `edit-early-input-probe-${resource}`, { role: 'admin' }, async f => {
       await ready(f); const { form } = await openEdit(f, resource, false);
       await form.locator('[contenteditable="true"]').fill('编辑器刚显示便粘贴的新内容');
@@ -277,8 +410,9 @@ try {
       f.item.evidence.push(await evidence(f, 'disabled'));
     });
     await run(width, 'private-reply-denied', { role: 'anonymous', denied: true }, async f => {
-      await f.page.goto(`${base}${docPath}#halo-comment=mock-root&reply=mock-reply`, { waitUntil: 'domcontentloaded' });
-      await f.page.locator('comment-detail [role="status"]').waitFor();
+      await f.page.goto(`${docUrl.href}#halo-comment=mock-root&reply=mock-reply`, { waitUntil: 'domcontentloaded' });
+      await f.page.locator('comment-detail [role="status"]')
+        .filter({ hasText: /不存在或暂不可查看|not found or unavailable/ }).waitFor();
       assert.match(await f.page.locator('comment-detail [role="status"]').innerText(), /不存在或暂不可查看|not found or unavailable/);
       assert.equal(await f.page.locator('comment-detail reply-item').count(), 0);
       assert.equal(await f.page.locator('comment-detail .retry').count(), 0);
@@ -301,10 +435,10 @@ try {
         await f.page.goBack({ waitUntil: 'domcontentloaded' }); await assertDetail(hash, id, 'history-back');
         await f.page.goForward({ waitUntil: 'domcontentloaded' }); await f.page.locator('comment-list').waitFor();
         // Existing PJAX API performs the real route transition and History lifecycle.
-        await f.page.evaluate(href => { void window.pjax.loadUrl(href); }, `${base}/`);
-        await f.page.waitForURL(`${base}/`, { waitUntil: 'domcontentloaded' });
-        await f.page.evaluate(href => { void window.pjax.loadUrl(href); }, base + docPath + hash);
-        await f.page.waitForURL(base + docPath + hash, { waitUntil: 'domcontentloaded' }); await assertDetail(hash, id, 'pjax');
+        await f.page.evaluate(href => { void window.pjax.loadUrl(href); }, homeUrl.href);
+        await f.page.waitForURL(homeUrl.href, { waitUntil: 'domcontentloaded' });
+        await f.page.evaluate(href => { void window.pjax.loadUrl(href); }, docUrl.href + hash);
+        await f.page.waitForURL(docUrl.href + hash, { waitUntil: 'domcontentloaded' }); await assertDetail(hash, id, 'pjax');
       }
       f.item.assertions.push('Docsme root/reply cold navigation', 'Keyboard exit restores list focus', 'Back/Forward retain document identity', 'PJAX away and back retain document and detail target', 'No horizontal document overflow');
     });

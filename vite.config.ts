@@ -426,6 +426,20 @@ export default defineConfig({
         codeSplitting: {
           groups: [
             {
+              // Attention is idle-loaded. Keep its plugin implementations out
+              // of the shared Swup/loader chunk required by the startup shell.
+              priority: 110,
+              includeDependenciesRecursively: false,
+              name(id: string) {
+                if (id.includes("/node_modules/swup/") || id.includes("/node_modules/delegate-it/")) {
+                  return "shared/swup-vendor";
+                }
+                return id.includes("/node_modules/@swup/preload-plugin/")
+                  || id.includes("/node_modules/@swup/plugin/")
+                  ? "shared/navigation-preload-vendor" : null;
+              }
+            },
+            {
               // Shared helpers must win over an application's recursive dependency group.
               // Otherwise lazy-media enters Photos and text helpers enter Reader, pulling
               // those complete application chunks into every cold Shell page.

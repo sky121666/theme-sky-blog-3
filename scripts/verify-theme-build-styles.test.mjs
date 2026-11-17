@@ -13,6 +13,7 @@ const manifest = {
 
 const html = renderBuildStyles(manifest);
 assert.match(html, /th:fragment="styles\(pageApp\)"/);
+assert.doesNotMatch(html, /data-reading-navigation-preload/, 'Cold A/B rejected a navigation hint before the reading title');
 assert.match(html, /id="shell-core-style"/);
 assert.match(html, /data-app-css/);
 assert.match(html, /pageApp == 'explorer-tags'/);

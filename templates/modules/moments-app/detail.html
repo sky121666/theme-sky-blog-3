@@ -105,7 +105,7 @@
                 <span data-moment-upvote-count th:text="${upvoteCount}"></span>
               </span>
             </div>
-            <div class="moment-feed-comments-status" data-moment-comments-status hidden></div>
+              <div class="moment-feed-comments-status" data-moment-comments-status role="status" aria-live="polite" hidden></div>
             <th:block th:if="${officialComments}">
             <div class="moment-feed-comments-list" data-moment-comments-list></div>
             <button type="button" class="moment-feed-comments-load-more" data-moment-comments-more hidden>查看更多评论</button>

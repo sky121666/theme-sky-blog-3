@@ -1,6 +1,6 @@
 # 商城 App Store 对齐实施
 
-沿用已确认的[设计审查](../../../output/appstore-alignment-audit-2026-10-08/report.md)及用户“开始适配”授权。
+沿用已确认的设计审查（本机 `output/appstore-alignment-audit-2026-10-08/report.md`）及用户“开始适配”授权。
 
 ## 范围与约束
 

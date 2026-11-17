@@ -12,6 +12,8 @@ Sky Blog 3 的浏览器产物包含或派生自下列第三方软件。清单从
 | `@babel/runtime` | 7.29.7 | MIT | <https://babel.dev/docs/en/next/babel-runtime> |
 | `@iconify-json/lucide` | 1.2.134 | ISC | <https://icon-sets.iconify.design/lucide/> |
 | `@iconify/types` | 2.0.0 | MIT | <https://github.com/iconify/iconify> |
+| `@swup/plugin` | 4.0.0 | MIT | <https://github.com/swup/plugin> |
+| `@swup/preload-plugin` | 3.2.12 | MIT | <https://github.com/swup/preload-plugin> |
 | `@tanstack/query-core` | 5.90.20 | MIT | <https://tanstack.com/query> |
 | `@tanstack/svelte-query` | 6.1.0 | MIT | <https://tanstack.com/query> |
 | `@vue/reactivity` | 3.5.43 | MIT | <https://github.com/vuejs/core/tree/main/packages/reactivity#readme> |
@@ -27,6 +29,7 @@ Sky Blog 3 的浏览器产物包含或派生自下列第三方软件。清单从
 | `daisyui` | 5.7.0 | MIT | <https://daisyui.com> |
 | `decamelize` | 1.2.0 | MIT | Sindre Sorhus |
 | `decimal.js` | 10.6.0 | MIT | <https://github.com/MikeMcl/decimal.js> |
+| `delegate-it` | 6.4.0 | MIT | Federico Brigante <me@fregante.com> (https://fregante.com) |
 | `dijkstrajs` | 1.0.3 | MIT | <https://github.com/tcort/dijkstrajs> |
 | `emoji-regex` | 8.0.0 | MIT | <https://mths.be/emoji-regex> |
 | `esm-env` | 1.2.2 | MIT | <https://github.com/benmccann/esm-env> |
@@ -42,7 +45,7 @@ Sky Blog 3 的浏览器产物包含或派生自下列第三方软件。清单从
 | `p-locate` | 4.1.0 | MIT | Sindre Sorhus |
 | `p-try` | 2.2.0 | MIT | Sindre Sorhus |
 | `path-exists` | 4.0.0 | MIT | Sindre Sorhus |
-| `pjax` | 0.2.8 | MIT | Maxime Thirouin |
+| `path-to-regexp` | 6.3.0 | MIT | <https://github.com/pillarjs/path-to-regexp> |
 | `pngjs` | 5.0.0 | MIT | <https://github.com/lukeapage/pngjs> |
 | `qrcode` | 1.5.4 | MIT | <http://github.com/soldair/node-qrcode> |
 | `require-directory` | 2.1.1 | MIT | <https://github.com/troygoode/node-require-directory/> |
@@ -54,13 +57,15 @@ Sky Blog 3 的浏览器产物包含或派生自下列第三方软件。清单从
 | `svelte` | 5.53.10 | MIT | <https://svelte.dev> |
 | `svelte-i18next` | 2.2.2 | MIT | <https://github.com/NishuGoel/svelte-i18next> |
 | `svelte-sonner` | 1.1.0 | MIT | <https://github.com/wobsoriano/svelte-sonner#readme> |
+| `swup` | 4.10.0 | MIT | <https://swup.js.org> |
+| `typed-query-selector` | 2.12.3 | MIT | Pig Fang <g-plane@hotmail.com> |
 | `which-module` | 2.0.1 | ISC | <https://github.com/nexdrew/which-module#readme> |
 | `wrap-ansi` | 6.2.0 | MIT | Sindre Sorhus |
 | `y18n` | 4.0.3 | ISC | <https://github.com/yargs/y18n> |
 | `yargs` | 15.4.1 | MIT | <https://yargs.js.org/> |
 | `yargs-parser` | 18.1.3 | ISC | <https://github.com/yargs/yargs-parser> |
 
-共 52 个分发依赖记录。下列许可与版权声明保持原文；第三方软件仍分别受其自身许可证约束。
+共 57 个分发依赖记录。下列许可与版权声明保持原文；第三方软件仍分别受其自身许可证约束。
 
 ## @alpinejs/intersect@3.17.3
 
@@ -215,6 +220,66 @@ SOFTWARE.
 MIT License
 
 Copyright (c) 2021 - 2022 Vjacheslav Trushkin / Iconify OÜ
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## @swup/plugin@4.0.0
+
+- 许可证：MIT
+- 来源文件：LICENSE
+- npm 作者元数据：Georgy Marchuk
+
+```text
+MIT License
+
+Copyright (c) 2017 Georgy Marchuk
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## @swup/preload-plugin@3.2.12
+
+- 许可证：MIT
+- 来源文件：LICENSE
+- npm 作者元数据：Georgy Marchuk
+
+```text
+MIT License
+
+Copyright (c) 2017 Georgy Marchuk
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -617,6 +682,24 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
+## delegate-it@6.4.0
+
+- 许可证：MIT
+- 来源文件：license
+- npm 作者元数据：Federico Brigante <me@fregante.com> (https://fregante.com)
+
+```text
+MIT License
+
+Copyright (c) Federico Brigante <me@fregante.com> (https://fregante.com)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
 ## dijkstrajs@1.0.3
 
 - 许可证：MIT
@@ -937,33 +1020,34 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## pjax@0.2.8
+## path-to-regexp@6.3.0
 
 - 许可证：MIT
 - 来源文件：LICENSE
-- npm 作者元数据：Maxime Thirouin
+- npm 作者元数据：未提供
 
 ```text
 The MIT License (MIT)
 
-Copyright (c) 2014 Maxime Thirouin
+Copyright (c) 2014 Blake Embrey (hello@blakeembrey.com)
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished to do so,
-subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 ```
 
 ## pngjs@5.0.0
@@ -1213,6 +1297,66 @@ THE SOFTWARE.
 MIT License
 
 Copyright (c) 2024 Robert Soriano
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## swup@4.10.0
+
+- 许可证：MIT
+- 来源文件：LICENSE
+- npm 作者元数据：Georgy Marchuk
+
+```text
+MIT License
+
+Copyright (c) 2017 Georgy Marchuk
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## typed-query-selector@2.12.3
+
+- 许可证：MIT
+- 来源文件：LICENSE
+- npm 作者元数据：Pig Fang <g-plane@hotmail.com>
+
+```text
+MIT License
+
+Copyright (c) 2020-present Pig Fang
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

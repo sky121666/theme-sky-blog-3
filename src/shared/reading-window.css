@@ -1,0 +1,10 @@
+/* First paint, before draggableWindow can apply its saved or measured inline geometry. */
+@media (min-width: 769px) {
+  body:is([data-page-app="reader"], [data-page-app="docsme"]) .window-layer[data-reading-entry] [data-window-surface] {
+    left: 50%;
+    top: calc(50% - 28px);
+    width: min(var(--reading-window-width, min(1200px, 85vw)), calc(100vw - 32px));
+    height: min(900px, calc(90dvh - 76px));
+    transform: translate(-50%, -50%);
+  }
+}

@@ -8,11 +8,18 @@ import { chromium } from 'playwright';
 // The real plugin owns validation and submission. Only HTTP is replaced, so
 // copying a draft into an empty placeholder cannot satisfy these checks.
 const root = fileURLToPath(new URL('../', import.meta.url));
-const jar = process.env.COMMENT_WIDGET_PLUGIN_JAR || path.resolve(root, '../../plugins/PluginCommentWidget-3.4.0.jar');
+const jar = process.env.COMMENT_WIDGET_PLUGIN_JAR || path.resolve(root, '../../plugins/PluginCommentWidget-3.5.1.jar');
+const pluginManifest = execFileSync('unzip', ['-p', jar, 'plugin.yaml'], { encoding: 'utf8' });
+const testedVersion = pluginManifest.match(/^\s+version:\s*["']?([^\s"']+)/m)?.[1] || 'unknown';
 const asset = (name) => execFileSync('unzip', ['-p', jar, `static/${name}`], { maxBuffer: 3 * 1024 * 1024 });
 const interactions = await fs.readFile(path.join(root, 'src/apps/moments/interactions.js'), 'utf8');
 const permalink = await fs.readFile(path.join(root, 'src/shared/comment-permalink.js'), 'utf8');
-const moduleSource = interactions.replace("from '../../shared/comment-permalink.js'", `from 'data:text/javascript;base64,${Buffer.from(permalink).toString('base64')}'`);
+const pageUrl = await fs.readFile(path.join(root, 'src/shared/comment-page-url.js'), 'utf8');
+const permalinkModule = permalink.replace("from './comment-page-url.js'", `from 'data:text/javascript;base64,${Buffer.from(pageUrl).toString('base64')}'`);
+const deadline = await fs.readFile(path.join(root, 'src/shared/request-deadline.js'), 'utf8');
+const moduleSource = interactions
+  .replace("from '../../shared/request-deadline.js'", `from 'data:text/javascript;base64,${Buffer.from(deadline).toString('base64')}'`)
+  .replace("from '../../shared/comment-permalink.js'", `from 'data:text/javascript;base64,${Buffer.from(permalinkModule).toString('base64')}'`);
 const browser = await chromium.launch({ headless: true });
 const draft = '保留这段草稿 <不是 HTML>\n第二行';
 const owner = { displayName: 'Fixture User', avatar: '', name: 'fixture-user' };
@@ -229,5 +236,5 @@ try {
   assert.equal(await disposed.page.locator('[data-moment-comment-input]').inputValue(), draft);
   assert.deepEqual(disposed.errors, []);
   await disposed.page.close();
-  console.log('Moments captcha recovery passed; real CommentWidget 3.4.0, all HTTP responses isolated, no live comments submitted');
+  console.log(`Moments captcha recovery passed; real CommentWidget ${testedVersion}, all HTTP responses isolated, no live comments submitted`);
 } finally { await browser.close(); }

@@ -209,6 +209,7 @@ try {
   }
 
   const menuBar = menuBarFactory();
+  menuBar.notificationCenterOpen = true;
   menuBar.notificationWeatherState.loading = true;
   menuBar.notificationWidgets = [{ key: 'weather', widget: 'system.weather', surface: 'notification-center', meta: { cityName: 'A' } }];
   menuBar.ensureNotificationWidgetRenderer = async () => {};
@@ -259,6 +260,7 @@ try {
   defaultsMenuBar.syncNotificationWidgets = () => {};
   defaultsMenuBar.init();
   defaultsMenuBar.syncNotificationWidgets = syncDefaultsWidgets;
+  defaultsMenuBar.notificationCenterOpen = true;
   defaultsMenuBar.captureNotificationWidgetRects = () => null;
   defaultsMenuBar.ensureNotificationWidgetRenderer = async () => {};
   defaultsMenuBar.notificationWeatherDefaults = { cityName: 'A', refreshMinutes: 30 };

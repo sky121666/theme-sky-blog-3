@@ -1,4 +1,6 @@
 import { classifyLinkClick } from '../../shared/navigation-link-policy.js';
+import { initializeDocsSwup } from '../../shared/docs-swup-loader.js';
+import { openSearchWidget } from '../../shared/search-widget.js';
 
 function getDocsmeRoot(root) {
   return root?.querySelector?.('.docsme-app') || root?.closest?.('.docsme-app') || null;
@@ -8,12 +10,19 @@ function docsmeWindowWidth(app) {
   return app?.clientWidth || window.innerWidth;
 }
 
-function isCompactDocsmeToc(app) {
-  return docsmeWindowWidth(app) <= 1080;
+const DOCSME_TOC_PIN_KEY = 'docsme-toc-pinned';
+const DOCSME_TOC_PIN_MIN_WIDTH = 1080;
+
+function isFloatingDocsmeToc(app) {
+  const width = docsmeWindowWidth(app);
+  // A fixed column must leave useful reading space beside the document tree.
+  // 248px tree + 220px TOC + paper insets still leave about 500px for text.
+  return width < DOCSME_TOC_PIN_MIN_WIDTH
+    || app?._docsmeTocPinnedPreference === false;
 }
 
 function isCompactDocsmeSidebar(app) {
-  return !app.classList.contains('docsme-app--projects') && docsmeWindowWidth(app) <= 768;
+  return docsmeWindowWidth(app) <= 768;
 }
 
 function docsmeFocusable(root) {
@@ -21,37 +30,144 @@ function docsmeFocusable(root) {
     .filter((node) => !node.disabled && node.tabIndex >= 0 && !node.closest('[inert]') && node.getClientRects().length);
 }
 
+function releaseDocsmeModal(app) {
+  app._docsmeModalInert?.forEach((previous, node) => { node.inert = previous; });
+  app._docsmeModalInert = null;
+}
+
+function syncDocsmePanelAccessibility(app) {
+  // Both drawers own the same background. Restore before recomputing so switching
+  // panels, resizing or disposing never saves the other panel's temporary lock.
+  releaseDocsmeModal(app);
+  if (app._docsmeDisposed) return;
+  const compact = isCompactDocsmeSidebar(app);
+  const sidebar = app.querySelector('.docsme-sidebar');
+  const toc = app.querySelector('[data-docsme-toc]');
+  const sidebarOpen = compact && app.classList.contains('is-sidebar-open');
+  const tocOpen = toc && !app.classList.contains('is-toc-empty')
+    && (isFloatingDocsmeToc(app)
+      ? app.classList.contains('is-mobile-toc-open')
+      : !app.classList.contains('is-toc-collapsed'));
+  const modal = compact ? (sidebarOpen ? sidebar : tocOpen ? toc : null) : null;
+  if (sidebar) {
+    sidebar.inert = compact && !sidebarOpen;
+    sidebar.setAttribute('aria-hidden', String(sidebar.inert));
+  }
+  if (toc) {
+    toc.inert = !tocOpen;
+    toc.setAttribute('aria-hidden', String(toc.inert));
+  }
+  for (const panel of [sidebar, toc].filter(Boolean)) {
+    if (panel === modal) {
+      panel.setAttribute('role', 'dialog');
+      panel.setAttribute('aria-modal', 'true');
+      panel.setAttribute('aria-label', panel === toc ? '本页目录'
+        : app.classList.contains('docsme-app--projects') ? '资料库侧栏' : '文档目录');
+    } else {
+      panel.removeAttribute('role');
+      panel.removeAttribute('aria-modal');
+      panel.removeAttribute('aria-label');
+    }
+  }
+  if (!modal) return;
+  const saved = new Map();
+  // Include the desktop controls outside the app, not just the article. Inert
+  // excludes them from both pointer interaction and the keyboard tab sequence.
+  for (let branch = modal; branch && branch !== document.body; branch = branch.parentElement) {
+    for (const sibling of branch.parentElement?.children || []) {
+      if (sibling === branch || !(sibling instanceof HTMLElement) || sibling.matches('script, style, link')) continue;
+      saved.set(sibling, sibling.inert);
+      sibling.inert = true;
+    }
+  }
+  app._docsmeModalInert = saved;
+  if (!modal.contains(document.activeElement)) docsmeFocusable(modal)[0]?.focus({ preventScroll: true });
+}
+
+function trapDocsmePanelFocus(event, panel) {
+  const controls = docsmeFocusable(panel);
+  const first = controls[0], last = controls.at(-1);
+  if (!first) { event.preventDefault(); return; }
+  if (event.shiftKey && (document.activeElement === first || !panel.contains(document.activeElement))) {
+    event.preventDefault();
+    last.focus({ preventScroll: true });
+  } else if (!event.shiftKey && (document.activeElement === last || !panel.contains(document.activeElement))) {
+    event.preventDefault();
+    first.focus({ preventScroll: true });
+  }
+}
+
+function bindProjectFilter(app) {
+  const input = app.querySelector('[data-docsme-project-filter]');
+  if (!input || input.dataset.docsmeFilterBound === 'true') return;
+  input.dataset.docsmeFilterBound = 'true';
+  const entries = Array.from(app.querySelectorAll('.docsme-project-card'), card => ({
+    card,
+    text: card.querySelector('.docsme-project-card__body')?.textContent.trim().toLocaleLowerCase() || ''
+  }));
+  const empty = app.querySelector('[data-docsme-filter-empty]');
+  const status = app.querySelector('[data-docsme-library-status]');
+  const reset = app.querySelector('[data-docsme-filter-clear]');
+  const apply = () => {
+    const words = input.value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+    let visible = 0;
+    for (const { card, text } of entries) {
+      card.hidden = !words.every(word => text.includes(word));
+      if (!card.hidden) visible++;
+    }
+    if (empty) empty.hidden = visible > 0 || !words.length;
+    if (reset) reset.hidden = !input.value;
+    if (status) status.textContent = words.length ? `显示 ${visible} / ${entries.length} 个项目` : `${entries.length} 个项目`;
+  };
+  input.addEventListener('input', apply);
+  input.addEventListener('search', apply);
+  const clear = () => { input.value = ''; apply(); input.focus({ preventScroll: true }); };
+  input.addEventListener('keydown', event => {
+    if (event.key !== 'Escape' || !input.value) return;
+    event.preventDefault();
+    event.stopPropagation();
+    clear();
+  });
+  reset?.addEventListener('click', clear);
+  apply();
+}
+
+function bindLibraryView(app) {
+  const picker = app.querySelector('.docsme-view-picker');
+  if (!picker || picker.dataset.docsmeBound) return;
+  picker.dataset.docsmeBound = 'true';
+  const key = 'sky-blog-3:docsme:library-view';
+  const buttons = picker.querySelectorAll('[data-docsme-view]');
+  const select = view => {
+    const mode = view === 'list' ? 'list' : 'covers';
+    app.dataset.libraryView = mode;
+    buttons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.docsmeView === mode)));
+  };
+  let previous;
+  try { previous = sessionStorage.getItem(key); } catch { /* Private windows can still switch views. */ }
+  select(previous);
+  picker.hidden = false;
+  buttons.forEach(button => button.addEventListener('click', () => {
+    select(button.dataset.docsmeView);
+    try { sessionStorage.setItem(key, app.dataset.libraryView); } catch { /* View remains active in this window. */ }
+  }));
+}
+
 function syncDocsmeSidebarState(app, { restoreHiddenFocus = true } = {}) {
   const sidebar = app?.querySelector('.docsme-sidebar');
   if (!sidebar) return;
   const compact = isCompactDocsmeSidebar(app);
+  const label = app.classList.contains('docsme-app--projects') ? '资料库侧栏' : '文档目录';
   if (!compact) app.classList.remove('is-sidebar-open');
   const open = compact && app.classList.contains('is-sidebar-open');
   const focusWasInSidebar = sidebar.contains(document.activeElement);
-  sidebar.inert = compact && !open;
-  sidebar.setAttribute('aria-hidden', sidebar.inert ? 'true' : 'false');
   app.querySelectorAll('[data-docsme-toggle-sidebar]').forEach((button) => {
     button.setAttribute('aria-expanded', open ? 'true' : 'false');
-    button.setAttribute('aria-label', open ? '关闭文档目录' : '打开文档目录');
+    button.setAttribute('aria-label', (open ? '关闭' : '打开') + label);
   });
-  const main = app.querySelector('.docsme-main');
-  if (open) {
-    sidebar.setAttribute('role', 'dialog');
-    sidebar.setAttribute('aria-modal', 'true');
-    sidebar.setAttribute('aria-label', '文档目录');
-    if (main && app._docsmeMainInertBeforeSidebar === undefined) {
-      app._docsmeMainInertBeforeSidebar = main.inert;
-      main.inert = true;
-    }
-  } else {
-    sidebar.removeAttribute('role');
-    sidebar.removeAttribute('aria-modal');
-    sidebar.removeAttribute('aria-label');
-    if (main && app._docsmeMainInertBeforeSidebar !== undefined) main.inert = app._docsmeMainInertBeforeSidebar;
-    delete app._docsmeMainInertBeforeSidebar;
-    if (restoreHiddenFocus && sidebar.inert && focusWasInSidebar) {
-      app.querySelector('[data-docsme-toggle-sidebar]')?.focus({ preventScroll: true });
-    }
+  syncDocsmePanelAccessibility(app);
+  if (restoreHiddenFocus && sidebar.inert && focusWasInSidebar && !app.classList.contains('is-mobile-toc-open')) {
+    app.querySelector('[data-docsme-toggle-sidebar]')?.focus({ preventScroll: true });
   }
 }
 
@@ -67,41 +183,57 @@ function syncDocsmeTocState(app, { restoreHiddenFocus = true } = {}) {
   if (!app) return;
   const toc = app.querySelector('[data-docsme-toc]');
   if (!toc) return;
+  const floating = isFloatingDocsmeToc(app);
+  app.classList.toggle('is-toc-pinned', !floating);
+  app.classList.toggle('is-toc-floating', floating);
+  if (!floating) app.classList.remove('is-mobile-toc-open');
   const hidden = app.classList.contains('is-toc-empty')
-    || (isCompactDocsmeToc(app)
+    || (floating
       ? !app.classList.contains('is-mobile-toc-open')
       : app.classList.contains('is-toc-collapsed'));
   const ownedFocus = toc.contains(document.activeElement);
-  toc.inert = hidden;
-  toc.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+  syncDocsmePanelAccessibility(app);
+  app.querySelectorAll('[data-docsme-toggle-toc]').forEach(button => {
+    const label = hidden ? '展开本页目录' : '收起本页目录';
+    button.setAttribute('aria-expanded', String(!hidden));
+    button.setAttribute('aria-label', label);
+    button.setAttribute('title', label);
+  });
+  const pin = toc.querySelector('[data-docsme-pin-toc]');
+  if (pin) {
+    pin.hidden = docsmeWindowWidth(app) < DOCSME_TOC_PIN_MIN_WIDTH;
+    pin.setAttribute('aria-pressed', String(!floating));
+    pin.title = floating ? '将本页目录固定在右侧' : '取消固定本页目录';
+    if (pin.hidden && pin === document.activeElement && !hidden) {
+      toc.querySelector('[data-docsme-toggle-toc]')?.focus({ preventScroll: true });
+    }
+  }
   if (hidden && ownedFocus && restoreHiddenFocus) {
     docsmeFocusable(app).find((node) => node.matches('[data-docsme-toggle-toc]') && !toc.contains(node))
       ?.focus({ preventScroll: true });
   }
 }
 
-function isInternalDocsmeLink(anchor) {
-  if (!anchor?.hasAttribute('href')) return false;
-  const eligibility = classifyLinkClick({
-    event: { button: 0 },
-    link: {
-      rawHref: anchor.getAttribute('href'),
-      resolvedHref: anchor.href,
-      classOptIn: true,
-      targetPresent: anchor.hasAttribute('target'),
-      target: anchor.getAttribute('target') || '',
-      hasDownload: anchor.hasAttribute('download')
-    },
-    currentUrl: window.location.href,
-    baseTarget: anchor.ownerDocument.querySelector('base[target]')?.getAttribute('target') || '',
-    runtimeReady: true
-  });
-  return eligibility.kind === 'managed' && /^\/docs(?:\/|$)/.test(new URL(eligibility.href).pathname);
-}
-
 function enhanceDocsmeLinks(root) {
+  // Alpine can run before pushState. A relative link belongs to the document
+  // just inserted, not the previous address that is still in the location bar.
+  const source = new URL(root.closest('[data-pjax-target-url]')?.dataset.pjaxTargetUrl || location.href, location.href);
+  const explicitBase = root.ownerDocument.querySelector('base[href]')?.getAttribute('href');
+  let base = source;
+  try { if (explicitBase) base = new URL(explicitBase, source); } catch { /* Invalid base uses the document URL. */ }
+  const baseTarget = root.ownerDocument.querySelector('base[target]')?.getAttribute('target') || '';
+  const preview = source.searchParams.get('preview-theme');
   root.querySelectorAll('a[href]').forEach((anchor) => {
-    if (!isInternalDocsmeLink(anchor)) return;
+    const rawHref = anchor.getAttribute('href');
+    let target;
+    try { target = new URL(rawHref, base); } catch { return; }
+    if (!/^\/docs(?:\/|$)/.test(target.pathname) || target.username || target.password) return;
+    const policy = classifyLinkClick({ event: { button: 0 }, runtimeReady: true, currentUrl: source.href, baseTarget,
+      link: { rawHref, resolvedHref: target.href, classOptIn: true, hasDownload: anchor.hasAttribute('download'),
+        targetPresent: anchor.hasAttribute('target'), target: anchor.getAttribute('target') } });
+    if (policy.kind !== 'managed') return;
+    if (preview && !target.searchParams.has('preview-theme')) target.searchParams.set('preview-theme', preview);
+    if (anchor.href !== target.href) anchor.href = target.href;
     anchor.classList.add('pjax-link');
     anchor.dataset.pjaxApp = 'docsme';
   });
@@ -111,36 +243,69 @@ function bindSwitchers(root) {
   root.querySelectorAll('[data-docsme-switcher]').forEach((select) => {
     if (select.dataset.docsmeSwitcherBound === 'true') return;
     select.dataset.docsmeSwitcherBound = 'true';
-    select.addEventListener('change', () => {
+    const committedIndex = select.selectedIndex;
+    let pending = false;
+    select.addEventListener('change', async () => {
+      if (pending) return;
       const option = select.selectedOptions?.[0];
       const nextLink = option?.dataset.link || '';
       if (!nextLink) return;
 
       const currentLink = select.dataset.currentLink || '';
-      let nextHref = nextLink;
-      if (currentLink && window.location.pathname.includes(currentLink)) {
-        nextHref = window.location.pathname.replace(currentLink, nextLink) + window.location.search;
+      const current = new URL(window.location.href);
+      const next = new URL(nextLink, current);
+      if (currentLink) {
+        const prefix = new URL(currentLink, current).pathname.replace(/\/$/, '');
+        if (current.pathname === prefix || current.pathname.startsWith(prefix + '/')) {
+          next.pathname = next.pathname.replace(/\/$/, '') + current.pathname.slice(prefix.length);
+        }
       }
+      const targetKeys = new Set(next.searchParams.keys());
+      current.searchParams.forEach((value, key) => { if (!targetKeys.has(key)) next.searchParams.append(key, value); });
+      next.hash ||= current.hash;
 
+      pending = true;
+      select.disabled = true;
+      select.setAttribute('aria-busy', 'true');
+      const status = root.querySelector?.('[data-docsme-switch-status]');
+      if (status) { status.hidden = false; status.textContent = '正在切换…'; }
       if (window.pjax?.loadUrl) {
-        window.pjax.loadUrl(nextHref);
+        let completed = false;
+        try {
+          completed = await window.pjax.loadUrl(next.href, { triggerElement: select });
+        } catch {
+          // The current document stays readable; expose recovery beside the control.
+        } finally {
+          // A veto/error leaves this root mounted. Its selected value must still
+          // describe the document being read, rather than the failed target.
+          if (select.isConnected) select.selectedIndex = committedIndex;
+          select.disabled = false;
+          select.removeAttribute('aria-busy');
+          pending = false;
+          if (status && select.isConnected) {
+            status.hidden = completed !== false;
+            status.textContent = completed === false ? '切换未完成，请重新选择以重试。' : '';
+          }
+        }
       } else {
-        window.location.href = nextHref;
+        window.location.href = next.href;
       }
     });
   });
 }
 
 function bindDocsmeSearch(app) {
-  const button = app.querySelector('#btn-search');
+  const button = app.querySelector('[data-docsme-search], #btn-search');
   if (!button || app.dataset.docsmeSearchEnabled !== 'true' || app._docsmeSearchHandler) return;
   const handler = () => {
     const includeCategoryNames = [
       ['project', app.dataset.docsmeProject],
       ['version', app.dataset.docsmeVersion],
-      ['language', app.dataset.docsmeLanguage]
+      // Docsme 1.10.2's DocumentConverter indexes language as `lang:…`.
+      // Its bundled example template still says `language:…`; follow the index.
+      ['lang', app.dataset.docsmeLanguage]
     ].filter(([, value]) => value).map(([key, value]) => `${key}:${value}`);
-    window.SearchWidget?.open?.({ includeCategoryNames });
+    openSearchWidget({ includeCategoryNames });
   };
   button.addEventListener('click', handler);
   app._docsmeSearchButton = button;
@@ -153,14 +318,18 @@ function bindMobileSidebar(root) {
   if (app && app.dataset.docsmeDismissBound !== 'true') {
     app.dataset.docsmeDismissBound = 'true';
     app.addEventListener('click', (event) => {
+      if (event.target.closest('[data-docsme-all-projects]')) {
+        if (app.classList.contains('is-sidebar-open')) closeDocsmeSidebar(app);
+        const filter = app.querySelector('[data-docsme-project-filter]');
+        if (filter) { filter.value = ''; filter.dispatchEvent(new Event('input')); filter.focus({ preventScroll: true }); }
+        return;
+      }
+      if (event.target.closest('[data-docsme-close-sidebar]')) { closeDocsmeSidebar(app); return; }
       if (!app.classList.contains('is-sidebar-open') && !app.classList.contains('is-mobile-toc-open')) return;
-      if (event.target.closest('.docsme-sidebar, .docsme-toc, .docsme-toolbar-actions')) return;
+      if (event.target.closest('.docsme-sidebar, .docsme-toc, .docsme-toolbar-actions, [data-docsme-toggle-sidebar]')) return;
 
       closeDocsmeSidebar(app);
       app.classList.remove('is-mobile-toc-open');
-      app.querySelectorAll('[data-docsme-toggle-toc]').forEach((button) => {
-        button.setAttribute('aria-expanded', 'false');
-      });
       syncDocsmeTocState(app);
     });
   }
@@ -172,9 +341,6 @@ function bindMobileSidebar(root) {
       const app = getDocsmeRoot(root);
       if (!app) return;
       app.classList.remove('is-mobile-toc-open');
-      app.querySelectorAll('[data-docsme-toggle-toc]').forEach((tocButton) => {
-        tocButton.setAttribute('aria-expanded', 'false');
-      });
       app.classList.toggle('is-sidebar-open');
       syncDocsmeSidebarState(app);
       syncDocsmeTocState(app);
@@ -184,14 +350,22 @@ function bindMobileSidebar(root) {
     });
   });
 
-  root.querySelectorAll('.docsme-tree a').forEach((link) => {
-    if (link.dataset.docsmeSidebarCloseBound === 'true') return;
-    link.dataset.docsmeSidebarCloseBound = 'true';
-    link.addEventListener('click', () => closeDocsmeSidebar(getDocsmeRoot(root), { restoreFocus: false }));
-  });
+  // A committed navigation replaces this root (disposing its sidebar). Keep
+  // the current chapter and its focus available while a request can still fail.
 
   if (app && !app._docsmeSidebarKeyHandler) {
     app._docsmeSidebarKeyHandler = (event) => {
+      if (isFloatingDocsmeToc(app) && app.classList.contains('is-mobile-toc-open')) {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          event.stopPropagation();
+          app.classList.remove('is-mobile-toc-open');
+          syncDocsmeTocState(app);
+        } else if (event.key === 'Tab' && isCompactDocsmeSidebar(app)) {
+          trapDocsmePanelFocus(event, app.querySelector('[data-docsme-toc]'));
+        }
+        return;
+      }
       const open = isCompactDocsmeSidebar(app) && app.classList.contains('is-sidebar-open');
       if (!open) return;
       if (event.key === 'Escape') {
@@ -199,18 +373,7 @@ function bindMobileSidebar(root) {
         event.stopPropagation();
         closeDocsmeSidebar(app);
       } else if (event.key === 'Tab') {
-        const sidebar = app.querySelector('.docsme-sidebar');
-        const controls = docsmeFocusable(sidebar);
-        const first = controls[0];
-        const last = controls.at(-1);
-        if (!first) { event.preventDefault(); return; }
-        if (event.shiftKey && (document.activeElement === first || !sidebar.contains(document.activeElement))) {
-          event.preventDefault();
-          last.focus();
-        } else if (!event.shiftKey && (document.activeElement === last || !sidebar.contains(document.activeElement))) {
-          event.preventDefault();
-          first.focus();
-        }
+        trapDocsmePanelFocus(event, app.querySelector('.docsme-sidebar'));
       }
     };
     app.addEventListener('keydown', app._docsmeSidebarKeyHandler);
@@ -264,20 +427,33 @@ function bindTocToggles(root) {
   const app = getDocsmeRoot(root);
   if (!app) return;
 
-  const syncTocButtons = () => {
-    const isCollapsed = app.classList.contains('is-toc-collapsed');
-    const isMobileOpen = app.classList.contains('is-mobile-toc-open');
-    app.querySelectorAll('[data-docsme-toggle-toc]').forEach((button) => {
-      button.setAttribute('aria-expanded', isCompactDocsmeToc(app) ? (isMobileOpen ? 'true' : 'false') : (isCollapsed ? 'false' : 'true'));
+  if (app._docsmeTocPinnedPreference === undefined) {
+    let saved;
+    try { saved = sessionStorage.getItem(DOCSME_TOC_PIN_KEY); } catch { /* The current window remains usable without storage. */ }
+    app._docsmeTocPinnedPreference = saved === 'true' ? true : saved === 'false' ? false : null;
+  }
+  const syncTocButtons = () => syncDocsmeTocState(app);
+
+  app.querySelectorAll('[data-docsme-pin-toc]').forEach((button) => {
+    if (button.dataset.docsmePinBound === 'true') return;
+    button.dataset.docsmePinBound = 'true';
+    button.addEventListener('click', () => {
+      if (docsmeWindowWidth(app) < DOCSME_TOC_PIN_MIN_WIDTH) return;
+      const pinned = isFloatingDocsmeToc(app);
+      app._docsmeTocPinnedPreference = pinned;
+      document.documentElement.dataset.docsmeTocPinned = String(pinned);
+      try { sessionStorage.setItem(DOCSME_TOC_PIN_KEY, String(pinned)); } catch { /* Keep the local preference. */ }
+      app.classList.remove('is-toc-collapsed');
+      app.classList.toggle('is-mobile-toc-open', !pinned);
+      syncTocButtons();
     });
-    syncDocsmeTocState(app);
-  };
+  });
 
   app.querySelectorAll('[data-docsme-toggle-toc]').forEach((button) => {
     if (button.dataset.docsmeTocToggleBound === 'true') return;
     button.dataset.docsmeTocToggleBound = 'true';
     button.addEventListener('click', () => {
-      if (isCompactDocsmeToc(app)) {
+      if (isFloatingDocsmeToc(app)) {
         closeDocsmeSidebar(app, { restoreFocus: false });
         app.classList.remove('is-toc-collapsed');
         app.classList.toggle('is-mobile-toc-open');
@@ -286,6 +462,9 @@ function bindTocToggles(root) {
         app.classList.toggle('is-toc-collapsed');
       }
       syncTocButtons();
+      if (isFloatingDocsmeToc(app) && app.classList.contains('is-mobile-toc-open')) {
+        docsmeFocusable(app.querySelector('[data-docsme-toc]'))[0]?.focus({ preventScroll: true });
+      }
     });
   });
 
@@ -316,6 +495,8 @@ function slugifyHeading(text, index) {
 }
 
 function renderToc(root) {
+  root._docsmeTocObserver?.disconnect?.();
+  root._docsmeTocObserver = null;
   const content = root.querySelector('[data-toc-content]');
   const list = root.querySelector('[data-docsme-toc-list]');
   if (!content || !list) return;
@@ -347,6 +528,13 @@ function renderToc(root) {
     .filter(Boolean));
   const assignedHeadingIds = new Set();
   const tocLinks = new Map();
+  const selectLink = active => {
+    for (const link of tocLinks.values()) {
+      link.classList.toggle('is-active', link === active);
+      if (link === active) link.setAttribute('aria-current', 'location');
+      else link.removeAttribute('aria-current');
+    }
+  };
   headings.forEach((heading, index) => {
     if (!heading.id || nonHeadingIds.has(heading.id) || assignedHeadingIds.has(heading.id)) {
       const slug = slugifyHeading(heading.textContent, index);
@@ -363,9 +551,9 @@ function renderToc(root) {
     link.className = `docsme-toc__link docsme-toc__link--${heading.tagName.toLowerCase()}`;
     link.textContent = heading.textContent.trim();
     link.addEventListener('click', (event) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
       event.preventDefault();
-      list.querySelectorAll('.is-active').forEach((item) => item.classList.remove('is-active'));
-      link.classList.add('is-active');
+      selectLink(link);
       const behavior = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
       const scroller = heading.closest('.docsme-main');
       const toolbar = scroller?.querySelector(':scope > .docsme-toolbar');
@@ -381,11 +569,8 @@ function renderToc(root) {
       }
       history.replaceState(history.state, '', `#${heading.id}`);
       const app = getDocsmeRoot(root);
-      if (app && isCompactDocsmeToc(app)) {
+      if (app && isFloatingDocsmeToc(app)) {
         app.classList.remove('is-mobile-toc-open');
-        app.querySelectorAll('[data-docsme-toggle-toc]').forEach((button) => {
-          button.setAttribute('aria-expanded', 'false');
-        });
         syncDocsmeTocState(app, { restoreHiddenFocus: false });
         if (!heading.hasAttribute('tabindex')) {
           heading.setAttribute('tabindex', '-1');
@@ -399,11 +584,10 @@ function renderToc(root) {
   });
 
   if (tocLinks.size > 0) {
-    list.querySelector('.docsme-toc__link')?.classList.add('is-active');
+    selectLink(list.querySelector('.docsme-toc__link'));
   }
   syncDocsmeTocState(getDocsmeRoot(root));
 
-  root._docsmeTocObserver?.disconnect?.();
   if ('IntersectionObserver' in window && tocLinks.size > 0) {
     root._docsmeTocObserver = new IntersectionObserver(
       (entries) => {
@@ -412,8 +596,7 @@ function renderToc(root) {
           .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
         if (!visible?.target?.id) return;
 
-        list.querySelectorAll('.is-active').forEach((item) => item.classList.remove('is-active'));
-        tocLinks.get(visible.target.id)?.classList.add('is-active');
+        selectLink(tocLinks.get(visible.target.id));
       },
       {
         root: root.querySelector('.docsme-main'),
@@ -945,6 +1128,7 @@ function disposeDocsmeEnhancements(root) {
   const app = getDocsmeRoot(root) || root;
   if (!app) return;
   app._docsmeDisposed = true;
+  releaseDocsmeModal(app);
   cancelDocsmeRichContent(app);
   app._docsmeSearchButton?.removeEventListener('click', app._docsmeSearchHandler);
   app._docsmeSearchButton = null;
@@ -984,7 +1168,10 @@ function enhanceDocsmeApp(root) {
   app._docsmeDisposed = false;
   app._docsmeRichContentSuspended = false;
   enhanceDocsmeLinks(app);
+  initializeDocsSwup();
   bindDocsmeSearch(app);
+  bindProjectFilter(app);
+  bindLibraryView(app);
   bindSwitchers(app);
   bindMobileSidebar(app);
   bindTreeToggles(app);
@@ -1009,7 +1196,9 @@ export function registerDocsmeApp(Alpine) {
         const intentId = event.detail?.intentId;
         if (intentId == null || this._docsmeNavigationIntentId === intentId) return;
         this._docsmeNavigationIntentId = intentId;
-        setPjaxLoading(this._docsmeAppRoot, true);
+        const target = new URL(event.detail.url, location.href);
+        setPjaxLoading(this._docsmeAppRoot,
+          target.origin === location.origin && /^\/docs(?:\/|$)/.test(target.pathname));
         if (!this._docsmeAppRoot || this._docsmeAppRoot._docsmeRichContentSuspended) return;
         this._docsmeAppRoot._docsmeRichContentSuspended = true;
         cancelDocsmeRichContent(this._docsmeAppRoot);

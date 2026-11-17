@@ -21,21 +21,22 @@
         </div>
         <div class="shop-product-layout">
           <div th:if="${isVirtual}" class="shop-product-identity" aria-label="商品身份图片">
-            <img th:if="${!#strings.isEmpty(identityImage)}" class="shop-product-identity-image" th:src="${identityImage}" th:alt="${product.title}" decoding="async" fetchpriority="high" />
+            <img th:if="${!#strings.isEmpty(identityImage)}" class="shop-product-identity-image" th:src="${identityImage}" th:alt="${product.title}" sizes="(max-width: 767px) 80px, 128px" decoding="async" fetchpriority="high" />
             <th:block th:if="${#strings.isEmpty(identityImage)}">
-              <th:block th:replace="~{modules/shop-app/media :: productImage(item=${product},mediaClass='shop-product-identity-image',mediaRole='identity')}"></th:block>
+              <th:block th:replace="~{modules/shop-app/media :: productImage(item=${product},mediaClass='shop-product-identity-image',mediaRole='identity',mediaSizes='auto, 128px')}"></th:block>
             </th:block>
           </div>
           <div th:unless="${isVirtual}" class="shop-product-gallery" aria-label="商品图片">
             <div class="shop-gallery-main">
-              <img th:if="${hasImages}" th:src="${product.images[0]}" th:alt="${product.title}" data-shop-gallery-main decoding="async" fetchpriority="high" />
+              <img th:if="${hasImages}" th:src="${product.images[0]}" th:alt="${product.title}" data-shop-gallery-main
+                   sizes="(max-width: 767px) calc(100vw - 40px), min(452px, calc((100vw - 336px) * 0.535))" decoding="async" fetchpriority="high" />
               <th:block th:unless="${hasImages}">
                 <th:block th:replace="~{modules/shop-app/products :: imagePlaceholder(imageTitle=${product.title})}"></th:block>
               </th:block>
             </div>
             <div class="shop-gallery-thumbs" th:if="${hasImages and #lists.size(product.images) > 1}" aria-label="选择商品图片">
               <button th:each="image, iter : ${product.images}" type="button" th:data-shop-thumbnail="${image}" th:attr="aria-pressed=${iter.first},aria-label=${'查看第 ' + iter.count + ' 张商品图片'}">
-                <img th:src="${image}" alt="" loading="lazy" decoding="async" />
+                <img th:src="${image}" alt="" sizes="60px" loading="lazy" decoding="async" />
               </button>
             </div>
           </div>
@@ -47,7 +48,7 @@
         </div>
         <section class="shop-product-previews" th:if="${isVirtual and hasImages and (#lists.size(product.images) > 1 or product.images[0] != identityImage)}" aria-label="商品预览">
           <div class="shop-product-preview-track">
-            <img th:each="image, iter : ${product.images}" th:if="${image != identityImage}" class="shop-product-preview-image" th:src="${image}" th:alt="${product.title + '：预览 ' + iter.count}" loading="lazy" decoding="async" />
+            <img th:each="image, iter : ${product.images}" th:if="${image != identityImage}" class="shop-product-preview-image" th:src="${image}" th:alt="${product.title + '：预览 ' + iter.count}" sizes="auto, (max-width: 767px) calc(100vw - 40px), 640px" loading="lazy" decoding="async" />
           </div>
         </section>
         <div class="shop-product-content" th:if="${!#strings.isEmpty(product.content) or !#lists.isEmpty(product.specDefinition)}">

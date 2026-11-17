@@ -211,7 +211,11 @@ async function installViewTransitionProbe(page) {
 
       const transition = nativeStartViewTransition(async () => {
         state.callbackCount += 1;
-        const result = await callback();
+        let swapSettled = false;
+        const resultPromise = Promise.resolve(callback()).finally(() => { swapSettled = true; });
+        const nextTask = new Promise(resolve => setTimeout(() => resolve(!swapSettled), 0));
+        record.waitedForDecode = await Promise.race([resultPromise.then(() => false), nextTask]);
+        const result = await resultPromise;
         record.afterSwap = capture();
         state.targetElement = document.querySelector(
           `[${ownerAttribute}][style*="${sharedName}"]`
@@ -440,7 +444,7 @@ async function assertDetailStepTransition(page, beforeState, {
   assert.equal(record.afterSwap.participants[0].tagName, 'FIGURE', `${label}: 目标参与者必须是 figure`);
   assert.equal(record.afterSwap.participants[0].photoName, targetPhotoName, `${label}: 目标照片必须正确`);
   assert.equal(record.afterSwap.participants[0].transitionName, transitionName, `${label}: 目标必须复用固定过渡名`);
-  assert.equal(record.afterSwap.participants[0].imageReady, true, `${label}: 目标原图必须在新快照前完成解码`);
+  assert.equal(record.afterSwap.participants[0].imageReady, true, `${label}: 新快照必须包含已经就绪的预览或原图`);
   assert.equal(record.afterSwap.inlineNamedCount, 1, `${label}: 目标不得命名侧栏、标题栏或胶片项`);
   assert.equal(record.afterSwap.title, record.afterSwap.shellTitle, `${label}: 目标快照标题必须符合详情数据契约`);
   assert.equal(record.afterSwap.subtitle, record.afterSwap.shellSubtitle, `${label}: 目标快照副标题必须符合详情数据契约`);
@@ -526,12 +530,7 @@ async function assertDetailStepTransition(page, beforeState, {
     false,
     `${label}: 页面根快照不得参与动画`
   );
-  assert.ok(
-    state.decodeCalls.slice(beforeState.decodeCalls.length).some((call) => (
-      call.connected && call.photoName === targetPhotoName
-    )),
-    `${label}: 新快照前必须对已接入 DOM 的目标主图调用 decode()`
-  );
+  assert.equal(record.waitedForDecode, false, `${label}: 交换回调不得返回仍在解码的原图 Promise`);
 
   await assertTransitionStateIsClean(page, label);
   const settledDetailState = await readDetailSwitchState(page);
@@ -1824,42 +1823,34 @@ try {
   const decodeTimeoutState = await readDetailSwitchState(page);
   assert.equal(decodeTimeoutState.position, keyboardNextState.position - 1, 'decode 超时后仍必须完成目标切换');
   assert.equal(
-    await page.evaluate(() => window.__PHOTOS_LIVE_DECODE_COUNT__ || 0),
-    1,
-    'live decode 超时路径必须且只能尝试一次目标主图解码'
+    await page.evaluate(() => (window.__PHOTOS_LIVE_DECODE_COUNT__ || 0) <= 1),
+    true,
+    '可在交换后独立解码，但不应重复尝试或阻塞导航'
   );
 
   assert.ok(decodeTimeoutState.nextHref && decodeTimeoutState.nextHref !== '#', '冷图降级前必须仍有下一张');
-  await page.evaluate(() => {
-    window.__PHOTOS_NATIVE_IMAGE__ = window.Image;
+  await page.evaluate(href => {
     window.__PHOTOS_COLD_TITLEBAR__ = document.querySelector('[data-window-titlebar]');
-    window.Image = class DeferredPhotosImage {
-      constructor() {
-        this.complete = false;
-        this.naturalWidth = 0;
-        this.onload = null;
-        this.onerror = null;
-      }
-
-      set src(value) {
-        this.currentSrc = value;
-      }
-
-      removeAttribute(name) {
-        if (name === 'src') this.currentSrc = '';
-        if (name === 'srcset') this.srcset = '';
-      }
-    };
-  });
+    const target = [...document.querySelectorAll('.photos-detail-neighbor')].find(link => link.href === new URL(href, location.href).href);
+    target.querySelector('img').removeAttribute('srcset');
+    target.querySelector('img').removeAttribute('src');
+    window.__PHOTOS_PRELOAD_COUNT__ = 0;
+    window.__PHOTOS_NATIVE_IMAGE__ = window.Image;
+    window.Image = new Proxy(window.Image, { construct(target, args) {
+      window.__PHOTOS_PRELOAD_COUNT__++;
+      return Reflect.construct(target, args);
+    } });
+  }, decodeTimeoutState.nextHref);
   try {
     const beforeColdTarget = await probeState(page);
     await page.locator('.photos-detail-adjacent-btn[aria-label="下一张"]').click();
     await waitForSameVariantCompletion(page, beforeColdTarget.sameVariantCompleteCount);
     await waitForPhotosView(page, decodeTimeoutState.nextHref, 'detail');
     state = await probeState(page);
-    assert.equal(state.callCount, beforeColdTarget.callCount, '目标原图 200ms 内未就绪时不得启动空白过渡');
+    assert.equal(state.callCount, beforeColdTarget.callCount, '无已就绪目标缩略图时不得启动空白过渡');
     assert.equal(state.sameVariantCompleteCount, beforeColdTarget.sameVariantCompleteCount + 1, '冷图降级仍必须完成一次 PJAX');
-    await assertTransitionStateIsClean(page, '目标原图超时降级');
+    assert.equal(await page.evaluate(() => window.__PHOTOS_PRELOAD_COUNT__), 0, '冷图不得预载远端原图来决定是否过渡');
+    await assertTransitionStateIsClean(page, '缺少目标预览降级');
     await page.waitForFunction(() => {
       const list = document.querySelector('.photos-detail-neighbor-list');
       const current = list?.querySelector('.photos-detail-neighbor[aria-current="true"]');

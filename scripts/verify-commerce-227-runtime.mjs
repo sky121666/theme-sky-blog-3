@@ -228,8 +228,8 @@ try {
   await run('signed-in-checkout-address-switch', {
     tag: 'shop-page-checkout', shipping: true, authenticated: true,
   }, async ({ page, requests }) => {
-    const address = page.locator('[name="selectedAddressId"]'); await address.waitFor();
-    await page.waitForFunction(() => document.querySelector('[name="selectedAddressId"]')?.value === '3901');
+    const address = page.locator('#address-selector'); await address.waitFor();
+    await page.waitForFunction(() => document.querySelector('#address-selector')?.value === '3901');
     assert.equal(await page.locator('input[type="email"]').count(), 0);
     assert.equal(await page.locator('[name="saveAsNewAddress"]').inputValue(), 'false');
     assert.equal(await page.locator('[name="userAddress.streetAddress"]').count(), 0);

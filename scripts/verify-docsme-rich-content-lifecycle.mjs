@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import { build } from 'esbuild';
+import { chromium } from 'playwright';
 
 const runtimePath = fileURLToPath(new URL('../src/apps/docsme/runtime.js', import.meta.url));
 const source = fs.readFileSync(runtimePath, 'utf8');
@@ -195,20 +196,40 @@ function renderer(calls, fail = '') {
   checks.push('超时→复用→网络错误→重试有界且清理自有 tag/监听/计时器');
 }
 {
-  const h = harness(), listeners = new Map(), opened = [];
-  const button = { addEventListener: (name, handler) => listeners.set(name, handler), removeEventListener: (name) => listeners.delete(name) };
-  const root = app(h, []); root.querySelector = (selector) => selector === '#btn-search' ? button : null;
-  root.dataset = { docsmeSearchEnabled: 'true', docsmeProject: 'project-a', docsmeVersion: 'v1', docsmeLanguage: 'zh' };
-  h.win.SearchWidget = { open: (options) => opened.push(options) };
-  h.api.bindDocsmeSearch(root); h.api.bindDocsmeSearch(root); assert.equal(listeners.size, 1);
-  listeners.get('click')(); assert.deepEqual(Array.from(opened[0].includeCategoryNames), ['project:project-a', 'version:v1', 'language:zh']);
-  h.api.disposeDocsmeEnhancements(root); assert.equal(listeners.size, 0);
-  const next = app(h, []); next.querySelector = (selector) => selector === '#btn-search' ? button : null;
-  next.dataset = { docsmeSearchEnabled: 'true', docsmeProject: 'project-b', docsmeVersion: 'v2', docsmeLanguage: '' };
-  h.api.bindDocsmeSearch(next); listeners.get('click')();
-  assert.deepEqual(Array.from(opened[1].includeCategoryNames), ['project:project-b', 'version:v2'], 'PJAX 新 root 使用新范围且排除空值');
-  h.api.disposeDocsmeEnhancements(next); assert.equal(listeners.size, 0);
-  checks.push('官方 SearchWidget project/version/language 过滤保持且监听可清理');
+  // Exercise the actual shared lazy owner in browser DOM. The old VM stub
+  // skipped its asynchronous style preparation and only recognized an ID that
+  // no longer exists in the public template.
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.setContent('<div class="docsme-app" data-docsme-search-enabled="true" data-docsme-project="project-a" data-docsme-version="v1" data-docsme-language="zh"><button data-docsme-search>搜索</button></div>');
+    await page.addScriptTag({ content: runtimeBundle.outputFiles[0].text });
+    await page.evaluate(() => {
+      window.opened = [];
+      window.SearchWidget = { open: options => window.opened.push(options) };
+      const root = document.querySelector('.docsme-app');
+      __docsmeRichContentFixture.bindDocsmeSearch(root);
+      __docsmeRichContentFixture.bindDocsmeSearch(root);
+    });
+    await page.locator('[data-docsme-search]').click();
+    await page.waitForFunction(() => opened.length === 1);
+    assert.deepEqual(await page.evaluate(() => opened[0].includeCategoryNames), ['project:project-a', 'version:v1', 'lang:zh']);
+    await page.evaluate(() => __docsmeRichContentFixture.disposeDocsmeEnhancements(document.querySelector('.docsme-app')));
+    await page.locator('[data-docsme-search]').click();
+    assert.equal(await page.evaluate(() => opened.length), 1, 'disposed root has no residual click binding');
+    await page.evaluate(() => {
+      document.body.innerHTML = '<div class="docsme-app" data-docsme-search-enabled="true" data-docsme-project="project-b" data-docsme-version="v2"><button data-docsme-search>搜索</button></div>';
+      __docsmeRichContentFixture.bindDocsmeSearch(document.querySelector('.docsme-app'));
+    });
+    await page.locator('[data-docsme-search]').click();
+    await page.waitForFunction(() => opened.length === 2);
+    assert.deepEqual(await page.evaluate(() => opened[1].includeCategoryNames), ['project:project-b', 'version:v2'], 'new root uses its current project scope without empty categories');
+    await page.evaluate(() => __docsmeRichContentFixture.disposeDocsmeEnhancements(document.querySelector('.docsme-app')));
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); }
+  checks.push('官方 SearchWidget 异步共享入口保持当前项目范围，重复绑定/销毁/新根均通过真实 DOM 验证');
 }
 {
   const h = harness(), root = app(h, [diagram('continuation-first')]);

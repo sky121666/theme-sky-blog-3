@@ -9,7 +9,11 @@ import { build } from 'esbuild';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pluginJar = process.env.CONTACT_FORM_PLUGIN_JAR
-  || path.resolve(root, '../../plugins/PluginContactForm-2.1.0.jar');
+  || path.resolve(root, '../../plugins/PluginContactForm-2.1.1.jar');
+const pluginManifest = execFileSync('unzip', ['-p', pluginJar, 'plugin.yaml'], { encoding: 'utf8' });
+assert.match(pluginManifest, /name:\s*["']?PluginContactForm["']?\s/);
+const pluginVersion = pluginManifest.match(/\bversion:\s*["']?([^\s"']+)/)?.[1];
+assert.ok(pluginVersion, 'ContactForm manifest must declare its actual version');
 const assets = new Map();
 const pluginAsset = (name) => {
   if (!assets.has(name)) assets.set(name, execFileSync('unzip', ['-p', pluginJar, `static/${name}`], { maxBuffer: 2 * 1024 * 1024 }).toString());
@@ -22,6 +26,7 @@ const reportName = process.env.CONTACT_FORM_REPORT_NAME || 'contact-form-pjax';
 await mkdir(reportDir, { recursive: true });
 const report = {
   startedAt: new Date().toISOString(),
+  pluginVersion,
   compatSha256: createHash('sha256').update(compatSource).digest('hex'),
   jarSha256: createHash('sha256').update(await readFile(pluginJar)).digest('hex'),
   scope: 'Official ContactForm JAR and actual form response shape; every HTTP request intercepted; no server writes.',
@@ -382,7 +387,7 @@ try {
   assert.equal(requests.some((request) => request.method !== 'GET' && !request.path.endsWith('/analytics/events')), false, 'lifecycle acceptance must not submit or mutate form data');
   report.passed = true;
   report.requests = requests;
-  console.log('ContactForm 2.1.0 real-runtime PJAX lifecycle passed: real draft/dialog/instance rollback at 1440/390px, successful cleanup, same-App mount, stale event, cold assets, failed asset retry, no submission');
+  console.log(`ContactForm ${pluginVersion} real-runtime PJAX lifecycle passed: real draft/dialog/instance rollback at 1440/390px, successful cleanup, same-App mount, stale event, cold assets, failed asset retry, no submission`);
 } catch (error) {
   report.failure = { name: error.name, message: error.message };
   throw error;

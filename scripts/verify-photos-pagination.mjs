@@ -169,6 +169,25 @@ try {
   assert.equal(reinitFixture.retry.listenerCount(), 0, 'reinitialization should remove the previous retry listener before an early return');
   assert.equal(reinitExplorer._paginationLoadMore, null, 'an early-return reinitialization must not retain the old load callback');
 
+  for (const [status, body, type] of [
+    [204, '', 'text/html'], [206, '<html><body>partial', 'text/html'],
+    [200, '<html><body>first row only', 'text/html'],
+    [200, '<html><body></body></html>', 'text/plain']
+  ]) {
+    const partialFixture = createFixture();
+    const partialExplorer = createExplorer(partialFixture);
+    let appended = 0;
+    partialExplorer._appendNewCards = () => { appended++; };
+    globalThis.fetch = async () => ({ ok: true, status, headers: new Headers({ 'Content-Type': type }), text: async () => body });
+    installParsedPage({ cards: [{ id: 'partial' }] });
+    await partialExplorer._paginationLoadMore();
+    assert.equal(appended, 0, `HTTP ${status} must not append a partial photo page`);
+    assert.equal(partialFixture.next.removed, false, 'partial data must preserve the retry URL');
+    assert.equal(partialFixture.error.classList.contains('hidden'), false);
+    assert.equal(partialFixture.noMore.classList.contains('hidden'), true);
+    partialExplorer.destroy();
+  }
+
   const retryFixture = createFixture();
   const retryExplorer = createExplorer(retryFixture);
   let appended = 0;
@@ -177,7 +196,7 @@ try {
   globalThis.fetch = async () => {
     fetchCount += 1;
     if (fetchCount === 1) return { ok: false, status: 503 };
-    return { ok: true, status: 200, text: async () => '<html></html>' };
+    return { ok: true, status: 200, headers: new Headers({ 'Content-Type': 'text/html' }), text: async () => '<!doctype html><html><head></head><body></body></html>' };
   };
   installParsedPage({ cards: [{ id: 'page-2-card' }] });
 
@@ -198,8 +217,8 @@ try {
   globalThis.fetch = async () => ({
     ok: true,
     redirected: true,
-    status: 200,
-    text: async () => '<html></html>'
+    status: 200, headers: new Headers({ 'Content-Type': 'text/html' }),
+    text: async () => '<!doctype html><html><head></head><body></body></html>'
   });
   await redirectedExplorer._paginationLoadMore();
   assert.equal(redirectedFixture.error.classList.contains('hidden'), false, 'a redirected page response must remain retryable');
@@ -211,8 +230,8 @@ try {
   globalThis.fetch = async () => ({
     ok: true,
     redirected: false,
-    status: 200,
-    text: async () => '<html></html>'
+    status: 200, headers: new Headers({ 'Content-Type': 'text/html' }),
+    text: async () => '<!doctype html><html><head></head><body></body></html>'
   });
   globalThis.DOMParser = class {
     parseFromString() {
@@ -228,7 +247,7 @@ try {
   const repeatedExplorer = createExplorer(repeatedFixture);
   let repeatedAppend = 0;
   repeatedExplorer._appendNewCards = () => { repeatedAppend += 1; };
-  globalThis.fetch = async () => ({ ok: true, status: 200, text: async () => '<html></html>' });
+  globalThis.fetch = async () => ({ ok: true, status: 200, headers: new Headers({ 'Content-Type': 'text/html' }), text: async () => '<!doctype html><html><head></head><body></body></html>' });
   installParsedPage({ cards: [{ id: 'duplicate' }], nextUrl: repeatedFixture.next.href });
   await repeatedExplorer._paginationLoadMore();
   assert.equal(repeatedAppend, 0, 'a repeated next-page URL must not append duplicate content');
@@ -245,7 +264,7 @@ try {
   const activeController = staleExplorer._paginationController;
   staleExplorer.destroy();
   staleFixture.root.isConnected = false;
-  staleResponse.resolve({ ok: true, status: 200, text: async () => '<html></html>' });
+  staleResponse.resolve({ ok: true, status: 200, headers: new Headers({ 'Content-Type': 'text/html' }), text: async () => '<!doctype html><html><head></head><body></body></html>' });
   await staleJob;
   assert.equal(activeController.signal.aborted, true, 'destroy should abort the active Photos page request');
   assert.equal(staleAppend, 0, 'a response completed after destroy must not append cards');

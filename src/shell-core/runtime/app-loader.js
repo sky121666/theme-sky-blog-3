@@ -6,6 +6,11 @@ const loadedAppsJs = new Set(['']);
 const pendingAppsCss = new Map();
 const pendingAppsJs = new Map();
 const APP_ASSET_LOAD_TIMEOUT_MS = 15_000;
+const APP_ASSET_WARM_TIMEOUT_MS = 5_000;
+const MAX_PENDING_WARM_HINTS = 8;
+const MAX_READY_WARM_ASSETS = 32;
+const pendingAssetWarmups = new Map();
+const warmedAssetUrls = new Set();
 
 const ASSET_STATE = Object.freeze({
   loading: 'loading',
@@ -111,6 +116,121 @@ function findExistingScript(appId, src, segment) {
     if (!script.dataset.appScript) script.dataset.appScript = normalizedAppId;
     return true;
   }) || null;
+}
+
+function getWarmAssetUrl(value, kind) {
+  if (typeof value !== 'string' || !value.trim()) return '';
+  try {
+    const base = new URL(getThemeAssetBase(), window.location.origin);
+    const parsed = new URL(value, window.location.origin);
+    if (!/^https?:$/.test(parsed.protocol) || parsed.origin !== window.location.origin
+      || base.origin !== parsed.origin || parsed.username || parsed.password
+      || !parsed.pathname.startsWith(`${base.pathname}${kind}/`)
+      || !parsed.pathname.endsWith(`.${kind}`)) return '';
+    // Validate before versioning: the shared version helper intentionally
+    // returns path-only URLs for slash-prefixed inputs, including //host paths.
+    const versioned = new URL(withThemeAssetVersion(parsed.href));
+    versioned.hash = '';
+    return versioned.href;
+  } catch (_error) {
+    return '';
+  }
+}
+
+function hasRequestedWarmAsset(href, kind) {
+  const selector = kind === 'css' ? 'link[rel="stylesheet"]' : 'script[type="module"], script[data-app-script]';
+  return Array.from(document.querySelectorAll(selector)).some((element) => {
+    if (getAssetState(element, kind) === ASSET_STATE.error) return false;
+    if (kind === 'js' && element.type === 'application/json'
+      && getAssetState(element, kind) !== ASSET_STATE.ready) return false;
+    const actual = kind === 'css'
+      ? element.href || element.getAttribute?.('href')
+      : element.src || element.getAttribute?.('src') || element.dataset?.src;
+    return normalizeAssetUrl(actual) === href;
+  });
+}
+
+function warmAssetHint(appId, value, kind, timeoutMs) {
+  const href = getWarmAssetUrl(value, kind);
+  if (!href) return Promise.resolve(0);
+  const key = `${kind}:${href}`;
+  const loaded = kind === 'css' ? loadedAppsCss : loadedAppsJs;
+  const loading = kind === 'css' ? pendingAppsCss : pendingAppsJs;
+  if (loaded.has(appId) || loading.has(appId) || warmedAssetUrls.has(key) || hasRequestedWarmAsset(href, kind)) {
+    return Promise.resolve(1);
+  }
+  if (pendingAssetWarmups.has(key)) return pendingAssetWarmups.get(key);
+  // Speculation never queues behind a navigation or grows an unbounded set of
+  // head elements. Skipped entries remain eligible for a later user intent.
+  if (pendingAssetWarmups.size >= MAX_PENDING_WARM_HINTS) return Promise.resolve(0);
+
+  const hint = document.createElement('link');
+  hint.rel = kind === 'css' ? 'preload' : 'modulepreload';
+  if (kind === 'css') hint.as = 'style';
+  hint.href = href;
+  hint.dataset.appAssetWarm = appId;
+  hint.fetchPriority = 'low';
+  const promise = new Promise((resolve) => {
+    let timer;
+    let settled = false;
+    const settle = (ready) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      hint.removeEventListener('load', onLoad);
+      hint.removeEventListener('error', onError);
+      hint.remove();
+      pendingAssetWarmups.delete(key);
+      if (ready) {
+        warmedAssetUrls.add(key);
+        if (warmedAssetUrls.size > MAX_READY_WARM_ASSETS) {
+          warmedAssetUrls.delete(warmedAssetUrls.values().next().value);
+        }
+      }
+      resolve(ready ? 1 : 0);
+    };
+    const onLoad = () => settle(true);
+    const onError = () => settle(false);
+    hint.addEventListener('load', onLoad, { once: true });
+    hint.addEventListener('error', onError, { once: true });
+    timer = setTimeout(onError, timeoutMs);
+  });
+  pendingAssetWarmups.set(key, promise);
+  document.head.appendChild(hint);
+  return promise;
+}
+
+/**
+ * Speculatively download current-build app assets without applying CSS or
+ * evaluating modules. A successful warmup never marks an app as loaded:
+ * navigation still goes through ensureAppAssetsLoaded and its registrar gate.
+ * Returns the number of assets already requested or successfully warmed.
+ * Hint errors/timeouts are retryable; manifest and consumer abort errors reject.
+ */
+export async function warmAppAssets(appId, options = {}) {
+  const normalized = normalizeAppId(appId);
+  const segment = assetPathSegment(normalized);
+  if (!normalized || !segment) return 0;
+  const signal = options.signal;
+  const timeoutMs = Number.isFinite(options.timeoutMs)
+    ? Math.max(1, Math.min(APP_ASSET_WARM_TIMEOUT_MS, options.timeoutMs))
+    : APP_ASSET_WARM_TIMEOUT_MS;
+  const throwIfAborted = () => {
+    if (signal?.aborted) throw signal.reason || new DOMException('Aborted', 'AbortError');
+  };
+  throwIfAborted();
+  const assets = await getAssetsForApp(normalized, { signal, timeoutMs });
+  throwIfAborted();
+  const css = assets.css.length ? assets.css : [getFallbackCssPath(normalized)];
+  const js = assets.js.length ? assets.js : [getFallbackJsPath(normalized)];
+  const pending = [];
+  // Interleave kinds so a large CSS list cannot consume every module hint slot.
+  for (let index = 0; index < Math.max(css.length, js.length); index++) {
+    if (index < css.length) pending.push(warmAssetHint(normalized, css[index], 'css', timeoutMs));
+    if (index < js.length) pending.push(warmAssetHint(normalized, js[index], 'js', timeoutMs));
+  }
+  const results = await waitForResource(Promise.all(pending), { signal, timeoutMs, label: 'app asset warmup' });
+  return results.reduce((count, value) => count + value, 0);
 }
 
 function waitForAssetElement(element, assetUrl, kind) {

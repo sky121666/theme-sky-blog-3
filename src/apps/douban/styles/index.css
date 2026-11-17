@@ -423,7 +423,6 @@
 }
 
 .douban-card {
-  --item-index: 0;
   min-width: 0;
   display: grid;
   gap: 9px;
@@ -431,8 +430,6 @@
   border-radius: 12px;
   padding: 4px;
   cursor: pointer;
-  animation: doubanItemIn 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: calc(var(--item-index) * 28ms);
   transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
@@ -477,6 +474,11 @@
   width: 24px;
   height: 24px;
 }
+
+.douban-card-poster > .douban-poster-fallback,
+.douban-row-poster > .douban-poster-fallback { position: absolute; inset: 0; background: var(--douban-muted-bg); }
+.douban-app img.is-loaded + .douban-poster-fallback { display: none; }
+.douban-row-poster > .douban-poster-fallback span { width: 14px; height: 14px; }
 
 .douban-card-status,
 .douban-card-score {
@@ -538,7 +540,11 @@
   font-weight: 760;
   line-height: 1.35;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .douban-card-copy p {
@@ -582,10 +588,7 @@
 }
 
 .douban-row {
-  --item-index: 0;
   cursor: pointer;
-  animation: doubanItemIn 0.26s cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: calc(var(--item-index) * 18ms);
   transition: background-color 0.16s ease;
 }
 
@@ -602,6 +605,7 @@
 }
 
 .douban-row-poster {
+  position: relative;
   width: 32px;
   height: 44px;
   flex: 0 0 32px;
@@ -825,7 +829,7 @@
   position: relative;
   z-index: 1;
   width: min(100%, 680px);
-  max-height: min(86vh, 620px);
+  max-height: min(86dvh, 620px);
   display: grid;
   grid-template-columns: 230px minmax(0, 1fr);
   overflow: hidden;
@@ -852,6 +856,11 @@
   height: 100%;
   display: block;
   object-fit: cover;
+}
+
+.douban-quicklook-poster > [hidden],
+.douban-quicklook-link[hidden] {
+  display: none;
 }
 
 .douban-quicklook-score {
@@ -1256,3 +1265,51 @@
     font-size: 16px;
   }
 }
+
+/* Collection controls share the same quiet, native feedback. */
+.douban-app :is(button, input, a, [role="button"]):focus-visible {
+  outline: 2px solid var(--douban-accent);
+  outline-offset: 3px;
+}
+
+.douban-app input { caret-color: var(--douban-accent); }
+.douban-app ::selection { background: var(--douban-accent-soft); color: var(--douban-text-strong); }
+.douban-app :is(.douban-stat strong, .douban-result-count, .douban-row-score) { font-variant-numeric: tabular-nums; }
+.douban-type-tab, .douban-status-pill, .douban-genre-pill { flex-shrink: 0; }
+.douban-card { -webkit-tap-highlight-color: transparent; }
+.douban-card:active { background: var(--douban-accent-soft); }
+.douban-row-preview {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.douban-row-preview:hover strong { color: var(--douban-accent); }
+.douban-pagination { display: flex; align-items: center; justify-content: center; gap: 16px; min-height: 38px; }
+.douban-result-count { color: var(--douban-text-soft); font-size: 11px; white-space: nowrap; }
+.douban-quicklook-body { overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--douban-border) transparent; }
+.douban-quicklook h2 { overflow-wrap: anywhere; padding-right: 24px; }
+.douban-quicklook-note p { overflow-wrap: anywhere; }
+.douban-mobile-view { display: grid; place-items: center; }
+.douban-mobile-view span { width: 16px; height: 16px; }
+
+@media (width <= 860px) {
+  .douban-profile-copy { flex-direction: row; justify-content: flex-start; text-align: left; }
+  .douban-profile-subtitle { margin-inline: 0; }
+  .douban-profile { gap: 12px; }
+  .douban-mobile-search { height: 36px; }
+  .douban-mobile-view { width: 34px; height: 32px; }
+  .douban-status-pill, .douban-genre-pill { min-height: 32px; }
+  .douban-stats { gap: 6px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .douban-app *, .douban-app *::before, .douban-app *::after { animation: none !important; scroll-behavior: auto !important; }
+  .douban-app :is(button, a, .douban-card, .douban-quicklook, .douban-quicklook-card) { transition-duration: 0.01ms !important; }
+  .douban-quicklook-card { transform: none; }
+}
+
+.douban-app { --douban-text-muted: #6c7684; }
+.dark .douban-app, [data-color-scheme="dark"] .douban-app { --douban-text-muted: #a5afbd; }

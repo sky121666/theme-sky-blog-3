@@ -241,7 +241,7 @@ assert.match(
 );
 assert.match(
   pjaxRuntime,
-  /const result = prepareNavigation\(\{ url, source \}\);[\s\S]*?if \(result\.kind !== 'accepted'\)/,
+  /const result = prepareNavigation\(\{ url, source\b[^}]*\}\);[\s\S]*?if \(result\.kind !== 'accepted'\)/,
   'PJAX must reject a navigation denied by the shared admission guard'
 );
 assert.match(

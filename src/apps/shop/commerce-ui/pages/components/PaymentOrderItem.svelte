@@ -1,5 +1,4 @@
 <script>
-import { fade } from "svelte/transition";
 import { getThumbnailUrl } from "../../utils/thumbnail";
 import { formatPrice } from "../../utils/price";
 import Decimal from "decimal.js";
@@ -16,7 +15,7 @@ let total = $derived.by(() => {
 });
 </script>
 
-<div class="shop-order-item" in:fade={{ duration: 200 }}>
+<div class="shop-order-item">
   {#if item.itemImageUrl}
     <img
       src={getThumbnailUrl(item.itemImageUrl, 'M')}

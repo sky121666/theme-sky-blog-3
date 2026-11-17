@@ -1,3 +1,4 @@
+import { withRequestDeadline } from '../../shared/request-deadline.js';
 import { registerPageAppLifecycle } from '../../shared/page-app-bridge.js';
 import { warnApiCall } from '../../shell/desktop-shell/runtime/shared/debug.js';
 import { resolveMomentsAppProtocol } from './protocol.js';
@@ -177,23 +178,26 @@ function isJsonResponse(response) {
 }
 
 async function fetchJson(url, signal) {
-  const response = await fetch(url.toString(), {
-    credentials: 'same-origin',
-    headers: { Accept: 'application/json' },
-    signal
-  });
-  return response;
+  return withRequestDeadline(async (requestSignal) => {
+    const response = await fetch(url.toString(), {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+      signal: requestSignal
+    });
+    const data = response.ok && !response.redirected && isJsonResponse(response)
+      ? await response.json() : null;
+    return { response, data };
+  }, { signal });
 }
 
 async function resolveCurrentUsername(endpoint, signal) {
-  const response = await fetchJson(new URL(endpoint, window.location.origin), signal);
+  const { response, data } = await fetchJson(new URL(endpoint, window.location.origin), signal);
   if (response.status === 401 || response.status === 403 || response.redirected) {
     return { status: 'unauthenticated' };
   }
   if (!response.ok || !isJsonResponse(response)) {
     return { status: response.status === 404 ? 'unsupported' : 'error' };
   }
-  const data = await response.json();
   const username = data?.user?.metadata?.name || data?.metadata?.name || '';
   if (!username || username === HALO_ANONYMOUS_USERNAME || data?.user?.spec?.disabled === true) {
     return { status: 'unauthenticated' };
@@ -350,20 +354,22 @@ function setupMomentNotifications(root = document) {
     async function markNotificationAsRead(notificationName, signal) {
       if (!currentUsername || !notificationName || !markReadEndpoint) return false;
       try {
-        const response = await fetch(buildMarkNotificationReadUrl(markReadEndpoint, currentUsername, notificationName), {
-          method: 'PUT',
-          credentials: 'same-origin',
-          headers: {
-            Accept: 'application/json'
-          },
-          signal
-        });
-        if (!response.ok && response.status !== 404) {
-          throw new Error(`HTTP ${response.status}`);
-        }
+        await withRequestDeadline(async (requestSignal) => {
+          const response = await fetch(buildMarkNotificationReadUrl(markReadEndpoint, currentUsername, notificationName), {
+            method: 'PUT',
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+            signal: requestSignal
+          });
+          if (!response.ok && response.status !== 404) throw new Error(`HTTP ${response.status}`);
+          await response.text();
+        }, { signal });
         return true;
       } catch (_error) {
         if (_error?.name === 'AbortError' || signal?.aborted) return false;
+        if (_error?.name === 'TimeoutError') {
+          setNotificationState(node, 'error', '已读状态待确认，请刷新消息查看。');
+        }
         warnApiCall('moments', '瞬间通知已读标记失败', {
           notificationName,
           message: _error?.message || String(_error || ''),
@@ -409,7 +415,7 @@ function setupMomentNotifications(root = document) {
 
         currentUsername = user.username;
         const url = buildUserNotificationUrl(endpoint, user.username);
-        const response = await fetchJson(url, controller.signal);
+        const { response, data } = await fetchJson(url, controller.signal);
 
         if (response.status === 401 || response.status === 403 || response.redirected) {
           setNotificationState(node, 'unauthenticated', '登录后查看瞬间互动消息');
@@ -429,7 +435,6 @@ function setupMomentNotifications(root = document) {
           throw new Error(`HTTP ${response.status}`);
         }
 
-        const data = await response.json();
         const items = Array.isArray(data.items)
           ? data.items
             .filter(isMomentNotification)
@@ -461,23 +466,26 @@ function setupMomentNotifications(root = document) {
       }
     }
 
-    function close() {
+    function close({ restoreFocus = false } = {}) {
+      const wasOpen = !panel.hidden;
       panel.hidden = true;
       button?.setAttribute('aria-expanded', 'false');
       node.classList.remove('is-open');
+      if (wasOpen && restoreFocus) button?.focus({ preventScroll: true });
     }
 
-    function open() {
+    function open({ focusPanel = false } = {}) {
       panel.hidden = false;
       button?.setAttribute('aria-expanded', 'true');
       node.classList.add('is-open');
+      if (focusPanel) panel.focus({ preventScroll: true });
       load();
     }
 
     function toggle(event) {
       event.preventDefault();
       event.stopPropagation();
-      if (panel.hidden) open();
+      if (panel.hidden) open({ focusPanel: event.detail === 0 });
       else close();
     }
 
@@ -486,7 +494,10 @@ function setupMomentNotifications(root = document) {
     }
 
     function onKeydown(event) {
-      if (event.key === 'Escape') close();
+      if (event.key === 'Escape' && !panel.hidden && node.contains(document.activeElement)) {
+        event.preventDefault();
+        close({ restoreFocus: true });
+      }
     }
 
     async function onNotificationClick(event) {
@@ -494,20 +505,44 @@ function setupMomentNotifications(root = document) {
         ? event.target.closest('.moments-notification-item[data-notification-id]')
         : null;
       if (!anchor) return;
+      if (event.defaultPrevented || event.button !== 0
+        || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
+        || anchor.hasAttribute('download')
+        || (anchor.getAttribute('target') && anchor.getAttribute('target').toLowerCase() !== '_self')) return;
+      const navigation = resolveMomentNavigation(anchor.dataset.notificationHref || '');
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation?.();
-      if (anchor.dataset.notificationReadPending === 'true') return;
+      if (navigation?.sameOrigin && window.pjax?.loadUrl) {
+        // Admission emits synchronously before returning its completion promise.
+        // A veto retains this panel and the notification's authoritative state.
+        let accepted = false;
+        const onAccepted = (acceptedEvent) => {
+          try {
+            accepted = new URL(acceptedEvent.detail?.url, window.location.href).href === navigation.url.href;
+          } catch (_error) { /* Ignore unrelated/malformed navigation events. */ }
+        };
+        document.addEventListener('theme:navigation-accepted', onAccepted);
+        try {
+          window.pjax.loadUrl(navigation.href, { triggerElement: anchor });
+        } finally {
+          document.removeEventListener('theme:navigation-accepted', onAccepted);
+        }
+        if (!accepted) return;
+      } else if (navigation) {
+        window.location.assign(navigation.url.href);
+      }
+      close();
+      if (anchor.dataset.notificationReadPending === 'true' || cleaned) return;
       const notificationName = anchor.dataset.notificationId || '';
-      const navigation = resolveMomentNavigation(anchor.dataset.notificationHref || '');
       markReadController?.abort();
       const operationController = new AbortController();
       const operationGeneration = notificationOperationGeneration + 1;
       notificationOperationGeneration = operationGeneration;
       markReadController = operationController;
       anchor.dataset.notificationReadPending = 'true';
-      markItemReadLocally(anchor);
       const marked = await markNotificationAsRead(notificationName, operationController.signal);
+      delete anchor.dataset.notificationReadPending;
       const isCurrentOperation = !cleaned
         && node.isConnected
         && !operationController.signal.aborted
@@ -515,17 +550,10 @@ function setupMomentNotifications(root = document) {
         && markReadController === operationController;
       if (!isCurrentOperation) return;
       markReadController = null;
-      delete anchor.dataset.notificationReadPending;
       if (marked) {
+        markItemReadLocally(anchor);
         removeItemLocally(anchor);
       }
-      close();
-      if (!navigation) return;
-      if (navigation.sameOrigin && window.pjax?.loadUrl) {
-        window.pjax.loadUrl(navigation.href);
-        return;
-      }
-      window.location.assign(navigation.url.href);
     }
 
     button?.addEventListener('click', toggle);

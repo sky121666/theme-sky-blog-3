@@ -9,9 +9,10 @@ function currentProtocol(targetWindow) {
   return targetWindow.__THEME_DESKTOP_PROTOCOL__?.widgets || targetWindow.__THEME_WIDGETS__ || {};
 }
 
-function hydratedProtocol(targetWindow) {
+function hydratedProtocol(targetWindow, representation) {
   const protocol = currentProtocol(targetWindow);
-  return protocol.sources?.hydrated === true ? protocol : null;
+  return protocol.sources?.hydrated === true
+    && (!representation.themeName || protocol.themeName === representation.themeName) ? protocol : null;
 }
 
 function homePath(targetWindow) {
@@ -25,6 +26,19 @@ function homePath(targetWindow) {
   } catch (_error) {
     return '/';
   }
+}
+
+// Data reads share only the explicit preview selector with the current page;
+// unrelated page queries (including credentials) never enter background reads.
+export function desktopWidgetRepresentation(targetWindow) {
+  const location = targetWindow.location;
+  const previewTheme = new URLSearchParams(location?.search || (location?.href ? new URL(location.href).search : '')).get('preview-theme') || '';
+  const url = new URL(homePath(targetWindow), location?.origin || 'http://localhost');
+  url.searchParams.delete('preview-theme');
+  if (previewTheme) url.searchParams.set('preview-theme', previewTheme);
+  const path = `${url.pathname}${url.search}`;
+  const themeName = previewTheme || currentProtocol(targetWindow).themeName || 'theme-sky-blog-3';
+  return { path, previewTheme, themeName, key: JSON.stringify([path, themeName]) };
 }
 
 function namedError(name, message) {
@@ -58,8 +72,9 @@ export function createDesktopWidgetDataLoader(targetWindow, {
     request.consumers.clear();
   }
 
-  function startRequest() {
+  function startRequest(representation) {
     const request = {
+      representation,
       controller: new AbortController(),
       consumers: new Set(),
       settled: false,
@@ -67,41 +82,46 @@ export function createDesktopWidgetDataLoader(targetWindow, {
     };
     pendingRequest = request;
     request.timeout = setTimeout(() => {
-      const newer = hydratedProtocol(targetWindow);
+      const newer = hydratedProtocol(targetWindow, representation);
       finish(request, newer ? null : namedError('TimeoutError', '首页小组件数据请求超时'), newer);
       request.controller.abort();
     }, timeoutMs);
 
     const checkActive = () => {
-      if (request.settled || request.controller.signal.aborted) throw abortError();
+      if (request.settled || request.controller.signal.aborted
+        || desktopWidgetRepresentation(targetWindow).key !== representation.key) throw abortError();
     };
     // Subscribe before fetching, including when the caller cancels immediately.
     void Promise.resolve().then(async () => {
       checkActive();
-      const response = await fetchImpl(homePath(targetWindow), {
+      const response = await fetchImpl(representation.path, {
         credentials: 'same-origin',
         headers: { Accept: 'text/html' },
         signal: request.controller.signal
       });
       checkActive();
-      const current = hydratedProtocol(targetWindow);
+      const current = hydratedProtocol(targetWindow, representation);
       if (current) return current;
       if (!response.ok) throw new Error(`首页小组件数据请求失败（HTTP ${response.status}）`);
       const text = await response.text();
       checkActive();
       // A PJAX home response may have installed newer data while this body read
       // was pending. Never replace it with this older background response.
-      const newer = hydratedProtocol(targetWindow);
+      const newer = hydratedProtocol(targetWindow, representation);
       if (newer) return newer;
       const protocol = parseDesktopWidgetProtocolFromResponse(text);
       if (!protocol?.isHome || protocol.sources.hydrated !== true) {
         throw new Error('首页响应缺少有效的桌面小组件数据协议');
       }
+      if (representation.themeName && protocol.themeName !== representation.themeName) {
+        throw new Error('首页小组件响应与当前主题表示不一致');
+      }
       return syncHomeDesktopWidgetProtocolFromResponse(text, targetWindow);
     }).then(
       (protocol) => finish(request, null, protocol),
       (error) => {
-        const newer = hydratedProtocol(targetWindow);
+        const newer = desktopWidgetRepresentation(targetWindow).key === representation.key
+          ? hydratedProtocol(targetWindow, representation) : null;
         finish(request, newer ? null : error, newer);
       }
     );
@@ -110,9 +130,15 @@ export function createDesktopWidgetDataLoader(targetWindow, {
 
   return function ensureData({ signal } = {}) {
     if (signal?.aborted) return Promise.reject(abortError());
-    const cached = hydratedProtocol(targetWindow);
+    const representation = desktopWidgetRepresentation(targetWindow);
+    const cached = hydratedProtocol(targetWindow, representation);
     if (cached) return Promise.resolve(cached);
-    const request = pendingRequest || startRequest();
+    if (pendingRequest && pendingRequest.representation.key !== representation.key) {
+      const previous = pendingRequest;
+      finish(previous, abortError());
+      previous.controller.abort();
+    }
+    const request = pendingRequest || startRequest(representation);
     return new Promise((resolve, reject) => {
       const consumer = { signal, resolve, reject, cancel: null };
       consumer.cancel = () => {

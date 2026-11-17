@@ -83,6 +83,6 @@ assert.match(tagActivePostStyles, /box-shadow:\s*inset 0 1px 0/, '标签文档�
 assert.doesNotMatch(styles, /list-active-rim|inset 2px 0 0/, '标签选中态不得恢复左侧强调线');
 
 assert.match(routeManifest, /matchesTagRoute/, '标签路由必须使用严格匹配器');
-assert.match(manifest, /sameAppPjaxLoading:\s*'progress'/, '标签内部 PJAX 必须使用轻量进度而非骨架屏');
+assert.match(manifest, /sameVariantPageModes:\s*\['browser-list'\]/, '标签列表必须允许窗口内导航');
 
 console.log('标签浏览器契约验证通过');

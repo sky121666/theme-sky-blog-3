@@ -22,6 +22,8 @@ import { createNotificationCenterMotion } from './notification-center-motion.js'
 import { registerDock } from './dock.js';
 import { applyMenubarForegroundFromBody } from './settings-model/color-controls.js';
 import { enhanceDoubanShowcaseWidgets } from '../../../../widgets/plugin/douban-showcase/runtime.js';
+import { withRequestDeadline } from '../../../../shared/request-deadline.js';
+import { classifyLinkClick } from '../../../../shared/navigation-link-policy.js';
 
 const { log: wmLog } = createLogger('window');
 const HEADER_MOBILE_BREAKPOINT = 640;
@@ -193,24 +195,11 @@ function isJsonResponse(response) {
 }
 
 async function fetchNotificationWithTimeout(input, init = {}, timeoutMs = NOTIFICATION_REQUEST_TIMEOUT_MS) {
-  const controller = new AbortController();
-  const upstreamSignal = init.signal;
-  const abortFromUpstream = () => controller.abort(upstreamSignal.reason);
-  if (upstreamSignal?.aborted) abortFromUpstream();
-  else upstreamSignal?.addEventListener?.('abort', abortFromUpstream, { once: true });
-  const timeoutId = globalThis.setTimeout(() => {
-    controller.abort(new DOMException('通知请求超时', 'TimeoutError'));
-  }, timeoutMs);
-
-  try {
-    return await fetch(input, { ...init, signal: controller.signal });
-  } catch (error) {
-    if (controller.signal.reason?.name === 'TimeoutError') throw controller.signal.reason;
-    throw error;
-  } finally {
-    globalThis.clearTimeout(timeoutId);
-    upstreamSignal?.removeEventListener?.('abort', abortFromUpstream);
-  }
+  return withRequestDeadline(async (signal) => {
+    const response = await fetch(input, { ...init, signal });
+    const body = await response.text();
+    return { response, body };
+  }, { signal: init.signal, timeoutMs });
 }
 
 function assertNotificationMutationResponse(response) {
@@ -245,7 +234,7 @@ export function formatNotificationActionFailure(error, action = '更新通知') 
 }
 
 async function resolveCurrentUsername(signal) {
-  const response = await fetchNotificationWithTimeout(new URL(USER_ENDPOINT, window.location.origin), {
+  const { response, body } = await fetchNotificationWithTimeout(new URL(USER_ENDPOINT, window.location.origin), {
     credentials: 'same-origin',
     headers: { Accept: 'application/json' },
     signal
@@ -258,7 +247,7 @@ async function resolveCurrentUsername(signal) {
     return { status: response.status === 404 ? 'unsupported' : 'error' };
   }
 
-  const data = await response.json();
+  const data = JSON.parse(body);
   const username = data?.user?.metadata?.name || data?.metadata?.name || '';
   if (!username || username === HALO_ANONYMOUS_USERNAME || data?.user?.spec?.disabled === true) {
     return { status: 'unauthenticated' };
@@ -940,9 +929,11 @@ export function registerWindowManager(Alpine) {
     },
     async openNotificationCenter(_options = {}) {
       this.closeMobileMenu();
+      const alreadyOpen = this.notificationCenterOpen && this.notificationCenterVisible;
+      this.notificationCenterOpen = true;
       this.syncNotificationWidgets();
       void this.ensureNotificationWidgetData();
-      if (this.notificationCenterOpen && this.notificationCenterVisible) {
+      if (alreadyOpen) {
         if (this.notificationCenterAuthenticated) {
           void this.loadNotifications();
         }
@@ -959,7 +950,6 @@ export function registerWindowManager(Alpine) {
       this.notificationGroupMenuKey = '';
       this.notificationGroupConfirmKey = '';
       this.notificationOpenScrollPending = true;
-      this.notificationCenterOpen = true;
       this.notificationCenterVisible = true;
       this.scheduleNotificationWeatherRefresh();
       this.notificationCenterAnimating = true;
@@ -1317,7 +1307,7 @@ export function registerWindowManager(Alpine) {
           headers: { Accept: 'application/json' },
           signal: this.notificationController.signal
         };
-        const [response, unreadResponse] = await Promise.all([
+        const [result, unreadResult] = await Promise.all([
           fetchNotificationWithTimeout(buildUserNotificationUrl(user.username, {
             unreadOnly: false,
             page: 1,
@@ -1329,6 +1319,8 @@ export function registerWindowManager(Alpine) {
             pageSize: 1
           }), requestOptions).catch(() => null)
         ]);
+        const { response, body } = result;
+        const { response: unreadResponse, body: unreadBody } = unreadResult || {};
 
         if (response.status === 401 || response.status === 403 || response.redirected) {
           this.notificationCenterAuthenticated = false;
@@ -1358,7 +1350,7 @@ export function registerWindowManager(Alpine) {
           throw new Error(`HTTP ${response.status}`);
         }
 
-        const data = await response.json();
+        const data = JSON.parse(body);
         const items = Array.isArray(data.items) ? data.items.map(normalizeNotification) : [];
         const parsedTotalCount = Number(data.total);
         const totalCount = Number.isFinite(parsedTotalCount)
@@ -1366,7 +1358,7 @@ export function registerWindowManager(Alpine) {
           : items.length;
         let unreadCount = items.filter((item) => item.unread).length;
         if (unreadResponse?.ok && isJsonResponse(unreadResponse)) {
-          const unreadData = await unreadResponse.json();
+          const unreadData = JSON.parse(unreadBody);
           const parsedUnreadCount = Number(unreadData.total);
           if (Number.isFinite(parsedUnreadCount)) {
             unreadCount = Math.max(0, parsedUnreadCount);
@@ -1422,7 +1414,7 @@ export function registerWindowManager(Alpine) {
       this.notificationMoreController = new AbortController();
 
       try {
-        const response = await fetchNotificationWithTimeout(buildUserNotificationUrl(this.notificationUsername, {
+        const { response, body } = await fetchNotificationWithTimeout(buildUserNotificationUrl(this.notificationUsername, {
           unreadOnly: false,
           page,
           pageSize: NOTIFICATION_PAGE_SIZE
@@ -1435,7 +1427,7 @@ export function registerWindowManager(Alpine) {
           throw new Error(`HTTP ${response.status}`);
         }
 
-        const data = await response.json();
+        const data = JSON.parse(body);
         const nextItems = Array.isArray(data.items) ? data.items.map(normalizeNotification) : [];
         const mergedItems = new Map(this.notificationItems.map((item) => [item.key, item]));
         nextItems.forEach((item) => mergedItems.set(item.key, item));
@@ -1475,7 +1467,7 @@ export function registerWindowManager(Alpine) {
       }
 
       try {
-        const response = await fetchNotificationWithTimeout(buildMarkNotificationReadUrl(this.notificationUsername, item.id), {
+        const { response } = await fetchNotificationWithTimeout(buildMarkNotificationReadUrl(this.notificationUsername, item.id), {
           method: 'PUT',
           credentials: 'same-origin',
           headers: { Accept: 'application/json' }
@@ -1508,7 +1500,7 @@ export function registerWindowManager(Alpine) {
       }
 
       try {
-        const response = await fetchNotificationWithTimeout(buildDeleteNotificationUrl(this.notificationUsername, item.id), {
+        const { response } = await fetchNotificationWithTimeout(buildDeleteNotificationUrl(this.notificationUsername, item.id), {
           method: 'DELETE',
           credentials: 'same-origin',
           headers: { Accept: 'application/json' }
@@ -1640,34 +1632,71 @@ export function registerWindowManager(Alpine) {
         this.notificationMarkingAllRead = false;
       }
     },
-    async openNotificationItem(item, _event) {
-      const href = normalizeNotificationHref(
+    notificationItemHref(item) {
+      return normalizeNotificationHref(
         item?.href,
         window.location.origin,
         getDesktopWidgetProtocol().siteUrl
       );
+    },
+    isNotificationItemPjax(item) {
+      const href = this.notificationItemHref(item);
+      return !!href && isNotificationPjaxHref(href, window.location.origin);
+    },
+    async openNotificationItem(item, event) {
+      if (event && (event.defaultPrevented || (event.button !== undefined && event.button !== 0)
+        || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey)) return;
+      const href = this.notificationItemHref(item);
       if (!href) return;
       const generation = ++this.notificationOpenGeneration;
-      const markReadPromise = this.markNotificationAsRead(item);
-      if (!this.notificationNavigationClosePromise) {
-        const closePromise = Promise.resolve(this.closeNotificationCenter());
-        const navigationClosePromise = closePromise.finally(() => {
-          if (this.notificationNavigationClosePromise === navigationClosePromise) {
-            this.notificationNavigationClosePromise = null;
-          }
-        });
-        this.notificationNavigationClosePromise = navigationClosePromise;
-      }
-      const closePromise = this.notificationNavigationClosePromise;
-      void markReadPromise;
-      await closePromise;
-      if (generation !== this.notificationOpenGeneration) return;
       const url = new URL(href, window.location.origin);
-      if (isNotificationPjaxHref(url.href, window.location.origin) && window.pjax?.loadUrl) {
-        window.pjax.loadUrl(`${url.pathname}${url.search}${url.hash}`);
+      const anchor = event?.currentTarget?.matches?.('a[href]') ? event.currentTarget : null;
+      const commitOpen = () => {
+        if (generation !== this.notificationOpenGeneration) return;
+        void this.markNotificationAsRead(item);
+        if (this.notificationNavigationClosePromise) return;
+        const closing = Promise.resolve(this.closeNotificationCenter({ restoreFocus: false }))
+          .catch((error) => wmLog('notification center close failed', error?.message || String(error || '')))
+          .finally(() => {
+            if (this.notificationNavigationClosePromise === closing) this.notificationNavigationClosePromise = null;
+          });
+        this.notificationNavigationClosePromise = closing;
+      };
+      const decision = anchor ? classifyLinkClick({
+        event, currentUrl: window.location.href, runtimeReady: !!window.pjax?.loadUrl,
+        baseTarget: document.querySelector?.('base[target]')?.getAttribute('target') || '',
+        link: {
+          rawHref: anchor.getAttribute('href'), resolvedHref: anchor.href,
+          classOptIn: anchor.classList.contains('pjax-link'),
+          targetPresent: anchor.hasAttribute('target'), target: anchor.getAttribute('target'),
+          hasDownload: anchor.hasAttribute('download')
+        }
+      }) : null;
+      if (decision?.kind === 'managed' || (!anchor && this.isNotificationItemPjax(item) && window.pjax?.loadUrl)) {
+        // Keep ownership through browser microtask checkpoints between event
+        // listeners. The shared document controller admits this same click.
+        const navigationDocument = anchor?.ownerDocument || document;
+        const cleanup = () => {
+          navigationDocument.removeEventListener('theme:navigation-accepted', onAccepted);
+          globalThis.clearTimeout(cleanupTimer);
+        };
+        const onAccepted = ({ detail }) => {
+          if (detail?.url !== url.href) return;
+          cleanup();
+          commitOpen();
+        };
+        const cleanupTimer = globalThis.setTimeout(cleanup, 0);
+        navigationDocument.addEventListener('theme:navigation-accepted', onAccepted);
+        if (!anchor) void window.pjax.loadUrl(href, { triggerElement: event?.currentTarget || null });
         return;
       }
-      window.location.assign(url.href);
+      if (anchor) {
+        // Later component handlers can still cancel a native link activation.
+        globalThis.setTimeout(() => { if (!event.defaultPrevented) commitOpen(); }, 0);
+      } else {
+        commitOpen();
+        window.location.assign(url.href);
+      }
     },
     captureNotificationWidgetRects() {
       const panel = this.$refs?.notificationCenterPanel || document.getElementById('notification-center-panel');
@@ -1745,11 +1774,13 @@ export function registerWindowManager(Alpine) {
       return this.notificationWidgetDataPromise;
     },
     syncNotificationWidgets(widgets = null, options = {}) {
-      const previousWeatherTargets = this.resolveNotificationWeatherLoadTargets()
-        .map((target) => target.key).sort().join('\n');
       if (Array.isArray(widgets)) {
         this.notificationWidgetDraftWidgets = widgets.map((widget) => ({ ...widget }));
       }
+      // Keep the latest desktop edits, but mount cards and start their reads only on open.
+      if (!this.notificationCenterOpen) return;
+      const previousWeatherTargets = this.resolveNotificationWeatherLoadTargets()
+        .map((target) => target.key).sort().join('\n');
       const sourceWidgets = Array.isArray(widgets) ? widgets : this.notificationWidgetDraftWidgets;
       this.notificationWidgets = resolveNotificationWidgets(sourceWidgets);
       this.notificationWidgets.forEach((widget) => {
@@ -1790,7 +1821,9 @@ export function registerWindowManager(Alpine) {
       ].filter(Boolean).join(';');
     },
     enhanceNotificationWidgets(_tick = 0) {
-      this.scheduleNotificationWidgetEnhancement();
+      // x-effect should track visibility and the render tick, not the scheduler
+      // flag that changes again when its animation frame finishes.
+      if (this.notificationCenterVisible) queueMicrotask(() => this.scheduleNotificationWidgetEnhancement());
     },
     hasNotificationWeatherWidget() {
       return this.notificationWidgets.some((widget) => widget.widget === 'system.weather');
@@ -1977,7 +2010,7 @@ export function registerWindowManager(Alpine) {
       }
     },
     scheduleNotificationWidgetEnhancement() {
-      if (this.notificationWidgetEnhanceScheduled) return;
+      if (!this.notificationCenterVisible || this.notificationWidgetEnhanceScheduled) return;
       this.notificationWidgetEnhanceScheduled = true;
       if (this.notificationWidgetEnhanceRafId) {
         window.cancelAnimationFrame(this.notificationWidgetEnhanceRafId);
@@ -1988,6 +2021,7 @@ export function registerWindowManager(Alpine) {
           this.notificationWidgetEnhanceRafId = window.requestAnimationFrame(() => {
             this.notificationWidgetEnhanceRafId = 0;
             this.notificationWidgetEnhanceScheduled = false;
+            if (!this.notificationCenterVisible || this.notificationWidgetsDisposed) return;
             const root = this.$refs.notificationCenterPanel;
             if (!root) return;
             enhanceDoubanShowcaseWidgets(root);
@@ -2182,8 +2216,8 @@ export function registerWindowManager(Alpine) {
     isAnimating: false,
     animationToken: 0,
     animationController: null,
-    pendingOpenTitle: '',
-    pendingOpenRequested: false,
+    animationAction: '',
+    animationStarted: false,
     desktopFocusResizeHandler: null,
 
     init() {
@@ -2198,6 +2232,11 @@ export function registerWindowManager(Alpine) {
 
       if (window.location.pathname === '/') {
         this.showDesktop();
+      } else if (document.querySelector('.window-layer[data-reading-entry]')) {
+        // Adopt the visible server-rendered deep link, even if the preceding
+        // page saved a minimized window. Do not hide the article at startup.
+        this.show = true;
+        this.minimized = false;
       }
       if (this.desktopFocusResizeHandler) window.removeEventListener('resize', this.desktopFocusResizeHandler);
       this.desktopFocusResizeHandler = () => this.syncDesktopFocus();
@@ -2238,19 +2277,6 @@ export function registerWindowManager(Alpine) {
           show: this.show,
           minimized: this.minimized
        }));
-    },
-
-    queueOpen(title) {
-      this.pendingOpenRequested = true;
-      this.pendingOpenTitle = title || document.title || this.title;
-    },
-
-    flushPendingOpen() {
-      if (!this.pendingOpenRequested) return;
-      const nextTitle = this.pendingOpenTitle;
-      this.pendingOpenRequested = false;
-      this.pendingOpenTitle = '';
-      this.open(nextTitle);
     },
 
     restoreWindowSurface() {
@@ -2297,6 +2323,10 @@ export function registerWindowManager(Alpine) {
       this.animationController?.abort();
       this.animationController = null;
       this.isAnimating = false;
+      this.animationAction = '';
+      this.animationStarted = false;
+      const dockIcon = document.querySelector('#minimized-dock-icon');
+      if (dockIcon) dockIcon.style.opacity = '';
     },
 
     revealAfterNavigation(title) {
@@ -2304,8 +2334,6 @@ export function registerWindowManager(Alpine) {
       this.invalidateAnimation();
       this.show = true;
       this.minimized = false;
-      this.pendingOpenRequested = false;
-      this.pendingOpenTitle = '';
       this.restoreWindowSurface();
       this.sync();
     },
@@ -2315,18 +2343,12 @@ export function registerWindowManager(Alpine) {
       this.show = false;
       this.minimized = false;
       this.invalidateAnimation();
-      this.pendingOpenRequested = false;
-      this.pendingOpenTitle = '';
       this.sync();
     },
 
     open(title) {
       wmLog('open', { title, show: this.show, minimized: this.minimized, isAnimating: this.isAnimating });
       if (title) this.title = title;
-      if (this.isAnimating) {
-        this.queueOpen(title);
-        return;
-      }
       if (this.minimized) {
         this.show = true;
         void this.restore(title);
@@ -2351,25 +2373,29 @@ export function registerWindowManager(Alpine) {
       this.show = false;
       this.minimized = false;
       this.invalidateAnimation();
-      this.pendingOpenRequested = false;
-      this.pendingOpenTitle = '';
       this.sync();
     },
 
     async minimize() {
       wmLog('minimize');
-      if (this.isAnimating || this.minimized) return;
+      if (this.minimized && this.animationAction !== 'restore') return;
       const winEl = document.querySelector('[data-window-surface]');
-      if (!winEl) return;
+      if (!winEl || !this.show) return;
+      const reversingRestore = this.animationAction === 'restore';
+      const previousController = this.animationController;
       const animationToken = ++this.animationToken;
       const controller = new AbortController();
       this.animationController = controller;
+      this.animationAction = 'minimize';
+      this.animationStarted = false;
 
       this.minimized = true;
       this.sync();
       this.isAnimating = true;
 
-      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      if (!reversingRestore) {
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      }
       if (animationToken !== this.animationToken || !this.minimized || !this.show || winEl.isConnected === false) return;
 
       const dockIcon = document.getElementById('minimized-dock-icon');
@@ -2380,16 +2406,20 @@ export function registerWindowManager(Alpine) {
         winEl.style.pointerEvents = 'none';
         this.animationController = null;
         this.isAnimating = false;
-        this.flushPendingOpen();
+        this.animationAction = '';
+        previousController?.abort();
         return;
       }
 
+      dockIcon.style.opacity = '';
+      this.animationStarted = true;
       const animPromise = runGenieAnimation({
         windowEl: winEl,
         dockEl: dockIcon,
         action: 'minimize',
         signal: controller.signal
       });
+      previousController?.abort();
       winEl.style.visibility = 'hidden';
       const titlebar = winEl.querySelector('[data-window-titlebar]');
       if (titlebar) {
@@ -2398,35 +2428,38 @@ export function registerWindowManager(Alpine) {
         titlebar.style.webkitBackdropFilter = 'none';
       }
 
-      const animated = await animPromise;
+      await animPromise;
 
       if (animationToken !== this.animationToken) {
         return;
       }
 
-      if (animated) {
-        winEl.style.visibility = 'hidden';
-        winEl.style.opacity = '1';
-        winEl.style.transform = 'none';
-        winEl.style.pointerEvents = 'none';
-      }
+      winEl.style.visibility = 'hidden';
+      winEl.style.opacity = '1';
+      winEl.style.transform = 'none';
+      winEl.style.pointerEvents = 'none';
 
       this.isAnimating = false;
       this.animationController = null;
-      this.flushPendingOpen();
+      this.animationAction = '';
+      this.animationStarted = false;
     },
 
     async restore(nextTitle) {
        wmLog('restore', { nextTitle });
        if (nextTitle) this.title = nextTitle;
-       if (this.isAnimating) {
-         if (this.minimized) this.queueOpen(nextTitle);
+       if (this.animationAction === 'restore') return;
+       if (!this.minimized) return;
+       if (this.animationAction === 'minimize' && !this.animationStarted) {
+         this.revealAfterNavigation(nextTitle);
          return;
        }
-       if (!this.minimized) return;
+       const previousController = this.animationController;
        const animationToken = ++this.animationToken;
        const controller = new AbortController();
        this.animationController = controller;
+       this.animationAction = 'restore';
+       this.animationStarted = true;
        this.isAnimating = true;
        this.show = true;
 
@@ -2442,7 +2475,7 @@ export function registerWindowManager(Alpine) {
          winEl.style.opacity = '1';
          winEl.style.transform = 'none';
 
-         await runGenieAnimation({
+         const animPromise = runGenieAnimation({
            windowEl: winEl,
            dockEl: dockIcon,
            action: 'restore',
@@ -2453,6 +2486,8 @@ export function registerWindowManager(Alpine) {
              }
            }
          });
+         previousController?.abort();
+         await animPromise;
 
          if (animationToken !== this.animationToken) {
            return;
@@ -2461,19 +2496,24 @@ export function registerWindowManager(Alpine) {
          this.minimized = false;
          this.isAnimating = false;
          this.animationController = null;
+         this.animationAction = '';
+         this.animationStarted = false;
+         dockIcon.style.opacity = '';
+         this.restoreWindowSurface();
          this.sync();
        } else {
          if (animationToken !== this.animationToken) {
            return;
          }
          this.restoreWindowSurface();
+         previousController?.abort();
          this.minimized = false;
          this.isAnimating = false;
          this.animationController = null;
+         this.animationAction = '';
+         this.animationStarted = false;
          this.sync();
        }
-
-       this.flushPendingOpen();
     }
   });
 

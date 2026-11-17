@@ -1,3 +1,5 @@
+import { isCompleteHtmlDocument, isHtmlDocumentResponse } from '../../../shared/html-document.js';
+import { withRequestDeadline } from '../../../shared/request-deadline.js';
 /**
  * Photos Explorer — standalone Alpine component
  *
@@ -29,6 +31,31 @@ const SKELETON_HEIGHTS = [164, 212, 188, 236, 176, 224, 196, 248];
 const DETAIL_FILMSTRIP_IDLE_DELAY_MS = 3_200;
 const DETAIL_FILMSTRIP_ACTIVITY_THROTTLE_MS = 180;
 const DETAIL_WINDOW_TRANSITION_SETTLE_MS = 360;
+
+// A native loading=lazy strip may fetch every thumbnail within the browser's
+// generous offscreen threshold. Observe the horizontal strip itself instead.
+function watchFilmstripThumbnails(list) {
+  if (!list) return () => {};
+  const pending = list.querySelectorAll('img[data-photos-thumb]');
+  const reveal = (image) => {
+    image.src = image.dataset.photosThumb;
+    delete image.dataset.photosThumb;
+  };
+  if (!pending.length) return () => {};
+  if (!('IntersectionObserver' in window)) {
+    pending.forEach(reveal);
+    return () => {};
+  }
+  const observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting || !entry.target.isConnected || !entry.target.dataset.photosThumb) continue;
+      observer.unobserve(entry.target);
+      reveal(entry.target);
+    }
+  }, { root: list, rootMargin: '0px 64px' });
+  pending.forEach(image => observer.observe(image));
+  return () => observer.disconnect();
+}
 
 function clampGridColCount(value) {
   const parsed = Number.parseInt(String(value ?? ''), 10);
@@ -213,6 +240,7 @@ export function registerPhotosExplorer(Alpine) {
         if (action === 'cols-decrease') dispatchSurfaceControl('cols-decrease');
         if (action === 'zoom-in') dispatchSurfaceControl('zoom-in');
         if (action === 'zoom-out') dispatchSurfaceControl('zoom-out');
+        if (action === 'zoom-reset') this.resetPhotoZoom();
         if (action === 'info-toggle') dispatchSurfaceControl('info-toggle');
         if (action === 'comments-toggle') dispatchSurfaceControl('comments-toggle');
       };
@@ -312,6 +340,14 @@ export function registerPhotosExplorer(Alpine) {
       this.panX = 0;
       this.panY = 0;
       this.photoCanPan = false;
+      this._syncPhotoTransform();
+    },
+
+    // The loaded preview and the full image inherit the same transform, even
+    // when the original has no intrinsic size yet or finishes decoding mid-pan.
+    _syncPhotoTransform() {
+      this._getDetailStage()?.style?.setProperty('--photos-view-transform',
+        `translate(calc(-50% + ${this.panX}px), calc(-50% + ${this.panY}px)) scale(${this.zoomLevel})`);
     },
 
     resetPhotoZoom() {
@@ -321,8 +357,7 @@ export function registerPhotosExplorer(Alpine) {
     },
 
     clampPhotoPan() {
-      const maxX = this._maxPhotoPanX();
-      const maxY = this._maxPhotoPanY();
+      const { x:maxX, y:maxY } = this._photoPanBounds();
       this.panX = maxX > 0
         ? Math.max(-maxX, Math.min(maxX, Number(this.panX) || 0))
         : 0;
@@ -330,6 +365,7 @@ export function registerPhotosExplorer(Alpine) {
         ? Math.max(-maxY, Math.min(maxY, Number(this.panY) || 0))
         : 0;
       this.photoCanPan = this.isDetailView() && (maxX > 0.5 || maxY > 0.5);
+      this._syncPhotoTransform();
 
       if (!this.photoCanPan) {
         this._releasePhotoPanSession();
@@ -338,18 +374,24 @@ export function registerPhotosExplorer(Alpine) {
       return this.photoCanPan;
     },
 
-    _maxPhotoPanX() {
+    _photoPanBounds() {
       const stage = this._getDetailStage();
-      const image = this._getDetailImage();
-      if (!stage || !image) return 0;
-      return Math.max(0, ((image.offsetWidth * this.zoomLevel) - stage.clientWidth) / 2);
-    },
-
-    _maxPhotoPanY() {
-      const stage = this._getDetailStage();
-      const image = this._getDetailImage();
-      if (!stage || !image) return 0;
-      return Math.max(0, ((image.offsetHeight * this.zoomLevel) - stage.clientHeight) / 2);
+      const preview = stage?.querySelector?.('.photos-detail-preview');
+      const image = preview || this._getDetailImage();
+      if (!stage || !image) return { x:0, y:0 };
+      let width = image.offsetWidth;
+      let height = image.offsetHeight;
+      if (preview?.naturalWidth && preview.naturalHeight) {
+        // object-fit: contain leaves letterbox space; only real image pixels
+        // should contribute to the allowable drag distance.
+        const fit = Math.min(width / preview.naturalWidth, height / preview.naturalHeight);
+        width = preview.naturalWidth * fit;
+        height = preview.naturalHeight * fit;
+      }
+      return {
+        x:Math.max(0, (width * this.zoomLevel - stage.clientWidth) / 2),
+        y:Math.max(0, (height * this.zoomLevel - stage.clientHeight) / 2)
+      };
     },
 
     canPanPhoto() {
@@ -488,6 +530,8 @@ export function registerPhotosExplorer(Alpine) {
       const image = this._getDetailImage();
       if (!stage || !image) return;
       const imageError = stage.querySelector('[data-photos-detail-image-error]');
+      const imageRetry = imageError?.querySelector('[data-photos-image-retry]');
+      let imageRetryOwnedFocus = false;
 
       const shell = this.$el;
       const windowSurface = this._getWindowSurface() || shell;
@@ -634,17 +678,68 @@ export function registerPhotosExplorer(Alpine) {
         event.stopPropagation();
         this.resetPhotoZoom();
       };
+      const preview = stage.querySelector('.photos-detail-preview');
+      const loading = stage.querySelector('[data-photos-detail-loading]');
+      const isCurrentImage = () => !this._destroyed && shell.isConnected && stage.contains(image);
+      let imageAttempt = 0;
       const onImageLoad = () => {
+        if (!isCurrentImage()) return;
+        const attempt = ++imageAttempt;
+        if (loading) loading.hidden = true;
+        // The navigation and its snapshot already completed. Keep visible pixels
+        // until the native image is decoded; stale completions own no live DOM.
+        if (preview?.isConnected) {
+          const revealOriginal = () => {
+            if (attempt === imageAttempt && isCurrentImage() && image.complete && image.naturalWidth > 0) {
+              preview.remove();
+              this.updatePhotoPanAvailability();
+            }
+          };
+          if (typeof image.decode === 'function') image.decode().then(revealOriginal, revealOriginal);
+          else revealOriginal();
+        }
+        const restoreImageFocus = (imageRetryOwnedFocus && document.activeElement === document.body)
+          || imageError?.contains(document.activeElement);
+        imageRetryOwnedFocus = false;
         stage.classList.remove('is-image-error');
+        stage.removeAttribute('aria-busy');
         imageError?.setAttribute('hidden', '');
+        if (imageRetry) {
+          imageRetry.disabled = false;
+          imageRetry.textContent = '重新加载图片';
+        }
         image.removeAttribute('aria-hidden');
+        if (restoreImageFocus) stage.focus({ preventScroll: true });
         this.updatePhotoPanAvailability();
       };
       const onImageError = () => {
-        this.resetPhotoZoom();
+        if (!isCurrentImage()) return;
+        ++imageAttempt;
+        if (loading) loading.hidden = true;
+        if (!preview?.isConnected) this.resetPhotoZoom();
+        stage.removeAttribute('aria-busy');
         stage.classList.add('is-image-error');
         imageError?.removeAttribute('hidden');
+        if (imageRetry) {
+          imageRetry.disabled = false;
+          imageRetry.textContent = '重新加载图片';
+          if (imageRetryOwnedFocus && document.activeElement === document.body) {
+            imageRetry.focus({ preventScroll: true });
+          }
+        }
+        imageRetryOwnedFocus = false;
         image.setAttribute('aria-hidden', 'true');
+      };
+      const onImageRetry = () => {
+        if (stage.getAttribute('aria-busy') === 'true') return;
+        stage.setAttribute('aria-busy', 'true');
+        imageRetryOwnedFocus = document.activeElement === imageRetry;
+        imageRetry.disabled = true;
+        imageRetry.textContent = '正在重新加载…';
+        // Retry only this resource. Reloading the document discards open panels
+        // and the visitor's comment draft, and repeats unrelated page requests.
+        image.src = image.currentSrc || image.src;
+        image.removeAttribute('srcset');
       };
       const currentFilmstripItem = this.$el?.querySelector('.photos-detail-neighbor.is-current');
       // PJAX moves focus to this heading after each detail navigation.
@@ -708,9 +803,13 @@ export function registerPhotosExplorer(Alpine) {
       stage.addEventListener('dblclick', onDblClick);
       image.addEventListener('load', onImageLoad);
       image.addEventListener('error', onImageError);
+      imageRetry?.addEventListener('click', onImageRetry);
       if (image.complete) {
         if (image.naturalWidth > 0) onImageLoad();
         else onImageError();
+      } else {
+        stage.setAttribute('aria-busy', 'true');
+        if (loading) loading.hidden = Boolean(preview);
       }
       window.addEventListener('keydown', onKeyDown);
       document.addEventListener('pointerdown', onKeyboardRegionChange, true);
@@ -734,16 +833,21 @@ export function registerPhotosExplorer(Alpine) {
         scheduleFilmstripHide();
       }
 
-      requestAnimationFrame(() => {
-        if (!currentFilmstripItem?.isConnected) return;
-        currentFilmstripItem.scrollIntoView({
+      let stopThumbnailObserver = () => {};
+      const positionFrame = requestAnimationFrame(() => {
+        if (this._destroyed || !shell.isConnected) return;
+        currentFilmstripItem?.scrollIntoView({
           behavior: 'auto',
           block: 'nearest',
           inline: 'center'
         });
+        stopThumbnailObserver = watchFilmstripThumbnails(filmstrip?.querySelector('.photos-detail-neighbor-list'));
       });
 
       engine.detailCleanup = () => {
+        ++imageAttempt;
+        window.cancelAnimationFrame(positionFrame);
+        stopThumbnailObserver();
         clearFilmstripHideTimer();
         clearFilmstripWindowTransition();
         if (filmstripFocusFrame) {
@@ -757,6 +861,7 @@ export function registerPhotosExplorer(Alpine) {
         stage.removeEventListener('dblclick', onDblClick);
         image.removeEventListener('load', onImageLoad);
         image.removeEventListener('error', onImageError);
+        imageRetry?.removeEventListener('click', onImageRetry);
         window.removeEventListener('keydown', onKeyDown);
         document.removeEventListener('pointerdown', onKeyboardRegionChange, true);
         document.removeEventListener('focusin', onKeyboardRegionChange, true);
@@ -834,7 +939,14 @@ export function registerPhotosExplorer(Alpine) {
         const value = Number.parseFloat(zoomInput.value || '1');
         const fill = max > min ? ((value - min) / (max - min)) * 100 : 0;
         zoomInput.style.setProperty('--photos-zoom-fill', `${Math.min(100, Math.max(0, fill))}%`);
+        zoomInput.setAttribute('aria-valuetext', `${Math.round(this.zoomLevel * 100)}%`);
       }
+      const zoomOut = surface.querySelector('[data-photos-control="zoom-out"]');
+      const zoomIn = surface.querySelector('[data-photos-control="zoom-in"]');
+      if (zoomOut) zoomOut.disabled = this.zoomLevel <= 0.5;
+      if (zoomIn) zoomIn.disabled = this.zoomLevel >= 2.2;
+      const zoomLabel = surface.querySelector('[data-photos-zoom-label]');
+      if (zoomLabel) zoomLabel.textContent = `${Math.round(this.zoomLevel * 100)}%`;
 
       const backLink = surface.querySelector('.photos-detail-titlebar-back');
       const listUrl = this.$el?.dataset.photosListUrl || '/photos';
@@ -1021,8 +1133,21 @@ export function registerPhotosExplorer(Alpine) {
       if (!hasPendingLazySource() && img.complete) onLoad();
     },
 
+    _syncGridImageSizes(grid) {
+      if (!grid) return;
+      // Read one slot after layout; all cards share its width, including masonry.
+      const width = Math.ceil(grid.querySelector('.photo-card:not([data-skeleton])')?.getBoundingClientRect().width || 0);
+      if (!width) return;
+      const sizes = `${width}px`;
+      for (const image of grid.querySelectorAll('img.photo-card-img')) {
+        if (image.dataset.srcset) image.dataset.sizes = sizes;
+        else if (image.srcset && image.sizes !== sizes) image.sizes = sizes;
+      }
+    },
+
     hydrateGridImages(root = this.$el) {
       if (!root) return;
+      this._syncGridImageSizes(this._getGrid());
       initLazyImages(root);
       root.querySelectorAll('.photos-grid .photo-card-img').forEach((img) => this.bindImg(img));
     },
@@ -1337,16 +1462,17 @@ export function registerPhotosExplorer(Alpine) {
 
         try {
           requestUrl = normalizePageUrl(nextUrlEl.href);
-          const response = await fetch(requestUrl, {
-            credentials: 'same-origin',
-            headers: { Accept: 'text/html' },
-            signal: controller.signal
-          });
-          if (!response.ok || response.redirected) {
-            throw new Error(`HTTP ${response.status}`);
-          }
-          const html = await response.text();
+          const html = await withRequestDeadline(async (signal) => {
+            const response = await fetch(requestUrl, {
+              credentials: 'same-origin',
+              headers: { Accept: 'text/html' },
+              signal
+            });
+            if (!isHtmlDocumentResponse(response) || response.redirected) throw new Error(`Unexpected photos response: HTTP ${response.status}`);
+            return response.text();
+          }, { signal: controller.signal });
           if (!isCurrent()) return;
+          if (!isCompleteHtmlDocument(html)) throw new Error('图库分页文档不完整');
           const doc = new DOMParser().parseFromString(html, 'text/html');
           const responseRoot = doc.querySelector('[data-app-root="photos"]');
           if (!responseRoot) {
@@ -1444,6 +1570,7 @@ export function registerPhotosExplorer(Alpine) {
           }
 
           this.effectiveColCountValue = nextEffectiveCount;
+          this._syncGridImageSizes(this._getGrid());
           this._scheduleHeightSync();
         }, 120);
       };

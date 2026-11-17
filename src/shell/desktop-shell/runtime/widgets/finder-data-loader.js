@@ -1,5 +1,6 @@
 import { parseDesktopWidgetProtocolFromResponse } from './protocol.js';
 import { FINDER_WIDGET_SOURCES } from './source-types.js';
+import { desktopWidgetRepresentation } from './data-loader.js';
 
 const sourceFields = {
   'halo.latest_posts': ['latestPosts'],
@@ -15,25 +16,22 @@ const sourceFields = {
 const stores = new WeakMap();
 const hostRequests = new WeakMap();
 
-function requestIdentity(widget) {
+function requestIdentity(widget, representation = null) {
   const type = String(widget?.widget || '');
   if (!Object.hasOwn(FINDER_WIDGET_SOURCES, type)) throw new Error('不支持的小组件数据类型');
   const group = type === 'plugin-photos.gallery' ? String(widget?.meta?.groupName || '').trim() : '';
   if (group.length > 256) throw new Error('相册标识过长');
-  return { type, group, key: JSON.stringify([type, group]) };
+  return { type, group, representation, key: JSON.stringify([representation?.key || '', type, group]) };
 }
 
 function requestPath(targetWindow, selections) {
-  const protocol = targetWindow.__THEME_DESKTOP_PROTOCOL__?.widgets || targetWindow.__THEME_WIDGETS__ || {};
-  let path = '/';
-  try {
-    const candidate = new URL(String(protocol.siteUrl || '/'), targetWindow.location?.origin || 'http://localhost');
-    if (['http:', 'https:'].includes(candidate.protocol) && !candidate.pathname.startsWith('//')) path = candidate.pathname;
-  } catch (_error) { /* The home route is the safe fallback. */ }
+  const representation = selections[0].representation;
+  const path = new URL(representation.path, targetWindow.location?.origin || 'http://localhost').pathname;
   const query = new URLSearchParams();
   selections.forEach(({ type }) => query.append('widgetSource', type));
   const group = selections.find((selection) => selection.group)?.group;
   if (group) query.set('widgetPhotoGroup', group);
+  if (representation.previewTheme) query.set('preview-theme', representation.previewTheme);
   return `${path}?${query}`;
 }
 
@@ -56,6 +54,11 @@ export function createFinderWidgetDataStore(targetWindow, { fetchImpl, timeoutMs
           if (controller.signal.aborted) throw new Error('小组件数据请求已取消');
           const parsed = parseDesktopWidgetProtocolFromResponse(text);
           if (!/<\/html\s*>/i.test(text) || !parsed?.isHome || !parsed.sources.hydrated) throw new Error('小组件数据协议不完整');
+          const representation = selections[0].representation;
+          if (desktopWidgetRepresentation(targetWindow).key !== representation.key
+            || (representation.themeName && parsed.themeName !== representation.themeName)) {
+            throw new Error('小组件响应与当前主题表示不一致');
+          }
           return parsed;
         })(),
         new Promise((_, reject) => {
@@ -94,16 +97,16 @@ export function createFinderWidgetDataStore(targetWindow, { fetchImpl, timeoutMs
     for (const selection of queued.values()) {
       // An explicit album uses its own bounded response; other visible types
       // share one home read. Multiple sizes of the same album share its key.
-      const group = selection.group;
-      if (!batches.has(group)) batches.set(group, []);
-      batches.get(group).push(selection);
+      const batchKey = JSON.stringify([selection.representation.key, selection.group]);
+      if (!batches.has(batchKey)) batches.set(batchKey, []);
+      batches.get(batchKey).push(selection);
     }
     queued.clear();
     for (const batch of batches.values()) void fetchBatch(batch);
   }
 
   function get(widget) {
-    const key = requestIdentity(widget).key;
+    const key = requestIdentity(widget, desktopWidgetRepresentation(targetWindow)).key;
     const entry = entries.get(key);
     if (entry?.status === 'ready' && entry.expiresAt <= now()) {
       entries.delete(key);
@@ -116,7 +119,7 @@ export function createFinderWidgetDataStore(targetWindow, { fetchImpl, timeoutMs
   }
 
   function load(widget) {
-    const selection = requestIdentity(widget);
+    const selection = requestIdentity(widget, desktopWidgetRepresentation(targetWindow));
     const cached = get(widget);
     if (cached?.status === 'ready') return Promise.resolve(cached);
     if (cached?.status === 'loading') return cached.promise;
@@ -135,7 +138,7 @@ export function createFinderWidgetDataStore(targetWindow, { fetchImpl, timeoutMs
   }
 
   function retry(widget) {
-    const key = requestIdentity(widget).key;
+    const key = requestIdentity(widget, desktopWidgetRepresentation(targetWindow)).key;
     if (entries.get(key)?.status === 'error') entries.delete(key);
     return load(widget);
   }
@@ -153,7 +156,7 @@ function watch(host, widget, promise) {
   const owner = host.widgetRenderVersions;
   if (!hostRequests.has(owner)) hostRequests.set(owner, new Map());
   const pending = hostRequests.get(owner);
-  const key = requestIdentity(widget).key;
+  const key = requestIdentity(widget, desktopWidgetRepresentation(globalThis.window || globalThis)).key;
   if (pending.has(key)) return;
   pending.set(key, promise);
   void promise.catch(() => {}).finally(() => {

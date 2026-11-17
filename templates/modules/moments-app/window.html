@@ -73,11 +73,12 @@
                    data-moments-notification-panel
                    role="dialog"
                    aria-label="消息"
+                   tabindex="-1"
                    hidden>
                 <header class="moments-notification-head">
                   <strong>消息</strong>
                 </header>
-                <div class="moments-notification-status" data-moments-notification-status>打开后加载消息</div>
+                <div class="moments-notification-status" data-moments-notification-status role="status" aria-live="polite">打开后加载消息</div>
                 <div class="moments-notification-list" data-moments-notification-list></div>
               </div>
             </div>
@@ -98,6 +99,7 @@
             </button>
             <dialog class="moments-publish-dialog"
                     data-moments-publish-dialog
+                    aria-label="发布瞬间"
                     th:if="${theme.config.moments?.publish == null or theme.config.moments.publish.enabled == null or theme.config.moments.publish.enabled}"
                     th:data-image-enabled="${theme.config.moments?.publish == null or theme.config.moments.publish.image_upload == null or theme.config.moments.publish.image_upload}"
                     th:data-video-enabled="${theme.config.moments?.publish != null and theme.config.moments.publish.video_upload != null ? theme.config.moments.publish.video_upload : true}"
@@ -109,15 +111,16 @@
                 <div class="moments-publish-body">
                   <textarea class="moments-publish-textarea"
                             data-moments-publish-content
+                            aria-label="瞬间内容"
                             maxlength="1000"
                             rows="6"
                             placeholder="这一刻的想法..."></textarea>
                   <div class="moments-publish-inline-tools">
                     <div class="moments-publish-compose-tools">
-                      <button type="button" class="moments-publish-tool" data-moments-publish-emoji-toggle title="表情" aria-label="插入表情">
+                      <button type="button" class="moments-publish-tool" data-moments-publish-emoji-toggle title="表情" aria-label="插入表情" aria-expanded="false">
                         <span class="icon-[lucide--smile]" aria-hidden="true"></span>
                       </button>
-                      <button type="button" class="moments-publish-tool" data-moments-publish-tag-toggle title="标签" aria-label="添加标签">
+                      <button type="button" class="moments-publish-tool" data-moments-publish-tag-toggle title="标签" aria-label="添加标签" aria-expanded="false">
                         <span class="icon-[lucide--hash]" aria-hidden="true"></span>
                       </button>
                     </div>
@@ -136,18 +139,19 @@
                   <div class="moments-publish-emoji-panel" data-moments-publish-emoji-panel hidden></div>
                   <div class="moments-publish-meta">
                     <span data-moments-publish-count>0/1000</span>
-                    <span data-moments-publish-status></span>
+                    <span data-moments-publish-status role="status" aria-live="polite"></span>
                   </div>
                   <div class="moments-publish-preview" data-moments-publish-preview hidden></div>
                   <div class="moments-publish-tags" data-moments-publish-tags hidden></div>
                   <div class="moments-publish-tag-row" data-moments-publish-tag-row hidden>
-                    <input type="text" class="moments-publish-tag-input" data-moments-publish-tag-input maxlength="50" placeholder="添加标签" />
+                    <input type="text" class="moments-publish-tag-input" data-moments-publish-tag-input maxlength="50" placeholder="添加标签" aria-label="标签名称" />
                     <button type="button" class="moments-publish-plain-btn" data-moments-publish-tag-add>添加</button>
                   </div>
                   <input type="file" data-moments-publish-file hidden multiple />
                 </div>
                 <footer class="moments-publish-actions">
                   <button type="button" class="moments-publish-cancel" data-moments-publish-close>取消</button>
+                  <button type="button" class="moments-publish-cancel" data-moments-publish-new hidden>另写新稿</button>
                   <button type="submit" class="moments-publish-submit" data-moments-publish-submit disabled>发表</button>
                 </footer>
               </form>

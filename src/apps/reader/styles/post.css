@@ -1000,6 +1000,15 @@
   margin: 0 auto;
 }
 
+#article-content img[data-theme-lightgallery-keyboard] {
+  cursor: zoom-in;
+}
+
+#article-content img[data-theme-lightgallery-keyboard]:focus-visible {
+  outline: 2px solid var(--theme-accent, var(--mac-accent, #007aff));
+  outline-offset: 4px;
+}
+
 #article-content figcaption {
   margin-top: 0.8rem;
   font-size: 0.88rem;

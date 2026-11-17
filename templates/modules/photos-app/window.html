@@ -35,6 +35,7 @@
                         th:href="${!#strings.isEmpty(backUrl) ? backUrl : '/photos'}"
                         class="photos-titlebar-btn photos-detail-titlebar-back pjax-link"
                         data-pjax-app="photos"
+                        aria-label="返回图库"
                         title="返回图库">
                   <span class="icon-[lucide--chevron-left] w-[16px] h-[16px]" aria-hidden="true"></span>
                 </a>
@@ -68,6 +69,7 @@
                               data-photos-mode-btn="square"
                               data-photos-control="set-mode"
                               data-photos-mode="square"
+                              aria-label="方格布局"
                               title="方格">
                           <span class="icon-[lucide--grid-2x2] w-[15px] h-[15px]" aria-hidden="true"></span>
                       </button>
@@ -76,6 +78,7 @@
                               data-photos-mode-btn="aspect"
                               data-photos-control="set-mode"
                               data-photos-mode="aspect"
+                              aria-label="瀑布流布局"
                               title="瀑布流">
                           <span class="icon-[lucide--columns-2] w-[15px] h-[15px]" aria-hidden="true"></span>
                       </button>
@@ -85,14 +88,16 @@
                               class="photos-titlebar-btn photos-titlebar-action"
                               data-photos-cols="decrease"
                               data-photos-control="cols-decrease"
-                              title="减少数量">
+                              aria-label="减少每行数量，放大缩略图"
+                              title="放大缩略图">
                           <span class="icon-[lucide--minus] w-[15px] h-[15px]" aria-hidden="true"></span>
                       </button>
                       <button type="button"
                               class="photos-titlebar-btn photos-titlebar-action"
                               data-photos-cols="increase"
                               data-photos-control="cols-increase"
-                              title="增加数量">
+                              aria-label="增加每行数量，缩小缩略图"
+                              title="缩小缩略图">
                           <span class="icon-[lucide--plus] w-[15px] h-[15px]" aria-hidden="true"></span>
                       </button>
                   </div>
@@ -115,6 +120,12 @@
                          data-photos-detail-zoom
                          data-photos-control="zoom-set"
                          aria-label="缩放图片" />
+                  <button type="button"
+                          class="photos-titlebar-zoom-reset"
+                          data-photos-control="zoom-reset"
+                          data-photos-zoom-label
+                          title="适合窗口"
+                          aria-label="恢复适合窗口的图片大小">100%</button>
                   <button type="button"
                           class="photos-titlebar-zoom-btn"
                           data-photos-control="zoom-in"

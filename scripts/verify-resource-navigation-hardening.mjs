@@ -4,7 +4,8 @@ import vm from 'node:vm';
 import { getAppAssetSegment, getKnownAppIds, isContentSwitchAllowed, supportsSameVariantContentSwitch } from '../src/shell-core/runtime/app-manifests.js';
 import { createNavigationAdmission } from '../src/shell/desktop-shell/runtime/desktop/pjax/navigation-admission.js';
 import { markStartupRecoveryReload } from '../src/shared/startup-signals.js';
-import { isAuthenticationResponse } from '../src/shared/navigation-response.js';
+import { getWindowAppContent, hasNavigationTitle, isAuthenticationResponse, navigationResponseAction } from '../src/shared/navigation-response.js';
+import { isCompleteHtmlDocument, isHtmlDocumentResponse } from '../src/shared/html-document.js';
 import { requiresCommerceDocumentNavigation } from '../src/shared/commerce-navigation.js';
 
 // Execute production functions with in-memory network/DOM fixtures. No server,
@@ -253,23 +254,27 @@ function verifyLifecycleFailures() {
 }
 
 async function verifyPrefetchFailure() {
-  let warnings = 0, removed = 0, attempts = 0;
+  let warnings = 0, attempts = 0, initialized = 0;
   const context = vm.createContext({
-    URL, setTimeout, clearTimeout,
-    window: { location: { origin: 'https://example.test' } },
-    document: { createElement: () => ({ remove: () => removed++ }), head: { appendChild() {} } },
-    createLogger: () => ({ log() {}, warn: () => warnings++ }),
-    inferPageAppFromUrl: () => 'links',
-    ensureAppCssLoaded: () => { attempts++; return Promise.reject(new Error('CSS unavailable')); }
+    console: { warn: () => warnings++ },
+    loadPreloadAdapter: () => {
+      attempts++;
+      return attempts === 1 ? Promise.reject(new Error('Adapter unavailable'))
+        : Promise.resolve({ initializeNavigationPreload() { initialized++; } });
+    }
   });
-  vm.runInContext(executable(read('src/shell/desktop-shell/runtime/desktop/pjax/prefetch.js')), context);
-  vm.runInContext("doPrefetch('/links')", context);
-  await flush();
-  vm.runInContext("doPrefetch('/links')", context);
-  await flush();
-  assert.equal(attempts, 2, '失败预取允许重试');
-  assert.equal(warnings, 2);
-  assert.equal(removed, 2);
+  // Execute the real idle initializer; only its module-loader boundary is
+  // replaced. HTTP/preload failures and retries run in the browser suite.
+  const source = executable(read('src/shell/desktop-shell/runtime/desktop/pjax/prefetch.js'));
+  const scripted = source.replace(/import\('[^']*navigation-preload\.js'\)/, 'loadPreloadAdapter()');
+  assert.notEqual(scripted, source, 'Replace only the current dynamic module boundary');
+  vm.runInContext(scripted, context);
+  await vm.runInContext('initPrefetch()', context);
+  assert.equal(warnings, 1, '初始化失败须处理且允许下一次重试');
+  await Promise.all([vm.runInContext('initPrefetch()', context), vm.runInContext('initPrefetch()', context)]);
+  await vm.runInContext('initPrefetch()', context);
+  assert.equal(attempts, 2, '失败后可重试，成功后共用同一初始化');
+  assert.equal(initialized, 1, '不能重复安装全局注意力监听');
 }
 
 async function verifyFullPjaxAssetGate() {
@@ -324,6 +329,8 @@ async function verifyFullPjaxAssetGate() {
   context.document.head.appendChild(currentStyle);
   context.document.getElementById = () => null;
   const queryAll = context.document.querySelectorAll;
+  context.document.title = 'Explorer';
+  context.document.head.querySelectorAll = selector => selector === ':scope > title' ? [{}] : [];
   context.document.querySelectorAll = (selector) => ['title', '#window-frame-root'].includes(selector) ? [{}] : queryAll(selector);
   context.document.body = { dataset: { appId: 'explorer-categories', pageApp: 'explorer-categories',
     windowVariant: 'browser', pageMode: 'browser-list' } };
@@ -342,9 +349,10 @@ async function verifyFullPjaxAssetGate() {
     for (const style of [warmStyle, currentStyle]) style.disabled = style.dataset.appCss !== app;
   };
   Object.assign(context, {
-    AbortController, DOMException, Promise, isAuthenticationResponse, requiresCommerceDocumentNavigation,
+    AbortController, DOMException, Promise, isAuthenticationResponse, navigationResponseAction, requiresCommerceDocumentNavigation,
+    getWindowAppContent, hasNavigationTitle, isCompleteHtmlDocument, isHtmlDocumentResponse,
     CustomEvent,
-    DOMParser: class { parseFromString() { return { querySelectorAll: (selector) =>
+    DOMParser: class { parseFromString() { return { title: 'Reader', head: { querySelectorAll: selector => selector === ':scope > title' ? [{}] : [] }, querySelectorAll: (selector) =>
       selector === '#window-frame-root' || selector === 'title' ? [{}] : [] }; } },
     pjax: {
       abortRequest: () => { aborts++; },
@@ -358,7 +366,7 @@ async function verifyFullPjaxAssetGate() {
     },
     navigationIntentGeneration: 0, _fullPjaxGeneration: 0, _fullAssetGate: null,
     cancelledPopstateUid: '', rollbackPopstateUid: '', rollbackTimer: 0, committedBrowserEntry: null,
-    activeNavigation: null, pendingPopstateNavigation: null,
+    activeNavigation: null, pendingPopstateNavigation: null, currentCommentPopstate: null,
     _sameVariantLoadingController: null, _pjaxLoadingController: null,
     NAVIGATION_INTENT_OPTION: '__themeNavigationIntent',
     sameVariantCoordinator: {
@@ -372,6 +380,7 @@ async function verifyFullPjaxAssetGate() {
       cancel() { sameNavigation = null; }
     },
     browserNavigationOwnership: { begin: noOp, release: noOp },
+    beginNavigationFeedback: () => noOp,
     clearPendingWindowScrollRestore: noOp,
     snapshotCurrentBrowserEntry: () => { snapshots++; events.push('snapshot'); },
     showNavigationStatus: noOp,
@@ -384,6 +393,11 @@ async function verifyFullPjaxAssetGate() {
     inferPageAppForNavigation: (url) => context.inferPageAppFromUrl(url),
     isContentSwitchAllowed, supportsSameVariantContentSwitch,
     parsePageAppFromResponse: (html) => html, resolveNavigationHref: (_request, href) => href,
+    // This asset-ordering fixture has neither signed sharing nor comment forms;
+    // keep their asynchronous preparation boundaries without bypassing the real
+    // full/same executors and their existing admission/asset assertions.
+    requiresWechatShareDocumentNavigation: async () => false,
+    ensureCommentDraftGuard: async () => {},
     isCurrentNavigationIntent: (intent, current) => intent === current,
     stageAppCssForNavigation: (app) => { stageCss(app); events.push(`css-stage:${app}`); },
     syncHomeDesktopWidgetProtocolFromResponse: () => events.push('protocol'),

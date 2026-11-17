@@ -1,4 +1,3 @@
-import { captureRuntimeSnapshot, restoreBodyRuntime, restoreDockRuntime, restoreHeaderIcons, restoreStoredTheme, restoreDesktopViewport, applyBodyPreview, applyDockPreview, applyMenubarPreview, applyWidgetPreview, applyHeaderIconPreview } from './settings-model/preview.js';
 import {
   buildThemeSettingsDraft,
   cloneThemeSettingsValue,
@@ -10,6 +9,7 @@ import {
   updateThemeSettingsDraft
 } from './theme-settings-core.js';
 import { loadThemeConfigClient } from '../shared/lazy-theme-config-client.js';
+import { loadSettingsPreview } from './settings-model/lazy-preview.js';
 import { registerNavigationGuard, isCoveredNativeBeforeUnload } from './pjax/navigation-admission.js';
 import { registerThemeSettingsAssetPicker } from './settings-assets/picker.js';
 import { sanitizeIconSvg } from './settings-assets/icon-svg.js';
@@ -35,7 +35,7 @@ function nextFrame() {
   });
 }
 
-export function registerThemeSettings(Alpine) {
+export function registerThemeSettings(Alpine, runtimePreview = null) {
   Alpine.store('themeSettings', {
     authenticated: false,
     endpoint: '',
@@ -259,26 +259,33 @@ export function registerThemeSettings(Alpine) {
         if (!this.open && this.closeTimer !== null) {
           this.cancelCloseTimer();
           this.visible = false;
-          await this.openWindow(true);
+          return (await this.openWindow(true)) !== false;
         }
         return true;
       }
       const generation = this.openGeneration;
       const allowed = await this.probeAccess();
       if (!allowed || generation !== this.openGeneration) return false;
-      await this.openWindow();
-      return true;
+      return (await this.openWindow()) !== false;
     },
 
     async openWindow(reopening = false) {
       if (this.visible || !this.canOpen) return;
       this.cancelOpenTasks();
       const generation = this.openGeneration;
+      if (!runtimePreview) {
+        try { runtimePreview = await loadSettingsPreview(); }
+        catch (error) {
+          if (generation === this.openGeneration) this.setEntryFeedback(error.message);
+          return false;
+        }
+        if (generation !== this.openGeneration || this.visible) return false;
+      }
       if (!reopening) this.cancelDesktopViewportRestore();
       this.restoreFocusElement ||= document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
-      this.runtimeSnapshot = reopening ? this.closingRuntimeSnapshot : captureRuntimeSnapshot();
+      this.runtimeSnapshot = reopening ? this.closingRuntimeSnapshot : runtimePreview.captureRuntimeSnapshot();
       this.closingRuntimeSnapshot = null;
       this.draft = cloneThemeSettingsValue(this.baseline);
       this.dirtyPaths = [];
@@ -553,7 +560,7 @@ export function registerThemeSettings(Alpine) {
         'widgets.modules.weather.city_name',
         value
       );
-      applyWidgetPreview(previewDraft, 'widgets.modules.weather.city_name');
+      runtimePreview.applyWidgetPreview(previewDraft, 'widgets.modules.weather.city_name');
     },
 
     syncRadioGroupTabStops() {
@@ -609,6 +616,7 @@ export function registerThemeSettings(Alpine) {
     },
 
     applyRuntimePreview(changedPath = '') {
+      if (!runtimePreview) return;
       this.cancelDesktopViewportRestore();
       if (!changedPath || changedPath.startsWith('desktop.')) {
         const wallpaperUrl = this.draft.desktop.background.mode === 'image'
@@ -616,14 +624,14 @@ export function registerThemeSettings(Alpine) {
           : '';
         if (wallpaperUrl && wallpaperUrl !== this.readyWallpaperUrl) {
           const generation = ++this.wallpaperPreviewGeneration;
-          applyBodyPreview(this.draft, { remoteImageReady: false });
+          runtimePreview.applyBodyPreview(this.draft, { remoteImageReady: false });
           const image = new Image();
           image.onload = () => {
             if (!this.visible || generation !== this.wallpaperPreviewGeneration
               || this.draft.desktop.background.mode !== 'image'
               || String(this.draft.desktop.background.image_url || '') !== wallpaperUrl) return;
             this.readyWallpaperUrl = wallpaperUrl;
-            applyBodyPreview(this.draft);
+            runtimePreview.applyBodyPreview(this.draft);
           };
           image.onerror = () => {
             if (!this.visible || generation !== this.wallpaperPreviewGeneration
@@ -635,15 +643,15 @@ export function registerThemeSettings(Alpine) {
           image.src = wallpaperUrl;
         } else {
           this.wallpaperPreviewGeneration += 1;
-          applyBodyPreview(this.draft);
+          runtimePreview.applyBodyPreview(this.draft);
         }
       }
-      if (!changedPath || changedPath.startsWith('dock.')) applyDockPreview(this.draft);
+      if (!changedPath || changedPath.startsWith('dock.')) runtimePreview.applyDockPreview(this.draft);
       if (!changedPath || changedPath.startsWith('header.') || changedPath.startsWith('sidebar.notification_center.')) {
-        applyMenubarPreview(this.draft);
+        runtimePreview.applyMenubarPreview(this.draft);
       }
-      if (!changedPath || THEME_SETTINGS_ICON_FIELDS.some((field) => field.path === changedPath)) applyHeaderIconPreview(this.draft);
-      if (!changedPath || changedPath.startsWith('widgets.')) applyWidgetPreview(this.draft, changedPath);
+      if (!changedPath || THEME_SETTINGS_ICON_FIELDS.some((field) => field.path === changedPath)) runtimePreview.applyHeaderIconPreview(this.draft);
+      if (!changedPath || changedPath.startsWith('widgets.')) runtimePreview.applyWidgetPreview(this.draft, changedPath);
       if (!changedPath || changedPath === 'header.theme.default_mode') {
         Alpine.store('theme')?.setMode?.(this.draft.header.theme.default_mode);
       }
@@ -652,12 +660,12 @@ export function registerThemeSettings(Alpine) {
     restoreRuntimePreview() {
       this.wallpaperPreviewGeneration += 1;
       if (!this.runtimeSnapshot) return;
-      restoreBodyRuntime(this.runtimeSnapshot.body);
-      restoreDockRuntime(this.runtimeSnapshot.dock);
-      restoreHeaderIcons(this.runtimeSnapshot.icons);
-      restoreStoredTheme(this.runtimeSnapshot, Alpine);
-      applyMenubarPreview(this.baseline);
-      applyWidgetPreview(this.baseline);
+      runtimePreview.restoreBodyRuntime(this.runtimeSnapshot.body);
+      runtimePreview.restoreDockRuntime(this.runtimeSnapshot.dock);
+      runtimePreview.restoreHeaderIcons(this.runtimeSnapshot.icons);
+      runtimePreview.restoreStoredTheme(this.runtimeSnapshot, Alpine);
+      runtimePreview.applyMenubarPreview(this.baseline);
+      runtimePreview.applyWidgetPreview(this.baseline);
       this.restoreDesktopViewportContext();
       this.runtimeSnapshot = null;
     },
@@ -669,7 +677,7 @@ export function registerThemeSettings(Alpine) {
 
     restoreDesktopViewportContext() {
       this.cancelDesktopViewportRestore();
-      this.desktopViewportRestoreCancel = restoreDesktopViewport(this.runtimeSnapshot?.desktopViewport);
+      this.desktopViewportRestoreCancel = runtimePreview?.restoreDesktopViewport(this.runtimeSnapshot?.desktopViewport);
     },
 
     async save() {
@@ -726,9 +734,9 @@ export function registerThemeSettings(Alpine) {
         const pendingDraft = this.draft;
         this.draft = cloneThemeSettingsValue(savedBaseline);
         this.applyRuntimePreview();
-        restoreStoredTheme(this.runtimeSnapshot, Alpine);
-        applyBodyPreview(savedBaseline);
-        this.runtimeSnapshot = captureRuntimeSnapshot();
+        runtimePreview.restoreStoredTheme(this.runtimeSnapshot, Alpine);
+        runtimePreview.applyBodyPreview(savedBaseline);
+        this.runtimeSnapshot = runtimePreview.captureRuntimeSnapshot();
         this.draft = pendingDraft;
         if (pendingPaths.length > 0) {
           pendingPaths.forEach((path) => this.applyRuntimePreview(path));

@@ -76,7 +76,7 @@
                                         ${thumbnail.gen(groupCoverPrimary, 'm')} 800w,
                                         ${thumbnail.gen(groupCoverPrimary, 'l')} 1200w|"
                            sizes="(max-width: 600px) calc(50vw - 24px), 280px"
-                           th:alt="${groupItem.spec.displayName}"
+                           alt=""
                            decoding="async"
                            th:attr="loading=${groupIter.first ? 'eager' : 'lazy'}, fetchpriority=${groupIter.first ? 'high' : 'low'}" />
                       <div th:unless="${!#strings.isEmpty(groupCoverPrimary)}" class="photos-album-cover-placeholder">
@@ -88,7 +88,7 @@
                       </div>
                       <div class="photos-album-overlay" aria-hidden="true"></div>
                       <div class="photos-album-overlay-copy">
-                        <span class="photos-album-overlay-title" th:text="${groupItem.spec.displayName}">相册名</span>
+                        <span class="photos-album-overlay-title" th:text="${groupItem.spec.displayName}" th:title="${groupItem.spec.displayName}">相册名</span>
                         <span class="photos-album-overlay-count" th:text="${groupPhotoCount + ' 张'}">0 张</span>
                       </div>
                     </div>
@@ -99,7 +99,8 @@
           </div>
           <div class="photos-empty" th:if="${#lists.isEmpty(groups)}">
             <svg viewBox="0 0 64 64" fill="none" width="48" height="48"><rect x="8" y="16" width="48" height="36" rx="6" stroke="currentColor" stroke-width="2" stroke-opacity="0.3"/><circle cx="24" cy="32" r="7" stroke="currentColor" stroke-width="2" stroke-opacity="0.3"/><path d="M8 48L22 36L29 42.5L38 34L56 48" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-opacity="0.3"/></svg>
-            <p>还没有相册，去后台创建吧</p>
+            <p>还没有相簿</p>
+            <a class="photos-empty-action pjax-link" data-pjax-app="photos" href="/photos">浏览全部照片</a>
           </div>
         </div>
 
@@ -109,17 +110,19 @@
             <div class="photos-grid" :class="{ 'photos-grid--square': layoutMode === 'square', 'photos-grid--masonry': layoutMode === 'aspect' }" :style="{ '--col-count': effectiveColCountValue }">
               <a class="photo-card pjax-link"
                  th:each="photo, photoIter : ${photos.items}"
-                 th:with="photoListImage=${!#strings.isEmpty(photo.spec.cover) ? photo.spec.cover : photo.spec.url}"
+                 th:with="photoListImage=${!#strings.isEmpty(photo.spec.cover) ? photo.spec.cover : photo.spec.url},
+                          thumbSmall=${!#strings.isEmpty(photoListImage) ? thumbnail.gen(photoListImage, 's') : null},
+                          thumbMedium=${!#strings.isEmpty(photoListImage) ? thumbnail.gen(photoListImage, 'm') : null},
+                          thumbLarge=${!#strings.isEmpty(photoListImage) ? thumbnail.gen(photoListImage, 'l') : null},
+                          responsiveSet=${thumbSmall != thumbMedium and thumbMedium != thumbLarge and thumbSmall != thumbLarge ? thumbSmall + ' 400w, ' + thumbMedium + ' 800w, ' + thumbLarge + ' 1200w' : null}"
                  th:href="${photoUrl != null ? photoUrl.detail(photo) : ('/photos/' + photo.metadata.name)}"
                  data-pjax-app="photos"
-                 th:attr="data-photo-name=${photo.metadata.name}">
+                 th:attr="data-photo-name=${photo.metadata.name}, aria-label=${photo.spec.displayName}, title=${photo.spec.displayName}">
                 <div class="photo-card-inner">
                   <img th:if="${isFirstPhotoPage and photoIter.first and !#strings.isEmpty(photoListImage)}"
                        th:src="${thumbnail.gen(photoListImage, 'm')}"
-                       th:srcset="|${thumbnail.gen(photoListImage, 's')} 400w,
-                                    ${thumbnail.gen(photoListImage, 'm')} 800w,
-                                    ${thumbnail.gen(photoListImage, 'l')} 1200w|"
-                       sizes="(max-width: 600px) calc(100vw - 32px), (max-width: 1200px) 50vw, 400px"
+                       th:srcset="${responsiveSet ?: (thumbMedium + ' 1x')}"
+                       sizes="(max-width: 600px) 50vw, (max-width: 1200px) 25vw, 280px"
                        class="photo-card-img lazyload"
                        th:alt="${photo.spec.displayName}"
                        loading="eager"
@@ -128,11 +131,8 @@
                   <img th:unless="${isFirstPhotoPage and photoIter.first and !#strings.isEmpty(photoListImage)}"
                        th:src="${#theme.assets('/images/transparent.svg')}"
                        th:data-src="${!#strings.isEmpty(photoListImage) ? thumbnail.gen(photoListImage, 'm') : null}"
-                       th:data-srcset="${!#strings.isEmpty(photoListImage) ?
-                         thumbnail.gen(photoListImage, 's') + ' 400w, ' +
-                         thumbnail.gen(photoListImage, 'm') + ' 800w, ' +
-                         thumbnail.gen(photoListImage, 'l') + ' 1200w' : null}"
-                       data-sizes="(max-width: 600px) calc(100vw - 32px), (max-width: 1200px) 50vw, 400px"
+                       th:data-srcset="${!#strings.isEmpty(photoListImage) ? responsiveSet : null}"
+                       data-sizes="(max-width: 600px) 50vw, (max-width: 1200px) 25vw, 280px"
                        class="photo-card-img lazyload"
                        th:alt="${photo.spec.displayName}"
                        loading="lazy"
@@ -149,6 +149,7 @@
             <div class="photos-empty" th:if="${photos == null or #lists.isEmpty(photos.items)}">
               <svg viewBox="0 0 64 64" fill="none" width="48" height="48"><rect x="8" y="16" width="48" height="36" rx="6" stroke="currentColor" stroke-width="2" stroke-opacity="0.3"/><circle cx="24" cy="32" r="7" stroke="currentColor" stroke-width="2" stroke-opacity="0.3"/><path d="M8 48L22 36L29 42.5L38 34L56 48" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-opacity="0.3"/></svg>
               <p>这里还没有照片</p>
+              <a th:if="${isGroupView}" class="photos-empty-action pjax-link" data-pjax-app="photos" href="/photos">返回图库</a>
             </div>
 
             <!-- 无限滚动:  sentinel -->

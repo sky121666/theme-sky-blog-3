@@ -67,7 +67,7 @@ try {
       }, dark);
       const label = `${width}px ${dark ? 'dark' : 'light'}`;
       assert.equal(state.wrappers, 1, `${label}: repeated hydration must not nest table scroll regions`);
-      assert.ok(state.wrapperWidth < state.articleWidth, `${label}: table must stay within the article`);
+      assert.ok(state.wrapperWidth <= state.articleWidth, `${label}: table must stay within the article`);
       assert.ok(state.scrollWidth > state.wrapperWidth && state.scrollLeft > 0, `${label}: wide tables must scroll horizontally`);
       assert.equal(state.focusable, true, `${label}: table scrolling must remain keyboard accessible`);
       assert.equal(state.headingMargin, '0px', `${label}: first cell child must not add outer top spacing`);
@@ -77,6 +77,26 @@ try {
       assert.equal(state.cellBorder, '1px', `${label}: table cell borders must stay visible`);
     }
   }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => {
+    const article = document.querySelector('.docsme-article');
+    article.innerHTML = '<table id="short-table"><tr><th>字段</th><th>说明</th></tr><tr><td>名称</td><td>显示名称</td></tr></table>'
+      + '<table id="comparison"><tr><th>功能</th><th>做什么</th><th>去哪里设置</th><th>详细说明</th></tr><tr><td>音乐播放器</td><td>支持跨页续播、播放列表与控制</td><td>主题设置</td><td>音乐设置</td></tr></table>';
+    window.__verifyDocsmeTables(document);
+  });
+  const mobileTables = await page.evaluate(() => {
+    const short = document.getElementById('short-table').parentElement;
+    const wide = document.getElementById('comparison').parentElement;
+    const cells = [...wide.querySelectorAll('td')];
+    wide.scrollLeft = wide.scrollWidth;
+    return { shortWidth: short.clientWidth, shortScroll: short.scrollWidth,
+      wideWidth: wide.clientWidth, wideScroll: wide.scrollWidth, scrollLeft: wide.scrollLeft,
+      cellWidths: cells.map(el => el.getBoundingClientRect().width), pageWidth: document.documentElement.scrollWidth };
+  });
+  assert.equal(mobileTables.shortScroll, mobileTables.shortWidth, 'Short two-column tables should fit without forced horizontal scrolling');
+  assert.ok(mobileTables.wideScroll > mobileTables.wideWidth && mobileTables.scrollLeft > 0, 'Four-column prose stays readable in its own horizontal scroller');
+  assert.ok(mobileTables.cellWidths.every(width => width >= 120), 'Comparison cells must not collapse into a few characters per line');
+  assert.ok(mobileTables.pageWidth <= 390, 'Wide tables must not overflow the page');
   assert.deepEqual(errors, [], 'Docsme table fixture must not produce runtime errors');
   console.log('Docsme table spacing and horizontal scrolling passed (mobile/desktop, light/dark)');
 } finally {

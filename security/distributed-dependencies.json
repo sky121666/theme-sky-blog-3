@@ -4,6 +4,7 @@
     "@alpinejs/intersect": "浏览器交互运行时",
     "@alpinejs/morph": "浏览器交互运行时",
     "@iconify-json/lucide": "随主题 CSS 分发的 Lucide 图标数据",
+    "@swup/preload-plugin": "文档预加载与进行中请求复用",
     "alpinejs": "浏览器交互运行时",
     "daisyui": "随商城 App CSS 分发的表单控件样式",
     "@tanstack/svelte-query": "商城组件查询与取消运行时",
@@ -14,8 +15,8 @@
     "svelte": "商城组件运行时",
     "svelte-i18next": "商城国际化状态桥接",
     "svelte-sonner": "商城提示组件运行时",
+    "swup": "全局页面导航、切换生命周期与文档预加载运行时",
     "nprogress": "PJAX 进度条运行时",
-    "pjax": "站内导航运行时",
     "qrcode": "二维码生成运行时"
   },
   "browserDependencyScopes": {

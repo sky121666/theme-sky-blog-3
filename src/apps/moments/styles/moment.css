@@ -11,13 +11,13 @@
   --wc-bg-elevated: #fff;
   --wc-text: #1d1d1f;
   --wc-text-secondary: #6e6e73;
-  --wc-text-muted: #aeaeb2;
+  --wc-text-muted: #68686e;
   --wc-border: rgba(0, 0, 0, 0.06);
   --wc-accent: #576b95;
   --wc-accent-hover: #465a80;
   --wc-interaction-accent: #07c160;
   --wc-interaction-accent-hover: #06ad56;
-  --wc-comment-name: #7d8fb3;
+  --wc-comment-name: #52658d;
   --wc-avatar-size: 40px;
   --wc-action-bg: rgba(0, 0, 0, 0.05);
   --wc-action-bg-hover: rgba(0, 0, 0, 0.09);
@@ -44,7 +44,7 @@
   --wc-notification-separator: rgba(255, 255, 255, 0.055);
   --wc-notification-text: #f5f5f7;
   --wc-notification-text-soft: #d8d8de;
-  --wc-notification-text-muted: #8e8e93;
+  --wc-notification-text-muted: #aaaab0;
   --wc-notification-name: color-mix(in srgb, var(--wc-accent) 58%, #c8d2e8);
   --wc-notification-hover: #2a2a2f;
   --wc-notification-control: #303036;
@@ -67,14 +67,14 @@
   --wc-bg: #1a1a1a;
   --wc-bg-elevated: #222;
   --wc-text: rgba(255, 255, 255, 0.9);
-  --wc-text-secondary: rgba(255, 255, 255, 0.5);
-  --wc-text-muted: rgba(255, 255, 255, 0.32);
+  --wc-text-secondary: rgba(255, 255, 255, 0.7);
+  --wc-text-muted: rgba(255, 255, 255, 0.62);
   --wc-border: rgba(255, 255, 255, 0.06);
   --wc-accent: #7d8fb3;
   --wc-accent-hover: #9aa9ca;
   --wc-interaction-accent: #07c160;
   --wc-interaction-accent-hover: #25d675;
-  --wc-comment-name: #7d8fb3;
+  --wc-comment-name: #a6b7d8;
   --wc-action-bg: rgba(255, 255, 255, 0.08);
   --wc-action-bg-hover: rgba(255, 255, 255, 0.14);
   --wc-code-bg: rgba(255, 255, 255, 0.08);
@@ -98,7 +98,7 @@
   --wc-notification-separator: rgba(255, 255, 255, 0.055);
   --wc-notification-text: #f5f5f7;
   --wc-notification-text-soft: #d8d8de;
-  --wc-notification-text-muted: #8e8e93;
+  --wc-notification-text-muted: #aaaab0;
   --wc-notification-name: color-mix(in srgb, var(--wc-accent) 58%, #c8d2e8);
   --wc-notification-hover: #2a2a2f;
   --wc-notification-control: #303036;
@@ -118,7 +118,7 @@
   --wc-bg-elevated: color-mix(in srgb, var(--theme-shell-light, #ffffff) 94%, var(--theme-accent, #2e5fbd) 4%);
   --wc-text: #1d1d1f;
   --wc-text-secondary: rgba(29, 29, 31, 0.66);
-  --wc-text-muted: rgba(29, 29, 31, 0.42);
+  --wc-text-muted: rgba(29, 29, 31, 0.64);
   --wc-border: color-mix(in srgb, var(--theme-accent, #2e5fbd) 14%, rgba(0, 0, 0, 0.08));
   --wc-accent: var(--theme-accent, var(--mac-accent, #2e5fbd));
   --wc-accent-hover: color-mix(in srgb, var(--theme-accent, #2e5fbd) 82%, #000);
@@ -139,7 +139,7 @@
   --wc-bg-elevated: color-mix(in srgb, #1f2328 88%, var(--theme-accent, #2e5fbd) 5%);
   --wc-text: rgba(255, 255, 255, 0.91);
   --wc-text-secondary: rgba(255, 255, 255, 0.58);
-  --wc-text-muted: rgba(255, 255, 255, 0.36);
+  --wc-text-muted: rgba(255, 255, 255, 0.64);
   --wc-border: color-mix(in srgb, var(--theme-accent, #2e5fbd) 20%, rgba(255, 255, 255, 0.08));
   --wc-accent: color-mix(in srgb, var(--theme-accent, #2e5fbd) 78%, #d7e3ff);
   --wc-accent-hover: color-mix(in srgb, var(--theme-accent, #2e5fbd) 58%, #ffffff);
@@ -154,7 +154,6 @@
 
 /* ═══ 窗口 chrome ═══ */
 .moments-window {
-  position: relative;
   background: var(--wc-bg, #ededed) !important;
 }
 
@@ -293,7 +292,8 @@
   border: none;
   background: none;
   padding: 0;
-  transition: color 0.15s;
+  border-radius: 7px;
+  transition: color 150ms ease, background-color 150ms ease;
   filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45));
 }
 
@@ -344,7 +344,7 @@
   color: var(--wc-notification-text);
   background: var(--wc-notification-panel);
   border: 1px solid var(--wc-notification-panel-border);
-  border-radius: 9px;
+  border-radius: 13px;
   box-shadow: var(--wc-notification-shadow);
   overflow: visible;
   transform-origin: top right;
@@ -580,7 +580,7 @@
   right: auto;
   bottom: auto;
   left: 50%;
-  width: min(336px, calc(100vw - 40px));
+  width: min(368px, calc(100vw - 40px));
   max-height: calc(100% - 92px);
   color: var(--wc-notification-text);
   background: var(--wc-publish-panel);
@@ -659,7 +659,7 @@
 
 .moments-publish-textarea {
   width: 100%;
-  min-height: 112px;
+  min-height: 132px;
   resize: none;
   color: var(--wc-notification-text);
   background: transparent;
@@ -688,7 +688,9 @@
   align-items: center;
   justify-content: space-between;
   min-height: 34px;
-  margin-top: 6px;
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--wc-publish-border);
 }
 
 .moments-publish-tool {
@@ -867,7 +869,7 @@
   color: var(--wc-notification-text);
   background: var(--wc-publish-panel-raised);
   border: 1px solid var(--wc-publish-border);
-  border-radius: 10px;
+  border-radius: 7px;
   outline: none;
   padding: 0 10px;
   font: inherit;
@@ -928,7 +930,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 18px 58px 26px;
+  padding: 18px 28px 24px;
   background: transparent;
 }
 
@@ -940,9 +942,9 @@
 .moments-publish-cancel,
 .moments-publish-submit {
   flex: 1;
-  height: 30px;
+  height: 34px;
   border: 0;
-  border-radius: 5px;
+  border-radius: 7px;
   padding: 0 14px;
   font: inherit;
   font-size: 12px;
@@ -1130,32 +1132,34 @@
 
 /* ═══ 标签区 ═══ */
 .moments-tags {
-  padding: 12px 20px 0;
+  padding: 12px 20px 4px;
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
 }
 
 .moments-tag {
-  display: inline-block;
-  padding: 4px 14px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 4px 13px;
   border-radius: 14px;
   background: var(--wc-tag-bg);
   color: var(--wc-tag-color);
   font-size: 13px;
   text-decoration: none;
-  transition: all 0.2s;
-  opacity: 0.85;
+  transition: color 150ms ease, background-color 150ms ease;
 }
 
 .moments-tag:hover {
-  opacity: 1;
+  color: var(--wc-text);
+  background: var(--wc-action-bg-hover);
 }
 
 .moments-tag.is-active {
-  color: var(--wc-tag-active-color);
-  font-weight: 500;
-  opacity: 1;
+  color: var(--wc-accent);
+  background: color-mix(in srgb, var(--wc-accent) 14%, var(--wc-bg-elevated));
+  font-weight: 600;
 }
 
 /* ═══ Feed 列表 ═══ */
@@ -1186,7 +1190,7 @@
 .moment-feed-card {
   display: flex;
   gap: 12px;
-  padding: 14px 16px;
+  padding: 18px 20px;
   border-bottom: 1px solid var(--wc-border);
 }
 
@@ -1199,7 +1203,7 @@
 .moment-feed-avatar {
   width: var(--wc-avatar-size);
   height: var(--wc-avatar-size);
-  border-radius: 6px;
+  border-radius: 8px;
   object-fit: cover;
 }
 
@@ -1207,7 +1211,7 @@
   display: block;
   width: var(--wc-avatar-size);
   height: var(--wc-avatar-size);
-  border-radius: 6px;
+  border-radius: 8px;
   text-decoration: none;
 }
 
@@ -1230,7 +1234,7 @@
   width: fit-content;
   color: var(--wc-accent);
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1.3;
   margin-bottom: 4px;
   text-decoration: none;
@@ -1272,8 +1276,8 @@
 /* ── 图片网格 ── */
 .moment-feed-gallery {
   display: grid;
-  gap: 4px;
-  margin-top: 8px;
+  gap: 6px;
+  margin-top: 10px;
 }
 
 .moment-feed-gallery[data-count="1"]  { grid-template-columns: minmax(0, 240px); }
@@ -1293,12 +1297,15 @@
 .moment-feed-gallery-item-wrapper {
   position: relative;
   aspect-ratio: 1;
-  border-radius: 4px;
+  border-radius: 8px;
   overflow: hidden;
   background: linear-gradient(90deg, var(--wc-skeleton-surface) 25%, var(--wc-skeleton-sheen) 50%, var(--wc-skeleton-surface) 75%);
   background-size: 200% 100%;
-  animation: wc-shimmer 1.6s ease-in-out infinite;
+  animation: none;
+  transition: filter 150ms ease;
 }
+
+.moment-feed-gallery-item-wrapper:hover { filter: brightness(0.96); }
 
 .moment-feed-gallery-item-wrapper .moment-feed-gallery-item {
   position: absolute;
@@ -1320,7 +1327,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 8px;
+  margin-top: 10px;
+  gap: 12px;
 }
 
 .moment-feed-meta {
@@ -1341,9 +1349,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 20px;
-  border-radius: 4px;
+  width: 34px;
+  height: 28px;
+  border-radius: 6px;
   background: var(--wc-action-bg);
   border: none;
   cursor: pointer;
@@ -1361,7 +1369,7 @@
 
 .moment-feed-action-popover {
   position: absolute;
-  right: 36px;
+  right: 40px;
   top: 50%;
   z-index: 8;
   display: inline-flex;
@@ -1372,7 +1380,7 @@
   color: var(--wc-notification-text);
   background: var(--wc-notification-panel);
   border: 1px solid var(--wc-notification-panel-border);
-  border-radius: 5px;
+  border-radius: 8px;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.04);
   transform: translateY(-50%);
   transform-origin: right center;
@@ -1449,12 +1457,12 @@
 }
 
 .moment-feed-comments-panel {
-  margin-top: 8px;
-  padding: 8px 10px 10px;
+  margin-top: 9px;
+  padding: 10px 12px;
   color: var(--wc-text);
-  background: var(--wc-card-bg);
-  border: 1px solid color-mix(in srgb, var(--wc-border) 60%, transparent);
-  border-radius: 6px;
+  background: color-mix(in srgb, var(--wc-card-bg) 68%, var(--wc-bg-elevated));
+  border: 0;
+  border-radius: 9px;
   animation: momentCommentsIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -1476,7 +1484,7 @@
 .moment-feed-comments-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 7px;
 }
 
 .moment-feed-comment {
@@ -1553,8 +1561,10 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-top: 2px;
-  padding: 0;
+  margin-top: 4px;
+  margin-left: 2px;
+  padding-left: 10px;
+  border-left: 1px solid color-mix(in srgb, var(--wc-accent) 22%, transparent);
   background: transparent;
 }
 
@@ -1600,6 +1610,8 @@
   font-size: 13px;
 }
 
+.moment-feed-comments-placeholder { height: 1px; margin: 0; overflow: hidden; }
+
 .moment-feed-comments-load-more {
   margin-top: 6px;
 }
@@ -1617,15 +1629,15 @@
 }
 
 .moment-feed-reply-bar {
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   margin-top: 8px;
-  padding: 5px 8px;
-  color: var(--wc-text-muted);
-  background: color-mix(in srgb, var(--wc-bg-elevated) 42%, transparent);
-  border-radius: 4px;
+  padding: 7px 9px;
+  color: var(--wc-accent);
+  background: color-mix(in srgb, var(--wc-accent) 8%, var(--wc-bg-elevated));
+  border-radius: 6px;
   font-size: 12px;
 }
 
@@ -1665,7 +1677,7 @@
   color: var(--wc-text);
   background: color-mix(in srgb, var(--wc-bg-elevated) 68%, transparent);
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: 7px;
   transition: background 0.14s, border-color 0.14s;
 }
 
@@ -1673,6 +1685,37 @@
   background: var(--wc-bg-elevated);
   border-color: color-mix(in srgb, var(--wc-interaction-accent) 55%, var(--wc-border));
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--wc-interaction-accent) 18%, transparent);
+}
+
+.moments-app ::selection { color: var(--wc-text); background: color-mix(in srgb, var(--wc-accent) 22%, transparent); }
+.moments-app textarea { caret-color: var(--wc-accent); }
+
+.moments-app :is(button, a, [role="button"]):focus-visible,
+.moments-window .moments-titlebar-icon-btn:focus-visible,
+.moments-window .moments-titlebar-back:focus-visible {
+  outline: 2px solid var(--wc-accent);
+  outline-offset: 3px;
+}
+
+.moments-publish-dialog :is(button, input):focus-visible,
+.moments-notification-popover a:focus-visible {
+  outline: 2px solid var(--wc-notification-name);
+  outline-offset: 2px;
+}
+
+.moments-publish-tool[aria-expanded="true"] { color: var(--wc-notification-text); background: var(--wc-publish-control); }
+.moments-publish-form[aria-busy="true"] { cursor: progress; }
+.moments-publish-meta [data-moments-publish-status]:empty { display: none; }
+.moments-publish-meta [data-moments-publish-count] { font-variant-numeric: tabular-nums; }
+
+@media (prefers-reduced-motion: reduce) {
+  .moments-window :is(.moments-notification-popover, .moments-publish-dialog, .moment-feed-action-popover, .moment-feed-comments-panel, .moment-feed-popover-btn, .moments-publish-tool, .moments-tag),
+  .moments-window.is-photo-viewer-open .moment-photo-viewer,
+  .moment-feed-card.is-upvote-pending [data-moment-upvote] span[aria-hidden="true"] {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 .moment-feed-comment-editor.is-replying::before {
@@ -2850,15 +2893,20 @@
   }
 
   .moment-feed-action-btn {
-    width: 26px;
-    height: 18px;
+    width: 36px;
+    height: 32px;
   }
 
   .moment-feed-action-popover {
-    right: 31px;
+    right: 42px;
     min-width: 150px;
     height: 38px;
   }
+
+  .moment-feed-reply-bar button { min-height: 32px; padding-inline: 5px; }
+  .moments-publish-tool { width: 34px; height: 34px; }
+  .moments-publish-cancel,
+  .moments-publish-submit { height: 40px; }
 
   .moment-feed-popover-btn {
     width: 75px;

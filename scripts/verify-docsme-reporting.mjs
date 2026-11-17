@@ -75,7 +75,7 @@ async function verifyMainFailure({ environmentFailure = false, browserClosed = f
       visits.push(pathname);
       if (pathname === '/docs/project/b') throw timeout;
       return { scene: pathname === '/docs' ? 'projects' : 'document', projectCards: 1,
-        projectCardHover: { active: true, transform: 'none', glowFilter: 'none', verticalShift: 0 },
+        projectCardHover: { active: true, transform: 'none', coverFilter: 'none', verticalShift: 0 },
         templateId: 'doc', metaDescription: 'fixture', articleTextLength: 1, switchers: 0,
         shikiCode: 0, rawPreCode: 0, katexSource: 0, mermaidSource: 0 };
     },

@@ -140,13 +140,16 @@ export function readDesktopIconsBootstrap(bootstrap = window.__THEME_DESKTOP_PRO
   });
 }
 
-function isUnavailableDefaultContentIcon(icon) {
-  if (icon?.href !== '#') return false;
+function isDefaultContentIcon(icon) {
   // These key/app pairs come from Finder-backed defaults; custom icons are independent.
-  const key = String(icon.key || '');
+  const key = String(icon?.key || '');
   return (key.startsWith('icon-category-') && icon.pjaxApp === 'explorer-categories')
     || (key.startsWith('icon-tag-') && icon.pjaxApp === 'explorer-tags')
     || ((key.startsWith('icon-post-') || key.startsWith('icon-page-')) && icon.pjaxApp === 'reader');
+}
+
+function isUnavailableDefaultContentIcon(icon) {
+  return icon?.href === '#' && isDefaultContentIcon(icon);
 }
 
 /**
@@ -168,6 +171,7 @@ function isUnavailableDefaultContentIcon(icon) {
 export function mergeDesktopIconLayout(defaultIcons, savedLayout, resolvedWidgets = [], maxVisibleRows = 8) {
   const unavailableKeys = new Set(defaultIcons.filter(isUnavailableDefaultContentIcon).map((icon) => icon.key));
   const availableDefaults = defaultIcons.filter((icon) => !unavailableKeys.has(icon.key));
+  const currentContent = new Map(availableDefaults.filter(isDefaultContentIcon).map((icon) => [icon.key, icon]));
   if (!savedLayout || !Array.isArray(savedLayout.icons)) {
     return availableDefaults;
   }
@@ -177,7 +181,8 @@ export function mergeDesktopIconLayout(defaultIcons, savedLayout, resolvedWidget
     const validIcons = savedLayout.icons.filter((icon) => icon && icon.key && !icon.deleted && !unavailableKeys.has(icon.key));
     return validIcons.map((icon, index) => {
       const fallback = computeDefaultDesktopIconPlacement(index, 12, Math.max(4, maxVisibleRows));
-      const link = normalizeDesktopIconHref(icon.href || '#');
+      const current = currentContent.get(icon.key);
+      const link = normalizeDesktopIconHref(current?.href || icon.href || '#');
       const external = typeof icon.external === 'boolean' ? icon.external : link.external;
       return {
         key: icon.key,
@@ -188,7 +193,7 @@ export function mergeDesktopIconLayout(defaultIcons, savedLayout, resolvedWidget
         pjaxApp: typeof icon.pjaxApp === 'string' ? icon.pjaxApp : '',
         external,
         subtype: normalizeDesktopIconType(icon.subtype || 'folder'),
-        dataId: icon.dataId || icon.key,
+        dataId: current?.dataId || icon.dataId || icon.key,
         x: toPositiveInt(icon.x ?? icon.baseX, fallback.x),
         y: toPositiveInt(icon.y ?? icon.baseY, fallback.y),
         baseX: toPositiveInt(icon.baseX ?? icon.x, fallback.x),

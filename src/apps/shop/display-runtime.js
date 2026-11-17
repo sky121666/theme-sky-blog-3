@@ -11,6 +11,7 @@ export function hydrateShopDisplay(root) {
 
   const win = app.ownerDocument.defaultView;
   const controller = new win.AbortController();
+  let feedback = null;
   let preferences;
   try {
     preferences = parseShopDisplayPreferences(win.localStorage.getItem(SHOP_DISPLAY_PREFS_KEY));
@@ -33,9 +34,21 @@ export function hydrateShopDisplay(root) {
   }
 
   function updateDisplay(changes) {
-    preferences = normalizeShopDisplay({ ...preferences, ...changes });
+    const next = normalizeShopDisplay({ ...preferences, ...changes });
+    if (next.layout === preferences.layout && next.size === preferences.size) return;
+    preferences = next;
     try { win.localStorage.setItem(SHOP_DISPLAY_PREFS_KEY, JSON.stringify(preferences)); } catch { /* Storage is optional. */ }
     render();
+    const status = app.querySelector('[data-shop-display-status]');
+    if (status) status.textContent = `${preferences.layout === 'list' ? '列表' : '卡片'}展示，${({ small: '小', medium: '中', large: '大' })[preferences.size]}尺寸`;
+    feedback?.cancel();
+    // The layout is committed immediately. A single short confirmation belongs
+    // to this local control, never to the shared navigation or every card.
+    if (!win.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      feedback = app.querySelector('[data-shop-catalog]')?.animate?.(
+        [{ opacity: 0.84 }, { opacity: 1 }], { duration: 140, easing: 'ease-out' }
+      ) || null;
+    }
   }
 
   app.addEventListener('click', (event) => {
@@ -55,6 +68,7 @@ export function hydrateShopDisplay(root) {
   render();
 
   const cleanup = () => {
+    feedback?.cancel();
     controller.abort();
     if (displayCleanups.get(app) === cleanup) displayCleanups.delete(app);
   };

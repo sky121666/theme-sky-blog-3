@@ -94,7 +94,7 @@ export async function verifyPendingPjaxLoading({
     assert.equal(
       pendingState.overlayVisible,
       expectWindowOverlay,
-      expectWindowOverlay ? `${label}跨应用时必须保留窗口骨架` : `${label}同应用时不得显示窗口骨架`
+      expectWindowOverlay ? `${label}必须显示窗口骨架` : `${label}等待期间不得用窗口骨架遮住原内容`
     );
     if (!expectWindowOverlay) {
       assert.equal(pendingState.progressVisible, true, `${label}无骨架时必须显示轻量进度`);

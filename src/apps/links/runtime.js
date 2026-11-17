@@ -1,3 +1,4 @@
+import { withRequestDeadline } from '../../shared/request-deadline.js';
 import { warnApiCall } from '../../shell/desktop-shell/runtime/shared/debug.js';
 import { parseCommentPermalink, watchCommentPermalink } from '../../shared/comment-permalink.js';
 
@@ -573,7 +574,7 @@ function createFeedCard(item, {
   onToggleRead
 } = {}) {
   const article = document.createElement('article');
-  article.className = 'links-feed-card is-entering';
+  article.className = 'links-feed-card';
   article.dataset.feedItem = '';
   article.dataset.feedId = item.id;
   article.dataset.feedLinkName = item.linkName;
@@ -852,9 +853,12 @@ export function registerLinksExplorer(Alpine) {
     feedItems: [],
     selectedFeedItemId: '',
     selectedFeedItem: null,
-    feedActionBusy: {},
+    feedActionControllers: {},
+    feedActionUncertain: {},
+    feedActionGeneration: 0,
     feedActionMessage: '',
     feedRequestController: null,
+    unreadSummaryController: null,
     capabilityController: null,
     feedGeneration: 0,
     destroyed: false,
@@ -867,6 +871,8 @@ export function registerLinksExplorer(Alpine) {
     _documentClickHandler: null,
     _documentKeydownHandler: null,
     _windowTransitionTimer: 0,
+    _detailWasOpen: false,
+    _detailTrigger: null,
 
     init() {
       this.destroyed = false;
@@ -905,7 +911,13 @@ export function registerLinksExplorer(Alpine) {
 
     destroy() {
       this.destroyed = true;
+      this._detailTrigger = null;
+      this.feedActionGeneration += 1;
+      for (const controller of Object.values(this.feedActionControllers)) controller.abort();
+      this.feedActionControllers = {};
       this.cancelFeedRequest();
+      this.unreadSummaryController?.abort();
+      this.unreadSummaryController = null;
       this.capabilityController?.abort();
       this.capabilityController = null;
       this._commentPermalinkCleanup?.();
@@ -1043,22 +1055,28 @@ export function registerLinksExplorer(Alpine) {
     },
 
     async refreshUnreadSummary() {
-      if (!this.canReadFeed) return;
+      if (this.destroyed || !this.canReadFeed) return;
+      this.unreadSummaryController?.abort();
+      const controller = new AbortController();
+      this.unreadSummaryController = controller;
+      const isCurrent = () => !this.destroyed && this.unreadSummaryController === controller;
       try {
-        const response = await fetch(LINK_FEED_UNREAD_SUMMARY_API, {
-          credentials: 'same-origin',
-          cache: 'no-store',
-          headers: { Accept: 'application/json' }
-        });
-        if (!response.ok) throw statusError(response, await readErrorMessage(response));
-        if (!isJsonResponse(response)) throw statusError(response, '未读统计接口没有返回 JSON');
-        const payload = await response.json();
-        this.unreadCount = Math.max(0, Number(payload?.totalUnreadCount || 0));
+        const payload = await withRequestDeadline(async signal => {
+          const response = await fetch(LINK_FEED_UNREAD_SUMMARY_API, {
+            credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' }, signal
+          });
+          if (!response.ok) throw statusError(response, await readErrorMessage(response));
+          if (!isJsonResponse(response)) throw statusError(response, '未读统计接口没有返回 JSON');
+          return response.json();
+        }, { signal: controller.signal });
+        if (isCurrent()) this.unreadCount = Math.max(0, Number(payload?.totalUnreadCount || 0));
       } catch (error) {
-        if (Number(error?.status || 0) === 401 || Number(error?.status || 0) === 403) {
+        if (isCurrent() && [401, 403].includes(Number(error?.status))) {
           this.canReadFeed = false;
           this.unreadCount = 0;
         }
+      } finally {
+        if (isCurrent()) this.unreadSummaryController = null;
       }
     },
 
@@ -1092,6 +1110,11 @@ export function registerLinksExplorer(Alpine) {
       this.selectedLinkKey = '';
       this.selectedLink = null;
       this.commitNavigation();
+    },
+
+    clearSearch() {
+      this.searchQuery = '';
+      this.$root.querySelector('.links-search')?.focus({ preventScroll: true });
     },
 
     selectLink(key) {
@@ -1214,7 +1237,7 @@ export function registerLinksExplorer(Alpine) {
 
     commitNavigation({ historyMode = 'push', scrollToTop = true, targetUrl = '' } = {}) {
       const previousPermalink = parseCommentPermalink(window.location.hash);
-      this.mobileDetailOpen = this.detailOpen();
+      this.syncDetailFocus();
       if (historyMode !== 'none') this.syncUrl(historyMode, targetUrl);
       this.watchLocationPermalink();
       if (previousPermalink && !parseCommentPermalink(window.location.hash)) {
@@ -1222,7 +1245,29 @@ export function registerLinksExplorer(Alpine) {
       }
       this.syncDocumentChrome();
       if (scrollToTop) this.scrollActivePaneToTop();
-      this.$nextTick(() => this.syncWindowLayout());
+    },
+
+    syncDetailFocus(initial = false) {
+      const detailOpen = this.detailOpen();
+      const opening = !initial && detailOpen && !this._detailWasOpen;
+      const closing = !initial && !detailOpen && this._detailWasOpen;
+      const source = document.activeElement;
+      if (opening && this.$root.contains(source)) this._detailTrigger = source;
+      const focusDetail = opening && (window.innerWidth <= 768 || source?.matches?.(':focus-visible'));
+      this._detailWasOpen = detailOpen;
+      this.mobileDetailOpen = detailOpen;
+      this.$nextTick(() => {
+        this.syncWindowLayout();
+        if (this.destroyed || this.detailOpen() !== detailOpen) return;
+        if (focusDetail) {
+          const controls = this.$root.querySelectorAll('.links-detail-back, .links-detail-close');
+          Array.from(controls).find((control) => control.getClientRects().length)?.focus({ preventScroll: true });
+        } else if (closing) {
+          const target = this._detailTrigger;
+          this._detailTrigger = null;
+          if (target?.isConnected && target.getClientRects().length) target.focus({ preventScroll: true });
+        }
+      });
     },
 
     scrollActivePaneToTop() {
@@ -1348,7 +1393,7 @@ export function registerLinksExplorer(Alpine) {
           || ['scope', 'groupName', 'linkName', 'itemId'].some((name) => url.searchParams.has(name));
       }
 
-      this.mobileDetailOpen = this.detailOpen();
+      this.syncDetailFocus(canonicalize);
       if (canonicalize && needsCanonicalUrl) {
         if (pendingTargetUrl) this._pendingCanonicalUrl = true;
         else this.syncUrl('replace');
@@ -1365,7 +1410,6 @@ export function registerLinksExplorer(Alpine) {
         else if (this.selectedFeedItemId) this.restoreSelectedFeedItem(true);
         else this.ensureFeedState();
       }
-      this.$nextTick(() => this.syncWindowLayout());
     },
 
     syncUrl(mode = 'push', targetUrl = '') {
@@ -1451,7 +1495,7 @@ export function registerLinksExplorer(Alpine) {
     },
 
     refreshFeed() {
-      this.replaceFeed();
+      return this.fetchFeedPage({ replace: true, reconcile: true });
     },
 
     replaceFeed() {
@@ -1465,10 +1509,24 @@ export function registerLinksExplorer(Alpine) {
       return this.fetchFeedPage({ replace: false });
     },
 
-    async fetchFeedPage({ replace }) {
+    clearFeedPage(key) {
+      this.$root.querySelector('[data-feed-list]')?.replaceChildren();
+      this.feedLoadedKey = key;
+      this.feedItems = [];
+      this.feedItemCount = 0;
+      this.feedHasNext = false;
+      this.feedNextPublishedAt = '';
+      this.feedNextId = '';
+      this.selectedFeedItem = null;
+    },
+
+    async fetchFeedPage({ replace, reconcile = false }) {
       if (this.destroyed || this.feedLoading && !replace) return false;
       if (this.isSavedFeedScope() && !this.canReadFeed) return false;
       const protectedMode = this.canReadFeed;
+      // Only an authenticated read started after an uncertain write can
+      // confirm its field. An older list response may still be in flight.
+      const uncertainAtStart = protectedMode ? this.feedActionUncertain : null;
       const filterKey = currentFilterKey(
         this.feedGroupName,
         this.feedLinkName,
@@ -1483,6 +1541,11 @@ export function registerLinksExplorer(Alpine) {
       this.feedLoading = true;
       this.feedReplacing = replace;
       this.feedStatusMessage = '';
+      if (replace && this.feedLoadedKey !== filterKey) {
+        // The new source's heading and URL are already visible. Its previous
+        // source's cards and pagination must not remain actionable underneath.
+        this.clearFeedPage('');
+      }
       if (replace && this.feedItemCount === 0) this.feedStatus = 'checking';
 
       const requestUrl = buildLinkFeedApiUrl({
@@ -1496,15 +1559,18 @@ export function registerLinksExplorer(Alpine) {
       }, window.location.origin);
 
       try {
-        const response = await fetch(requestUrl, {
-          credentials: protectedMode ? 'same-origin' : 'omit',
-          cache: 'no-store',
-          headers: { Accept: 'application/json' },
-          signal: controller.signal
-        });
-        if (!response.ok) throw statusError(response, await readErrorMessage(response));
-        if (!isJsonResponse(response)) throw statusError(response, '朋友圈接口没有返回 JSON');
-        const page = normalizeLinkFeedPage(await response.json());
+        const payload = await withRequestDeadline(async (signal) => {
+          const response = await fetch(requestUrl, {
+            credentials: protectedMode ? 'same-origin' : 'omit',
+            cache: 'no-store',
+            headers: { Accept: 'application/json' },
+            signal
+          });
+          if (!response.ok) throw statusError(response, await readErrorMessage(response));
+          if (!isJsonResponse(response)) throw statusError(response, '朋友圈接口没有返回 JSON');
+          return response.json();
+        }, { signal: controller.signal });
+        const page = normalizeLinkFeedPage(payload);
         page.items = page.items.map((item) => {
           const source = this.feedSources.find((candidate) => candidate.key === item.linkName);
           return {
@@ -1530,7 +1596,6 @@ export function registerLinksExplorer(Alpine) {
         }
         const knownIds = new Set(Array.from(list.querySelectorAll('[data-feed-id]'), (node) => node.dataset.feedId || ''));
         const fragment = document.createDocumentFragment();
-        const inserted = [];
         for (const item of page.items) {
           if (item.id && knownIds.has(item.id)) continue;
           const card = createFeedCard(item, {
@@ -1543,12 +1608,10 @@ export function registerLinksExplorer(Alpine) {
             onToggleRead: (id) => this.toggleFeedRead(id)
           });
           fragment.appendChild(card);
-          inserted.push(card);
           this.feedItems.push(item);
           if (item.id) knownIds.add(item.id);
         }
         list.appendChild(fragment);
-        requestAnimationFrame(() => inserted.forEach((card) => card.classList.remove('is-entering')));
 
         this.feedItemCount = list.querySelectorAll('[data-feed-item]').length;
         this.feedHasNext = page.hasNext;
@@ -1556,7 +1619,19 @@ export function registerLinksExplorer(Alpine) {
         this.feedNextId = page.nextBeforeId;
         this.feedLoadedKey = filterKey;
         this.feedStatus = this.feedItemCount > 0 ? 'ready' : 'empty';
-        if (this.selectedFeedItemId) this.restoreSelectedFeedItem(true);
+        const selectedWasUncertain = Object.hasOwn(this.feedActionUncertain, this.selectedFeedItemId);
+        if (uncertainAtStart && this.canReadFeed && Object.keys(uncertainAtStart).length) {
+          const remaining = { ...this.feedActionUncertain };
+          for (const row of Array.isArray(payload?.items) ? payload.items : []) {
+            const id = String(row?.id || '');
+            const field = uncertainAtStart[id];
+            if (typeof field === 'string' && remaining[id] === field && typeof row[field] === 'boolean'
+              && this.feedItems.find(item => item.id === id)?.[field] === row[field]) delete remaining[id];
+          }
+          this.feedActionUncertain = remaining;
+          if (!Object.keys(remaining).length) this.feedActionMessage = '';
+        }
+        if (this.selectedFeedItemId) this.restoreSelectedFeedItem(!reconcile && !selectedWasUncertain);
         return true;
       } catch (error) {
         if (error?.name === 'AbortError' || controller.signal.aborted || generation !== this.feedGeneration) return false;
@@ -1569,14 +1644,7 @@ export function registerLinksExplorer(Alpine) {
             : '检查链接插件的公开 RSS 设置与游标参数。'
         });
         if (replace && (this.feedItemCount === 0 || this.feedLoadedKey !== filterKey)) {
-          this.$root.querySelector('[data-feed-list]')?.replaceChildren();
-          this.feedItemCount = 0;
-          this.feedHasNext = false;
-          this.feedNextPublishedAt = '';
-          this.feedNextId = '';
-          this.feedLoadedKey = filterKey;
-          this.feedItems = [];
-          this.selectedFeedItem = null;
+          this.clearFeedPage(filterKey);
         }
         this.feedStatus = !protectedMode && Number(error?.status || 0) === 404 ? 'disabled' : 'error';
         this.feedStatusMessage = protectedMode && [401, 403].includes(Number(error?.status || 0))
@@ -1637,38 +1705,56 @@ export function registerLinksExplorer(Alpine) {
     },
 
     async consumeFeedItem(item) {
-      if (!item || !this.canReadFeed) return;
-      if (!item.read) await this.setFeedItemState(item.id, 'read', true, { silent: true });
-      if (item.readLater) await this.setFeedItemState(item.id, 'later', false, { silent: true });
+      if (!item || !this.canReadFeed || this.destroyed) return false;
+      const generation = this.feedActionGeneration;
+      if (!item.read && !await this.setFeedItemState(item.id, 'read', true, { silent: true })) return false;
+      if (this.destroyed || generation !== this.feedActionGeneration || !this.feedItems.includes(item)) return false;
+      if (item.readLater) return this.setFeedItemState(item.id, 'later', false, { silent: true });
+      return true;
     },
 
-    isFeedStateBusy(id, field) {
-      return this.feedActionBusy[`${id}:${field}`] === true;
+    isFeedStateBusy(id) {
+      return Object.hasOwn(this.feedActionControllers, id);
+    },
+
+    findActionItem(id) {
+      return this.feedItems.find((item) => item.id === id)
+        || (this.selectedFeedItem?.id === id ? this.selectedFeedItem : null);
     },
 
     toggleFeedFavorite(id = this.selectedFeedItemId) {
-      const item = this.feedItems.find((candidate) => candidate.id === id) || this.selectedFeedItem;
+      const item = this.findActionItem(id);
       if (!item) return Promise.resolve(false);
       return this.setFeedItemState(item.id, 'favorite', !item.favorite);
     },
 
     toggleFeedReadLater(id = this.selectedFeedItemId) {
-      const item = this.feedItems.find((candidate) => candidate.id === id) || this.selectedFeedItem;
+      const item = this.findActionItem(id);
       if (!item) return Promise.resolve(false);
       return this.setFeedItemState(item.id, 'later', !item.readLater);
     },
 
     toggleFeedRead(id = this.selectedFeedItemId) {
-      const item = this.feedItems.find((candidate) => candidate.id === id) || this.selectedFeedItem;
+      const item = this.findActionItem(id);
       if (!item) return Promise.resolve(false);
       return this.setFeedItemState(item.id, 'read', !item.read);
     },
 
     async setFeedItemState(id, field, value, { silent = false } = {}) {
-      if (!this.canReadFeed || !id || !['read', 'favorite', 'later'].includes(field)) return false;
-      const busyKey = `${id}:${field}`;
-      if (this.feedActionBusy[busyKey]) return false;
-      this.feedActionBusy = { ...this.feedActionBusy, [busyKey]: true };
+      if (this.destroyed || !this.canReadFeed || !id || !['read', 'favorite', 'later'].includes(field)) return false;
+      if (Object.hasOwn(this.feedActionUncertain, id)) {
+        this.feedActionMessage = '状态更新结果待确认，请刷新动态后再操作。';
+        return false;
+      }
+      if (this.isFeedStateBusy(id)) return false;
+      const actionItem = this.findActionItem(id);
+      if (!actionItem) return false;
+      const controller = new AbortController();
+      const generation = this.feedActionGeneration;
+      const ownsAction = () => !this.destroyed && generation === this.feedActionGeneration
+        && this.feedActionControllers[id] === controller;
+      const ownsItem = () => this.findActionItem(id) === actionItem;
+      this.feedActionControllers = { ...this.feedActionControllers, [id]: controller };
       if (!silent) this.feedActionMessage = '';
       const endpoint = field === 'later' ? 'read-later' : field;
       const parameter = field === 'later' ? 'readLater' : field;
@@ -1679,12 +1765,16 @@ export function registerLinksExplorer(Alpine) {
       requestUrl.searchParams.set(parameter, String(Boolean(value)));
 
       try {
-        const response = await fetch(requestUrl, {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { Accept: 'application/json', ...buildCsrfHeaders() }
-        });
-        if (!response.ok) throw statusError(response, await readErrorMessage(response));
+        await withRequestDeadline(async (signal) => {
+          const response = await fetch(requestUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json', ...buildCsrfHeaders() },
+            signal
+          });
+          if (!response.ok) throw statusError(response, await readErrorMessage(response));
+        }, { signal: controller.signal });
+        if (!ownsAction() || !ownsItem()) return false;
         const item = this.feedItems.find((candidate) => candidate.id === id);
         if (item) {
           const previousRead = item.read;
@@ -1702,18 +1792,32 @@ export function registerLinksExplorer(Alpine) {
         }
         return true;
       } catch (error) {
-        this.feedActionMessage = `状态更新失败：${Number(error?.status || 0) ? `HTTP ${error.status}` : '网络或服务异常'}`;
+        if (!ownsAction() || controller.signal.aborted) return false;
+        // A gateway can return an error after the origin applied the write.
+        const status = Number(error?.status) || 0;
+        const uncertain = !status || status === 408 || status >= 500;
+        if (uncertain) this.feedActionUncertain = { ...this.feedActionUncertain, [id]: field === 'later' ? 'readLater' : field };
+        // A pre-write list read may already have replaced this object. Its
+        // identity gates DOM updates, not uncertainty about the server write.
+        if (!ownsItem() && !(uncertain && this.findActionItem(id))) return false;
+        this.feedActionMessage = uncertain
+          ? `${error?.name === 'TimeoutError' || status === 408 || status === 504 ? '状态更新超时，' : '状态更新'}结果待确认，请刷新动态后再操作。`
+          : `状态更新失败：HTTP ${error.status}`;
         warnApiCall('links', 'PluginLinks RSS 状态更新失败', {
           endpoint: requestUrl.toString(),
           message: error?.message || String(error || ''),
           action: `update-feed-${field}`,
-          hint: '检查当前用户 plugin:links:view 权限与 CSRF 会话。'
+          hint: uncertain
+            ? '写操作未获确认，不自动重发；刷新动态读取服务端状态后再操作。'
+            : '检查当前用户 plugin:links:view 权限与 CSRF 会话。'
         });
         return false;
       } finally {
-        const nextBusy = { ...this.feedActionBusy };
-        delete nextBusy[busyKey];
-        this.feedActionBusy = nextBusy;
+        if (ownsAction()) {
+          const nextControllers = { ...this.feedActionControllers };
+          delete nextControllers[id];
+          this.feedActionControllers = nextControllers;
+        }
       }
     },
 
@@ -1735,9 +1839,13 @@ export function registerLinksExplorer(Alpine) {
       const query = normalizeText(this.searchQuery);
       if (!query) return true;
       return [
-        el?.dataset?.feedLinkLabel || '',
-        el?.dataset?.feedLinkDescription || ''
+        el?.dataset?.feedLinkLabel || el?.label || '',
+        el?.dataset?.feedLinkDescription || el?.description || ''
       ].map(normalizeText).join(' ').includes(query);
+    },
+
+    visibleFeedSourceCount() {
+      return this.feedSources.filter((source) => this.matchesFeedSource(source)).length;
     },
 
     readableLinkHost(url) {

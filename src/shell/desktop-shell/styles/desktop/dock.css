@@ -220,6 +220,9 @@
 }
 
 .dock-icon-initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: calc(var(--dock-icon-size, 48px) * 0.43);
   font-weight: 700;
   line-height: 1;

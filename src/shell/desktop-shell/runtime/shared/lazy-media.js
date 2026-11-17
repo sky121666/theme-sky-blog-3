@@ -20,6 +20,9 @@ const _observedImages = new Set();
 
 function prepareLazyImage(el) {
   if (!el) return;
+  // The detached Swup article chose its native image policy before insertion.
+  // Keep supporting explicit deferred sources; do not retag its other images.
+  if (el.closest?.('[data-swup-post-native-media]') && !el.matches(LAZY_IMAGE_SELECTOR)) return;
   if (!el.hasAttribute('loading')) {
     el.setAttribute('loading', 'lazy');
   }

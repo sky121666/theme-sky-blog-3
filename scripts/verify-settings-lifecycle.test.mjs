@@ -22,7 +22,7 @@ function fixture() {
     window: { setTimeout(fn, delay) { const id = ++timerId; timers.set(id, { fn, delay }); return id; }, clearTimeout: (id) => timers.delete(id), requestAnimationFrame: (fn) => fn(), removeEventListener() {} } });
   const stores = new Map();
   const register = vm.runInContext(source.slice(source.indexOf('const SETTINGS_CLOSE_DELAY')).replace('export function registerThemeSettings', 'function registerThemeSettings') + '\nregisterThemeSettings;', context);
-  register({ store(name, value) { if (value) stores.set(name, value); return stores.get(name); } });
+  register({ store(name, value) { if (value) stores.set(name, value); return stores.get(name); } }, context);
   const s = stores.get('themeSettings');
   Object.assign(s, { authenticated: true, accessStatus: 'allowed', canOpen: true, visible: true, open: true, restoreFocusElement: focus,
     restoreRuntimePreview() { restored++; }, cancelResourceRequests() {}, cancelDesktopViewportRestore() { scrollCanceled++; }, switchPane() {} });

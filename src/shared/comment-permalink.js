@@ -1,6 +1,8 @@
 // Halo 2.27: docs/developer-guide/comment-permalinks.md.
 // The theme opens its containers; the comment component owns subject validation,
 // reply lookup, visibility checks and precise positioning inside its Shadow DOM.
+import { readCommentPageUrl } from './comment-page-url.js';
+
 export function parseCommentPermalink(hash = '') {
   const fragment = String(hash).replace(/^#/, '');
   const params = new URLSearchParams(fragment);
@@ -16,7 +18,11 @@ export function parseCommentPermalink(hash = '') {
 }
 
 function pageKey(location) {
-  return `${location.pathname || ''}${location.search || ''}`;
+  const key = `${location.pathname || ''}${location.search || ''}`;
+  const page = readCommentPageUrl(key, location.origin);
+  if (!page) return key;
+  const url = new URL(page.documentUrl);
+  return `${url.pathname}${url.search}`;
 }
 
 export function watchCommentPermalink(root, onChange) {

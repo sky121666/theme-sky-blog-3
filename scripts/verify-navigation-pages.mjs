@@ -7,8 +7,10 @@ import { readLiveBuildContext } from './lib/live-build-context.mjs';
 // visible anchors on the live page; no fixture content or account is created.
 const base = process.env.SMOKE_BASE_URL || 'http://localhost:8090';
 const origin = new URL(base).origin;
+const bypassPageCache = process.env.SMOKE_NO_CACHE === '1';
 const momentsOnly = process.argv.includes('--moments');
-const evidencePath = `docs/evidence/pjax-design-2026-09-28/${momentsOnly ? 'moments-parent-return-results' : 'page-matrix-results'}.json`;
+const evidenceDir = process.env.NAVIGATION_EVIDENCE_DIR || 'docs/evidence/pjax-design-2026-09-28';
+const evidencePath = `${evidenceDir}/${momentsOnly ? 'moments-parent-return-results' : 'page-matrix-results'}.json`;
 const records = [];
 const failures = [];
 const profiles = [
@@ -35,7 +37,11 @@ async function openCase(browser, profile, record, start) {
   try {
     await context.route('**/*', (route) => {
       const request = route.request();
-      if (isReadMethod(request.method())) return route.continue();
+      if (isReadMethod(request.method())) {
+        if (bypassPageCache && new URL(request.url()).origin === origin)
+          return route.continue({ headers: { ...request.headers(), 'cache-control': 'no-cache' } });
+        return route.continue();
+      }
       const url = new URL(request.url());
       if (request.method() === 'POST' && url.origin === origin
         && url.pathname === '/apis/api.halo.run/v1alpha1/trackers/counter'
@@ -101,6 +107,7 @@ async function openCase(browser, profile, record, start) {
     record.initial = { url: page.url(), status: response?.status() ?? null };
     if (response?.status() === 404) return { context, page, unavailable: 'initial route returned 404' };
     assert.equal(response?.status(), 200, `${start}: initial route must return 200`);
+    if (bypassPageCache) assert.equal(await response.headerValue('x-halo-cache-at'), null, `${start}: stale HTML could mask the current build`);
     await page.waitForFunction(() => window.pjax?.loadUrl && window.Alpine
       && document.body?.dataset.pageMode, null, { timeout: 15000 });
     return { context, page, unavailable: '' };
@@ -657,7 +664,7 @@ try {
       'targeted moments verification must exercise all entry modes on both profiles');
   }
   const context = await readLiveBuildContext(base);
-  await fs.mkdir('docs/evidence/pjax-design-2026-09-28', { recursive: true });
+  await fs.mkdir(evidenceDir, { recursive: true });
   await fs.writeFile(evidencePath, JSON.stringify({ context, records }, null, 2) + '\n');
   const passed = records.filter((record) => record.status === 'passed').length;
   const skipped = records.filter((record) => record.status === 'skipped').length;

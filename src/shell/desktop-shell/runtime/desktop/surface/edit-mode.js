@@ -15,8 +15,14 @@ import {
 import { flattenCategoryTree } from '../../../../../widgets/shared/data.js';
 import { cloneJsonValue } from '../../shared/utils.js';
 import { markStartupRecoveryReload } from '../../../../../shared/startup-signals.js';
+import { withRequestDeadline } from '../../../../../shared/request-deadline.js';
 
 const PHOTO_GROUPS_API = '/apis/api.photo.halo.run/v1alpha1/photogroups';
+
+function ownsWidgetEditingTask(host, generation) {
+  return host.isHome && host.isEditing && !host.widgetsDisposed
+    && generation === (host.widgetConfigAddGeneration || 0);
+}
 
 export const editModeMethods = {
   /* ── 编辑态进出 ── */
@@ -99,6 +105,7 @@ export const editModeMethods = {
   },
 
   finishDesktopEditingSync() {
+    this.cancelWidgetConfigOptions();
     this.closeDesktopContextMenu();
     this.endCenterSheetDrag(true);
     this.isEditing = false;
@@ -107,6 +114,14 @@ export const editModeMethods = {
     this.endDrag();
     this.syncDesktopBodyState();
     return true;
+  },
+
+  cancelWidgetConfigOptions() {
+    this.widgetConfigAddGeneration = (this.widgetConfigAddGeneration || 0) + 1;
+    this.widgetConfigOptionsRequestId = (this.widgetConfigOptionsRequestId || 0) + 1;
+    this.widgetConfigOptionsAbortController?.abort();
+    this.widgetConfigOptionsAbortController = null;
+    this.widgetConfigOptionsPromise = null;
   },
 
   setEditStage(stage) {
@@ -360,9 +375,13 @@ export const editModeMethods = {
   },
 
   async applyRecommendedWidgetLayout() {
+    if (!this.isHome || !this.isEditing || this.widgetsDisposed) return;
+    const generation = (this.widgetConfigAddGeneration || 0) + 1;
+    this.widgetConfigAddGeneration = generation;
+    const isCurrent = () => ownsWidgetEditingTask(this, generation);
     if (this.sources?.photosAvailable && this.widgetConfigPhotoGroups().length === 0) {
       await this.ensureWidgetConfigOptions('plugin-photos.gallery');
-      if (!this.isHome) return;
+      if (!isCurrent()) return;
     }
     const firstPhotoGroupName = Array.isArray(this.sources?.photoGroups)
       ? this.sources.photoGroups[0]?.metadata?.name || ''
@@ -389,6 +408,7 @@ export const editModeMethods = {
 
     let added = 0;
     for (const item of recommended) {
+      if (!isCurrent()) return;
       if (this.countVisibleWidgetsByType(item.widget) > 0) continue;
       const catalogEntry = getWidgetCatalogEntry(item.widget);
       if (!catalogEntry) continue;
@@ -396,10 +416,12 @@ export const editModeMethods = {
         ...this.createWidgetConfigDefaultMeta(catalogEntry),
         ...(item.meta || {})
       };
-      await this._doAddWidget(item.widget, item.size, `${item.widget}:${item.size}`, meta);
+      await this._doAddWidget(item.widget, item.size, `${item.widget}:${item.size}`, meta, generation);
+      if (!isCurrent()) return;
       added += 1;
     }
 
+    if (!isCurrent()) return;
     if (added > 0) {
       this.markDesktopLayoutDirty('推荐布局已应用，保存后生效');
       return;
@@ -414,9 +436,12 @@ export const editModeMethods = {
 
     // 有配置需求的组件先弹配置弹窗
     if (catalogEntry?.hasConfig) {
+      const generation = (this.widgetConfigAddGeneration || 0) + 1;
+      this.widgetConfigAddGeneration = generation;
       this.widgetConfigOptionsError = '';
       await this.ensureWidgetConfigOptions(widgetType);
-      if (!this.isHome) return;
+      if (!this.isHome || !this.isEditing || this.widgetsDisposed
+        || generation !== this.widgetConfigAddGeneration) return;
       this.openWidgetConfigForm(widgetType, size, catalogKey);
       return;
     }
@@ -435,15 +460,15 @@ export const editModeMethods = {
     this.widgetConfigOptionsAbortController = controller;
     this.widgetConfigOptionsPromise = (async () => {
       try {
-        const response = await fetch(PHOTO_GROUPS_API, {
-          credentials: 'same-origin',
-          headers: { Accept: 'application/json' },
-          signal: controller.signal
-        });
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        const payload = await response.json();
+        const payload = await withRequestDeadline(async (signal) => {
+          const response = await fetch(PHOTO_GROUPS_API, {
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+            signal
+          });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return response.json();
+        }, { signal: controller.signal });
         if (requestId !== this.widgetConfigOptionsRequestId || controller.signal.aborted || !this.isHome) {
           return false;
         }
@@ -749,7 +774,8 @@ export const editModeMethods = {
     await this._doAddWidget(widgetType, size, catalogKey, { ...(meta || {}) });
   },
 
-  async _doAddWidget(widgetType, size = null, catalogKey = null, meta = {}) {
+  async _doAddWidget(widgetType, size = null, catalogKey = null, meta = {}, ownerGeneration = null) {
+    if (ownerGeneration !== null && !ownsWidgetEditingTask(this, ownerGeneration)) return false;
     const selKey = catalogKey || `${widgetType}:${size || 'medium'}`;
     const selection = this.widgetCenterSelections[selKey] || {};
     const nextSize = normalizeWidgetSize(size || getWidgetCatalogEntry(widgetType)?.size || 'medium');
@@ -781,6 +807,10 @@ export const editModeMethods = {
     if (widgetType === 'system.weather') {
       await this.loadWeather(true);
     }
+    // Layout commits happen before the weather wait. A stale batch must not
+    // use its completion to append more widgets or update the new edit owner.
+    if (ownerGeneration !== null && !ownsWidgetEditingTask(this, ownerGeneration)) return false;
+    return true;
   },
 
   async hideWidget(key) {

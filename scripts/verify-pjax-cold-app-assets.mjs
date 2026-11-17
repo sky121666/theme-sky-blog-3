@@ -120,9 +120,9 @@ async function installParallelNavigationProbe(page) {
     document.addEventListener('pjax:send', (event) => {
       state.sends.push(pathname(event.requestOptions?.requestUrl || event.triggerElement?.href));
     });
-    document.addEventListener('pjax:complete', () => state.completes.push(location.pathname));
-    document.addEventListener('pjax:same-variant-complete', (event) => {
-      state.sameCompletes.push(pathname(event.detail?.targetUrl));
+    document.addEventListener('theme:pjax-ready', (event) => {
+      if (event.detail?.mode === 'full') state.completes.push(pathname(event.detail.url));
+      if (event.detail?.mode === 'same') state.sameCompletes.push(pathname(event.detail.url));
     });
     const originalPush = history.pushState;
     history.pushState = function(nextState, title, url) {
@@ -138,7 +138,7 @@ async function startObservedPhotosNavigation(page) {
     window.pjax.loadUrl('/photos');
     const state = window.__PJAX_PARALLEL_PROBE__;
     state.oldRequest = window.pjax.request;
-    state.oldRequest.addEventListener('abort', () => { state.abortCount += 1; });
+    state.oldRequest.controller.signal.addEventListener('abort', () => { state.abortCount += 1; });
   });
 }
 
@@ -148,7 +148,8 @@ async function parallelNavigationState(page) {
     return {
       sends: state.sends, completes: state.completes, sameCompletes: state.sameCompletes,
       pushes: state.pushes, abortCount: state.abortCount,
-      oldRequestState: state.oldRequest?.readyState,
+      oldRequestPending: !state.oldRequest?.controller.signal.aborted && state.oldRequest?.response?.status === 0,
+      oldRequestAborted: state.oldRequest?.controller.signal.aborted === true,
       pathname: location.pathname, appId: document.body?.dataset?.appId || '',
       historyState: JSON.stringify(history.state), historyLength: history.length,
       sameCommittedFrame: document.getElementById('window-frame-root') === state.committedFrame
@@ -485,32 +486,65 @@ async function verifyWarmExplorerCssHandoff(browser) {
     assert.equal(afterReturn.archivesDisabled, true, 'old Archives CSS must be disabled after completion');
     assert.equal(afterReturn.rootDisplay, 'flex', 'returned Categories Finder must render with its app layout');
 
-    const fullHandoff = await page.evaluate((timeoutMs) => new Promise((resolve, reject) => {
+    const programmaticHandoff = await page.evaluate((timeoutMs) => new Promise((resolve, reject) => {
       const css = () => ({
         categoriesDisabled: document.querySelector('link[data-app-css="explorer-categories"]')?.disabled,
         archivesDisabled: document.querySelector('link[data-app-css="explorer-archives"]')?.disabled
       });
       let atSend = null;
+      let beforeSwap = null;
+      let atSwap = null;
+      let fullSends = 0;
+      const content = document.querySelector('[data-window-content-root] [data-window-content-variant]');
+      const innerHtml = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+      if (!content || !innerHtml?.set) throw new Error('Cannot observe programmatic content swap');
+      Object.defineProperty(content, 'innerHTML', {
+        configurable: true,
+        get() { return innerHtml.get.call(this); },
+        set(value) {
+          beforeSwap = css();
+          delete this.innerHTML;
+          innerHtml.set.call(this, value);
+        }
+      });
       const cleanup = () => {
         window.clearTimeout(timer);
-        document.removeEventListener('pjax:send', onSend);
-        document.removeEventListener('pjax:complete', onComplete);
+        document.removeEventListener('pjax:send', onFullSend);
+        document.removeEventListener('pjax:same-variant-send', onSend);
+        document.removeEventListener('theme:content-swapped', onSwap);
+        document.removeEventListener('theme:pjax-ready', onComplete);
         document.removeEventListener('pjax:error', onError);
       };
+      const onFullSend = () => { fullSends += 1; };
       const onSend = () => { atSend = css(); };
-      const onComplete = () => { cleanup(); resolve({ atSend }); };
-      const onError = () => { cleanup(); reject(new Error('full PJAX warm CSS navigation failed')); };
+      const onSwap = () => { atSwap = css(); };
+      const onComplete = (event) => {
+        cleanup();
+        resolve({ atSend, beforeSwap, atSwap, atReady: css(), fullSends,
+          mode: event.detail?.mode, url: event.detail?.url });
+      };
+      const onError = () => { cleanup(); reject(new Error('programmatic warm CSS navigation failed')); };
       const timer = window.setTimeout(() => {
         cleanup();
-        reject(new Error('full PJAX warm CSS navigation timed out'));
+        reject(new Error('programmatic warm CSS navigation timed out'));
       }, timeoutMs);
-      document.addEventListener('pjax:send', onSend);
-      document.addEventListener('pjax:complete', onComplete);
+      document.addEventListener('pjax:send', onFullSend);
+      document.addEventListener('pjax:same-variant-send', onSend);
+      document.addEventListener('theme:content-swapped', onSwap);
+      document.addEventListener('theme:pjax-ready', onComplete);
       document.addEventListener('pjax:error', onError);
       window.pjax.loadUrl('/archives');
     }), navigationTimeoutMs);
-    assert.equal(fullHandoff.atSend?.categoriesDisabled, false, 'full PJAX must keep current Categories CSS active at send');
-    assert.equal(fullHandoff.atSend?.archivesDisabled, false, 'full PJAX must stage warm Archives CSS before send');
+    assert.equal(programmaticHandoff.mode, 'same', 'programmatic Explorer navigation must use the same route policy as clicks');
+    assert.equal(new URL(programmaticHandoff.url, baseUrl).pathname, '/archives', 'ready must belong to the requested route');
+    assert.equal(programmaticHandoff.fullSends, 0, 'programmatic Explorer navigation must not start full PJAX');
+    assert.equal(programmaticHandoff.atSend?.categoriesDisabled, false, 'programmatic navigation must keep current Categories CSS active at send');
+    assert.equal(programmaticHandoff.beforeSwap?.categoriesDisabled, false, 'programmatic navigation must keep current Categories CSS active before swap');
+    assert.equal(programmaticHandoff.beforeSwap?.archivesDisabled, false, 'programmatic navigation must stage warm Archives CSS before swap');
+    assert.equal(programmaticHandoff.atSwap?.categoriesDisabled, false, 'current Categories CSS must remain active through swap');
+    assert.equal(programmaticHandoff.atSwap?.archivesDisabled, false, 'target Archives CSS must be active at swap');
+    assert.equal(programmaticHandoff.atReady?.categoriesDisabled, true, 'ready must deactivate old Categories CSS');
+    assert.equal(programmaticHandoff.atReady?.archivesDisabled, false, 'ready must retain target Archives CSS');
     await page.waitForFunction(() => window.location.pathname === '/archives'
       && document.body?.dataset.appId === 'explorer-archives'
       && document.querySelector('link[data-app-css="explorer-categories"]')?.disabled === true
@@ -626,7 +660,7 @@ async function verifyLatestNavigationWins(browser) {
     await installParallelNavigationProbe(page);
     await startObservedPhotosNavigation(page);
     await Promise.all([assetGate.waitUntilRequested(), htmlGate.waitUntilRequested()]);
-    assert.equal((await parallelNavigationState(page)).oldRequestState, 1, 'older HTML must be in flight while its assets are pending');
+    assert.equal((await parallelNavigationState(page)).oldRequestPending, true, 'older HTML must be in flight while its assets are pending');
 
     await page.evaluate(() => {
       window.pjax.loadUrl('/archives');
@@ -643,7 +677,7 @@ async function verifyLatestNavigationWins(browser) {
     await page.evaluate(() => { window.__PJAX_PARALLEL_PROBE__.committedFrame = document.getElementById('window-frame-root'); });
     const committed = await parallelNavigationState(page);
     assert.equal(committed.abortCount, 1, 'newer full navigation must actually abort the in-flight older HTML request');
-    assert.equal(committed.oldRequestState, 0, 'aborted XMLHttpRequest must return to UNSENT');
+    assert.equal(committed.oldRequestAborted, true, 'superseded Swup session must abort its transport signal');
     assert.deepEqual(committed.sends, ['/photos', '/archives'], 'each intent may start HTML once in parallel with assets');
     assert.deepEqual(committed.completes, ['/archives'], 'only the latest full navigation may complete');
     assert.deepEqual(committed.pushes, ['/archives'], 'only the latest target may commit one history entry');
@@ -710,7 +744,7 @@ async function verifySameVariantNavigationWins(browser) {
     });
     await startObservedPhotosNavigation(page);
     await Promise.all([photosAssetGate.waitUntilRequested(), photosHtmlGate.waitUntilRequested()]);
-    assert.equal((await parallelNavigationState(page)).oldRequestState, 1, 'cross-mode test requires an in-flight older HTML request');
+    assert.equal((await parallelNavigationState(page)).oldRequestPending, true, 'cross-mode test requires an in-flight older HTML request');
 
     await page.locator(`a.pjax-link[href="${detailHref}"]`).first().click();
     await detailRequestGate.waitUntilRequested();
@@ -749,7 +783,7 @@ async function verifySameVariantNavigationWins(browser) {
     await page.evaluate(() => { window.__PJAX_PARALLEL_PROBE__.committedFrame = document.getElementById('window-frame-root'); });
     const committed = await parallelNavigationState(page);
     assert.equal(committed.abortCount, 1, 'same-variant intent must actually abort the older full HTML request');
-    assert.equal(committed.oldRequestState, 0, 'superseded full request must be UNSENT after abort');
+    assert.equal(committed.oldRequestAborted, true, 'superseded full Swup session must abort its transport signal');
     assert.deepEqual(committed.sends, ['/photos']);
     assert.deepEqual(committed.completes, [], 'the cancelled full navigation must never complete');
     assert.deepEqual(committed.sameCompletes, [detailPath], 'only the latest same-variant target may complete once');
@@ -865,7 +899,25 @@ async function verifyDelayedViewTransitionLatestWins(browser) {
         && window.__PJAX_VIEW_TRANSITION_STATE__?.completeCount === 1,
       { pathname: groupUrl.pathname, search: groupUrl.search },
       { timeout: navigationTimeoutMs }
-    );
+    ).catch(async (error) => {
+      const diagnostics = await page.evaluate(() => ({
+        url: location.href,
+        photosView: document.querySelector('[data-app-root="photos"]')?.dataset.photosView,
+        activeHref: document.querySelector('.photos-sidebar-item.is-active')?.getAttribute('href'),
+        activeApp: window.__THEME_PAGE_APP_REGISTRY__?.activeApp?.appId,
+        callCount: window.__PJAX_VIEW_TRANSITION_STATE__?.callCount,
+        completeCount: window.__PJAX_VIEW_TRANSITION_STATE__?.completeCount,
+        firstReleased: window.__PJAX_VIEW_TRANSITION_STATE__?.firstReleased,
+        transitionOwner: document.documentElement.getAttribute('data-photos-view-transition-owner'),
+        latestSession: {
+          aborted: window.pjax.request?.controller.signal.aborted,
+          started: Boolean(window.pjax.request?.visit),
+          historyCommitted: window.pjax.request?.historyCommitted,
+          responseStatus: window.pjax.request?.response?.status
+        }
+      }));
+      throw new Error(`delayed View Transition did not yield to ${groupUrl.href}: ${JSON.stringify(diagnostics)}`, { cause: error });
+    });
     await page.waitForTimeout(300);
 
     const beforeRelease = await page.evaluate(() => ({
@@ -1134,7 +1186,7 @@ async function verifyRapidDetailViewTransitionLatestWins(browser) {
   }
 }
 
-async function verifySupersededLiveDecodeDoesNotDispatch(browser) {
+async function verifySupersededPhotoSnapshotDoesNotDispatch(browser) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
   const errors = collectAlpineUndefinedErrors(page);
 
@@ -1166,32 +1218,14 @@ async function verifySupersededLiveDecodeDoesNotDispatch(browser) {
         photoName: link.dataset.photoName || '',
       }));
     });
-    assert.equal(targets.length, 2, 'live decode race needs two detail targets');
-    assert.ok(targets.every((target) => target.href && target.photoName), 'live decode race targets must be addressable');
+    assert.equal(targets.length, 2, 'snapshot race needs two detail targets');
+    assert.ok(targets.every((target) => target.href && target.photoName), 'snapshot race targets must be addressable');
     const backHref = await page.locator('.photos-detail-titlebar-back').getAttribute('href');
-    assert.ok(backHref, 'live decode race needs the persistent detail back link');
-
-    await page.evaluate(async (hrefs) => {
-      const sources = await Promise.all(hrefs.map(async (href) => {
-        const response = await fetch(href, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-        const html = await response.text();
-        return new DOMParser().parseFromString(html, 'text/html')
-          .querySelector('.photos-detail-figure img')
-          ?.getAttribute('src') || '';
-      }));
-      await Promise.all(sources.filter(Boolean).map((src) => new Promise((resolve) => {
-        const image = new Image();
-        image.onload = resolve;
-        image.onerror = resolve;
-        image.src = src;
-        if (image.complete) resolve();
-      })));
-    }, targets.map((target) => target.href));
+    assert.ok(backHref, 'snapshot race needs the persistent detail back link');
 
     await page.evaluate(() => {
       const state = {
         callCount: 0,
-        liveDecodeStarted: 0,
         sameCompleteTargets: [],
         contentSwappedPhotos: [],
         fullSendCount: 0,
@@ -1199,23 +1233,15 @@ async function verifySupersededLiveDecodeDoesNotDispatch(browser) {
       };
       window.__PJAX_LIVE_DECODE_RACE__ = state;
       const nativeStartViewTransition = document.startViewTransition.bind(document);
-      const nativeDecode = HTMLImageElement.prototype.decode;
-
+      // Supersede the detail after the old snapshot but before the DOM swap.
+      // Image decode is no longer part of the update callback.
       document.startViewTransition = (callback) => {
         state.callCount += 1;
-        return nativeStartViewTransition(callback);
-      };
-      HTMLImageElement.prototype.decode = function (...args) {
-        if (this.isConnected
-          && this.closest?.('.photos-detail-figure')
-          && state.liveDecodeStarted === 0) {
-          state.liveDecodeStarted += 1;
-          queueMicrotask(() => {
-            document.querySelector('.photos-detail-titlebar-back')?.click();
-          });
-          return new Promise(() => {});
-        }
-        return nativeDecode.apply(this, args);
+        return nativeStartViewTransition(async () => {
+          document.querySelector('.photos-detail-titlebar-back')?.click();
+          await new Promise(resolve => setTimeout(resolve, 0));
+          return callback();
+        });
       };
       document.addEventListener('theme:content-swapped', () => {
         state.contentSwappedPhotos.push(
@@ -1250,7 +1276,7 @@ async function verifySupersededLiveDecodeDoesNotDispatch(browser) {
         state: window.__PJAX_LIVE_DECODE_RACE__ || null,
         rootOwner: document.documentElement.getAttribute('data-photos-view-transition-owner') || '',
       })).catch(() => ({ pageClosed: true }));
-      throw new Error(`superseded live decode timed out: ${JSON.stringify(diagnostics)}`, { cause: error });
+      throw new Error(`superseded snapshot timed out: ${JSON.stringify(diagnostics)}`, { cause: error });
     }
     await page.waitForTimeout(300);
 
@@ -1270,15 +1296,15 @@ async function verifySupersededLiveDecodeDoesNotDispatch(browser) {
     assert.deepEqual(
       state.sameCompleteTargets.map((value) => new URL(value, `${baseUrl}/`).pathname),
       [finalUrl.pathname],
-      'stale live decode callback must not emit same-variant completion'
+      'stale snapshot callback must not emit same-variant completion'
     );
-    assert.deepEqual(state.contentSwappedPhotos, [''], 'stale live decode callback must not dispatch content-swapped');
-    assert.equal(state.fullSendCount, 0, 'superseded live decode must remain inside same-variant PJAX');
-    assert.equal(state.title, state.shellTitle, 'latest Photos list title must win after superseding live decode');
-    assert.equal(state.subtitle, state.shellSubtitle, 'latest Photos list subtitle must win after superseding live decode');
-    assert.equal(state.rootClass, false, 'superseded live decode must clean the root transition class');
-    assert.equal(state.inlineNameCount, 0, 'superseded live decode must clean inline transition names');
-    assert.deepEqual(errors, [], `superseded live decode emitted Alpine undefined errors:\n${errors.join('\n')}`);
+    assert.deepEqual(state.contentSwappedPhotos, [''], 'stale snapshot callback must not dispatch content-swapped');
+    assert.equal(state.fullSendCount, 0, 'superseded snapshot must remain inside same-variant PJAX');
+    assert.equal(state.title, state.shellTitle, 'latest Photos list title must win after superseding snapshot');
+    assert.equal(state.subtitle, state.shellSubtitle, 'latest Photos list subtitle must win after superseding snapshot');
+    assert.equal(state.rootClass, false, 'superseded snapshot must clean the root transition class');
+    assert.equal(state.inlineNameCount, 0, 'superseded snapshot must clean inline transition names');
+    assert.deepEqual(errors, [], `superseded snapshot emitted Alpine undefined errors:\n${errors.join('\n')}`);
   } finally {
     await page.close();
   }
@@ -1287,6 +1313,7 @@ async function verifySupersededLiveDecodeDoesNotDispatch(browser) {
 async function verifySkippedViewTransitionFallsBack(browser) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
   const errors = collectAlpineUndefinedErrors(page);
+  const documentRequests = [];
 
   try {
     const response = await openThemePage(page, absoluteUrl('/photos'), {
@@ -1300,12 +1327,18 @@ async function verifySkippedViewTransitionFallsBack(browser) {
       { timeout: navigationTimeoutMs }
     );
     const detail = await findVisiblePhotoDetail(page);
+    page.on('request', (request) => {
+      if (request.resourceType() === 'document' && request.frame() === page.mainFrame()) {
+        documentRequests.push(request.url());
+      }
+    });
 
     await page.evaluate(() => {
       window.__PJAX_SKIPPED_TRANSITION_STATE__ = {
         fullSendCount: 0,
         fullCompleteCount: 0,
-        sameCompleteCount: 0
+        sameCompleteCount: 0,
+        readyEvents: []
       };
       document.addEventListener('pjax:send', () => {
         window.__PJAX_SKIPPED_TRANSITION_STATE__.fullSendCount += 1;
@@ -1315,6 +1348,9 @@ async function verifySkippedViewTransitionFallsBack(browser) {
       });
       document.addEventListener('pjax:same-variant-complete', () => {
         window.__PJAX_SKIPPED_TRANSITION_STATE__.sameCompleteCount += 1;
+      });
+      document.addEventListener('theme:pjax-ready', (event) => {
+        window.__PJAX_SKIPPED_TRANSITION_STATE__.readyEvents.push({ mode: event.detail?.mode, url: event.detail?.url });
       });
       document.startViewTransition = () => ({
         updateCallbackDone: Promise.resolve(),
@@ -1329,12 +1365,25 @@ async function verifySkippedViewTransitionFallsBack(browser) {
       ({ pathname, search }) => window.location.pathname === pathname
         && window.location.search === search
         && document.querySelector('[data-app-root="photos"]')?.dataset?.photosView === 'detail'
-        && window.__PJAX_SKIPPED_TRANSITION_STATE__?.fullSendCount === 1
-        && window.__PJAX_SKIPPED_TRANSITION_STATE__?.fullCompleteCount === 1
+        && window.__PJAX_SKIPPED_TRANSITION_STATE__?.sameCompleteCount === 1
         && !document.getElementById('window-frame-root')?.classList.contains('pjax-loading'),
       { pathname: detail.url.pathname, search: detail.url.search },
       { timeout: navigationTimeoutMs }
-    );
+    ).catch(async (error) => {
+      const diagnostics = await page.evaluate(() => ({
+        url: location.href,
+        photosView: document.querySelector('[data-app-root="photos"]')?.dataset.photosView,
+        appId: document.body?.dataset.appId,
+        state: window.__PJAX_SKIPPED_TRANSITION_STATE__,
+        latestSession: {
+          aborted: window.pjax.request?.controller.signal.aborted,
+          started: Boolean(window.pjax.request?.visit),
+          historyCommitted: window.pjax.request?.historyCommitted,
+          responseStatus: window.pjax.request?.response?.status
+        }
+      }));
+      throw new Error(`skipped View Transition fallback did not complete: ${JSON.stringify({ ...diagnostics, documentRequests })}`, { cause: error });
+    });
     await page.waitForFunction(
       () => !document.getElementById('nprogress'),
       null,
@@ -1350,10 +1399,11 @@ async function verifySkippedViewTransitionFallsBack(browser) {
       nprogressVisible: Boolean(document.getElementById('nprogress'))
     }));
     assert.equal(state.appId, 'photos');
-    assert.equal(state.activeApp, 'photos', 'fallback full PJAX must activate the Photos lifecycle');
-    assert.equal(state.fullSendCount, 1, 'a skipped View Transition callback must fall back exactly once');
-    assert.equal(state.fullCompleteCount, 1, 'fallback full PJAX must complete exactly once');
-    assert.equal(state.sameCompleteCount, 0, 'a skipped content swap must not report same-variant success');
+    assert.equal(state.activeApp, 'photos', 'plain content recovery must activate the Photos lifecycle');
+    assert.equal(state.fullSendCount, 0, 'a skipped View Transition callback must reuse its already loaded HTML');
+    assert.equal(state.fullCompleteCount, 0, 'plain content recovery must not start a second navigation');
+    assert.equal(state.sameCompleteCount, 1, 'recovered content swap must complete exactly once');
+    assert.equal(documentRequests.length, 0, 'animation recovery must retain the current browser document');
     assert.equal(state.nprogressVisible, false, 'fallback completion must clear global progress');
     assert.deepEqual(errors, [], `skipped View Transition fallback emitted Alpine undefined errors:\n${errors.join('\n')}`);
   } finally {
@@ -1374,7 +1424,7 @@ try {
       verifySameVariantNavigationWins,
       verifyDelayedViewTransitionLatestWins,
       verifyRapidDetailViewTransitionLatestWins,
-      verifySupersededLiveDecodeDoesNotDispatch,
+      verifySupersededPhotoSnapshotDoesNotDispatch,
       verifySkippedViewTransitionFallsBack
     ];
   for (const verify of checks) {

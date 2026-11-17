@@ -11,7 +11,11 @@ const [hydrateSource, interactionsSource, publishSource] = await Promise.all([
   fs.readFile(path.join(momentsRoot, 'publish.js'), 'utf8')
 ]);
 const commentPermalinkSource = await fs.readFile(path.join(root, 'src/shared/comment-permalink.js'), 'utf8');
-const commentPermalinkModuleUrl = `data:text/javascript;base64,${Buffer.from(commentPermalinkSource).toString('base64')}`;
+const commentPageUrlSource = await fs.readFile(path.join(root, 'src/shared/comment-page-url.js'), 'utf8');
+const commentPageModuleUrl = `data:text/javascript;base64,${Buffer.from(commentPageUrlSource).toString('base64')}`;
+const commentPermalinkModuleUrl = `data:text/javascript;base64,${Buffer.from(commentPermalinkSource.replace("from './comment-page-url.js'", `from ${JSON.stringify(commentPageModuleUrl)}`)).toString('base64')}`;
+const deadlineSource = await fs.readFile(path.join(root, 'src/shared/request-deadline.js'), 'utf8');
+const deadlineModuleUrl = `data:text/javascript;base64,${Buffer.from(deadlineSource).toString('base64')}`;
 
 assert.doesNotMatch(hydrateSource, /cleanupDeferred|notificationFrame/,
   'Moments hydrate 不得在下一帧重复安装通知、发布和评论控制器');
@@ -27,7 +31,7 @@ async function createPage(browser, html) {
 }
 
 async function exposeModule(page, source, exportName, globalName) {
-  const executableSource = source.replace(
+  const executableSource = source.replace("from '../../shared/request-deadline.js'", `from ${JSON.stringify(deadlineModuleUrl)}`).replace(
     "from '../../shared/comment-permalink.js'",
     `from ${JSON.stringify(commentPermalinkModuleUrl)}`
   );
@@ -48,6 +52,7 @@ async function exposeNotificationModule(page) {
       const setupMomentInteractions = () => null;
       const setupMomentPublish = () => null;
       const warnApiCall = (...args) => window.__notificationWarnings.push(args);
+      ${deadlineSource.replace(/\bexport /g, '')}
       ${executableSource}
       window.__setupMomentNotifications = setupMomentNotifications;
       window.__normalizeMomentHref = normalizeMomentHref;
@@ -84,8 +89,10 @@ async function createNotificationHarness(browser, href, { markReadMode = 'succes
       readMode
     };
     window.pjax = {
-      loadUrl(url) {
+      loadUrl(url, options) {
         window.__notificationProbe.navigations.push(url);
+        window.__notificationProbe.triggerElement = options?.triggerElement === document.querySelector('.moments-notification-item');
+        document.dispatchEvent(new CustomEvent('theme:navigation-accepted', { detail: { url: new URL(url, location.href).href } }));
       }
     };
     window.fetch = (input, init = {}) => {
@@ -183,6 +190,7 @@ async function verifyNotificationNavigationAndCleanup(browser) {
   assert.deepEqual(await internalPage.evaluate(() => window.__notificationProbe.navigations), [
     '/moments/example?from=notification#reply'
   ]);
+  assert.equal(await internalPage.evaluate(() => window.__notificationProbe.triggerElement), true);
   await internalPage.close();
 
   const unsafePage = await createNotificationHarness(browser, 'javascript:alert(document.domain)');
@@ -205,8 +213,8 @@ async function verifyNotificationNavigationAndCleanup(browser) {
   await pendingPage.evaluate(() => window.__notificationCleanup());
   await pendingPage.waitForFunction(() => window.__notificationProbe.markReadAborted === 1);
   await pendingPage.waitForTimeout(50);
-  assert.deepEqual(await pendingPage.evaluate(() => window.__notificationProbe.navigations), [],
-    '通知 cleanup 后已读请求不得迟到触发 PJAX 导航');
+  assert.deepEqual(await pendingPage.evaluate(() => window.__notificationProbe.navigations), ['/moments/late'],
+    '通知应先导航；cleanup 后已读请求不得迟到触发第二次导航');
   await pendingPage.close();
 
   const externalPage = await createNotificationHarness(browser, 'https://outside.example.test/notice');
@@ -263,6 +271,7 @@ async function verifyPublishCancellation(browser) {
       pollStarted: 0,
       pollAborted: 0,
       publishStarted: 0,
+      publishNames: [],
       publishAborted: 0,
       attachmentDeletes: 0,
       navigations: [],
@@ -310,10 +319,16 @@ async function verifyPublishCancellation(browser) {
         window.__publishProbe.attachmentDeletes += 1;
         return Promise.resolve(new Response(null, { status: 204 }));
       }
+      if (url.pathname.startsWith('/moments/') && init.method === 'GET') {
+        return Promise.resolve(new Response('{"status":404,"reason":"NotFound"}', {
+          status: 404, headers: { 'content-type': 'application/json' }
+        }));
+      }
       if (url.pathname === '/moments') {
         window.__publishProbe.publishStarted += 1;
+        window.__publishProbe.publishNames.push(JSON.parse(init.body).metadata.name);
         if (window.__publishProbe.publishMode === 'success') {
-          return Promise.resolve(new Response('{}', {
+          return Promise.resolve(new Response(init.body, {
             status: 201,
             headers: { 'content-type': 'application/json' }
           }));
@@ -395,10 +410,15 @@ async function verifyPublishCancellation(browser) {
     window.__publishProbe.publishMode = 'success';
   });
   await page.click('[data-moments-publish-open]');
-  await page.fill('[data-moments-publish-content]', 'successful publish');
-  await page.dispatchEvent('[data-moments-publish-content]', 'input');
+  assert.equal(await page.locator('[data-moments-publish-content]').inputValue(), 'slow publish',
+    '未确认的发布必须保留原稿，关闭弹窗不等于服务器没有创建');
+  assert.equal(await page.locator('[data-moments-publish-content]').evaluate(node => node.readOnly), true);
+  await page.click('[data-moments-publish-submit]');
+  await page.waitForFunction(() => document.querySelector('[data-moments-publish-submit]').textContent.includes('重试'));
   await page.click('[data-moments-publish-submit]');
   await page.waitForFunction(() => window.__publishProbe.publishStarted === 2);
+  assert.equal(await page.evaluate(() => new Set(window.__publishProbe.publishNames).size), 1,
+    '核对未找到后的显式重试必须创建同名资源');
   await page.waitForFunction(() => !document.querySelector('[data-moments-publish-dialog]').open);
   await page.evaluate(() => window.__publishCleanup());
   await page.waitForTimeout(350);

@@ -38,7 +38,7 @@ assert.match(layoutSource, /th:lang="\$\{#locale != null \? #locale\.toLanguageT
 assert.match(layoutSource, /shouldEmitSocialIdentity = \$\{serverSocialIdentity == true and !#strings\.isEmpty\(absoluteCanonical\)\}/, '服务端社交 URL 身份字段必须由精确 canonical 显式启用');
 assert.match(layoutSource, /property="og:url"[\s\S]*?th:if="\$\{shouldEmitSocialIdentity\}"/, 'og:url 不得继续依赖 SEO Tools 缺席条件');
 assert.match(layoutSource, /property="og:site_name"[\s\S]*?th:if="\$\{!#strings\.isEmpty\(site\.title\)\}"/, 'og:site_name 必须在服务端独立输出');
-assert.match(layoutSource, /th:data-canonical-authority="\$\{pageAppValue == 'docsme'/, 'Docsme 文档 permalink 必须声明主题 canonical 权威');
+assert.match(layoutSource, /rawCanonical = \$\{canonical != null and !\(pageAppValue == 'docsme' and seoPluginAvailable\)/, 'Docsme 仅在 SEO 工具未启用时提供自己的规范地址');
 assert.doesNotMatch(settingsSource, /<h1\b[^>]*id="theme-settings-title"/, '全局设置窗口不得污染页面主标题层级');
 assert.ok(momentPageSource.includes("replaceAll('(?s)```.*$'"), '瞬间 SEO 摘要必须剔除 fenced code block');
 assert.ok(momentDetailSource.includes("replaceAll('(?s)&#96;{3}.*$'"), '瞬间详情主标题必须剔除 fenced code block');
@@ -73,7 +73,6 @@ function fallbackConfig(overrides = {}) {
     title: '主题标题',
     description: '主题描述',
     canonical: 'https://example.com/posts/contract',
-    canonicalAuthority: 'plugin',
     image: 'https://example.com/cover.jpg',
     pageType: 'article',
     siteName: 'Sky Blog',
@@ -86,7 +85,6 @@ function fallbackConfig(overrides = {}) {
     data-title="${values.title}"
     data-description="${values.description}"
     data-canonical="${values.canonical}"
-    data-canonical-authority="${values.canonicalAuthority}"
     data-image="${values.image}"
     data-page-type="${values.pageType}"
     data-site-name="${values.siteName}"></script>`;
@@ -244,23 +242,24 @@ async function verifyInvalidProviderMetadataRepair(page) {
   assert.equal(structuredData.publisher.name, 'Sky Blog', '空 publisher.name 必须使用站点名修补');
 }
 
-async function verifyThemeCanonicalAuthority(page) {
+async function verifyDocsmeCanonical(page) {
+  const alias = 'https://example.com/docs/project';
+  const chapter = alias + '/first-doc';
   await loadRuntime(page, `
     <title>Docsme 项目入口</title>
-    ${fallbackConfig({
-      canonical: 'https://example.com/docs/project/first-doc',
-      canonicalAuthority: 'theme'
-    })}
-    <link rel="canonical" href="https://example.com/docs/project" />
+    ${fallbackConfig({ canonical: '' })}
+    <link rel="canonical" href="${alias}" />
   `);
-
   await page.evaluate(() => ThemeSeoContract.reconcileSeoHead(document));
-  assert.equal(await page.locator("link[rel='canonical']").count(), 1, 'Docsme 别名页 canonical 必须唯一');
-  assert.equal(
-    await page.getAttribute("link[rel='canonical']", 'href'),
-    'https://example.com/docs/project/first-doc',
-    'Docsme 项目入口必须合并到真实文档 permalink'
-  );
+  const links = () => page.locator("link[rel='canonical']").evaluateAll(nodes => nodes.map(n => n.getAttribute('href')));
+  assert.deepEqual(await links(), [alias], '保留插件在项目入口选择的地址');
+  await page.evaluate(html => ThemeSeoContract.syncSeoHeadFromResponse(html),
+    '<html><head>' + fallbackConfig({ canonical: '' }) + '</head><body></body></html>');
+  assert.deepEqual(await links(), [], '启用插件但关闭 canonical 时不擅自补写');
+  await page.evaluate(html => ThemeSeoContract.syncSeoHeadFromResponse(html),
+    '<html><head>' + fallbackConfig({ canonical: chapter }) + '<link rel="canonical" data-theme-seo-fallback="canonical" href="' + chapter + '"></head><body></body></html>');
+  assert.deepEqual(await links(), [chapter], '无插件时使用 Docsme 提供的章节地址');
+  assert.equal(await page.getAttribute("meta[property='og:url']", 'content'), chapter);
 }
 
 async function verifyCollectionPageIdentityRepair(page) {
@@ -404,7 +403,7 @@ try {
   await verifyMetaOnlyMode(page);
   await verifyRobotsContract(page);
   await verifyInvalidProviderMetadataRepair(page);
-  await verifyThemeCanonicalAuthority(page);
+  await verifyDocsmeCanonical(page);
   await verifyCollectionPageIdentityRepair(page);
   await verifyCollectionPagePjaxIdentity(page);
   await verifyPjaxSyncDoesNotMultiplyBroadSelectors(page);

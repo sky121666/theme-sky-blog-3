@@ -6,7 +6,8 @@ import { createNavigationAdmission } from '../src/shell/desktop-shell/runtime/de
 import { createBrowserNavigationOwnership, isCurrentNavigationIntent, resolveNavigationHref } from '../src/shell/desktop-shell/runtime/desktop/pjax/navigation-guard.js';
 import { resolveRoute, inferWindowVariantFromUrl } from '../src/shell-core/runtime/route-manifest.js';
 import { getAppManifest, getAppEntryPaths, getEntryJsPath, getEntryCssPath, isContentSwitchAllowed, supportsSameVariantContentSwitch } from '../src/shell-core/runtime/app-manifests.js';
-import { isAuthenticationResponse } from '../src/shared/navigation-response.js';
+import { getWindowAppContent, hasNavigationTitle, isAuthenticationResponse, navigationResponseAction } from '../src/shared/navigation-response.js';
+import { isCompleteHtmlDocument, isHtmlDocumentResponse } from '../src/shared/html-document.js';
 
 // A missing route boundary or same-origin check must fail these cases.
 let requiresCommerceDocumentNavigation;
@@ -24,8 +25,6 @@ test('shop routes share an independent App and support same-app PJAX', () => {
     const route = resolveRoute(`${origin}${pathname}`);
     assert.equal(route?.appId, 'shop', pathname);
     assert.equal(route?.windowVariant, 'shop', pathname);
-    assert.equal(route?.pjaxMode, 'same-app', pathname);
-    assert.deepEqual(route?.preloadAssets, ['shop'], pathname);
   }
   assert.equal(supportsSameVariantContentSwitch('shop'), true);
   for (const mode of ['browser-shop-products', 'browser-shop-product', 'browser-shop-cart', 'browser-shop-checkout', 'browser-shop-payments', 'browser-shop-order']) {
@@ -131,18 +130,24 @@ function coordinatorFixture({ current = '/links', source = current, allowed = tr
   const location = new URL(`${origin}${current}`);
   let responseApp = '';
   let sameNavigation = null;
+  const shellDocument = title => ({
+    title, head: { querySelectorAll: selector => selector === ':scope > title' ? [{}] : [] },
+    querySelectorAll: selector => selector === '#window-frame-root' ? [{}] : []
+  });
   const context = vm.createContext({
-    URL, AbortController, CustomEvent, requiresCommerceDocumentNavigation, isAuthenticationResponse,
+    URL, AbortController, CustomEvent, requiresCommerceDocumentNavigation, isAuthenticationResponse, navigationResponseAction,
+    getWindowAppContent, hasNavigationTitle, isCompleteHtmlDocument, isHtmlDocumentResponse,
     isCurrentNavigationIntent, resolveNavigationHref, inferWindowVariantFromUrl,
     isContentSwitchAllowed, supportsSameVariantContentSwitch,
     NAVIGATION_INTENT_OPTION: '__themeNavigationIntent', FAILED_RESPONSE_OPTION: '__themeFailedResponse',
-    DOMParser: class { parseFromString() { return { body: { dataset: {} }, querySelectorAll: () => [{}] }; } },
+    DOMParser: class { parseFromString() { return { ...shellDocument('Shop response'), body: { dataset: {} } }; } },
     window: { location, history: { state: null }, clearTimeout() {} },
-    document: { dispatchEvent: (event) => events.dispatchEvent(event), getElementById: () => null,
-      querySelector: () => null, querySelectorAll: () => [{}],
+    document: { ...shellDocument('Source page'), dispatchEvent: (event) => events.dispatchEvent(event), getElementById: () => null,
+      querySelector: () => null,
       body: { dataset: { windowVariant: resolveRoute(`${origin}${source}`)?.windowVariant || '',
         pageMode: source.startsWith('/shop') ? 'browser-shop-products' : 'browser-links' } } },
     navigationIntentGeneration: 0, activeNavigation: null, pendingPopstateNavigation: null,
+    currentCommentPopstate: null,
     committedBrowserEntry: { url: `${origin}${source}` },
     rollbackTimer: 0, rollbackPopstateUid: '', cancelledPopstateUid: '',
     _fullPjaxGeneration: 0, _sameVariantLoadingController: null,
@@ -155,6 +160,9 @@ function coordinatorFixture({ current = '/links', source = current, allowed = tr
     getCurrentPageApp: () => resolveRoute(`${origin}${source}`)?.appId || '',
     settleNavigation(record) { if (record) record.settled = true; },
     isNavigationCurrent: (record) => record === context.activeNavigation && !record.settled,
+    // This VM exercises routing/admission with inert DOM boundaries. Real
+    // trigger state and cleanup are covered by feedback + Swup browser tests.
+    beginNavigationFeedback() { return () => {}; },
     finishNavigationUi() {}, showNavigationStatus() {}, snapshotCurrentBrowserEntry() {},
     clearPendingWindowScrollRestore() {}, pjaxWarn() {}, pjaxLog() {},
     _origHandleResponse: (...args) => responses.push(args),
@@ -172,12 +180,22 @@ function coordinatorFixture({ current = '/links', source = current, allowed = tr
       finish() { sameNavigation = null; }
     },
     clearBusyState() {}, closeTransientNavigationUi() {},
-    pjax: { abortRequest() {} }, inferPageAppForNavigation: (url) => resolveRoute(url)?.appId || '',
+    pjax: {
+      abortRequest() {},
+      dispatchFailure: session => failures.push(session.response.status),
+      // Swup owns the visit lifecycle; this fixture exercises the unchanged
+      // coordinator decision and missing-content fallback inside that visit.
+      async navigateContent(_url, options, execute) {
+        return execute({ options, controller: new AbortController() });
+      }
+    }, inferPageAppForNavigation: (url) => resolveRoute(url)?.appId || '',
     browserNavStateStore: { recover: () => null },
     parsePageAppFromResponse: () => responseApp,
     startTopProgress() {}, stopTopProgress() {}, perfMark() {}, clearTransientNavigationUi() {},
     stageAppCssForNavigation() {}, syncHomeDesktopWidgetProtocolFromResponse() {},
     preparePluginCompatibilityFromResponse() {}, disposePluginUiBeforeNavigationCommit() {},
+    requiresWechatShareDocumentNavigation: async () => false,
+    ensureCommentDraftGuard: async () => {},
     ensureAppAssetsLoaded(app) { assets.push(app); return Promise.resolve(); }
   });
   new vm.Script(`${beginSource}\n${commitSource}\n${handoffSource}\n${fullSource}\n${navigationSource}\n${loadSource}\n${responseSource}\n${sameSource}\nglobalThis.clickNavigation = ${clickSource};`).runInContext(context);
@@ -187,8 +205,9 @@ function coordinatorFixture({ current = '/links', source = current, allowed = tr
     const href = `${origin}/redirect`;
     const record = context.beginNavigation(href, { requestOptions });
     responseApp = resolveRoute(`${origin}${target}`)?.appId || '';
-    await context.pjax.handleResponse(body, { status, responseURL: `${origin}${target}` }, href,
-      { requestOptions, __themeNavigationIntent: record.intentId });
+    const request = { status, responseURL: `${origin}${target}` };
+    await context.pjax.handleResponse(body, request, href,
+      { requestOptions, __themeNavigationIntent: record.intentId, session: { response: request } });
   };
   return { context, state, navigations, failures, responses, requests, assets, localPreparations, click, load, response };
 }
@@ -412,8 +431,8 @@ test('failed response body still preserves the current page', async () => {
   const f = coordinatorFixture();
   await f.response('/shop/products', null);
   assert.deepEqual(f.navigations, []);
-  assert.equal(f.responses[0]?.[0], false);
-  assert.equal(f.responses[0]?.[3]?.__themeFailedResponse, true);
+  assert.deepEqual(f.responses, []);
+  assert.deepEqual(f.failures, [200]);
 });
 
 test('failed POST responses preserve the form instead of reopening its action as GET', async () => {
@@ -423,12 +442,12 @@ test('failed POST responses preserve the form instead of reopening its action as
     assert.deepEqual(f.navigations, [], `POST ${status} 不得把提交 action 作为 GET 整页打开`);
     assert.deepEqual(f.requests, [], '失败响应不得重发提交或发起 GET');
     assert.deepEqual(f.responses, [], '失败响应不得替换当前表单所在页面');
-    assert.deepEqual(f.failures, ['form-response']);
+    assert.deepEqual(f.failures, [status]);
     assert.equal(f.state.commits, 0, '失败提交不得清理源页面草稿');
     assert.equal(f.context.window.location.href, `${origin}/shop/product/42`);
   }
   const get = coordinatorFixture({ current: '/shop/product/42' });
-  await get.response('/shop/cart', null, { status: 500, requestOptions: { requestMethod: 'GET' } });
+  await get.response('/shop/cart', null, { status: 404, requestOptions: { requestMethod: 'GET' } });
   assert.deepEqual(get.navigations, [{ url: `${origin}/shop/cart`, replace: false, covered: true }],
-    '普通 GET 错误应继续显示服务端错误页');
+    'GET 404 应继续显示服务端错误页');
 });

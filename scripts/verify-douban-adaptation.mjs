@@ -44,6 +44,9 @@ function createObservedRoot() {
   root.querySelector = (selector) => {
     if (!nodes.has(selector)) nodes.set(selector, {
       innerHTML: '', textContent: '', hidden: true,
+      classList: createClassList(),
+      attributes: {},
+      setAttribute(name, value) { this.attributes[name] = String(value); },
       toggleAttribute(name, value) { if (name === 'hidden') this.hidden = value; }
     });
     return nodes.get(selector);
@@ -143,6 +146,7 @@ try {
     oldApp.closePreview = () => { oldPreviewCloses += 1; };
     oldApp.renderTypes = () => typeRenders.push('old');
     const oldTypesJob = oldApp.loadTypes();
+    await Promise.resolve();
     oldApp.destroy();
     assert.equal(oldSignal.aborted, true, 'destroy must abort the types request too');
     const newApp = new DoubanApp(sharedRoot);
@@ -201,18 +205,210 @@ try {
         total: 1
       }) };
     };
-    const oldReload = optionalApp.reload();
-    const currentReload = optionalApp.reload();
+    const oldReload = optionalApp.reload({ refreshMetadata: true });
+    await new Promise((resolve) => setImmediate(resolve));
+    const currentReload = optionalApp.reload({ refreshMetadata: true });
     await currentReload;
     oldGenres.resolve({ ok: true, json: async () => [{ name: '过期题材' }] });
     await oldReload;
     await new Promise((resolve) => setTimeout(resolve, 0));
-    assert.equal(oldGenreSignal.aborted, true, 'new reload aborts the old genres request');
+    assert.equal(oldGenreSignal.aborted, true, 'explicit metadata refresh aborts the old genres request');
     assert.equal(optionalApp.state.items[0].name, '当前列表', 'stale optional response cannot replace the current list');
     assert.match(observed.node('[data-douban-genres]').innerHTML, /当前题材/,
       'stale optional response cannot replace the current genre filter');
     assert.doesNotMatch(observed.node('[data-douban-genres]').innerHTML, /过期题材/);
     assert.equal(optionalApp.loadError, false);
+
+    // Keep the transport real through fetchJson: these counts measure public API
+    // requests, rather than calls to a cache helper or a mocked App method.
+    const realNow = Date.now;
+    let now = 1_800_000_000_000;
+    Date.now = () => now;
+    try {
+      const cacheObserved = createObservedRoot();
+      const cacheApp = new DoubanApp(cacheObserved.root);
+      const apiRequests = [];
+      globalThis.fetch = async (url) => {
+        const request = new URL(url, window.location.origin);
+        apiRequests.push(request);
+        const type = request.searchParams.get('type');
+        const dataType = request.searchParams.get('dataType') || '';
+        if (request.pathname.endsWith('/-/genres')) {
+          return { ok: true, json: async () => [{ name: `${type}题材`, doubanCount: 8 }] };
+        }
+        if (request.searchParams.get('size') === '1') {
+          return { ok: true, json: async () => ({ items: [], total: dataType === 'db' ? 12 : 8 }) };
+        }
+        return { ok: true, json: async () => ({ items: [{ id: `${type}-${dataType}`, name: '当前条目' }], total: 8 }) };
+      };
+      const reloadCache = async (options) => {
+        await cacheApp.reload(options);
+        await new Promise((resolve) => setImmediate(resolve));
+      };
+      await reloadCache();
+      assert.equal(apiRequests.length, 6, 'initial load fetches the list, genres and four independent counts');
+      cacheApp.state.status = 'done';
+      await reloadCache();
+      cacheApp.state.genre = 'movie题材';
+      await reloadCache();
+      cacheApp.state.keyword = '当前';
+      await reloadCache();
+      assert.equal(apiRequests.length, 9, 'status, genre and keyword changes each fetch only a new list');
+      assert.equal(cacheObserved.node('[data-douban-stat="done"]').textContent, '8');
+      assert.match(cacheObserved.node('[data-douban-genres]').innerHTML, /movie题材/);
+      cacheApp.state.type = 'book';
+      await reloadCache();
+      assert.equal(apiRequests.length, 15, 'another type needs its own metadata');
+      assert.match(cacheObserved.node('[data-douban-genres]').innerHTML, /book题材/);
+      cacheApp.state.dataType = 'db';
+      await reloadCache();
+      assert.equal(apiRequests.length, 21, 'another dataType must not reuse the previous counts or genres');
+      assert.equal(cacheObserved.node('[data-douban-stat="done"]').textContent, '12');
+      assert.ok(apiRequests.slice(15).filter((url) => url.searchParams.get('size') === '1')
+        .every((url) => url.searchParams.get('type') === 'book' && url.searchParams.get('dataType') === 'db'));
+      cacheApp.state.dataType = '';
+      await reloadCache();
+      cacheApp.state.type = 'movie';
+      await reloadCache();
+      assert.equal(apiRequests.length, 23, 'returning to a fresh type/dataType partition reuses its successful metadata');
+      assert.equal(cacheObserved.node('[data-douban-stat="done"]').textContent, '8');
+      now += 60_001;
+      await reloadCache();
+      assert.equal(apiRequests.length, 29, 'metadata older than one minute is fetched again while the list remains live');
+      await reloadCache({ refreshMetadata: true });
+      assert.equal(apiRequests.length, 35, 'explicit refresh bypasses fresh metadata as well as reloading the list');
+      console.log(`douban metadata transport: ${apiRequests.length} requests across initial/filter/type/dataType/expiry/explicit-refresh checks`);
+      cacheApp.destroy();
+    } finally {
+      Date.now = realNow;
+    }
+
+    const retryObserved = createObservedRoot();
+    const retryApp = new DoubanApp(retryObserved.root);
+    const retryRequests = [];
+    let failMetadata = true;
+    globalThis.fetch = async (url) => {
+      const request = new URL(url, window.location.origin);
+      retryRequests.push(request);
+      const genres = request.pathname.endsWith('/-/genres');
+      if (failMetadata && (genres || request.searchParams.get('status') === 'done')) return { ok: false, status: 503 };
+      return { ok: true, json: async () => genres ? [{ name: '重试题材' }] : { items: [{ id: 'retry-list', name: '可浏览列表' }], total: 8 } };
+    };
+    await retryApp.reload();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(retryRequests.length, 6);
+    assert.equal(retryApp.loadError, false, 'metadata failure must not turn a successful list into an error');
+    assert.equal(retryObserved.node('[data-douban-stat="done"]').textContent, '—');
+    failMetadata = false;
+    await retryApp.reload();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(retryRequests.length, 9, 'the next load retries only failed genres/counts and the uncached list');
+    assert.equal(retryObserved.node('[data-douban-stat="done"]').textContent, '8');
+    assert.match(retryObserved.node('[data-douban-genres]').innerHTML, /重试题材/);
+    await retryApp.reload();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(retryRequests.length, 10, 'recovered metadata joins the successful short-lived cache');
+    console.log(`douban metadata recovery: ${retryRequests.length} requests across initial failure, selective retry and cache reuse`);
+    retryApp.destroy();
+
+    const sharedGenres = deferred();
+    const sharedDone = deferred();
+    const sharedObserved = createObservedRoot();
+    const sharedMetadataApp = new DoubanApp(sharedObserved.root);
+    let metadataRequests = 0;
+    let sharedGenreSignal;
+    let sharedDoneSignal;
+    globalThis.fetch = async (url, { signal }) => {
+      metadataRequests += 1;
+      const request = new URL(url, window.location.origin);
+      if (request.pathname.endsWith('/-/genres')) {
+        sharedGenreSignal = signal;
+        return sharedGenres.promise;
+      }
+      if (request.searchParams.get('size') === '1' && request.searchParams.get('status') === 'done') {
+        sharedDoneSignal = signal;
+        return sharedDone.promise;
+      }
+      return { ok: true, json: async () => ({ items: [{ id: 'shared-list', name: '当前筛选列表' }], total: 8 }) };
+    };
+    await sharedMetadataApp.reload();
+    await new Promise((resolve) => setImmediate(resolve));
+    sharedMetadataApp.state.keyword = '当前筛选';
+    await sharedMetadataApp.reload();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(metadataRequests, 7, 'filter reload reuses still-pending metadata instead of issuing another batch');
+    assert.equal(sharedGenreSignal.aborted, false, 'list cancellation must not abort shared genre loading');
+    assert.equal(sharedDoneSignal.aborted, false, 'list cancellation must not abort shared count loading');
+    sharedGenres.resolve({ ok: true, json: async () => [{ name: '当前共享题材' }] });
+    sharedDone.resolve({ ok: true, json: async () => ({ total: 9 }) });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.match(sharedObserved.node('[data-douban-genres]').innerHTML, /当前共享题材/,
+      'shared pending genres must reach the current filter after the previous list was cancelled');
+    assert.equal(sharedObserved.node('[data-douban-stat="done"]').textContent, '9');
+    assert.equal(sharedMetadataApp.state.keyword, '当前筛选');
+
+    const invalidatedGenres = deferred();
+    const invalidatedDone = deferred();
+    globalThis.fetch = async (url, { signal }) => {
+      const request = new URL(url, window.location.origin);
+      if (request.searchParams.get('type') === 'movie') {
+        if (request.pathname.endsWith('/-/genres')) {
+          sharedGenreSignal = signal;
+          return invalidatedGenres.promise;
+        }
+        if (request.searchParams.get('size') === '1' && request.searchParams.get('status') === 'done') {
+          sharedDoneSignal = signal;
+          return invalidatedDone.promise;
+        }
+      }
+      return { ok: true, json: async () => request.pathname.endsWith('/-/genres')
+        ? [{ name: '图书专属题材' }]
+        : { items: [{ id: 'current-type', name: '当前类型列表' }], total: 12 } };
+    };
+    await sharedMetadataApp.reload({ refreshMetadata: true });
+    await new Promise((resolve) => setImmediate(resolve));
+    sharedMetadataApp.state.type = 'book';
+    await sharedMetadataApp.reload();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(sharedGenreSignal.aborted, true, 'changing metadata type aborts the previous genre transport');
+    assert.equal(sharedDoneSignal.aborted, true, 'changing metadata type aborts the previous count transport');
+    invalidatedGenres.resolve({ ok: true, json: async () => [{ name: '过期电影题材' }] });
+    invalidatedDone.resolve({ ok: true, json: async () => ({ total: 101 }) });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.match(sharedObserved.node('[data-douban-genres]').innerHTML, /图书专属题材/);
+    assert.doesNotMatch(sharedObserved.node('[data-douban-genres]').innerHTML, /过期电影题材/);
+    assert.equal(sharedObserved.node('[data-douban-stat="done"]').textContent, '12',
+      'late metadata from the previous type must not overwrite the current statistics');
+
+    const destroyedMetadata = deferred();
+    const destroyedCount = deferred();
+    globalThis.fetch = async (url, { signal }) => {
+      const request = new URL(url, window.location.origin);
+      if (request.pathname.endsWith('/-/genres')) {
+        sharedGenreSignal = signal;
+        return destroyedMetadata.promise;
+      }
+      if (request.searchParams.get('size') === '1' && request.searchParams.get('status') === 'done') {
+        sharedDoneSignal = signal;
+        return destroyedCount.promise;
+      }
+      return { ok: true, json: async () => ({ items: [{ id: 'before-destroy', name: '销毁前列表' }], total: 12 }) };
+    };
+    await sharedMetadataApp.reload({ refreshMetadata: true });
+    await new Promise((resolve) => setImmediate(resolve));
+    sharedMetadataApp.destroy();
+    assert.equal(sharedGenreSignal.aborted, true, 'destroy must abort pending genres even after list reload');
+    assert.equal(sharedDoneSignal.aborted, true, 'destroy must abort pending counts even after list reload');
+    const beforeLateMetadata = {
+      genres: sharedObserved.node('[data-douban-genres]').innerHTML,
+      done: sharedObserved.node('[data-douban-stat="done"]').textContent
+    };
+    destroyedMetadata.resolve({ ok: true, json: async () => [{ name: '销毁后题材' }] });
+    destroyedCount.resolve({ ok: true, json: async () => ({ total: 99 }) });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(sharedObserved.node('[data-douban-genres]').innerHTML, beforeLateMetadata.genres);
+    assert.equal(sharedObserved.node('[data-douban-stat="done"]').textContent, beforeLateMetadata.done,
+      'late count responses must not mutate a destroyed root');
   } finally {
     if (previousWindow === undefined) delete globalThis.window;
     else globalThis.window = previousWindow;

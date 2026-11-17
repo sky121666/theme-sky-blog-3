@@ -583,7 +583,7 @@ try {
     path.join(root, 'src/shell/desktop-shell/runtime/desktop/pjax/index.js'),
     'utf8'
   );
-  assert.match(pjaxSource, /document\.addEventListener\("pjax:complete", async \(event\) => \{[\s\S]*?try \{[\s\S]*?catch \(error\)[\s\S]*?finally \{/);
+  assert.match(pjaxSource, /pjax\.onComplete = async \(event\) => \{[\s\S]*?try \{[\s\S]*?catch \(error\)[\s\S]*?finally \{/);
   assert.match(pjaxSource,
     /function hardNavigate\(url, \{ replace = false \} = \{\}\)[\s\S]*?window\.location\[replace \? 'replace' : 'assign'\]\(target\)/,
     '整页交接必须按是否已有 history entry 选择 replace 或 assign');
@@ -597,12 +597,12 @@ try {
   );
   assert.match(
     pjaxSource,
-    /createTimedNavigationSignal\(navigation\.signal, PJAX_REQUEST_TIMEOUT\)[\s\S]*?signal:\s*requestSignal\.signal[\s\S]*?requestSignal\.cleanup\(\)/,
+    /createTimedNavigationSignal\(session[\s\S]*?navigation\.signal, PJAX_REQUEST_TIMEOUT\)[\s\S]*?signal:\s*requestSignal\.signal[\s\S]*?requestSignal\.cleanup\(\)/,
     'same-variant fetch 必须使用可清理的有界请求信号'
   );
   assert.match(pjaxSource, /discardStagedOnlineMonitorHistoryState\(\)/, 'PJAX 错误必须清理待写入的 Online history 状态');
   const beginStart = pjaxSource.indexOf('function beginNavigation(url, options = {}, mode = \'full\')');
-  const voteIndex = pjaxSource.indexOf('prepareNavigation({ url, source })', beginStart);
+  const voteIndex = pjaxSource.indexOf('prepareNavigation({ url, source', beginStart);
   const snapshotIndex = pjaxSource.indexOf('snapshotCurrentBrowserEntry()', voteIndex);
   const beginEnd = pjaxSource.indexOf('function finishNavigationUi(', beginStart);
   assert.ok(beginStart >= 0 && voteIndex > beginStart && snapshotIndex > voteIndex && snapshotIndex < beginEnd,
@@ -615,7 +615,7 @@ try {
   assert.doesNotMatch(publicLoadSource, /beginNavigation\(|executeFullNavigation\(/,
     '公开 loadUrl facade 不得自行投票或绕过同应用导航分流');
   assert.match(pjaxSource,
-    /async function navigateWithinVariant\(targetUrl, triggerElement = null, acceptedRecord = null\) \{\s*const record = acceptedRecord \|\| beginNavigation\(targetUrl, \{ triggerElement \}, 'same'\);\s*if \(!record\) return false;/,
+    /async function navigateWithinVariant\(targetUrl, triggerElement = null, acceptedRecord = null, session = null\) \{\s*const record = acceptedRecord \|\| beginNavigation\(targetUrl, \{ triggerElement \}, 'same'\);\s*if \(!record\) return false;/,
     'same-variant 被否决时必须在发请求和清理旧页面前退出');
   const responseStart = pjaxSource.indexOf('pjax.handleResponse = async function');
   const fullCommitIndex = pjaxSource.indexOf('commitAcceptedNavigation(record)', responseStart);
@@ -655,23 +655,17 @@ try {
     /await loadingController\?\.finish\([\s\S]*?if \(isCurrentCompletion\(\)\) \{[\s\S]*?container\?\.classList\.remove\('pjax-loading'\);[\s\S]*?clearTransientNavigationUi\(\);/,
     'complete finally 必须在 overlay await 后重新校验 generation/intent 再清 DOM'
   );
-  assert.match(
-    pjaxSource,
-    /const useWindowOverlay = shouldUseWindowLoadingOverlay\(currentApp, targetApp\);[\s\S]*?const loadingController = createWindowLoadingController\(momentsFeedPlan\?\.loadingRoot \|\| contentRoot, \{\s*useOverlay: useWindowOverlay\s*\}\)\.start\(\);/,
-    'same-variant 必须按应用清单决定使用窗口骨架或轻量进度'
-  );
-  assert.match(
-    pjaxSource,
-    /currentVariant !== 'none' &&\s*shouldUseWindowLoadingOverlay\(currentApp, targetApp\);/,
-    'full PJAX（含前进后退）必须复用同一加载策略'
-  );
+  // Navigation now retains source content instead of covering it with a
+  // window skeleton. verify-swup-global exercises the actual pending DOM,
+  // trigger acknowledgement and failure cleanup; source spelling is not
+  // evidence that the old content remains visible.
   assert.match(
     pjaxSource,
     /pjax\.handleResponse = async function[\s\S]*?await assetGate\.promise[\s\S]*?await ensureAppAssetsLoaded\(responseApp,[\s\S]*?stageAppCssForNavigation\(responseApp\);[\s\S]*?_origHandleResponse\(responseText/,
     'full PJAX 可以并行下载 HTML，但必须在 DOM 替换前等待目标注册并启用 CSS'
   );
   const fullSendStart = pjaxSource.indexOf('document.addEventListener("pjax:send"');
-  const fullSendEnd = pjaxSource.indexOf('document.addEventListener("pjax:complete"', fullSendStart);
+  const fullSendEnd = pjaxSource.indexOf('pjax.onComplete = async', fullSendStart);
   const fullSendSource = pjaxSource.slice(fullSendStart, fullSendEnd);
   assert.doesNotMatch(
     fullSendSource,
@@ -700,7 +694,7 @@ try {
   assert.ok(historyCommitIndex > tailHookIndex, '所有可抛尾部 hook 必须在 same-variant history commit 前完成');
 
   const historyAdmission = pjaxSource.indexOf("window.addEventListener('popstate', (event) => {\n      const targetState = event.state;");
-  assert.ok(historyAdmission > 0 && historyAdmission < pjaxSource.indexOf('const pjax = new Pjax('),
+  assert.ok(historyAdmission > 0 && historyAdmission < pjaxSource.indexOf('const pjax = new SwupNavigation('),
     'theme popstate admission must register before the library listener on the same window target');
   console.log('pjax navigation offline contract passed');
 } finally {

@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { compile, compileModule } from 'svelte/compiler';
 import { chromium } from 'playwright';
+import { build as viteBuild } from 'vite';
+import tailwindcss from '@tailwindcss/vite';
 
 // Compile current component sources in memory. This fixture neither reads old
 // generated assets nor writes new ones; all network traffic is intercepted.
@@ -57,24 +60,38 @@ const bundle = await build({
 });
 assert.deepEqual(componentWarnings, [], 'Project components compile without Svelte warnings');
 const script = bundle.outputFiles[0].text;
-const styles = await readFile(path.join(ui, 'styles/official.css'), 'utf8');
+const cssBuild = await viteBuild({
+  root, configFile: false, logLevel: 'error', plugins: [tailwindcss()],
+  build: { write: false, rollupOptions: { input: path.join(root, 'src/apps/shop/styles/index.css') } },
+});
+const currentCss = cssBuild.output.filter(output => output.type === 'asset' && output.fileName.endsWith('.css')).map(output => output.source).join('\n');
+assert.ok(currentCss, 'Compile current theme CSS in memory');
+const styles = await readFile(path.join(ui, 'styles/official.css'), 'utf8') + '\n' + currentCss;
+const output = path.resolve(root, process.env.COMMERCE_CONTROLS_OUTPUT || 'output/motion-polish-20261115/controls');
+assert.ok(output.startsWith(path.join(root, 'output') + path.sep), 'Control evidence must stay inside output/');
+await mkdir(output, { recursive: true });
+const results = [];
+const sourceHashes = Object.fromEntries(await Promise.all([
+  'src/apps/shop/commerce-ui/pages/Cart.svelte', 'src/apps/shop/commerce-ui/pages/components/CartItem.svelte', 'src/apps/shop/styles/index.css',
+].map(async filename => [filename, createHash('sha256').update(await readFile(path.join(root, filename))).digest('hex')])));
 const browser = await chromium.launch({ headless: true });
 let passed = 0;
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 const gate = () => { let release; const promise = new Promise(resolve => { release = resolve; }); return { promise, release }; };
 
-async function scenario(name, view, respond, action) {
-  const context = await browser.newContext({ locale: 'zh-CN', viewport: { width: 800, height: 900 }, serviceWorkers: 'block' });
+async function scenario(name, view, respond, action, { width = 800, reducedMotion = 'no-preference', hasTouch = false } = {}) {
+  const context = await browser.newContext({ locale: 'zh-CN', viewport: { width, height: 900 }, reducedMotion, hasTouch, serviceWorkers: 'block' });
   const page = await context.newPage();
   const requests = [], errors = [], unexpected = [];
+  const result = { name, view, width, reducedMotion, hasTouch, requests, errors, unexpected, passed: false };
   page.setDefaultTimeout(6000);
   page.on('pageerror', error => errors.push(error.message));
   await context.route('**/*', async route => {
     const request = route.request(), url = new URL(request.url());
     if (url.origin !== origin) { unexpected.push(request.url()); return route.abort(); }
-    if (url.pathname === '/fixture') return route.fulfill({ contentType: 'text/html', body: `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><link rel="icon" href="data:,"><style>${styles}</style></head><body><form id="fixture" onsubmit="event.preventDefault()"></form><script type="module" src="/fixture.js"></script></body></html>` });
+    if (url.pathname === '/fixture') return route.fulfill({ contentType: 'text/html', body: `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,"><style>${styles}</style><style>html,body{margin:0;font-family:-apple-system,system-ui,sans-serif}.controls-window{width:100%;height:100vh;min-width:0;overflow:auto}.controls-window .shop-main{padding:24px}@media(max-width:768px){.controls-window .shop-main{padding:12px}}</style></head><body>${view === 'cart' ? '<section class="shop-window controls-window"><div class="shop-app"><main class="shop-main"><div id="fixture"></div></main></div></section>' : '<form id="fixture" onsubmit="event.preventDefault()"></form>'}<script type="module" src="/fixture.js"></script></body></html>` });
     if (url.pathname === '/fixture.js') return route.fulfill({ contentType: 'text/javascript', body: script });
-    const entry = { method: request.method(), path: url.pathname };
+    const entry = { method: request.method(), path: url.pathname, ...(request.method() === 'GET' ? {} : { body: request.postDataJSON() }) };
     requests.push(entry);
     if (await respond(route, entry)) return;
     unexpected.push(`${entry.method} ${entry.path}`);
@@ -82,12 +99,23 @@ async function scenario(name, view, respond, action) {
   });
   try {
     await page.goto(`${origin}/fixture?view=${view}`);
-    await action(page, requests);
+    await action(page, requests, result);
     assert.deepEqual(errors, [], 'No unhandled component exceptions');
     assert.deepEqual(unexpected, [], 'No request escapes the fixture');
     passed++;
+    result.passed = true;
+    if (view === 'cart') {
+      await page.waitForFunction(() => document.querySelector('.shop-cart__items')?.getAnimations({ subtree: true }).every(animation => animation.playState !== 'running') ?? true);
+      result.screenshot = path.join(output, `${name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.png`);
+      await page.screenshot({ path: result.screenshot, fullPage: true });
+    }
     console.log(`PASS ${name}`);
-  } finally { await context.close(); }
+  } catch (error) {
+    result.error = error.message;
+    result.screenshot = path.join(output, `failed-${name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.png`);
+    await page.screenshot({ path: result.screenshot, fullPage: true }).catch(() => {});
+    throw error;
+  } finally { results.push(result); await context.close(); }
 }
 const reply = async (route, data, status = 200) => { await route.fulfill({ status, json: data }); return true; };
 
@@ -162,6 +190,150 @@ try {
   });
 
   const item = { id: 1, quantity: 2, product: { id: 901, title: '模拟商品', productType: 'VIRTUAL', permalink: '/shop/product/901' }, productVariant: { id: 1901, price: 9, trackInventory: true, stock: 5 } };
+  const cartGeometry = page => page.evaluate(() => {
+    const rect = selector => {
+      const value = document.querySelector(selector).getBoundingClientRect();
+      return { top: value.top, right: value.right, width: value.width, height: value.height };
+    };
+    return {
+      itemAmount: rect('.shop-cart-item__total'),
+      summaryAmount: rect('.shop-cart-summary__row--total .shop-cart-summary__amount'),
+      item: rect('.shop-cart-item'),
+      overflow: document.documentElement.scrollWidth > innerWidth,
+      touchHeights: [...document.querySelectorAll('.shop-cart-item button')].map(node => node.getBoundingClientRect().height),
+    };
+  });
+  const amountsStayInPlace = (before, after) => {
+    for (const key of ['itemAmount', 'summaryAmount']) {
+      assert.ok(Math.abs(before[key].right - after[key].right) <= 1, `${key} right edge stays fixed: ${JSON.stringify({ before, after })}`);
+      assert.ok(Math.abs(before[key].top - after[key].top) <= 1, `${key} baseline stays fixed: ${JSON.stringify({ before, after })}`);
+    }
+    assert.equal(after.overflow, false, 'Current cart has no horizontal page overflow');
+  };
+
+  for (const width of [1280, 390]) {
+    let quantity = 2, puts = 0, reads = 0;
+    const putGate = gate(), readGate = gate();
+    await scenario(`${width}px quantity feedback waits for server confirmation and keeps amount positions`, 'cart', async (route, request) => {
+      if (request.path === `${api}/cart-items` && request.method === 'GET') {
+        if (++reads > 1) await readGate.promise;
+        return reply(route, [{ ...item, quantity }]);
+      }
+      if (request.path === `${api}/cart-items/1` && request.method === 'PUT') {
+        puts++;
+        await putGate.promise;
+        quantity = request.body.quantity;
+        return reply(route, { ...item, quantity });
+      }
+      return false;
+    }, async (page, requests, result) => {
+      const increase = page.getByRole('button', { name: '增加数量', exact: true });
+      const input = page.getByRole('spinbutton', { name: '数量', exact: true });
+      const checkout = page.getByRole('button', { name: '前往结算' });
+      await increase.waitFor();
+      await page.waitForFunction(() => document.querySelector('.shop-cart__items').getAnimations().every(animation => animation.playState !== 'running'));
+      const before = await cartGeometry(page);
+      assert.equal(await page.locator('.shop-cart-item').getAttribute('data-operation-state'), 'idle');
+      await increase.focus();
+      assert.equal(await increase.evaluate(node => getComputedStyle(node).outlineStyle), 'solid', 'Native keyboard focus is visible');
+      await page.keyboard.press('Space');
+      await page.locator('.shop-cart-item[data-operation-state="pending"]').waitFor();
+      assert.equal(await input.isDisabled(), true);
+      assert.equal(await checkout.isDisabled(), true);
+      assert.equal(await page.locator('.shop-cart-summary').getAttribute('aria-busy'), 'true');
+      assert.match(await page.locator('.shop-cart-item__feedback').innerText(), /加载中/);
+      assert.equal(await input.inputValue(), '2', 'Unconfirmed number is not written into the cart');
+      await increase.evaluate(node => { node.click(); node.click(); });
+      const pending = await cartGeometry(page);
+      amountsStayInPlace(before, pending);
+      result.pendingScreenshot = path.join(output, `${width}px-quantity-pending.png`);
+      await page.screenshot({ path: result.pendingScreenshot, fullPage: true });
+      const refresh = page.waitForRequest(request => request.method() === 'GET' && request.url().endsWith('/cart-items'));
+      putGate.release();
+      await refresh;
+      assert.equal(await page.locator('.shop-cart-item').getAttribute('data-operation-state'), 'pending', 'PUT response does not confirm before the cart read');
+      assert.equal(await checkout.isDisabled(), true, 'Checkout waits for the reconciled amount');
+      readGate.release();
+      await page.locator('.shop-cart-item[data-operation-state="confirmed"]').waitFor();
+      assert.equal(await input.inputValue(), '3');
+      assert.match(await page.locator('.shop-cart-item__feedback').innerText(), /✓\s*数量\s*·\s*3/);
+      assert.match(await page.locator('.shop-cart-item__total').innerText(), /27\.00/);
+      await page.waitForFunction(() => !document.querySelector('.shop-cart-summary button')?.disabled);
+      const confirmed = await cartGeometry(page);
+      amountsStayInPlace(before, confirmed);
+      if (width === 390) assert.ok(confirmed.touchHeights.every(height => height >= 44), 'Phone cart actions retain 44px touch height');
+      assert.equal(puts, 1, 'Repeated activation does not replay PUT');
+      assert.equal(reads, 2, 'One success triggers one reconciliation');
+      result.geometry = { before, pending, confirmed };
+      result.writes = requests.filter(request => request.method !== 'GET');
+    }, { width, hasTouch: width === 390 });
+  }
+
+  let quantityAttempts = 0, quantityAfterFailure = 2;
+  await scenario('quantity error stays inline and a new explicit change recovers', 'cart', async (route, request) => {
+    if (request.path === `${api}/cart-items` && request.method === 'GET') return reply(route, [{ ...item, quantity: quantityAfterFailure }]);
+    if (request.path === `${api}/cart-items/1` && request.method === 'PUT') {
+      if (++quantityAttempts === 1) return reply(route, { message: 'fixture quantity failure' }, 422);
+      quantityAfterFailure = request.body.quantity;
+      return reply(route, { ...item, quantity: quantityAfterFailure });
+    }
+    return false;
+  }, async page => {
+    const increase = page.getByRole('button', { name: '增加数量', exact: true });
+    await increase.click();
+    await page.locator('.shop-cart-item[data-operation-state="error"] .shop-cart-item__feedback[role="alert"]').waitFor();
+    assert.match(await page.locator('.shop-cart-item__feedback').innerText(), /更新数量失败/);
+    assert.equal(await page.getByRole('spinbutton', { name: '数量', exact: true }).inputValue(), '2');
+    assert.match(await page.locator('.shop-cart-item__total').innerText(), /18\.00/);
+    assert.equal(await page.locator('.shop-cart-item[data-operation-state="confirmed"]').count(), 0);
+    await page.waitForFunction(() => !document.querySelector('.shop-cart-summary button')?.disabled);
+    assert.equal(quantityAttempts, 1, 'An error does not claim success or replay a quantity request');
+    await increase.click();
+    await page.locator('.shop-cart-item[data-operation-state="confirmed"]').waitFor();
+    assert.equal(await page.getByRole('spinbutton', { name: '数量', exact: true }).inputValue(), '3');
+    assert.equal(await page.locator('.shop-cart-item__feedback[role="alert"]').count(), 0);
+    assert.equal(quantityAttempts, 2, 'Explicit input recovers with exactly one new request');
+  });
+
+  let reducedQuantity = 2, reducedRemoved = false;
+  const reducedDeleteGate = gate();
+  await scenario('reduced motion keeps real feedback and touch controls without animated confirmation or exit', 'cart', async (route, request) => {
+    if (request.path === `${api}/cart-items` && request.method === 'GET') return reply(route, reducedRemoved ? [] : [{ ...item, quantity: reducedQuantity }]);
+    if (request.path === `${api}/cart-items/1` && request.method === 'PUT') {
+      reducedQuantity = request.body.quantity;
+      return reply(route, { ...item, quantity: reducedQuantity });
+    }
+    if (request.path === `${api}/cart-items/1` && request.method === 'DELETE') {
+      await reducedDeleteGate.promise;
+      reducedRemoved = true;
+      await route.fulfill({ status: 204 });
+      return true;
+    }
+    return false;
+  }, async page => {
+    const increase = page.getByRole('button', { name: '增加数量', exact: true });
+    await increase.waitFor();
+    const before = await cartGeometry(page);
+    await increase.tap();
+    await page.locator('.shop-cart-item[data-operation-state="confirmed"]').waitFor();
+    assert.match(await page.locator('.shop-cart-item__feedback').innerText(), /数量\s*·\s*3/);
+    assert.equal(await page.locator('.shop-cart-item__feedback-mark').evaluate(node => getComputedStyle(node).animationName), 'none');
+    const runningDurations = await page.locator('.shop-cart-item').evaluate(node => node.getAnimations({ subtree: true }).filter(animation => animation.playState === 'running').map(animation => animation.effect.getTiming().duration));
+    assert.ok(runningDurations.every(duration => duration <= 0.01), `Reduced motion permits only the project's 0.01ms CSS sentinel, with no entry or confirmation motion: ${runningDurations}`);
+    amountsStayInPlace(before, await cartGeometry(page));
+    const remove = page.locator('.shop-cart-item__remove');
+    const box = await remove.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    assert.equal(await remove.evaluate(node => getComputedStyle(node).transform), 'none', 'Reduced motion does not scale the pressed button');
+    await page.mouse.up();
+    await page.locator('.shop-cart-item[data-operation-state="pending"]').waitFor();
+    assert.equal(await page.getByRole('button', { name: '前往结算' }).isDisabled(), true);
+    reducedDeleteGate.release();
+    await page.locator('.shop-cart-item').waitFor({ state: 'detached' });
+    assert.equal(await page.locator('.shop-cart__items').count(), 0);
+  }, { width: 390, reducedMotion: 'reduce', hasTouch: true });
+
   let cartReads = 0;
   await scenario('cart read failure has a working retry and checkout stays disabled', 'cart', async (route, request) => {
     if (request.path !== `${api}/cart-items` || request.method !== 'GET') return false;
@@ -174,6 +346,24 @@ try {
     assert.equal(await page.getByRole('button', { name: '前往结算' }).isEnabled(), true);
     assert.equal(cartReads, 2, 'One explicit retry issues one new cart read');
   });
+
+  await scenario('phone deletion review offers both 44px actions without an active checkout', 'cart', async (route, request) => {
+    if (request.method === 'GET' && request.path === `${api}/cart-items`) return reply(route, [item]);
+    if (request.method === 'DELETE' && request.path === `${api}/cart-items/1`) {
+      await route.fulfill({ status: 204 });
+      return true;
+    }
+    return false;
+  }, async page => {
+    await page.getByRole('button', { name: '删除', exact: true }).click();
+    for (const name of ['重新核对', '保留商品']) {
+      const button = page.getByRole('button', { name, exact: true });
+      await button.waitFor();
+      assert.ok((await button.boundingBox()).height >= 44, `${name} remains reachable on touch`);
+    }
+    assert.ok(await page.getByRole('button', { name: '前往结算' }).isDisabled());
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  }, { width: 390, hasTouch: true });
 
   let deletes = 0, removed = false;
   const deleteGate = gate();
@@ -302,4 +492,12 @@ try {
     assert.equal(await preview.isEnabled(), true, 'Unavailable SKU images remain inspectable');
   });
   console.log(`PASS commerce controls: ${passed} isolated source-compiled scenarios`);
-} finally { await browser.close(); }
+} finally {
+  await writeFile(path.join(output, 'report.json'), JSON.stringify({
+    kind: 'isolated-source-compiled-controls', node: process.version, origin,
+    sources: sourceHashes, cssSha256: createHash('sha256').update(currentCss).digest('hex'),
+    generatedAssets: 'not read or written', liveBusinessTraffic: 'none; every request intercepted',
+    passed, failed: results.filter(result => !result.passed).length, results,
+  }, null, 2));
+  await browser.close();
+}

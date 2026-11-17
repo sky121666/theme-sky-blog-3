@@ -1,16 +1,35 @@
-/* ---------- PJAX NProgress 进度条 ---------- */
-#nprogress .bar {
-  background: var(--mac-accent) !important;
-  height: 3px !important;
-}
-#nprogress .peg {
-  box-shadow: 0 0 10px var(--mac-accent), 0 0 5px var(--mac-accent) !important;
-}
-#nprogress .spinner-icon {
-  border-top-color: var(--mac-accent) !important;
-  border-left-color: var(--mac-accent) !important;
+/* ---------- Navigation feedback ---------- */
+/* The document also uses this class to close menus; feedback belongs to the
+   accepted trigger only, without fading the retained page or moving its UI. */
+:is(a, button).theme-navigation-pending {
+  cursor: progress;
+  opacity: 0.72;
 }
 
+.theme-navigation-selected {
+  position: relative;
+  isolation: isolate;
+  background-color: transparent !important;
+}
+
+.theme-navigation-selection {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  transform-origin: top left;
+}
+
+#nprogress .bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 10000;
+  width: 100%;
+  height: 2px;
+  pointer-events: none;
+  background: var(--mac-accent) !important;
+}
 .pjax-navigation-status {
   position: fixed;
   left: 50%;

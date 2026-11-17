@@ -604,7 +604,7 @@
   background: var(--content-body-bg, rgba(255,255,255,0.92));
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  transition: opacity 0.22s ease;
+  transition: opacity 0.12s ease-out;
 }
 
 .sr-only {

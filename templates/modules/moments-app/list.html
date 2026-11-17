@@ -218,7 +218,7 @@
                   <span data-moment-upvote-count th:text="${upvoteCount}"></span>
                 </span>
               </div>
-              <div class="moment-feed-comments-status" data-moment-comments-status hidden></div>
+              <div class="moment-feed-comments-status" data-moment-comments-status role="status" aria-live="polite" hidden></div>
               <th:block th:if="${officialComments}">
               <div class="moment-feed-comments-list" data-moment-comments-list></div>
               <button type="button" class="moment-feed-comments-load-more" data-moment-comments-more hidden>查看更多评论</button>
@@ -236,6 +236,7 @@
                 <div class="moment-feed-comment-editor" data-moment-comment-editor>
                   <textarea class="moment-feed-comment-input"
                             data-moment-comment-input
+                            aria-label="评论内容"
                             rows="1"
                             maxlength="500"
                             placeholder="评论..."></textarea>
@@ -420,6 +421,37 @@
                    this.navigationIntentId = null;
                    this.cancelPending();
                },
+               async requestHtml(requestUrl, ownerSignal) {
+                   ownerSignal.throwIfAborted();
+                   const request = new AbortController();
+                   const abortFromOwner = () => request.abort(ownerSignal.reason);
+                   ownerSignal.addEventListener('abort', abortFromOwner, { once: true });
+                   let rejectAbort;
+                   const cancelled = new Promise((_, reject) => { rejectAbort = reject; });
+                   const onAbort = () => rejectAbort(request.signal.reason);
+                   request.signal.addEventListener('abort', onAbort, { once: true });
+                   const timer = setTimeout(() => request.abort(new DOMException('加载超时', 'TimeoutError')), 15000);
+                   try {
+                       return await Promise.race([
+                           (async () => {
+                               const res = await fetch(requestUrl, {
+                                   signal: request.signal,
+                                   headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                               });
+                               if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                               return res.text();
+                           })(),
+                           cancelled
+                       ]);
+                   } catch (error) {
+                       if (request.signal.aborted) throw request.signal.reason;
+                       throw error;
+                   } finally {
+                       clearTimeout(timer);
+                       ownerSignal.removeEventListener('abort', abortFromOwner);
+                       request.signal.removeEventListener('abort', onAbort);
+                   }
+               },
                async loadNext() {
                    if (!this.hasMore || this.loading || !this.nextUrl || this.navigationIntentId != null) return;
                    this.resumePaginationAfterNavigationError = false;
@@ -438,12 +470,7 @@
                    this.loadError = '';
                    this.debugLog('loading next page', { url: requestUrl });
                    try {
-                       const res = await fetch(requestUrl, {
-                           signal: controller.signal,
-                           headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                       });
-                       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                       const html = await res.text();
+                       const html = await this.requestHtml(requestUrl, controller.signal);
                        const doc = new DOMParser().parseFromString(html, 'text/html');
                        const responseRoot = Array.from(doc.querySelectorAll('[data-app-root]'))
                            .find((node) => node.dataset.appRoot === 'moments');

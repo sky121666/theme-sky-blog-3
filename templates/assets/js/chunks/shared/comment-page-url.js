@@ -1,0 +1,1 @@
+function m(r,a){try{const t=new URL(r,a),e=t.searchParams.getAll("comment-page");if(e.length>1||e.length===1&&!/^[1-9]\d*$/.test(e[0]))return null;const n=e.length?Number(e[0]):1;if(!Number.isSafeInteger(n))return null;const l=t.href;return t.searchParams.delete("comment-page"),{href:l,documentUrl:t.href,page:n,hasCommentPage:e.length===1}}catch{return null}}export{m as t};

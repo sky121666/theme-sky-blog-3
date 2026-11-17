@@ -24,18 +24,29 @@ function restoreGlobal(name, descriptor) {
   }
 }
 
-function createFixture() {
+function imageElement() {
   const attributes = new Map();
-  const image = {
+  return {
     currentSrc: 'https://example.test/image.webp',
     src: 'https://example.test/image.jpg',
     dataset: {},
+    tabIndex: -1,
+    closest() { return null; },
     getAttribute(name) {
-      return name === 'src' ? this.src : null;
-    }
+      return name === 'src' ? this.src : attributes.get(name) ?? null;
+    },
+    setAttribute(name, value) { attributes.set(name, String(value)); },
+    removeAttribute(name) { attributes.delete(name); }
   };
+}
+
+function createFixture() {
+  const attributes = new Map();
+  const image = imageElement();
   const gallery = {
     isConnected: true,
+    addEventListener() {},
+    removeEventListener() {},
     matches(selector) {
       return selector === '#article-content'
         || (selector === '#article-content[lg-uid]' && attributes.has('lg-uid'));
@@ -167,8 +178,10 @@ function createScriptLoadingFixture() {
   const timers = new Map();
   const animationFrames = [];
   const documentListeners = new Map();
-  const image = { currentSrc: 'https://example.test/image.webp', dataset: {} };
+  const image = imageElement();
   const gallery = {
+    addEventListener() {},
+    removeEventListener() {},
     hasAttribute() { return false; },
     querySelectorAll(selector) { return selector === 'img' ? [image] : []; }
   };

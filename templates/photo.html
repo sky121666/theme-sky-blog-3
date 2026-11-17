@@ -21,7 +21,8 @@
             detailFilmstripResult=${photoFinder.list(detailPage, detailSize, detailActiveGroup)},
             detailFilmstripItems=${detailFilmstripResult != null ? detailFilmstripResult.items : null},
             detailFilmstripCurrentIndex=${detailFilmstripItems != null ? detailFilmstripItems.![metadata.name].indexOf(photo.metadata.name) : -1},
-            detailFilmstripPhotos=${detailFilmstripCurrentIndex >= 0 ? detailFilmstripItems : neighbors}">
+            detailFilmstripPhotos=${detailFilmstripCurrentIndex >= 0 ? detailFilmstripItems : neighbors},
+            currentThumbIndex=${detailFilmstripCurrentIndex >= 0 ? detailFilmstripCurrentIndex : (neighbors != null ? neighbors.![metadata.name].indexOf(photo.metadata.name) : -1)}">
   <html th:replace="~{modules/shell/layout :: html(
           title = ${photoTitle + ' - ' + site.title},
           description = ${!#strings.isEmpty(photoDescription) ? photoDescription : '图库照片'},
@@ -62,23 +63,26 @@
 
         <main class="photos-main photos-detail-main">
           <section class="photos-detail-stage"
+                   tabindex="-1"
                    :class="{ 'is-pannable': photoCanPan, 'is-panning': photoPanning }">
             <figure class="photos-detail-figure"
                     th:attr="data-photo-name=${photo.metadata.name}">
               <img class="photos-detail-image"
                    th:src="${photo.spec.url}"
+                   th:srcset="${photo.spec.url + ' 1x'}"
                    th:alt="${photoTitle}"
                    loading="eager"
                    decoding="async"
-                   draggable="false"
-                   :style="'transform: translate(calc(-50% + ' + panX + 'px), calc(-50% + ' + panY + 'px)) scale(' + zoomLevel + ')'" />
+                   draggable="false" />
+              <span class="photos-detail-loading" data-photos-detail-loading role="status" hidden>正在加载照片…</span>
               <div class="photos-detail-image-error"
                    data-photos-detail-image-error
                    role="alert"
                    hidden>
                 <span class="icon-[lucide--image-off]" aria-hidden="true"></span>
                 <strong>图片加载失败</strong>
-                <button type="button" onclick="window.location.reload()">重新加载</button>
+                <p>可以重试，或继续浏览其他照片。</p>
+                <button type="button" data-photos-image-retry>重新加载图片</button>
               </div>
               <figcaption th:if="${!#strings.isEmpty(photoDescription)}" th:text="${photoDescription}">图片描述</figcaption>
             </figure>
@@ -111,14 +115,17 @@
             <div class="photos-detail-neighbor-list">
               <a class="photos-detail-neighbor pjax-link"
                  data-pjax-app="photos"
-                 th:each="neighbor : ${detailFilmstripPhotos}"
+                 th:each="neighbor, iter : ${detailFilmstripPhotos}"
+                 th:with="nearby=${currentThumbIndex >= 0 and iter.index >= currentThumbIndex - 1 and iter.index <= currentThumbIndex + 1},
+                          thumb=${thumbnail.gen(!#strings.isEmpty(neighbor.spec.cover) ? neighbor.spec.cover : neighbor.spec.url, 's')}"
                  th:classappend="${neighbor.metadata.name == photo.metadata.name ? ' is-current' : ''}"
                  th:href="${photoUrl.detail(neighbor)}"
                  th:title="${neighbor.spec.displayName}"
                  th:attr="data-photo-name=${neighbor.metadata.name}, aria-current=${neighbor.metadata.name == photo.metadata.name ? 'true' : null}">
-                <img th:src="${thumbnail.gen(!#strings.isEmpty(neighbor.spec.cover) ? neighbor.spec.cover : neighbor.spec.url, 's')}"
+                <img th:src="${nearby ? thumb : null}" th:srcset="${nearby ? thumb + ' 1x' : null}"
+                     th:data-photos-thumb="${nearby ? null : thumb}"
+                     th:attr="loading=${nearby ? 'eager' : 'lazy'}, fetchpriority=${nearby ? 'auto' : 'low'}"
                      th:alt="${neighbor.spec.displayName}"
-                     loading="eager"
                      decoding="async" />
               </a>
             </div>
@@ -138,7 +145,12 @@
                    @click.outside="setInfoOpen(false)"
                    aria-label="图片详情">
             <div class="photos-detail-popover-head">
-              <span>信息</span>
+              <div class="photos-detail-popover-heading">
+                <span>信息</span>
+                <button type="button" class="photos-detail-icon-btn" @click="setInfoOpen(false, { restoreFocus: true })" aria-label="关闭图片详情">
+                  <span class="icon-[lucide--x]" aria-hidden="true"></span>
+                </button>
+              </div>
               <strong th:text="${photoTitle}">图片标题</strong>
               <p th:if="${!#strings.isEmpty(photoTakenAt)}" th:text="${photoTakenAt}">拍摄时间</p>
             </div>

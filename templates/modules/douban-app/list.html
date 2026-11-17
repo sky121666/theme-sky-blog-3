@@ -46,6 +46,7 @@
             <input class="douban-search"
                    type="search"
                    data-douban-search
+                   aria-label="搜索豆瓣条目"
                    autocomplete="off"
                    placeholder="搜索条目..." />
           </label>
@@ -58,12 +59,12 @@
             <span></span><span></span><span></span>
           </div>
           <strong>书影音记录</strong>
-          <button class="douban-mobile-view" type="button" data-douban-mobile-view>▦</button>
+          <button class="douban-mobile-view" type="button" data-douban-mobile-view aria-label="切换到列表视图"><span class="icon-[lucide--list]" aria-hidden="true"></span></button>
         </div>
         <nav class="douban-type-tabs douban-type-tabs--mobile" data-douban-types-mobile aria-label="豆瓣类型"></nav>
         <label class="douban-mobile-search">
           <span class="icon-[lucide--search]" aria-hidden="true"></span>
-          <input type="search" data-douban-search-mobile autocomplete="off" placeholder="搜索条目..." />
+          <input type="search" data-douban-search-mobile aria-label="搜索豆瓣条目" autocomplete="off" placeholder="搜索条目..." />
         </label>
       </section>
 
@@ -103,8 +104,8 @@
       </section>
 
       <section class="douban-filterbar">
-        <div class="douban-status-pills" data-douban-statuses></div>
-        <div class="douban-genre-pills" data-douban-genres></div>
+        <div class="douban-status-pills" data-douban-statuses role="group" aria-label="收藏状态"></div>
+        <div class="douban-genre-pills" data-douban-genres role="group" aria-label="题材筛选"></div>
       </section>
 
       <main class="douban-main">
@@ -141,6 +142,7 @@
           <span class="douban-empty-icon icon-[lucide--search-x]" aria-hidden="true"></span>
           <h2>当前筛选暂无匹配记录</h2>
           <p>没有对应分类、状态或者关键词的条目。</p>
+          <button class="douban-empty-retry" type="button" data-douban-clear-filters>清除筛选</button>
         </section>
 
         <section class="douban-empty douban-empty--error" data-douban-error hidden>
@@ -155,6 +157,7 @@
       </main>
 
       <footer class="douban-pagination">
+        <span class="douban-result-count" data-douban-result-count role="status" aria-live="polite"></span>
         <button class="douban-load-more" type="button" data-douban-load-more hidden>
           <span>载入更多项目</span>
           <span class="icon-[lucide--chevron-down]" aria-hidden="true"></span>
@@ -166,10 +169,13 @@
          data-douban-quicklook
          aria-hidden="true"
          inert>
-      <button class="douban-quicklook-backdrop" type="button" data-douban-close-preview aria-label="关闭预览"></button>
+      <button class="douban-quicklook-backdrop" type="button" data-douban-close-preview tabindex="-1" aria-label="关闭预览"></button>
       <article class="douban-quicklook-card" role="dialog" aria-modal="true" aria-labelledby="douban-preview-title">
         <div class="douban-quicklook-poster">
-          <img data-douban-preview-poster alt="" referrerpolicy="no-referrer" />
+          <img data-douban-preview-poster alt="" loading="eager" decoding="async" referrerpolicy="no-referrer" hidden />
+          <span class="douban-poster-fallback" data-douban-preview-placeholder role="img" aria-label="暂无封面">
+            <span class="icon-[lucide--image-off]" aria-hidden="true"></span>
+          </span>
           <span data-douban-preview-score class="douban-quicklook-score"></span>
         </div>
         <div class="douban-quicklook-body">
@@ -188,7 +194,7 @@
             </div>
             <p data-douban-preview-remark></p>
           </section>
-          <a class="douban-quicklook-link" data-douban-preview-link href="#" target="_blank" rel="noopener noreferrer">
+          <a class="douban-quicklook-link" data-douban-preview-link hidden target="_blank" rel="noopener noreferrer">
             <span>在豆瓣中打开详情</span>
             <span class="icon-[lucide--external-link]" aria-hidden="true"></span>
           </a>

@@ -6,6 +6,13 @@
  * removes semantic duplicates without replacing valid plugin output.
  */
 
+import { syncWechatShareFromDocument } from './wechat-share-loader.js';
+
+export {
+  initializeWechatShare, prepareWechatShareLocalNavigation,
+  requiresWechatShareDocumentNavigation, syncWechatShareFromDocument
+} from './wechat-share-loader.js';
+
 const THEME_FALLBACK_ATTR = 'data-theme-seo-fallback';
 const FALLBACK_CONFIG_SELECTOR = 'script[data-theme-seo-fallback-config]';
 
@@ -164,7 +171,6 @@ function readFallbackConfig(doc) {
     title: normalizeValue(configNode?.dataset.title || doc.title),
     description: normalizeValue(configNode?.dataset.description),
     canonical: normalizeValue(configNode?.dataset.canonical),
-    canonicalAuthority: normalizeValue(configNode?.dataset.canonicalAuthority).toLowerCase(),
     image: normalizeValue(configNode?.dataset.image),
     pageType: normalizeValue(configNode?.dataset.pageType) || 'website',
     siteName: normalizeValue(configNode?.dataset.siteName)
@@ -292,35 +298,13 @@ function repairStructuredData(doc, config) {
   });
 }
 
-function reconcileCriticalTag(doc, definition, fallbackValue, preferFallback = false) {
+function reconcileCriticalTag(doc, definition, fallbackValue) {
   const head = doc.head;
   if (!head) return { added: 0, removed: 0 };
 
   const valueAttribute = definition.valueAttribute || 'content';
   const nodes = Array.from(head.querySelectorAll(definition.selector));
   const validNodes = nodes.filter((node) => getTagValue(node, valueAttribute));
-
-  if (preferFallback && fallbackValue) {
-    let preferredNode = validNodes.find((node) => getTagValue(node, valueAttribute) === fallbackValue);
-    let added = 0;
-    if (!preferredNode) {
-      preferredNode = doc.createElement(definition.tagName);
-      preferredNode.setAttribute(definition.identityAttribute, definition.identityValue);
-      preferredNode.setAttribute(valueAttribute, fallbackValue);
-      preferredNode.setAttribute(THEME_FALLBACK_ATTR, definition.key);
-      head.appendChild(preferredNode);
-      added = 1;
-    }
-
-    let removed = 0;
-    nodes.forEach((node) => {
-      if (node !== preferredNode) {
-        node.remove();
-        removed += 1;
-      }
-    });
-    return { added, removed };
-  }
 
   if (definition.allowMultiple) {
     const pluginNodes = validNodes.filter((node) => !node.hasAttribute(THEME_FALLBACK_ATTR));
@@ -376,8 +360,7 @@ export function reconcileSeoHead(doc = document) {
     const result = reconcileCriticalTag(
       doc,
       definition,
-      normalizeValue(definition.fallback(config)),
-      definition.key === 'canonical' && config.canonicalAuthority === 'theme'
+      normalizeValue(definition.fallback(config))
     );
     summary.added += result.added;
     summary.removed += result.removed;
@@ -401,11 +384,10 @@ function resolveSeoUrl(doc) {
   }
 }
 
-export function syncSeoHeadFromResponse(responseText) {
+export function syncSeoHeadFromResponse(responseText, parsed) {
   if (!responseText || typeof responseText !== 'string') return;
 
-  const parser = new DOMParser();
-  const nextDoc = parser.parseFromString(responseText, 'text/html');
+  const nextDoc = parsed || new DOMParser().parseFromString(responseText, 'text/html');
   const currentHead = document.head;
   const nextHead = nextDoc.head;
 
@@ -425,6 +407,7 @@ export function syncSeoHeadFromResponse(responseText) {
   });
 
   reconcileSeoHead(document);
+  syncWechatShareFromDocument(nextDoc);
 
   const title = nextDoc.title || document.title;
   const url = resolveSeoUrl(nextDoc);

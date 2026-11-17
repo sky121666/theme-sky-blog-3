@@ -24,6 +24,7 @@ function removeTrackedListener(type, handler) {
 
 class FakeResizeObserver {
   active = false;
+  constructor(callback) { this.deliver = callback; }
 
   observe() {
     if (this.active) return;
@@ -39,6 +40,8 @@ class FakeResizeObserver {
 }
 
 const storage = new Map();
+const frames = new Map();
+let nextFrame = 0;
 const fakeWindow = {
   innerWidth: 1440,
   innerHeight: 960,
@@ -49,6 +52,8 @@ const fakeWindow = {
     host: 'example.com'
   },
   ResizeObserver: FakeResizeObserver,
+  requestAnimationFrame(callback) { const id = ++nextFrame; frames.set(id, callback); return id; },
+  cancelAnimationFrame(id) { frames.delete(id); },
   addEventListener: addTrackedListener,
   removeEventListener: removeTrackedListener,
   dispatchEvent(event) {
@@ -115,6 +120,7 @@ try {
 
   const draggable = factories.get('draggableWindow')();
   draggable.$el = {
+    isConnected: true,
     dataset: {
       windowMetricsKey: 'contract-test',
       windowResizable: 'true',
@@ -144,6 +150,15 @@ try {
   assert.equal(windowListeners.get('resize')?.size, 1, '重复 init 不得累积 resize listener');
   assert.equal(mediaListeners.size, 1, '重复 init 不得累积 media listener');
   assert.equal(activeObservers, 1, '重复 init 不得累积 ResizeObserver');
+  const previousWidth = draggable.width;
+  draggable.$el.offsetWidth = previousWidth - 90;
+  draggable._resizeObserver.deliver();
+  draggable._resizeObserver.deliver();
+  assert.equal(draggable.width, previousWidth, 'defer reactive layout writes outside observer delivery');
+  assert.equal(frames.size, 1, 'coalesce notifications before the next paint');
+  const [id, frame] = [...frames][0]; frames.delete(id); frame();
+  assert.equal(draggable.width, previousWidth - 90);
+  draggable._resizeObserver.deliver();
 
   fakeDocument.body.style.userSelect = 'none';
   fakeDocument.body.style.cursor = 'nwse-resize';
@@ -152,6 +167,7 @@ try {
   assert.equal(windowListeners.get('resize')?.size || 0, 0, 'destroy 必须移除 resize listener');
   assert.equal(mediaListeners.size, 0, 'destroy 必须移除 media listener');
   assert.equal(activeObservers, 0, 'destroy 必须断开 ResizeObserver');
+  assert.equal(frames.size, 0, 'a closed window cannot resize its replacement on the next frame');
   assert.equal(fakeDocument.body.style.userSelect, '', 'destroy 必须恢复 user-select');
   assert.equal(fakeDocument.body.style.cursor, '', 'destroy 必须恢复 cursor');
   assert.equal(draggable._resizeSyncTimer, 0);

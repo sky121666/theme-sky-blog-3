@@ -9,7 +9,7 @@ export function installClickController({ document, readContext, requestNavigatio
     const path = event.composedPath?.() || [];
     const anchor = path.find((node) => node?.matches?.('a[href]'))
       || event.target?.closest?.('a[href]');
-    if (!anchor?.isConnected || anchor.ownerDocument !== document) return;
+    if (!anchor?.isConnected || anchor.ownerDocument !== document || anchor.closest?.('[data-no-swup]')) return;
     const context = readContext();
     const decision = classifyLinkClick({
       ...context, event,

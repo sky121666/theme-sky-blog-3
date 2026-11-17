@@ -3,8 +3,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { chromium } from 'playwright';
+import { signedInSettingsFixture } from './lib/privileged-settings-fixture.mjs';
 
-// Read the served build in an isolated browser. Only the settings authorization
+// Read the served build in an isolated browser. The privileged settings panel, its authorization
 // attribute and the config endpoint are fixtures; no real writes are forwarded.
 const site = new URL(process.env.SMOKE_BASE_URL || 'http://localhost:8090/');
 const output = path.resolve(process.env.STARTUP_SETTINGS_OUTPUT || 'output/startup-2026-09-30/settings');
@@ -21,11 +22,11 @@ let config = structuredClone(initial);
 let revision = 1;
 const report = {
   fixture: true,
-  boundary: '真实构建与服务端主题文档；仅设置授权 DOM 属性及配置 GET/PUT 使用隔离 fixture。除 mock PUT 外所有非 GET 请求阻断；未读取凭据，未验证真实账号权限或 Halo 持久化。',
+  boundary: '真实构建与服务端主题文档；特权设置面板、授权状态及配置 GET/PUT 使用隔离 fixture。除 mock PUT 外所有非 GET 请求阻断；未读取凭据，未验证真实账号权限或 Halo 持久化。',
   checks: [], screenshots: [], errors: [], fixtureWrites: [], blockedWrites: [], assets: [],
   realWriteRequestsForwarded: 0
 };
-if (documentFixture) report.boundary = '当前构建与服务端主题 SSR 快照；设置授权 DOM 属性及配置 GET/PUT 使用隔离 fixture。除 mock PUT 外所有非 GET 请求阻断；浏览器未接收登录凭据，未验证真实账号权限或 Halo 持久化。';
+if (documentFixture) report.boundary = '当前构建与服务端主题 SSR 快照；特权设置面板、授权状态及配置 GET/PUT 使用隔离 fixture。除 mock PUT 外所有非 GET 请求阻断；浏览器未接收登录凭据，未验证真实账号权限或 Halo 持久化。';
 const digest = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
 await fs.mkdir(output, { recursive: true });
 let browser;
@@ -76,13 +77,7 @@ try {
     }
     if (local && request.isNavigationRequest() && request.resourceType() === 'document') {
       const response = fixtureHtml ? null : await route.fetch({ headers: { ...request.headers(), 'Cache-Control': 'no-cache' } });
-      let replacements = 0;
-      const html = (fixtureHtml || await response.text()).replace(/<[^>]*\bdata-theme-settings-protocol\b[^>]*>/g, (tag) => {
-        replacements++;
-        assert.match(tag, /\bdata-authenticated\s*=/);
-        return tag.replace(/\bdata-authenticated\s*=\s*(["'])[^"']*\1/, 'data-authenticated="true"');
-      });
-      assert.equal(replacements, 1, 'expected exactly one settings protocol');
+      const html = await signedInSettingsFixture(fixtureHtml || await response.text());
       return route.fulfill(response ? { response, body: html } : { status: 200, contentType: 'text/html; charset=utf-8', body: html });
     }
     return route.continue();
@@ -118,10 +113,16 @@ try {
   const choose = async (label) => settings.locator('.theme-settings-navigation').getByRole('button').filter({ has: page.getByText(label, { exact: true }) }).click();
   const url = new URL(site.href);
   url.searchParams.set('_startup_settings_verify', `${manifest.__meta.revision}-${Date.now()}`);
+  let desktopPreviewRequests = 0;
+  page.on('request', request => {
+    if (new URL(request.url()).pathname.endsWith('/settings-model/preview.js')) desktopPreviewRequests++;
+  });
   await page.goto(url.href, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => document.querySelector('.dock-container')?.dataset.dockReady === 'true');
+  assert.equal(desktopPreviewRequests, 0, 'the desktop must not fetch the settings appearance editor before it opens');
   await page.locator('.dock-settings-icon').click();
   await settings.waitFor({ state: 'visible' });
+  assert.equal(desktopPreviewRequests, 1, 'first authorized open fetches the editor once');
   await choose('首屏加载');
   await pane.waitFor({ state: 'visible' });
 

@@ -35,7 +35,7 @@
       shouldEmitMetaFallback = ${serverDescription == true or (!seoPluginAvailable and (seoFallbackMode == 'meta' or seoFallbackMode == 'full'))},
       faviconHref = ${site.favicon != null ? site.favicon.toString() : ''},
       touchIconHref = ${site.logo != null ? site.logo.toString() : ''},
-      rawCanonical = ${canonical != null ? canonical.toString() : ''},
+      rawCanonical = ${canonical != null and !(pageAppValue == 'docsme' and seoPluginAvailable) ? canonical.toString() : ''},
       rawImage = ${image != null ? image.toString() : ''},
       siteBaseUrl = ${site.url != null ? site.url.toString() : ''},
       absoluteCanonical = ${!#strings.isEmpty(rawCanonical) ? ((rawCanonical.startsWith('http://') or rawCanonical.startsWith('https://')) ? rawCanonical : (!#strings.isEmpty(siteBaseUrl) ? ((siteBaseUrl.endsWith('/') and rawCanonical.startsWith('/')) ? siteBaseUrl + rawCanonical.substring(1) : ((!siteBaseUrl.endsWith('/')) and (!rawCanonical.startsWith('/')) ? siteBaseUrl + '/' + rawCanonical : siteBaseUrl + rawCanonical)) : rawCanonical)) : ''},
@@ -112,7 +112,6 @@
             th:data-title="${title}"
             th:data-description="${pageDescription}"
             th:data-canonical="${absoluteCanonical}"
-            th:data-canonical-authority="${pageAppValue == 'docsme' and !#strings.isEmpty(rawCanonical) and rawCanonical != '/docs' ? 'theme' : 'plugin'}"
             th:data-image="${absoluteImage}"
             th:data-page-type="${pageType}"
             th:data-site-name="${site.title}"></script>
@@ -152,6 +151,14 @@
           root.classList.remove('dark');
         }
       })();
+    </script>
+
+    <!-- 在样式首帧恢复标签页偏好；Swup 进入文档时也复用此标记。 -->
+    <script data-docsme-layout-preference>
+      try {
+        const pinned = sessionStorage.getItem('docsme-toc-pinned');
+        if (pinned === 'true' || pinned === 'false') document.documentElement.dataset.docsmeTocPinned = pinned;
+      } catch (_error) { /* 存储不可用时按窗口宽度显示。 */ }
     </script>
 
     <!-- 商城组件随独立 Shop 模块登记，PJAX 进入与返回复用同一模块实例。 -->
@@ -391,6 +398,7 @@
   <th:block th:with="
       pageModeValue = ${pageMode != null ? pageMode.toString() : ''},
       pageAppValue = ${pageApp != null ? pageApp.toString() : ''},
+      readingDocument = ${pageAppValue == 'reader' or (pageAppValue == 'docsme' and windowScene == 'document')},
       bgConf = ${theme.config.desktop?.background},
       iconConf = ${theme.config.desktop?.icons},
       bgMode = ${bgConf?.mode ?: 'preset'},
@@ -471,8 +479,8 @@
       dockInitialOpacity = ${((dockNumericOpacity == 0 ? 28 : dockNumericOpacity) < 10 ? 10 : ((dockNumericOpacity == 0 ? 28 : dockNumericOpacity) > 80 ? 80 : (dockNumericOpacity == 0 ? 28 : dockNumericOpacity))).intValue()},
       dockInitialRadius = ${(dockInitialSize * 0.25 + 0.5).intValue()},
       headerMenuName = ${!#strings.isEmpty(navigationHeaderMenuName) ? navigationHeaderMenuName : (!#strings.isEmpty(legacyHeaderMenuName) ? legacyHeaderMenuName : 'primary')},
-      headerMenu = ${widgetsSourceRequest ? null : (!#strings.isEmpty(headerMenuName) ? menuFinder.getByName(headerMenuName) : menuFinder.getByName('primary'))},
-      dockMenu = ${widgetsSourceRequest ? null : (!#strings.isEmpty(rawMenuName) ? menuFinder.getByName(rawMenuName) : menuFinder.getByName('primary'))},
+      headerMenu = ${widgetsSourceRequest ? null : menuFinder.getByName(headerMenuName)},
+      dockMenu = ${widgetsSourceRequest ? null : (rawMenuName == headerMenuName ? headerMenu : menuFinder.getByName(rawMenuName))},
       dockShopEnabled = ${#strings.toLowerCase(#strings.trim(#strings.toString(theme.config.shop?.display?.dock_entry_enabled))) == 'true'},
       dockShopSiteBase = ${site.url != null ? #strings.trim(site.url.toString()).replaceAll('/+$', '') : ''},
       dockMenuHrefs = ${dockMenu != null and dockMenu.menuItems != null ? dockMenu.menuItems.![#strings.trim(status?.href ?: '').replaceAll('[?#].*$', '').replaceAll('/+$', '')] : {}},
@@ -583,7 +591,8 @@
     th:styleappend="${bgMode == 'image' and bgImageUrl != null ? 'background:url(' + bgImageUrl + ') center/cover no-repeat; background-color:#0f172a;' : (bgMode == 'solid' ? 'background-color:' + (bgConf?.solid_color ?: '#0f172a') + ';' : '')}"
   >
 
-    <th:block th:replace="~{assets/build-startup :: startup(${isErrorPage ? 'none' : (pageModeValue == 'browser-home' ? 'desktop' : 'app')})}" />
+    <!-- Direct reading links already have usable SSR content; the desktop boot screen must not cover it. -->
+    <th:block th:replace="~{assets/build-startup :: startup(${isErrorPage or readingDocument ? 'none' : (pageModeValue == 'browser-home' ? 'desktop' : 'app')})}" />
 
     <th:block th:replace="~{modules/shell/header :: bar(
       siteTitle=${headerAppName},
@@ -645,11 +654,11 @@
             dataId: [[${icon.name}]]
           },
           /*[/]*/
-          /*[# th:each="catName : ${desktopCategories}"]*/
+          /*[# th:each="catName : ${desktopCategories}" th:with="desktopItem=${categoryFinder.getByName(catName)}"]*/
           {
             key: [[${'icon-category-' + catName}]],
-            title: [[${categoryFinder.getByName(catName) != null ? categoryFinder.getByName(catName).spec.displayName : catName}]],
-            href: [[${categoryFinder.getByName(catName) != null ? categoryFinder.getByName(catName).status.permalink : '#'}]],
+            title: [[${desktopItem != null ? desktopItem.spec.displayName : catName}]],
+            href: [[${desktopItem != null ? desktopItem.status.permalink : '#'}]],
             pjax: true,
             pjaxApp: 'explorer-categories',
             external: false,
@@ -657,11 +666,11 @@
             dataId: [[${catName}]]
           },
           /*[/]*/
-          /*[# th:each="tagName : ${desktopTags}"]*/
+          /*[# th:each="tagName : ${desktopTags}" th:with="desktopItem=${tagFinder.getByName(tagName)}"]*/
           {
             key: [[${'icon-tag-' + tagName}]],
-            title: [[${tagFinder.getByName(tagName) != null ? tagFinder.getByName(tagName).spec.displayName : tagName}]],
-            href: [[${tagFinder.getByName(tagName) != null ? tagFinder.getByName(tagName).status.permalink : '#'}]],
+            title: [[${desktopItem != null ? desktopItem.spec.displayName : tagName}]],
+            href: [[${desktopItem != null ? desktopItem.status.permalink : '#'}]],
             pjax: true,
             pjaxApp: 'explorer-tags',
             external: false,
@@ -669,11 +678,14 @@
             dataId: [[${tagName}]]
           },
           /*[/]*/
-          /*[# th:each="postName : ${desktopPosts}"]*/
+          /*[# th:each="postName : ${desktopPosts}" th:with="
+              desktopListedPost=${posts != null ? posts.items.^[metadata.name == #vars.postName and spec.visible?.toString() == 'PUBLIC'] : null},
+              desktopWidgetPost=${desktopListedPost != null ? desktopListedPost : (widgetsLatestPosts != null ? widgetsLatestPosts.items.^[metadata.name == #vars.postName] : null)},
+              desktopItem=${desktopWidgetPost != null ? desktopWidgetPost : postFinder.getByName(postName)}"]*/
           {
             key: [[${'icon-post-' + postName}]],
-            title: [[${postFinder.getByName(postName) != null ? postFinder.getByName(postName).spec.title : postName}]],
-            href: [[${postFinder.getByName(postName) != null ? postFinder.getByName(postName).status.permalink : '#'}]],
+            title: [[${desktopItem != null ? desktopItem.spec.title : postName}]],
+            href: [[${desktopItem != null ? desktopItem.status.permalink : '#'}]],
             pjax: true,
             pjaxApp: 'reader',
             external: false,
@@ -681,11 +693,11 @@
             dataId: [[${postName}]]
           },
           /*[/]*/
-          /*[# th:each="pageName : ${desktopSinglePages}"]*/
+          /*[# th:each="pageName : ${desktopSinglePages}" th:with="desktopItem=${singlePageFinder.getByName(pageName)}"]*/
           {
             key: [[${'icon-page-' + pageName}]],
-            title: [[${singlePageFinder.getByName(pageName) != null ? singlePageFinder.getByName(pageName).spec.title : pageName}]],
-            href: [[${singlePageFinder.getByName(pageName) != null ? singlePageFinder.getByName(pageName).status.permalink : '#'}]],
+            title: [[${desktopItem != null ? desktopItem.spec.title : pageName}]],
+            href: [[${desktopItem != null ? desktopItem.status.permalink : '#'}]],
             pjax: true,
             pjaxApp: 'reader',
             external: false,
@@ -769,14 +781,30 @@
     )}"></th:block>
     </div>
 
+    <template id="desktop-launch-preview" th:if="${!isErrorPage}">
+      <div class="macos-window" data-launch-preview role="status" style="position:fixed;z-index:10;pointer-events:auto;box-sizing:border-box;border-radius:14px;background:var(--content-body-bg);backdrop-filter:none;-webkit-backdrop-filter:none;display:flex;flex-direction:column">
+        <div class="window-titlebar" style="height:48px;display:grid;place-items:center;border-bottom:1px solid var(--content-chrome-border)">
+          <span class="window-title-text" data-launch-title></span>
+        </div>
+        <div style="flex:1;display:grid;align-content:center;justify-items:center;gap:10px;padding-bottom:48px;color:var(--content-chrome-muted);font-size:13px">
+          <svg aria-hidden="true" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+            <rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="M3 9h18"/><path d="M6 6.6h.2m2.3 0h.2" stroke-linecap="round"/>
+          </svg>
+          <span>正在打开…</span>
+        </div>
+      </div>
+    </template>
+
     <!-- ==================== 极简单主窗 (PJAX 热重载) ==================== -->
     <div class="window-layer fixed inset-x-0 bottom-0 top-[28px] md:top-0 z-10 pointer-events-none p-0 md:p-8 flex items-start md:items-center justify-center"
          th:if="${!isErrorPage}"
+         th:with="readingEntry=${pageAppValue == 'reader' or pageAppValue == 'docsme'}"
+         th:data-reading-entry="${readingEntry ? 'true' : null}"
+         th:style="${readingEntry ? null : 'display: none;'}"
          x-data
          x-show="$store.windowManager.show"
          @open-window.window="$store.windowManager.open(document.title)"
-         @close-window.window="$store.windowManager.hide()"
-         style="display: none;">
+         @close-window.window="$store.windowManager.hide()">
       
       <div id="window-frame-root">
         <!-- 瞬间窗口变体 -->

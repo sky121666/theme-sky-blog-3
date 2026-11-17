@@ -96,16 +96,28 @@ try {
             }
           };
         }
-        return {
-          querySelectorAll(selector) {
-            assert.equal(selector, fixture.cardSelector);
-            return [{ dataset: {} }];
+        const cards = [{ dataset: {} }];
+        const trigger = { querySelector: (selector) => selector === fixture.sentinelSelector ? {} : null };
+        const scroller = {
+          querySelector: (selector) => selector === fixture.loadMoreSelector ? trigger : null,
+          querySelectorAll: () => cards
+        };
+        const app = {
+          querySelector(selector) {
+            if (selector === fixture.scrollerSelector) return scroller;
+            if (selector === '[data-app-props="equipments"]') return {};
+            return null;
           }
         };
+        return { body: {
+          dataset: { errorPage: 'false', pageMode: 'browser-equipments', appId: 'equipments', windowVariant: 'equipments' },
+          querySelector: (selector) => selector === '[data-app-root="equipments"]' ? app : null
+        } };
       }
     };
 
     const pending = model.loadNext();
+    await Promise.resolve();
     assert.equal(model.loading, true, `${fixture.id} should enter loading state`);
     model.destroy();
     assert.equal(requestSignal?.aborted, true, `${fixture.id} destroy should abort its pagination request`);
@@ -181,6 +193,32 @@ try {
     assert.equal(lifecycleFetches, 0, `${fixture.id} disposed init must not trigger pagination fetches`);
 
     const queuedLoadTicks = [];
+    for (const status of [204, 206]) {
+      let appended = 0;
+      let advanced = 0;
+      const partial = fixture.factory();
+      partial.$root = lifecycleRoot;
+      partial.$nextTick = () => {};
+      partial.nextUrl = `/${fixture.id}?page=2`;
+      partial.hasMore = true;
+      partial.appendCards = () => { appended++; };
+      partial.updatePaginationFrom = () => { advanced++; };
+      globalThis.fetch = async () => ({
+        ok: true, status, url: `https://pagination.test/${fixture.id}?page=2`,
+        text: async () => '<html><body></body></html>'
+      });
+      await partial.loadNext();
+      assert.equal(appended, 0, `${fixture.id} HTTP ${status} must not append an incomplete response`);
+      assert.equal(advanced, 0, 'an incomplete response must not advance the cursor');
+      assert.equal(partial.loadError, true);
+      assert.equal(partial.hasMore, true);
+      assert.equal(partial.loading, false);
+    }
+    globalThis.fetch = async () => {
+      lifecycleFetches++;
+      return { ok: true, status: 200, url: `https://pagination.test/${fixture.id}?page=2`,
+        text: async () => '<html><body></body></html>' };
+    };
     const deferredLoadModel = fixture.factory();
     deferredLoadModel.$root = lifecycleRoot;
     deferredLoadModel.$nextTick = (callback) => queuedLoadTicks.push(callback);

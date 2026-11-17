@@ -13,6 +13,42 @@ const config = (icons, layout) => ({ desktop: { icons }, default_layout: { layou
 const layoutOf = (value) => JSON.parse(value.default_layout.layout_json);
 const full = (icons = [], instances = []) => ({ version: 3, layoutVersion: 'v1', columns: 12, hasFullIconDefs: true, icons, instances, future: { keep: true } });
 
+test('saved Finder icons follow current resource permalinks while retaining user titles and coordinates', () => {
+  const cases = [
+    ['icon-post-post-id', 'reader', '/archives/current-post'],
+    ['icon-page-page-id', 'reader', '/current-page'],
+    ['icon-category-category-id', 'explorer-categories', '/categories/current-category'],
+    ['icon-tag-tag-id', 'explorer-tags', '/tags/current-tag']
+  ];
+  for (const [key, pjaxApp, href] of cases) {
+    const defaults = readDesktopIconsBootstrap([{ key, pjaxApp, href, dataId: 'resource-id', title: '当前资源标题' }]);
+    const layout = full([{ key, pjaxApp, href: '/old-permalink', dataId: 'resource-id', title: '用户的显示标题', x: 4, y: 3 }]);
+    const before = structuredClone(layout);
+    const [icon] = mergeDesktopIconLayout(defaults, layout);
+    assert.equal(icon.href, href, key);
+    assert.equal(icon.title, '用户的显示标题');
+    assert.deepEqual([icon.x, icon.y, icon.baseX, icon.baseY], [4, 3, 4, 3]);
+    assert.equal(icon.pjaxApp, pjaxApp);
+    assert.deepEqual(layout, before, 'rendering cannot rewrite the saved layout');
+  }
+});
+
+test('Finder URL refresh does not replace saved custom links or resurrect tombstones', () => {
+  const defaults = readDesktopIconsBootstrap([
+    { key: 'icon-custom-web', href: '/default-custom', pjaxApp: 'reader' },
+    { key: 'icon-post-gone', href: '/archives/current', pjaxApp: 'reader' }
+  ]);
+  const layout = full([
+    { key: 'icon-custom-web', href: 'https://example.test/custom', title: '自定义链接', external: true, x: 2, y: 5 },
+    { key: 'icon-post-gone', deleted: true }
+  ]);
+  const icons = mergeDesktopIconLayout(defaults, layout);
+  assert.equal(icons.length, 1);
+  assert.equal(icons[0].href, 'https://example.test/custom');
+  assert.equal(icons[0].external, true);
+  assert.equal(icons[0].pjax, false);
+});
+
 test('no layout and legacy position layouts keep their existing read semantics', () => {
   assert.equal(typeof sync, 'function');
   const icons = { custom_icons: [{ name: '新图标', href: '/new', type: 'folder', external: false }] };

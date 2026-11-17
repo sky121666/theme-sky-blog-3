@@ -892,10 +892,7 @@ export function registerDesktopSurface(Alpine) {
         this.closeDesktopContextMenu();
         this.invalidateWidgetCache();
         if (!this.isHome) {
-          this.widgetConfigOptionsRequestId += 1;
-          this.widgetConfigOptionsAbortController?.abort();
-          this.widgetConfigOptionsAbortController = null;
-          this.widgetConfigOptionsPromise = null;
+          this.cancelWidgetConfigOptions?.();
           if (this.isEditing && typeof this.exitEditMode === 'function') {
             await this.exitEditMode({ force: true });
           }
@@ -1015,6 +1012,7 @@ export function registerDesktopSurface(Alpine) {
       window.removeEventListener('theme-open-widget-center', this.handleOpenWidgetCenter);
       window.removeEventListener('beforeunload', this.handleBeforeUnload);
       this.widgetsDisposed = true;
+      this.cancelWidgetConfigOptions?.();
       this.widgetDataController?.abort();
       this.weatherRequestId += 1;
       disposeLatestPostsSources(this);

@@ -384,7 +384,7 @@
                        @keydown.space.prevent="openNotificationGroup(group)"
                        role="button"
                        tabindex="0"
-                       :aria-label="`展开${group.label}通知`">
+                         :aria-label="`展开${group.label}`">
                     <template x-if="notificationGroupItems(group).length > 0">
                       <div class="notification-center-stack-card-wrapper">
                         <div class="notification-center-stack-layer notification-center-stack-layer--2"
@@ -432,15 +432,14 @@
                       <article class="notification-center-card"
                                :class="{
                                  'is-unread': item.unread,
-                                 'is-actionable': !!item.href
+                                 'is-actionable': !!notificationItemHref(item)
                                }"
                                :data-notification-type="item.typeKey"
                                :data-notification-item-key="item.key">
-                        <div class="notification-center-card-main"
-                             :role="item.href ? 'link' : null"
-                             :tabindex="item.href ? '0' : null"
-                             @click="item.href && openNotificationItem(item, $event)"
-                             @keydown.enter.prevent="item.href && openNotificationItem(item, $event)">
+                        <a class="notification-center-card-main"
+                           :href="notificationItemHref(item) || null"
+                           :class="{ 'pjax-link': isNotificationItemPjax(item) }"
+                           @click="openNotificationItem(item, $event)">
                           <!-- macOS 1:1 Top Row: Icon, App Name, Separator, and Time -->
                           <div class="notification-center-card-header">
                             <div class="notification-center-card-header-left">
@@ -463,7 +462,7 @@
                                  x-show="item.body"
                                  x-text="item.body"></div>
                           </div>
-                        </div>
+                        </a>
 
                         <!-- Separate sibling control: avoids nested interactive semantics. -->
                         <button type="button"

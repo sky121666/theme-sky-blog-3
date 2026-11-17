@@ -4,6 +4,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { chromium } from 'playwright';
 import { assertCurrentBuild } from './lib/build-identity.mjs';
+import { signedInSettingsFixture } from './lib/privileged-settings-fixture.mjs';
 
 // Served theme interaction regression. Authorization and config storage are
 // intercepted fixtures; every other write is blocked before forwarding.
@@ -28,7 +29,7 @@ let authenticated = true;
 let configReads = 0;
 let blockQr = false;
 let denyShopCategories = true;
-const report = { fixture: true, boundary: '真实主题页面；仅文档授权和配置 GET/PUT 使用隔离 fixture。所有其他写请求阻断，未读取账号或凭据，不代表真实 Halo 持久化验收。', checks: [], screenshots: [], errors: [], fixtureWrites: [], blockedWrites: [], realWriteRequestsForwarded: 0 };
+const report = { fixture: true, boundary: '真实主题页面；文档及指定 Swup HTML 响应使用同源模板组装的已登录设置面板，授权和配置 GET/PUT 使用隔离 fixture。所有其他写请求及 WebSocket 阻断，未读取账号或凭据，不代表真实 Halo 持久化验收。', checks: [], screenshots: [], errors: [], fixtureWrites: [], blockedWrites: [], blockedWebSockets: [], authorizationHtmlResponses: [], realWriteRequestsForwarded: 0 };
 const browser = await chromium.launch({ headless: true });
 let context;
 let page;
@@ -55,6 +56,11 @@ try {
     report.assets.push({ path: local, sha256: digest(actual) });
   }
   context = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block' });
+  await context.routeWebSocket('**/*', (socket) => {
+    report.blockedWebSockets.push({ url: socket.url() });
+    socket.close();
+  });
+  const swupHtmlPaths = new Set([site.pathname, '/archives']);
   await context.route('**/*', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -89,9 +95,14 @@ try {
       const kind = url.pathname.split('/').at(-1);
       return json({ page: 1, size: 50, total: 1, items: [{ metadata: { name: `fixture-${kind}` }, spec: { title: `测试 ${kind}`, displayName: `测试 ${kind}`, publish: true }, status: { permalink: '/' } }] });
     }
-    if (local && request.isNavigationRequest() && request.resourceType() === 'document') {
+    const swupHtml = request.resourceType() === 'fetch' && request.headers()['x-pjax'] === 'true'
+      && swupHtmlPaths.has(url.pathname);
+    if (local && method === 'GET'
+      && ((request.isNavigationRequest() && request.resourceType() === 'document') || swupHtml)) {
       const response = await route.fetch({ headers: { ...request.headers(), 'Cache-Control': 'no-cache' } });
       let html = await response.text();
+      const guestContainsPanel = html.includes('class="theme-settings-layer"');
+      if (authenticated) html = await signedInSettingsFixture(html);
       let count = 0;
       html = html.replace(/<[^>]*\bdata-theme-settings-protocol\b[^>]*>/g, (tag) => {
         count++;
@@ -99,6 +110,7 @@ try {
           .replace(/\bdata-app-steam\s*=\s*(["'])[^"']*\1/, 'data-app-steam="false"');
       });
       assert.equal(count, 1);
+      report.authorizationHtmlResponses.push({ path: url.pathname, kind: swupHtml ? 'swup' : 'document', authenticated, guestContainsPanel });
       return route.fulfill({ response, body: html });
     }
     return route.continue();
@@ -172,6 +184,60 @@ try {
     await settings.getByRole('button', { name: '取消', exact: true }).click();
     await page.locator('.dock-settings-icon').waitFor({ state: 'visible' });
     assert.equal(await value('dock.appearance.settings_enabled'), true);
+  });
+
+  await test('Swup navigation and Back retain the closed settings host; reopened preview and cancel restore the Dock', async () => {
+    await page.keyboard.press('Escape');
+    await settings.waitFor({ state: 'hidden' });
+    await page.waitForFunction(() => window.pjax?.loadUrl && window.swup);
+    const before = await page.evaluate(() => {
+      window.__settingsSwupHost = document.querySelector('[data-theme-settings-window]');
+      window.__settingsSwupStore = window.Alpine.store('themeSettings');
+      window.__settingsSwupEvents = [];
+      for (const type of ['theme:navigation-accepted', 'theme:pjax-ready', 'theme:navigation-settled']) {
+        document.addEventListener(type, (event) => {
+          const { intentId, url, outcome } = event.detail || {};
+          window.__settingsSwupEvents.push({ type, intentId, url, outcome });
+        });
+      }
+      return { href: location.href, timeOrigin: performance.timeOrigin };
+    });
+    const writesBefore = report.fixtureWrites.length;
+    await page.evaluate((href) => { void window.pjax.loadUrl(href); }, new URL('/archives', site).href);
+    await page.waitForFunction(() => location.pathname === '/archives'
+      && document.body.dataset.appId === 'explorer-archives'
+      && window.__settingsSwupEvents.some((event) => event.type === 'theme:navigation-settled' && event.outcome === 'ready'));
+    assert.equal(await settings.isVisible(), false);
+    await page.goBack({ waitUntil: 'domcontentloaded' });
+    await page.waitForFunction((href) => location.href === href
+      && document.body.dataset.pageMode === 'browser-home'
+      && window.__settingsSwupEvents.filter((event) => event.type === 'theme:navigation-settled' && event.outcome === 'ready').length === 2, before.href);
+    const after = await page.evaluate(() => ({
+      timeOrigin: performance.timeOrigin,
+      sameHost: window.__settingsSwupHost === document.querySelector('[data-theme-settings-window]'),
+      sameStore: window.__settingsSwupStore === window.Alpine.store('themeSettings'),
+      events: window.__settingsSwupEvents
+    }));
+    assert.equal(after.timeOrigin, before.timeOrigin, 'Swup and Back must retain the same browser document');
+    assert.equal(after.sameHost, true, 'Swup must retain the actual settings DOM');
+    assert.equal(after.sameStore, true, 'Swup must retain the actual settings store');
+    assert.equal(after.events.filter((event) => event.type === 'theme:navigation-accepted').length, 2);
+    assert.equal(after.events.filter((event) => event.type === 'theme:pjax-ready').length, 2);
+    assert.ok(report.authorizationHtmlResponses.filter((response) => response.kind === 'swup' && response.authenticated).length >= 2,
+      'Both Swup HTML responses must receive the same isolated settings authorization');
+    report.navigation = { before, after };
+    await page.locator('.dock-settings-icon').click();
+    await settings.waitFor({ state: 'visible' });
+    await choose('Dock');
+    await field('dock.appearance.settings_enabled').click();
+    await page.locator('.dock-settings-icon').waitFor({ state: 'hidden' });
+    assert.equal(await value('dock.appearance.settings_enabled'), false);
+    await settings.getByRole('button', { name: '取消', exact: true }).click();
+    await page.locator('.dock-settings-icon').waitFor({ state: 'visible' });
+    assert.equal(await value('dock.appearance.settings_enabled'), true);
+    assert.equal(await page.evaluate(() => window.Alpine.store('themeSettings').hasDirtyChanges()), false);
+    assert.equal(report.fixtureWrites.length, writesBefore, 'Navigation and preview cancellation must not write configuration');
+    await capture('settings-after-swup-preview-cancel');
   });
 
   await test('Six application rows including Commerce open one detail each and preserve a draft through back/search', async () => {

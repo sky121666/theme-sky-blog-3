@@ -1,4 +1,4 @@
-// CommentWidget 3.4.0 exposes its editor before the 50 ms readiness poll has
+// Audited CommentWidget 3.4.0 and 3.5.1 expose the editor before the 50 ms readiness poll has
 // captured the sanitized baseline. An input in that interval becomes baseline
 // and cannot be saved. Keep only the edit surface hidden until the original
 // method finishes; the official loading, cancel, sanitization and save paths
@@ -7,6 +7,12 @@
 // This is deliberately pinned to the audited method, not every component with
 // these field names. A changed/upstream-fixed implementation is left untouched.
 const AFFECTED_FOCUS_EDITOR = 'async focusEditor(){await this.updateComplete;let e=this.editorRef.value;if(e){for(let t=0;t<100&&!e.editor&&this.isConnected;t++)await new Promise(e=>setTimeout(e,50));this.isConnected&&e.editor&&(this.baseline=pX(e.editor.getHTML()),this.content===this.initialRaw&&(this.content=this.baseline),e.setFocus())}}';
+// 3.5.1 adds its unload-warning synchronization but retains the same readiness
+// race. Match that exact audited addition; keep executing the official method.
+const AFFECTED_FOCUS_EDITORS = new Set([
+  AFFECTED_FOCUS_EDITOR,
+  AFFECTED_FOCUS_EDITOR.replace(',e.setFocus()', ',this.syncBeforeUnload(),e.setFocus()')
+].map(source => source.replace(/\s+/g, '')));
 const installed = new WeakSet();
 
 export async function installCommentEditReadiness(host = window) {
@@ -21,7 +27,7 @@ export async function installCommentEditReadiness(host = window) {
   const original = descriptor?.value;
   const editor = registry.get('comment-editor')?.prototype;
   if (typeof original !== 'function' || !descriptor.writable
-    || Function.prototype.toString.call(original).replace(/\s+/g, '') !== AFFECTED_FOCUS_EDITOR.replace(/\s+/g, '')
+    || !AFFECTED_FOCUS_EDITORS.has(Function.prototype.toString.call(original).replace(/\s+/g, ''))
     || !['loadLatest', 'onEditorUpdate', 'handleSave', 'handleCancel'].every(name => typeof prototype[name] === 'function')
     || typeof Object.getOwnPropertyDescriptor(prototype, 'dirty')?.get !== 'function'
     || typeof Object.getOwnPropertyDescriptor(prototype, 'canSave')?.get !== 'function'

@@ -1,7 +1,9 @@
+import { withRequestDeadline } from '../../shared/request-deadline.js';
 import { warnApiCall } from '../../shell/desktop-shell/runtime/shared/debug.js';
 
 const API_BASE = '/apis/api.douban.moony.la/v1alpha1/doubanmovies';
 const PAGE_SIZE = 20;
+const METADATA_TTL_MS = 60_000;
 
 function positiveInteger(value, fallback) {
   const parsed = Number(value);
@@ -120,6 +122,11 @@ function genresOf(item) {
   return String(genres).split(',').map(normalize).filter(Boolean);
 }
 
+function collectionPoster(url, alt = '') {
+  const image = url ? `<img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onload="this.classList.add('is-loaded')" onerror="this.style.display='none'" />` : '';
+  return `${image}<span class="douban-poster-fallback" aria-hidden="true"><span class="icon-[lucide--image-off]"></span></span>`;
+}
+
 function typeLabels(type) {
   return STATUS_LABELS[type] || STATUS_LABELS.movie;
 }
@@ -155,17 +162,19 @@ function withParams(path, params) {
 
 async function fetchJson(path, params = {}, signal) {
   const requestUrl = withParams(path, params);
-  const response = await fetch(requestUrl, {
-    headers: { Accept: 'application/json' },
-    signal
-  });
-  if (!response.ok) {
-    const error = new Error(`HTTP ${response.status}`);
-    error.status = response.status;
-    error.url = requestUrl;
-    throw error;
-  }
-  return response.json();
+  return withRequestDeadline(async (requestSignal) => {
+    const response = await fetch(requestUrl, {
+      headers: { Accept: 'application/json' },
+      signal: requestSignal
+    });
+    if (!response.ok) {
+      const error = new Error(`HTTP ${response.status}`);
+      error.status = response.status;
+      error.url = requestUrl;
+      throw error;
+    }
+    return response.json();
+  }, { signal });
 }
 
 export class DoubanApp {
@@ -174,6 +183,8 @@ export class DoubanApp {
     this.abortController = null;
     this.paginationController = null;
     this.typesController = null;
+    this.metadataRequest = null;
+    this.metadataCache = new Map();
     this.destroyed = false;
     this.disposeRoot = () => this.destroy();
     this.requestGeneration = 0;
@@ -233,6 +244,9 @@ export class DoubanApp {
     this.paginationController?.abort();
     this.typesController?.abort();
     this.typesController = null;
+    this.metadataRequest?.controller.abort();
+    this.metadataRequest = null;
+    this.metadataCache.clear();
     this.requestGeneration += 1;
     this.reloadPending = false;
     clearTimeout(this.searchTimer);
@@ -263,12 +277,71 @@ export class DoubanApp {
       && this.root?.isConnected !== false;
   }
 
+  metadataKey() {
+    return JSON.stringify([normalize(this.state.type), normalize(this.state.dataType)]);
+  }
+
+  prepareMetadata(refresh = false) {
+    // Filtered lists share type/dataType metadata, including requests still in flight.
+    const key = this.metadataKey();
+    if (refresh || this.metadataRequest?.key !== key || this.metadataRequest.controller.signal.aborted) {
+      this.metadataRequest?.controller.abort();
+      if (refresh || !this.metadataCache.has(key)) this.metadataCache.set(key, new Map());
+      this.metadataRequest = {
+        key,
+        type: this.state.type,
+        dataType: this.state.dataType,
+        root: this.root,
+        controller: new AbortController(),
+        values: this.metadataCache.get(key),
+        pending: new Map()
+      };
+    }
+    return this.metadataRequest;
+  }
+
+  isMetadataCurrent(metadata) {
+    return !this.destroyed && !metadata.controller.signal.aborted
+      && this.metadataRequest === metadata && metadata.key === this.metadataKey()
+      && metadata.root === this.root && this.root?.isConnected !== false;
+  }
+
+  cachedMetadataValue(metadata, key) {
+    const cached = metadata.values.get(key);
+    return cached && Date.now() - cached.updatedAt < METADATA_TTL_MS ? cached : null;
+  }
+
+  getMetadataValue(metadata, key, load) {
+    const cached = this.cachedMetadataValue(metadata, key);
+    if (cached) return Promise.resolve(cached.value);
+    if (!metadata.pending.has(key)) {
+      const pending = Promise.resolve().then(load).then((value) => {
+        if (this.isMetadataCurrent(metadata)) metadata.values.set(key, { value, updatedAt: Date.now() });
+        return value;
+      }).finally(() => metadata.pending.delete(key));
+      metadata.pending.set(key, pending);
+    }
+    return metadata.pending.get(key);
+  }
+
   query(selector) {
     return this.root.querySelector(selector);
   }
 
   queryAll(selector) {
     return Array.from(this.root.querySelectorAll(selector));
+  }
+
+  renderControlGroup(selector, html, attribute) {
+    const target = this.query(selector);
+    if (!target) return;
+    const focusedKey = target.contains?.(document.activeElement)
+      ? document.activeElement.getAttribute(attribute) : null;
+    target.innerHTML = html;
+    if (focusedKey !== null) {
+      Array.from(target.querySelectorAll(`[${attribute}]`))
+        .find((button) => button.getAttribute(attribute) === focusedKey)?.focus({ preventScroll: true });
+    }
   }
 
   renderProfileIcon() {
@@ -314,6 +387,20 @@ export class DoubanApp {
     }
 
     if (event.target.closest('[data-douban-retry]')) {
+      if (this.state.items.length && this.state.hasMore) this.loadMore();
+      else this.reload();
+      return;
+    }
+
+    if (event.target.closest('[data-douban-clear-filters]')) {
+      this.state.status = 'all';
+      this.state.genre = 'all';
+      this.state.keyword = '';
+      this.state.page = 1;
+      this.queryAll('[data-douban-search], [data-douban-search-mobile]').forEach((input) => { input.value = ''; });
+      clearTimeout(this.searchTimer);
+      this.renderStatuses();
+      this.renderGenres(this.genres || []);
       this.reload();
       return;
     }
@@ -367,15 +454,24 @@ export class DoubanApp {
       return;
     }
 
-    if ((event.key === ' ' || event.key === 'Spacebar') && this.state.focusedId) {
+    const previewOpen = this.query('[data-douban-quicklook]')?.classList.contains('is-open');
+    const cardTarget = event.target.closest?.('[data-douban-item-id]');
+    if (!previewOpen && cardTarget && event.key === 'Enter') {
+      event.preventDefault();
+      this.openPreview(cardTarget.dataset.doubanItemId, event.target);
+      return;
+    }
+
+    if ((event.key === ' ' || event.key === 'Spacebar') && this.state.focusedId && (previewOpen || cardTarget || neutralDocumentTarget)) {
       const quicklook = this.query('[data-douban-quicklook]');
       if (quicklook?.classList.contains('is-open')) {
+        event.preventDefault();
         this.closePreview();
       } else {
         event.preventDefault();
         const trigger = this.queryAll('[data-douban-item-id]')
           .find((item) => item.dataset.doubanItemId === this.state.focusedId);
-        this.openPreview(this.state.focusedId, trigger || null);
+        this.openPreview(cardTarget?.dataset.doubanItemId || this.state.focusedId, event.target === document.body ? trigger : event.target);
       }
       return;
     }
@@ -383,11 +479,15 @@ export class DoubanApp {
     if (event.key === 'Tab') {
       const quicklook = this.query('[data-douban-quicklook].is-open');
       if (!quicklook) return;
-      const focusable = Array.from(quicklook.querySelectorAll('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'));
+      const focusScope = quicklook.querySelector('[role="dialog"]') || quicklook;
+      const focusable = Array.from(focusScope.querySelectorAll('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'));
       if (!focusable.length) return;
       const first = focusable[0];
       const last = focusable.at(-1);
-      if (event.shiftKey && document.activeElement === first) {
+      if (!focusScope.contains(document.activeElement)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus({ preventScroll: true });
+      } else if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         last.focus();
       } else if (!event.shiftKey && document.activeElement === last) {
@@ -398,12 +498,14 @@ export class DoubanApp {
     }
 
     if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+    if (previewOpen || (!cardTarget && !neutralDocumentTarget)) return;
     const items = this.state.visibleItems;
     if (!items.length) return;
 
     event.preventDefault();
-    const currentIndex = Math.max(0, items.findIndex((item) => itemId(item) === this.state.focusedId));
-    const columns = window.innerWidth >= 1024 ? 5 : window.innerWidth >= 768 ? 4 : window.innerWidth >= 640 ? 3 : 2;
+    const currentIndex = Math.max(0, items.findIndex((item) => itemId(item) === (cardTarget?.dataset.doubanItemId || this.state.focusedId)));
+    const grid = this.query('[data-douban-grid]');
+    const columns = grid ? Math.max(1, getComputedStyle(grid).gridTemplateColumns.split(' ').length) : 1;
     let nextIndex = currentIndex;
 
     if (this.state.viewMode === 'grid') {
@@ -454,21 +556,27 @@ export class DoubanApp {
 
     this.queryAll('[data-douban-view]').forEach((button) => {
       button.classList.toggle('is-active', button.dataset.doubanView === this.state.viewMode);
+      button.setAttribute('aria-pressed', String(button.dataset.doubanView === this.state.viewMode));
     });
 
     const mobile = this.query('[data-douban-mobile-view]');
-    if (mobile) mobile.textContent = this.state.viewMode === 'grid' ? '▦' : '☰';
+    if (mobile) {
+      mobile.innerHTML = `<span class="icon-[lucide--${this.state.viewMode === 'grid' ? 'list' : 'layout-grid'}]" aria-hidden="true"></span>`;
+      mobile.setAttribute('aria-label', this.state.viewMode === 'grid' ? '切换到列表视图' : '切换到海报网格视图');
+    }
 
     this.query('[data-douban-grid]')?.toggleAttribute('hidden', this.state.viewMode !== 'grid');
     this.query('[data-douban-list]')?.toggleAttribute('hidden', this.state.viewMode !== 'list');
 
-    if (render) this.renderItems();
+    if (render) this.highlightFocusedItem();
   }
 
   setLoading(isLoading) {
     const shouldShowInlineLoading = isLoading && this.state.items.length === 0 && this.state.visibleItems.length === 0;
     this.query('[data-douban-loading]')?.toggleAttribute('hidden', !shouldShowInlineLoading);
     this.root.classList.toggle('is-loading', isLoading);
+    this.query('[data-douban-grid]')?.setAttribute('aria-busy', String(isLoading));
+    this.query('[data-douban-list]')?.setAttribute('aria-busy', String(isLoading));
   }
 
   setError(message = '') {
@@ -510,7 +618,7 @@ export class DoubanApp {
     }
   }
 
-  async reload() {
+  async reload({ refreshMetadata = false } = {}) {
     this.abortController?.abort();
     this.paginationController?.abort();
     this.paginationController = null;
@@ -520,6 +628,7 @@ export class DoubanApp {
     const generation = ++this.requestGeneration;
     const requestKey = this.requestKey();
     const page = this.state.page;
+    const metadata = this.prepareMetadata(refreshMetadata);
 
     this.reloadPending = true;
     this.state.items = [];
@@ -531,7 +640,8 @@ export class DoubanApp {
     this.renderItems();
 
     try {
-      const genresPromise = this.fetchGenres(signal).then(
+      const genresPromise = this.getMetadataValue(metadata, 'genres',
+        () => this.fetchGenres(metadata.controller.signal, metadata.type)).then(
         (genres) => ({ genres, error: null }),
         (error) => ({ genres: [], error })
       );
@@ -539,14 +649,13 @@ export class DoubanApp {
       if (!this.isRequestCurrent(generation, requestKey, signal)) return;
 
       const listTotal = Number(list.total || 0) || 0;
-      this.genres = [];
+      this.genres = this.cachedMetadataValue(metadata, 'genres')?.value || [];
       this.state.items = list.items;
       this.state.total = listTotal;
       this.state.page = page;
       this.state.hasMore = page * this.state.pageSize < this.state.total;
       this.renderGenres(this.genres);
-      this.renderItems();
-      void this.updateStats(signal, listTotal);
+      void this.updateStats(metadata.controller.signal, listTotal, metadata);
       void genresPromise.then((genresResult) => {
         if (!this.isRequestCurrent(generation, requestKey, signal)) return;
         this.genres = genresResult.genres;
@@ -565,7 +674,6 @@ export class DoubanApp {
       if (this.isRequestCurrent(generation, requestKey, signal)) {
         this.state.items = [];
         this.state.visibleItems = [];
-        this.renderItems();
         this.setError('请确认 plugin-douban 已安装、同步完成，并允许匿名访问公开 API。');
         warnApiCall('douban', '豆瓣列表加载失败，请检查插件同步和匿名 API', {
           endpoint: error?.url || API_BASE,
@@ -584,8 +692,8 @@ export class DoubanApp {
     }
   }
 
-  async fetchGenres(signal) {
-    const result = await fetchJson(`${API_BASE}/-/genres`, { type: this.state.type }, signal);
+  async fetchGenres(signal, type = this.state.type) {
+    const result = await fetchJson(`${API_BASE}/-/genres`, { type }, signal);
     return (Array.isArray(result) ? result : [])
       .map((genre) => {
         if (typeof genre === 'string') return { name: genre, doubanCount: 0 };
@@ -616,8 +724,10 @@ export class DoubanApp {
     };
   }
 
-  async updateStats(signal, fallbackTotal = this.state.total) {
-    const labels = typeLabels(this.state.type);
+  async updateStats(signal, fallbackTotal = this.state.total, metadata = this.prepareMetadata()) {
+    const isCurrent = () => !signal?.aborted && this.isMetadataCurrent(metadata);
+    if (!isCurrent()) return;
+    const labels = typeLabels(metadata.type);
     const labelMap = {
       done: labels.done,
       doing: labels.doing,
@@ -629,17 +739,22 @@ export class DoubanApp {
       if (target) target.textContent = label;
     });
 
-    this.setStat('total', fallbackTotal);
-    ['done', 'doing', 'mark'].forEach((key) => this.setStat(key, '—'));
+    ['total', 'done', 'doing', 'mark'].forEach((key) => {
+      const cached = this.cachedMetadataValue(metadata, key);
+      const fallback = key === 'total' ? fallbackTotal : '—';
+      this.setStat(key, cached ? cached.value : fallback);
+    });
     await Promise.all([
-      ['total', { type: this.state.type }],
-      ['done', { type: this.state.type, status: 'done' }],
-      ['doing', { type: this.state.type, status: 'doing' }],
-      ['mark', { type: this.state.type, status: 'mark' }]
+      ['total', {}],
+      ['done', { status: 'done' }],
+      ['doing', { status: 'doing' }],
+      ['mark', { status: 'mark' }]
     ].map(async ([key, params]) => {
       try {
-        const count = await this.fetchCount(params, signal);
-        if (!signal.aborted) this.setStat(key, count);
+        const count = await this.getMetadataValue(metadata, key, () => this.fetchCount({
+          type: metadata.type, dataType: metadata.dataType, ...params
+        }, signal));
+        if (isCurrent()) this.setStat(key, count);
       } catch {
         // An unavailable count stays unknown; the list total remains a useful fallback.
       }
@@ -658,6 +773,7 @@ export class DoubanApp {
 
   async loadMore() {
     if (this.reloadPending || !this.state.hasMore || this.root.classList.contains('is-loading-more')) return;
+    this.clearError();
     this.root.classList.add('is-loading-more');
     const nextPage = this.state.page + 1;
     const generation = this.requestGeneration;
@@ -673,9 +789,10 @@ export class DoubanApp {
       this.state.items = this.state.items.concat(list.items);
       this.state.total = list.total;
       this.state.hasMore = nextPage * this.state.pageSize < this.state.total;
-      this.renderItems();
+      this.renderItems({ append: true });
     } catch (error) {
       if (!this.isRequestCurrent(generation, requestKey, controller.signal)) return;
+      this.setError('下一页加载失败，已保留当前列表，请重试。');
       warnApiCall('douban', '豆瓣下一页加载失败', {
         endpoint: error?.url || API_BASE,
         status: error?.status || '',
@@ -696,11 +813,11 @@ export class DoubanApp {
     const html = types.map((type) => {
       const active = type.key === this.state.type ? ' is-active' : '';
       const count = type.doubanCount ? `<span>${type.doubanCount}</span>` : '';
-      return `<button class="douban-type-tab${active}" type="button" data-douban-type="${escapeHtml(type.key)}">${escapeHtml(type.name)}${count}</button>`;
+      return `<button class="douban-type-tab${active}" type="button" aria-pressed="${type.key === this.state.type}" data-douban-type="${escapeHtml(type.key)}">${escapeHtml(type.name)}${count}</button>`;
     }).join('');
 
-    this.query('[data-douban-types]') && (this.query('[data-douban-types]').innerHTML = html);
-    this.query('[data-douban-types-mobile]') && (this.query('[data-douban-types-mobile]').innerHTML = html);
+    this.renderControlGroup('[data-douban-types]', html, 'data-douban-type');
+    this.renderControlGroup('[data-douban-types-mobile]', html, 'data-douban-type');
   }
 
   renderStatuses() {
@@ -713,11 +830,10 @@ export class DoubanApp {
     ];
 
     const html = statuses.map(([key, label]) => (
-      `<button class="douban-status-pill${this.state.status === key ? ' is-active' : ''}" type="button" data-douban-status="${key}">${escapeHtml(label)}</button>`
+      `<button class="douban-status-pill${this.state.status === key ? ' is-active' : ''}" type="button" aria-pressed="${this.state.status === key}" data-douban-status="${key}">${escapeHtml(label)}</button>`
     )).join('');
 
-    const target = this.query('[data-douban-statuses]');
-    if (target) target.innerHTML = html;
+    this.renderControlGroup('[data-douban-statuses]', html, 'data-douban-status');
   }
 
   renderGenres(genres) {
@@ -728,24 +844,34 @@ export class DoubanApp {
     const html = all.map((genre) => {
       const active = this.state.genre === genre.key ? ' is-active' : '';
       const count = genre.doubanCount ? `<span>${genre.doubanCount}</span>` : '';
-      return `<button class="douban-genre-pill${active}" type="button" data-douban-genre="${escapeHtml(genre.key)}">${escapeHtml(genre.name)}${count}</button>`;
+      return `<button class="douban-genre-pill${active}" type="button" aria-pressed="${this.state.genre === genre.key}" data-douban-genre="${escapeHtml(genre.key)}">${escapeHtml(genre.name)}${count}</button>`;
     }).join('');
 
-    const target = this.query('[data-douban-genres]');
-    if (target) target.innerHTML = html;
+    this.renderControlGroup('[data-douban-genres]', html, 'data-douban-genre');
   }
 
-  renderItems() {
+  renderItems({ append = false } = {}) {
+    const previousCount = this.state.visibleItems.length;
     this.state.visibleItems = this.state.items.slice();
 
     const hasItems = this.state.visibleItems.length > 0;
+    this.setText('[data-douban-result-count]', this.reloadPending ? '正在加载…' : this.loadError ? '加载未完成' : `${this.state.visibleItems.length} / ${this.state.total} 项`);
     this.query('[data-douban-empty]')?.toggleAttribute('hidden', hasItems || this.reloadPending || this.loadError);
     this.query('[data-douban-load-more]')?.toggleAttribute('hidden', !this.state.hasMore || this.reloadPending || this.loadError);
 
     const grid = this.query('[data-douban-grid]');
     const list = this.query('[data-douban-list-body]');
-    if (grid) grid.innerHTML = hasItems ? this.state.visibleItems.map((item, index) => this.renderGridCard(item, index)).join('') : '';
-    if (list) list.innerHTML = hasItems ? this.state.visibleItems.map((item, index) => this.renderListRow(item, index)).join('') : '';
+    const items = append ? this.state.visibleItems.slice(previousCount) : this.state.visibleItems;
+    const gridHtml = items.map((item) => this.renderGridCard(item)).join('');
+    const listHtml = items.map((item) => this.renderListRow(item)).join('');
+    if (grid) {
+      if (append) grid.insertAdjacentHTML('beforeend', gridHtml);
+      else grid.innerHTML = gridHtml;
+    }
+    if (list) {
+      if (append) list.insertAdjacentHTML('beforeend', listHtml);
+      else list.innerHTML = listHtml;
+    }
 
     if (hasItems && !this.state.focusedId) {
       this.state.focusedId = itemId(this.state.visibleItems[0]);
@@ -753,7 +879,7 @@ export class DoubanApp {
     this.highlightFocusedItem();
   }
 
-  renderGridCard(item, index) {
+  renderGridCard(item) {
     const spec = getSpec(item);
     const faves = getFaves(item);
     const id = itemId(item);
@@ -763,10 +889,9 @@ export class DoubanApp {
     const focused = id === this.state.focusedId ? ' is-focused' : '';
 
     return `
-      <article class="douban-card${focused}" data-douban-item-id="${escapeHtml(id)}" style="--item-index:${index}">
+      <article class="douban-card${focused}" data-douban-item-id="${escapeHtml(id)}" role="button" tabindex="0" aria-label="预览：${escapeHtml(spec.name || '未命名条目')}" aria-haspopup="dialog">
         <div class="douban-card-poster">
-          ${spec.poster ? `<img src="${escapeHtml(spec.poster)}" alt="${escapeHtml(spec.name)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';" />` : ''}
-          <span class="douban-poster-fallback" ${spec.poster ? 'style="display:none"' : ''}><span class="icon-[lucide--image-off]" aria-hidden="true"></span></span>
+          ${collectionPoster(spec.poster, spec.name)}
           <span class="douban-card-status is-${escapeHtml(status)}">${escapeHtml(label)}</span>
           ${spec.score ? `<span class="douban-card-score">★ ${escapeHtml(spec.score)}</span>` : ''}
         </div>
@@ -778,7 +903,7 @@ export class DoubanApp {
     `;
   }
 
-  renderListRow(item, index) {
+  renderListRow(item) {
     const spec = getSpec(item);
     const faves = getFaves(item);
     const id = itemId(item);
@@ -786,13 +911,13 @@ export class DoubanApp {
     const genres = genresOf(item).slice(0, 2).join('/');
 
     return `
-      <tr class="douban-row${focused}" data-douban-item-id="${escapeHtml(id)}" style="--item-index:${index}">
+      <tr class="douban-row${focused}" data-douban-item-id="${escapeHtml(id)}">
         <td>
           <span class="douban-row-poster">
-            ${spec.poster ? `<img src="${escapeHtml(spec.poster)}" alt="" loading="lazy" referrerpolicy="no-referrer" />` : ''}
+            ${collectionPoster(spec.poster)}
           </span>
           <span>
-            <strong>${escapeHtml(spec.name || '未命名条目')}</strong>
+            <button class="douban-row-preview" type="button" aria-label="预览：${escapeHtml(spec.name || '未命名条目')}" aria-haspopup="dialog"><strong>${escapeHtml(spec.name || '未命名条目')}</strong></button>
             <small>${escapeHtml(genres || spec.cardSubtitle || '暂无描述')}</small>
           </span>
         </td>
@@ -808,7 +933,10 @@ export class DoubanApp {
   focusItem(id) {
     this.state.focusedId = id;
     this.highlightFocusedItem();
-    this.query(`[data-douban-item-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'nearest' });
+    const selector = this.state.viewMode === 'grid' ? '[data-douban-grid]' : '[data-douban-list-body]';
+    const item = this.query(`${selector} [data-douban-item-id="${CSS.escape(id)}"]`);
+    (item?.querySelector('button') || item)?.focus({ preventScroll: true });
+    item?.scrollIntoView({ block: 'nearest' });
   }
 
   highlightFocusedItem() {
@@ -833,9 +961,21 @@ export class DoubanApp {
     const genres = genresOf(item);
 
     const poster = this.query('[data-douban-preview-poster]');
+    const placeholder = this.query('[data-douban-preview-placeholder]');
     if (poster) {
-      poster.src = spec.poster || '';
-      poster.alt = spec.name || '';
+      const cover = String(spec.poster || '').trim();
+      const showCover = (visible) => {
+        poster.hidden = !visible;
+        if (placeholder) placeholder.hidden = visible;
+      };
+      poster.onload = () => showCover(true);
+      poster.onerror = () => showCover(false);
+      poster.alt = cover ? (spec.name || '') : '';
+      showCover(false);
+      if (cover) {
+        poster.src = cover;
+        if (poster.complete && poster.naturalWidth) showCover(true);
+      } else poster.removeAttribute('src');
     }
     this.setText('[data-douban-preview-score]', spec.score ? `★ ${spec.score}` : '--');
     this.setText('[data-douban-preview-title]', spec.name || '未命名条目');
@@ -845,16 +985,33 @@ export class DoubanApp {
     this.setText('[data-douban-preview-remark]', faves.remark ? `“${faves.remark}”` : '未留下简评。');
 
     const link = this.query('[data-douban-preview-link]');
-    if (link) link.href = spec.link || '#';
+    if (link) {
+      let href = '';
+      try {
+        const raw = String(spec.link || '').trim();
+        const url = new URL(raw.startsWith('//') ? `https:${raw}` : raw);
+        if (['https:', 'http:'].includes(url.protocol)) href = url.href;
+      } catch { /* A missing destination has no external action. */ }
+      link.hidden = !href;
+      if (href) link.href = href;
+      else link.removeAttribute('href');
+    }
 
     const quicklook = this.query('[data-douban-quicklook]');
-    this.quickLookPreviousFocus = trigger instanceof HTMLElement ? trigger : document.activeElement;
+    this.quickLookPreviousFocus = trigger instanceof HTMLElement ? (trigger.querySelector('button') || trigger) : document.activeElement;
     this.quickLookInertTargets = Array.from(this.root.children).filter((child) => child !== quicklook);
     this.quickLookInertTargets.forEach((child) => { child.inert = true; });
     quicklook?.classList.add('is-open');
     quicklook?.setAttribute('aria-hidden', 'false');
     quicklook?.removeAttribute('inert');
-    requestAnimationFrame(() => quicklook?.querySelector('[data-douban-close-preview]')?.focus({ preventScroll: true }));
+    requestAnimationFrame(() => {
+      if (quicklook?.classList.contains('is-open') && !this.destroyed) {
+        const dialog = quicklook.querySelector('[role="dialog"]');
+        const close = dialog?.querySelector('.douban-quicklook-close')
+          || dialog?.querySelector('[data-douban-close-preview]');
+        close?.focus({ preventScroll: true });
+      }
+    });
   }
 
   closePreview({ restoreFocus = true } = {}) {

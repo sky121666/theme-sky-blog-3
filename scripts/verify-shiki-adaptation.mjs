@@ -1,15 +1,47 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 const baseUrl = String(
   process.env.SMOKE_BASE_URL || process.env.HALO_BASE_URL || 'http://localhost:8090'
 ).replace(/\/$/, '');
-const fixturePath = '/__theme_shiki_1_5_1_fixture__';
-const modulePath = '/plugins/shiki/assets/static/shiki-code.js?version=1.5.1';
-const moduleUrl = new URL(modulePath, `${baseUrl}/`).toString();
-const pjaxRuntimeSource = readFileSync(
-  new URL('../src/shell/desktop-shell/runtime/desktop/pjax/index.js', import.meta.url),
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const fixturePath = '/__theme_shiki_fixture__';
+const discoveryUrl = process.env.SHIKI_DISCOVERY_URL || `${baseUrl}/`;
+const discoveryResponse = await fetch(discoveryUrl, { signal: AbortSignal.timeout(20_000) });
+assert.equal(discoveryResponse.status, 200, 'Shiki discovery page should return 200');
+const discoveryHtml = await discoveryResponse.text();
+const moduleUrls = [...discoveryHtml.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi)]
+  .map((match) => new URL(match[1].replaceAll('&amp;', '&'), discoveryUrl))
+  .filter((url) => url.pathname === '/plugins/shiki/assets/static/shiki-code.js');
+assert.equal(moduleUrls.length, 1, 'the live page must identify exactly one Shiki entry module');
+const moduleUrl = moduleUrls[0].href;
+assert.equal(new URL(moduleUrl).origin, new URL(baseUrl).origin, 'Shiki resources must belong to the tested instance');
+const pluginVersion = new URL(moduleUrl).searchParams.get('version');
+assert.match(pluginVersion || '', /^\d+\.\d+\.\d+(?:[-+][\w.-]+)?$/, 'the installed Shiki script must identify its version');
+if (process.env.SHIKI_EXPECTED_VERSION) {
+  assert.equal(pluginVersion, process.env.SHIKI_EXPECTED_VERSION, 'live Shiki version does not match the requested target');
+}
+const pluginJar = process.env.SHIKI_PLUGIN_JAR
+  || path.resolve(root, '../../plugins', `shiki-${pluginVersion}.jar`);
+const manifest = execFileSync('unzip', ['-p', pluginJar, 'plugin.yaml']).toString('utf8');
+const manifestId = manifest.match(/^metadata:\s*\n\s+name:\s*["']?([^"'\s]+)["']?\s*$/m)?.[1];
+const manifestVersion = manifest.match(/^  version:\s*["']?([^"'\s]+)["']?\s*$/m)?.[1];
+assert.equal(manifestId, 'shiki', 'the JAR must be the Shiki plugin');
+assert.equal(manifestVersion, pluginVersion, 'the live script version must match the installed JAR manifest');
+const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
+const jarSha256 = sha256(readFileSync(pluginJar));
+const jarModuleSha256 = sha256(execFileSync('unzip', ['-p', pluginJar, 'static/shiki-code.js']));
+const moduleResponse = await fetch(moduleUrl, { signal: AbortSignal.timeout(20_000) });
+assert.equal(moduleResponse.status, 200, 'the live Shiki module should return 200');
+const liveModuleSha256 = sha256(Buffer.from(await moduleResponse.arrayBuffer()));
+assert.equal(liveModuleSha256, jarModuleSha256, 'the live Shiki module must match the installed JAR bytes');
+const bridgeRuntimeSource = readFileSync(
+  new URL('../src/shell/desktop-shell/runtime/desktop/pjax/shiki-bridge.js', import.meta.url),
   'utf8'
 );
 
@@ -28,7 +60,7 @@ function extractFunction(source, name) {
   throw new Error(`unterminated ${name} in PJAX runtime`);
 }
 
-const incrementalBridgeSource = extractFunction(pjaxRuntimeSource, 'createShikiIncrementalBridge');
+const incrementalBridgeSource = extractFunction(bridgeRuntimeSource, 'createShikiIncrementalBridge');
 
 const ordinaryCode = [
   'function greet(name) {',
@@ -84,7 +116,7 @@ function fixtureDocument() {
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Shiki 1.5.1 non-destructive fixture</title>
+    <title>Shiki ${escapeHtml(pluginVersion)} non-destructive fixture</title>
     <style>
       body { margin: 24px; font-family: system-ui, sans-serif; }
       main { width: 440px; }
@@ -263,6 +295,7 @@ const pageErrors = [];
 const consoleErrors = [];
 const failedPluginRequests = [];
 const pluginResponses = [];
+let browserModuleResponse;
 
 page.on('pageerror', (error) => {
   pageErrors.push(error?.message || String(error));
@@ -279,6 +312,7 @@ page.on('requestfailed', (request) => {
   }
 });
 page.on('response', (response) => {
+  if (response.url() === moduleUrl) browserModuleResponse = response;
   if (response.url().includes('/plugins/shiki/assets/static/')) {
     pluginResponses.push({ url: response.url(), status: response.status() });
   }
@@ -396,7 +430,7 @@ try {
   await page.addScriptTag({
     content: `${incrementalBridgeSource}\nwindow.__SHIKI_INCREMENTAL_BRIDGE_FIXTURE__ = createShikiIncrementalBridge();`
   });
-  const incrementalSetup = await page.evaluate((config) => {
+  const incrementalSetup = await page.evaluate(({ config, identity }) => {
     const root = document.createElement('section');
     root.id = 'shiki-incremental-bridge';
     root.innerHTML = `
@@ -405,17 +439,20 @@ try {
     `;
     document.querySelector('#shiki-fixtures')?.append(root);
     const bridge = window.__SHIKI_INCREMENTAL_BRIDGE_FIXTURE__;
-    bridge.configure(config, 'plugin-shiki-1.5.1-browser-fixture');
+    bridge.configure(config, identity);
     return {
       firstRenderCount: bridge.render(root),
       secondRenderCount: bridge.render(root)
     };
   }, {
-    lightTheme: 'github-light',
-    darkTheme: 'github-dark',
-    variant: 'simple',
-    fontSize: '0.875em',
-    excludedLanguages: ['text']
+    identity: `plugin-shiki-${pluginVersion}-browser-fixture`,
+    config: {
+      lightTheme: 'github-light',
+      darkTheme: 'github-dark',
+      variant: 'simple',
+      fontSize: '0.875em',
+      excludedLanguages: ['text']
+    }
   });
   assert.deepEqual(incrementalSetup, {
     firstRenderCount: 1,
@@ -441,7 +478,7 @@ try {
     };
   });
   assert.equal(incrementalResult.hostCount, 1, 'the incremental bridge must not nest or duplicate shiki-code hosts');
-  assert.ok(incrementalResult.renderedText.includes('incrementalBridge'), 'the actual 1.5.1 custom element did not render the incrementally wrapped code');
+  assert.ok(incrementalResult.renderedText.includes('incrementalBridge'), 'the installed custom element did not render the incrementally wrapped code');
   assert.equal(incrementalResult.lightTheme, 'github-light');
   assert.equal(incrementalResult.darkTheme, 'github-dark');
   assert.equal(incrementalResult.excludedStillRaw, true, 'excluded code should preserve its original pre > code structure');
@@ -449,7 +486,10 @@ try {
 
   const mainModuleResponse = pluginResponses.find((entry) => entry.url === moduleUrl);
   assert.ok(mainModuleResponse, `Shiki module was not requested: ${moduleUrl}`);
-  assert.equal(mainModuleResponse.status, 200, 'Shiki 1.5.1 module should return 200');
+  assert.equal(mainModuleResponse.status, 200, 'the installed Shiki module should return 200');
+  assert.ok(browserModuleResponse, 'the browser must request the installed Shiki module');
+  const browserModuleSha256 = sha256(await browserModuleResponse.body());
+  assert.equal(browserModuleSha256, jarModuleSha256, 'the browser must execute the installed JAR module bytes');
   assert.deepEqual(failedPluginRequests, [], 'Shiki module/chunk requests should not fail');
   assert.equal(
     pluginResponses.some((entry) => entry.status >= 400),
@@ -461,8 +501,11 @@ try {
 
   console.log(JSON.stringify({
     status: 'passed',
-    pluginVersion: '1.5.1',
+    pluginVersion,
     moduleUrl,
+    artifactIdentity: { discoveryUrl, pluginJar, manifestId, manifestVersion, jarSha256, jarModuleSha256, liveModuleSha256, browserModuleSha256 },
+    bridgeRuntimeSha256: sha256(bridgeRuntimeSource),
+    scope: 'Real installed plugin module on isolated browser fixtures and the source incremental PJAX bridge; discovery and resource requests are read-only. Not a final theme build or full-site navigation test.',
     fixtures: lightResults.map((result) => ({
       id: result.id,
       rendered: Boolean(result.shiki),

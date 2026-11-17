@@ -2588,6 +2588,7 @@ html.dark .auth-gateway-page--lockscreen a[href*="method=passkey"] .auth-provide
 }
 
 .platform-windows-auth .auth-scrollbar-thumb {
+  pointer-events: auto;
   background: rgba(17, 24, 39, 0.22);
   border-radius: 999px;
   opacity: 0;

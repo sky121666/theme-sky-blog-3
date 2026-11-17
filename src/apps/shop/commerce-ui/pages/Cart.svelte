@@ -20,6 +20,12 @@ import { fade } from "svelte/transition";
 import i18n from "../i18n";
 let { csrfToken } = $props();
 let busyItems = $state({});
+// Remember an unresolved deletion even when a cart read fails and the row unmounts.
+let removalReviews = $state({});
+function setRemovalReview(id, review) {
+  if (review) removalReviews[id] = review;
+  else delete removalReviews[id];
+}
 function onItemBusyChange(id, busy) {
   if (busy) busyItems[id] = true;
   else delete busyItems[id];
@@ -39,6 +45,13 @@ const query = createQuery(
   () => queryClient
 );
 const checkoutableItems = $derived((query.data ?? []).filter((item) => item.productVariant?.pricingType !== 'INQUIRY'));
+const hasRemovalReview = $derived((query.data ?? []).some(item => removalReviews[item.id]));
+const checkoutBlocked = $derived(!checkoutableItems.length || !query.isSuccess || query.isFetching || query.isPaused || hasPendingItem || hasRemovalReview);
+$effect(() => {
+  if (!query.isSuccess || query.isFetching) return;
+  const present = new Set(query.data.map(item => String(item.id)));
+  for (const id of Object.keys(removalReviews)) if (!present.has(id)) delete removalReviews[id];
+});
 const excludedCount = $derived((query.data ?? []).length - checkoutableItems.length);
 function calculateItemTotal(item) {
   const price = new Decimal(item.productVariant?.price || 0);
@@ -52,6 +65,9 @@ const total = $derived.by(() => {
   }
   return result.toNumber();
 });
+function entryDuration() {
+  return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 0 : 160;
+}
 </script>
 
 <Toaster richColors position="top-center" />
@@ -77,21 +93,21 @@ const total = $derived.by(() => {
     {:else if query.data?.length === 0}
       <span>{$i18n.t('cart.empty')}</span>
     {:else}
-      <div class="shop-cart__items" transition:fade={{ duration: 200 }}>
+      <div class="shop-cart__items" transition:fade={{ duration: entryDuration() }}>
         {#each query.data ?? [] as item (item.id)}
-          <CartItem {item} onBusyChange={onItemBusyChange} />
+          <CartItem {item} onBusyChange={onItemBusyChange} removalReview={removalReviews[item.id]} onRemovalReview={setRemovalReview} />
         {/each}
       </div>
     {/if}
 
-    <div class="shop-cart-summary shop-card">
+    <div class="shop-cart-summary shop-card" aria-busy={query.isFetching || hasPendingItem} data-pending={query.isFetching || hasPendingItem}>
       <h2 class="shop-card__title">{$i18n.t('cart.summaryTitle')}</h2>
       {#if excludedCount > 0}
         <p class="shop-tip" role="status">{$i18n.t('cart.inquiryExcluded', { count: excludedCount })}</p>
       {/if}
       <div class="shop-cart-summary__row">
         <span>{$i18n.t('cart.itemsTotal')}</span>
-        <span>{formatPrice(total || 0)}</span>
+        <span class="shop-cart-summary__amount">{formatPrice(total || 0)}</span>
       </div>
       <div class="shop-cart-summary__row">
         <span>{$i18n.t('cart.shipping')}</span>
@@ -100,10 +116,10 @@ const total = $derived.by(() => {
       <div class="shop-divider"></div>
       <div class="shop-cart-summary__row shop-cart-summary__row--total">
         <span>{$i18n.t('cart.total')}</span>
-        <span>{formatPrice(total || 0)}</span>
+        <span class="shop-cart-summary__amount">{formatPrice(total || 0)}</span>
       </div>
       <div class="shop-cart-summary__actions">
-        <form action="/shop/checkout/prepare" method="POST">
+        <form action="/shop/checkout/prepare" method="POST" onsubmit={event => { if (checkoutBlocked) event.preventDefault(); }}>
           <input type="hidden" name="_csrf" value={csrfToken} />
           <input type="hidden" name="source" value="CART" />
           {#each checkoutableItems as item, index}
@@ -112,7 +128,7 @@ const total = $derived.by(() => {
           {/each}
           <button
             class="shop-btn shop-btn-primary shop-btn-lg"
-            disabled={!checkoutableItems.length || query.isLoading || query.isFetching || query.isPaused || query.isError || hasPendingItem}
+            disabled={checkoutBlocked}
           >
             {$i18n.t('cart.proceedToCheckout')}
           </button>

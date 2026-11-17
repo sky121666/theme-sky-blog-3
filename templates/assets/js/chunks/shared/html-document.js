@@ -1,0 +1,1 @@
+function e(t){return typeof t=="string"&&/<html(?:\s|>)/i.test(t)&&/<body(?:\s|>)/i.test(t)&&/<\/body\s*>\s*<\/html\s*>\s*$/i.test(t)}function s(t){return t?.status===200&&/^text\/html(?:\s*;|$)/i.test(t.headers?.get("content-type")||"")&&t.headers?.get("content-range")==null}export{s as n,e as t};

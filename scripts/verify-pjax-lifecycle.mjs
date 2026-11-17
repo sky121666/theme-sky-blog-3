@@ -189,8 +189,7 @@ async function navigateWithPjax(page, target) {
 
       const cleanup = () => {
         window.clearTimeout(timer);
-        document.removeEventListener('pjax:complete', onComplete);
-        document.removeEventListener('pjax:same-variant-complete', onComplete);
+        document.removeEventListener('theme:pjax-ready', onComplete);
         document.removeEventListener('pjax:error', onError);
       };
       const finish = (callback, value) => {
@@ -199,15 +198,22 @@ async function navigateWithPjax(page, target) {
         cleanup();
         callback(value);
       };
-      const onComplete = () => finish(resolve);
+      const onComplete = (event) => {
+        if (new URL(event.detail?.url || location.href).pathname.replace(/\/+$/, '')
+          !== new URL(targetUrl).pathname.replace(/\/+$/, '')) return;
+        if (event.detail?.mode !== 'full') {
+          finish(reject, new Error(`期望跨窗口 full ready，实际 ${event.detail?.mode}`));
+          return;
+        }
+        finish(resolve);
+      };
       const onError = (event) => {
         const status = event?.detail?.request?.status;
         const detail = event?.detail?.error?.message;
         finish(reject, new Error(`PJAX 请求失败${status ? ` (HTTP ${status})` : ''}${detail ? `: ${detail}` : ''}`));
       };
 
-      document.addEventListener('pjax:complete', onComplete);
-      document.addEventListener('pjax:same-variant-complete', onComplete);
+      document.addEventListener('theme:pjax-ready', onComplete);
       document.addEventListener('pjax:error', onError);
       timer = window.setTimeout(
         () => finish(reject, new Error(`等待 PJAX 完成事件超时：${targetUrl}`)),
@@ -268,7 +274,7 @@ async function navigateSameVariantByClick(page, target) {
 
       const cleanup = () => {
         window.clearTimeout(timer);
-        document.removeEventListener('pjax:same-variant-complete', onComplete);
+        document.removeEventListener('theme:pjax-ready', onComplete);
         document.removeEventListener('pjax:error', onError);
         link.remove();
       };
@@ -278,17 +284,25 @@ async function navigateSameVariantByClick(page, target) {
         cleanup();
         callback(value);
       };
-      const onComplete = () => finish(resolve);
+      const onComplete = (event) => {
+        if (new URL(event.detail?.url || location.href).pathname.replace(/\/+$/, '')
+          !== new URL(targetUrl).pathname.replace(/\/+$/, '')) return;
+        if (event.detail?.mode !== 'same') {
+          finish(reject, new Error(`期望同窗口 same ready，实际 ${event.detail?.mode}`));
+          return;
+        }
+        finish(resolve);
+      };
       const onError = (event) => {
         const status = event?.detail?.request?.status;
         const detail = event?.detail?.error?.message;
         finish(reject, new Error(`同 variant PJAX 失败${status ? ` (HTTP ${status})` : ''}${detail ? `: ${detail}` : ''}`));
       };
 
-      document.addEventListener('pjax:same-variant-complete', onComplete);
+      document.addEventListener('theme:pjax-ready', onComplete);
       document.addEventListener('pjax:error', onError);
       timer = window.setTimeout(
-        () => finish(reject, new Error(`等待 pjax:same-variant-complete 超时：${targetUrl}`)),
+        () => finish(reject, new Error(`等待同窗口 theme:pjax-ready 超时：${targetUrl}`)),
         timeoutMs
       );
       link.click();

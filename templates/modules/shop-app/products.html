@@ -35,9 +35,10 @@
           <th:block th:replace="~{modules/shop-app/toolbar :: toolbar(categories=${categoryTree},currentKeyword=${currentKeyword},currentCategory=${currentCategory},currentSort=${currentSort},isCatalog=${isCatalog})}"></th:block>
         </th:block>
 
-        <div class="shop-empty" th:if="${isCatalog and !hasProducts}">
+        <p class="shop-browse-status" data-shop-browse-status role="status" hidden></p>
+        <div class="shop-empty" role="status" th:if="${isCatalog and !hasProducts}">
           <p th:text="${!#strings.isEmpty(currentKeyword) or !#strings.isEmpty(currentCategory) ? '没有找到匹配的商品。' : '商店暂时没有商品。'}">商店暂时没有商品。</p>
-          <a href="/shop/products?view=all" class="shop-card-action" th:if="${!#strings.isEmpty(currentKeyword) or !#strings.isEmpty(currentCategory)}">浏览商品</a>
+          <a href="/shop/products?view=all" class="shop-card-action pjax-link" th:if="${!#strings.isEmpty(currentKeyword) or !#strings.isEmpty(currentCategory)}">清除筛选</a>
         </div>
 
         <th:block th:if="${isExplore}">
@@ -65,7 +66,9 @@
 </th:block>
 
 <a th:fragment="catalogCard (item, showDescription)" class="shop-catalog-card pjax-link" th:href="@{${#halo != null and !#strings.equals(site.version, '0.0.0') and #halo.matchVersion('>=2.27.0') and !#strings.isEmpty(item.permalink) ? item.permalink : '/shop/product/' + item.id}}">
-  <img th:if="${!#strings.isEmpty(item.coverImageUrl)}" th:src="${item.coverImageUrl}" alt="" loading="lazy" decoding="async" />
+  <!-- Halo supplies candidates only for supported attachments. Native auto sizes follows the grid/list slot. -->
+  <img th:if="${!#strings.isEmpty(item.coverImageUrl)}" th:src="${item.coverImageUrl}" alt="" loading="lazy" decoding="async"
+       sizes="auto, (max-width: 767px) calc((100vw - 54px) / 2), 280px" />
   <th:block th:if="${#strings.isEmpty(item.coverImageUrl)}">
     <th:block th:replace="~{::imagePlaceholder(imageTitle=${item.title})}"></th:block>
   </th:block>

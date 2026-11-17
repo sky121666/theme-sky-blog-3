@@ -1,3 +1,4 @@
+import { withRequestDeadline } from '../../shared/request-deadline.js';
 import { warnApiCall } from '../../shell/desktop-shell/runtime/shared/debug.js';
 
 function normalize(value) {
@@ -90,6 +91,33 @@ function isAbortError(error) {
   return error?.name === 'AbortError';
 }
 
+function readPaginationPage(doc, html, requestUrl, response) {
+  const requested = new URL(requestUrl, window.location.href);
+  const received = new URL(response.url || '', window.location.href);
+  requested.searchParams.sort();
+  received.searchParams.sort();
+  const body = doc.body;
+  const app = body?.querySelector('[data-app-root="steam"]');
+  const grid = app?.querySelector('.steam-library-grid');
+  const trigger = app?.querySelector('[data-steam-loadmore]');
+  const empty = app?.querySelector('.steam-empty--compact');
+  if (response.redirected || !response.url
+    || requested.origin !== received.origin || requested.pathname !== received.pathname
+    || requested.search !== received.search
+    || !/<\/body>\s*<\/html>\s*$/i.test(html)
+    || body?.dataset.errorPage !== 'false' || body.dataset.pageMode !== 'browser-steam'
+    || body.dataset.appId !== 'steam' || body.dataset.windowVariant !== 'steam'
+    || !app?.querySelector('[data-app-props="steam"]')
+    || !['ready', 'empty'].includes(app?.dataset.steamLibraryState)
+    || (app.dataset.steamLibraryState === 'ready' && (!grid || !trigger || !trigger.querySelector('[data-steam-scroll-sentinel]')))
+    || (app.dataset.steamLibraryState === 'empty' && (!empty || grid || trigger))) {
+    throw new Error('Steam 分页响应与请求地址或页面协议不符');
+  }
+  const cards = Array.from(grid?.querySelectorAll(':scope > [data-steam-game-card]') || []);
+  if (grid && !cards.length) throw new Error('Steam 游戏库分页响应缺少条目');
+  return cards;
+}
+
 export function registerSteamExplorer(Alpine) {
   Alpine.data('steamExplorer', () => ({
     activeView: 'profile',
@@ -100,6 +128,7 @@ export function registerSteamExplorer(Alpine) {
     hasMore: false,
     loading: false,
     loadError: false,
+    heatmapError: false,
     _observer: null,
     _fallbackScrollHandler: null,
     _heatmapLoaded: false,
@@ -139,6 +168,7 @@ export function registerSteamExplorer(Alpine) {
       this._paginationAbortController = null;
       this._heatmapLoaded = false;
       this.loading = false;
+      this.heatmapError = false;
     },
 
     isAlive(generation = this._lifecycleGeneration, root = this.$root) {
@@ -197,7 +227,7 @@ export function registerSteamExplorer(Alpine) {
       const scroller = this.$root.querySelector('.steam-main-scroll')
         || this.$root.closest('[data-window-scroll]')
         || this.$root;
-      scroller?.scrollTo?.({ top: 0, behavior: 'smooth' });
+      scroller?.scrollTo?.({ top: 0, behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     },
 
     isView(view) {
@@ -212,11 +242,7 @@ export function registerSteamExplorer(Alpine) {
     },
 
     shouldShowGame(el) {
-      const appId = el?.dataset?.steamAppId || '';
-      const index = Number(el?.dataset?.steamIndex || 0);
-      const game = this.games.find((item) => item.appId === appId && item.index === index)
-        || this.games.find((item) => item.index === index);
-      return this.matchesGame(game);
+      return Boolean(el) && this.matchesGame({ name: el.dataset?.steamGameName || '' });
     },
 
     visibleCount() {
@@ -241,18 +267,44 @@ export function registerSteamExplorer(Alpine) {
     },
 
     applyGameOrdering() {
+      const grid = this.$root.querySelector('.steam-library-grid');
+      const focused = grid?.contains(document.activeElement) ? document.activeElement : null;
       this.sortedGames().forEach((game, order) => {
         if (game.el) {
           game.el.style.order = String(order);
+          // Keep reading and keyboard order aligned with the visual order.
+          grid?.appendChild(game.el);
         }
+      });
+      if (focused?.isConnected) focused.focus({ preventScroll: true });
+    },
+
+    clearSearch() {
+      this.searchQuery = '';
+      this.$nextTick(() => {
+        if (this.isAlive()) this.$root.querySelector('.steam-search-wrap input')?.focus({ preventScroll: true });
       });
     },
 
-    gameOrder(el) {
-      const appId = el?.dataset?.steamAppId || '';
-      const index = Number(el?.dataset?.steamIndex || 0);
-      const order = this.sortedGames().findIndex((game) => game.appId === appId && game.index === index);
-      return order >= 0 ? order : index;
+    describeHeatmapDay(event) {
+      const cell = event.target.closest?.('[data-steam-heatmap-grid] > span');
+      if (!cell) return;
+      const detail = this.$root.querySelector('[data-steam-heatmap-detail]');
+      if (detail) detail.textContent = cell.getAttribute('aria-label');
+    },
+
+    focusHeatmapDay(event) {
+      const cells = Array.from(this.$root.querySelectorAll('[data-steam-heatmap-grid] > span'));
+      const index = cells.indexOf(event.target);
+      if (index < 0) return;
+      const offsets = { ArrowUp: -1, ArrowDown: 1, ArrowLeft: -7, ArrowRight: 7 };
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? cells.length - 1 : index + offsets[event.key];
+      if (!Number.isFinite(next)) return;
+      event.preventDefault();
+      const target = cells[Math.max(0, Math.min(cells.length - 1, next))];
+      cells.forEach((cell) => { cell.tabIndex = cell === target ? 0 : -1; });
+      target?.focus({ preventScroll: true });
+      target?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     },
 
     async renderHeatmap() {
@@ -263,6 +315,7 @@ export function registerSteamExplorer(Alpine) {
       const grid = panel?.querySelector('[data-steam-heatmap-grid]');
       if (!panel || !grid || this._heatmapLoaded) return;
       this._heatmapLoaded = true;
+      this.heatmapError = false;
       panel.dataset.steamHeatmapState = 'loading';
       applyHeatmapTheme(panel);
 
@@ -295,14 +348,14 @@ export function registerSteamExplorer(Alpine) {
         const seenRecords = new Set();
         for (let page = 1; ; page += 1) {
           const api = `/apis/api.steam.timxs.com/v1alpha1/heatmap/records?startDate=${formatDate(start)}&endDate=${formatDate(end)}&page=${page}&size=${days}`;
-          const response = await fetch(api, {
-            headers: { Accept: 'application/json' },
-            ...(controller ? { signal: controller.signal } : {})
-          });
-          if (!isCurrent()) return;
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-          const data = await response.json();
+          const data = await withRequestDeadline(async (signal) => {
+            const response = await fetch(api, {
+              headers: { Accept: 'application/json' },
+              signal
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return response.json();
+          }, { signal: controller?.signal });
           if (!isCurrent()) return;
           const pageSize = Number(data?.size ?? days);
           const total = Number(data?.total);
@@ -342,7 +395,7 @@ export function registerSteamExplorer(Alpine) {
         cells.forEach((cell) => { cell.minutes = 0; cell.games.clear(); });
         warnApiCall('steam', 'Steam 热力图记录加载失败', {
           message: error?.message || String(error || ''),
-          action: 'render-empty-heatmap',
+          action: 'show-heatmap-unavailable',
           hint: '检查 Steam 插件游玩记录 API 是否可访问，以及返回 items 是否为数组。'
         });
       } finally {
@@ -353,6 +406,7 @@ export function registerSteamExplorer(Alpine) {
 
       if (!isCurrent()) return;
       this._heatmapLoaded = !failed;
+      this.heatmapError = failed;
 
       const maxMinutes = Math.max(0, ...cells.map((cell) => cell.minutes));
       const activeDays = cells.filter((cell) => cell.minutes > 0).length;
@@ -368,14 +422,16 @@ export function registerSteamExplorer(Alpine) {
           : '暂无可展示的游玩记录';
       }
 
-      grid.innerHTML = cells.map((cell) => {
+      const detail = panel.querySelector('[data-steam-heatmap-detail]');
+      if (detail) detail.textContent = failed ? '日期记录暂不可用' : '聚焦日期查看游玩记录';
+      grid.innerHTML = cells.map((cell, index) => {
         const level = heatLevel(cell.minutes, maxMinutes);
         const gameText = Array.from(cell.games).slice(0, 2).join('、');
-        const title = cell.minutes
+        const title = failed ? `${cell.date} · 记录暂不可用` : cell.minutes
           ? `${cell.date} · ${cell.minutes} 分钟${gameText ? ` · ${gameText}` : ''}`
           : `${cell.date} · 无记录`;
         const safeTitle = escapeAttribute(title);
-        return `<span class="is-${level}" title="${safeTitle}" aria-label="${safeTitle}"></span>`;
+        return `<span class="is-${level}" role="img" tabindex="${index === cells.length - 1 ? 0 : -1}" title="${safeTitle}" aria-label="${safeTitle}"></span>`;
       }).join('');
       panel.dataset.steamHeatmapState = failed ? 'unavailable' : 'ready';
     },
@@ -395,7 +451,7 @@ export function registerSteamExplorer(Alpine) {
 
       this._observer?.disconnect();
       this._observer = new IntersectionObserver((entries) => {
-        if (this.isAlive(generation, root) && entries[0]?.isIntersecting) {
+        if (this.isAlive(generation, root) && !this.loadError && entries[0]?.isIntersecting) {
           this.loadNext();
         }
       }, {
@@ -408,7 +464,7 @@ export function registerSteamExplorer(Alpine) {
     },
 
     installScrollFallback(scroller) {
-      if (!this.isAlive()) return;
+      if (!this.isAlive() || this.loadError) return;
       this.removeScrollFallback();
       if (!scroller) return;
 
@@ -422,7 +478,7 @@ export function registerSteamExplorer(Alpine) {
     },
 
     checkScrollFallback() {
-      if (!this.isAlive()) return;
+      if (!this.isAlive() || this.loadError) return;
       const scroller = this.$root.querySelector('.steam-main-scroll');
       if (!scroller || this.activeView !== 'library') return;
 
@@ -484,28 +540,18 @@ export function registerSteamExplorer(Alpine) {
       const isCurrent = () => !controller?.signal.aborted && this.isAlive(generation, root);
 
       try {
-        const response = await fetch(this.nextUrl, {
-          headers: { 'X-Requested-With': 'XMLHttpRequest' },
-          ...(controller ? { signal: controller.signal } : {})
-        });
-        if (!isCurrent()) return;
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-
-        const html = await response.text();
+        const requestUrl = this.nextUrl;
+        const { response, html } = await withRequestDeadline(async (signal) => {
+          const response = await fetch(requestUrl, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            signal
+          });
+          if (response.status !== 200) throw new Error(`HTTP ${response.status}`);
+          return { response, html: await response.text() };
+        }, { signal: controller?.signal });
         if (!isCurrent()) return;
         const doc = new DOMParser().parseFromString(html, 'text/html');
-        const cards = Array.from(doc.querySelectorAll('.steam-library-grid > [data-steam-game-card]'));
-
-        if (!cards.length) {
-          const appRoot = doc.querySelector('[data-app-root="steam"]');
-          if (appRoot?.dataset.steamLibraryState === 'unavailable') {
-            throw new Error('Steam library is temporarily unavailable');
-          }
-          this.updatePaginationFrom(doc);
-          return;
-        }
+        const cards = readPaginationPage(doc, html, requestUrl, response);
 
         this.appendCards(cards);
         this.updatePaginationFrom(doc);

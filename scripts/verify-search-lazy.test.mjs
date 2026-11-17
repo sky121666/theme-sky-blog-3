@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import vm from 'node:vm';
 
-const source = await readFile(new URL('../src/shell/desktop-shell/runtime/desktop/search.js', import.meta.url), 'utf8');
+const source = await readFile(new URL('../src/shared/search-widget.js', import.meta.url), 'utf8');
 function deferred() {
   let resolve, reject;
   const promise = new Promise((done, fail) => { resolve = done; reject = fail; });
@@ -22,10 +22,10 @@ function eventTarget(properties = {}) {
   });
 }
 function fixture({ installed = true } = {}) {
-  const loads = [], events = [], warnings = [];
+  const loads = [], events = [], warnings = [], openedOptions = [];
   const window = eventTarget({
     requestAnimationFrame() {}, setTimeout, clearTimeout,
-    SearchWidget: installed ? { open() { events.push('official-open'); } } : undefined,
+    SearchWidget: installed ? { open(options) { openedOptions.push(options); events.push('official-open'); } } : undefined,
   });
   const document = eventTarget({
     querySelectorAll: () => [{ shadowRoot: {
@@ -37,9 +37,9 @@ function fixture({ installed = true } = {}) {
     console: { warn: (...args) => warnings.push(args) },
     __loadSearchRuntime() { const load = deferred(); loads.push(load); return load.promise; },
   });
-  vm.runInContext(source.replace(/^export /gm, '').replace("import('./search-runtime.js')", '__loadSearchRuntime()'), context);
-  const runtime = { openSearchWidget() { events.push('style-ready'); window.SearchWidget?.open?.(); } };
-  return { window, document, loads, events, warnings, runtime, open: context.openSearchWidget,
+  vm.runInContext(source.replace(/^export /gm, '').replace("import('./search-widget-runtime.js')", '__loadSearchRuntime()'), context);
+  const runtime = { openSearchWidget(options) { events.push('style-ready'); window.SearchWidget?.open?.(options); } };
+  return { window, document, loads, events, warnings, openedOptions, runtime, open: context.openSearchWidget,
     listenerCount: () => window.listenerCount() + document.listenerCount() };
 }
 const flush = () => new Promise((resolve) => setImmediate(resolve));
@@ -151,4 +151,25 @@ test('official fallback errors remain visible and the next attempt is still usab
   assert.equal(f.loads.length, 2);
   f.loads[1].resolve({ openSearchWidget() {} });
   await flush();
+});
+
+for (const failure of [false, true]) test(`project-scoped search retains official options after lazy styling (fallback=${failure})`, async () => {
+  const f = fixture();
+  const options = { includeCategoryNames: ['project:theme', 'version:v2', 'lang:zh'] };
+  assert.equal(f.open(options), true);
+  if (failure) f.loads[0].reject(new Error('style unavailable'));
+  else f.loads[0].resolve(f.runtime);
+  await flush();
+  assert.deepEqual(f.openedOptions, [options]);
+});
+
+for (const failure of [false, true]) test(`pending search keeps only the latest requested scope (fallback=${failure})`, async () => {
+  const f = fixture(), project = { includeCategoryNames: ['project:current'] };
+  f.open(); f.open(project);
+  assert.equal(f.loads.length, 1);
+  if (failure) f.loads[0].reject(new Error('style unavailable')); else f.loads[0].resolve(f.runtime);
+  await flush(); assert.deepEqual(f.openedOptions, [project]);
+  f.open(project); f.open();
+  if (failure) f.loads[1].resolve(f.runtime);
+  await flush(); assert.deepEqual(f.openedOptions, [project, undefined]);
 });

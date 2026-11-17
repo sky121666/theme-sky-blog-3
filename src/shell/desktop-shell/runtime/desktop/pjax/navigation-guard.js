@@ -202,9 +202,3 @@ export function createNavigationCoordinator() {
     }
   };
 }
-
-export function isNavigationAbort(error, navigation, coordinator) {
-  return error?.name === 'AbortError'
-    || navigation?.signal?.aborted === true
-    || !coordinator?.isCurrent?.(navigation);
-}

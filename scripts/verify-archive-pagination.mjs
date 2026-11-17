@@ -133,7 +133,8 @@ function createParsedPage({ keys, nextUrl = '', page = 2, monthKey = '2024-12' }
   return {
     querySelector(selector) {
       if (selector === '[data-app-root="explorer-archives"] .archive-workspace') {
-        return { dataset: { activeMonthKey: monthKey, currentPage: String(page) } };
+        return { dataset: { activeMonthKey: monthKey, currentPage: String(page) },
+          querySelector: name => name === '[data-archive-post-list]' ? {} : null };
       }
       if (selector === '[data-archive-loadmore]') return trigger;
       return null;
@@ -166,8 +167,8 @@ parsedPage = createParsedPage({
 });
 globalThis.fetch = async () => ({
   ok: true,
-  status: 200,
-  async text() { return '<html></html>'; }
+  status: 200, headers: new Headers({ 'Content-Type': 'text/html' }),
+  async text() { return '<!doctype html><html><head></head><body></body></html>'; }
 });
 
 await instance.loadNext();
@@ -192,6 +193,28 @@ assert.equal(retryInstance.loadError, true, 'HTTP 失败必须保留可重试错
 assert.equal(retryInstance.hasMore, true, 'HTTP 失败不得误判为已全部加载');
 assert.equal(retryInstance.nextUrl, '/archives/2024/12/page/2', 'HTTP 失败不得丢失重试地址');
 
+for (const [status, body, type] of [
+    [204, '', 'text/html'], [206, '<html><body>partial', 'text/html'],
+    [200, '<html><body>first row only', 'text/html'],
+    [200, '<html><body></body></html>', 'text/plain']
+  ]) {
+  const partialFixture = createRoot({ keys: firstPageKeys });
+  const partial = factory();
+  partial.$root = partialFixture.rootNode;
+  partial.init();
+  parsedPage = createParsedPage({ keys: ['post-11', 'post-12'] });
+  const historyBefore = replacedHistory;
+  globalThis.fetch = async () => ({ ok: true, status, headers: new Headers({ 'Content-Type': type }), text: async () => body });
+  await partial.loadNext();
+  assert.equal(partialFixture.list.nodes.length, 10, `HTTP ${status} 不得追加不完整归档`);
+  assert.equal(partial.loadError, true);
+  assert.equal(partial.hasMore, true);
+  assert.equal(partial.nextUrl, '/archives/2024/12/page/2');
+  assert.equal(partial.loading, false);
+  assert.equal(replacedHistory, historyBefore, '不完整响应不得推进历史页码');
+  partial.destroy();
+}
+
 let releaseResponse;
 const staleFixture = createRoot({ keys: firstPageKeys });
 const staleInstance = factory();
@@ -199,9 +222,10 @@ staleInstance.$root = staleFixture.rootNode;
 staleInstance.init();
 parsedPage = createParsedPage({ keys: ['post-11', 'post-12'] });
 globalThis.fetch = () => new Promise((resolve) => {
-  releaseResponse = () => resolve({ ok: true, status: 200, async text() { return '<html></html>'; } });
+  releaseResponse = () => resolve({ ok: true, status: 200, headers: new Headers({ 'Content-Type': 'text/html' }), async text() { return '<!doctype html><html><head></head><body></body></html>'; } });
 });
 const staleRequest = staleInstance.loadNext();
+await Promise.resolve();
 staleInstance.destroy();
 releaseResponse();
 await staleRequest;

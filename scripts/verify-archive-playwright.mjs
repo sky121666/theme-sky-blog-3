@@ -236,7 +236,9 @@ try {
     targetUrl: absoluteUrl(archivePostHref),
     action: () => archivePostAction.click(),
     preservedSelector: '[data-app-root="explorer-archives"] .archive-workspace',
-    expectWindowOverlay: true,
+    // The unified Swup waiting contract keeps the current app readable and
+    // uses the progress indicator even when the destination is another app.
+    expectWindowOverlay: false,
     label: '归档进入正文'
   });
   await page.waitForFunction(() => document.body?.dataset.pageApp === 'reader');

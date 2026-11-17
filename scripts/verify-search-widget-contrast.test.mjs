@@ -7,7 +7,7 @@ import { build } from 'esbuild';
 // Read the installed plugin, then run it with current theme source in an
 // isolated document. No built assets, real search requests or server writes.
 const baseUrl = process.env.HALO_BASE_URL || 'http://localhost:8090';
-const sourceUrl = new URL('../src/shell/desktop-shell/runtime/desktop/search-runtime.js', import.meta.url);
+const sourceUrl = new URL('../src/shared/search-widget-runtime.js', import.meta.url);
 
 function luminance(rgb) {
   const channels = rgb.match(/[\d.]+/g).slice(0, 3).map(Number).map(value => value / 255);
@@ -193,6 +193,94 @@ test('搜索局部 Tab 边界支持旧单层与嵌套表单，动态清除按钮
         await page.keyboard.press('Escape');
         assert.equal(await page.evaluate(() => window.fixtureEscapes), 1, 'outside keyboard input does not reach the search handler');
       } finally { await page.close(); }
+    }
+  } finally { await browser.close(); }
+});
+
+test('真实 SearchWidget 结果接入统一导航，保留历史、取消与原生回退', async (t) => {
+  const home = await (await fetch(baseUrl)).text();
+  const script = home.match(/<script\b[^>]*\bsrc=["']([^"']*\/plugins\/PluginSearchWidget\/assets\/static\/search-widget\.iife\.js[^"']*)["']/i)?.[1];
+  assert.ok(script);
+  const plugin = await (await fetch(new URL(script, baseUrl))).text();
+  const source = await readFile(sourceUrl, 'utf8');
+  const browser = await chromium.launch({ headless: true });
+  const origin = 'https://search-navigation.test';
+  try {
+    for (const mode of ['keyboard', 'pointer', 'touch', 'cancelled', 'failed-retry', 'native', 'external', 'unknown']) {
+      await t.test(mode, async () => {
+        const context = await browser.newContext({ viewport: { width: mode === 'touch' ? 390 : 1440, height: 900 },
+          isMobile: mode === 'touch', hasTouch: mode === 'touch', reducedMotion: 'reduce' });
+        try {
+          await context.route('**/*', route => route.fulfill({ contentType: 'text/html',
+            body: '<!doctype html><html><head><link rel="icon" href="data:,"></head><body><button id="trigger">搜索</button></body></html>' }));
+          const page = await context.newPage();
+          await page.goto(origin);
+          await page.evaluate((mode) => {
+            const hit = { id: 'target', title: '目标文章', permalink: mode === 'external' ? 'https://outside.test/destination' : '/destination' };
+            localStorage.setItem('halo:search-widgets:history:hits', JSON.stringify([
+              { id: 'other', title: '其他文章', permalink: '/other' }, hit]));
+            window.__searchBridgeTest = { mode, calls: [], document, hit };
+            if (mode !== 'native') window.pjax = { loadUrl(href) {
+              const state = window.__searchBridgeTest;
+              state.calls.push(href);
+              if (state.mode === 'cancelled') return Promise.resolve(false);
+              document.dispatchEvent(new CustomEvent('theme:navigation-accepted', { detail: { url: href, intentId: state.calls.length } }));
+              return Promise.resolve(state.mode !== 'failed-retry');
+            } };
+          }, mode);
+          await page.addScriptTag({ content: plugin });
+          if (mode === 'unknown') await page.evaluate(() => {
+            const prototype = customElements.get('search-form').prototype;
+            const original = prototype.handleOpenLink;
+            prototype.handleOpenLink = function(hit) { return original.call(this, hit); };
+          });
+          await page.addScriptTag({ content: `${source.replace(/^export /gm, '')}\nwindow.openSearchWidget = openSearchWidget;` });
+          await page.evaluate(() => {
+            document.getElementById('trigger').addEventListener('click', () => window.openSearchWidget());
+          });
+          // Open from a focused trigger, as the real menubar does. Closing the
+          // modal restores that focus while the same Enter event is in flight.
+          await page.locator('#trigger').click();
+          await page.locator('search-modal li[data-index="0"]').waitFor();
+          await page.waitForFunction(() => document.querySelector('search-modal').shadowRoot
+            .querySelector('search-form').shadowRoot.getElementById('mac-search-form-style'));
+          const activate = async (index = 1) => {
+            if (mode === 'touch') await page.locator(`search-modal li[data-index="${index}"]`).tap();
+            else if (mode === 'pointer') await page.locator(`search-modal li[data-index="${index}"]`).click();
+            else {
+              for (let i = 0; i < index; i++) await page.locator('search-modal input').press('ArrowDown');
+              await page.locator('search-modal input').press('Enter');
+            }
+          };
+          await activate();
+          if (mode === 'native' || mode === 'external' || mode === 'unknown') {
+            await page.waitForURL(`${mode === 'external' ? 'https://outside.test' : origin}/destination`);
+            return;
+          }
+          await page.waitForFunction(() => window.__searchBridgeTest?.calls.length === 1, null, { timeout: 1500 });
+          const state = await page.evaluate(() => ({
+            sameDocument: document === window.__searchBridgeTest.document,
+            calls: window.__searchBridgeTest.calls,
+            open: document.querySelector('search-modal').open,
+            history: JSON.parse(localStorage.getItem('halo:search-widgets:history:hits')),
+          }));
+          assert.equal(state.sameDocument, true);
+          assert.deepEqual(state.calls, [`${origin}/destination`]);
+          assert.equal(state.open, mode === 'cancelled', 'a rejected leave must keep the search open');
+          assert.deepEqual(state.history.map(hit => hit.id), mode === 'cancelled' ? ['other', 'target'] : ['target', 'other'],
+            'accepted navigation promotes the hit without duplicates; a veto preserves history');
+          if (mode === 'failed-retry') {
+            assert.equal(page.url(), `${origin}/`, 'a failed Swup read must not fall through to a full reload');
+            await page.evaluate(() => { window.__searchBridgeTest.mode = 'keyboard'; window.openSearchWidget(); });
+            await page.locator('search-modal li[data-index="0"]').waitFor();
+            await page.waitForFunction(() => document.querySelector('search-modal').shadowRoot
+              .querySelector('search-form').shadowRoot.getElementById('mac-search-form-style'));
+            await activate(0);
+            await page.waitForFunction(() => window.__searchBridgeTest?.calls.length === 2);
+            assert.equal(await page.evaluate(() => document === window.__searchBridgeTest.document), true);
+          }
+        } finally { await context.close(); }
+      });
     }
   } finally { await browser.close(); }
 });

@@ -232,3 +232,4 @@ try {
 } finally { await browser.close(); }
 console.log(JSON.stringify({ status: failures.length ? 'failed' : 'passed', passed, failures, scope: 'isolated media/category/detail layout, no transaction behavior' }, null, 2));
 if (failures.length) process.exitCode = 1;
+await import('./verify-commerce-media-selection.mjs');

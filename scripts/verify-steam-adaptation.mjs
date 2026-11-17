@@ -167,6 +167,12 @@ explorer.games = [
 ];
 explorer.searchQuery = 'portal';
 assert.equal(explorer.visibleCount(), 2, 'library search should keep filtering already-loaded cards');
+assert.equal(explorer.shouldShowGame({ dataset: { steamGameName: 'Aperture Desk Job' } }), false,
+  'card filtering must use its own serialized name instead of another card at the same initial index');
+assert.equal(explorer.shouldShowGame({ dataset: {
+  steamGameName: '  PORTAL Stories  ', steamAppId: 'new-page-game', steamIndex: '0'
+} }), true, 'a newly hydrated pagination card must be searchable before readGames rebuilds the model');
+assert.equal(explorer.shouldShowGame(null), false, 'a missing card must not match an unrelated indexed game');
 explorer.sortMode = 'playtime';
 assert.deepEqual(explorer.sortedGames().map((game) => game.appId), ['30', '10', '20']);
 explorer.sortMode = 'recent';
@@ -251,6 +257,17 @@ try {
   await paginationExplorer.loadNext();
   assert.equal(paginationExplorer.loadError, true, 'HTTP pagination failure should enter retryable error state');
   assert.equal(paginationExplorer.loading, false, 'pagination failure should release loading state');
+
+  for (const status of [204, 206]) {
+    let parsed = false;
+    globalThis.DOMParser = class { parseFromString() { parsed = true; throw new Error('must not parse partial page'); } };
+    globalThis.fetch = async () => ({ ok: true, status, text: async () => '<html><body></body></html>' });
+    await paginationExplorer.loadNext();
+    assert.equal(parsed, false, `HTTP ${status} cannot be used as a full Steam page`);
+    assert.equal(paginationExplorer.loadError, true);
+    assert.equal(paginationExplorer.nextUrl, '/steam/page/2');
+    assert.equal(paginationExplorer.hasMore, true);
+  }
 
   const unavailableExplorer = explorerFactory();
   unavailableExplorer.activeView = 'library';
@@ -427,9 +444,29 @@ try {
   queuedPagination.model.hasMore = true;
   queuedPagination.model.nextUrl = '/steam/page/2';
   queuedPagination.model.appendCards = () => {};
-  globalThis.fetch = async () => ({ ok: true, text: async () => '<html></html>' });
+  globalThis.window.location = new URL('https://steam.test/steam');
+  globalThis.fetch = async () => ({ ok: true, status: 200, url: 'https://steam.test/steam/page/2', text: async () => '<html><body></body></html>' });
   globalThis.DOMParser = class {
-    parseFromString() { return { querySelectorAll: () => [{}], querySelector: () => null }; }
+    parseFromString() {
+      const grid = { querySelectorAll: () => [{}] };
+      const trigger = { dataset: { nextUrl: '' }, querySelector: () => ({}) };
+      const app = {
+        dataset: { steamLibraryState: 'ready' },
+        querySelector(selector) {
+          if (selector === '.steam-library-grid') return grid;
+          if (selector === '[data-steam-loadmore]') return trigger;
+          if (selector === '[data-app-props="steam"]') return {};
+          return null;
+        }
+      };
+      return {
+        body: {
+          dataset: { errorPage: 'false', pageMode: 'browser-steam', appId: 'steam', windowVariant: 'steam' },
+          querySelector: () => app
+        },
+        querySelector: (selector) => selector === '[data-steam-loadmore]' ? trigger : null
+      };
+    }
   };
   await queuedPagination.model.loadNext();
   let fallbackChecks = 0;

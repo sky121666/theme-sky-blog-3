@@ -12,6 +12,16 @@ function createPostPreviewState(optionSelector) {
     init() {
       const firstPost = this.$root?.querySelector?.(optionSelector);
       if (firstPost) this.selectPost(firstPost);
+
+      const current = this.$root?.querySelector?.('[data-category-link][aria-current="page"]');
+      const strip = current?.closest('.categories-sidebar-nav');
+      if (strip && strip.scrollWidth > strip.clientWidth) {
+        const item = current.getBoundingClientRect();
+        const bounds = strip.getBoundingClientRect();
+        // Move only the horizontal strip; opening a category must not scroll its posts.
+        if (item.right > bounds.right) strip.scrollLeft += item.right - bounds.right;
+        else if (item.left < bounds.left) strip.scrollLeft += item.left - bounds.left;
+      }
     },
 
     selectPost(el) {

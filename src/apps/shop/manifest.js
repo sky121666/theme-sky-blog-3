@@ -2,7 +2,6 @@ export const shopAppManifest = {
   appId: 'shop',
   windowVariant: 'shop',
   supportsSameAppPjax: true,
-  sameAppPjaxLoading: 'progress',
   sameVariantPageModes: [
     'browser-shop-products',
     'browser-shop-product',

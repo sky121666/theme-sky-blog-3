@@ -38,7 +38,48 @@ function sanitizeTag(value = '') {
 }
 
 function createMomentName() {
-  return `moment-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  return 'moment-' + (globalThis.crypto?.randomUUID?.() || Date.now() + '-' + Math.random().toString(36).slice(2));
+}
+
+// One unacknowledged public create per author and tab. Keep its original payload,
+// including its name and timestamp; never reconstruct it from editable controls.
+const pendingByAuthor = new Map();
+const receiptKey = author => 'theme:moment-publish:pending:' + author;
+function savePending(author, payload) {
+  try {
+    if (payload) sessionStorage.setItem(receiptKey(author), JSON.stringify(payload));
+    else sessionStorage.removeItem(receiptKey(author));
+    pendingByAuthor.delete(author);
+  } catch {
+    // A private window can still recover across same-document navigation.
+    pendingByAuthor.set(author, payload);
+  }
+}
+function readPending(author) {
+  if (pendingByAuthor.has(author)) return pendingByAuthor.get(author);
+  try {
+    const payload = JSON.parse(sessionStorage.getItem(receiptKey(author)) || 'null');
+    if (payload?.apiVersion === 'moment.halo.run/v1alpha1' && payload.kind === 'Moment'
+      && payload.spec?.owner === author && typeof payload.spec?.content?.raw === 'string'
+      && Array.isArray(payload.spec.tags) && payload.spec.tags.every(tag => typeof tag === 'string')
+      && (payload.spec.content.medium === undefined || (Array.isArray(payload.spec.content.medium)
+        && payload.spec.content.medium.every(item => item && typeof item.url === 'string' && isSafeUrl(item.url)
+          && ['PHOTO', 'VIDEO', 'AUDIO'].includes(item.type))))
+      && /^moment-[a-z0-9-]+$/.test(payload.metadata?.name)) return payload;
+  } catch { /* Storage may be unavailable. */ }
+  return null;
+}
+function clearPending(payload) {
+  const author = payload.spec.owner;
+  if (readPending(author)?.metadata.name === payload.metadata.name) savePending(author, null);
+}
+function samePublishedMoment(result, payload) {
+  const medium = value => (value?.spec?.content?.medium || []).map(item => [item.type, item.url]);
+  return result?.apiVersion === payload.apiVersion && result?.kind === 'Moment'
+    && result.metadata?.name === payload.metadata.name && result.spec?.owner === payload.spec.owner
+    && result.spec?.content?.raw === payload.spec.content.raw
+    && JSON.stringify(medium(result)) === JSON.stringify(medium(payload))
+    && JSON.stringify([...(result.spec.tags || [])].sort()) === JSON.stringify([...payload.spec.tags].sort());
 }
 
 function normalizeBool(value, fallback = true) {
@@ -48,7 +89,7 @@ function normalizeBool(value, fallback = true) {
 
 async function readJson(response) {
   const type = response.headers.get('content-type') || '';
-  if (!type.includes('application/json')) return null;
+  if (!/^application\/(?:[a-z0-9!#$&^_.+-]+\+)?json(?:\s*;|$)/i.test(type)) return null;
   return response.json();
 }
 
@@ -262,7 +303,7 @@ function renderTags(container, tags) {
   )).join('');
 }
 
-async function publishMoment({ endpoint, owner, content, tags, media, signal }) {
+function publishPayload({ owner, content, tags, media }) {
   const raw = content.trim();
   const safeTags = tags.map(sanitizeTag).filter(Boolean).slice(0, 10);
   const safeMedia = media.filter((item) => item && isSafeUrl(item.url) && ['PHOTO', 'VIDEO', 'AUDIO'].includes(item.type));
@@ -296,25 +337,35 @@ async function publishMoment({ endpoint, owner, content, tags, media, signal }) 
     }));
   }
 
-  const timed = createTimedSignal(signal, 30000);
-  let response;
-  try {
-    response = await fetch(new URL(endpoint, window.location.origin), {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(payload),
-      signal: timed.signal
-    });
-  } finally {
-    timed.cleanup();
-  }
+  return payload;
+}
 
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) throw new Error('无权限发布');
-    if (response.status === 400) throw new Error('发布数据格式错误');
-    throw new Error('发布失败，请稍后重试');
-  }
+async function publishRequest(endpoint, payload, signal, { check = false } = {}) {
+  const url = new URL(endpoint, window.location.origin);
+  if (check) url.pathname = url.pathname.replace(/\/$/, '') + '/' + encodeURIComponent(payload.metadata.name);
+  const timed = createTimedSignal(signal, check ? 15000 : 30000);
+  try {
+    const response = await fetch(url, {
+      method: check ? 'GET' : 'POST', credentials: 'same-origin', cache: 'no-store', redirect: 'error',
+      headers: check ? { Accept: 'application/json' } : { 'Content-Type': 'application/json', Accept: 'application/json' },
+      ...(!check && { body: JSON.stringify(payload) }), signal: timed.signal
+    });
+    // A login page, a redirect, a different resource and a conflict are not receipts.
+    if (response.redirected || (response.url && new URL(response.url).href !== url.href)) return 'unknown';
+    if (check && response.status === 404) {
+      const problem = await readJson(response);
+      return problem?.status === 404 || problem?.reason === 'NotFound' ? 'absent' : 'unknown';
+    }
+    if (!check && response.status >= 400 && response.status < 500 && ![408, 409].includes(response.status)) {
+      const problem = await readJson(response);
+      if (!problem || problem.status !== response.status) return 'unknown';
+      const error = new Error([401, 403].includes(response.status) ? '无权限发布' : response.status === 400 ? '发布数据格式错误' : '发布被拒绝，请检查后重试');
+      error.definiteRejection = true;
+      throw error;
+    }
+    if (check ? response.status !== 200 : ![200, 201].includes(response.status)) return 'unknown';
+    return samePublishedMoment(await readJson(response), payload) ? 'published' : 'unknown';
+  } finally { timed.cleanup(); }
 }
 
 export function setupMomentPublish(root = document) {
@@ -345,6 +396,7 @@ export function setupMomentPublish(root = document) {
     const preview = dialog.querySelector('[data-moments-publish-preview]');
     const fileInput = dialog.querySelector('[data-moments-publish-file]');
     const submit = dialog.querySelector('[data-moments-publish-submit]');
+    const newDraft = dialog.querySelector('[data-moments-publish-new]');
     const tagRow = dialog.querySelector('[data-moments-publish-tag-row]');
     const tagInput = dialog.querySelector('[data-moments-publish-tag-input]');
     const tagAdd = dialog.querySelector('[data-moments-publish-tag-add]');
@@ -365,6 +417,8 @@ export function setupMomentPublish(root = document) {
     };
 
     let currentUser = null;
+    let pendingPublish = null;
+    let mayRetryOriginal = false;
     let media = [];
     let tags = [];
     let uploadCategory = 'image';
@@ -374,6 +428,8 @@ export function setupMomentPublish(root = document) {
     let activeOperation = null;
     let redirectTimer = null;
     let closingAfterSuccess = false;
+    let closeHandled = false;
+    let returnFocus = null;
     const stagedAttachmentNames = new Set();
     const deletingAttachmentNames = new Set();
     const lifecycleController = new AbortController();
@@ -414,20 +470,51 @@ export function setupMomentPublish(root = document) {
     }
 
     function updateSubmitState() {
-      if (submit) {
-        submit.disabled = isBusy || (!textarea?.value.trim() && media.length === 0);
-      }
+      if (submit) submit.disabled = isBusy || (!pendingPublish && !textarea?.value.trim() && media.length === 0);
     }
 
     function setBusy(busy, label = '发表') {
       isBusy = busy;
-      if (submit) {
-        submit.textContent = busy ? label : '发表';
+      const frozen = Boolean(pendingPublish);
+      form?.setAttribute('aria-busy', String(busy));
+      if (textarea) textarea.readOnly = frozen || busy;
+      if (submit) submit.textContent = busy ? label : frozen ? (mayRetryOriginal ? '重试原稿' : '核对发布结果') : '发表';
+      if (closeButton) closeButton.textContent = frozen ? '关闭' : '取消';
+      if (newDraft) { newDraft.hidden = !frozen || busy; newDraft.disabled = busy; }
+      if (frozen) {
+        if (tagRow) tagRow.hidden = true;
+        if (emojiPanel) emojiPanel.hidden = true;
+        tagToggle?.setAttribute('aria-expanded', 'false');
+        emojiToggle?.setAttribute('aria-expanded', 'false');
+      }
+      for (const control of [fileInput, tagInput, tagAdd, tagToggle, emojiToggle, ...mediaButtons,
+        ...dialog.querySelectorAll('[data-moments-publish-remove], [data-moments-publish-tag-remove], [data-moments-publish-emoji]')]) {
+        if (control) control.disabled = frozen || busy;
       }
       updateSubmitState();
-      mediaButtons.forEach((button) => {
-        button.disabled = busy;
-      });
+    }
+
+    function displayPending(payload) {
+      pendingPublish = payload;
+      mayRetryOriginal = false;
+      if (textarea) textarea.value = payload.spec.content.raw;
+      tags = [...payload.spec.tags];
+      media = [...(payload.spec.content.medium || [])];
+      renderTags(tagList, tags);
+      renderMedia(preview, media);
+      updateCounter();
+      setBusy(false);
+      setStatus('发布结果待确认。请先核对；关闭窗口会保留原稿和附件。', 'error');
+    }
+
+    function startSeparateDraft() {
+      if (isBusy || !pendingPublish || !window.confirm('上一条瞬间可能已经发表。结束核对、保留其附件，并另写一条空白新稿？')) return;
+      clearPending(pendingPublish);
+      pendingPublish = null;
+      mayRetryOriginal = false;
+      reset();
+      setBusy(false);
+      textarea?.focus();
     }
 
     function updateCounter() {
@@ -445,6 +532,8 @@ export function setupMomentPublish(root = document) {
       if (tagInput) tagInput.value = '';
       if (tagRow) tagRow.hidden = true;
       if (emojiPanel) emojiPanel.hidden = true;
+      tagToggle?.setAttribute('aria-expanded', 'false');
+      emojiToggle?.setAttribute('aria-expanded', 'false');
       renderMedia(preview, media);
       renderTags(tagList, tags);
       setStatus('');
@@ -509,16 +598,21 @@ export function setupMomentPublish(root = document) {
 
     async function openDialog(event) {
       event?.preventDefault();
+      returnFocus = event?.currentTarget || document.activeElement;
       try {
         setStatus('正在检查登录状态...');
-        await ensureUser(lifecycleController.signal);
-        if (disposed) return;
-        setStatus('');
+        const user = await ensureUser(lifecycleController.signal);
+        if (disposed || dialog.open) return;
+        if (redirectTimer !== null) { window.clearTimeout(redirectTimer); redirectTimer = null; }
+        closeHandled = false;
+        const saved = readPending(user.name);
+        if (saved) displayPending(saved); else { setBusy(false); setStatus(''); }
         if (typeof dialog.show === 'function') dialog.show();
         else dialog.setAttribute('open', '');
-        requestAnimationFrame(() => textarea?.focus());
+        requestAnimationFrame(() => { if (!disposed && dialog.open) (pendingPublish ? submit : textarea)?.focus(); });
       } catch (error) {
         if (disposed || error?.name === 'AbortError') return;
+        closeHandled = false;
         setStatus(error.message || '无法打开发布窗口', 'error');
         if (typeof dialog.show === 'function') dialog.show();
         else dialog.setAttribute('open', '');
@@ -531,8 +625,10 @@ export function setupMomentPublish(root = document) {
         dialog.close();
       } else {
         dialog.removeAttribute('open');
-        onDialogClose();
       }
+      // Native close is queued. Detach the request and protect its media now,
+      // before a late completion or another open can reuse this editor.
+      onDialogClose();
     }
 
     function onCloseButton(event) {
@@ -541,6 +637,17 @@ export function setupMomentPublish(root = document) {
     }
 
     function onDialogClose() {
+      // A native close event can arrive after another interaction, or even
+      // after this non-modal dialog has been opened again.
+      if (dialog.open || closeHandled) return;
+      closeHandled = true;
+      const focusTarget = returnFocus;
+      returnFocus = null;
+      const ownerDocument = dialog.ownerDocument;
+      const activeElement = ownerDocument.activeElement;
+      const ownsFocus = !activeElement || activeElement === ownerDocument.body
+        || activeElement === ownerDocument.documentElement
+        || activeElement === focusTarget || dialog.contains(activeElement);
       const completedSuccessfully = closingAfterSuccess;
       closingAfterSuccess = false;
       if (!completedSuccessfully) {
@@ -549,8 +656,26 @@ export function setupMomentPublish(root = document) {
       } else {
         stagedAttachmentNames.clear();
       }
-      setBusy(false);
+      pendingPublish = null;
+      mayRetryOriginal = false;
       reset();
+      setBusy(false);
+      if (!disposed && ownsFocus && focusTarget?.isConnected) focusTarget.focus({ preventScroll: true });
+    }
+
+    function onDialogKeydown(event) {
+      if (event.key !== 'Escape' || !dialog.open) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (emojiPanel && !emojiPanel.hidden) {
+        emojiPanel.hidden = true;
+        emojiToggle?.setAttribute('aria-expanded', 'false');
+        emojiToggle?.focus({ preventScroll: true });
+      } else if (tagRow && !tagRow.hidden) {
+        tagRow.hidden = true;
+        tagToggle?.setAttribute('aria-expanded', 'false');
+        tagToggle?.focus({ preventScroll: true });
+      } else closeDialog();
     }
 
     function chooseMedia(event) {
@@ -563,7 +688,7 @@ export function setupMomentPublish(root = document) {
 
     async function onFileChange(event) {
       const files = Array.from(event.target.files || []);
-      if (!files.length) return;
+      if (!files.length || pendingPublish || isBusy) return;
       const operation = beginOperation('upload');
       setBusy(true, '上传中...');
       setStatus('正在上传媒体...');
@@ -614,6 +739,7 @@ export function setupMomentPublish(root = document) {
     }
 
     function onDialogClick(event) {
+      if (pendingPublish || isBusy) return;
       const emojiButton = event.target.closest?.('[data-moments-publish-emoji]');
       if (emojiButton) {
         insertEmoji(emojiButton.dataset.momentsPublishEmoji || '');
@@ -637,14 +763,25 @@ export function setupMomentPublish(root = document) {
     }
 
     function onTagToggle() {
-      if (tagRow) tagRow.hidden = !tagRow.hidden;
-      if (!tagRow?.hidden) tagInput?.focus();
+      if (!tagRow) return;
+      tagRow.hidden = !tagRow.hidden;
+      tagToggle?.setAttribute('aria-expanded', String(!tagRow.hidden));
+      if (!tagRow.hidden) {
+        if (emojiPanel) emojiPanel.hidden = true;
+        emojiToggle?.setAttribute('aria-expanded', 'false');
+        tagInput?.focus();
+      }
     }
 
     function onEmojiToggle() {
       if (!emojiPanel) return;
       emojiPanel.hidden = !emojiPanel.hidden;
-      if (!emojiPanel.hidden) textarea?.focus();
+      emojiToggle?.setAttribute('aria-expanded', String(!emojiPanel.hidden));
+      if (!emojiPanel.hidden) {
+        if (tagRow) tagRow.hidden = true;
+        tagToggle?.setAttribute('aria-expanded', 'false');
+        textarea?.focus();
+      }
     }
 
     function insertEmoji(emoji) {
@@ -667,27 +804,43 @@ export function setupMomentPublish(root = document) {
 
     async function onSubmit(event) {
       event.preventDefault();
+      if (isBusy) return;
       const content = textarea?.value || '';
-      if (!content.trim() && media.length === 0) {
+      if (!pendingPublish && !content.trim() && media.length === 0) {
         setStatus('请输入内容或上传媒体', 'error');
         return;
       }
 
-      const operation = beginOperation('publish');
+      const previous = pendingPublish;
+      const check = Boolean(previous && !mayRetryOriginal);
+      const operation = beginOperation(check ? 'verify' : 'publish');
+      let firstAttemptMedia = [];
       try {
-        setBusy(true, '发布中...');
-        setStatus('正在发布...');
+        setBusy(true, check ? '核对中…' : '发布中...');
+        setStatus(check ? '正在核对这条瞬间…' : '正在发布...');
         const user = await ensureUser(operation.controller.signal);
         if (!isCurrentOperation(operation)) return;
-        await publishMoment({
-          endpoint: endpoints.moment,
-          owner: user.name,
-          content,
-          tags: [...tags],
-          media: [...media],
-          signal: operation.controller.signal
-        });
+        const payload = previous || publishPayload({ owner: user.name, content, tags, media });
+        if (!previous) {
+          // From dispatch onwards these files may be referenced by a public
+          // moment, even if cancel, disposal or a gateway interrupts the reply.
+          firstAttemptMedia = media.map(item => item.attachmentName).filter(name => stagedAttachmentNames.has(name));
+          firstAttemptMedia.forEach(name => stagedAttachmentNames.delete(name));
+          savePending(user.name, payload);
+        }
+        pendingPublish = payload;
+        mayRetryOriginal = false;
+        setBusy(true, check ? '核对中…' : '发布中...');
+        const result = await publishRequest(endpoints.moment, payload, operation.controller.signal, { check });
         if (!isCurrentOperation(operation)) return;
+        if (result !== 'published') {
+          mayRetryOriginal = result === 'absent';
+          setStatus(mayRetryOriginal ? '尚未查到这条瞬间。可以重试原稿，使用同一资源名。'
+            : '发布结果待确认。请核对后再操作，原稿和附件已保留。', 'error');
+          return;
+        }
+        clearPending(payload);
+        pendingPublish = null;
         finishOperation(operation);
         stagedAttachmentNames.clear();
         setStatus('发布成功，正在刷新列表...');
@@ -703,18 +856,27 @@ export function setupMomentPublish(root = document) {
           }
         }, 250);
       } catch (error) {
-        if (error?.name === 'AbortError' || !isCurrentOperation(operation)) return;
-        setStatus(error.message || '发布失败', 'error');
+        if (!isCurrentOperation(operation)) return;
+        if (error?.definiteRejection && !previous && pendingPublish) {
+          clearPending(pendingPublish);
+          pendingPublish = null;
+          firstAttemptMedia.forEach(name => stagedAttachmentNames.add(name));
+        }
+        setStatus(pendingPublish ? '发布结果待确认。请核对后再操作，原稿和附件已保留。' : error.message || '发布失败', 'error');
       } finally {
         if (isCurrentOperation(operation)) {
           finishOperation(operation);
           setBusy(false);
+          if (dialog.open && dialog.ownerDocument.activeElement === dialog.ownerDocument.body) {
+            (pendingPublish ? submit : textarea)?.focus({ preventScroll: true });
+          }
         }
       }
     }
 
     openButtons.forEach((button) => button.addEventListener('click', openDialog));
     closeButton?.addEventListener('click', onCloseButton);
+    newDraft?.addEventListener('click', startSeparateDraft);
     textarea?.addEventListener('input', updateCounter);
     fileInput?.addEventListener('change', onFileChange);
     form?.addEventListener('submit', onSubmit);
@@ -724,6 +886,7 @@ export function setupMomentPublish(root = document) {
     tagAdd?.addEventListener('click', addTag);
     tagInput?.addEventListener('keydown', onTagInputKeydown);
     dialog.addEventListener('click', onDialogClick);
+    dialog.addEventListener('keydown', onDialogKeydown);
     dialog.addEventListener('close', onDialogClose);
     if (emojiPanel) {
       emojiPanel.innerHTML = EMOJI_PRESETS.map((emoji) => (
@@ -749,6 +912,7 @@ export function setupMomentPublish(root = document) {
       if (dialog.open) closeDialog();
       openButtons.forEach((button) => button.removeEventListener('click', openDialog));
       closeButton?.removeEventListener('click', onCloseButton);
+      newDraft?.removeEventListener('click', startSeparateDraft);
       textarea?.removeEventListener('input', updateCounter);
       fileInput?.removeEventListener('change', onFileChange);
       form?.removeEventListener('submit', onSubmit);
@@ -758,6 +922,7 @@ export function setupMomentPublish(root = document) {
       tagAdd?.removeEventListener('click', addTag);
       tagInput?.removeEventListener('keydown', onTagInputKeydown);
       dialog.removeEventListener('click', onDialogClick);
+      dialog.removeEventListener('keydown', onDialogKeydown);
       dialog.removeEventListener('close', onDialogClose);
       if (dialog._momentsPublishCleanup === cleanup) {
         dialog._momentsPublishCleanup = null;

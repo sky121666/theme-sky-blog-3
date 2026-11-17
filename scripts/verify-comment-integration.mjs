@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
+import { withRequestDeadline } from '../src/shared/request-deadline.js';
 
 // Offline regression checks for the comment-related Thymeleaf condition subset.
 // This is not a Thymeleaf renderer: real template compilation remains a reload gate.
@@ -187,6 +188,7 @@ for (const name of ['moment', 'moments']) {
     const context = vm.createContext({
       URL, AbortController, Element: class Element {},
       ...commentPermalink,
+      withRequestDeadline,
       window: { location: { origin: 'https://comments.test', hash: '' } },
       fetch: async (url) => {
         requests.push(String(url));
@@ -196,6 +198,7 @@ for (const name of ['moment', 'moments']) {
     // Keep actual initialization, state, queue and HTTP request logic; visual DOM
     // rendering is outside this offline fixture and is replaced by no-op sinks.
     vm.runInContext(`${interactionsSource
+      .replace(/^import .* from '\.\.\/\.\.\/shared\/request-deadline\.js';\n/m, '')
       .replace(/^import .* from '\.\.\/\.\.\/shared\/comment-permalink\.js';\n/m, '')
       .replace('export function setupMomentInteractions', 'function setupMomentInteractions')}
       renderCard = () => {};

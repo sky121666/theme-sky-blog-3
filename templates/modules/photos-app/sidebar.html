@@ -5,6 +5,7 @@
       <a class="photos-sidebar-item pjax-link"
          data-pjax-app="photos"
          th:href="${photoUrl != null ? photoUrl.list() : '/photos'}"
+         th:attr="aria-current=${view == 'library' ? 'page' : null}"
          th:classappend="${view == 'library' ? 'is-active' : ''}">
         <span class="photos-sidebar-icon icon-[lucide--images]" aria-hidden="true"></span>
         <span class="photos-sidebar-label">图库</span>
@@ -12,6 +13,7 @@
       <a class="photos-sidebar-item pjax-link"
          data-pjax-app="photos"
          href="/photos?view=albums"
+         th:attr="aria-current=${view == 'albums' ? 'page' : null}"
          th:classappend="${view == 'albums' ? 'is-active' : ''}">
         <span class="photos-sidebar-icon icon-[lucide--folder]" aria-hidden="true"></span>
         <span class="photos-sidebar-label">精选集</span>
@@ -26,6 +28,8 @@
            th:each="groupItem : ${groups}"
            th:with="groupIcon=${#annotations.getOrDefault(groupItem, 'icon', '')}"
            th:href="${photoUrl != null ? photoUrl.list(groupItem.metadata.name) : ('/photos?group=' + groupItem.metadata.name)}"
+           th:title="${groupItem.spec.displayName}"
+           th:attr="aria-current=${activeGroup == groupItem.metadata.name ? 'page' : null}"
            th:classappend="${activeGroup == groupItem.metadata.name ? 'is-active' : ''}">
           <span th:if="${!#strings.isEmpty(groupIcon)}"
                 class="photos-sidebar-custom-icon"

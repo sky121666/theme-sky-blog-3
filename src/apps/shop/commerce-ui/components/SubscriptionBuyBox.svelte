@@ -1,9 +1,9 @@
 <script>
 import Decimal from "decimal.js";
-import { fade } from "svelte/transition";
 import { plusIcon as MingcuteAddLine, minusIcon as MingcuteMinimizeLine } from "../icons.js";
 
 import { createCommerceScope } from "../lifecycle.js";
+import { withRequestDeadline } from "../../../../shared/request-deadline.js";
 import { getSubscriptionState } from "../utils/subscription-line.js";
 import { normalizePurchaseQuantity, readPurchaseQuantityInput } from "../utils/purchase.js";
 import "../styles/subscription.css";
@@ -172,6 +172,7 @@ let selectedPeriodKey = $state(null);
 let selectedPlanId = $state(null);
 let quantity = $state(1);
 let submitting = $state(false);
+let cartOutcome = $state("idle");
 let error = $state(null);
 const periodByTier = {};
 const tierByPeriod = {};
@@ -286,59 +287,71 @@ const showSummary = $derived.by(() => {
   const qty = normalizePurchaseQuantity(quantity, { min: planMin, max: planMax });
   return trial || qty > 1;
 });
-function navigate(href) {
+async function navigate(href) {
   if (!lifecycle.isActive()) return;
-  if (typeof window.pjax?.loadUrl === 'function') return window.pjax.loadUrl(href);
-  else window.location.href = href;
+  try {
+    if (typeof window.pjax?.loadUrl === 'function') return await window.pjax.loadUrl(href);
+    window.location.href = href;
+  } catch { /* A failed navigation never changes the acknowledged write result. */ }
 }
 async function handleAddToCart() {
-  if (submitting || !selectedPlan) return;
+  if (submitting || cartOutcome !== 'idle' || !selectedPlan) return;
   error = null;
   submitting = true;
   try {
     for (const line of cartLines) {
-      let res = await fetch("/apis/uc.api.ecommerce.halo.run/v1alpha1/cart-items", {
-        method: "POST",
-        signal: lifecycle.signal,
-        credentials: "include",
-        headers: {
-          "X-CSRF-TOKEN": csrfToken,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(line)
-      });
-      if (!lifecycle.isActive()) return;
-      if (res.status === 415) {
-        res = await fetch("/apis/uc.api.ecommerce.halo.run/v1alpha1/cart-items", {
+      const res = await withRequestDeadline(async (signal) => {
+        let response = await fetch("/apis/uc.api.ecommerce.halo.run/v1alpha1/cart-items", {
           method: "POST",
-          signal: lifecycle.signal,
+          signal,
           credentials: "include",
           headers: {
             "X-CSRF-TOKEN": csrfToken,
-            "Content-Type": "application/x-www-form-urlencoded"
+            "Content-Type": "application/json"
           },
-          body: new URLSearchParams({
-            productVariantId: String(line.productVariantId),
-            quantity: String(line.quantity)
-          })
+          body: JSON.stringify(line)
         });
-      }
+        await response.text();
+        signal.throwIfAborted();
+        if (response.status === 415) {
+          response = await fetch("/apis/uc.api.ecommerce.halo.run/v1alpha1/cart-items", {
+            method: "POST",
+            signal,
+            credentials: "include",
+            headers: {
+              "X-CSRF-TOKEN": csrfToken,
+              "Content-Type": "application/x-www-form-urlencoded"
+            },
+            body: new URLSearchParams({
+              productVariantId: String(line.productVariantId),
+              quantity: String(line.quantity)
+            })
+          });
+          await response.text();
+        }
+        return response;
+      }, { signal: lifecycle.signal });
       if (!lifecycle.isActive()) return;
       if (res.status === 401) {
         await navigate("/login?redirect_uri=" + encodeURIComponent(new URL(currentUrl, window.location.href).pathname));
-        if (lifecycle.isActive()) submitting = false;
         return;
       }
       if (!res.ok) {
-        throw new Error($i18n.t("subscription.addCartFailed"));
+        // Gateways may have lost the response to an already committed POST.
+        if (res.status === 408 || res.status >= 500) cartOutcome = 'unknown';
+        error = $i18n.t(cartOutcome === 'unknown' ? "subscription.addCartResultUnknown" : "subscription.addCartFailed");
+        return;
       }
     }
+    cartOutcome = 'accepted';
     await navigate("/shop/cart");
-    if (lifecycle.isActive()) submitting = false;
   } catch (e) {
     if (!lifecycle.isActive()) return;
-    error = e instanceof Error && e.message ? e.message : $i18n.t("subscription.addCartFailed");
-    submitting = false;
+    if (e?.name === 'TimeoutError' || e instanceof TypeError) cartOutcome = 'unknown';
+    error = cartOutcome === 'unknown' ? $i18n.t("subscription.addCartResultUnknown")
+      : e instanceof Error && e.message ? e.message : $i18n.t("subscription.addCartFailed");
+  } finally {
+    if (lifecycle.isActive()) submitting = false;
   }
 }
 </script>
@@ -384,7 +397,7 @@ async function handleAddToCart() {
   </span>
 {/snippet}
 
-<div class="buy-box shop-subscription" transition:fade={{ duration: 200 }}>
+<div class="buy-box shop-subscription">
   {#if showManageList && currentSubscription}
     <section class="shop-subscription-manage">
       <div class="shop-subscription-manage__head">
@@ -560,7 +573,13 @@ async function handleAddToCart() {
     {/if}
 
     {#if error}
-      <p class="shop-subscription__error">{error}</p>
+      <p class="shop-subscription__error" role="alert">{error}</p>
+    {/if}
+    {#if cartOutcome === 'accepted' && !submitting}
+      <p class="shop-subscription__notice" role="status">{$i18n.t('subscription.addedCheckCart')}</p>
+    {/if}
+    {#if cartOutcome !== 'idle' && !submitting}
+      <a class="shop-btn shop-btn-secondary" href="/shop/cart">{$i18n.t('subscription.checkCart')}</a>
     {/if}
 
     {#if showSummary && summaryRows}
@@ -583,13 +602,14 @@ async function handleAddToCart() {
         type="button"
         class="shop-btn shop-btn-secondary"
         onclick={handleAddToCart}
-        disabled={submitting || !selectedPlan}
+        disabled={submitting || cartOutcome !== 'idle' || !selectedPlan}
       >
         {submitting ? $i18n.t('subscription.addingToCart') : $i18n.t('buyBox.addToCart')}
       </button>
       <form
         action={`/shop/checkout/prepare?redirect_uri=${encodeURIComponent(currentUrl)}`}
         method="post"
+        onsubmit={(event) => { if (submitting || cartOutcome !== 'idle' || !selectedPlan) event.preventDefault(); }}
       >
         <input type="hidden" name="_csrf" value={csrfToken} />
         <input type="hidden" name="source" value="BUY_NOW" />
@@ -604,7 +624,7 @@ async function handleAddToCart() {
         <button
           type="submit"
           class="shop-btn shop-btn-primary"
-          disabled={submitting || !selectedPlan}
+          disabled={submitting || cartOutcome !== 'idle' || !selectedPlan}
         >
           {$i18n.t('buyBox.buyNow')}
         </button>

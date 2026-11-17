@@ -1,3 +1,5 @@
+import { isCompleteHtmlDocument, isHtmlDocumentResponse } from '../../../shared/html-document.js';
+import { withRequestDeadline } from '../../../shared/request-deadline.js';
 import { warnApiCall } from '../../../shell/desktop-shell/runtime/shared/debug.js';
 
 function toPositiveInteger(value, fallback = 1) {
@@ -305,21 +307,24 @@ export function registerArchiveExplorer(Alpine) {
         && this.nextUrl === requestUrl;
 
       try {
-        const response = await fetch(requestUrl, {
-          headers: {
-            Accept: 'text/html',
-            'X-Requested-With': 'XMLHttpRequest'
-          },
-          signal: controller.signal
-        });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const html = await withRequestDeadline(async (signal) => {
+          const response = await fetch(requestUrl, {
+            headers: {
+              Accept: 'text/html',
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+            signal
+          });
+          if (!isHtmlDocumentResponse(response) || response.redirected) throw new Error(`Unexpected archive response: HTTP ${response.status}`);
 
-        const html = await response.text();
+          return response.text();
+        }, { signal: controller.signal });
         if (!isCurrentRequest()) return;
 
+        if (!isCompleteHtmlDocument(html)) throw new Error('归档分页文档不完整');
         const doc = new DOMParser().parseFromString(html, 'text/html');
         const responseRoot = doc.querySelector('[data-app-root="explorer-archives"] .archive-workspace');
-        if (responseRoot?.dataset.activeMonthKey !== requestMonthKey) {
+        if (!responseRoot?.querySelector('[data-archive-post-list]') || responseRoot.dataset.activeMonthKey !== requestMonthKey) {
           throw new Error('归档分页响应月份不匹配');
         }
 

@@ -1,3 +1,4 @@
+import { withRequestDeadline } from '../../shared/request-deadline.js';
 import { warnApiCall } from '../../shell/desktop-shell/runtime/shared/debug.js';
 import { startBangumisStatusCounts } from './status-counts.js';
 
@@ -51,6 +52,7 @@ export function registerBangumisExplorer(Alpine) {
     hasMore: false,
     loading: false,
     loadError: false,
+    loadedCount: 0,
     _observer: null,
     _fallbackScrollHandler: null,
     _paginationController: null,
@@ -65,6 +67,7 @@ export function registerBangumisExplorer(Alpine) {
         typeNum: this.$root.dataset.bangumisCurrentType
       });
       this.readPaginationState();
+      this.loadedCount = this.$root.querySelectorAll('[data-bangumi-card]').length;
       const generation = this._paginationGeneration;
       this.$nextTick(() => {
         if (this._destroyed || generation !== this._paginationGeneration) return;
@@ -105,9 +108,18 @@ export function registerBangumisExplorer(Alpine) {
     },
 
     visibleCount() {
+      // Appended HTML is not an Alpine dependency; track its arrival explicitly.
+      void this.loadedCount;
       const cards = Array.from(this.$root.querySelectorAll('[data-bangumi-card]'));
       if (!this.searchQuery) return cards.length;
       return cards.filter((card) => this.shouldShowItem(card)).length;
+    },
+
+    clearSearch() {
+      this.searchQuery = '';
+      this.$nextTick(() => {
+        if (!this._destroyed) this.$root.querySelector('.bangumis-search')?.focus({ preventScroll: true });
+      });
     },
 
     installInfiniteLoader() {
@@ -174,6 +186,7 @@ export function registerBangumisExplorer(Alpine) {
         list.appendChild(card);
         window.Alpine?.initTree?.(card);
       });
+      this.loadedCount = this.$root.querySelectorAll('[data-bangumi-card]').length;
     },
 
     updatePaginationFrom(doc) {
@@ -211,15 +224,17 @@ export function registerBangumisExplorer(Alpine) {
         && this.nextUrl === requestUrl;
 
       try {
-        const response = await fetch(requestUrl, {
-          headers: { 'X-Requested-With': 'XMLHttpRequest' },
-          signal: controller.signal
-        });
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
+        const { response, html } = await withRequestDeadline(async (signal) => {
+          const response = await fetch(requestUrl, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            signal
+          });
+          if (response.status !== 200) {
+            throw new Error(`HTTP ${response.status}`);
+          }
 
-        const html = await response.text();
+          return { response, html: await response.text() };
+        }, { signal: controller.signal });
         if (!isCurrentRequest()) return;
         if (!matchesRequestedPage(requestUrl, response.url)) {
           throw new Error('追番分页响应与请求地址不符');

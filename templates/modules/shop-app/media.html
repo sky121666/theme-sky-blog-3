@@ -1,7 +1,7 @@
 <!-- A product cover is identity/preview media; it is never a promotion banner. -->
-<th:block th:fragment="productImage (item, mediaClass, mediaRole)">
+<th:block th:fragment="productImage (item, mediaClass, mediaRole, mediaSizes)">
   <img th:if="${!#strings.isEmpty(item.coverImageUrl)}" th:class="${mediaClass}" th:src="${item.coverImageUrl}" th:alt="${item.title}"
-       th:attr="data-shop-media=${mediaRole}" loading="lazy" decoding="async" />
+       th:attr="data-shop-media=${mediaRole},sizes=${mediaSizes}" loading="lazy" decoding="async" />
   <svg th:if="${#strings.isEmpty(item.coverImageUrl)}" th:class="${mediaClass + ' shop-image-placeholder'}"
        th:attr="data-shop-media=${mediaRole},aria-label=${item.title + '：暂无商品图片'}" viewBox="0 0 160 120" role="img" fill="none">
     <rect x="48" y="32" width="64" height="52" rx="8" stroke="currentColor" stroke-width="2" opacity="0.35"></rect>

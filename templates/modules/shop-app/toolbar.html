@@ -27,6 +27,9 @@
     </form>
   </div>
   <div class="shop-display-toolbar" th:if="${isCatalog}" data-shop-display-controls aria-label="商品展示设置">
+      <a class="shop-filter-reset pjax-link" href="/shop/products?view=all"
+         th:if="${!#strings.isEmpty(currentKeyword) or !#strings.isEmpty(currentCategory) or !#strings.isEmpty(currentSort)}">清除筛选</a>
+    <span class="shop-display-status" data-shop-display-status role="status" aria-live="polite" aria-atomic="true"></span>
     <div class="shop-display-group" role="group" aria-label="商品布局">
       <button type="button" class="shop-ui-btn shop-display-button" data-shop-display-layout="cards" aria-label="卡片展示" aria-pressed="true">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>

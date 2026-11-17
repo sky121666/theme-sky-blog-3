@@ -9,8 +9,12 @@ import { chromium } from 'playwright';
 // Isolated real CommentWidget, using current compatibility source (not stale
 // built theme assets). Every request is handled locally, including all writes.
 const root = fileURLToPath(new URL('../', import.meta.url));
-const out = path.resolve(root, process.env.COMMENT_EDIT_OUTPUT || 'output/functional-fixes-20261026/comments/source-regression');
-const jar = process.env.COMMENT_WIDGET_PLUGIN_JAR || path.resolve(root, '../../plugins/PluginCommentWidget-3.4.0.jar');
+const out = path.resolve(root, process.env.COMMENT_EDIT_OUTPUT || 'output/playwright/comment-edit-readiness');
+const jar = process.env.COMMENT_WIDGET_PLUGIN_JAR || path.resolve(root, '../../plugins/PluginCommentWidget-3.5.1.jar');
+const pluginManifest = execFileSync('unzip', ['-p', jar, 'plugin.yaml'], { encoding: 'utf8' });
+assert.match(pluginManifest, /name:\s*["']?PluginCommentWidget["']?\s*$/m, 'Fixture JAR must be the official comment component');
+const pluginVersion = pluginManifest.match(/^\s+version:\s*["']?([^\s"']+)["']?\s*$/m)?.[1];
+assert.ok(pluginVersion, 'Fixture JAR must declare its actual version');
 const enabled = process.env.COMMENT_EDIT_COMPAT !== '0';
 const source = enabled ? await fs.readFile(path.join(root, 'src/shared/comment-edit-readiness.js'), 'utf8') : '';
 const cache = new Map();
@@ -20,7 +24,7 @@ const asset = name => {
   return cache.get(name);
 };
 await fs.mkdir(out, { recursive: true });
-const report = { observedAt: new Date().toISOString(), mode: enabled ? 'Official JAR + current theme compatibility source' : 'Official JAR without compatibility: RED control', sourceSha256: source && crypto.createHash('sha256').update(source).digest('hex'), results: [], realBusinessWrites: 0 };
+const report = { observedAt: new Date().toISOString(), mode: enabled ? 'Official JAR + current theme compatibility source' : 'Official JAR without compatibility: RED control', jar: { path: jar, version: pluginVersion, sha256: crypto.createHash('sha256').update(await fs.readFile(jar)).digest('hex') }, sourceSha256: source && crypto.createHash('sha256').update(source).digest('hex'), results: [], realBusinessWrites: 0 };
 const browser = await chromium.launch({ headless: true });
 
 async function run(width, label, { raw = '<p>原内容</p>', resource = 'comments', slow = false } = {}, action) {
@@ -90,8 +94,13 @@ try {
       await page.waitForTimeout(80); // Also cross the official 50 ms poll boundary.
       result.state = await form.evaluate(node => ({ baseline: node.baseline, content: node.content, dirty: node.dirty, canSave: node.canSave }));
       assert.equal(await form.locator('.edit-form-submit').isEnabled(), true, 'Early input must remain a change and be saveable');
+      if (pluginVersion === '3.5.1') {
+        assert.equal(await page.evaluate(() => { const event = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; }), true, 'The 3.5.1 official dirty-edit unload warning must remain active');
+        result.assertions.push('Official 3.5.1 unload warning remains active for the dirty edit');
+      }
       await form.locator('.edit-form-submit').click();
       await form.waitFor({ state: 'detached' });
+      assert.equal(await page.evaluate(() => { const event = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; }), false, 'A saved and detached form must release its unload warning');
       assert.deepEqual(result.writes, [{ raw: '<p>刚开放编辑便粘贴 &lt;安全文本&gt;</p>', content: '<p>刚开放编辑便粘贴 &lt;安全文本&gt;</p>', version: 4 }]);
       result.assertions.push('Slow initialization; earliest visible input remains dirty', 'Official sanitization and versioned save preserved');
     });

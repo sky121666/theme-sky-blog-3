@@ -843,14 +843,6 @@
   content: none;
 }
 
-.notification-center-card:hover {
-  background: rgba(30, 31, 34, 0.66);
-  transform: translateY(-1px);
-  box-shadow:
-    0 16px 34px -22px rgba(0, 0, 0, 0.88),
-    0 5px 13px -9px rgba(0, 0, 0, 0.54);
-}
-
 .notification-center-card:active {
   transform: translateY(0) scale(0.98);
 }
@@ -1680,6 +1672,7 @@ body.notification-widget-drop-active .notification-center-widget-dropzone {
 
 .notification-center :where(
   button,
+  a[href],
   [role="link"],
   [role="button"]
 ):focus-visible {

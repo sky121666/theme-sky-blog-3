@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const MANIFEST_KEYS = new Set([
-  'appId', 'windowVariant', 'supportsSameAppPjax', 'sameAppPjaxLoading',
+  'appId', 'windowVariant', 'supportsSameAppPjax',
   'sameVariantPageModes', 'entry', 'assetDirectory'
 ]);
 const PAGE_MODES = new Set([
@@ -29,9 +29,6 @@ export function validateAppManifests(manifests, { root, exists = fs.existsSync }
     }
     check(['browser', 'none', id].includes(manifest.windowVariant), `${id}.windowVariant is invalid`);
     check(typeof manifest.supportsSameAppPjax === 'boolean', `${id}.supportsSameAppPjax must be boolean`);
-    const loading = manifest.sameAppPjaxLoading ?? 'window-overlay';
-    check(['progress', 'window-overlay'].includes(loading), `${id}.sameAppPjaxLoading is invalid`);
-    check(loading !== 'progress' || manifest.supportsSameAppPjax, `${id}: progress requires same-app PJAX`);
     const modes = manifest.sameVariantPageModes;
     check(Array.isArray(modes) && modes.every((mode) => PAGE_MODES.has(mode)), `${id}.sameVariantPageModes is invalid`);
     check(manifest.supportsSameAppPjax || modes?.length === 0, `${id}: disabled PJAX cannot declare switch modes`);

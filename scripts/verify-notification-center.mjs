@@ -112,11 +112,30 @@ async function openSidebar(page) {
   await page.waitForTimeout(1200);
 }
 
+async function waitForWidgetEffectsToRest(page) {
+  // A render tick may legitimately schedule another enhancement. Once data has
+  // settled, completing that frame must not start the next one indefinitely.
+  await page.waitForFunction(async () => {
+    const menu = window.Alpine?.$data(document.querySelector('.menubar'));
+    if (!menu || menu.notificationWidgetEnhanceScheduled) return false;
+    const tick = menu.notificationWidgetRenderTick;
+    for (let frame = 0; frame < 6; frame += 1) {
+      await new Promise(requestAnimationFrame);
+      if (menu.notificationWidgetEnhanceScheduled || menu.notificationWidgetRenderTick !== tick) return false;
+    }
+    return true;
+  }, null, { timeout: 8000 });
+}
+
 async function verifyGuest(page, report) {
   const requests = createRequestLog(page);
   await page.goto(`${baseUrl}/?notification-guest=${Date.now()}`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1600);
+  await waitForWidgetEffectsToRest(page);
+  const coldCards = await page.locator('#notification-center-panel [data-notification-widget-card]').count();
+  assert(coldCards === 0, `打开之前不应挂载通知卡片：${coldCards}`);
   await openSidebar(page);
+  await waitForWidgetEffectsToRest(page);
   const state = await panelState(page);
   const shot = await screenshot(page, 'notification-center-guest');
   requests.stop();

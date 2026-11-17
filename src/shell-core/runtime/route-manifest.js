@@ -73,112 +73,96 @@ const ROUTE_RULES = [
     id: 'home',
     appId: '',
     windowVariant: NONE_VARIANT,
-    pjaxMode: 'none',
     matches: (pathname) => pathname === '/'
   },
   {
     id: 'moments',
     appId: 'moments',
     windowVariant: 'moments',
-    pjaxMode: 'same-app',
     matches: (pathname) => pathname === '/moments' || pathname === '/moments/' || /^\/moments\/[^/]+\/?$/.test(pathname)
   },
   {
     id: 'links',
     appId: 'links',
     windowVariant: 'links',
-    pjaxMode: 'same-app',
     matches: (pathname) => pathname === '/links' || pathname === '/links/'
   },
   {
     id: 'bangumis',
     appId: 'bangumis',
     windowVariant: 'bangumis',
-    pjaxMode: 'same-app',
     matches: (pathname) => pathname === '/bangumis' || pathname === '/bangumis/' || /^\/bangumis\/page\/[^/]+\/?$/.test(pathname)
   },
   {
     id: 'douban',
     appId: 'douban',
     windowVariant: 'douban',
-    pjaxMode: 'same-app',
     matches: (pathname) => pathname === '/douban' || pathname === '/douban/' || /^\/douban\/page\/[^/]+\/?$/.test(pathname)
   },
   {
     id: 'steam',
     appId: 'steam',
     windowVariant: 'steam',
-    pjaxMode: 'same-app',
     matches: (pathname) => pathname === '/steam' || pathname === '/steam/' || /^\/steam\/page\/[^/]+\/?$/.test(pathname)
   },
   {
     id: 'equipments',
     appId: 'equipments',
     windowVariant: 'equipments',
-    pjaxMode: 'same-app',
     matches: (pathname) => pathname === '/equipments' || pathname === '/equipments/' || /^\/equipments\/page\/[^/]+\/?$/.test(pathname)
   },
   {
     id: 'docsme',
     appId: 'docsme',
     windowVariant: 'docsme',
-    pjaxMode: 'same-app',
     matches: (pathname) => pathname === '/docs' || pathname === '/docs/' || /^\/docs\/.+/.test(pathname)
   },
   {
     id: 'photos',
     appId: 'photos',
     windowVariant: 'photos',
-    pjaxMode: 'same-app',
     matches: (pathname) => pathname === '/photos' || pathname === '/photos/' || /^\/photos\/(?:page\/)?[^/]+\/?$/.test(pathname)
   },
   {
     id: 'shop',
     appId: 'shop',
     windowVariant: 'shop',
-    pjaxMode: 'same-app',
     matches: (pathname) => /^\/shop(?:\/|$)/.test(pathname)
   },
   {
     id: 'auth',
     appId: 'auth',
     windowVariant: NONE_VARIANT,
-    pjaxMode: 'none',
     matches: (pathname) => /^\/(login|signup|logout)(\/|$)/.test(pathname) || /^\/password-reset(\/|$)/.test(pathname)
   },
   {
     id: 'explorer-archives',
     appId: 'explorer-archives',
     windowVariant: BROWSER_VARIANT,
-    pjaxMode: 'same-app',
     matches: (pathname) => matchesArchiveRoute(pathname)
   },
   {
     id: 'explorer-tags',
     appId: 'explorer-tags',
     windowVariant: BROWSER_VARIANT,
-    pjaxMode: 'same-app',
     matches: (pathname) => matchesTagRoute(pathname)
   },
   {
     id: 'explorer-categories',
     appId: 'explorer-categories',
     windowVariant: BROWSER_VARIANT,
-    pjaxMode: 'same-app',
     matches: (pathname) => matchesCategoryRoute(pathname)
   },
   {
     id: 'explorer-author',
     appId: 'explorer-author',
     windowVariant: BROWSER_VARIANT,
-    pjaxMode: 'same-app',
     matches: (pathname) => /^\/(author|authors)(\/|$)/.test(pathname)
   },
   {
     id: 'reader',
     appId: 'reader',
     windowVariant: BROWSER_VARIANT,
-    pjaxMode: 'none',
     matches: (pathname) => matchesDefaultReaderRoute(pathname)
   }
 ];
@@ -201,7 +185,6 @@ export function resolveRoute(urlLike) {
 
   return {
     ...matched,
-    preloadAssets: matched.appId ? [matched.appId] : [],
     pathname,
     search: url.search,
     hash: url.hash
@@ -214,10 +197,6 @@ export function inferPageAppFromUrl(urlLike) {
 
 export function inferWindowVariantFromUrl(urlLike) {
   return resolveRoute(urlLike)?.windowVariant ?? '';
-}
-
-export function getRoutePjaxMode(urlLike) {
-  return resolveRoute(urlLike)?.pjaxMode ?? 'none';
 }
 
 export function getRoutableAppIds() {

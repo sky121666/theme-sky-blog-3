@@ -12,7 +12,7 @@ const onlyRoutes = new Set(String(process.env.AUTH_AUDIT_ROUTES || '').split(','
 await fs.mkdir(output, { recursive: true });
 const report = {
   startedAt: new Date().toISOString(), baseUrl,
-  scope: 'Anonymous rendering and client-only controls. No form submissions, email sending, credential requests, logout or authenticated user state.',
+  scope: 'Anonymous rendering and client-only controls. Passkey initialization options use an exact local fixture; no server challenge creation, form submissions, email sending, credential requests, logout or authenticated user state.',
   buildContext: await readLiveBuildContext(baseUrl),
   pages: [], staticOnly: []
 };
@@ -60,8 +60,21 @@ try {
   for (const viewport of [{ name: 'desktop', width: 1440, height: 960 }, { name: 'mobile', width: 390, height: 844 }]) {
     const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height }, colorScheme: 'light', reducedMotion: 'reduce', serviceWorkers: 'block' });
     const blockedWrites = [];
+    const passkeyOptionsFixtures = [];
     await context.route('**/*', async (route) => {
       const request = route.request();
+      const url = new URL(request.url());
+      // Passkey 2.0 warms these options when the login page mounts. Preserve the
+      // real plugin initialization without creating an authentication session.
+      if (request.method() === 'POST' && url.origin === new URL(baseUrl).origin
+        && url.pathname === '/apis/api.passkey.halo.run/v1alpha1/authentication/options'
+        && !url.search) {
+        assert.deepEqual(request.postDataJSON(), { origin: new URL(baseUrl).origin });
+        passkeyOptionsFixtures.push({ method: request.method(), path: url.pathname });
+        return route.fulfill({ json: { challenge: 'AQID', rpId: url.hostname,
+          timeout: 60000, userVerification: 'preferred',
+          sessionId: 'fixture-session', allowCredentials: [] } });
+      }
       if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method())) {
         blockedWrites.push({ method: request.method(), url: request.url() });
         await route.abort('blockedbyclient');
@@ -106,6 +119,7 @@ try {
       }
       const item = { name: route.name, viewport: viewport.name, startedAt: new Date().toISOString(), target: route.target || passkeyPath, errors: [], consoleErrors: [], requestFailures: [], screenshots: [], actions: [] };
       const writeStart = blockedWrites.length;
+      const fixtureStart = passkeyOptionsFixtures.length;
       const expectedUrl = new URL(item.target, baseUrl).href;
       const runtime = collectBrowserRuntimeErrors(page, { expected: (kind, value) =>
         route.expectedStatus === 404 && value.url === expectedUrl
@@ -221,6 +235,7 @@ try {
         item.screenshots.push(await screenshot(page, `${route.name}-failure`, viewport.name).catch(() => ''));
       } finally {
         item.blockedWrites = blockedWrites.slice(writeStart);
+        item.passkeyOptionsFixtures = passkeyOptionsFixtures.slice(fixtureStart);
         item.finishedAt = new Date().toISOString();
         Object.assign(item, runtime.snapshot());
         runtime.stop();
